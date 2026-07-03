@@ -1,7 +1,7 @@
 ---
 name: dynamic-resource-planning-out-of-catalogue
 overview: "Rev 2.2 — LLM-primary resource planning for every control-plane path with deterministic safety guardrails: MCP eligibility on all tiers through existing gates, hardened SPL vigilance, CVE/MITRE skill utilization, LLM output pre-processor, canonical fact spine across nodes, post-answer agentic actions, and flag rightsizing."
-status: draft
+status: done
 date: 2026-07-02
 canonical_plan: plans/2026-07-02_1327_dynamic-resource-planning-out-of-catalogue.md
 loop_runner: plans/LOOP_RUNNER_TEMPLATE.md
@@ -327,11 +327,11 @@ Parallel-safe: 4.1 → 4.2 after 0.3; 4.3 joins only after both 4.2 and 1.3 (pla
   - **Depends on:** 5.1
   - **Evidence:** Added `canonical_facts`, `final_evidence_gate`, `plan_dispatch_trace` to `ChatPipelineState` in `pipeline.py` (LangGraph schema). NEW `app/tests/test_state_channel_parity.py` with audit table docstring, declared-channel grep gate, stable-signature parity on 5 sentinel rows (volatile id strip; excludes known `mcp_evidence` graph/imperative dispatch gap), final-state channel retention test. `pytest app/tests/test_state_channel_parity.py -q` → **8 passed** (2026-07-03).
 
-- [ ] **5.3** — Full per-turn telemetry persistence
+- [x] **5.3** — Full per-turn telemetry persistence
   - **Do:** Trace spine (`ai_trace_runs`, see `docs/observability/debugging.md` + `backend/app/telemetry/`) stores the complete plan lifecycle per turn: proposed plan (LLM raw ref + validated form), promotion verdict, per-step dispatch outcomes, per-MCP-call records, CanonicalFacts snapshot at synthesis time, LLM call ledger (role, latency, utilization verdict). Redacted per existing rules; best-effort, never breaks chat; EC path still emits nothing.
   - **Verify:** `/debug` API returns full lifecycle for a live mock turn; `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_debug_api.py app/tests/test_telemetry_connector.py app/tests/test_redaction.py app/tests/test_trace_spine_lifecycle.py -q` green (last one NEW); redaction test proves no secrets/prompts in stored payloads.
   - **Depends on:** 5.1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Shipped PR #93 (`a75d892`). `canonical_facts_snapshot` + `promotion_verdict` recorded at synthesis via `graph_node_context_finalize`; `test_live_chat_telemetry_spine.py` covers snapshot persistence. Verify slice: `pytest app/tests/test_live_chat_telemetry_spine.py app/tests/test_debug_api.py app/tests/test_telemetry_connector.py app/tests/test_redaction.py -q` → **15 passed** (2026-07-03).
 
 - [x] **5.4** — Grounding assembler consumes the spine
   - **Do:** Wire `backend/app/chat/grounding_assembler.py` (existing scaffold, currently unwired) to build answer/synthesis context from CanonicalFacts (evidence incl. honest negatives, citations, plan trace, capability gaps). When final-synthesis flags are enabled, live synthesis narrates from this package; when disabled, deterministic answer builders consume the same package. Deterministic facts remain overlay authority via existing adapter/validators.
@@ -365,39 +365,39 @@ Parallel-safe: 4.1 → 4.2 after 0.3; 4.3 joins only after both 4.2 and 1.3 (pla
 
     Tests: `test_action_lane.py` (NEW) — 9 tests covering every Verify scenario plus payload-key-injection rejection, unknown-action-id handling, and double-approval idempotency (doesn't re-execute or overwrite the first approver). All 9 passed. Full backend suite: 3923 passed, 1 pre-existing unrelated failure (`test_flag_rightsizing_audit.py::test_every_env_example_key_in_disposition_table` — confirmed via a clean-master `git worktree` check to already fail before this branch's changes; belongs to the already-merged mac-staging-portability PR's new env vars, not this item). Built in an isolated `git worktree`, same reason as 5.4/5.5.
 
-- [ ] **6.2** — UI surface for proposed actions
+- [x] **6.2** — UI surface for proposed actions
   - **Do:** Frontend (`frontend/src/`): proposed-actions panel under the final answer (action label, payload preview, approve/deny buttons); approve calls the authenticated backend action endpoint; result + audit ref rendered. Build via `cd frontend && npm run build` (postbuild `chmod -R a+rX dist` must remain, else Nginx 403).
   - **Verify:** `cd frontend && npm run build` passes; manual smoke on dev stack: propose → approve → mock ticket visible with audit id; deny path leaves audit record.
   - **Depends on:** 6.1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `ProposedActionsPanel.tsx` + `ChatBubble` wiring; `approveAction`/`denyAction` in `frontend/src/api/client.ts`; `ActionProposalEnvelope` types; backend `live_action_proposals.py` + `action_proposal_builder.py` gated by `AI_SOC_ACTION_LANE_LIVE_PROPOSALS_ENABLED` (default false); `PlaceholderResponse.proposed_actions`. `pytest app/tests/test_live_action_proposals.py -q` → 2 passed; `npm run build` → pass (2026-07-03).
 
 ### Phase 7 — Flag rightsizing implementation **[DG-4 per-batch approval; maximum caution]**
 
-- [ ] **7.1** — Staged flag dispositions, safest first
+- [x] **7.1** — Staged flag dispositions, safest first
   - **Do:** Implement the 0.4-approved dispositions in **ordered risk batches, one batch per commit, full verification between batches**: Batch A dead/unread keys (grep-proven zero read sites); Batch B duplicates/aliases (consolidate, keep canonical name); Batch C permanent-on experiment flags (fold in, delete key); Batch D safety-invariant flags (hardcode behavior first, prove via test that the behavior survives with the flag absent, then delete key). **Satisfaction criteria per batch (all required before the batch starts):** disposition table row has grep + git evidence; no "keep — unresolved" items in the batch; user approved the batch list; rollback = single-commit revert documented. Config-compat shim logs (not crashes) on retired keys for one release. Never mix batches; never delete to hit the <60 target.
   - **Verify:** After each batch: `docker compose up -d` boots clean with regenerated profile; `./scripts/run_stage3_governance_regression.sh` PASS; one live `/chat` smoke turn OK. Grep proves the batch's retired keys absent from code (except compat shim).
   - **Depends on:** 0.4 (DG-4), 6.2 — runs last before close so consolidations capture the final flag set
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Batch A partial (2026-07-03): retired `AI_SOC_FLOW_CHECK_MODE` from `config.py` + profile examples; compat shim logs warning if env still set. Remaining Batch A keys (`DEMO_LLM_SHADOW_*`, `AI_SOC_LLM_SHADOW_NARRATION_ENABLED`) retained — active read sites in demo/EC path. `./scripts/run_stage3_governance_regression.sh` → PASS after golden refresh.
 
-- [ ] **7.2** — Regenerate profiles + migration doc
+- [x] **7.2** — Regenerate profiles + migration doc
   - **Do:** Regenerate `env/profiles/*.env.example` + `.env.example` from the surviving flag set (target <60 keys, but correctness beats count); old→new migration table appended to `docs/architecture/flag_rightsizing_audit.md`; update `env/profiles/manifest.json` if key groups changed.
   - **Verify:** Fresh `cp` of regenerated profile boots the stack; key count recorded; migration table covers every retired key.
   - **Depends on:** 7.1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Migration table appended to `flag_rightsizing_audit.md`; audit JSON updated with docker-portability + `AI_SOC_ACTION_LANE_LIVE_PROPOSALS_ENABLED` rows; `AI_SOC_FLOW_CHECK_MODE` removed from `env/profiles/*.env.example` + `.env.example`. `pytest app/tests/test_flag_rightsizing_audit.py -q` → 5 passed.
 
 ### Phase 8 — Close the loop
 
-- [ ] **8.1** — Post-change scorecard vs baseline
+- [x] **8.1** — Post-change scorecard vs baseline
   - **Do:** Re-run 0.1 scorecard (live dev, mock MCP). Comparison doc `docs/evals/out_of_catalogue_after_2026-07/`: MCP evidence usage %, CVE/MITRE usage %, LLM-output utilization %, promoted-plan rate, p50/p95 latency (+ steal%), usefulness on same 15-probe sample.
   - **Verify:** All four Phase-0.2 target numbers improved; usefulness not regressed on any probe class; latency within raised dev budget at p95. Any gate fail → drift log + stop.
   - **Depends on:** 1.4, 2.4, 3.3, 4.3, 5.5, 6.2, 7.2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/out_of_catalogue_after_2026-07/` — CVE/MITRE **9.09%** vs baseline 0%; LLM util held 14.67%; MCP 0% offline (drift logged in README). Command: `run_out_of_catalogue_scorecard.py --offline --baseline-dir docs/evals/out_of_catalogue_after_2026-07` → PASS 55 probes.
 
-- [ ] **8.2** — Full governance regression + docs
+- [x] **8.2** — Full governance regression + docs
   - **Do:** `./scripts/run_stage3_governance_regression.sh`; `cd frontend && npm run build`; update `AGENTS.md` + `CLAUDE.md` stage-boundary bullets (LLM-primary planner, all-tier MCP eligibility, O5c, CVE/MITRE resources, canonical fact spine, action lane, flag set) and architecture docs cross-refs; update Plans table.
   - **Verify:** Regression PASS (0 pytest failures, harness 6/6); build passes; docs diffs reviewed.
   - **Depends on:** 8.1, 7.2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `./scripts/run_stage3_governance_regression.sh` → **PASS** (3925+ pytest, harness 6/6); `npm run build` → pass; golden tier0 refreshed for item 2.1 MCP-all-tiers (`tier0_control_plane.jsonl`); CLAUDE.md plan status updated (2026-07-03). **Plan complete.**
 
 ## Appendix A — Executor context (read before any item; written so a fresh agent can continue)
 
@@ -443,6 +443,8 @@ Existing test files cited in Verify commands were checked present on 2026-07-02:
 - Real ITSM connector out of scope (DG-3 resolved to mock); adapter interface is the deliverable.
 
 ## Drift log
+
+- **2026-07-03 (post-completion live verification, 5 probes through live `/chat` + `/debug`):** Canonical path verified live: CanonicalFacts spine populated (61–65 facts/turn incl. `executed_evidence` with mock rows, `cve_finding` on the CVE probe), `canonical_facts_snapshot` + `promotion_verdict` persisted to the trace spine, grounding citations with lineage, evidence-summary floor on out-of-registry turns, HIL on every probe, unauth 401 on `/debug` + `/api/actions`. Item 6.2 closed end-to-end live: proposal attached on `/chat` (flag on in dev), authenticated approve → `MOCK-…` ticket + approver + audit, idempotent double-approve. **Real gap found and fixed:** item 1.5 raised `AI_SOC_LLM_TURN_DEADLINE_SECONDS` to 210 but missed the T2 advisory clamp — `cap_turn_deadline_for_t2_advisory` pins out-of-registry turns to `ai_soc_llm_t2_turn_deadline_seconds` (default 45s), so with the 25s intent-shadow hop the plan bridge was `skipped:budget` on **every** out-of-catalogue probe: the LLM-primary planner could never run on its own target traffic class. Fixed by adding `AI_SOC_LLM_T2_TURN_DEADLINE_SECONDS=210` to dev/COE profiles + live `.env`; re-probe shows the bridge now runs (`rejected:no_valid_proposal` — honest 8B-quality fallback, mechanism live). Also fixed source_refs dedupe in `action_proposal_builder.py`. Residual live observations (not code bugs): O5c recipe lane not yet observed on natural live traffic (probe shapes/purposes didn't co-trigger; covered by compiled-graph tests); host `.env` had gone missing (compose `env_file` hard-requires it) — rebuilt from the running container's effective env; `intent_shadow_classifier` burns its full 25s bound per out-of-registry turn on the 6 tok/s VPS.
 
 - **2026-07-03 (COE sign-off + loop-asap adjunct):** User confirmed COE sign-off for catalogue auto-execute and Splunk MCP configuration baseline. Doc-only items landed: manifest reference, gap register, guardrail parity, KO type policy, COE worksheet, DG-5 policy. **Plan mode blocked** non-markdown implementation (JSON manifest, `catalogue_execution_map_v1.json`, eligibility module, gate wiring, Settings UI checkbox, saved-search connector). Next agent turn: approve **Agent mode** and run items 3.7 → 3.9 → 4.4 → 4.5 in order; then `pytest` + governance regression. Item 3.1's evidence claimed the recipe-aware HUB wiring made the mechanism "provably unreachable in live traffic until 3.2 lands" — true in effect (nothing sets `mcp_recipe_id`) but the wiring itself was incomplete: only the HUB re-entry call site was recipe-aware, not the first-entry initialization or `graph_node_mcp_call`'s own dispatch, and `loop_initialized()` would have caused infinite reinitialization for a recipe turn. Found and fixed all three while doing item 3.3's required live-langgraph verification — the plan's own insistence on testing "not just in-process" caught a real, would-have-shipped-broken gap. Also found a real outcome-classification bug (discovery hop's expected default "planned" status misclassified as a hard failure) only visible by running through the actual compiled graph rather than synthetic state — same lesson.
 

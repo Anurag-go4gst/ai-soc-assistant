@@ -353,3 +353,10 @@ Compat shim: log warning (do not crash) when retired keys are present for one re
 | `SOC_KB_LLM_AMBIGUITY_ASSIST_ENABLED` | See disposition `fold_in` — Same value across all profile examples — fold into code default. |
 | `SOC_KB_RERANKER_ENABLED` | See disposition `fold_in` — Same value across all profile examples — fold into code default. |
 | `SOC_KB_RETRIEVAL_ENABLED` | See disposition `fold_in` — Same value across all profile examples — fold into code default. |
+
+
+## Migration table (7.2)
+
+| Retired key | Replacement | Notes |
+|-------------|-------------|-------|
+| `AI_SOC_FLOW_CHECK_MODE` | _(removed — readiness label only, never wired)_ | Batch A 7.1; compat shim logs warning if set |

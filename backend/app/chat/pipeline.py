@@ -4555,6 +4555,24 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         severity_decision.severity_label,
         hil_required=run_contract.effective_hil_required,
     )
+    proposed_actions: list[dict[str, Any]] | None = None
+    try:
+        from app.actions.live_action_proposals import attach_live_action_proposals
+
+        gate_state_for_actions = {
+            **state,
+            "analyst_response": analyst_response.model_dump() if analyst_response is not None else None,
+            "severity_decision": (
+                severity_decision.model_dump()
+                if hasattr(severity_decision, "model_dump")
+                else severity_decision
+            ),
+            "message": message,
+        }
+        proposals = attach_live_action_proposals(gate_state_for_actions, trace_id=trace_id)
+        proposed_actions = proposals or None
+    except Exception:  # noqa: BLE001 - proposals are advisory, never break chat
+        logger.warning("live_action_proposal_attach_failed", exc_info=True)
     response = PlaceholderResponse(
         trace_id=trace_id,
         user_query=request.message,
@@ -4614,6 +4632,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         synthesis_status=synthesis_status,
         answer_guard=answer_guard,
         action_capability=action_capability,
+        proposed_actions=proposed_actions,
         governance_trace=governance_trace,
         query_to_intent=state.get("query_to_intent"),
         planning_decision=state.get("planning_decision"),

@@ -4,6 +4,7 @@ import { AnalystSummaryCard } from '@/components/AnalystSummaryCard';
 import { AnswerFeedbackControls } from '@/components/AnswerFeedbackControls';
 import { EcVisualLanesPanel } from '@/components/EcVisualLanesPanel';
 import { HumanReviewCard } from '@/components/HumanReviewCard';
+import { ProposedActionsPanel } from '@/components/ProposedActionsPanel';
 import { InvestigationLineagePanel } from '@/components/InvestigationLineagePanel';
 import { InvestigationProgressPanel } from '@/components/InvestigationProgressPanel';
 import { Stage3DTracePanel } from '@/components/Stage3DTracePanel';
@@ -132,6 +133,9 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
           </div>
         ) : null}
         {showFullAnswer && message.trace && !message.trace.analyst_response ? <AnalystSummaryCard trace={message.trace} /> : null}
+        {showFullAnswer && message.trace?.proposed_actions?.length ? (
+          <ProposedActionsPanel proposals={message.trace.proposed_actions} busy={investigationBusy} />
+        ) : null}
         {showFullAnswer && message.trace?.human_review?.required && !message.trace.analyst_response ? (
           <HumanReviewCard
             review={message.trace.human_review}
