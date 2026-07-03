@@ -124,6 +124,14 @@ def build_control_plane_trace(
         "mcp_loop": state.get("mcp_loop")
         if isinstance(state.get("mcp_loop"), dict)
         else None,
+        # Item 5.4 (2026-07-03): advisory grounding assembled from the
+        # CanonicalFacts spine — row-derived evidence citations with lineage
+        # when evidence was executed, an honest limitation when it wasn't.
+        # Never authority; surfaced here so it's genuinely consumed/inspectable
+        # rather than dead-ended on internal pipeline state.
+        "grounding_block": state.get("grounding_block")
+        if isinstance(state.get("grounding_block"), dict)
+        else None,
     }
     run_contract = state.get("run_contract") if isinstance(state.get("run_contract"), dict) else None
     final_evidence_gate = (
