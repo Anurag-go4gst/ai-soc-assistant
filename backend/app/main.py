@@ -22,6 +22,7 @@ from app.connectors.telemetry.log_context import (
 # Stamp every log record with the active chat trace_id (Phase 4 observability).
 install_trace_id_log_factory()
 
+from app.api.routes_actions import router as actions_router
 from app.api.routes_debug import router as debug_router
 from app.api.routes_chat import router as chat_router
 from app.api.routes_chat_stream import router as chat_stream_router
@@ -194,3 +195,5 @@ app.include_router(debug_router)
 app.include_router(debug_router, prefix="/api")
 app.include_router(llm_lab_router)
 app.include_router(llm_lab_router, prefix="/api")
+app.include_router(actions_router)
+app.include_router(actions_router, prefix="/api")

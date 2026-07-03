@@ -1492,6 +1492,30 @@
       "onboarding_status": "fixture_tested"
     },
     {
+      "resource_id": "action_tool:create_ticket",
+      "kind": "action_tool",
+      "capabilities": [
+        "action_proposal:create_ticket"
+      ],
+      "input_contract": {
+        "args": [
+          "summary",
+          "severity_label",
+          "source_refs"
+        ]
+      },
+      "cost_class": "cheap",
+      "availability": "fixture_only",
+      "policy_tier": 1,
+      "read_only": false,
+      "auth_contract": {
+        "requires_explicit_approval": true,
+        "approval_endpoint_auth": "session_required"
+      },
+      "onboarding_status": "fixture_tested",
+      "notes": "Item 6.1 (2026-07-03): mock adapter only (backend/app/actions/itsm_adapter.py MockItsmAdapter). Never auto-executed - requires explicit authenticated analyst approval per action. Real connector is a future plan item once a user names the target ITSM system. Live proposal generation is additionally gated by app.actions.capability_policy's Tier-1 unavailable_actions disclosure."
+    },
+    {
       "resource_id": "api:threat_intel_lookup",
       "kind": "http_api",
       "capabilities": [
