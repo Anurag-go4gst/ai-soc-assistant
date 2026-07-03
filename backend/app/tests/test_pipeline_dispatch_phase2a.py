@@ -42,10 +42,15 @@ def test_pipeline_dispatch_attached_after_cp_on_evidence_planning(
     dispatch = state.get("pipeline_dispatch")
     assert isinstance(dispatch, dict)
     assert dispatch["decision"]["request_mode"] == "spl_authoring"
+    # MCP eligibility on all tiers (2026-07 directive, item 2.1): this live-data
+    # SPL-authoring query is now architecturally eligible for mcp_execution under
+    # control_plane_enabled — real gating (HIL, validated SPL) is unchanged and
+    # lives downstream at evaluate_mcp_execution, not in the stage schedule.
     assert dispatch["decision"]["stage_schedule"] == [
         "workflow_spl",
         "spl_postprocessor",
         "spl_source_resolve",
+        "mcp_execution",
     ]
     assert dispatch["runtime_context"]["dispatch_cursor"] is None
     assert dispatch["decision"]["slot_handoff"]["normalized_slots"] == (

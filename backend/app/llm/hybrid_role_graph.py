@@ -37,7 +37,7 @@ _INVESTIGATION_SKILLS = frozenset(
     {"guided_investigation", "attack_discovery", "alert_summary", "spl_generation"}
 )
 _COMPLEXITY_DEADLINE_BONUS = {"low": 0.0, "medium": 25.0, "high": 50.0}
-_MAX_TURN_DEADLINE = 150.0
+_MAX_TURN_DEADLINE = 300.0  # ceiling for base + complexity bonus; see docs/architecture/llm_budget_model.md
 
 
 def prompt_version_hash(role: str) -> str | None:

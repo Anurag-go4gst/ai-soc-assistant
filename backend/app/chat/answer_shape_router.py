@@ -127,6 +127,126 @@ class AnswerShapeResult:
     primary_shape: AnswerShape
     secondary_shape: AnswerShape | None = None
     matched_shapes: tuple[AnswerShape, ...] = ()
+    shape_authority: Literal["regex", "planner", "planner_plus_regex"] = "regex"
+
+
+_PLAN_HUNT_PURPOSES = frozenset(
+    {"spl_artifact", "mcp_execution", "mcp_discovery", "safe_catalog_query", "evidence_collection"}
+)
+_PLAN_KNOWLEDGE_ONLY_PURPOSES = frozenset({"knowledge_retrieval", "narration", "context_sufficiency"})
+
+
+def plan_purposes_from_resource_plan(resource_plan: dict[str, Any] | None) -> frozenset[str]:
+    if not isinstance(resource_plan, dict):
+        return frozenset()
+    purposes: set[str] = set()
+    for step in resource_plan.get("steps") or []:
+        if isinstance(step, dict):
+            purpose = str(step.get("purpose") or "").strip()
+            if purpose:
+                purposes.add(purpose)
+    return frozenset(purposes)
+
+
+def _plan_adjudication_eligible(resource_plan: dict[str, Any] | None) -> bool:
+    if not isinstance(resource_plan, dict):
+        return False
+    provenance = resource_plan.get("provenance") if isinstance(resource_plan.get("provenance"), dict) else {}
+    if provenance.get("llm_bridge") == "promoted":
+        return True
+    return str(resource_plan.get("plan_source") or "") == "llm_proposed_validated"
+
+
+def shape_hint_from_plan_purposes(purposes: frozenset[str]) -> AnswerShape | None:
+    """Map validated plan purposes to a shape emphasis hint."""
+    substantive = {
+        purpose
+        for purpose in purposes
+        if purpose not in {"narration", "context_sufficiency", "evidence_collection"}
+    }
+    if not substantive:
+        return None
+    if substantive & _PLAN_HUNT_PURPOSES:
+        return "hunt"
+    if substantive == {"knowledge_retrieval"}:
+        return None
+    if substantive <= _PLAN_KNOWLEDGE_ONLY_PURPOSES:
+        return None
+    if "mitre_mapping" in substantive:
+        return "ti_advisory_mapping"
+    return None
+
+
+def _regex_high_confidence(result: AnswerShapeResult, normalized_query: str) -> bool:
+    if result.primary_shape != "hunt":
+        return True
+    return bool(_HUNT.search(normalized_query))
+
+
+def _classify_answer_shape_regex(query: str, *, entities: dict[str, Any] | None = None) -> AnswerShapeResult:
+    """Regex-only shape classifier (deterministic floor)."""
+    _ = entities
+    normalized = " ".join(query.lower().split())
+    matched: list[AnswerShape] = []
+    for shape, pattern in _SHAPE_DETECTORS:
+        if pattern.search(normalized):
+            matched.append(shape)
+    if not matched:
+        return AnswerShapeResult(primary_shape="hunt", matched_shapes=("hunt",), shape_authority="regex")
+    ordered = [shape for shape in _SHAPE_PRECEDENCE if shape in matched]
+    primary = ordered[0]
+    secondary = ordered[1] if len(ordered) > 1 else None
+    return AnswerShapeResult(
+        primary_shape=primary,
+        secondary_shape=secondary,
+        matched_shapes=tuple(ordered),
+        shape_authority="regex",
+    )
+
+
+def classify_answer_shape(
+    query: str,
+    *,
+    entities: dict[str, Any] | None = None,
+    resource_plan: dict[str, Any] | None = None,
+) -> AnswerShapeResult:
+    """Deterministic shape classifier with optional planner-informed adjudication."""
+    regex_result = _classify_answer_shape_regex(query, entities=entities)
+    if not _plan_adjudication_eligible(resource_plan):
+        return regex_result
+
+    normalized = " ".join(query.lower().split())
+    purposes = plan_purposes_from_resource_plan(resource_plan)
+    planner_hint = shape_hint_from_plan_purposes(purposes)
+    if planner_hint is None:
+        if purposes <= _PLAN_KNOWLEDGE_ONLY_PURPOSES and purposes:
+            if _regex_high_confidence(regex_result, normalized):
+                return regex_result
+            for shape in ("regulatory_knowledge", "ti_advisory_mapping"):
+                if shape in regex_result.matched_shapes:
+                    return AnswerShapeResult(
+                        primary_shape=shape,
+                        secondary_shape=regex_result.secondary_shape,
+                        matched_shapes=tuple(dict.fromkeys((shape, *regex_result.matched_shapes))),
+                        shape_authority="planner_plus_regex",
+                    )
+        return regex_result
+
+    if _regex_high_confidence(regex_result, normalized):
+        return regex_result
+
+    secondary = (
+        regex_result.primary_shape
+        if regex_result.primary_shape != planner_hint
+        else regex_result.secondary_shape
+    )
+    matched = tuple(dict.fromkeys((planner_hint, *regex_result.matched_shapes)))
+    return AnswerShapeResult(
+        primary_shape=planner_hint,
+        secondary_shape=secondary,
+        matched_shapes=matched,
+        shape_authority="planner",
+    )
 
 
 def is_regulatory_reporting_query(query: str) -> bool:
@@ -161,38 +281,19 @@ def should_bypass_shape_router(match_path: str | None) -> bool:
     return str(match_path or "") in IN_CATALOG_MATCH_PATHS
 
 
-def classify_answer_shape(query: str, *, entities: dict[str, Any] | None = None) -> AnswerShapeResult:
-    """Deterministic shape classifier — keyword + entity signals only."""
-    _ = entities
-    normalized = " ".join(query.lower().split())
-    matched: list[AnswerShape] = []
-    for shape, pattern in _SHAPE_DETECTORS:
-        if pattern.search(normalized):
-            matched.append(shape)
-    if not matched:
-        return AnswerShapeResult(primary_shape="hunt", matched_shapes=("hunt",))
-    ordered = [shape for shape in _SHAPE_PRECEDENCE if shape in matched]
-    primary = ordered[0]
-    secondary = ordered[1] if len(ordered) > 1 else None
-    return AnswerShapeResult(
-        primary_shape=primary,
-        secondary_shape=secondary,
-        matched_shapes=tuple(ordered),
-    )
-
-
 def build_shaped_guidance(
     query: str,
     *,
     entities: dict[str, Any] | None = None,
     match_path: str | None = None,
+    resource_plan: dict[str, Any] | None = None,
 ) -> str:
     """Build analyst guidance for the resolved answer shape."""
     if not settings.ai_soc_t2_answer_shape_enabled or should_bypass_shape_router(match_path):
         from app.chat.guidance_templates import build_guided_investigation_guidance
 
         return build_guided_investigation_guidance(query, entities)
-    result = classify_answer_shape(query, entities=entities)
+    result = classify_answer_shape(query, entities=entities, resource_plan=resource_plan)
     primary = _build_primary_shape_guidance(query, result.primary_shape, entities=entities)
     sections = [primary]
     if result.secondary_shape is not None:

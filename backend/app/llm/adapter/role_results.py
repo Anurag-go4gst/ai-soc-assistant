@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
-from app.llm.adapter.json_extractor import extract_first_json_object
+from app.llm.adapter.output_preprocessor import preprocess_llm_output
 from app.llm.adapter.role_registry import schema_for_role
 from app.llm.adapter.schemas import AnalystResponseDraft, QueryUnderstandingCandidate, SplAdvisoryCandidate
 
@@ -53,10 +53,12 @@ def adapt_llm_output(
             raw_output_redacted=raw_redacted,
         )
 
-    extraction = extract_first_json_object(raw_output)
-    warnings.extend(extraction.warnings)
-    errors.extend(extraction.errors)
-    if not extraction.parsed_ok or extraction.payload is None:
+    schema_dict = schema.model_json_schema()
+    pre = preprocess_llm_output(raw_output, schema_dict, allow_retry=False)
+    warnings.extend(pre.extraction_warnings)
+    warnings.extend(pre.repairs)
+    if pre.payload is None:
+        errors.extend(pre.validation_errors or [pre.verdict])
         return LLMAdapterResult(
             role=role,
             parsed_ok=False,
@@ -68,9 +70,9 @@ def adapt_llm_output(
             raw_output_redacted=raw_redacted,
         )
 
-    dropped_fields = sorted(set(extraction.payload) - set(schema.model_fields))
+    dropped_fields = sorted(set(pre.payload) - set(schema.model_fields))
     try:
-        model = schema.model_validate(extraction.payload)
+        model = schema.model_validate(pre.payload)
     except ValidationError as exc:
         return LLMAdapterResult(
             role=role,

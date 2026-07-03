@@ -74,11 +74,17 @@ def test_coe_profile_enables_safe_rollout_flags() -> None:
     assert env.get("AI_SOC_LLM_ANSWER_GUARD_ENABLED", "").lower() == "true"
 
 
-def test_coe_profile_keeps_live_mcp_execution_off() -> None:
+def test_coe_profile_keeps_live_splunk_execution_off() -> None:
+    """COE now mirrors development's bounded MOCK execution posture (2026-07
+    directive: MCP eligibility on all tiers) — global/mock execution flags are
+    on, matching development.env.example. The real "live execution" boundary
+    is MCP_MODE: only MCP_MODE=registry + operator-supplied SPLUNK_MCP_* creds
+    route to a live Splunk connector (see CLAUDE.md Gotchas); mock mode cannot
+    reach live Splunk regardless of the execution flags above."""
     env = _parse_env_file(_COE_PROFILE)
-    assert env.get("MCP_GLOBAL_EXECUTION_ENABLED", "").lower() == "false"
-    assert env.get("MCP_SERVER_MOCK_EXECUTION_ENABLED", "").lower() == "false"
     assert env.get("MCP_MODE", "mock").lower() == "mock"
+    assert env.get("MCP_GLOBAL_EXECUTION_ENABLED", "").lower() == "true"
+    assert env.get("MCP_SERVER_MOCK_EXECUTION_ENABLED", "").lower() == "true"
 
 
 def test_coe_profile_live_synthesis_flags_are_documented() -> None:

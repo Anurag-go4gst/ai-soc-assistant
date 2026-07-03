@@ -1,0 +1,9 @@
+{
+  "valid_plan": "```json\n{\"steps\": [{\"resource_id\": \"rag_corpus:soc_kb\", \"purpose\": \"knowledge_retrieval\", \"args\": {}}], \"rationale\": \"kb first\"}\n```",
+  "fenced_detection_plan": "```json\n{\"detection_family\": \"vpn_hunt\", \"data_domain\": \"auth\", \"group_by\": [\"user\"], \"metric\": \"count\", \"time_window_hours\": 24}\n```",
+  "enum_case_plan": "{\"detection_family\": \"hunt\", \"data_domain\": \"NETWORK\", \"group_by\": [\"src_ip\"], \"metric\": \"count\"}",
+  "trailing_comma_plan": "{\"detection_family\": \"hunt\", \"data_domain\": \"dns\", \"group_by\": [\"host\"], \"metric\": \"count\",}",
+  "echo_of_input": "Show me VPN sessions into OT substation VLAN 140 from external IPs in the last 24 hours.",
+  "truncated": "{\"steps\": [{\"resource_id\": \"rag_corpus:soc_kb\",",
+  "valid_intent_advisory": "{\"paraphrase_detected\": \"true\", \"spl_authoring_request\": false}"
+}

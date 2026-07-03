@@ -388,6 +388,14 @@ def plan_evidence(
                 )
             )
         live_data_request = is_live_data_request(signals if isinstance(signals, dict) else {})
+        # MCP eligibility on all tiers (2026-07 directive), gated on control_plane_enabled
+        # so legacy/flag-off behavior stays byte-identical (matches every other
+        # control-plane-gated branch in this module). When on: a live-data ask is
+        # architecturally eligible for search the same way spl_generation_and_run/
+        # live_investigation already are — real gating (validated normalized_spl,
+        # tool selection, per-call HIL confirmation) happens downstream at
+        # evaluate_mcp_execution. This flag never marks the search validated/executed.
+        mcp_eligible = live_data_request and settings.control_plane_enabled
         return with_enrichment(
             EvidencePlan(
                 answer_mode="live_investigation",
@@ -397,13 +405,16 @@ def plan_evidence(
                 needs_mcp=live_data_request,
                 needs_mitre=False,
                 spl_allowed=True,
-                mcp_allowed=False,
+                mcp_allowed=mcp_eligible,
                 policy_context_required=False,
                 policy_context_recommended=False,
+                discovery_allowed=True if settings.control_plane_enabled else None,
                 reasons=[
                     "spl_artifact_requested",
                     *(
-                        ["live_data_request_mcp_needed_but_not_allowed"]
+                        ["live_data_request_mcp_search_eligible_pending_validation"]
+                        if mcp_eligible
+                        else ["live_data_request_mcp_needed_but_not_allowed"]
                         if live_data_request
                         else []
                     ),
@@ -712,7 +723,6 @@ def _attach_resource_plan(
     composition failure must never break evidence planning."""
     from app.config import settings
     from app.planner.composer import compose_resource_plan
-    from app.planner.llm_plan_bridge import bridge_enabled, bridge_trigger_match
 
     if (
         plan.answer_mode == "guided_investigation"
@@ -730,12 +740,6 @@ def _attach_resource_plan(
             match_path=match_path,
             skill_id=routed_skill,
         )
-        # T0.5 (revised after PowerGrid latency diagnosis 2026-06-11): the LLM
-        # plan bridge is never called inline — a blocking model call on the
-        # live path added flat latency while never changing dispatch. Unmatched
-        # questions are marked for off-path proposal (scorecard/async use).
-        if bridge_trigger_match(match_path) and bridge_enabled():
-            composed.provenance["llm_bridge"] = "deferred_not_inline"
     except Exception:
         return plan
     composed_payload = composed.model_dump()

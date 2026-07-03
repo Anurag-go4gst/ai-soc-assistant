@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-02T07:19:18.408415+00:00",
+  "generated_at": "2026-07-03T03:54:21.600888+00:00",
   "profile": {
     "ai_soc_curated_enrichment_activation_enabled": true,
     "ai_soc_langgraph_shadow_enabled": true,
@@ -165,6 +165,7 @@
             "provenance": {
               "composer": "deterministic_v1",
               "intent_family": "live_investigation",
+              "llm_bridge": "skipped:flags_off",
               "match_path": "use_case_catalog",
               "resource_decisions": {
                 "hil": {
@@ -579,6 +580,7 @@
               "provenance": {
                 "composer": "deterministic_v1",
                 "intent_family": "live_investigation",
+                "llm_bridge": "skipped:flags_off",
                 "match_path": "use_case_catalog",
                 "resource_decisions": {
                   "hil": {
@@ -993,6 +995,7 @@
             "provenance": {
               "composer": "deterministic_v1",
               "intent_family": "live_investigation",
+              "llm_bridge": "skipped:flags_off",
               "match_path": "use_case_catalog",
               "resource_decisions": {
                 "hil": {
@@ -1367,6 +1370,7 @@
               "provenance": {
                 "composer": "deterministic_v1",
                 "intent_family": "live_investigation",
+                "llm_bridge": "skipped:flags_off",
                 "match_path": "use_case_catalog",
                 "resource_decisions": {
                   "hil": {
@@ -1751,6 +1755,7 @@
             "provenance": {
               "composer": "deterministic_v1",
               "intent_family": "live_investigation",
+              "llm_bridge": "skipped:flags_off",
               "match_path": "use_case_catalog",
               "resource_decisions": {
                 "hil": {
@@ -2107,6 +2112,7 @@
               "provenance": {
                 "composer": "deterministic_v1",
                 "intent_family": "live_investigation",
+                "llm_bridge": "skipped:flags_off",
                 "match_path": "use_case_catalog",
                 "resource_decisions": {
                   "hil": {
@@ -2451,6 +2457,7 @@
             "provenance": {
               "composer": "deterministic_v1",
               "intent_family": "clarification_required",
+              "llm_bridge": "skipped:flags_off",
               "match_path": "out_of_registry",
               "skill_id": "knowledge_recall",
               "skill_workflow": [
@@ -2622,6 +2629,7 @@
               "provenance": {
                 "composer": "deterministic_v1",
                 "intent_family": "clarification_required",
+                "llm_bridge": "skipped:flags_off",
                 "match_path": "out_of_registry",
                 "skill_id": "knowledge_recall",
                 "skill_workflow": [
@@ -2805,6 +2813,7 @@
             "provenance": {
               "composer": "deterministic_v1",
               "intent_family": "sop_or_playbook",
+              "llm_bridge": "skipped:flags_off",
               "match_path": "use_case_catalog",
               "skill_id": "knowledge_recall",
               "skill_workflow": [
@@ -2992,6 +3001,7 @@
               "provenance": {
                 "composer": "deterministic_v1",
                 "intent_family": "sop_or_playbook",
+                "llm_bridge": "skipped:flags_off",
                 "match_path": "use_case_catalog",
                 "skill_id": "knowledge_recall",
                 "skill_workflow": [
@@ -3203,6 +3213,7 @@
             "provenance": {
               "composer": "deterministic_v1",
               "intent_family": "mitre_mapping",
+              "llm_bridge": "skipped:flags_off",
               "match_path": "use_case_catalog",
               "skill_id": "knowledge_recall",
               "skill_workflow": [
@@ -3368,6 +3379,7 @@
               "provenance": {
                 "composer": "deterministic_v1",
                 "intent_family": "mitre_mapping",
+                "llm_bridge": "skipped:flags_off",
                 "match_path": "use_case_catalog",
                 "skill_id": "knowledge_recall",
                 "skill_workflow": [
@@ -3555,6 +3567,7 @@
             "provenance": {
               "composer": "deterministic_v1",
               "intent_family": "clarification_required",
+              "llm_bridge": "skipped:flags_off",
               "match_path": "out_of_registry",
               "skill_id": "knowledge_recall",
               "skill_workflow": [
@@ -3720,6 +3733,7 @@
               "provenance": {
                 "composer": "deterministic_v1",
                 "intent_family": "clarification_required",
+                "llm_bridge": "skipped:flags_off",
                 "match_path": "out_of_registry",
                 "skill_id": "knowledge_recall",
                 "skill_workflow": [
@@ -3903,6 +3917,7 @@
             "provenance": {
               "composer": "deterministic_v1",
               "intent_family": "clarification_required",
+              "llm_bridge": "skipped:flags_off",
               "match_path": "out_of_registry",
               "skill_id": "knowledge_recall",
               "skill_workflow": [
@@ -4078,6 +4093,7 @@
               "provenance": {
                 "composer": "deterministic_v1",
                 "intent_family": "clarification_required",
+                "llm_bridge": "skipped:flags_off",
                 "match_path": "out_of_registry",
                 "skill_id": "knowledge_recall",
                 "skill_workflow": [

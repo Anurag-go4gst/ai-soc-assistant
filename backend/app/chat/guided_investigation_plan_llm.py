@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.chat.contracts.investigation_plan import InvestigationPlan
-from app.llm.adapter.json_extractor import extract_first_json_object
+from app.llm.adapter.output_preprocessor import INVESTIGATION_PLAN_SCHEMA, preprocess_llm_output
 from app.llm.sidecar_clients import invoke_sidecar_role, sidecar_timeout_seconds
 
 INVESTIGATION_PLAN_ROLE = "guided_investigation_plan_proposer"
@@ -139,18 +139,23 @@ def propose_investigation_plan_llm(
             dropped_reasons=["llm_timed_out" if timed_out else "llm_empty_output"],
         )
 
-    extraction = extract_first_json_object(raw_output)
-    if not extraction.parsed_ok or not isinstance(extraction.payload, dict):
+    pre = preprocess_llm_output(
+        raw_output,
+        INVESTIGATION_PLAN_SCHEMA,
+        allow_retry=False,
+        echo_of=query,
+    )
+    if pre.payload is None:
         return InvestigationPlanLlmResult(
             raw_llm=None,
             proposal=None,
             attempted=True,
             timed_out=False,
             provider_label=provider_label,
-            dropped_reasons=["llm_json_parse_failed", *extraction.errors],
+            dropped_reasons=["llm_json_parse_failed", pre.verdict, *pre.validation_errors],
         )
 
-    payload = dict(extraction.payload)
+    payload = dict(pre.payload)
     proposal = _map_llm_payload_to_proposal(payload)
     trace_payload = {
         key: payload.get(key)

@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
 from app.config import settings
-from app.llm.adapter.json_extractor import extract_first_json_object
+from app.llm.adapter.output_preprocessor import INTENT_ADVISORY_SCHEMA, preprocess_llm_output
 from app.llm.governed_context_package import build_governed_context_package_v1
 from app.llm.sidecar_clients import (
     INTENT_ROLE,
@@ -201,15 +201,20 @@ def generate_llm_intent_advisory(
             provider_label=provider_label,
         )
 
-    extraction = extract_first_json_object(raw_output)
-    if not extraction.parsed_ok or extraction.payload is None:
+    pre = preprocess_llm_output(
+        raw_output,
+        INTENT_ADVISORY_SCHEMA,
+        allow_retry=False,
+        echo_of=query,
+    )
+    if pre.payload is None:
         return LLMIntentAdvisory(
             llm_called=True,
             dropped_reasons=[DROP_JSON_EXTRACTION_FAILED],
-            adapter_warnings=[*extraction.warnings, *extraction.errors],
+            adapter_warnings=[*pre.extraction_warnings, pre.verdict, *pre.validation_errors],
             provider_label=provider_label,
         )
-    payload, coercion_warnings = _coerce_intent_advisory_payload(extraction.payload)
+    payload, coercion_warnings = _coerce_intent_advisory_payload(pre.payload)
     try:
         advisory = LLMIntentAdvisory.model_validate(payload)
     except ValidationError as exc:
@@ -222,7 +227,12 @@ def generate_llm_intent_advisory(
     return advisory.model_copy(
         update={
             "llm_called": True,
-            "adapter_warnings": [*advisory.adapter_warnings, *extraction.warnings, *coercion_warnings],
+            "adapter_warnings": [
+                *advisory.adapter_warnings,
+                *pre.extraction_warnings,
+                *pre.repairs,
+                *coercion_warnings,
+            ],
             "provider_label": provider_label,
         }
     )

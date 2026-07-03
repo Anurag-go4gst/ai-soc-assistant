@@ -55,10 +55,11 @@ def enhance_answer_contract_for_t2_surfacing(
     spl_validation: dict[str, Any] | None,
     user_query: str,
     match_path: str | None,
+    resource_plan: dict[str, Any] | None = None,
 ) -> AnswerContract:
     if not settings.ai_soc_t2_answer_surfacing_enabled or should_bypass_shape_router(match_path):
         return contract
-    shape = classify_answer_shape(user_query).primary_shape
+    shape = classify_answer_shape(user_query, resource_plan=resource_plan).primary_shape
     if shape_suppresses_spl(shape):
         render = dict(contract.render_sections)
         render["spl_artifact"] = False
@@ -98,10 +99,11 @@ def build_merged_t2_message(
     limitations: list[str] | None = None,
     user_query: str,
     match_path: str | None,
+    resource_plan: dict[str, Any] | None = None,
 ) -> str:
     if not settings.ai_soc_t2_answer_surfacing_enabled or should_bypass_shape_router(match_path):
         return guidance_text
-    shape = classify_answer_shape(user_query).primary_shape
+    shape = classify_answer_shape(user_query, resource_plan=resource_plan).primary_shape
     parts: list[str] = [guidance_text.strip()] if guidance_text and guidance_text.strip() else []
     if not shape_suppresses_spl(shape):
         if isinstance(spl_draft_preview, dict) and str(spl_draft_preview.get("draft_spl") or "").strip():
@@ -150,6 +152,7 @@ def _summary_for_t2_section_plan(
     spl_validation: dict[str, Any] | None,
     user_query: str,
     match_path: str | None,
+    resource_plan: dict[str, Any] | None = None,
 ) -> str:
     """Single-owner card summary for T2 review-only answers.
 
@@ -157,7 +160,7 @@ def _summary_for_t2_section_plan(
     structured analyst card already owns SPL, checklist, and limitation sections.
     Keep the summary short so those producers do not all render twice.
     """
-    shape = classify_answer_shape(user_query).primary_shape
+    shape = classify_answer_shape(user_query, resource_plan=resource_plan).primary_shape
     if shape_suppresses_spl(shape):
         return "Knowledge-only guidance prepared for analyst review; no SPL was generated."
     has_spl = _has_spl_artifact(
@@ -188,6 +191,7 @@ def apply_t2_answer_surfacing(
     spl_validation: dict[str, Any] | None,
     user_query: str,
     match_path: str | None,
+    resource_plan: dict[str, Any] | None = None,
 ) -> tuple[str, AnswerContract | None, AnalystResponseEnvelope | None]:
     if not settings.ai_soc_t2_answer_surfacing_enabled or should_bypass_shape_router(match_path):
         return message, answer_contract, analyst_response
@@ -201,6 +205,7 @@ def apply_t2_answer_surfacing(
         limitations=limitations,
         user_query=user_query,
         match_path=match_path,
+        resource_plan=resource_plan,
     )
     updated_contract = answer_contract
     if answer_contract is not None:
@@ -211,6 +216,7 @@ def apply_t2_answer_surfacing(
             spl_validation=spl_validation,
             user_query=user_query,
             match_path=match_path,
+            resource_plan=resource_plan,
         )
     updated_response = analyst_response
     if analyst_response is not None and updated_contract is not None:
@@ -224,6 +230,7 @@ def apply_t2_answer_surfacing(
             spl_validation=spl_validation,
             user_query=user_query,
             match_path=match_path,
+            resource_plan=resource_plan,
         )
         if summary:
             updated_response = updated_response.model_copy(update={"direct_answer_summary": summary[:500]})

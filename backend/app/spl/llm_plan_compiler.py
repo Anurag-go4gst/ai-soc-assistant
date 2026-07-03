@@ -24,6 +24,7 @@ from dataclasses import replace
 from typing import Any, Callable
 
 from app.config import settings
+from app.llm.adapter.output_preprocessor import preprocess_llm_output
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
 from app.spl.llm_fallback import (
     CLARIFICATION_INVALID_SCHEMA,
@@ -31,7 +32,6 @@ from app.spl.llm_fallback import (
     LlmSplFallbackResult,
     _clarification,
     _spl_max_output_tokens,
-    _strict_json_payload,
     generate_llm_spl_fallback,
 )
 
@@ -250,8 +250,10 @@ def get_detection_plan(
         except LocalChatError:
             return None, [CLARIFICATION_NO_CLIENT]
         raw = completion.text
-    payload, errors = _strict_json_payload(raw or "")
-    return payload, errors
+    pre = preprocess_llm_output(raw or "", PLAN_JSON_SCHEMA, allow_retry=False)
+    if pre.payload is None:
+        return None, pre.validation_errors or [pre.verdict]
+    return pre.payload, []
 
 
 def _redacted_detection_plan(plan: dict[str, Any]) -> dict[str, Any]:

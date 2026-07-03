@@ -12,27 +12,30 @@ Gating: both existing flags must be on — the intent-advisor flag (LLM may
 advise on intake) and the live-synthesis flag (a live client is wired).
 Pinned eval/test runtimes set live synthesis off, so gates stay LLM-free.
 
-NOT called inline on the live /chat path (PowerGrid latency diagnosis,
-2026-06-11): a blocking model call added flat latency and never changed
-dispatch. The evidence planner marks eligible plans
-`provenance.llm_bridge="deferred_not_inline"`; this entry point serves
-off-path callers (scorecard runs, future async proposal).
+Live promotion (item 1.3): `apply_llm_primary_resource_plan` in
+`plan_promotion_merge.py` calls this bridge inline during
+`graph_node_evidence_planning` when control plane + bridge flags are on.
+The finalize-stage shadow trace reuses the promoted plan without a second
+LLM call (`promoted_inline`).
 """
 
 from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass, field
 from typing import Any
 
 from app.config import settings
-from app.llm.adapter.json_extractor import extract_first_json_object
+from app.llm.adapter.output_preprocessor import BRIDGE_PROPOSAL_SCHEMA, preprocess_llm_output
 from app.planner.resource_plan import PlanStep, ResourcePlan
-from app.planner.resource_registry import ResourceRegistry, load_resource_registry
+from app.planner.resource_registry import ResourceDescriptor, ResourceRegistry, load_resource_registry
 
 _TRIGGER_MATCH_PATHS = {"out_of_registry", "near_105_question"}
 _BRIDGE_TIMEOUT_SECONDS = 20.0
+_DISPATCHABLE_AVAILABILITY = frozenset({"available", "fixture_only"})
 _ALLOWED_PURPOSES = {"knowledge_retrieval", "spl_artifact", "mcp_execution", "mitre_mapping", "narration"}
+_DEFERRED_PURPOSES = frozenset({"cve_lookup", "action_proposal"})
 _TIME_BOUND = re.compile(r"^(now|-?\d+[smhd](@[smhd])?)$")
 # Raw query text must never ride in a proposal — plans bind families/corpora,
 # never SPL strings.
@@ -54,6 +57,74 @@ _SYSTEM_PROMPT = (
 # consume the narration-sized timeout budget. On expiry the deterministic
 # plan stands — so a tight cap costs only provenance, never correctness.
 _BRIDGE_TIMEOUT_SECONDS_CAP = 20
+
+
+@dataclass(frozen=True)
+class PlanPromotionResult:
+    plan: ResourcePlan | None
+    llm_bridge: str
+    dropped_steps: list[dict[str, str]] = field(default_factory=list)
+
+
+def validate_llm_plan_proposal(
+    payload: dict[str, Any],
+    *,
+    registry: ResourceRegistry,
+    mcp_allowed: bool,
+    action_mode: str | None = None,
+    match_path: str | None = None,
+) -> PlanPromotionResult:
+    """Validate an LLM plan proposal and emit promotion provenance."""
+    raw_steps = payload.get("steps")
+    if not isinstance(raw_steps, list):
+        return PlanPromotionResult(plan=None, llm_bridge="rejected:invalid_payload")
+
+    steps: list[PlanStep] = []
+    dropped: list[dict[str, str]] = []
+    for index, raw in enumerate(raw_steps[:8]):
+        if not isinstance(raw, dict):
+            dropped.append({"step": str(index), "reason": "step_not_object"})
+            continue
+        resource_id = str(raw.get("resource_id") or "")
+        purpose = str(raw.get("purpose") or "")
+        verdict = _step_verdict(
+            resource_id, purpose, raw.get("args"), registry=registry, mcp_allowed=mcp_allowed
+        )
+        if verdict is not None:
+            dropped.append({"step": resource_id or str(index), "reason": verdict})
+            continue
+        steps.append(
+            PlanStep(
+                step_id=f"llm_{index}",
+                resource_id=resource_id,
+                purpose=purpose,
+                args_template=_clean_args(raw.get("args")),
+                policy_checks=["llm_proposed_deterministically_validated"],
+            )
+        )
+
+    if not steps:
+        reason = "rejected:all_steps_dropped"
+        if dropped and all(item.get("reason") == "unknown_resource_id" for item in dropped):
+            reason = "rejected:unknown_resource_id"
+        return PlanPromotionResult(plan=None, llm_bridge=reason, dropped_steps=dropped)
+
+    return PlanPromotionResult(
+        plan=ResourcePlan(
+            steps=steps,
+            plan_source="llm_proposed_validated",
+            provenance={
+                "bridge": "llm_plan_bridge_v1",
+                "llm_bridge": "promoted",
+                "match_path": match_path,
+                "action_mode": action_mode,
+                "rationale": str(payload.get("rationale") or "")[:300],
+                "dropped_steps": dropped,
+            },
+        ),
+        llm_bridge="promoted",
+        dropped_steps=dropped,
+    )
 
 
 def _bridge_client() -> Any | None:
@@ -133,16 +204,23 @@ def propose_validated_llm_plan(
         raw_text = call.raw_output
         if call.timed_out or not isinstance(raw_text, str) or not raw_text.strip():
             return None
-        extraction = extract_first_json_object(raw_text)
-        if not extraction.parsed_ok or not isinstance(extraction.payload, dict):
+        pre = preprocess_llm_output(raw_text, BRIDGE_PROPOSAL_SCHEMA, allow_retry=False)
+        if pre.payload is None:
             return None
-        return _validate_proposal(
-            extraction.payload,
+        promotion = validate_llm_plan_proposal(
+            pre.payload,
             registry=registry,
             mcp_allowed=mcp_allowed,
             action_mode=action_mode,
             match_path=match_path,
         )
+        if promotion.plan is None:
+            return None
+        provenance = dict(promotion.plan.provenance)
+        provenance["llm_output_utilization"] = pre.llm_output_utilization
+        if pre.repairs:
+            provenance["preprocessor_repairs"] = pre.repairs
+        return promotion.plan.model_copy(update={"provenance": provenance})
     except Exception:
         # Any failure means: behave exactly as if the bridge does not exist.
         return None
@@ -165,47 +243,13 @@ def _validate_proposal(
     action_mode: str | None,
     match_path: str | None,
 ) -> ResourcePlan | None:
-    raw_steps = payload.get("steps")
-    if not isinstance(raw_steps, list):
-        return None
-
-    steps: list[PlanStep] = []
-    dropped: list[dict[str, str]] = []
-    for index, raw in enumerate(raw_steps[:8]):
-        if not isinstance(raw, dict):
-            dropped.append({"step": str(index), "reason": "step_not_object"})
-            continue
-        resource_id = str(raw.get("resource_id") or "")
-        purpose = str(raw.get("purpose") or "")
-        verdict = _step_verdict(
-            resource_id, purpose, raw.get("args"), registry=registry, mcp_allowed=mcp_allowed
-        )
-        if verdict is not None:
-            dropped.append({"step": resource_id or str(index), "reason": verdict})
-            continue
-        steps.append(
-            PlanStep(
-                step_id=f"llm_{index}",
-                resource_id=resource_id,
-                purpose=purpose,
-                args_template=_clean_args(raw.get("args")),
-                policy_checks=["llm_proposed_deterministically_validated"],
-            )
-        )
-
-    if not steps:
-        return None
-    return ResourcePlan(
-        steps=steps,
-        plan_source="llm_proposed_validated",
-        provenance={
-            "bridge": "llm_plan_bridge_v1",
-            "match_path": match_path,
-            "action_mode": action_mode,
-            "rationale": str(payload.get("rationale") or "")[:300],
-            "dropped_steps": dropped,
-        },
-    )
+    return validate_llm_plan_proposal(
+        payload,
+        registry=registry,
+        mcp_allowed=mcp_allowed,
+        action_mode=action_mode,
+        match_path=match_path,
+    ).plan
 
 
 def _step_verdict(
@@ -217,13 +261,19 @@ def _step_verdict(
     mcp_allowed: bool,
 ) -> str | None:
     """Return a drop reason, or None when the step is acceptable."""
+    if purpose in _DEFERRED_PURPOSES:
+        return "unknown_purpose"
     descriptor = registry.by_id(resource_id)
     if descriptor is None:
         return "unknown_resource_id"
     if descriptor.availability == "blocked":
         return "resource_blocked"
+    if descriptor.availability not in _DISPATCHABLE_AVAILABILITY:
+        return "resource_not_dispatchable"
     if purpose not in _ALLOWED_PURPOSES:
         return "unknown_purpose"
+    if not _purpose_allowed_for_resource(descriptor, purpose):
+        return "purpose_not_allowed_for_resource"
     if purpose == "mcp_execution" or descriptor.kind == "mcp_tool":
         if not mcp_allowed:
             return "mcp_not_allowed_for_intent"
@@ -238,6 +288,20 @@ def _step_verdict(
             if str(key) in {"earliest_time", "latest_time"} and not _TIME_BOUND.match(str(value)):
                 return "unbounded_time_window"
     return None
+
+
+def _purpose_allowed_for_resource(descriptor: ResourceDescriptor, purpose: str) -> bool:
+    if purpose == "knowledge_retrieval":
+        return descriptor.kind == "rag_corpus"
+    if purpose == "spl_artifact":
+        return descriptor.kind in {"spl_template_family", "spl_lab_draft_family", "skill"}
+    if purpose == "mitre_mapping":
+        return descriptor.resource_id == "skill:mitre_mapping"
+    if purpose == "mcp_execution":
+        return descriptor.kind == "mcp_tool"
+    if purpose == "narration":
+        return descriptor.kind == "llm_role"
+    return False
 
 
 def _clean_args(args: Any) -> dict[str, Any]:

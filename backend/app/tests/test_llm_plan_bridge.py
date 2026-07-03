@@ -195,4 +195,4 @@ def test_live_evidence_planning_never_calls_llm_inline(monkeypatch) -> None:
     assert plan.resource_plan is not None
     assert plan.resource_plan["plan_source"] == "deterministic"
     if understanding.deterministic_match_path in {"out_of_registry", "near_105_question"}:
-        assert plan.resource_plan["provenance"].get("llm_bridge") == "deferred_not_inline"
+        assert "llm_bridge" not in plan.resource_plan.get("provenance", {})
