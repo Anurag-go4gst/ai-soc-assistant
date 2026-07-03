@@ -26,6 +26,7 @@ class CapturingTelemetry:
         self.end_calls: list[dict[str, Any]] = []
         self.llm_calls: list[dict[str, Any]] = []
         self.merge_calls: list[dict[str, Any]] = []
+        self.step_calls: list[dict[str, Any]] = []
 
     def health(self) -> ConnectorStatus:
         return ConnectorStatus(mode=self.mode, configured=True, available=True, detail="capture")
@@ -45,8 +46,10 @@ class CapturingTelemetry:
     def record_llm_call(self, trace_id: str, **fields: Any) -> None:
         self.llm_calls.append({"trace_id": trace_id, **fields})
 
+    def record_step(self, trace_id: str, step_name: str, status: str, **fields: Any) -> None:
+        self.step_calls.append({"trace_id": trace_id, "step_name": step_name, "status": status, **fields})
+
     # Unused-but-required protocol surface for the live path.
-    def record_step(self, *a: Any, **k: Any) -> None: ...
     def record_routing_decision(self, *a: Any, **k: Any) -> None: ...
     def record_routing_disagreement(self, *a: Any, **k: Any) -> None: ...
     def record_spl_validation(self, *a: Any, **k: Any) -> None: ...
@@ -135,3 +138,19 @@ def test_post_chat_response_merges_turn_id_and_user(capturing: CapturingTelemetr
     assert "debug_summary" in merge["metadata"]
     assert "llm_live_calls" in merge["metadata"]
     assert "match_path" in merge["metadata"]
+
+
+def test_canonical_facts_snapshot_recorded_at_synthesis_time(capturing: CapturingTelemetry) -> None:
+    """Item 5.3: a per-turn CanonicalFacts snapshot + LLM-plan-bridge promotion
+    verdict lands in the trace spine, best-effort — never breaks the response."""
+    response = pipeline.build_live_chat_response(
+        ChatRequest(message="Find failed-login users in the last 24 hours", session_id="s-facts")
+    )
+    snapshots = [c for c in capturing.step_calls if c["step_name"] == "canonical_facts_snapshot"]
+    assert len(snapshots) == 1
+    snapshot = snapshots[0]
+    assert snapshot["trace_id"] == response.trace_id
+    assert snapshot["status"] == "recorded"
+    assert isinstance(snapshot.get("fact_count"), int)
+    assert isinstance(snapshot.get("kinds"), list)
+    assert "promotion_verdict" in snapshot

@@ -3031,6 +3031,43 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         "mitre_mappings": mitre_mappings,
     }
     state = attach_canonical_facts_to_state(state)
+    # Item 5.3 (2026-07-03): record a best-effort CanonicalFacts snapshot +
+    # LLM-plan-bridge promotion verdict at synthesis time into the trace spine.
+    # Never allowed to break chat — telemetry failure degrades to a missing
+    # trace event, never a broken response.
+    try:
+        from app.chat.canonical_facts_spine import synthesis_fact_summary
+        from app.chat.contracts.canonical_facts import CanonicalFacts
+
+        raw_facts = state.get("canonical_facts")
+        if isinstance(raw_facts, dict):
+            fact_summary = synthesis_fact_summary(CanonicalFacts.model_validate(raw_facts))
+            evidence_plan_for_verdict = state.get("evidence_plan")
+            resource_plan_for_verdict = (
+                evidence_plan_for_verdict.get("resource_plan")
+                if isinstance(evidence_plan_for_verdict, dict)
+                else None
+            )
+            provenance_for_verdict = (
+                resource_plan_for_verdict.get("provenance")
+                if isinstance(resource_plan_for_verdict, dict)
+                else None
+            )
+            promotion_verdict = (
+                provenance_for_verdict.get("llm_bridge")
+                if isinstance(provenance_for_verdict, dict)
+                else None
+            )
+            _routes_chat().get_telemetry_connector().record_step(
+                trace_id,
+                "canonical_facts_snapshot",
+                "recorded",
+                fact_count=fact_summary.get("fact_count"),
+                kinds=fact_summary.get("kinds"),
+                promotion_verdict=promotion_verdict,
+            )
+    except Exception:  # noqa: BLE001 - telemetry must never break chat
+        logger.warning("canonical_facts_snapshot_telemetry_failed", exc_info=True)
     mitre_branch_payload = mitre_branch.model_dump()
     response_use_case = _response_use_case(state)
     severity_decision = decide_severity(
