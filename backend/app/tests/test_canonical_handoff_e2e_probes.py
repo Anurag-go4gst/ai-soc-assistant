@@ -211,7 +211,10 @@ def test_e2e_t1_spl_generation_canonical_graph_and_gate() -> None:
     assert routing.get("canonical_skill") == "spl_generation"
     assert plan.get("needs_spl") is True
     assert plan.get("spl_allowed") is True
-    assert plan.get("mcp_allowed") is False
+    # MCP eligibility on all tiers (2026-07 directive, item 2.1): plan-time
+    # eligibility only — execution_authorized/collected_evidence_count below
+    # remain the real gated invariants, unaffected by this flag.
+    assert plan.get("mcp_allowed") is True
     assert contract.get("execution_authorized") is False
     assert contract.get("collected_evidence_count") == 0
 

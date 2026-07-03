@@ -1,0 +1,25 @@
+{
+  "cve_mitre_usage_pct": 0.0,
+  "latency_ms": {
+    "mean": 45,
+    "p50": 42,
+    "p95": 79
+  },
+  "llm_calls_total": 75,
+  "llm_calls_used": 11,
+  "llm_output_utilization_pct": 14.67,
+  "mcp_evidence_pct": 0.0,
+  "offline": true,
+  "probe_count": 55,
+  "usefulness_hand_sample": {
+    "note": "Hand-scored usefulness baseline uses pinned target rubric until live review (plan 0.2).",
+    "probe_count": 15,
+    "target_rubric_mean": 2
+  },
+  "vmstat_steal": {
+    "available": true,
+    "samples": 5,
+    "steal_avg_pct": 0.6,
+    "steal_max_pct": 2.0
+  }
+}

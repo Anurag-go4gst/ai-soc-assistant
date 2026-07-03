@@ -178,7 +178,7 @@ def test_detection_plan_through_real_failover_builder(monkeypatch) -> None:
 
     plan_obj = {
         "detection_family": "builder_family",
-        "data_domain": "authentication",
+        "data_domain": "auth",
         "time_window_hours": 1,
         "filters": [],
         "group_by": ["user"],

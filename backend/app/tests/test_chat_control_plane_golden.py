@@ -190,14 +190,18 @@ def test_mitre_failed_login_context_maps_t1110_and_blocks_negated_techniques(
     assert "security alert has been triggered" not in analyst_text.lower()
 
 
-def test_generate_spl_top_failed_login_users_rejects_missing_slot_binding_no_mcp(
+def test_generate_spl_top_failed_login_users_rejects_missing_slot_binding(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_spl_fallback_enabled", False)
     monkeypatch.setattr("app.spl.llm_fallback.settings.ai_soc_llm_spl_fallback_enabled", False)
     response = _chat("Generate SPL for the top failed-login users in the last 24 hours")
     assert response.evidence_plan["needs_spl"] is True
-    assert response.evidence_plan["mcp_allowed"] is False
+    # MCP eligibility on all tiers (2026-07 directive, item 2.1): a live-data ask
+    # is architecturally eligible under control_plane_enabled. This test's real
+    # invariant is the missing-slot-binding clarification path below, which is
+    # unaffected — eligibility never substitutes for a valid, resolved SPL artifact.
+    assert response.evidence_plan["mcp_allowed"] is True
     assert response.candidate_spl is not None
     assert response.candidate_spl.generation_mode == "clarification_required"
     assert response.candidate_spl.candidate_spl == ""
@@ -206,7 +210,7 @@ def test_generate_spl_top_failed_login_users_rejects_missing_slot_binding_no_mcp
     _assert_spl_clarification_blocked(response.spl_validation.reject_reasons)
     assert response.response_mode == "clarification_required"
     assert response.execution is not None
-    assert response.execution.block_reason == "mcp_not_allowed_by_evidence_plan"
+    assert response.execution.block_reason == "spl_validation_failed"
 
 
 def test_uncatalogued_spl_generation_requires_clarification_not_stage3c_stub(
@@ -393,8 +397,13 @@ def test_aws_security_group_modifications_returns_raw_cloudtrail_spl_answer() ->
     assert response.analyst_response.response_profile == "spl_only"
     assert_governed_spl_review_posture(response)
     assert response.execution is not None
-    assert response.execution.status == "skipped"
-    assert response.execution.block_reason == "mcp_not_allowed_by_evidence_plan"
+    # MCP eligibility on all tiers (2026-07 directive, item 2.1): this fully
+    # validated, approved template SPL is now architecturally eligible for
+    # execution under control_plane_enabled, so the gate is actually reached
+    # (requires_human_review) instead of skipped outright. execution_eligible
+    # stays false on the candidate; nothing here executes without HIL approval.
+    assert response.execution.status == "requires_human_review"
+    assert response.execution.block_reason == "precondition_eval_failed"
 
 
 def test_alt_2024_0891_success_after_failure_hybrid_alert_review(

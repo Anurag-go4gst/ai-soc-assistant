@@ -1,0 +1,3415 @@
+{
+  "note": "Frozen in-catalogue contract invariants (105 + Cisco 50). Regenerate via scripts/capture_in_catalogue_contract_fixtures.py --freeze",
+  "question_count": 155,
+  "rows": {
+    "105:q0.q001": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q001",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "alert_summary",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q002": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q002",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q003": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q003",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q004": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q004",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q005": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q005",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q006": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q006",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q007": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q007",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q008": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q008",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": true
+    },
+    "105:q0.q009": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q009",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q010": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q010",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q011": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q011",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q012": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q012",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q013": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q013",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q014": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q014",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q015": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q015",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q016": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q016",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q017": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q017",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q018": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q018",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q019": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q019",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q020": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q020",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q021": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q021",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q022": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "ti_advisory_mapping",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q022",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q023": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q023",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": true
+    },
+    "105:q0.q024": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q024",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q025": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q025",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q026": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q026",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q027": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q027",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q028": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q028",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q029": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q029",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q030": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q030",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q031": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q031",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q032": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q032",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q033": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q033",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q034": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q034",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q035": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q035",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q036": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q036",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q037": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q037",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q038": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q038",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q039": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q039",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q040": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q040",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q041": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q041",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q042": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q042",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q043": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q043",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q044": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q044",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q045": {
+      "analyst_enabled_sections": [],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "clarification",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q045",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q046": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "triage_checklist"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "triage_checklist"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q046",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "P3 Medium",
+      "spl_approved": false
+    },
+    "105:q0.q047": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q047",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q048": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q048",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q049": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q049",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": true
+    },
+    "105:q0.q050": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q050",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q051": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q051",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q052": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q052",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q053": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q053",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q054": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q054",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q055": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q055",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q056": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q056",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q057": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q057",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q058": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q058",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "alert_summary",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q059": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "triage_checklist"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "triage_checklist"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q059",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "P3 Medium",
+      "spl_approved": false
+    },
+    "105:q0.q060": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "policy_citation",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "policy_citation",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q060",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "P2 High",
+      "spl_approved": true
+    },
+    "105:q0.q061": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q061",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q062": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q062",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "P3 Medium",
+      "spl_approved": true
+    },
+    "105:q0.q063": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q063",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q064": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q064",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q065": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q065",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q066": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q066",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q067": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q067",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q068": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q068",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q069": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q069",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q070": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q070",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q071": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q071",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q072": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q072",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q073": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q073",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q074": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q074",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q075": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q075",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q076": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q076",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q077": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q077",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q078": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q078",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q079": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q079",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": true
+    },
+    "105:q0.q080": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q080",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q081": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q081",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q082": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q082",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q083": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q083",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q084": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q084",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "alert_summary",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q085": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q085",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "alert_summary",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q086": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "triage_checklist"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "triage_checklist"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q086",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "P3 Medium",
+      "spl_approved": false
+    },
+    "105:q0.q087": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q087",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q088": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q088",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q089": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "triage_checklist"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "triage_checklist"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q089",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "P3 Medium",
+      "spl_approved": false
+    },
+    "105:q0.q090": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q090",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "alert_summary",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q091": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q091",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "alert_summary",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q092": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q092",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q093": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q093",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q094": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q094",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q095": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "source_health",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q095",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q096": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q096",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q097": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q097",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q098": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q098",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q099": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q099",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q100": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q100",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q101": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "skipped",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q101",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q102": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "q0.q102",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "105:q0.q103": {
+      "analyst_enabled_sections": [],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q103",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q104": {
+      "analyst_enabled_sections": [
+        "policy_citation",
+        "procedural_steps"
+      ],
+      "answer_shape": "timeline_reconstruction",
+      "contract_answer_mode": "rag_only",
+      "enabled_sections": [
+        "policy_citation",
+        "procedural_steps"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q104",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "105:q0.q105": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "q0.q105",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "alert_summary",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "cisco50:cisco.compliance.031": {
+      "analyst_enabled_sections": [],
+      "answer_shape": "regulatory_knowledge",
+      "contract_answer_mode": "rag_only",
+      "enabled_sections": [
+        "policy_citation",
+        "procedural_steps"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "cisco.compliance.031",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "cisco50:cisco.compliance.032": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.compliance.032",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": true
+    },
+    "cisco50:cisco.compliance.033": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.compliance.033",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": true
+    },
+    "cisco50:cisco.compliance.034": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.compliance.034",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.compliance.035": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.compliance.035",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": true
+    },
+    "cisco50:cisco.compliance.036": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.compliance.036",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.compliance.037": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.compliance.037",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": true
+    },
+    "cisco50:cisco.compliance.038": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "process_aware_ot",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.compliance.038",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.compliance.039": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.compliance.039",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.compliance.040": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "regulatory_knowledge",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.compliance.040",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.endpoint.041": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.endpoint.041",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.endpoint.042": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.endpoint.042",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.endpoint.043": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.endpoint.043",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.endpoint.044": {
+      "analyst_enabled_sections": [
+        "policy_citation"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "rag_only",
+      "enabled_sections": [
+        "policy_citation"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "cisco.endpoint.044",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "cisco50:cisco.endpoint.045": {
+      "analyst_enabled_sections": [
+        "policy_citation"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "rag_only",
+      "enabled_sections": [
+        "policy_citation"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "cisco.endpoint.045",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "cisco50:cisco.endpoint.046": {
+      "analyst_enabled_sections": [
+        "policy_citation"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "rag_only",
+      "enabled_sections": [
+        "policy_citation"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "cisco.endpoint.046",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "cisco50:cisco.endpoint.047": {
+      "analyst_enabled_sections": [
+        "policy_citation"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "rag_only",
+      "enabled_sections": [
+        "policy_citation"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "cisco.endpoint.047",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "cisco50:cisco.endpoint.048": {
+      "analyst_enabled_sections": [
+        "policy_citation",
+        "procedural_steps"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "rag_only",
+      "enabled_sections": [
+        "policy_citation",
+        "procedural_steps"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "cisco.endpoint.048",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "cisco50:cisco.endpoint.049": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.endpoint.049",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.endpoint.050": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.endpoint.050",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "P3 Medium",
+      "spl_approved": true
+    },
+    "cisco50:cisco.identity.011": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.identity.011",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.identity.012": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.identity.012",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.identity.013": {
+      "analyst_enabled_sections": [],
+      "answer_shape": "regulatory_knowledge",
+      "contract_answer_mode": "rag_only",
+      "enabled_sections": [
+        "policy_citation",
+        "procedural_steps"
+      ],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "cisco.identity.013",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "cisco50:cisco.identity.014": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.identity.014",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.identity.015": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.identity.015",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "P3 Medium",
+      "spl_approved": true
+    },
+    "cisco50:cisco.identity.016": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.identity.016",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.identity.017": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.identity.017",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.identity.018": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.identity.018",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": true
+    },
+    "cisco50:cisco.identity.019": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.identity.019",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.identity.020": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.identity.020",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.ot.021": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.ot.021",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.ot.022": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.ot.022",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.ot.023": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.ot.023",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.ot.024": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.ot.024",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.ot.025": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.ot.025",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": true
+    },
+    "cisco50:cisco.ot.026": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.ot.026",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": true
+    },
+    "cisco50:cisco.ot.027": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.ot.027",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.ot.028": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.ot.028",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.ot.029": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "process_aware_ot",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.ot.029",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.ot.030": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "cisco.ot.030",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "cisco50:cisco.perim.001": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "cisco.perim.001",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "alert_summary",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "cisco50:cisco.perim.002": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.perim.002",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.perim.003": {
+      "analyst_enabled_sections": [
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [],
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
+      "mapped_question_ref": "cisco.perim.003",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
+    },
+    "cisco50:cisco.perim.004": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.perim.004",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.perim.005": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.perim.005",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": true
+    },
+    "cisco50:cisco.perim.006": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.perim.006",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.perim.007": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "evidence_checklist",
+        "investigation_guidance",
+        "limitations",
+        "procedural_steps",
+        "severity_assessment",
+        "spl_artifact",
+        "triage_checklist"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.perim.007",
+      "match_path": "exact_105_plus_use_case_catalog",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "attack_discovery",
+      "severity_label": "P3 Medium",
+      "spl_approved": true
+    },
+    "cisco50:cisco.perim.008": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "baselining",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.perim.008",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.perim.009": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.perim.009",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    },
+    "cisco50:cisco.perim.010": {
+      "analyst_enabled_sections": [
+        "analyst_action_guidance",
+        "draft_spl_preview"
+      ],
+      "answer_shape": "hunt",
+      "contract_answer_mode": "live_investigation",
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
+      "mapped_question_ref": "cisco.perim.010",
+      "match_path": "exact_105_question",
+      "mitre_answer_visible": false,
+      "mitre_technique_ids": [],
+      "route": "spl_generation",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": false
+    }
+  },
+  "schema_version": 1
+}

@@ -175,6 +175,8 @@ from app.llm.mitre_risk_rationale import (
     build_deterministic_severity_rationale,
     run_mitre_risk_rationale,
 )
+from app.planner.plan_promotion_merge import apply_llm_primary_resource_plan, record_planner_sidecar
+from app.planner.resource_plan import ResourcePlan
 from app.planner.resource_plan_shadow import run_resource_plan_shadow
 from app.connectors.mcp.mcp_tool_chronology import deterministic_default_chronology
 from app.connectors.mcp.mcp_tool_planner import plan_tool_chronology
@@ -1257,6 +1259,22 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         user_query=getattr(_req_for_evidence, "message", None) if _req_for_evidence is not None else None,
     )
     evidence_payload = plan.model_dump()
+    if settings.control_plane_enabled and isinstance(evidence_payload.get("resource_plan"), dict):
+        floor_plan = ResourcePlan.model_validate(evidence_payload["resource_plan"])
+        _match_path = getattr(state.get("query_understanding"), "deterministic_match_path", None)
+        _budget = state.get("llm_turn_budget")
+        _planner_started = time.monotonic()
+        merged_plan, llm_planner_called = apply_llm_primary_resource_plan(
+            floor_plan,
+            query=str(getattr(_req_for_evidence, "message", "") or ""),
+            match_path=str(_match_path) if _match_path is not None else None,
+            action_mode=str(evidence_payload.get("action_mode") or "") or None,
+            mcp_allowed=bool(evidence_payload.get("mcp_allowed")),
+            budget=_budget if isinstance(_budget, TurnLlmBudget) else None,
+        )
+        evidence_payload["resource_plan"] = merged_plan.model_dump()
+        if llm_planner_called and isinstance(_budget, TurnLlmBudget):
+            record_planner_sidecar(_budget, started_at=_planner_started)
     evidence_payload["mcp_allowed_normalized"] = _mcp_allowed_decision_from_plan(evidence_payload)
     workflow_plan = state.get("workflow_plan")
     if (
@@ -2989,6 +3007,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     elif isinstance(qu, dict) and isinstance(qu.get("entities"), dict):
         entities_payload = qu["entities"]
     match_path_for_t2 = _candidate_match_path(state)
+    evidence_plan_for_shape = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
+    resource_plan_for_shape = (
+        evidence_plan_for_shape.get("resource_plan")
+        if isinstance(evidence_plan_for_shape.get("resource_plan"), dict)
+        else None
+    )
     message = _chat_message(
         spl_validation,
         execution,
@@ -3135,7 +3159,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             settings.ai_soc_t2_answer_shape_enabled
             and bool(request.message)
             and not should_bypass_shape_router(match_path_for_t2)
-            and classify_answer_shape(request.message, entities=entities_payload).primary_shape != "hunt"
+            and classify_answer_shape(
+                request.message,
+                entities=entities_payload,
+                resource_plan=resource_plan_for_shape,
+            ).primary_shape
+            != "hunt"
         )
         draft_block = build_draft_preview_analyst_message(spl_draft_preview)
         if shaped_non_hunt:
@@ -3520,24 +3549,47 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         elif (hop_block := budget.sidecar_hop_blocked(role="route_plan_candidate_generator")):
             resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": hop_block}
         else:
-            _t0 = time.monotonic()
-            shadow_result = run_resource_plan_shadow(
-                query=request.message,
-                match_path=_match_path_from_state(state),
-                evidence_plan=evidence_plan_payload,
-            )
-            resource_plan_shadow_trace = shadow_result.to_trace_dict()
-            if shadow_result.llm_called:
-                budget.record_sidecar(
-                    role="route_plan_candidate_generator",
-                    provider_label="local_or_failover",
-                    outcome="completed",
-                    latency_ms=int((time.monotonic() - _t0) * 1000),
-                )
+            _inline_bridge = None
             if isinstance(evidence_plan_payload, dict):
-                after_source = (evidence_plan_payload.get("resource_plan") or {}).get("plan_source")
-                if live_plan_source is not None:
-                    resource_plan_shadow_trace["live_plan_source_unchanged"] = after_source == live_plan_source
+                live_resource_plan = evidence_plan_payload.get("resource_plan")
+                if isinstance(live_resource_plan, dict):
+                    _inline_bridge = (live_resource_plan.get("provenance") or {}).get("llm_bridge")
+            if _inline_bridge == "promoted":
+                live_steps = (
+                    (evidence_plan_payload.get("resource_plan") or {}).get("steps")
+                    if isinstance(evidence_plan_payload, dict)
+                    else None
+                )
+                resource_plan_shadow_trace = {
+                    "shadow_only": True,
+                    "promotion_blocked": False,
+                    "llm_called": True,
+                    "deterministic_plan_source": live_plan_source or "deterministic",
+                    "skipped_reason": "promoted_inline",
+                    "shadow_plan_source": (evidence_plan_payload or {}).get("resource_plan", {}).get("plan_source"),
+                    "shadow_step_count": len(live_steps or []),
+                    "shadow_provenance": (evidence_plan_payload or {}).get("resource_plan", {}).get("provenance"),
+                    "live_plan_source_unchanged": False,
+                }
+            else:
+                _t0 = time.monotonic()
+                shadow_result = run_resource_plan_shadow(
+                    query=request.message,
+                    match_path=_match_path_from_state(state),
+                    evidence_plan=evidence_plan_payload,
+                )
+                resource_plan_shadow_trace = shadow_result.to_trace_dict()
+                if shadow_result.llm_called:
+                    budget.record_sidecar(
+                        role="route_plan_candidate_generator",
+                        provider_label="local_or_failover",
+                        outcome="completed",
+                        latency_ms=int((time.monotonic() - _t0) * 1000),
+                    )
+                if isinstance(evidence_plan_payload, dict):
+                    after_source = (evidence_plan_payload.get("resource_plan") or {}).get("plan_source")
+                    if live_plan_source is not None:
+                        resource_plan_shadow_trace["live_plan_source_unchanged"] = after_source == live_plan_source
         if llm_turn_budget_trace is not None:
             llm_turn_budget_trace = budget.to_trace_dict()
     composer_trace: dict[str, Any] = build_composer_runtime_status()
@@ -3787,6 +3839,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
             user_query=request.message,
             match_path=match_path_for_t2,
+            resource_plan=resource_plan_for_shape,
         )
     if settings.ai_soc_t2_answer_surfacing_enabled:
         # WS-7b/7c: enrich a status-only stub with an asset-scoped checklist
@@ -7713,6 +7766,11 @@ def _chat_message(
     )
 
     path_type = planning_decision.get("path_type") if isinstance(planning_decision, dict) else None
+    resource_plan = None
+    if isinstance(evidence_plan, dict):
+        candidate_plan = evidence_plan.get("resource_plan")
+        if isinstance(candidate_plan, dict):
+            resource_plan = candidate_plan
     intent_family = ""
     primary_intent = ""
     if isinstance(intent_classification, dict):
@@ -7780,22 +7838,28 @@ def _chat_message(
                 )
                 if preview:
                     return build_draft_preview_analyst_message(preview)
-            shape = classify_answer_shape(user_query, entities=entities)
+            shape = classify_answer_shape(user_query, entities=entities, resource_plan=resource_plan)
             if shape.primary_shape != "hunt":
-                return build_shaped_guidance(user_query, entities=entities, match_path=match_path)
+                return build_shaped_guidance(
+                    user_query, entities=entities, match_path=match_path, resource_plan=resource_plan
+                )
             if (
                 str(match_path or "") == "out_of_registry"
                 and path_type
                 in {"guided_investigation", "hybrid_investigation", "spl_review", "spl_review_plus_rag"}
             ):
-                return build_shaped_guidance(user_query, entities=entities, match_path=match_path)
+                return build_shaped_guidance(
+                    user_query, entities=entities, match_path=match_path, resource_plan=resource_plan
+                )
     if path_type == "guided_investigation" and user_query:
         # WS-0: route through the answer-shape router so non-hunt shapes
         # (IR/containment, regulatory, timeline, baselining, source-health,
         # insider/DLP, process-aware) get their shaped builders. The router
         # falls back to build_guided_investigation_guidance when the shape flag
         # is off or the match path is in-catalogue (happy-path bypass).
-        return build_shaped_guidance(user_query, entities=entities, match_path=match_path)
+        return build_shaped_guidance(
+            user_query, entities=entities, match_path=match_path, resource_plan=resource_plan
+        )
     if user_query and is_policy_escalation_guidance_query(user_query):
         return build_policy_escalation_guidance(user_query)
     if user_query and is_mitre_evidence_threshold_query(user_query):

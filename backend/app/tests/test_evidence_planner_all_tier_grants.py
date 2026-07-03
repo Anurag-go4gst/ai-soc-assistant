@@ -1,0 +1,119 @@
+"""Item 2.1 — MCP evidence-plan grants on all tiers, gated on control_plane_enabled.
+
+Scope (grounded against the actual code, not the plan's original draft text):
+`spl_generation_only` + a live-data ask is the one family in evidence_planner.py
+that self-admittedly needed MCP but never allowed it
+(``live_data_request_mcp_needed_but_not_allowed``). Under control_plane_enabled,
+this item flips that to an architectural eligibility grant — matching how
+``spl_generation_and_run``/default ``live_investigation`` already set
+``mcp_allowed=True`` before any SPL is validated. Real gating (validated
+``normalized_spl``, tool selection, per-call HIL confirmation) is unchanged and
+lives downstream at ``evaluate_mcp_execution`` — this test only proves the
+plan-level eligibility flag and the execution gate remain two separate things.
+
+``guided_investigation``'s discovery grant is intentionally NOT touched here:
+it is already gated behind ``ai_soc_guided_mcp_discovery_enabled`` /
+``ai_soc_guided_hybrid_investigation_enabled`` as a deliberate rollout gate
+(pinned by ``test_guided_mcp_discovery_lane.py::test_guided_plan_discovery_allowed_follows_flag``).
+Un-gating it is a flag-rightsizing (DG-4/Phase 7) decision, not an evidence-plan
+default — see the plan's Drift log entry for 2026-07-02 (item 2.1 scope note).
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from app.chat.contracts.intent_classification import IntentClassification
+from app.chat.evidence_planner import plan_evidence
+from app.chat.intent_classifier import build_query_to_intent
+from app.config import settings
+from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
+from app.query_understanding.parser import understand_query
+
+_LIVE_DATA_QUERY = "Find failed-login users in the last 24 hours"
+
+
+def _plan(query: str):
+    understanding = understand_query(query)
+    q2i = build_query_to_intent(query=query, query_understanding=understanding)
+    return plan_evidence(q2i.intent_classification, q2i.model_dump(), routed={}, query_understanding=understanding)
+
+
+def test_control_plane_off_stays_byte_identical(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", False)
+    plan = _plan(_LIVE_DATA_QUERY)
+    assert plan.needs_mcp is True
+    assert plan.mcp_allowed is False
+    assert plan.discovery_allowed is not True
+    assert "live_data_request_mcp_needed_but_not_allowed" in plan.reasons
+
+
+def test_control_plane_on_grants_search_eligibility(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    plan = _plan(_LIVE_DATA_QUERY)
+    assert plan.needs_mcp is True
+    assert plan.mcp_allowed is True
+    assert plan.discovery_allowed is True
+    assert "live_data_request_mcp_search_eligible_pending_validation" in plan.reasons
+    # eligibility is architectural only — no validated SPL exists yet
+    assert "live_data_request_mcp_needed_but_not_allowed" not in plan.reasons
+
+
+def test_no_live_data_request_gets_no_search_grant(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Construct the spl_generation_only + live_data_request=False case directly:
+    natural-language routing to this exact combination is not reliably reachable
+    (SPL-authoring phrasings tend to also set live_data_request=True), so this
+    exercises the evidence_planner branch logic directly rather than depending
+    on intent-classification heuristics that are out of this item's scope."""
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    intent = IntentClassification(
+        intent_family="spl_generation_only",
+        primary_intent="ask_for_query_generation",
+        query_type="ask_for_query_generation",
+        answer_goal=["spl_artifact"],
+        confidence=0.9,
+        confidence_band="high",
+        requires_clarification=False,
+        reason="test_direct_construction",
+    )
+    query_to_intent = {
+        "intent_classification": intent.model_dump(),
+        "query_signals": {"live_data_request": False},
+    }
+    plan = plan_evidence(intent, query_to_intent, routed={}, query_understanding=None)
+    assert plan.needs_mcp is False
+    assert plan.mcp_allowed is False
+    # discovery is still granted — read-only, safe regardless of live-data intent
+    assert plan.discovery_allowed is True
+
+
+def test_non_spl_families_unaffected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    plan = _plan("What is the escalation policy for repeated failed login alerts?")
+    assert plan.answer_mode == "rag_only"
+    assert plan.mcp_allowed is False
+
+
+def test_eligibility_does_not_bypass_execution_gate() -> None:
+    """mcp_allowed=True at plan time never substitutes for the execution gate's
+    own validated-SPL / confirmation / HIL requirements — the gate still blocks
+    an unresolved request identically regardless of evidence-plan eligibility."""
+    execution, review = evaluate_mcp_execution(
+        trace_id="test-2.1-gate-independence",
+        selected_skill="spl_generation",
+        workflow_plan={},
+        spl_validation=None,
+    )
+    assert execution["status"] != "executed"
+    assert review.get("required") is True or execution["status"] == "requires_human_review"
+
+
+def test_guided_investigation_discovery_stays_flag_gated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """2.1 deliberately does not touch guided_investigation's rollout gate —
+    confirms the existing flag-off behavior is unchanged by this item."""
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", False)
+    monkeypatch.setattr(settings, "ai_soc_guided_mcp_discovery_enabled", False)
+    plan = _plan("How should I investigate unusual outbound traffic from an OT host overnight?")
+    assert plan.answer_mode == "guided_investigation"
+    assert plan.discovery_allowed is not True
