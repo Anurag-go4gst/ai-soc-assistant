@@ -50,6 +50,7 @@ def evaluate_mcp_execution(
     analyst_provided_spl: str | None = None,
     pending_execution: dict[str, Any] | None = None,
     rbac_role: str | None = None,
+    llm_lineage_auto_eligible: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     telemetry = get_telemetry_connector()
     precondition_block_reason = _precondition_block_reason(precondition_evaluation)
@@ -121,9 +122,13 @@ def evaluate_mcp_execution(
         # Live read-only searches always require per-call analyst confirmation,
         # even if a deployment accidentally leaves the optional mock/lab flag
         # disabled. Mock execution retains its explicit demo posture controls.
+        # `llm_lineage_auto_eligible` (item 2.4 risk-based HIL, 2026-07-03) may
+        # relax confirmation ONLY in non-live/mock mode — it never overrides the
+        # registry.mode=="registry" branch above, so live Splunk execution keeps
+        # requiring per-call confirmation unconditionally regardless of risk tier.
         require_confirmation=(
             registry.mode == "registry"
-            or settings.ai_soc_require_spl_execution_confirmation
+            or (settings.ai_soc_require_spl_execution_confirmation and not llm_lineage_auto_eligible)
         ),
     )
     if confirmation_review is not None:

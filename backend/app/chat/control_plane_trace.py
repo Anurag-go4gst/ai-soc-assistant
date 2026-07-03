@@ -104,6 +104,16 @@ def build_control_plane_trace(
         "pipeline_dispatch": state.get("pipeline_dispatch")
         if isinstance(state.get("pipeline_dispatch"), dict)
         else None,
+        "spl_source_resolve": state.get("spl_source_resolve")
+        if isinstance(state.get("spl_source_resolve"), dict)
+        else None,
+        # Item 2.3/2.4 (2026-07-03): the derived, risk-classified artifact
+        # consumed by graph_node_execution — surfaced here so the analyst-visible
+        # trace/debug API carries the full vigilance audit trail (risk_tier,
+        # checks_passed/failed, blocked_reason), not just the execution outcome.
+        "llm_derived_spl_artifact": state.get("llm_derived_spl_artifact")
+        if isinstance(state.get("llm_derived_spl_artifact"), dict)
+        else None,
     }
     run_contract = state.get("run_contract") if isinstance(state.get("run_contract"), dict) else None
     final_evidence_gate = (
