@@ -161,6 +161,7 @@ from app.chat.answer_shape_router import (
     build_supply_chain_firmware_guidance,
     classify_answer_shape,
     is_supply_chain_firmware_query,
+    plan_purposes_from_resource_plan,
     should_bypass_shape_router,
 )
 from app.chat.final_answer_validator import validate_final_answer
@@ -193,7 +194,7 @@ from app.chat.evidence_loop import (
     record_hop,
     record_recipe_call,
 )
-from app.planner.recipe_registry import get_recipe
+from app.planner.recipe_registry import get_recipe, select_recipe_for_plan
 from app.chat.guided_hunt_grounding import (
     T2_UNVERIFIED_BANNER,
     build_guided_hunt_grounding,
@@ -393,6 +394,12 @@ class ChatPipelineState(TypedDict, total=False):
     execution_decision: dict[str, Any] | None
     final_answer_validation: dict[str, Any] | None
     node_trace: list[dict[str, Any]]
+    # Plan 5.2 — LangGraph drops undeclared keys; spine + dispatch/gate channels.
+    canonical_facts: dict[str, Any] | None
+    final_evidence_gate: dict[str, Any] | None
+    plan_dispatch_trace: dict[str, Any] | None
+    # Item 5.4 — advisory grounding block assembled from the CanonicalFacts spine.
+    grounding_block: dict[str, Any] | None
     response: PlaceholderResponse
 
 
@@ -1346,6 +1353,31 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         evidence_payload.get("discovery_allowed") is True
         and evidence_payload.get("mcp_allowed") is not True
     )
+    # O5c (item 3.4, 2026-07-03): select a governed recipe for this turn, if
+    # any. This is the live-invocation step items 3.1-3.3 deliberately left
+    # dormant — select_recipe_for_plan is a pure function; the recipe path
+    # itself was already built and langgraph-verified in items 3.1-3.3.
+    # Scoped to out-of-registry/near-105 paths ONLY (same _TRIGGER_MATCH_PATHS
+    # set llm_plan_bridge.py already uses for the same reason) — this plan is
+    # explicitly about out-of-catalogue resource planning; sweeping in-catalogue
+    # traffic into the newer, less-proven recipe/O5c dispatch mechanism instead
+    # of the established chronology path broke 5 pinned tests when tried
+    # unscoped (same query text, same shape, previously chronology-routed).
+    _resource_plan_for_shape = evidence_payload.get("resource_plan")
+    if isinstance(_resource_plan_for_shape, dict) and _match_path_from_state(state) in {
+        "out_of_registry",
+        "near_105_question",
+    }:
+        _shape_query = state.get("effective_query") or state["request"].message
+        _shape_result = classify_answer_shape(_shape_query, resource_plan=_resource_plan_for_shape)
+        _selected_recipe_id = select_recipe_for_plan(
+            resource_plan_purposes=plan_purposes_from_resource_plan(_resource_plan_for_shape),
+            answer_shape=_shape_result.primary_shape,
+            mcp_allowed=bool(evidence_payload.get("mcp_allowed")),
+            discovery_allowed=bool(evidence_payload.get("discovery_allowed")),
+        )
+        if _selected_recipe_id:
+            state = {**state, "mcp_recipe_id": _selected_recipe_id}
     # O5c (item 3.1): a recipe-driven turn skips chronology composition entirely
     # — the scheduler decides call order from the recipe, not a fixed sequence.
     active_recipe = _active_recipe(state)
@@ -2349,6 +2381,8 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
             }
             llm_lineage_auto_eligible = bool(derived_artifact.get("auto_eligible"))
 
+    qu = state.get("query_understanding")
+    mapped_use_case_ids = list(getattr(qu, "mapped_use_case_ids", None) or []) if qu is not None else []
     execution, human_review = _execution_stage(
         trace_id=state["trace_id"],
         selected_skill=_effective_routing_skill(state),
@@ -2363,6 +2397,9 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         analyst_provided_spl=getattr(request, "analyst_provided_spl", None),
         pending_execution=pending_execution,
         rbac_role=session_role_for_mcp_gate(state.get("session_role")),
+        catalogue_match_path=getattr(qu, "deterministic_match_path", None) if qu is not None else None,
+        catalogue_question_ref=getattr(qu, "mapped_question_ref", None) if qu is not None else None,
+        catalogue_use_case_id=mapped_use_case_ids[0] if mapped_use_case_ids else None,
     )
     # O5c Step 2: the broaden confirm turn executed the approved broadened
     # search. Attach the two-call cross-turn envelope (empty primary + broadened
@@ -2920,8 +2957,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         **state,
         "run_contract": enrich_run_contract_payload(run_contract.model_dump_canonical(), gate_state_input),
         "source_evidence": source_evidence,
+        "structured_context": structured_context,
         "final_evidence_gate": gate_payload,
     }
+    from app.chat.canonical_facts_spine import attach_canonical_facts_to_state
+
+    state = attach_canonical_facts_to_state(state)
     source_refs = [str(item.get("evidence_id")) for item in source_evidence]
     spl_template = template_summary(selected_use_case.default_spl_template if selected_use_case else None)
     if selected_use_case is not None:
@@ -2984,7 +3025,70 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             structured_context=structured_context,
             session_alert_context=session_alert_context,
             execution=execution,
+            canonical_facts=state.get("canonical_facts"),
         )
+    state = {
+        **state,
+        "mitre_decision": mitre_decision,
+        "mitre_mappings": mitre_mappings,
+    }
+    state = attach_canonical_facts_to_state(state)
+    # Item 5.3 (2026-07-03): record a best-effort CanonicalFacts snapshot +
+    # LLM-plan-bridge promotion verdict at synthesis time into the trace spine.
+    # Never allowed to break chat — telemetry failure degrades to a missing
+    # trace event, never a broken response.
+    try:
+        from app.chat.canonical_facts_spine import synthesis_fact_summary
+        from app.chat.contracts.canonical_facts import CanonicalFacts
+
+        raw_facts = state.get("canonical_facts")
+        if isinstance(raw_facts, dict):
+            fact_summary = synthesis_fact_summary(CanonicalFacts.model_validate(raw_facts))
+            evidence_plan_for_verdict = state.get("evidence_plan")
+            resource_plan_for_verdict = (
+                evidence_plan_for_verdict.get("resource_plan")
+                if isinstance(evidence_plan_for_verdict, dict)
+                else None
+            )
+            provenance_for_verdict = (
+                resource_plan_for_verdict.get("provenance")
+                if isinstance(resource_plan_for_verdict, dict)
+                else None
+            )
+            promotion_verdict = (
+                provenance_for_verdict.get("llm_bridge")
+                if isinstance(provenance_for_verdict, dict)
+                else None
+            )
+            _routes_chat().get_telemetry_connector().record_step(
+                trace_id,
+                "canonical_facts_snapshot",
+                "recorded",
+                fact_count=fact_summary.get("fact_count"),
+                kinds=fact_summary.get("kinds"),
+                promotion_verdict=promotion_verdict,
+            )
+    except Exception:  # noqa: BLE001 - telemetry must never break chat
+        logger.warning("canonical_facts_snapshot_telemetry_failed", exc_info=True)
+    # Item 5.4 (2026-07-03): wire the grounding assembler to the CanonicalFacts
+    # spine so it quotes row-derived evidence with lineage when evidence was
+    # executed, and states the gap honestly when it wasn't. Advisory context
+    # only — deterministic facts remain overlay authority via existing
+    # adapter/validators; this never influences execution_eligible or
+    # severity/MITRE-status decisions.
+    try:
+        raw_facts_for_grounding = state.get("canonical_facts")
+        if isinstance(raw_facts_for_grounding, dict):
+            from app.chat.contracts.canonical_facts import CanonicalFacts
+            from app.chat.grounding_assembler import assemble_grounding_from_facts
+
+            grounding_block = assemble_grounding_from_facts(
+                CanonicalFacts.model_validate(raw_facts_for_grounding),
+                state.get("effective_query") or request.message,
+            )
+            state = {**state, "grounding_block": grounding_block.to_dict()}
+    except Exception:  # noqa: BLE001 - grounding is advisory, never breaks chat
+        logger.warning("grounding_block_assembly_failed", exc_info=True)
     mitre_branch_payload = mitre_branch.model_dump()
     response_use_case = _response_use_case(state)
     severity_decision = decide_severity(
@@ -4513,6 +4617,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         final_answer_safety_status=visibility.get("final_answer_safety_status"),
         session_context_status=session_context_status,
         run_contract=state.get("run_contract"),
+        canonical_facts=state.get("canonical_facts"),
         routing_contract=state.get("route_contract"),
     )
     response = _apply_coe_stop_condition_gate(response, query=request.message)
@@ -4981,9 +5086,33 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
         pre_plan = compose_guided_resource_plan(evidence, validated_plan, match_path=match_path)
         validation = validate_guided_resource_plan(evidence, pre_plan)
         validated_resource = validation.validated_resource_plan
+        rc = _routes_chat()
+        workflow_plan = rc.plan_workflow(
+            selected_skill="guided_investigation",
+            tool_plan=["retrieve_approved_knowledge", "optional_review_only_spl", "no_mcp"],
+            query=request.message,
+            trace_id=trace_id,
+        )
+
+        def _execute_guided_safe_catalog_spl(
+            spl_validation: dict[str, Any],
+        ) -> tuple[dict[str, Any], dict[str, Any]]:
+            return _execution_stage(
+                trace_id=trace_id,
+                selected_skill="spl_generation",
+                workflow_plan=workflow_plan,
+                spl_validation=spl_validation,
+                precondition_evaluation=state.get("route_plan_shadow", {}).get("precondition_evaluation"),
+                requested_mcp_server=request.requested_mcp_server,
+                requested_mcp_tool=request.requested_mcp_tool,
+                mcp_allowed=True,
+                rbac_role=state.get("session_role"),
+            )
+
         collection_state, _ = collect_guided_hybrid_evidence(
             collection_state,
             validated_resource=validated_resource,
+            execute_safe_catalog_spl=_execute_guided_safe_catalog_spl,
         )
         if any(
             step.purpose in {"mcp_discovery", "safe_catalog_query"}
@@ -5036,13 +5165,6 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
         evidence_payload["checklist"] = list(validated_plan.hypotheses)
     if validated_plan.evidence_needed:
         evidence_payload["investigation_workflow"] = list(validated_plan.evidence_needed)
-    rc = _routes_chat()
-    workflow_plan = rc.plan_workflow(
-        selected_skill="guided_investigation",
-        tool_plan=["retrieve_approved_knowledge", "optional_review_only_spl", "no_mcp"],
-        query=request.message,
-        trace_id=trace_id,
-    )
     spl_draft_preview = build_guided_spl_draft_preview_if_allowed(
         query=query,
         evidence_plan=evidence,
@@ -5282,6 +5404,7 @@ def _mitre_outputs_for_finalize(
     session_alert_context: bool = False,
     planning_decision: dict[str, Any] | None = None,
     execution: dict[str, Any] | None = None,
+    canonical_facts: dict[str, Any] | None = None,
 ) -> tuple[list[Any], dict[str, Any] | None]:
     """Legacy mapping by default; Phase 7 decision only when control plane is on."""
     if not settings.control_plane_enabled:
@@ -5309,11 +5432,18 @@ def _mitre_outputs_for_finalize(
             question_ref=question_ref,
             reason=str(branch.reason),
         )
-    negative_evidence = extract_negative_evidence(
-        query_signals=query_signals,
-        source_evidence=source_evidence,
-        structured_context=structured_context,
-    )
+    from app.chat.canonical_facts_spine import negative_evidence_from_facts
+    from app.chat.contracts.canonical_facts import CanonicalFacts
+
+    negative_evidence = None
+    if isinstance(canonical_facts, dict):
+        negative_evidence = negative_evidence_from_facts(CanonicalFacts.model_validate(canonical_facts))
+    if negative_evidence is None:
+        negative_evidence = extract_negative_evidence(
+            query_signals=query_signals,
+            source_evidence=source_evidence,
+            structured_context=structured_context,
+        )
     from app.chat.mitre_branch import _source_profile_missing
 
     decision = resolve_mitre_decision(
@@ -8278,6 +8408,9 @@ def _execution_stage(
     pending_execution: dict[str, Any] | None = None,
     rbac_role: str | None = None,
     llm_lineage_auto_eligible: bool = False,
+    catalogue_match_path: str | None = None,
+    catalogue_question_ref: str | None = None,
+    catalogue_use_case_id: str | None = None,
 ) -> tuple[dict, dict]:
     if spl_validation is None:
         return (
@@ -8328,6 +8461,9 @@ def _execution_stage(
         pending_execution=pending_execution,
         rbac_role=rbac_role,
         llm_lineage_auto_eligible=llm_lineage_auto_eligible,
+        catalogue_match_path=catalogue_match_path,
+        catalogue_question_ref=catalogue_question_ref,
+        catalogue_use_case_id=catalogue_use_case_id,
     )
 
 

@@ -29,13 +29,19 @@ from typing import Any
 from app.config import settings
 from app.llm.adapter.output_preprocessor import BRIDGE_PROPOSAL_SCHEMA, preprocess_llm_output
 from app.planner.resource_plan import PlanStep, ResourcePlan
-from app.planner.resource_registry import ResourceDescriptor, ResourceRegistry, load_resource_registry
+from app.planner.resource_registry import (
+    ResourceDescriptor,
+    ResourceRegistry,
+    is_composer_dispatchable,
+    load_resource_registry,
+    registry_dispatch_mode,
+)
 
 _TRIGGER_MATCH_PATHS = {"out_of_registry", "near_105_question"}
 _BRIDGE_TIMEOUT_SECONDS = 20.0
 _DISPATCHABLE_AVAILABILITY = frozenset({"available", "fixture_only"})
-_ALLOWED_PURPOSES = {"knowledge_retrieval", "spl_artifact", "mcp_execution", "mitre_mapping", "narration"}
-_DEFERRED_PURPOSES = frozenset({"cve_lookup", "action_proposal"})
+_ALLOWED_PURPOSES = {"knowledge_retrieval", "spl_artifact", "mcp_execution", "mitre_mapping", "cve_lookup", "narration"}
+_DEFERRED_PURPOSES = frozenset({"action_proposal"})
 _TIME_BOUND = re.compile(r"^(now|-?\d+[smhd](@[smhd])?)$")
 # Raw query text must never ride in a proposal — plans bind families/corpora,
 # never SPL strings.
@@ -45,11 +51,14 @@ _SYSTEM_PROMPT = (
     "You are a SOC investigation planner. Given an analyst question, propose "
     "an ordered resource plan as ONE JSON object and nothing else:\n"
     '{"steps": [{"resource_id": "<id from the catalog>", "purpose": '
-    '"<knowledge_retrieval|spl_artifact|mitre_mapping|narration>", '
+    '"<knowledge_retrieval|spl_artifact|mcp_execution|mitre_mapping|cve_lookup|narration>", '
     '"args": {}}], "rationale": "<one sentence>"}\n'
     "Rules: use only resource ids from the catalog provided; never invent ids; "
     "never include SPL text or raw queries in args; prefer the cheapest "
-    "resource that answers the question."
+    "resource that answers the question. "
+    "Use skill:cve_lookup with purpose cve_lookup for CVE/KEV/patch-gap questions "
+    "(snapshot read-only). Use skill:mitre_mapping with purpose mitre_mapping when "
+    "the analyst asks for ATT&CK technique mapping with alert or log context."
 )
 
 
@@ -268,7 +277,7 @@ def _step_verdict(
         return "unknown_resource_id"
     if descriptor.availability == "blocked":
         return "resource_blocked"
-    if descriptor.availability not in _DISPATCHABLE_AVAILABILITY:
+    if not is_composer_dispatchable(descriptor, mode=registry_dispatch_mode()):
         return "resource_not_dispatchable"
     if purpose not in _ALLOWED_PURPOSES:
         return "unknown_purpose"
@@ -297,6 +306,8 @@ def _purpose_allowed_for_resource(descriptor: ResourceDescriptor, purpose: str) 
         return descriptor.kind in {"spl_template_family", "spl_lab_draft_family", "skill"}
     if purpose == "mitre_mapping":
         return descriptor.resource_id == "skill:mitre_mapping"
+    if purpose == "cve_lookup":
+        return descriptor.resource_id == "skill:cve_lookup"
     if purpose == "mcp_execution":
         return descriptor.kind == "mcp_tool"
     if purpose == "narration":

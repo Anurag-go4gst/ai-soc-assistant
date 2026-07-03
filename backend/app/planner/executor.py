@@ -22,7 +22,7 @@ from app.chat.contracts.pipeline_dispatch import (
     projected_flags_from_state,
 )
 from app.config import settings
-from app.planner.resource_registry import load_resource_registry
+from app.planner.resource_registry import is_composer_dispatchable, load_resource_registry, registry_dispatch_mode
 
 State = dict[str, Any]
 
@@ -85,7 +85,13 @@ class DispatchHooks:
     execution: Node
 
 
-_DISPATCHABLE_PURPOSES = frozenset({"knowledge_retrieval", "spl_artifact", "mcp_execution"})
+def _registry_skip_reason(step: Mapping[str, Any]) -> str:
+    if str(step.get("status") or "") == "not_onboarded":
+        return "resource_not_onboarded"
+    return "registry_resource_blocked"
+
+
+_DISPATCHABLE_PURPOSES = frozenset({"knowledge_retrieval", "spl_artifact", "mcp_execution", "cve_lookup", "mitre_mapping"})
 
 
 @dataclass(frozen=True)
@@ -117,7 +123,7 @@ def walk_plan_steps(state: State) -> PlanStepWalkResult | None:
   for step in steps_in_order:
     step_id = str(step.get("step_id") or "")
     if step_id in registry_blocked:
-      skipped[step_id] = "registry_resource_blocked"
+      skipped[step_id] = _registry_skip_reason(step)
       continue
     if step_id in preblocked:
       skipped[step_id] = _preserved_block_reason(step)
@@ -288,14 +294,27 @@ def has_composed_plan(state: State) -> bool:
 
 
 def _blocked_step_ids(state: State) -> set[str]:
-    """Steps bound to blocked registry resources are refused before dispatch."""
+    """Steps bound to blocked or not-onboarded registry resources are refused before dispatch."""
     plan = _resource_plan(state) or {}
     registry = load_resource_registry()
+    mode = registry_dispatch_mode()
     blocked: set[str] = set()
     for step in plan.get("steps", []):
+        step_id = str(step.get("step_id") or "")
+        if str(step.get("status") or "") == "not_onboarded":
+            blocked.add(step_id)
+            continue
         descriptor = registry.by_id(str(step.get("resource_id") or ""))
-        if descriptor is not None and descriptor.availability == "blocked":
-            blocked.add(str(step.get("step_id")))
+        if descriptor is None:
+            continue
+        if descriptor.availability == "blocked":
+            blocked.add(step_id)
+            continue
+        purpose = str(step.get("purpose") or "")
+        if purpose in {"mcp_execution", "mcp_discovery", "safe_catalog_query"} and not is_composer_dispatchable(
+            descriptor, mode=mode
+        ):
+            blocked.add(step_id)
     return blocked
 
 

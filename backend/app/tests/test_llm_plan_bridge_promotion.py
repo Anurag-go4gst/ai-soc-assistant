@@ -101,15 +101,25 @@ def test_garbage_and_empty_proposals_rejected(registry) -> None:
     assert empty.llm_bridge == "rejected:all_steps_dropped"
 
 
-def test_deferred_purposes_rejected_until_registry_phases(registry) -> None:
-    for purpose in ("cve_lookup", "action_proposal"):
-        result = validate_llm_plan_proposal(
-            _payload([{"resource_id": "rag_corpus:soc_kb", "purpose": purpose}]),
-            registry=registry,
-            mcp_allowed=False,
-        )
-        assert result.plan is None
-        assert result.dropped_steps[0]["reason"] == "unknown_purpose"
+def test_deferred_action_proposal_rejected(registry) -> None:
+    result = validate_llm_plan_proposal(
+        _payload([{"resource_id": "rag_corpus:soc_kb", "purpose": "action_proposal"}]),
+        registry=registry,
+        mcp_allowed=False,
+    )
+    assert result.plan is None
+    assert result.dropped_steps[0]["reason"] == "unknown_purpose"
+
+
+def test_cve_lookup_promoted_with_registry_skill(registry) -> None:
+    result = validate_llm_plan_proposal(
+        _payload([{"resource_id": "skill:cve_lookup", "purpose": "cve_lookup"}]),
+        registry=registry,
+        mcp_allowed=False,
+        match_path="out_of_registry",
+    )
+    assert result.plan is not None
+    assert result.plan.steps[0].resource_id == "skill:cve_lookup"
 
 
 def test_valid_multi_tool_proposal_promoted(registry) -> None:

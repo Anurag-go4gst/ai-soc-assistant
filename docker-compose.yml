@@ -3,7 +3,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "127.0.0.1:8010:8010"
+      - "${AI_SOC_HOST_BIND:-127.0.0.1}:${AI_SOC_BACKEND_HOST_PORT:-8010}:8010"
     env_file:
       - env/profiles/${AI_SOC_ENV_PROFILE:-coe}.env.example
       - .env
@@ -30,7 +30,9 @@ services:
     image: node:22-alpine
     working_dir: /app
     ports:
-      - "127.0.0.1:3010:3010"
+      - "${AI_SOC_HOST_BIND:-127.0.0.1}:${AI_SOC_FRONTEND_HOST_PORT:-3010}:3010"
+    environment:
+      VITE_API_BASE_URL: ${AI_SOC_PUBLIC_API_BASE_URL:-http://127.0.0.1:8010/api}
     volumes:
       - ./frontend:/app
       - ./docs:/docs:ro
@@ -39,7 +41,7 @@ services:
   postgres:
     image: postgres:16
     ports:
-      - "127.0.0.1:5434:5432"
+      - "${AI_SOC_HOST_BIND:-127.0.0.1}:${AI_SOC_POSTGRES_HOST_PORT:-5434}:5432"
     environment:
       POSTGRES_DB: ai_soc_assistant
       POSTGRES_USER: ai_soc

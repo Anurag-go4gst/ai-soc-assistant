@@ -4873,5 +4873,23 @@
       "backend/app/tests/test_chat_progress_stream.py"
     ],
     "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+  },
+  {
+    "batch": "C",
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_catalogue_auto_execute_enabled",
+    "default_env": "false",
+    "disposition": "keep",
+    "env_key": "AI_SOC_CATALOGUE_AUTO_EXECUTE_ENABLED",
+    "evidence": "rg: backend/app/orchestration/catalogue_execution_eligibility.py, backend/app/orchestration/mcp_execution_gate.py; DG-5 COE kill-switch",
+    "git_intro": "2026-07-03 DG-5 catalogue-known auto-execute",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/orchestration/catalogue_execution_eligibility.py",
+      "backend/app/orchestration/mcp_execution_gate.py",
+      "backend/app/coverage/catalogue_execution_map.py",
+      "docs/architecture/catalogue_auto_execute_policy.md"
+    ],
+    "risk_note": "COE kill-switch \u2014 default false; enables catalogue-known HIL exemption only when pilot map signed."
   }
 ]

@@ -22,6 +22,7 @@ StepStatus = Literal[
     "skipped_unavailable",
     "blocked_policy",
     "not_run",
+    "not_onboarded",
 ]
 
 # Step purpose → the legacy boolean it projects onto.

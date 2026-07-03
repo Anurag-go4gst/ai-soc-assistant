@@ -110,6 +110,13 @@ class SplAdvisoryCandidate(AdapterPayload):
     confidence_label: str = "low"
     detection_family: str = ""
     candidate_spl: str
+    index: str | None = None
+    sourcetype: str | None = None
+    earliest: str | None = None
+    latest: str | None = None
+    time_window_hours: int | None = None
+    result_cap: int | None = None
+    unresolved_slots: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
     required_fields: list[str] = Field(default_factory=list)
     missing_details: list[str] = Field(default_factory=list)
