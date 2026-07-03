@@ -4212,6 +4212,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     # evidence keys, provenance, skip reason, survival) and guarantees an
     # investigation skill never returns a silent empty card.
     from app.chat.skill_contribution import (
+        apply_evidence_summary_floor,
         apply_investigation_floor,
         apply_out_of_catalog_guidance_floor,
         build_skill_contribution,
@@ -4241,6 +4242,25 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         analyst_response = apply_investigation_floor(
             envelope=analyst_response, contribution=skill_contribution
         )
+        # Item 5.5: scoped to out-of-registry/near-105 paths ONLY — the same
+        # _TRIGGER_MATCH_PATHS-style set item 3.4 uses for the identical reason.
+        # This plan is about out-of-catalogue answer quality; an unscoped floor
+        # added a new "evidence_summary" section to in-catalogue (105/50) answer
+        # contracts and broke the frozen contract-guard baseline (item 0.3) —
+        # discovered via the full-suite run, fixed by scoping rather than
+        # touching the baseline.
+        if match_path_for_t2 in {"out_of_registry", "near_105_question"}:
+            analyst_response = apply_evidence_summary_floor(
+                envelope=analyst_response,
+                contribution=skill_contribution,
+                grounding_block=state.get("grounding_block")
+                if isinstance(state.get("grounding_block"), dict)
+                else None,
+                requires_clarification=bool(
+                    isinstance(intent_classification, dict)
+                    and intent_classification.get("requires_clarification")
+                ),
+            )
     skill_contribution_record: dict[str, Any] = skill_contribution.to_dict()
 
     # WS0 T0.4 + SPL handoff: resolve final ResourcePlan step statuses and

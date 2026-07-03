@@ -315,3 +315,63 @@ def apply_out_of_catalog_guidance_floor(
     contribution.survived_into_card = True
     return envelope
 
+
+# Item 5.5 (2026-07-03): confidence cannot exceed this ceiling when no executed
+# evidence backs the answer — downgrade-only, mirrors the MITRE evidence-tier
+# cap (app.threat.mitre_evidence_preconditions.cap_mitre_status_for_evidence_tier):
+# never claim more certainty than the evidence class supports.
+_CONFIDENCE_CEILING_WITHOUT_EVIDENCE = "Medium"
+
+
+def apply_evidence_summary_floor(
+    *,
+    envelope: AnalystResponseEnvelope,
+    contribution: SkillContribution,
+    grounding_block: dict[str, Any] | None,
+    requires_clarification: bool = False,
+) -> AnalystResponseEnvelope:
+    """Item 5.5 — evidence-bearing answers render an evidence summary and have
+    confidence bounded by evidence class.
+
+    `evidence_summary` (an existing, previously-unpopulated field on
+    AnalystResponseEnvelope) is filled from the item 5.4 grounding block:
+    row-derived citations with lineage when evidence was executed, an honest
+    what-was-checked statement when it wasn't. Content-driven, like the other
+    floors in this module — never renders when there is no grounding block at
+    all (e.g. knowledge-only turns with nothing evidence-shaped to summarize),
+    or when the turn is a pure clarification request (found via the
+    sentinel-baseline regression: a clarification_required/out_of_registry
+    turn has no evidence to summarize and must render only out_of_catalog_notice,
+    matching pg.clar.001's frozen baseline).
+    """
+    if not isinstance(grounding_block, dict) or requires_clarification:
+        return envelope
+
+    citations = [c for c in grounding_block.get("evidence_citations") or [] if isinstance(c, dict)]
+    limitations = [str(item) for item in grounding_block.get("limitations") or [] if item]
+    render = dict(envelope.render_sections or {})
+    updates: dict[str, Any] = {}
+
+    if citations:
+        parts = [
+            f"{c.get('row_count')} row(s) from {c.get('source_type')} (evidence_id={c.get('evidence_id')})"
+            for c in citations
+        ]
+        updates["evidence_summary"] = "Evidence collected: " + "; ".join(parts)
+        render["evidence_summary"] = True
+    elif limitations:
+        updates["evidence_summary"] = "What was checked: " + "; ".join(limitations)
+        render["evidence_summary"] = True
+        if envelope.severity_confidence == "High":
+            updates["severity_confidence"] = _CONFIDENCE_CEILING_WITHOUT_EVIDENCE
+
+    if not updates:
+        return envelope
+
+    updates["render_sections"] = render
+    updated = envelope.model_copy(update=updates)
+    contribution.floor_applied = True
+    if "evidence_summary" not in contribution.contributed_sections:
+        contribution.contributed_sections.append("evidence_summary")
+    return updated
+
