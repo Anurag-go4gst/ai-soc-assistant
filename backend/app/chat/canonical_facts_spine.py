@@ -272,8 +272,16 @@ def _harvest_plan_steps(state: Mapping[str, Any]) -> list[CanonicalFact]:
 
 
 def _harvest_negative_evidence(state: Mapping[str, Any]) -> list[CanonicalFact]:
+    # query_signals is never a flat state key — it lives at
+    # state["query_to_intent"]["query_signals"] (see pipeline._query_signals_
+    # from_state). Reading state.get("query_signals") directly always returned
+    # None here, silently dropping query-text negation signals ("no successful
+    # login", "no endpoint telemetry") from the harvested fact and producing an
+    # incomplete negative-evidence payload downstream in MITRE status capping.
+    q2i = state.get("query_to_intent")
+    query_signals = q2i.get("query_signals") if isinstance(q2i, dict) and isinstance(q2i.get("query_signals"), dict) else None
     negative = extract_negative_evidence(
-        query_signals=state.get("query_signals") if isinstance(state.get("query_signals"), dict) else None,
+        query_signals=query_signals,
         source_evidence=state.get("source_evidence") if isinstance(state.get("source_evidence"), list) else None,
         structured_context=state.get("structured_context") if isinstance(state.get("structured_context"), dict) else None,
     )
