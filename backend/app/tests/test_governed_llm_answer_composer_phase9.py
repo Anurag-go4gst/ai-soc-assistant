@@ -18,9 +18,10 @@ from app.synthesis.governed_answer_composer import (
 
 
 class _StubClient:
-    def __init__(self, *, text: str = "", raises: bool = False) -> None:
+    def __init__(self, *, text: str = "", raises: bool = False, finish_reason: str | None = None) -> None:
         self._text = text
         self._raises = raises
+        self._finish_reason = finish_reason
         self.calls = 0
         self.last_prompt = ""
 
@@ -29,7 +30,13 @@ class _StubClient:
         self.last_prompt = user_prompt
         if self._raises:
             raise LocalChatError("transport_error:Boom")
-        return ChatResult(text=self._text, model="stub-model", latency_ms=12, usage={"total_tokens": 5})
+        return ChatResult(
+            text=self._text,
+            model="stub-model",
+            latency_ms=12,
+            usage={"total_tokens": 5},
+            finish_reason=self._finish_reason,
+        )
 
 
 def _contract(**overrides) -> AnswerContract:
@@ -487,6 +494,54 @@ def test_guard_failure_uses_deterministic_fallback(monkeypatch: pytest.MonkeyPat
     assert result.llm_composer_used is False
     assert result.llm_guard_status == "blocked"
     assert result.llm_fallback_used is True
+    assert result.envelope.direct_answer_summary == fallback.direct_answer_summary
+
+
+def test_composer_sanitizes_before_display(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable_composer(monkeypatch)
+    fallback = _envelope()
+    safe_text = (
+        "T1110.001 is evidence-supported password guessing. Missing evidence includes mfa_status. "
+        "Do not claim account compromise from failed logins alone. Review only — not executed."
+    )
+    client = _StubClient(
+        text=(
+            "<think>private chain</think>\n"
+            "The user is asking about failed logins.\n\n"
+            f"{safe_text}"
+        )
+    )
+
+    result = compose_governed_answer(
+        contract=_contract(),
+        enrichment_projection=_projection(),
+        fallback_envelope=fallback,
+        client=client,
+    )
+
+    assert result.llm_composer_used is True
+    assert result.envelope.direct_answer_summary == safe_text
+    assert "removed_think_block" in (result.sanitizer_notes or [])
+    assert "removed_reasoning_preamble" in (result.sanitizer_notes or [])
+
+
+def test_composer_length_finish_reason_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable_composer(monkeypatch)
+    fallback = _envelope()
+    client = _StubClient(text="Partial governed answer", finish_reason="length")
+
+    result = compose_governed_answer(
+        contract=_contract(),
+        enrichment_projection=_projection(),
+        fallback_envelope=fallback,
+        client=client,
+    )
+
+    assert result.llm_composer_used is False
+    assert result.llm_guard_status == "blocked"
+    assert result.llm_fallback_used is True
+    assert result.llm_finish_reason == "length"
+    assert "governed_synthesis_truncated" in (result.llm_blocked_reason or "")
     assert result.envelope.direct_answer_summary == fallback.direct_answer_summary
 
 

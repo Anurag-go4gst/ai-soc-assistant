@@ -18,6 +18,7 @@ from app.synthesis.composition_confidence import qualifies_for_weak_case_composi
 from app.chat.final_answer_readability import apply_draft_preview_readability
 from app.config import settings
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
+from app.llm.sanitize_user_facing_prose import sanitize_user_facing_prose
 from app.schemas.responses import AnalystResponseEnvelope
 from app.threat.mitre_permitted_builder import canonical_technique_name_tactic
 
@@ -53,6 +54,10 @@ _SYSTEM_PROMPT = (
     "- Use only the provided context. If a snippet, skill, or tool hint is "
     "irrelevant or your confidence is low, ignore it and say what is missing rather "
     "than inventing anything.\n"
+    "- Output only the final analyst-facing answer. Do not include hidden reasoning, "
+    "chain-of-thought, scratchpad notes, planning text, or <think> tags.\n"
+    "- Do not start with phrases like 'The user is asking', 'I need to', "
+    "'Let's break down', 'Possible angles', or 'To answer this'.\n"
     "- No SPL queries, no tool instructions, no GitHub references. Plain prose only.\n\n"
     "BEFORE YOU FINISH, CHECK: REQUIRED NOTICE copied verbatim? Only allowed "
     "technique IDs used? No new severity, execution, or compromise claim?"
@@ -78,7 +83,11 @@ _SYSTEM_PROMPT_GUIDED = (
     "2. Never claim compromise, execution, or live results confirmed.\n"
     "3. No MITRE T#### ids unless the contract's ALLOWED list includes them.\n"
     "4. No bullet lists, no headings, no numbered lists — four plain sentences only.\n"
-    "5. No SPL code, no tool commands, no GitHub references."
+    "5. No SPL code, no tool commands, no GitHub references.\n"
+    "6. Output only the final analyst-facing answer. Do not include hidden reasoning, "
+    "chain-of-thought, scratchpad notes, planning text, or <think> tags. Do not start "
+    "with phrases like 'The user is asking', 'I need to', 'Let's break down', "
+    "'Possible angles', or 'To answer this'."
 )
 
 # Shared claim patterns live in app.synthesis.claim_patterns (leaf module) so
@@ -123,6 +132,8 @@ class GovernedComposerResult:
     llm_blocked_reason: str | None = None
     llm_provider_label: str | None = None
     llm_raw_output_redacted: str | None = None
+    llm_finish_reason: str | None = None
+    sanitizer_notes: list[str] | None = None
 
     def trace_payload(self) -> dict[str, Any]:
         attempted = self.llm_composer_enabled and self.llm_guard_status in {
@@ -143,6 +154,10 @@ class GovernedComposerResult:
             payload["llm_answered_label"] = self.llm_provider_label
         if self.llm_raw_output_redacted:
             payload["llm_raw_output_placeholder"] = self.llm_raw_output_redacted[:500]
+        if self.llm_finish_reason:
+            payload["llm_finish_reason"] = self.llm_finish_reason
+        if self.sanitizer_notes:
+            payload["llm_sanitizer_notes"] = list(self.sanitizer_notes)
         return payload
 
 
@@ -642,7 +657,19 @@ def compose_governed_answer(
             llm_blocked_reason=exc.user_message,
         )
 
-    composed = result.text.strip()
+    if getattr(result, "finish_reason", None) == "length":
+        return GovernedComposerResult(
+            envelope=fallback_envelope,
+            llm_composer_enabled=True,
+            llm_composer_used=False,
+            llm_guard_status="blocked",
+            llm_fallback_used=True,
+            llm_blocked_reason="governed_synthesis_truncated; llm_finish_reason=length",
+            llm_finish_reason=result.finish_reason,
+        )
+
+    sanitized = sanitize_user_facing_prose(result.text)
+    composed = sanitized.text.strip()
     passed, blocked_reason = validate_composed_prose(composed, contract, selected_skill=selected_skill)
     if passed:
         # Phase 2.5: cite-only grounding + out-of-catalog notice (corpus = prompt + facts).
@@ -677,6 +704,8 @@ def compose_governed_answer(
         llm_fallback_used=False,
         llm_provider_label=provider_label,
         llm_raw_output_redacted=composed[:500],
+        llm_finish_reason=result.finish_reason,
+        sanitizer_notes=sanitized.notes,
     )
 
 

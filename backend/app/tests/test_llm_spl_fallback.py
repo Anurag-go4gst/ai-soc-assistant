@@ -8,7 +8,7 @@ import json
 import pytest
 
 from app.chat import pipeline as chat_pipeline
-from app.llm.clients.local_chat_client import LocalChatError
+from app.llm.clients.local_chat_client import ChatResult, LocalChatError
 from app.spl.draft_quality import STANDARD_ID
 from app.spl.llm_fallback import (
     CLARIFICATION_INVALID_SCHEMA,
@@ -182,6 +182,27 @@ def test_fallback_schema_invalid_clarifies(monkeypatch: pytest.MonkeyPatch) -> N
     assert result.approved is False
     assert result.clarification_required is True
     assert result.clarification_reason == CLARIFICATION_INVALID_SCHEMA
+
+
+class _LengthClient:
+    def generate(self, **kwargs) -> ChatResult:  # noqa: ANN003
+        return ChatResult(
+            text='{"status": "candidate_generated"',
+            model="stub",
+            latency_ms=1,
+            finish_reason="length",
+        )
+
+
+def test_fallback_rejects_length_finish_reason_before_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable(monkeypatch)
+    result = generate_llm_spl_fallback(user_query="failed logins last 24 hours", client=_LengthClient())
+
+    assert result is not None
+    assert result.approved is False
+    assert result.candidate_spl == ""
+    assert result.clarification_reason == CLARIFICATION_INVALID_SCHEMA
+    assert "llm_finish_reason=length" in result.adapter_errors
 
 
 def test_fallback_tolerates_json_with_surrounding_prose(monkeypatch: pytest.MonkeyPatch) -> None:

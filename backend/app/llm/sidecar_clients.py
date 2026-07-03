@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import Any, Callable
 
 from app.config import settings
@@ -43,6 +44,14 @@ _ROLE_TIMEOUT_SECONDS: dict[str, float] = {
 # Failover hop (Instruct retry after primary timeout) — give it enough to complete
 # on a slow single-slot model, not the old 20s that guaranteed a second timeout.
 _FAILOVER_HOP_TIMEOUT_SECONDS = 90.0
+
+
+@dataclass(frozen=True)
+class SidecarInvocationResult:
+    raw_output: str | None
+    timed_out: bool
+    answered_label: str | None
+    finish_reason: str | None = None
 
 
 def _instruct_failover_client(client: FailoverChatClient) -> FailoverChatClient | None:
@@ -93,6 +102,7 @@ def _build_callable_for_client(
     max_tokens: int,
     temperature: float | None,
     answered_label_holder: list[str | None],
+    finish_reason_holder: list[str | None] | None = None,
 ) -> Callable[[], str]:
     system = _system_prompt_for_role(role, system_prompt)
     temp = (
@@ -109,6 +119,8 @@ def _build_callable_for_client(
             temperature=temp,
         )
         answered_label_holder[0] = result.answered_label or None
+        if finish_reason_holder is not None:
+            finish_reason_holder[0] = result.finish_reason
         return result.text
 
     return _call
@@ -155,17 +167,41 @@ def invoke_sidecar_role(
     allow_failover: bool = True,
 ) -> tuple[str | None, bool, str | None]:
     """Invoke a sidecar role; returns (raw_output, timed_out, answered_label)."""
+    result = invoke_sidecar_role_with_metadata(
+        role=role,
+        user_prompt=user_prompt,
+        system_prompt=system_prompt,
+        max_tokens=max_tokens,
+        timeout_seconds=timeout_seconds,
+        temperature=temperature,
+        allow_failover=allow_failover,
+    )
+    return result.raw_output, result.timed_out, result.answered_label
+
+
+def invoke_sidecar_role_with_metadata(
+    *,
+    role: str,
+    user_prompt: str,
+    system_prompt: str | None = None,
+    max_tokens: int = 800,
+    timeout_seconds: float | None = None,
+    temperature: float | None = None,
+    allow_failover: bool = True,
+) -> SidecarInvocationResult:
+    """Invoke a sidecar role and preserve non-authoritative completion metadata."""
     if settings.ai_soc_llm_mode.strip().lower() in {"mock", "disabled", ""}:
-        return None, False, None
+        return SidecarInvocationResult(raw_output=None, timed_out=False, answered_label=None)
     if not settings.ai_soc_llm_enabled:
-        return None, False, None
+        return SidecarInvocationResult(raw_output=None, timed_out=False, answered_label=None)
 
     client = build_failover_client_for_role(role)
     if client is None:
-        return None, False, None
+        return SidecarInvocationResult(raw_output=None, timed_out=False, answered_label=None)
 
     timeout = timeout_seconds if timeout_seconds is not None else sidecar_timeout_seconds(role)
     answered_label_holder: list[str | None] = [None]
+    finish_reason_holder: list[str | None] = [None]
     provider = _build_callable_for_client(
         client=client,
         role=role,
@@ -174,21 +210,28 @@ def invoke_sidecar_role(
         max_tokens=max_tokens,
         temperature=temperature,
         answered_label_holder=answered_label_holder,
+        finish_reason_holder=finish_reason_holder,
     )
     call = run_sidecar_llm_with_timeout(provider, timeout_seconds=timeout)
     if not call.timed_out:
-        return call.raw_output, False, answered_label_holder[0]
+        return SidecarInvocationResult(
+            raw_output=call.raw_output,
+            timed_out=False,
+            answered_label=answered_label_holder[0],
+            finish_reason=finish_reason_holder[0],
+        )
 
     if allow_failover and len(client.chain) > 1:
         fallback_client = _instruct_failover_client(client)
         if fallback_client is None:
-            return None, True, None
+            return SidecarInvocationResult(raw_output=None, timed_out=True, answered_label=None)
         hop_timeout = min(timeout, _FAILOVER_HOP_TIMEOUT_SECONDS)
         # Fresh holder: the primary call was orphaned on timeout and may still
         # be running; it must not clobber the fallback's answered_label. The
         # model-slot guard in run_sidecar_llm_with_timeout keeps the fallback from
         # piling onto the slot while that orphan still holds it (skips instead).
         fallback_label_holder: list[str | None] = [None]
+        fallback_finish_reason_holder: list[str | None] = [None]
         fallback_provider = _build_callable_for_client(
             client=fallback_client,
             role=role,
@@ -197,16 +240,22 @@ def invoke_sidecar_role(
             max_tokens=max_tokens,
             temperature=temperature,
             answered_label_holder=fallback_label_holder,
+            finish_reason_holder=fallback_finish_reason_holder,
         )
         fallback_call = run_sidecar_llm_with_timeout(
             fallback_provider,
             timeout_seconds=hop_timeout,
         )
         if not fallback_call.timed_out and fallback_call.raw_output:
-            return fallback_call.raw_output, False, fallback_label_holder[0]
-        return None, True, None
+            return SidecarInvocationResult(
+                raw_output=fallback_call.raw_output,
+                timed_out=False,
+                answered_label=fallback_label_holder[0],
+                finish_reason=fallback_finish_reason_holder[0],
+            )
+        return SidecarInvocationResult(raw_output=None, timed_out=True, answered_label=None)
 
-    return None, True, None
+    return SidecarInvocationResult(raw_output=None, timed_out=True, answered_label=None)
 
 
 def build_intent_advisory_prompt(
