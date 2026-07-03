@@ -55,3 +55,17 @@ def test_invalid_stage3h_enum_values_are_rejected() -> None:
         _validate(Settings(ai_soc_telemetry_sink="db", splunk_ai_assistant_mode="maybe"))
     with pytest.raises(ConfigError):
         _validate(Settings(ai_soc_telemetry_sink="db", splunk_mcp_discovery_mode="open"))
+
+
+def test_cors_allowed_origins_default_parses() -> None:
+    from app.config import parse_cors_allowed_origins
+
+    origins = parse_cors_allowed_origins("http://localhost:3010,http://127.0.0.1:3010")
+    assert origins == ["http://localhost:3010", "http://127.0.0.1:3010"]
+
+
+def test_cors_allowed_origins_rejects_empty() -> None:
+    from app.config import parse_cors_allowed_origins
+
+    with pytest.raises(ConfigError):
+        parse_cors_allowed_origins(" , ")

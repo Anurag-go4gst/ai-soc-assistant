@@ -21,6 +21,13 @@
       "description": "Minimal production scaffold for COE handoff completion; fill operator-managed values before use.",
       "example_file": "production.env.example",
       "recommended_for": ["coe", "prod"]
+    },
+    {
+      "id": "mac-staging",
+      "label": "Mac Staging (COE vLLM)",
+      "description": "Mac Docker staging: app runs locally on Mac, LLM inference points to COE vLLM at 10.52.1.13:8002, mock MCP execution, SPL fallback disabled, used before COE deployment.",
+      "example_file": "mac-staging.env.example",
+      "recommended_for": ["mac", "staging", "coe-vllm-validation"]
     }
   ]
 }
