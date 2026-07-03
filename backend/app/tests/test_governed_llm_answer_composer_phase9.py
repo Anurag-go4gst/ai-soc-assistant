@@ -522,7 +522,7 @@ def test_composer_sanitizes_before_display(monkeypatch: pytest.MonkeyPatch) -> N
     assert result.llm_composer_used is True
     assert result.envelope.direct_answer_summary == safe_text
     assert "removed_think_block" in (result.sanitizer_notes or [])
-    assert "removed_leading_reasoning_preamble" in (result.sanitizer_notes or [])
+    assert "removed_reasoning_preamble" in (result.sanitizer_notes or [])
 
 
 def test_composer_length_finish_reason_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
