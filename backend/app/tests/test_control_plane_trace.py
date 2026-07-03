@@ -195,3 +195,49 @@ def test_mcp_calls_trace_failed_call_resolves_no_evidence_keys() -> None:
     assert call["outcome"] == "blocked"
     assert call["evidence_keys_resolved"] == []
     assert call["block_reason"] == "mcp_discovery_disabled"
+
+
+def test_grounding_block_absent_when_no_canonical_facts() -> None:
+    trace = build_control_plane_trace({})
+    assert trace["grounding_block"] is None
+
+
+def test_grounding_block_surfaced_from_state() -> None:
+    trace = build_control_plane_trace(
+        {
+            "grounding_block": {
+                "question": "x",
+                "evidence_citations": [{"evidence_id": "ev_1", "source_type": "mcp_search", "row_count": 2}],
+                "limitations": [],
+            }
+        }
+    )
+    assert trace["grounding_block"]["evidence_citations"][0]["evidence_id"] == "ev_1"
+
+
+def test_grounding_block_wired_end_to_end_on_live_chat(monkeypatch) -> None:
+    """Item 5.4: the assembler actually runs on the imperative live path and its
+    output reaches the control-plane trace — proves it isn't dead-ended on
+    internal pipeline state."""
+    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
+    response = chat(ChatRequest(message="Find failed-login users in the last 24 hours"))
+    assert response.control_plane_trace is not None
+    grounding = response.control_plane_trace.get("grounding_block")
+    assert grounding is not None
+    assert "evidence_citations" in grounding
+    assert "limitations" in grounding
+
+
+def test_grounding_block_wired_on_langgraph_path(monkeypatch) -> None:
+    """Same behavior on the LangGraph dispatch path — required separately because
+    LangGraph silently drops any state channel not declared in the TypedDict
+    (grounding_block was declared in ChatPipelineState for exactly this reason)."""
+    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
+    from app.graph.chat_workflow import _compiled_chat_graph_cp
+
+    final_state = _compiled_chat_graph_cp().invoke(
+        {"request": ChatRequest(message="Find failed-login users in the last 24 hours"), "session_role": None},
+        {"recursion_limit": 60},
+    )
+    assert isinstance(final_state.get("grounding_block"), dict)
+    assert "evidence_citations" in final_state["grounding_block"]

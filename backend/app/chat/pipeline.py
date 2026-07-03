@@ -398,6 +398,8 @@ class ChatPipelineState(TypedDict, total=False):
     canonical_facts: dict[str, Any] | None
     final_evidence_gate: dict[str, Any] | None
     plan_dispatch_trace: dict[str, Any] | None
+    # Item 5.4 — advisory grounding block assembled from the CanonicalFacts spine.
+    grounding_block: dict[str, Any] | None
     response: PlaceholderResponse
 
 
@@ -3068,6 +3070,25 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             )
     except Exception:  # noqa: BLE001 - telemetry must never break chat
         logger.warning("canonical_facts_snapshot_telemetry_failed", exc_info=True)
+    # Item 5.4 (2026-07-03): wire the grounding assembler to the CanonicalFacts
+    # spine so it quotes row-derived evidence with lineage when evidence was
+    # executed, and states the gap honestly when it wasn't. Advisory context
+    # only — deterministic facts remain overlay authority via existing
+    # adapter/validators; this never influences execution_eligible or
+    # severity/MITRE-status decisions.
+    try:
+        raw_facts_for_grounding = state.get("canonical_facts")
+        if isinstance(raw_facts_for_grounding, dict):
+            from app.chat.contracts.canonical_facts import CanonicalFacts
+            from app.chat.grounding_assembler import assemble_grounding_from_facts
+
+            grounding_block = assemble_grounding_from_facts(
+                CanonicalFacts.model_validate(raw_facts_for_grounding),
+                state.get("effective_query") or request.message,
+            )
+            state = {**state, "grounding_block": grounding_block.to_dict()}
+    except Exception:  # noqa: BLE001 - grounding is advisory, never breaks chat
+        logger.warning("grounding_block_assembly_failed", exc_info=True)
     mitre_branch_payload = mitre_branch.model_dump()
     response_use_case = _response_use_case(state)
     severity_decision = decide_severity(

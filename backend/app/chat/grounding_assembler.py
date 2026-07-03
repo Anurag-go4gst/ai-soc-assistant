@@ -46,6 +46,7 @@ class GroundingBlock:
     limitations: list[str] = field(default_factory=list)
     environment_kb_slots: list[str] = field(default_factory=list)
     asset_registry_hints: list[str] = field(default_factory=list)
+    evidence_citations: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -60,6 +61,7 @@ class GroundingBlock:
             "limitations": list(self.limitations),
             "environment_kb_slots": list(self.environment_kb_slots),
             "asset_registry_hints": list(self.asset_registry_hints),
+            "evidence_citations": list(self.evidence_citations),
         }
 
     def to_prompt_block(self) -> str:
@@ -170,4 +172,70 @@ def assemble_grounding(
     if ai_signal and not atlas_refs:
         block.limitations.append("AI-threat question detected but ATLAS taxonomy is not onboarded.")
 
+    return block
+
+
+def assemble_grounding_from_facts(
+    facts: Any,
+    question: str,
+    *,
+    resolver: TechniqueResolver | None = None,
+    detection_families: list[str] | None = None,
+    skill_refs: list[str] | None = None,
+) -> GroundingBlock:
+    """Item 5.4 — build a GroundingBlock from the CanonicalFacts spine.
+
+    `facts` is an `app.chat.contracts.canonical_facts.CanonicalFacts` instance
+    (typed as `Any` here to avoid a hard import-time dependency in this module).
+    Row-derived evidence citations (with lineage: evidence_id, source_type) are
+    surfaced when executed evidence exists; when it doesn't, an honest
+    limitation is recorded instead of silently omitting the gap. MITRE/RAG refs
+    are read from the spine rather than requiring the caller to pass them in.
+    Deterministic facts remain overlay authority elsewhere (answer/adapter
+    validators) — this is advisory grounding context only, never authority.
+    """
+    enterprise_mitre_refs: list[str] = []
+    for mitre_fact in facts.facts_by_kind("mitre_decision"):
+        for technique in mitre_fact.payload.get("techniques") or []:
+            tid = technique.get("technique_id") if isinstance(technique, dict) else None
+            if tid and tid not in enterprise_mitre_refs:
+                enterprise_mitre_refs.append(tid)
+
+    soc_kb_refs: list[str] = []
+    for rag_fact in facts.facts_by_kind("rag_citation"):
+        citation = rag_fact.payload.get("citation")
+        if isinstance(citation, dict):
+            ref = citation.get("ref") or citation.get("title") or citation.get("source")
+            if ref:
+                soc_kb_refs.append(str(ref))
+
+    block = assemble_grounding(
+        question,
+        resolver=resolver,
+        detection_families=detection_families,
+        enterprise_mitre_refs=enterprise_mitre_refs,
+        soc_kb_refs=soc_kb_refs,
+        skill_refs=skill_refs,
+    )
+
+    evidence_citations: list[dict[str, Any]] = []
+    for evidence_fact in facts.facts_by_kind("executed_evidence"):
+        payload = evidence_fact.payload
+        row_count = payload.get("row_count")
+        evidence_id = payload.get("evidence_id")
+        if evidence_id and isinstance(row_count, int) and row_count > 0:
+            evidence_citations.append(
+                {
+                    "evidence_id": evidence_id,
+                    "source_type": payload.get("source_type"),
+                    "row_count": row_count,
+                    "row_summary": payload.get("row_summary") or [],
+                }
+            )
+    block.evidence_citations = evidence_citations
+    if not evidence_citations:
+        block.limitations.append(
+            "No executed evidence rows available for this turn; grounding is "
+            "advisory taxonomy only, not evidence-backed."
+        )
     return block
