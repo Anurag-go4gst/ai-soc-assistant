@@ -16,6 +16,7 @@ from typing import Any
 from app.config import settings
 from app.llm.clients import LocalChatClient, LocalChatError
 from app.llm.clients.local_chat_errors import user_message_for_local_chat_error
+from app.llm.sanitize_user_facing_prose import sanitize_user_facing_prose
 from app.synthesis.models import GovernedSynthesisPackage
 
 _SYSTEM_PROMPT = (
@@ -29,6 +30,9 @@ _SYSTEM_PROMPT = (
     "- Do not infer absence of activity that is not stated.\n"
     "- Do not write SPL, queries, or code.\n"
     "- If a fact says evidence is missing, say it is missing; do not fill it in.\n"
+    "- Output only the final analyst-facing answer.\n"
+    "- Do not include hidden reasoning, chain-of-thought, scratchpad notes, planning text, or <think> tags.\n"
+    "- Do not start with phrases like 'The user is asking', 'I need to', 'Let's break down', or 'Possible angles'.\n"
     "- Output plain prose only, no headings, no JSON, no bullet symbols."
 )
 
@@ -39,6 +43,8 @@ class NarrationResult:
     model: str
     latency_ms: int
     usage: dict[str, int]
+    finish_reason: str | None = None
+    sanitizer_notes: list[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -72,7 +78,13 @@ def narrate_analyst_summary(
         )
     except LocalChatError as exc:
         return NarrationFailure(code=exc.code, user_message=exc.user_message)
-    summary = result.text.strip()
+    if result.finish_reason == "length":
+        return NarrationFailure(
+            code="live_narration_truncated",
+            user_message="Live narration was truncated by the model; kept the deterministic summary.",
+        )
+    sanitized = sanitize_user_facing_prose(result.text)
+    summary = sanitized.text.strip()
     if not summary:
         return NarrationFailure(
             code="empty_completion",
@@ -83,6 +95,8 @@ def narrate_analyst_summary(
         model=result.model,
         latency_ms=result.latency_ms,
         usage=result.usage,
+        finish_reason=result.finish_reason,
+        sanitizer_notes=sanitized.notes,
     )
 
 

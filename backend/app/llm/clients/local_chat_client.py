@@ -43,6 +43,7 @@ class ChatResult:
     latency_ms: int
     usage: dict[str, int] = field(default_factory=dict)
     answered_label: str = ""
+    finish_reason: str | None = None
 
 
 def _url_error_code(exc: URLError) -> str:
@@ -65,9 +66,9 @@ def _read_http_error_body(exc: HTTPError, limit: int = 512) -> str:
         return ""
 
 
-def _parse_completion(raw: bytes) -> tuple[str, dict[str, int]]:
+def _parse_completion(raw: bytes) -> tuple[str, dict[str, int], str | None]:
     if not raw:
-        return "", {}
+        return "", {}, None
     try:
         data = json.loads(raw.decode("utf-8"))
     except (ValueError, UnicodeDecodeError) as exc:
@@ -77,7 +78,7 @@ def _parse_completion(raw: bytes) -> tuple[str, dict[str, int]]:
             detail=f"non-JSON response ({type(exc).__name__}): {snippet[:120]}",
         ) from exc
     if not isinstance(data, dict):
-        return "", {}
+        return "", {}, None
     error_block = data.get("error")
     if error_block is not None:
         if isinstance(error_block, dict):
@@ -88,7 +89,11 @@ def _parse_completion(raw: bytes) -> tuple[str, dict[str, int]]:
         raise LocalChatError(f"api_error:{message or 'unknown_api_error'}")
     text = ""
     choices = data.get("choices")
+    finish_reason = None
     if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+        raw_finish = choices[0].get("finish_reason")
+        if raw_finish is not None:
+            finish_reason = str(raw_finish)
         message = choices[0].get("message")
         if isinstance(message, dict):
             text = str(message.get("content") or "").strip()
@@ -101,7 +106,7 @@ def _parse_completion(raw: bytes) -> tuple[str, dict[str, int]]:
             value = usage_raw.get(key)
             if isinstance(value, int):
                 usage[key] = value
-    return text, usage
+    return text, usage, finish_reason
 
 
 @dataclass(frozen=True)
@@ -172,10 +177,16 @@ class LocalChatClient:
             logger.warning("local_chat transport error %s url=%s", name, url)
             raise LocalChatError(f"transport_error:{name}") from exc
         elapsed_ms = int((time.monotonic() - started) * 1000)
-        text, usage = _parse_completion(raw)
+        text, usage, finish_reason = _parse_completion(raw)
         if not text:
             raise LocalChatError("empty_completion")
-        return ChatResult(text=text, model=self.model, latency_ms=elapsed_ms, usage=usage)
+        return ChatResult(
+            text=text,
+            model=self.model,
+            latency_ms=elapsed_ms,
+            usage=usage,
+            finish_reason=finish_reason,
+        )
 
 
 def build_synthesis_client_from_settings():

@@ -88,8 +88,10 @@ def _build_user_prompt(*, query: str, baseline: InvestigationPlan) -> str:
     baseline_dump = baseline.model_dump()
     return (
         "Propose additional investigation-plan fields for an out-of-registry guided hunt. "
-        "Return JSON only matching the schema. Do not emit raw SPL, execution flags, severity, "
-        "route changes, or remediation actions. Use registry tool IDs for read_only_tools only.\n"
+        "Return only valid JSON matching the schema. No markdown, no explanation outside JSON, "
+        "no hidden reasoning, no scratchpad, no planning text, and no <think> tags. Do not emit "
+        "raw SPL, execution flags, severity, route changes, or remediation actions. Use registry "
+        "tool IDs for read_only_tools only.\n"
         f"QUERY: {query}\n"
         f"DETERMINISTIC_BASELINE:\n{json.dumps(baseline_dump, ensure_ascii=False)}"
     )

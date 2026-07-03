@@ -68,11 +68,13 @@ def test_active_template_families_have_lab_draft_fallbacks(registry) -> None:
 def test_validation_rejects_unknown_fallback() -> None:
     broken = ResourceRegistry.model_validate(
         {
-            "schema_version": 1,
+            "schema_version": 2,
             "resources": [
                 {
                     "resource_id": "rag_corpus:x",
                     "kind": "rag_corpus",
+                    "availability": "not_implemented",
+                    "onboarding_status": "declared",
                     "fallback_of": "missing:resource",
                 }
             ],

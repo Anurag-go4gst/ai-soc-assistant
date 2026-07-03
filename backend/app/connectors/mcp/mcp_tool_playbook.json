@@ -17,101 +17,181 @@
       "when": "Once per session, before any discovery or search, to confirm the instance is reachable and read its version/server identity.",
       "why": "Establishes connectivity + capability baseline so later steps fail fast if the instance is unreachable.",
       "preconditions": [],
-      "produces": ["server_version", "server_name", "readiness"],
-      "next_tools": ["splunk_get_indexes"],
+      "produces": [
+        "server_version",
+        "server_name",
+        "readiness"
+      ],
+      "next_tools": [
+        "splunk_get_indexes"
+      ],
       "capability": "discovery_context",
       "capability_class": "metadata_discovery",
       "read_only": true,
       "blocked": false,
-      "rbac_roles": ["viewer", "analyst", "soc_lead"]
+      "rbac_roles": [
+        "viewer",
+        "analyst",
+        "soc_lead"
+      ]
     },
     "splunk_get_indexes": {
       "order": 1,
       "phase": "discovery",
       "when": "After readiness, to learn which indexes the authenticated principal can access.",
       "why": "SPL must target an allowed, existing index; the index list bounds what the search can scope.",
-      "preconditions": ["readiness"],
-      "produces": ["accessible_indexes"],
-      "next_tools": ["splunk_get_metadata", "splunk_get_index_info"],
+      "preconditions": [
+        "readiness"
+      ],
+      "produces": [
+        "accessible_indexes"
+      ],
+      "next_tools": [
+        "splunk_get_metadata",
+        "splunk_get_index_info"
+      ],
       "capability": "index_context",
       "capability_class": "metadata_discovery",
       "read_only": true,
       "blocked": false,
-      "rbac_roles": ["viewer", "analyst", "soc_lead"]
+      "rbac_roles": [
+        "viewer",
+        "analyst",
+        "soc_lead"
+      ]
     },
     "splunk_get_metadata": {
       "order": 2,
       "phase": "discovery",
       "when": "Before building SPL, to retrieve hosts/sources/sourcetypes for the candidate index(es).",
       "why": "Sourcetype + field context is needed to render a valid, relevant SPL template; prevents guessing field names.",
-      "preconditions": ["accessible_indexes"],
-      "produces": ["sourcetypes", "hosts", "sources"],
-      "next_tools": ["splunk_get_index_info", "splunk_get_knowledge_objects", "splunk_run_query"],
+      "preconditions": [
+        "accessible_indexes"
+      ],
+      "produces": [
+        "sourcetypes",
+        "hosts",
+        "sources"
+      ],
+      "next_tools": [
+        "splunk_get_index_info",
+        "splunk_get_knowledge_objects",
+        "splunk_run_query"
+      ],
       "capability": "metadata_context",
       "capability_class": "metadata_discovery",
       "read_only": true,
       "blocked": false,
-      "rbac_roles": ["viewer", "analyst", "soc_lead"]
+      "rbac_roles": [
+        "viewer",
+        "analyst",
+        "soc_lead"
+      ]
     },
     "splunk_get_index_info": {
       "order": 3,
       "phase": "discovery",
       "when": "Only when a specific target index is already known and detailed properties (size, time bounds, retention) matter.",
       "why": "Refines time-window and scoping decisions for the search; optional when no single index is targeted.",
-      "preconditions": ["accessible_indexes"],
-      "produces": ["index_detail"],
-      "next_tools": ["splunk_get_knowledge_objects", "splunk_run_query"],
+      "preconditions": [
+        "accessible_indexes"
+      ],
+      "produces": [
+        "index_detail"
+      ],
+      "next_tools": [
+        "splunk_get_knowledge_objects",
+        "splunk_run_query"
+      ],
       "capability": "index_context",
       "capability_class": "metadata_discovery",
       "read_only": true,
       "blocked": false,
       "optional": true,
-      "rbac_roles": ["viewer", "analyst", "soc_lead"]
+      "rbac_roles": [
+        "viewer",
+        "analyst",
+        "soc_lead"
+      ]
     },
     "splunk_get_knowledge_objects": {
       "order": 4,
       "phase": "discovery",
       "when": "Before search, to discover vetted saved searches, macros, data models, and eventtypes that may already encode the detection.",
       "why": "Prefer reusing a governed saved search/macro over authoring raw SPL; surfaces existing detection coverage.",
-      "preconditions": ["accessible_indexes"],
-      "produces": ["saved_searches", "macros", "data_models", "eventtypes"],
-      "next_tools": ["splunk_run_query"],
+      "preconditions": [
+        "accessible_indexes"
+      ],
+      "produces": [
+        "saved_searches",
+        "macros",
+        "lookups",
+        "data_models",
+        "field_extractions",
+        "field_aliases",
+        "calculated_fields",
+        "tags",
+        "views",
+        "panels",
+        "apps",
+        "eventtypes"
+      ],
+      "next_tools": [
+        "splunk_run_query"
+      ],
       "capability": "knowledge_object_discovery",
       "capability_class": "metadata_discovery",
       "read_only": true,
       "blocked": false,
       "optional": true,
-      "rbac_roles": ["viewer", "analyst", "soc_lead"]
+      "rbac_roles": [
+        "viewer",
+        "analyst",
+        "soc_lead"
+      ]
     },
     "splunk_run_query": {
       "order": 5,
       "phase": "search",
       "when": "Last, only with an approved, validator-normalized SPL and after the execution gate + HIL/COE allow it.",
       "why": "Returns the actual evidence rows. The single execution hop; everything before it is read-only context.",
-      "preconditions": ["approved_normalized_spl", "execution_gate_open"],
-      "produces": ["result_rows"],
+      "preconditions": [
+        "approved_normalized_spl",
+        "execution_gate_open"
+      ],
+      "produces": [
+        "result_rows"
+      ],
       "next_tools": [],
       "capability": "spl_search",
       "capability_class": "freeform_query_execution",
       "read_only": false,
       "execution_gated": true,
       "blocked": false,
-      "rbac_roles": ["analyst", "soc_lead"]
+      "rbac_roles": [
+        "analyst",
+        "soc_lead"
+      ]
     },
     "splunk_get_user_info": {
       "order": null,
       "phase": "identity",
-      "when": "On demand when RBAC scoping or attribution of the current authenticated principal (self) is needed; not part of the linear discovery→search chain.",
+      "when": "On demand when RBAC scoping or attribution of the current authenticated principal (self) is needed; not part of the linear discovery\u2192search chain.",
       "why": "Confirms the acting identity for RBAC decisions and audit attribution. Read-only, returns the current user only.",
       "preconditions": [],
-      "produces": ["current_user_identity"],
+      "produces": [
+        "current_user_identity"
+      ],
       "next_tools": [],
       "capability": "identity_lookup",
       "capability_class": "read_only_lookup",
       "read_only": true,
       "blocked": false,
       "rbac_gated": true,
-      "rbac_roles": ["analyst", "soc_lead"]
+      "rbac_roles": [
+        "analyst",
+        "soc_lead"
+      ]
     },
     "splunk_get_user_list": {
       "phase": "blocked",
@@ -121,9 +201,33 @@
       "blocked": true,
       "blocked_reason": "admin_or_sensitive_tool"
     },
-    "saia_generate_spl": {"phase": "blocked", "capability_class": "action_execution", "blocked": true, "blocked_reason": "saia_conditional_blocked", "why": "Conditional (Splunk AI Assistant for SPL app) + generative. SPL authoring stays in the governed template/validator path."},
-    "saia_optimize_spl": {"phase": "blocked", "capability_class": "action_execution", "blocked": true, "blocked_reason": "saia_conditional_blocked", "why": "Conditional + generative; optimization stays deterministic (spl_simplifier)."},
-    "saia_explain_spl": {"phase": "blocked", "capability_class": "action_execution", "blocked": true, "blocked_reason": "saia_conditional_blocked", "why": "Conditional + generative; explanation stays deterministic."},
-    "saia_ask_splunk_question": {"phase": "blocked", "capability_class": "action_execution", "blocked": true, "blocked_reason": "saia_conditional_blocked", "why": "Conditional + generative free-form Q&A; out of governed scope."}
+    "saia_generate_spl": {
+      "phase": "blocked",
+      "capability_class": "action_execution",
+      "blocked": true,
+      "blocked_reason": "saia_conditional_blocked",
+      "why": "Conditional (Splunk AI Assistant for SPL app) + generative. SPL authoring stays in the governed template/validator path."
+    },
+    "saia_optimize_spl": {
+      "phase": "blocked",
+      "capability_class": "action_execution",
+      "blocked": true,
+      "blocked_reason": "saia_conditional_blocked",
+      "why": "Conditional + generative; optimization stays deterministic (spl_simplifier)."
+    },
+    "saia_explain_spl": {
+      "phase": "blocked",
+      "capability_class": "action_execution",
+      "blocked": true,
+      "blocked_reason": "saia_conditional_blocked",
+      "why": "Conditional + generative; explanation stays deterministic."
+    },
+    "saia_ask_splunk_question": {
+      "phase": "blocked",
+      "capability_class": "action_execution",
+      "blocked": true,
+      "blocked_reason": "saia_conditional_blocked",
+      "why": "Conditional + generative free-form Q&A; out of governed scope."
+    }
   }
 }

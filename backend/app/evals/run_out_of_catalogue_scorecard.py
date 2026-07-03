@@ -201,6 +201,16 @@ def extract_evidence_classes(payload: dict[str, Any]) -> list[str]:
     if contract.get("evidence_supported_mitre") or contract.get("mitre_status"):
         classes.add("mitre")
 
+    resource_plan = evidence_plan.get("resource_plan") if isinstance(evidence_plan.get("resource_plan"), dict) else {}
+    for step in resource_plan.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        purpose = str(step.get("purpose") or "")
+        if purpose == "cve_lookup":
+            classes.add("cve")
+        if purpose == "mitre_mapping":
+            classes.add("mitre")
+
     if not classes:
         classes.add("none")
     return [item for item in EVIDENCE_CLASS_ORDER if item in classes]

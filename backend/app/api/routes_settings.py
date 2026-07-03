@@ -24,6 +24,7 @@ from app.connectors.llm.registry import load_llm_registry_status
 from app.connectors.mcp import get_mcp_connector
 from app.connectors.mcp.discovery import classify_mcp_tool
 from app.connectors.mcp.live_readiness import evaluate_splunk_mcp_live_readiness
+from app.connectors.mcp.mcp_endpoint import normalize_mcp_endpoint_url
 from app.connectors.mcp.registry import load_mcp_registry_status
 from app.connectors.mcp.registry import SUPPORTED_AUTH_MODES as SUPPORTED_MCP_AUTH_MODES
 from app.connectors.mcp.registry import SUPPORTED_MCP_TYPES, SUPPORTED_TRANSPORTS
@@ -1022,7 +1023,7 @@ def _validate_mcp_draft(payload: McpVerificationRequest) -> list[str]:
 def _fetch_mcp_tools(payload: McpVerificationRequest) -> dict[str, object]:
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
     _apply_auth(headers, auth_mode=payload.auth_method, api_key=payload.bearer_token, username=payload.username, password=payload.password)
-    endpoint = payload.url.strip()
+    endpoint = normalize_mcp_endpoint_url(payload.url.strip())
     technical: list[str] = []
     initialized = False
     tools: list[dict[str, object]] = []

@@ -1,0 +1,36 @@
+{
+  "map_version": "catalogue_execution_v1",
+  "entries": [
+    {
+      "question_ref": "q0.q046",
+      "use_case_id": "auth_failed_login_spike",
+      "match_paths": [
+        "exact_105_question",
+        "use_case_catalog"
+      ],
+      "execution_mode": "governed_template",
+      "spl_template_id": "auth_failed_login_spike",
+      "saved_search_name": null,
+      "saved_search_app": null,
+      "coe_verified": true,
+      "auto_execute_eligible": true,
+      "spl_template_fallback": null,
+      "notes": "COE pilot \u2014 authority question"
+    },
+    {
+      "question_ref": null,
+      "use_case_id": "firewall_deny_spike",
+      "match_paths": [
+        "use_case_catalog"
+      ],
+      "execution_mode": "governed_template",
+      "spl_template_id": "firewall_deny_spike",
+      "saved_search_name": null,
+      "saved_search_app": null,
+      "coe_verified": true,
+      "auto_execute_eligible": true,
+      "spl_template_fallback": null,
+      "notes": "COE pilot \u2014 use-case catalog binding"
+    }
+  ]
+}

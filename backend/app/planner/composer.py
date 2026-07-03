@@ -14,9 +14,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from app.connectors.mcp.mcp_tool_chronology import deterministic_default_chronology
+from app.cve.requirements import cve_requirements_present
 from app.connectors.mcp.splunk_mcp_readiness import plan_splunk_discovery_calls
 from app.planner.resource_plan import PlanStep, ResourcePlan
-from app.planner.resource_registry import ResourceRegistry, load_resource_registry
+from app.planner.resource_registry import (
+    ResourceRegistry,
+    is_composer_dispatchable,
+    load_resource_registry,
+    registry_dispatch_mode,
+)
 
 if TYPE_CHECKING:
     from app.chat.contracts.investigation_plan import InvestigationPlan
@@ -42,7 +48,7 @@ def compose_resource_plan(
 
     rag_step = _rag_step(evidence_plan) if getattr(evidence_plan, "needs_rag", False) else None
     spl_step = _spl_step(evidence_plan, use_case_id, registry) if getattr(evidence_plan, "needs_spl", False) else None
-    mcp_step = _mcp_step(evidence_plan) if getattr(evidence_plan, "needs_mcp", False) else None
+    mcp_step = _mcp_step(evidence_plan, registry) if getattr(evidence_plan, "needs_mcp", False) else None
 
     # WS2 T2.1: the routed skill's capability contract constrains composition.
     # A step whose purpose the skill blocks (or does not allow at all) is
@@ -68,6 +74,17 @@ def compose_resource_plan(
             mcp_step.status_reason = "mcp_not_allowed_by_evidence_plan"
         if "mcp_not_allowed_by_evidence_plan" not in mcp_step.policy_checks:
             mcp_step.policy_checks.append("mcp_not_allowed_by_evidence_plan")
+    required_keys = list(getattr(evidence_plan, "required_evidence_keys", []) or [])
+    cve_step = (
+        PlanStep(
+            step_id="cve",
+            resource_id="skill:cve_lookup",
+            purpose="cve_lookup",
+            policy_checks=["cve_snapshot_read_only", "vulnerability_source_honest_degrade"],
+        )
+        if cve_requirements_present(required_keys)
+        else None
+    )
     mitre_step = (
         PlanStep(
             step_id="mitre",
@@ -88,6 +105,8 @@ def compose_resource_plan(
         steps.append(mcp_step)
     if rag_step is not None and rag_phase == "post_mcp":
         steps.append(rag_step)
+    if cve_step is not None:
+        steps.append(cve_step)
     if mitre_step is not None:
         steps.append(mitre_step)
 
@@ -146,6 +165,7 @@ def compose_resource_plan(
             path_type=_infer_path_type_for_discovery(evidence_plan, intent_family=intent_family),
             match_path=match_path,
         )
+    steps = [_annotate_onboarding(step, registry) for step in steps]
     return ResourcePlan(
         steps=steps,
         plan_source="deterministic",
@@ -254,6 +274,7 @@ def compose_guided_resource_plan(
         "investigation_objective": validated_investigation_plan.investigation_objective[:240],
         "validation_warnings": list(validated_investigation_plan.validation_warnings),
     }
+    steps = [_annotate_onboarding(step, registry) for step in steps]
     return ResourcePlan(
         steps=steps,
         plan_source="deterministic",
@@ -447,10 +468,43 @@ def _spl_step(evidence_plan: Any, use_case_id: str | None, registry: ResourceReg
     )
 
 
-def _mcp_step(evidence_plan: Any) -> PlanStep:
+_MCP_SEARCH_CAPABILITIES = frozenset({"execute_validated_spl", "event_search"})
+
+
+def _preferred_mcp_search_resource(registry: ResourceRegistry) -> str:
+    for resource_id in ("mcp_tool:splunk_run_query", "mcp_tool:search_splunk"):
+        if registry.by_id(resource_id) is not None:
+            return resource_id
+    for descriptor in registry.by_kind("mcp_tool"):
+        if descriptor.capabilities and _MCP_SEARCH_CAPABILITIES.intersection(descriptor.capabilities):
+            return descriptor.resource_id
+    return "mcp_tool:splunk_run_query"
+
+
+def _annotate_onboarding(step: PlanStep, registry: ResourceRegistry) -> PlanStep:
+    if step.status in {"blocked_policy", "not_onboarded"}:
+        return step
+    descriptor = registry.by_id(step.resource_id)
+    if descriptor is None:
+        return step
+    mode = registry_dispatch_mode()
+    if step.purpose in {"mcp_execution", "mcp_discovery", "safe_catalog_query"} and not is_composer_dispatchable(
+        descriptor, mode=mode
+    ):
+        return step.model_copy(
+            update={
+                "status": "not_onboarded",
+                "status_reason": f"onboarding:{descriptor.onboarding_status}",
+                "policy_checks": [*step.policy_checks, "resource_not_onboarded"],
+            }
+        )
+    return step
+
+
+def _mcp_step(evidence_plan: Any, registry: ResourceRegistry) -> PlanStep:
     return PlanStep(
         step_id="mcp",
-        resource_id="mcp_tool:splunk_run_query",
+        resource_id=_preferred_mcp_search_resource(registry),
         purpose="mcp_execution",
         policy_checks=[
             "mcp_execution_gate",

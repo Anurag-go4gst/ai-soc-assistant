@@ -60,6 +60,12 @@ PLAN_JSON_SCHEMA: dict[str, Any] = {
         "group_by": {"type": "array", "items": {"type": "string"}},
         "metric": {"type": "string", "enum": ["count", "distinct_count"]},
         "metric_field": {"type": "string"},
+        "index": {"type": "string"},
+        "sourcetype": {"type": "string"},
+        "earliest": {"type": "string"},
+        "latest": {"type": "string"},
+        "result_cap": {"type": "integer"},
+        "unresolved_slots": {"type": "array", "items": {"type": "string"}},
         "assumptions": {"type": "array", "items": {"type": "string"}},
         "required_fields": {"type": "array", "items": {"type": "string"}},
     },
@@ -154,10 +160,13 @@ def _plan_system_prompt() -> str:
         "You are an OT/SOC detection PLANNER. Given an investigation request, return a small JSON "
         "detection plan — NOT SPL. Deterministic code compiles your plan into a validated, review-only "
         "query, so do not write any SPL or pipes.\n"
+        "Return only valid JSON. No markdown, no explanation outside JSON, no hidden reasoning, no "
+        "scratchpad, no planning text, and no <think> tags.\n"
         "Describe: data_domain (one of auth, network, dns, endpoint, firewall, ot_protocol, ot_network); "
         "filters as field+match pairs using generic field names (src_ip, dest_ip, user, host, protocol, "
         "function_code, query, action, bytes_out); group_by entities; metric (count or distinct_count, "
-        "with metric_field for distinct_count); a short detection_family; assumptions and required_fields. "
+        "with metric_field for distinct_count); source fields index and sourcetype; time fields earliest/latest "
+        "or time_window_hours; result_cap; unresolved_slots; a short detection_family; assumptions and required_fields. "
         "Pick the data_domain that matches the question. Keep filters minimal and on-question."
     )
 
@@ -249,6 +258,8 @@ def get_detection_plan(
             )
         except LocalChatError:
             return None, [CLARIFICATION_NO_CLIENT]
+        if completion.finish_reason == "length":
+            return None, ["llm_finish_reason=length"]
         raw = completion.text
     pre = preprocess_llm_output(raw or "", PLAN_JSON_SCHEMA, allow_retry=False)
     if pre.payload is None:
@@ -314,6 +325,12 @@ def generate_llm_spl_via_plan(
         return _clarification(CLARIFICATION_INVALID_SCHEMA, adapter_errors=errors)
 
     compiled_spl = compile_plan_to_spl(plan)
+    redacted_plan = _redacted_detection_plan(plan)
+    try:
+        time_window_hours = int(plan.get("time_window_hours") or 24)
+    except (TypeError, ValueError):
+        time_window_hours = 24
+    time_window_hours = max(1, min(time_window_hours, 168))
     # Hand the compiled SPL to the existing producer as if it were the raw model
     # output — all validation / SOC-STD quality / adapter / lab-tier gates run
     # unchanged. execution_eligible/governed/catalog_approved forced false.
@@ -324,6 +341,13 @@ def generate_llm_spl_via_plan(
             "confidence_label": "medium",
             "detection_family": str(plan.get("detection_family") or "ot_planned_hunt"),
             "candidate_spl": compiled_spl,
+            "index": redacted_plan.get("index") or "",
+            "sourcetype": redacted_plan.get("sourcetype") or "",
+            "earliest": f"-{time_window_hours}h",
+            "latest": "now",
+            "time_window_hours": time_window_hours,
+            "result_cap": 100,
+            "unresolved_slots": [],
             "assumptions": [str(a) for a in (plan.get("assumptions") or [])]
             or ["Placeholder index/sourcetype require a source profile before review."],
             "required_fields": [str(f) for f in (plan.get("required_fields") or [])] or ["index", "sourcetype"],

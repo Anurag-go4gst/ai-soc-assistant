@@ -41,6 +41,10 @@ SOC_FEW_SHOT_COVERAGE = [
 
 _AUTHORITY_PROMPT = " Authority hierarchy: " + " ".join(AUTHORITY_HIERARCHY_RULES)
 _REVIEW_ONLY_PROMPT = " Review-only safety: " + " ".join(REVIEW_ONLY_SAFETY_RULES)
+_JSON_ONLY_NO_REASONING = (
+    " Return only valid JSON. No markdown. No explanation outside JSON. "
+    "No hidden reasoning, chain-of-thought, scratchpad notes, planning text, or <think> tags."
+)
 
 PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
     "intent_shadow_classifier": {
@@ -55,6 +59,7 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
             "or similar and no context is provided, set clarification_needed=true. "
             "If clarification_needed=true, requested_output_type must be clarification. "
             "Deterministic clarification guard remains authoritative."
+            f"{_JSON_ONLY_NO_REASONING}"
             f"{_AUTHORITY_PROMPT}"
             f"{_REVIEW_ONLY_PROMPT}"
         ),
@@ -115,8 +120,9 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
         "max_input_tokens": "4000-8000",
         "system_instruction": (
             "You are Foundation-sec reasoning module inside V.AI SOC. Analyze only "
-            "provided evidence. Return JSON only. The adapter may extract JSON because "
-            "Foundation-sec-8B-Reasoning may emit preamble, but you must not add prose. "
+            "provided evidence. Return JSON only. Do not add prose before or after JSON. "
+            "Do not include hidden reasoning, chain-of-thought, scratchpad notes, planning "
+            "text, or <think> tags. "
             "This output is advisory only. Do not invent facts. Cannot override severity. "
             "Cannot override MITRE status. Cannot override SOP citation. Cannot add "
             "remediation. Cannot decide execution eligibility. Use generic severity fields "
@@ -173,6 +179,7 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
         "max_input_tokens": "3000-6000",
         "system_instruction": (
             "You are V.AI SOC analyst response drafting module. Return JSON only. "
+            f"{_JSON_ONLY_NO_REASONING} "
             "Use only provided evidence and constraints. Severity is fixed by the "
             "severity matrix. MITRE mapping/status is fixed by MITRE policy. SOP "
             "citation/source refs are fixed by governed RAG. Allowed/blocked actions "
@@ -233,11 +240,15 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
         "max_input_tokens": "2000-4000",
         "system_instruction": (
             "You are V.AI SOC SPL advisory module. Return JSON only. Candidate-only. "
+            f"{_JSON_ONLY_NO_REASONING} "
             "Never execution eligible. `execution_eligible` is ignored by the adapter "
             "and forced false. The production path is template-first. Use SCD field map "
             "only. Do not include alert, sendemail, write, delete, collect, outputlookup, "
             "or other write/remediation commands. Do not invent index, sourcetype, or fields. "
             "Raw candidate_spl never reaches MCP."
+            " Include source fields `index` and `sourcetype`, time fields `earliest` "
+            "and `latest` or `time_window_hours`, `result_cap`, and `unresolved_slots`. "
+            "If source/time slots are unresolved, do not guess; mark them unresolved."
             f"{_AUTHORITY_PROMPT}"
             f"{_REVIEW_ONLY_PROMPT}"
         ),
@@ -257,6 +268,13 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
         ],
         "output_schema": {
             "candidate_spl": "",
+            "index": "",
+            "sourcetype": "",
+            "earliest": "",
+            "latest": "",
+            "time_window_hours": None,
+            "result_cap": 100,
+            "unresolved_slots": [],
             "assumptions": [],
             "required_fields": [],
             "validation_notes": [],
@@ -277,6 +295,7 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
         "max_input_tokens": "2000",
         "system_instruction": (
             "Return JSON only. Extract host/user/src_ip/dest_ip/result_limit/time_window values. "
+            f"{_JSON_ONLY_NO_REASONING} "
             "Never emit SPL, template_id, datamodel, detection_ref, or lookup_name. "
             "Fill blanks only; route-plan parameters, user-explicit values, Environment KB/source-profile, "
             "and catalogue/manual bindings are higher authority. On conflict, keep the higher-authority "
@@ -305,6 +324,7 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
         "max_input_tokens": "2000",
         "system_instruction": (
             "Return JSON only. Advisory semantic hints for template matching. "
+            f"{_JSON_ONLY_NO_REASONING} "
             "Never pick template_id, never emit SPL, never authorize execution, "
             "and never use confidence as authority. Fill blanks only; deterministic matcher, "
             "Environment KB/source-profile, and catalogue/manual bindings win on every disagreement."
@@ -357,6 +377,7 @@ PROMPT_CONTRACTS: dict[str, dict[str, Any]] = {
         "max_input_tokens": "4000",
         "system_instruction": (
             "Return JSON only. Propose primary_skill, operation_type, source_class, and evidence_needs. "
+            f"{_JSON_ONLY_NO_REASONING} "
             "Never emit SPL, MCP tools, lookup_name, or detection_ref. Use detection_family only when needed. "
             "Never authorize execution or use confidence as authority. Fill blanks only; deterministic routing, "
             "Environment KB/source-profile, and catalogue/manual bindings win on every disagreement."
@@ -431,10 +452,11 @@ PROMPT_CONTRACTS["mitre_candidate_mapper"] = {
     "model_family": "Foundation-sec-8B-Instruct",
     "purpose": "Suggest MITRE ATT&CK candidate technique IDs for a SOC question; advisory only; IDs validated against local bundle.",
     "max_input_tokens": "2000",
-    "system_instruction": (
-        "You are a MITRE ATT&CK candidate mapping assistant for a SOC. "
-        "Return JSON only. Do not add markdown or prose before or after JSON. "
-        "Do not invent ATT&CK IDs. Use only IDs from MITRE ATT&CK Enterprise. "
+        "system_instruction": (
+            "You are a MITRE ATT&CK candidate mapping assistant for a SOC. "
+            "Return JSON only. Do not add markdown or prose before or after JSON. "
+            f"{_JSON_ONLY_NO_REASONING} "
+            "Do not invent ATT&CK IDs. Use only IDs from MITRE ATT&CK Enterprise. "
         "If the question is too generic for ATT&CK, return empty arrays and explain in not_applicable_reason. "
         "Output is advisory only. SOC approval is required before any technique becomes authoritative. "
         "Do not include mitigations, detection SPL, or recommended actions. "
@@ -495,9 +517,10 @@ PROMPT_CONTRACTS["guided_investigation_plan_proposer"] = {
     "model_family": "Foundation-sec-8B-Instruct",
     "purpose": "Propose bounded InvestigationPlan fields for guided hybrid hunts (advisory only).",
     "max_input_tokens": "2000-3000",
-    "system_instruction": (
-        "You are V.AI SOC guided investigation planner. Return JSON only. "
-        "Propose hypotheses, evidence needs, and optional read-only discovery tool IDs. "
+        "system_instruction": (
+            "You are V.AI SOC guided investigation planner. Return JSON only. "
+            f"{_JSON_ONLY_NO_REASONING} "
+            "Propose hypotheses, evidence needs, and optional read-only discovery tool IDs. "
         "Never emit raw SPL, severity, execution flags, route changes, remediation, or invented indexes."
         f"{_AUTHORITY_PROMPT}"
         f"{_REVIEW_ONLY_PROMPT}"
@@ -529,9 +552,10 @@ PROMPT_CONTRACTS["answer_guard_assistant"] = {
     "model_family": "Foundation-sec-8B-Reasoning",
     "purpose": "Planned advisory assistance for future Answer Guard design; dormant and not executed in this stage.",
     "max_input_tokens": "4000-8000",
-    "system_instruction": (
-        "Return JSON only. Advisory only. Deterministic Answer Guard remains authoritative. "
-        "Do not approve final answers, do not block live responses, do not call tools, and do not decide execution eligibility."
+        "system_instruction": (
+            "Return JSON only. Advisory only. Deterministic Answer Guard remains authoritative. "
+            f"{_JSON_ONLY_NO_REASONING} "
+            "Do not approve final answers, do not block live responses, do not call tools, and do not decide execution eligibility."
     ),
     "include": [
         "planned guard findings",
