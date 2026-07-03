@@ -18,16 +18,23 @@ from app.tests.test_p6_guarded_synthesis_lab import (
 
 
 class _StubClient:
-    def __init__(self, *, text: str = "", raises: bool = False) -> None:
+    def __init__(self, *, text: str = "", raises: bool = False, finish_reason: str | None = None) -> None:
         self._text = text
         self._raises = raises
+        self._finish_reason = finish_reason
         self.calls = 0
 
     def generate(self, *, system_prompt: str, user_prompt: str, max_tokens: int, temperature: float) -> ChatResult:
         self.calls += 1
         if self._raises:
             raise LocalChatError("transport_error:Boom")
-        return ChatResult(text=self._text, model="stub-model", latency_ms=1234, usage={"total_tokens": 7})
+        return ChatResult(
+            text=self._text,
+            model="stub-model",
+            latency_ms=1234,
+            usage={"total_tokens": 7},
+            finish_reason=self._finish_reason,
+        )
 
 
 def _run(monkeypatch: pytest.MonkeyPatch, *, live: bool, client) -> object:
@@ -64,6 +71,32 @@ def test_live_narration_replaces_summary_and_keeps_facts(monkeypatch: pytest.Mon
     # Facts stay deterministic authority.
     assert result.draft["execution_eligible"] is False
     assert result.draft["severity_label"] == "P2 - High"
+
+
+def test_live_narration_sanitizes_reasoning_preamble(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _StubClient(
+        text=(
+            "<think>private chain</think>\n"
+            "The user is asking about failed logins.\n\n"
+            "Repeated failed logins require analyst review."
+        )
+    )
+    result = _run(monkeypatch, live=True, client=client)
+
+    assert result.analyst_summary == "Repeated failed logins require analyst review."
+    assert "<think>" not in result.analyst_summary
+    assert "The user is asking" not in result.analyst_summary
+
+
+def test_live_narration_length_finish_reason_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _StubClient(text="Partial analyst prose", finish_reason="length")
+    result = _run(monkeypatch, live=True, client=client)
+
+    assert client.calls == 1
+    assert result.status.status == "degraded"
+    assert result.status.provider == "deterministic_lab"
+    assert "live_narration_truncated" in result.status.reason
+    assert result.draft["draft_source"] == "deterministic_lab"
 
 
 def test_live_narration_failure_falls_back_to_deterministic(monkeypatch: pytest.MonkeyPatch) -> None:

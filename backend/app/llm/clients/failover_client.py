@@ -107,6 +107,7 @@ class FailoverChatClient:
                     latency_ms=result.latency_ms,
                     usage=result.usage,
                     answered_label=label,
+                    finish_reason=result.finish_reason,
                 )
             except LocalChatError as exc:
                 last_error = exc

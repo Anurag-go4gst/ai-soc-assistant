@@ -10,6 +10,7 @@ _MOCK_DISCOVERY_TOOLS = frozenset(
     {"splunk_get_info", "splunk_get_indexes", "splunk_get_metadata", "splunk_get_knowledge_objects"}
 )
 _RUN_QUERY_ALIASES = frozenset({"splunk_run_query", "run_splunk_query"})
+_SAVED_SEARCH_TOOL = "splunk_run_saved_search"
 
 
 class MockMcpConnector:
@@ -62,6 +63,17 @@ class MockMcpConnector:
                 "status": "ok",
                 "mock": True,
                 "objects": [{"name": "pgcil_auth_summary", "object_type": "savedsearch"}],
+            }
+        if tool_name == _SAVED_SEARCH_TOOL:
+            if not settings.splunk_allow_run_saved_search:
+                return {"status": "blocked", "error": "saved_search_execution_disabled", "rows": []}
+            name = str(arguments.get("saved_search_name") or arguments.get("name") or "")
+            return {
+                "status": "ok",
+                "mock": True,
+                "saved_search_name": name,
+                "row_count": 1,
+                "rows": [{"saved_search": name, "count": 1}],
             }
         if tool_name not in _RUN_QUERY_ALIASES:
             return {"status": "blocked", "error": "mock_tool_not_allowlisted", "rows": []}

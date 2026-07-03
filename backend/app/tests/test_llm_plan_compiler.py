@@ -7,6 +7,7 @@ import json
 import pytest
 
 from app.config import settings
+from app.llm.clients import ChatResult
 from app.spl.llm_plan_compiler import compile_plan_to_spl, generate_llm_spl_via_plan
 
 _PLAN = {
@@ -80,3 +81,22 @@ def test_plan_path_disabled_without_flags(monkeypatch: pytest.MonkeyPatch) -> No
     )
     assert result is not None
     assert result.lab_tier is False
+
+
+class _LengthClient:
+    def generate(self, **kwargs) -> ChatResult:  # noqa: ANN003
+        return ChatResult(
+            text='{"detection_family": "partial"',
+            model="stub",
+            latency_ms=1,
+            finish_reason="length",
+        )
+
+
+def test_plan_path_rejects_length_finish_reason(_llm_on: None) -> None:
+    result = generate_llm_spl_via_plan(user_query="DNS volume last 24 hours", client=_LengthClient())
+
+    assert result is not None
+    assert result.clarification_required is True
+    assert result.clarification_reason == "llm_spl_fallback_schema_invalid"
+    assert "llm_finish_reason=length" in result.adapter_errors

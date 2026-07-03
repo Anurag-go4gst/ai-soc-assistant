@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     splunk_saia_require_discovery: bool = True
     splunk_allow_run_saved_search: bool = False
     splunk_run_saved_search_require_hil: bool = True
+    ai_soc_catalogue_auto_execute_enabled: bool = False
     splunk_run_query_require_validation: bool = True
     splunk_metadata_discovery_allowed: bool = True
     splunk_knowledge_object_discovery_allowed: bool = True

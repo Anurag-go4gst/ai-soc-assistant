@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "resources": [
     {
       "resource_id": "mcp_tool:search_splunk",
@@ -19,7 +19,10 @@
       "cost_class": "expensive",
       "availability": "not_implemented",
       "policy_tier": 2,
-      "notes": "Alias only; not present on the confirmed air-gapped Splunk MCP server"
+      "notes": "Alias only; not present on the confirmed air-gapped Splunk MCP server",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:splunk_run_query",
@@ -37,7 +40,10 @@
       "availability": "fixture_only",
       "policy_tier": 2,
       "capability_class": "freeform_query_execution",
-      "notes": "Canonical air-gapped read-only search; validator-approved normalized SPL only; mock connector remains fixture-only"
+      "notes": "Canonical air-gapped read-only search; validator-approved normalized SPL only; mock connector remains fixture-only",
+      "read_only": false,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "mcp_tool:splunk_get_info",
@@ -51,7 +57,10 @@
       "availability": "not_implemented",
       "policy_tier": 2,
       "capability_class": "metadata_discovery",
-      "notes": "Confirmed air-gapped read-only discovery tool; not evidence authority"
+      "notes": "Confirmed air-gapped read-only discovery tool; not evidence authority",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:splunk_get_indexes",
@@ -65,7 +74,10 @@
       "availability": "not_implemented",
       "policy_tier": 2,
       "capability_class": "metadata_discovery",
-      "notes": "Confirmed air-gapped read-only discovery tool; results are service-account permission scoped"
+      "notes": "Confirmed air-gapped read-only discovery tool; results are service-account permission scoped",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:splunk_get_index_info",
@@ -83,7 +95,10 @@
       "availability": "not_implemented",
       "policy_tier": 2,
       "capability_class": "metadata_discovery",
-      "notes": "Confirmed air-gapped read-only discovery tool"
+      "notes": "Confirmed air-gapped read-only discovery tool",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:splunk_get_metadata",
@@ -101,7 +116,10 @@
       "availability": "not_implemented",
       "policy_tier": 2,
       "capability_class": "metadata_discovery",
-      "notes": "Confirmed air-gapped read-only discovery tool"
+      "notes": "Confirmed air-gapped read-only discovery tool",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:splunk_get_user_info",
@@ -115,7 +133,10 @@
       "availability": "not_implemented",
       "policy_tier": 2,
       "capability_class": "read_only_lookup",
-      "notes": "Read-only current-authenticated-user (self) identity. Enabled in air-gapped; access governed by RBAC role (capability rbac_gated, tier 2), not hard-blocked. Distinct from splunk_get_user_list (enumerates all users) which stays blocked. availability=not_implemented = not yet wired live, same as the other read tools."
+      "notes": "Read-only current-authenticated-user (self) identity. Enabled in air-gapped; access governed by RBAC role (capability rbac_gated, tier 2), not hard-blocked. Distinct from splunk_get_user_list (enumerates all users) which stays blocked. availability=not_implemented = not yet wired live, same as the other read tools.",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:splunk_get_knowledge_objects",
@@ -129,7 +150,10 @@
       "availability": "not_implemented",
       "policy_tier": 2,
       "capability_class": "metadata_discovery",
-      "notes": "Confirmed air-gapped read-only discovery tool; existing detections and macros are metadata only"
+      "notes": "Confirmed air-gapped read-only discovery tool; existing detections and macros are metadata only",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:list_indexes",
@@ -141,7 +165,10 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
-      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:get_index_info",
@@ -153,7 +180,10 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
-      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:indexes_and_sourcetypes",
@@ -165,7 +195,10 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
-      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:list_saved_searches",
@@ -177,7 +210,10 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
-      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server",
+      "read_only": false,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:health_check",
@@ -189,7 +225,10 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
-      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:ping",
@@ -201,7 +240,10 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
-      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:current_user",
@@ -213,7 +255,10 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
-      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:list_users",
@@ -225,7 +270,10 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
-      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:list_tools",
@@ -237,7 +285,10 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
-      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:list_kvstore_collections",
@@ -249,7 +300,10 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 2,
-      "notes": "Livehybrid alias; not present on the confirmed air-gapped server"
+      "notes": "Livehybrid alias; not present on the confirmed air-gapped server",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:create_kvstore_collection",
@@ -261,7 +315,10 @@
       "cost_class": "cheap",
       "availability": "blocked",
       "policy_tier": 3,
-      "notes": "mutating tool \u2014 never selectable"
+      "notes": "mutating tool \u2014 never selectable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "mcp_tool:delete_kvstore_collection",
@@ -273,7 +330,10 @@
       "cost_class": "cheap",
       "availability": "blocked",
       "policy_tier": 3,
-      "notes": "mutating tool \u2014 never selectable"
+      "notes": "mutating tool \u2014 never selectable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "rag_corpus:soc_kb",
@@ -286,7 +346,10 @@
       "input_contract": {},
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 0
+      "policy_tier": 0,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:windows_privileged_group_changes",
@@ -299,7 +362,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:windows_account_lockout",
@@ -312,7 +378,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:sysmon_web_shell_spawn",
@@ -325,7 +394,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:scada_dnp3_modbus_write",
@@ -338,7 +410,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:firewall_ot_egress_denied",
@@ -351,7 +426,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:firewall_vendor_vpn_jump",
@@ -364,7 +442,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:firewall_it_ot_rdp",
@@ -377,7 +458,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:firewall_ot_smb_lateral",
@@ -390,7 +474,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:network_smb_top_talkers",
@@ -403,7 +490,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:esp_it_to_ot_connection",
@@ -416,7 +506,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:vpn_new_country_login",
@@ -429,7 +522,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:auth_success_after_failure",
@@ -443,7 +539,10 @@
       "availability": "available",
       "policy_tier": 0,
       "notes": "draft_preview_not_governed; never executable",
-      "fallback_of": "spl_template_family:auth_success_after_failure"
+      "fallback_of": "spl_template_family:auth_success_after_failure",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:substation_hmi_brute_force",
@@ -456,7 +555,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:auth_failed_login_threshold",
@@ -470,7 +572,10 @@
       "availability": "available",
       "policy_tier": 0,
       "notes": "draft_preview_not_governed; never executable",
-      "fallback_of": "spl_template_family:auth_failed_login_spike"
+      "fallback_of": "spl_template_family:auth_failed_login_spike",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:network_traffic_top_talkers",
@@ -483,7 +588,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:ioc_destination_match",
@@ -496,7 +604,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:dns_beaconing_hunt",
@@ -510,7 +621,10 @@
       "availability": "available",
       "policy_tier": 0,
       "notes": "draft_preview_not_governed; never executable",
-      "fallback_of": "spl_template_family:dns_beaconing_candidate"
+      "fallback_of": "spl_template_family:dns_beaconing_candidate",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:network_new_or_rare_behavior",
@@ -523,7 +637,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:network_threshold_anomaly",
@@ -536,7 +653,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:endpoint_powershell_suspicious",
@@ -550,7 +670,10 @@
       "availability": "available",
       "policy_tier": 0,
       "notes": "draft_preview_not_governed; never executable",
-      "fallback_of": "spl_template_family:edr_powershell_suspicious_command"
+      "fallback_of": "spl_template_family:edr_powershell_suspicious_command",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:network_data_exfil_volume",
@@ -563,7 +686,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:lateral_movement_internal",
@@ -576,7 +702,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:endpoint_persistence_schtask_service",
@@ -589,7 +718,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:notable_risk_review",
@@ -602,7 +734,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:windows_identity_privileged_activity",
@@ -615,7 +750,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:data_source_health_review",
@@ -628,7 +766,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_lab_draft_family:network_multi_signal_review",
@@ -641,7 +782,10 @@
       "cost_class": "free",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "draft_preview_not_governed; never executable"
+      "notes": "draft_preview_not_governed; never executable",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_template_family:auth_failed_login_spike",
@@ -655,7 +799,10 @@
       "availability": "available",
       "policy_tier": 1,
       "notes": "falls back to spl_lab_draft_family:auth_failed_login_threshold",
-      "fallback_of": null
+      "fallback_of": null,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_template_family:auth_success_after_failure",
@@ -669,7 +816,10 @@
       "availability": "available",
       "policy_tier": 1,
       "notes": "falls back to spl_lab_draft_family:auth_success_after_failure",
-      "fallback_of": null
+      "fallback_of": null,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_template_family:edr_powershell_suspicious_command",
@@ -683,7 +833,10 @@
       "availability": "available",
       "policy_tier": 1,
       "notes": "falls back to spl_lab_draft_family:endpoint_powershell_suspicious",
-      "fallback_of": null
+      "fallback_of": null,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "spl_template_family:dns_beaconing_candidate",
@@ -697,7 +850,10 @@
       "availability": "available",
       "policy_tier": 1,
       "notes": "falls back to spl_lab_draft_family:dns_beaconing_hunt",
-      "fallback_of": null
+      "fallback_of": null,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "llm_role:intent_advisory",
@@ -709,7 +865,10 @@
       "cost_class": "expensive",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "advisory only; deterministic authority overrides"
+      "notes": "advisory only; deterministic authority overrides",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "llm_role:route_plan_candidate",
@@ -721,7 +880,10 @@
       "cost_class": "expensive",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "advisory only; deterministic authority overrides"
+      "notes": "advisory only; deterministic authority overrides",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "llm_role:resource_plan_proposal",
@@ -733,7 +895,10 @@
       "cost_class": "expensive",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "advisory only; deterministic authority overrides"
+      "notes": "advisory only; deterministic authority overrides",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "llm_role:narration",
@@ -745,7 +910,10 @@
       "cost_class": "expensive",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "advisory only; deterministic authority overrides"
+      "notes": "advisory only; deterministic authority overrides",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "llm_role:mitre_candidate",
@@ -757,7 +925,10 @@
       "cost_class": "expensive",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "advisory only; deterministic authority overrides"
+      "notes": "advisory only; deterministic authority overrides",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "llm_role:spl_fallback",
@@ -769,7 +940,10 @@
       "cost_class": "expensive",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "advisory only; deterministic authority overrides"
+      "notes": "advisory only; deterministic authority overrides",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "llm_role:answer_guard",
@@ -781,7 +955,10 @@
       "cost_class": "expensive",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "advisory only; deterministic authority overrides"
+      "notes": "advisory only; deterministic authority overrides",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "llm_role:judge",
@@ -793,7 +970,10 @@
       "cost_class": "expensive",
       "availability": "available",
       "policy_tier": 0,
-      "notes": "advisory only; deterministic authority overrides"
+      "notes": "advisory only; deterministic authority overrides",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:attack_discovery",
@@ -823,7 +1003,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:spl_generation",
@@ -846,7 +1029,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:knowledge_recall",
@@ -870,7 +1056,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:guided_investigation",
@@ -897,7 +1086,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:mitre_mapping",
@@ -919,11 +1111,48 @@
           "knowledge_recall",
           "mitre_mapping",
           "context_sufficiency"
-        ]
+        ],
+        "planner_when_to_use": "MITRE ATT&CK mapping when alert or log context is present; deterministic preconditions still decide asserted vs candidate"
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
+    },
+    {
+      "resource_id": "skill:cve_lookup",
+      "kind": "skill",
+      "capabilities": [
+        "allowed_tool:cve_snapshot_store",
+        "vulnerability_source_read"
+      ],
+      "input_contract": {
+        "input": "StructuredContext",
+        "output": "VulnerabilitySourceStatus",
+        "blocked_tools": [
+          "live_internet",
+          "splunk_search"
+        ],
+        "required_evidence": [
+          "vulnerability_source"
+        ],
+        "default_workflow": [
+          "cve_lookup",
+          "context_sufficiency"
+        ],
+        "planner_when_to_use": "CVE IDs, KEV advisories, patch-gap or exposure questions without live scanning"
+      },
+      "cost_class": "cheap",
+      "availability": "available",
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {
+        "snapshot_dir_env": "AI_SOC_CVE_SNAPSHOT_DIR"
+      },
+      "onboarding_status": "fixture_tested",
+      "notes": "Snapshot read model only; honest not_onboarded degrade when AI_SOC_CVE_SNAPSHOT_DIR unset"
     },
     {
       "resource_id": "skill:alert_summary",
@@ -947,7 +1176,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:investigation_notes",
@@ -970,7 +1202,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:out_of_scope",
@@ -989,7 +1224,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:query_understanding",
@@ -1008,7 +1246,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:spl_validation",
@@ -1027,7 +1268,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:evidence_collection",
@@ -1047,7 +1291,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:asset_enrichment",
@@ -1068,7 +1315,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:identity_enrichment",
@@ -1089,7 +1339,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:network_enrichment",
@@ -1110,7 +1363,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:context_sufficiency",
@@ -1131,7 +1387,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:synthesis",
@@ -1153,7 +1412,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:answer_guard",
@@ -1174,7 +1436,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:action_planning",
@@ -1195,7 +1460,10 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "skill:ticket_drafting",
@@ -1218,11 +1486,14 @@
       },
       "cost_class": "cheap",
       "availability": "available",
-      "policy_tier": 1
+      "policy_tier": 1,
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "fixture_tested"
     },
     {
       "resource_id": "api:threat_intel_lookup",
-      "kind": "api",
+      "kind": "http_api",
       "capabilities": [
         "ioc_enrichment"
       ],
@@ -1230,11 +1501,14 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 1,
-      "notes": "deferred TI class; no provider integrated yet"
+      "notes": "deferred TI class; no provider integrated yet",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "api:asset_context_lookup",
-      "kind": "api",
+      "kind": "http_api",
       "capabilities": [
         "asset_identity_context"
       ],
@@ -1242,11 +1516,14 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 1,
-      "notes": "deferred asset-context class; no CMDB integrated yet"
+      "notes": "deferred asset-context class; no CMDB integrated yet",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
     },
     {
       "resource_id": "api:notable_case_lookup",
-      "kind": "api",
+      "kind": "http_api",
       "capabilities": [
         "notable_event_lookup",
         "case_history_lookup"
@@ -1255,7 +1532,27 @@
       "cost_class": "cheap",
       "availability": "not_implemented",
       "policy_tier": 1,
-      "notes": "deferred notable/case-lookup class; no SIEM case API integrated yet"
+      "notes": "deferred notable/case-lookup class; no SIEM case API integrated yet",
+      "read_only": true,
+      "auth_contract": {},
+      "onboarding_status": "declared"
+    },
+    {
+      "resource_id": "http_api:cisco_api_placeholder",
+      "kind": "http_api",
+      "capabilities": [
+        "vendor_intel_lookup"
+      ],
+      "input_contract": {},
+      "cost_class": "cheap",
+      "availability": "not_implemented",
+      "policy_tier": 2,
+      "read_only": true,
+      "auth_contract": {
+        "bearer_token_env": "CISCO_API_TOKEN"
+      },
+      "onboarding_status": "declared",
+      "notes": "Declared-only placeholder until operator provides Cisco API contract"
     }
   ]
 }

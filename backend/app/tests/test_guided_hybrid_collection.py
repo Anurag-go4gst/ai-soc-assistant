@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from app.spl.guided_safe_spl_catalog import (
+    GuidedSafeSplCatalog,
+    GuidedSafeSplCatalogEntry,
+)
 from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.contracts.investigation_plan import InvestigationPlan
 from app.chat.guided_capability_validator import validate_guided_resource_plan
@@ -50,3 +54,116 @@ def test_collect_guided_hybrid_records_planned_discovery_and_catalog_hops() -> N
     assert "guided_safe_catalog" in tools
     assert all(hop.get("outcome") == "planned" for hop in hops)
     assert all(hop.get("tool") != "splunk_run_query" for hop in hops)
+    catalog_hop = next(hop for hop in hops if hop.get("tool") == "guided_safe_catalog")
+    assert catalog_hop["payload"]["coe_signed"] is False
+    assert catalog_hop["payload"]["block_reason"] == "guided_safe_catalog_unsigned"
+
+
+def test_signed_catalog_safe_query_reaches_mediated_execution(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.spl.guided_safe_spl_dispatch.load_guided_safe_spl_catalog",
+        lambda: GuidedSafeSplCatalog(
+            coe_signed=True,
+            entries=[GuidedSafeSplCatalogEntry(template_id="dns_beaconing_candidate")],
+        ),
+    )
+    evidence = _hybrid_evidence()
+    investigation = InvestigationPlan(
+        investigation_objective="OT outbound hunt",
+        hypotheses=["Beaconing"],
+        evidence_needed=["DNS context"],
+        safe_spl_template_requests=["dns_beaconing_candidate"],
+    )
+    plan = compose_guided_resource_plan(evidence, investigation)
+    validated = validate_guided_resource_plan(evidence, plan).validated_resource_plan
+    calls: list[dict] = []
+
+    def _fake_execution(spl_validation: dict) -> tuple[dict, dict]:
+        calls.append(spl_validation)
+        return (
+            {
+                "status": "requires_human_review",
+                "tool_selection_status": "selected",
+                "tool_selection_reason": "deterministic_safe_tool_selected",
+                "block_reason": "analyst_confirmation_required",
+            },
+            {"required": True, "reason": "analyst_confirmation_required"},
+        )
+
+    state, collected_count = collect_guided_hybrid_evidence(
+        {},
+        validated_resource=validated,
+        execute_safe_catalog_spl=_fake_execution,
+    )
+
+    assert collected_count == 0
+    assert len(calls) == 1
+    assert calls[0]["approved"] is True
+    assert calls[0]["normalized_spl"]
+    hop = (state.get("mcp_evidence") or [])[0]
+    assert hop["outcome"] == "requires_human_review"
+    assert hop["payload"]["coe_signed"] is True
+    assert hop["payload"]["human_review_required"] is True
+    assert hop["payload"]["human_review_reason"] == "analyst_confirmation_required"
+
+
+def test_signed_catalog_validation_failure_blocks_before_execution(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.spl.guided_safe_spl_dispatch.load_guided_safe_spl_catalog",
+        lambda: GuidedSafeSplCatalog(
+            coe_signed=True,
+            entries=[GuidedSafeSplCatalogEntry(template_id="dns_beaconing_candidate")],
+        ),
+    )
+    template = __import__(
+        "app.spl.guided_safe_spl_dispatch",
+        fromlist=["get_spl_template"],
+    ).get_spl_template("dns_beaconing_candidate")
+    monkeypatch.setattr(
+        "app.spl.guided_safe_spl_dispatch.get_spl_template",
+        lambda _template_id: template.model_copy(update={"spl_text": "search index=* | delete"}),
+    )
+    evidence = _hybrid_evidence()
+    investigation = InvestigationPlan(
+        investigation_objective="OT outbound hunt",
+        safe_spl_template_requests=["dns_beaconing_candidate"],
+    )
+    validated = validate_guided_resource_plan(
+        evidence,
+        compose_guided_resource_plan(evidence, investigation),
+    ).validated_resource_plan
+
+    state, _ = collect_guided_hybrid_evidence(
+        {},
+        validated_resource=validated,
+        execute_safe_catalog_spl=lambda _validation: (_ for _ in ()).throw(AssertionError("must not execute")),
+    )
+
+    hop = (state.get("mcp_evidence") or [])[0]
+    assert hop["outcome"] == "blocked"
+    assert hop["payload"]["block_reason"] == "guided_safe_template_validation_failed"
+
+
+def test_signed_catalog_without_execution_callback_fails_closed(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.spl.guided_safe_spl_dispatch.load_guided_safe_spl_catalog",
+        lambda: GuidedSafeSplCatalog(
+            coe_signed=True,
+            entries=[GuidedSafeSplCatalogEntry(template_id="dns_beaconing_candidate")],
+        ),
+    )
+    evidence = _hybrid_evidence()
+    investigation = InvestigationPlan(
+        investigation_objective="OT outbound hunt",
+        safe_spl_template_requests=["dns_beaconing_candidate"],
+    )
+    validated = validate_guided_resource_plan(
+        evidence,
+        compose_guided_resource_plan(evidence, investigation),
+    ).validated_resource_plan
+
+    state, _ = collect_guided_hybrid_evidence({}, validated_resource=validated)
+
+    hop = (state.get("mcp_evidence") or [])[0]
+    assert hop["outcome"] == "blocked"
+    assert hop["payload"]["block_reason"] == "guided_safe_execution_callback_unavailable"

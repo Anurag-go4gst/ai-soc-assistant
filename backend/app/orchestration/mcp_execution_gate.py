@@ -7,8 +7,10 @@ from app.connectors.mcp import get_mcp_connector
 from app.connectors.mcp.registry import load_mcp_registry_status
 from app.connectors.mcp.splunk_result_adapter import adapt_mcp_search_payload, execution_preview_from_envelope
 from app.config import settings
-from app.connectors.mcp.splunk_mcp_readiness import splunk_search_tool_arguments
+from app.connectors.mcp.splunk_mcp_readiness import splunk_saved_search_tool_arguments, splunk_search_tool_arguments
 from app.connectors.telemetry import get_telemetry_connector
+from app.coverage.catalogue_execution_map import resolve_catalogue_execution_binding
+from app.orchestration.catalogue_execution_eligibility import catalogue_auto_execute_eligible
 from app.orchestration.execution_confirmation import (
     build_execution_confirmation_review,
     resolve_execution_spl,
@@ -51,6 +53,9 @@ def evaluate_mcp_execution(
     pending_execution: dict[str, Any] | None = None,
     rbac_role: str | None = None,
     llm_lineage_auto_eligible: bool = False,
+    catalogue_match_path: str | None = None,
+    catalogue_question_ref: str | None = None,
+    catalogue_use_case_id: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     telemetry = get_telemetry_connector()
     precondition_block_reason = _precondition_block_reason(precondition_evaluation)
@@ -114,22 +119,30 @@ def evaluate_mcp_execution(
         telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=review["reason"])
         return execution, review
 
+    catalogue_eligible, catalogue_reason = catalogue_auto_execute_eligible(
+        match_path=catalogue_match_path,
+        question_ref=catalogue_question_ref,
+        use_case_id=catalogue_use_case_id,
+        spl_validation=spl_validation,
+        selected_mcp_tool=str(selection.get("selected_mcp_tool") or ""),
+        llm_lineage_risk_tier=(
+            str(spl_validation.get("llm_lineage_risk_tier") or "")
+            if isinstance(spl_validation, dict)
+            else None
+        ),
+    )
+    # DG-5: catalogue-known verified bindings may skip per-call confirmation when
+    # AI_SOC_CATALOGUE_AUTO_EXECUTE_ENABLED=true. All other paths keep DG-1 HIL.
+    require_confirmation = not catalogue_eligible and (
+        registry.mode == "registry"
+        or (settings.ai_soc_require_spl_execution_confirmation and not llm_lineage_auto_eligible)
+    )
     execution_validation, confirmation_review = resolve_execution_spl(
         spl_validation=spl_validation or {},
         execution_review_action=execution_review_action,
         analyst_provided_spl=analyst_provided_spl,
         pending_execution=pending_execution,
-        # Live read-only searches always require per-call analyst confirmation,
-        # even if a deployment accidentally leaves the optional mock/lab flag
-        # disabled. Mock execution retains its explicit demo posture controls.
-        # `llm_lineage_auto_eligible` (item 2.4 risk-based HIL, 2026-07-03) may
-        # relax confirmation ONLY in non-live/mock mode — it never overrides the
-        # registry.mode=="registry" branch above, so live Splunk execution keeps
-        # requiring per-call confirmation unconditionally regardless of risk tier.
-        require_confirmation=(
-            registry.mode == "registry"
-            or (settings.ai_soc_require_spl_execution_confirmation and not llm_lineage_auto_eligible)
-        ),
+        require_confirmation=require_confirmation,
     )
     if confirmation_review is not None:
         execution = _blocked_execution(selection, "requires_human_review", confirmation_review["reason"])
@@ -153,8 +166,24 @@ def evaluate_mcp_execution(
         telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=review["reason"])
         return execution, review
 
-    normalized_spl = str(execution_validation["normalized_spl"])
-    tool_arguments = splunk_search_tool_arguments(normalized_spl=normalized_spl, trace_id=trace_id)
+    selected_tool = str(selection["selected_mcp_tool"])
+    if selected_tool == "splunk_run_saved_search":
+        binding = resolve_catalogue_execution_binding(
+            question_ref=catalogue_question_ref,
+            use_case_id=catalogue_use_case_id,
+        )
+        saved_name = (binding.saved_search_name if binding else None) or str(
+            (spl_validation or {}).get("saved_search_name") or ""
+        )
+        tool_arguments = splunk_saved_search_tool_arguments(
+            saved_search_name=saved_name,
+            saved_search_app=(binding.saved_search_app if binding else None) or "search",
+            trace_id=trace_id,
+        )
+        normalized_spl = None
+    else:
+        normalized_spl = str(execution_validation["normalized_spl"])
+        tool_arguments = splunk_search_tool_arguments(normalized_spl=normalized_spl, trace_id=trace_id)
     started = perf_counter()
     telemetry.record_mcp_execution(
         trace_id,
@@ -192,6 +221,10 @@ def evaluate_mcp_execution(
     # _gate_review guarantees the registry success path is reached only when a
     # live Splunk endpoint is configured, so registry == a real run. Use the
     # real adapter and live provenance; mock keeps mock provenance.
+    if catalogue_eligible:
+        execution_meta = {"auto_execute_reason": catalogue_reason}
+    else:
+        execution_meta = {}
     live_run = registry.mode == "registry"
     envelope = adapt_mcp_search_payload(
         result,
@@ -205,6 +238,7 @@ def evaluate_mcp_execution(
         preview_cap=RESULT_PREVIEW_CAP,
     )
     execution = {
+        **execution_meta,
         "status": "executed",
         "execution_intent": "spl_search",
         "selected_mcp_server": selection["selected_mcp_server"],
@@ -315,7 +349,7 @@ def _gate_review(
         return _review("tool_selection_review", "selected_tool_not_found")
     if tool.get("blocked"):
         return _review("policy_exception_request", tool.get("blocked_reason") or "selected_tool_blocked", "security_admin", ["request_policy_exception", "reject_execution"])
-    if selected_mcp_tool == "splunk_run_saved_search" and not getattr(server, "search_execution_allowed", False):
+    if selected_mcp_tool == "splunk_run_saved_search" and not settings.splunk_allow_run_saved_search:
         return _review("execution_approval", "saved_search_execution_disabled", "soc_lead", ["approve_execution_after_policy_check", "reject_execution"])
     if tool.get("capability") != "spl_search":
         return _review("tool_selection_review", "selected_tool_not_spl_search")

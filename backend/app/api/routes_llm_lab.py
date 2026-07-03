@@ -18,7 +18,8 @@ from pydantic import BaseModel, Field
 from app.auth.session import require_auth
 from app.config import settings
 from app.llm.clients.endpoint_resolver import build_failover_chat_client
-from app.llm.sidecar_clients import invoke_sidecar_role
+from app.llm.sanitize_user_facing_prose import sanitize_user_facing_prose
+from app.llm.sidecar_clients import invoke_sidecar_role_with_metadata
 
 router = APIRouter()
 
@@ -35,7 +36,10 @@ LAB_TIMEOUT_SECONDS = 180.0
 LAB_SYSTEM_PROMPT = (
     "You are a security-domain assistant answering directly, without any tool "
     "access, live data, or retrieval. Be concise and explicit about uncertainty. "
-    "If a question needs live SOC data you do not have, say so plainly."
+    "If a question needs live SOC data you do not have, say so plainly. Output only "
+    "the final analyst-facing answer. Do not include hidden reasoning, chain-of-thought, "
+    "scratchpad notes, planning text, or <think> tags. Do not start with phrases like "
+    "'The user is asking', 'I need to', 'Let's break down', or 'Possible angles'."
 )
 
 DISCLAIMER = (
@@ -109,7 +113,7 @@ def llm_lab_ask(
 
     system_prompt = (payload.system_prompt or "").strip() or LAB_SYSTEM_PROMPT
     started = time.monotonic()
-    raw_output, timed_out, answered_label = invoke_sidecar_role(
+    invocation = invoke_sidecar_role_with_metadata(
         role=LAB_ROLE,
         user_prompt=payload.prompt,
         system_prompt=system_prompt,
@@ -118,14 +122,21 @@ def llm_lab_ask(
     )
     latency_ms = int((time.monotonic() - started) * 1000)
 
-    answer = (raw_output or "").strip() or None
+    sanitized = sanitize_user_facing_prose(invocation.raw_output or "")
+    answer = sanitized.text or None
+    warnings = []
+    if invocation.finish_reason == "length":
+        warnings.append("response_may_be_incomplete")
     return {
         "answer": answer,
         "available": True,
         "llm_called": answer is not None,
-        "provider": answered_label,
-        "timed_out": timed_out,
+        "provider": invocation.answered_label,
+        "timed_out": invocation.timed_out,
         "latency_ms": latency_ms,
+        "finish_reason": invocation.finish_reason,
+        "sanitizer_notes": sanitized.notes,
+        "warnings": warnings,
         "disclaimer": DISCLAIMER,
-        "reason": None if answer is not None else ("llm_timed_out" if timed_out else "llm_no_output"),
+        "reason": None if answer is not None else ("llm_timed_out" if invocation.timed_out else "llm_no_output"),
     }

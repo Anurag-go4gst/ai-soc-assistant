@@ -1,0 +1,39 @@
+{
+  "capture_version": "splunk_mcp_manifest_v1",
+  "captured_at": "2026-07-03T00:00:00Z",
+  "capture_source": "coe_signed_reference",
+  "coe_sign_off": "2026-07-03",
+  "splunk_mcp_server_version": "1.2.1",
+  "tools_observed": [
+    {
+      "name": "splunk_run_query",
+      "aliases": [
+        "run_splunk_query"
+      ]
+    },
+    {
+      "name": "splunk_run_saved_search"
+    },
+    {
+      "name": "splunk_get_info"
+    },
+    {
+      "name": "splunk_get_indexes"
+    },
+    {
+      "name": "splunk_get_index_info"
+    },
+    {
+      "name": "splunk_get_metadata",
+      "aliases": [
+        "get_splunk_metadata"
+      ]
+    },
+    {
+      "name": "splunk_get_knowledge_objects"
+    },
+    {
+      "name": "splunk_get_user_info"
+    }
+  ]
+}

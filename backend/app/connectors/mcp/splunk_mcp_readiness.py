@@ -310,6 +310,8 @@ def validate_mcp_result_envelope(envelope: SplunkResultEnvelope) -> dict[str, An
 
 
 def is_allowed_read_tool(tool_name: str) -> bool:
+    if tool_name == "splunk_run_saved_search":
+        return settings.splunk_allow_run_saved_search
     return tool_name in ALLOWED_READ_TOOL_ALIASES
 
 
@@ -374,3 +376,25 @@ def _source_profile_required_missing(plan: dict[str, Any], use_case_id: str | No
     if use_case_id and plan.get("enrichment_driven") and not plan.get("source_profile_bound"):
         return bool(plan.get("spl_template_status") == "active_source_profile_missing")
     return False
+
+
+def splunk_saved_search_tool_arguments(
+    *,
+    saved_search_name: str,
+    saved_search_app: str = "search",
+    trace_id: str | None = None,
+    earliest_time: str | None = None,
+    latest_time: str | None = None,
+    parameters: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    args: dict[str, Any] = {
+        "saved_search_name": str(saved_search_name).strip(),
+        "app": str(saved_search_app or "search").strip() or "search",
+        "earliest_time": str(earliest_time or settings.spl_default_earliest),
+        "latest_time": str(latest_time or settings.spl_default_latest),
+    }
+    if parameters:
+        args["parameters"] = dict(parameters)
+    if trace_id:
+        args["trace_id"] = trace_id
+    return args

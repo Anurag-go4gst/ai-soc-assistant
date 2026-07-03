@@ -5,6 +5,7 @@ from typing import Any, Callable
 from app.config import settings
 from app.connectors.mcp.base import ConnectorStatus, KnowledgeObjectRequest
 from app.connectors.mcp.discovery import McpToolDescriptor
+from app.connectors.mcp.mcp_endpoint import normalize_mcp_endpoint_url
 from app.connectors.mcp.registry import load_mcp_registry_status
 from app.connectors.mcp.splunk_mcp_readiness import (
     ALLOWED_READ_TOOL,
@@ -19,6 +20,7 @@ from app.connectors.mcp.splunk_search_lifecycle import SearchTransport, run_sear
 # to this name at the live boundary (Go-live decision A.13 #4).
 _CANONICAL_SEARCH_TOOL = "splunk_run_query"
 _SEARCH_TOOL_ALIASES = {"splunk_run_query", "search_splunk", "splunk.search", "run_splunk_query"}
+_SAVED_SEARCH_TOOL = "splunk_run_saved_search"
 
 # Injectable transport factory — tests provide a fake; production builds the
 # streamable_http transport from settings. Returns None when not configured
@@ -91,7 +93,10 @@ class SplunkMcpConnector:
         }
 
     def call_tool(self, tool_name: str, arguments: dict[str, Any], server_name: str | None = None) -> dict[str, Any]:
-        canonical = _CANONICAL_SEARCH_TOOL if tool_name in _SEARCH_TOOL_ALIASES else tool_name
+        if tool_name == _SAVED_SEARCH_TOOL:
+            canonical = _SAVED_SEARCH_TOOL
+        else:
+            canonical = _CANONICAL_SEARCH_TOOL if tool_name in _SEARCH_TOOL_ALIASES else tool_name
         if is_disallowed_tool(canonical):
             return {"status": "blocked", "error": "tool_not_allowlisted", "tool_name": tool_name}
         is_discovery = canonical in SPLUNK_DISCOVERY_TOOLS
@@ -103,6 +108,20 @@ class SplunkMcpConnector:
                 return {"status": "blocked", "error": "mcp_discovery_disabled", "tool_name": tool_name}
             # Discovery auto-execution is a separate decision (O4); not in v1.
             raise NotImplementedError("Splunk MCP live discovery execution is out of v1 scope (O4).")
+        if canonical == _SAVED_SEARCH_TOOL:
+            registry = load_mcp_registry_status()
+            if not registry.global_execution_enabled:
+                return {"status": "blocked", "error": "mcp_global_execution_disabled", "tool_name": canonical}
+            transport = self._tool_transport(_SAVED_SEARCH_TOOL)
+            if transport is None:
+                return {"status": "blocked", "error": "live_transport_unconfigured", "tool_name": canonical}
+            return run_search_lifecycle(
+                transport,
+                arguments,
+                max_polls=settings.mcp_max_polls_per_call,
+                poll_interval_ms=settings.mcp_search_poll_interval_ms,
+                job_timeout_ms=settings.mcp_search_job_timeout_ms,
+            )
         registry = load_mcp_registry_status()
         if not registry.global_execution_enabled:
             return {
@@ -166,7 +185,7 @@ class SplunkMcpConnector:
         return {"status": "not_implemented", "objects": []}
 
 
-class _StreamableHttpSearchTransport:
+class _StreamableHttpToolTransport:
     """Live search transport over MCP streamable_http (bearer auth).
 
     Most Splunk MCP servers run `splunk_run_query` server-side and return rows in
@@ -180,10 +199,11 @@ class _StreamableHttpSearchTransport:
     never constructed (factory returns None).
     """
 
-    def __init__(self, base_url: str, token: str, timeout_seconds: float) -> None:
+    def __init__(self, base_url: str, token: str, timeout_seconds: float, tool_name: str = _CANONICAL_SEARCH_TOOL) -> None:
         import httpx  # lazy: optional dependency, only needed for live runs
 
-        self._url = base_url.rstrip("/") + "/mcp"
+        self._url = normalize_mcp_endpoint_url(base_url)
+        self._tool_name = tool_name
         self._client = httpx.Client(
             timeout=timeout_seconds,
             headers={
@@ -200,7 +220,7 @@ class _StreamableHttpSearchTransport:
             "id": 1,
             "method": "tools/call",
             "params": {
-                "name": _CANONICAL_SEARCH_TOOL,
+                "name": self._tool_name,
                 "arguments": {k: v for k, v in arguments.items() if not k.startswith("_")},
             },
         }
@@ -236,16 +256,26 @@ def _rows_from_mcp_result(result: Any) -> list[dict[str, Any]]:
     return []
 
 
-def build_live_search_transport() -> "SearchTransport | None":
+def build_live_tool_transport(tool_name: str = _CANONICAL_SEARCH_TOOL) -> "SearchTransport | None":
     base_url = settings.splunk_mcp_base_url.strip()
     token = settings.splunk_mcp_token.strip()
     if not base_url or not token:
         return None
     try:
-        return _StreamableHttpSearchTransport(
+        return _StreamableHttpToolTransport(
             base_url=base_url,
             token=token,
             timeout_seconds=settings.mcp_search_job_timeout_ms / 1000.0,
+            tool_name=tool_name,
         )
     except Exception:  # noqa: BLE001 — missing httpx / bad config => fail closed.
         return None
+
+
+
+def build_live_search_transport() -> "SearchTransport | None":
+    return build_live_tool_transport(_CANONICAL_SEARCH_TOOL)
+
+
+# Back-compat alias for transport tests and external imports.
+_StreamableHttpSearchTransport = _StreamableHttpToolTransport

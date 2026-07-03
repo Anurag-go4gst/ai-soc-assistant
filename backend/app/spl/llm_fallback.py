@@ -132,6 +132,13 @@ def generate_llm_spl_fallback(
                 return _clarification(CLARIFICATION_NO_CLIENT)
         except LocalChatError:
             return _clarification(CLARIFICATION_NO_CLIENT)
+        if completion.finish_reason == "length":
+            return _clarification(
+                CLARIFICATION_INVALID_SCHEMA,
+                adapter_errors=["llm_finish_reason=length"],
+                model=completion.model,
+                latency_ms=completion.latency_ms,
+            )
         raw_output = completion.text
         model = completion.model
         latency_ms = completion.latency_ms
@@ -605,6 +612,13 @@ SPL_ADVISORY_JSON_SCHEMA: dict[str, Any] = {
         "confidence_label": {"type": "string"},
         "detection_family": {"type": "string"},
         "candidate_spl": {"type": "string"},
+        "index": {"type": "string"},
+        "sourcetype": {"type": "string"},
+        "earliest": {"type": "string"},
+        "latest": {"type": "string"},
+        "time_window_hours": {"type": "integer"},
+        "result_cap": {"type": "integer"},
+        "unresolved_slots": {"type": "array", "items": {"type": "string"}},
         "assumptions": {"type": "array", "items": {"type": "string"}},
         "required_fields": {"type": "array", "items": {"type": "string"}},
         "missing_details": {"type": "array", "items": {"type": "string"}},
@@ -616,7 +630,17 @@ SPL_ADVISORY_JSON_SCHEMA: dict[str, Any] = {
         "governed": {"type": "boolean"},
         "catalog_approved": {"type": "boolean"},
     },
-    "required": ["status", "candidate_spl", "execution_eligible", "governed", "catalog_approved"],
+    "required": [
+        "status",
+        "candidate_spl",
+        "index",
+        "sourcetype",
+        "result_cap",
+        "unresolved_slots",
+        "execution_eligible",
+        "governed",
+        "catalog_approved",
+    ],
 }
 
 
@@ -636,6 +660,8 @@ def _utility_authoring_system_append() -> str:
         '| eval day_of_week=strftime(_time,\\\"%A\\\")\\n'
         '| where day_of_week_num IN (\\\"0\\\",\\\"6\\\")\\n'
         '| table _time hour_of_day day_of_week sourcetype host\\n| head 100", '
+        '"index": "<your_index>", "sourcetype": "", "earliest": "-24h", "latest": "now", '
+        '"time_window_hours": 24, "result_cap": 100, "unresolved_slots": ["sourcetype"], '
         '"assumptions": ["<your_index> is a placeholder index for review-only preview"], '
         '"required_fields": ["_time", "index"], "missing_details": [], '
         '"clarifying_questions": [], "validation_notes": ["Review-only utility draft"], '
@@ -668,8 +694,9 @@ def _system_prompt(correctness_mode: bool = False) -> str:
         datamodels = ", ".join(APPROVED_CIM_DATAMODELS)
         return (
             "You are the AI SOC SPL advisory fallback (lab candidate only — never governed, "
-            "never catalog-approved, never executable). Return one JSON object "
-            "matching the provided schema.\n"
+            "never catalog-approved, never executable). Return only valid JSON matching the provided schema. "
+            "No markdown, no explanation outside JSON, no hidden reasoning, no scratchpad, no planning text, "
+            "and no <think> tags.\n"
             f"{_correctness_engineering_block()}"
             "Decide whether the request is sufficiently specified. Return clarification questions when the "
             "required log source is unclear, fields required for logic are missing, or the user asks to "
@@ -687,12 +714,18 @@ def _system_prompt(correctness_mode: bool = False) -> str:
             "command. (tstats/from/datamodel ARE allowed for the approved datamodels above.)\n"
             "confidence_score reflects source-profile completeness and field certainty. assumptions MUST list "
             "index/sourcetype placeholder meanings and field mappings; required_fields MUST list the Splunk "
-            "fields the query depends on; execution_eligible, governed, and catalog_approved MUST be false.\n"
+            "fields the query depends on; index/sourcetype MUST mirror the candidate source placeholders or "
+            "empty strings when unresolved; earliest/latest or time_window_hours MUST reflect the requested "
+            "time bound; result_cap MUST be 100 unless the analyst requested a smaller cap; unresolved_slots "
+            "MUST list unknown source/time fields and must not be guessed; execution_eligible, governed, and "
+            "catalog_approved MUST be false.\n"
             'Example: {"status": "candidate_generated", "confidence_score": 0.7, "confidence_label": "medium", '
             '"detection_family": "dns_query_volume", "candidate_spl": "search index=<dns_index> '
             "sourcetype=<dns_sourcetype> earliest=-24h latest=now query=* | eval src_host_norm=lower(coalesce("
             'src_host, src_ip, "unknown")) | stats count as dns_query_count dc(query) as distinct_domains by '
             'src_host_norm | sort - dns_query_count | head 100", '
+            '"index": "<dns_index>", "sourcetype": "<dns_sourcetype>", "earliest": "-24h", '
+            '"latest": "now", "time_window_hours": 24, "result_cap": 100, "unresolved_slots": [], '
             '"assumptions": ["<dns_index>/<dns_sourcetype> are the DNS source"], '
             '"required_fields": ["src_ip", "query", "index", "sourcetype"], "missing_details": [], '
             '"clarifying_questions": [], "validation_notes": ["Lab candidate only"], '
@@ -701,8 +734,9 @@ def _system_prompt(correctness_mode: bool = False) -> str:
         )
     return (
         "You are the AI SOC SPL advisory fallback (lab candidate only — never governed, "
-        "never catalog-approved, never executable). Return one JSON object "
-        "matching the provided schema.\n"
+        "never catalog-approved, never executable). Return only valid JSON matching the provided schema. "
+        "No markdown, no explanation outside JSON, no hidden reasoning, no scratchpad, no planning text, "
+        "and no <think> tags.\n"
         f"{_soc_std_spl_001_prompt_rules()}"
         f"{_detection_family_prompt()}"
         "Decide whether the request is sufficiently specified. Return clarification questions when "
@@ -724,13 +758,18 @@ def _system_prompt(correctness_mode: bool = False) -> str:
         "only when a known family maps clearly and key fields are present or safely placeholdered; medium "
         "when family is clear but source profile/field mapping is incomplete; low when family is uncertain "
         "or clarification is required. assumptions MUST list index/sourcetype placeholder meanings and "
-        "field mappings. required_fields MUST list Splunk fields the query depends on. execution_eligible, "
-        "governed, and catalog_approved MUST be false.\n"
+        "field mappings. required_fields MUST list Splunk fields the query depends on. index/sourcetype "
+        "MUST mirror the candidate source placeholders or empty strings when unresolved; earliest/latest "
+        "or time_window_hours MUST reflect the requested time bound; result_cap MUST be 100 unless the "
+        "analyst requested a smaller cap; unresolved_slots MUST list unknown source/time fields and must "
+        "not be guessed. execution_eligible, governed, and catalog_approved MUST be false.\n"
         "Example output:\n"
         '{"status": "candidate_generated", "confidence_score": 0.72, "confidence_label": "medium", '
         '"detection_family": "windows_account_lockout", "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> '
         "earliest=-60m latest=now action=failure | eval src_ip=coalesce(src_ip, src, source, "
         '"") | stats count as failed_logins by src_ip | sort -failed_logins | head 100", '
+        '"index": "<auth_index>", "sourcetype": "<auth_sourcetype>", "earliest": "-60m", '
+        '"latest": "now", "time_window_hours": 1, "result_cap": 100, "unresolved_slots": [], '
         '"assumptions": ["<auth_index> is the authentication log index", '
         '"<auth_sourcetype> is the auth sourcetype", "src_ip holds the client address"], '
         '"required_fields": ["src_ip", "action", "index", "sourcetype"], "missing_details": [], '
@@ -783,7 +822,8 @@ def _user_prompt(
         parts.append("")
     parts.append(
         "Return only JSON with keys status, confidence_score, confidence_label, detection_family, "
-        "candidate_spl, assumptions, required_fields, missing_details, clarifying_questions, "
-        "validation_notes, soc_std_rules_applied, risk_notes, execution_eligible, governed, catalog_approved."
+        "candidate_spl, index, sourcetype, earliest, latest, time_window_hours, result_cap, unresolved_slots, "
+        "assumptions, required_fields, missing_details, clarifying_questions, validation_notes, "
+        "soc_std_rules_applied, risk_notes, execution_eligible, governed, catalog_approved. No markdown or reasoning text."
     )
     return "\n".join(parts)

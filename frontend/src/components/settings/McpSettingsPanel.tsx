@@ -98,7 +98,7 @@ export function McpSettingsPanel({ status }: { status: SettingsStatus['mcp'] }) 
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="soc-eyebrow">Splunk MCP connection</p>
-                <p className="text-xs text-slate-500">Use the endpoint URL and encrypted token from the Splunk MCP Server app.</p>
+                <p className="text-xs text-slate-500">Paste the exact endpoint URL from the Splunk MCP Server app (include /mcp if shown).</p>
               </div>
               <Badge variant="secondary" className="text-[0.65rem]">
                 source: {conn.source}
@@ -181,6 +181,18 @@ export function McpSettingsPanel({ status }: { status: SettingsStatus['mcp'] }) 
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Allow saved search execution</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={conn.allow_saved_search}
+                    onChange={(e) => patch({ allow_saved_search: e.target.checked })}
+                    className="h-4 w-4 accent-cyan-500"
+                  />
+                  <span className="text-xs text-slate-400">Enable splunk_run_saved_search in tool allowlist (COE-reviewed only)</span>
+                </div>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Splunk AI Assistant tools</Label>

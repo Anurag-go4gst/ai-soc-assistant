@@ -260,6 +260,10 @@ def test_registry_mode_without_credentials_blocks_for_config(monkeypatch) -> Non
     monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_TOOL_ALLOWLIST", "run_splunk_query")
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: FakeTelemetry())
+    from app.config import settings
+    monkeypatch.setattr(settings, "splunk_mcp_enabled", False)
+    monkeypatch.setattr(settings, "splunk_mcp_base_url", "")
+    monkeypatch.setattr(settings, "splunk_mcp_token", "")
 
     execution, review = evaluate_mcp_execution(
         trace_id="trace-real",

@@ -14,7 +14,8 @@ from app.llm.governed_context_package import (
     cached_context_prompt_block,
 )
 from app.llm.prompts import PROMPT_CONTRACTS
-from app.llm.sidecar_clients import MISSING_EVIDENCE_ROLE, invoke_sidecar_role
+from app.llm.sanitize_user_facing_prose import sanitize_user_facing_prose
+from app.llm.sidecar_clients import MISSING_EVIDENCE_ROLE, invoke_sidecar_role_with_metadata
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 
 MISSING_EVIDENCE_ROLE_ID = MISSING_EVIDENCE_ROLE
@@ -28,6 +29,8 @@ class MissingEvidenceReasonerResult:
     skipped_reason: str | None = None
     provider_label: str | None = None
     adapter_warnings: list[str] = field(default_factory=list)
+    finish_reason: str | None = None
+    sanitizer_notes: list[str] = field(default_factory=list)
 
     def to_trace_dict(self) -> dict[str, Any]:
         return {
@@ -35,8 +38,10 @@ class MissingEvidenceReasonerResult:
             "timed_out": self.timed_out,
             "skipped_reason": self.skipped_reason,
             "provider_label": self.provider_label,
+            "finish_reason": self.finish_reason,
             "bullet_count": len(self.bullets),
             "adapter_warnings": list(self.adapter_warnings),
+            "sanitizer_notes": list(self.sanitizer_notes),
         }
 
 
@@ -72,11 +77,12 @@ def run_missing_evidence_reasoner(
     user_prompt = (
         "Analyze missing evidence only. Return JSON with missing_evidence_analysis as "
         "a list of short review-only bullets citing what would strengthen the conclusion. "
-        "Use only the governed context below; never invent evidence.\n"
+        "Use only the governed context below; never invent evidence. Return only valid JSON; "
+        "no markdown, no explanation outside JSON, no hidden reasoning, no scratchpad, and no <think> tags.\n"
         f"GOVERNED CONTEXT:\n{cached_context_prompt_block(context)}"
     )
 
-    raw, timed_out, provider_label = invoke_sidecar_role(
+    invocation = invoke_sidecar_role_with_metadata(
         role=MISSING_EVIDENCE_ROLE_ID,
         user_prompt=user_prompt,
         system_prompt=system,
@@ -84,35 +90,50 @@ def run_missing_evidence_reasoner(
         timeout_seconds=timeout_seconds,
         allow_failover=allow_failover,
     )
+    raw = invocation.raw_output
+    timed_out = invocation.timed_out
+    provider_label = invocation.answered_label
     if timed_out:
         return MissingEvidenceReasonerResult(
             llm_called=True,
             timed_out=True,
             provider_label=provider_label,
             skipped_reason="llm_timed_out",
+            finish_reason=invocation.finish_reason,
         )
     if not raw:
         return MissingEvidenceReasonerResult(
             skipped_reason="no_provider_or_empty_output",
             provider_label=provider_label,
+            finish_reason=invocation.finish_reason,
+        )
+    if invocation.finish_reason == "length":
+        return MissingEvidenceReasonerResult(
+            llm_called=True,
+            provider_label=provider_label,
+            skipped_reason="llm_finish_reason=length",
+            finish_reason=invocation.finish_reason,
         )
 
     extraction = extract_first_json_object(raw)
     if not extraction.parsed_ok or extraction.payload is None:
         adapted = adapt_llm_output(role=MISSING_EVIDENCE_ROLE_ID, raw_output=raw)
         if adapted.accepted and isinstance(adapted.normalized_payload, dict):
-            bullets = _normalize_bullets(adapted.normalized_payload.get("missing_evidence_analysis"))
+            bullets, sanitizer_notes = _normalize_bullets(adapted.normalized_payload.get("missing_evidence_analysis"))
             return MissingEvidenceReasonerResult(
                 bullets=bullets,
                 llm_called=True,
                 provider_label=provider_label,
                 adapter_warnings=list(adapted.warnings),
+                finish_reason=invocation.finish_reason,
+                sanitizer_notes=sanitizer_notes,
             )
         return MissingEvidenceReasonerResult(
             llm_called=True,
             provider_label=provider_label,
             skipped_reason="json_extraction_failed",
             adapter_warnings=list(extraction.warnings + extraction.errors),
+            finish_reason=invocation.finish_reason,
         )
 
     adapted = adapt_llm_output(role=MISSING_EVIDENCE_ROLE_ID, raw_output=raw)
@@ -122,17 +143,29 @@ def run_missing_evidence_reasoner(
             provider_label=provider_label,
             skipped_reason="adapter_rejected",
             adapter_warnings=list(adapted.warnings + adapted.errors),
+            finish_reason=invocation.finish_reason,
         )
-    bullets = _normalize_bullets(adapted.normalized_payload.get("missing_evidence_analysis"))
+    bullets, sanitizer_notes = _normalize_bullets(adapted.normalized_payload.get("missing_evidence_analysis"))
     return MissingEvidenceReasonerResult(
         bullets=bullets,
         llm_called=True,
         provider_label=provider_label,
         adapter_warnings=list(adapted.warnings),
+        finish_reason=invocation.finish_reason,
+        sanitizer_notes=sanitizer_notes,
     )
 
 
-def _normalize_bullets(value: Any) -> list[str]:
+def _normalize_bullets(value: Any) -> tuple[list[str], list[str]]:
     if not isinstance(value, list):
-        return []
-    return [str(item).strip() for item in value if str(item).strip()][:6]
+        return [], []
+    bullets: list[str] = []
+    notes: list[str] = []
+    for item in value:
+        sanitized = sanitize_user_facing_prose(str(item))
+        if sanitized.text:
+            bullets.append(sanitized.text)
+            notes.extend(sanitized.notes)
+        if len(bullets) >= 6:
+            break
+    return bullets, notes

@@ -49,7 +49,8 @@ def test_reasoning_advisory_prompt_contract_is_advisory_only() -> None:
         schema = contract["output_schema"]
 
         assert "Return JSON only" in instruction
-        assert "adapter may extract JSON" in instruction
+        assert "Do not add prose before or after JSON" in instruction
+        assert "Do not include hidden reasoning" in instruction
         assert "advisory only" in instruction
         assert "Cannot override severity" in instruction
         assert "Cannot override MITRE status" in instruction
