@@ -5,5 +5,5 @@ export function getApiBaseUrl() {
   if (configured) {
     return configured.replace(/\/$/, '');
   }
-  return window.location.port === '3010' ? 'http://localhost:8010/api' : DEFAULT_API_BASE_URL;
+  return DEFAULT_API_BASE_URL;
 }

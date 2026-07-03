@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.config import parse_cors_allowed_origins, settings
 from app.connectors.telemetry import get_telemetry_connector
 from app.connectors.telemetry.log_context import (
     REQUEST_ID_HEADER,
@@ -163,10 +164,7 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSON
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3010",
-        "http://127.0.0.1:3010",
-    ],
+    allow_origins=parse_cors_allowed_origins(settings.ai_soc_cors_allowed_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

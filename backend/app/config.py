@@ -42,10 +42,18 @@ class ConfigError(RuntimeError):
     """Raised on unsupported or unsafe configuration values."""
 
 
+def parse_cors_allowed_origins(raw: str) -> list[str]:
+    origins = [part.strip() for part in raw.split(",") if part.strip()]
+    if not origins:
+        raise ConfigError("AI_SOC_CORS_ALLOWED_ORIGINS must include at least one origin.")
+    return origins
+
+
 class Settings(BaseSettings):
     app_env: str = "development"
     backend_port: int = 8010
     frontend_port: int = 3010
+    ai_soc_cors_allowed_origins: str = "http://localhost:3010,http://127.0.0.1:3010"
 
     # Default matches the Docker Compose `postgres` service hostname and the
     # placeholder password used by `.env.example`. Production deployments
@@ -502,6 +510,7 @@ def _validate(s: Settings) -> Settings:
             validate_allowlist_ids(allowlist)
         except ValueError as exc:
             raise ConfigError(str(exc)) from exc
+    parse_cors_allowed_origins(s.ai_soc_cors_allowed_origins)
     return s
 
 

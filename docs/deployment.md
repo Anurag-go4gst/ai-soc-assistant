@@ -64,6 +64,8 @@ cd /var/www/ai-soc-assistant
 docker compose up -d --build
 ```
 
+Mac staging / COE Docker portability (env-driven host ports, CORS, frontend API base URL): see [`docs/operations/mac-staging-docker-deploy.md`](operations/mac-staging-docker-deploy.md).
+
 ## Verification Commands
 
 ```bash
