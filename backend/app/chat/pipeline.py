@@ -185,12 +185,15 @@ from app.chat.evidence_loop import (
     MAX_MCP_HOPS,
     ROUTE_DISCOVERY_HOP,
     assess_loop,
+    assess_loop_with_recipe,
     cve_requirements_present,
     initialize_loop,
     loop_initialized,
     record_execution_hop,
     record_hop,
+    record_recipe_call,
 )
+from app.planner.recipe_registry import get_recipe
 from app.chat.guided_hunt_grounding import (
     T2_UNVERIFIED_BANNER,
     build_guided_hunt_grounding,
@@ -376,6 +379,11 @@ class ChatPipelineState(TypedDict, total=False):
     mcp_required_produces: list[str]
     mcp_loop: dict[str, Any]
     mcp_loop_planner: dict[str, Any] | None
+    # O5c recipe-aware HUB path (item 3.1, 2026-07-03) — unset unless item 3.2's
+    # selector chooses a recipe; the chronology-driven path above is unaffected.
+    mcp_recipe_id: str | None
+    mcp_recipe_pending_call_id: str | None
+    mcp_call_records: list[dict[str, Any]]
     # C1/C9 v2 additive visibility (packaging mirrors response; routed stays authority).
     live_execution_skill: str | None
     planning_or_analytic_skill: str | None
@@ -1204,12 +1212,36 @@ def _attach_pipeline_dispatch_if_enabled(
     return {**state, "pipeline_dispatch": dispatch.model_dump(mode="json")}
 
 
+def _active_recipe(state: ChatPipelineState) -> Any | None:
+    """O5c (item 3.1, 2026-07-03): the recipe for this turn, if any.
+
+    Only ever set by item 3.2's selector — no live pipeline stage sets
+    `mcp_recipe_id` yet, so this returns None on every turn today and every
+    call site below falls through to the pre-existing chronology behavior,
+    byte-identical to before this item.
+    """
+    recipe_id = state.get("mcp_recipe_id")
+    if not isinstance(recipe_id, str) or not recipe_id:
+        return None
+    return get_recipe(recipe_id)
+
+
 def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
     # Stage 4B: on loop re-entry (after an mcp_call discovery hop or the gated
     # execution hop) the HUB only re-assesses + routes — it must NOT re-emit
     # progress, re-route, or re-compose the plan (idempotency, plan bug #2).
     if settings.control_plane_enabled and loop_initialized(state):
         execution = state.get("execution") if "execution" in state else None
+        recipe = _active_recipe(state)
+        if recipe is not None:
+            pending_call_id = state.get("mcp_recipe_pending_call_id")
+            if isinstance(execution, dict) and isinstance(pending_call_id, str) and pending_call_id:
+                state = {**state, **record_recipe_call(state, call_id=pending_call_id, execution=execution)}
+            decision = assess_loop_with_recipe(state, recipe)
+            next_state = {**state, "mcp_loop": decision.to_dict()}
+            if decision.next_tool:
+                next_state["mcp_recipe_pending_call_id"] = decision.next_tool
+            return next_state
         if isinstance(execution, dict):
             state = {**state, **record_execution_hop(state, execution)}
         decision = assess_loop(
@@ -1310,16 +1342,40 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
             evidence_plan=evidence_payload,
             planning_decision=planning_payload,
         )
+    discovery_only = (
+        evidence_payload.get("discovery_allowed") is True
+        and evidence_payload.get("mcp_allowed") is not True
+    )
+    # O5c (item 3.1): a recipe-driven turn skips chronology composition entirely
+    # — the scheduler decides call order from the recipe, not a fixed sequence.
+    active_recipe = _active_recipe(state)
+    if active_recipe is not None:
+        loop_init: dict[str, Any] = {"mcp_call_records": [], "mcp_hops_done": 0}
+        loop_planner = {"source": "recipe", "recipe_id": active_recipe.recipe_id}
+        first_decision = assess_loop_with_recipe(loop_init, active_recipe)
+        next_state = {
+            **state,
+            "evidence_plan": evidence_payload,
+            "planning_decision": planning_payload,
+            "route_adjudication": route_adjudication_payload,
+            **loop_init,
+            "mcp_discovery_only": discovery_only,
+            "mcp_loop_planner": loop_planner,
+            "mcp_loop": first_decision.to_dict(),
+        }
+        if first_decision.next_tool:
+            next_state["mcp_recipe_pending_call_id"] = first_decision.next_tool
+        return _attach_pipeline_dispatch_if_enabled(
+            next_state,
+            evidence_plan=evidence_payload,
+            planning_decision=planning_payload,
+        )
     # Stage 4B: compose the reviewed discovery chronology once, so the HUB can
     # drive read-only mcp_call hops before the linear SPL/execution chain.
     chronology, loop_planner = _resolve_loop_chronology(state, spl_approved=False)
     loop_init = initialize_loop(
         chronology,
         required_produces=_loop_required_produces(evidence_payload),
-    )
-    discovery_only = (
-        evidence_payload.get("discovery_allowed") is True
-        and evidence_payload.get("mcp_allowed") is not True
     )
     loop_state = {**loop_init, "mcp_discovery_only": discovery_only}
     next_state = {
@@ -1339,6 +1395,13 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
     )
 
 
+# Narrow capability->tool mapping for the ONE discovery capability today's
+# shipped recipes use. RecipeCall.resource_capability is a capability label,
+# not a concrete MCP tool name; a general capability->tool resolver is out of
+# scope for items 3.1-3.3 (recipes have no other discovery capability yet).
+_RECIPE_DISCOVERY_CAPABILITY_TOOL = {"metadata_discovery": "splunk_get_indexes"}
+
+
 def graph_node_mcp_call(state: ChatPipelineState) -> ChatPipelineState:
     """Stage 4B: run one read-only discovery hop, then return to the HUB.
 
@@ -1347,6 +1410,41 @@ def graph_node_mcp_call(state: ChatPipelineState) -> ChatPipelineState:
     tool's declared `produces` as planned context. `splunk_run_query` is never
     run here; it stays in the gated execution node.
     """
+    recipe = _active_recipe(state)
+    if recipe is not None:
+        decision = assess_loop_with_recipe(state, recipe)
+        call_id = decision.next_tool
+        if decision.route != ROUTE_DISCOVERY_HOP or not call_id:
+            return state
+        call = recipe.call_by_id(call_id)
+        tool = _RECIPE_DISCOVERY_CAPABILITY_TOOL.get(call.resource_capability) if call is not None else None
+        if not tool:
+            return state
+        hop = execute_loop_discovery_hop(
+            tool,
+            rbac_role=session_role_for_mcp_gate(state.get("session_role")),
+            trace_id=state.get("trace_id"),
+        )
+        # "planned"/"collected" are both successful discovery outcomes (matches
+        # the chronology path's own convention — discovery hops stay
+        # planned-only while MCP execution is globally gated, which is not a
+        # failure); anything else (e.g. blocked) is a real failure.
+        hop_outcome = str(hop.get("outcome") or "")
+        delivered = hop.get("delivered") or []
+        hop_succeeded = hop_outcome in {"planned", "collected"} and bool(delivered)
+        return {
+            **state,
+            **record_recipe_call(
+                state,
+                call_id=call_id,
+                execution={
+                    "status": "executed",
+                    "result_count": 1 if hop_succeeded else 0,
+                }
+                if hop_succeeded
+                else {"status": "blocked"},
+            ),
+        }
     decision = assess_loop(state)
     tool = decision.next_tool
     if decision.route != ROUTE_DISCOVERY_HOP or not tool or tool == "splunk_run_query":

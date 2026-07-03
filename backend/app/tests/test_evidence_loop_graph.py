@@ -118,3 +118,49 @@ def test_cp_off_parity_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
     # No loop state leaks onto the linear path.
     final_state = _compiled_chat_graph().invoke({"request": ChatRequest(message=QUERY)})
     assert "mcp_chronology" not in final_state
+
+
+def test_cp_on_recipe_driven_turn_runs_through_real_langgraph_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    """O5c end to end (items 3.1-3.3): a turn seeded with mcp_recipe_id (today
+    only item 3.2's selector would set this — no live pipeline stage does yet)
+    must terminate correctly through the SAME compiled graph the chronology
+    path uses — discovery hop runs, records a call, advances to the search
+    call, and the turn ends safely (mock execution globally gated in this
+    test env, so it correctly stops at analyst hand-off rather than looping)."""
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    final_state = _compiled_chat_graph_cp().invoke(
+        {
+            "request": ChatRequest(message=QUERY),
+            "session_role": None,
+            "mcp_recipe_id": "hunt_baseline",
+        },
+        {"recursion_limit": MAX_MCP_HOPS * 2 + 30},
+    )
+    records = final_state.get("mcp_call_records")
+    assert isinstance(records, list) and len(records) >= 1
+    assert records[0]["call_id"] == "c1_discovery"
+    assert records[0]["outcome"] == "ok"
+    assert isinstance(final_state.get("mcp_loop"), dict)
+    assert final_state.get("execution") is not None
+
+
+def test_debug_trace_surfaces_mcp_calls_for_recipe_driven_turn(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The analyst-visible trace (item 3.3) must carry the same per-call
+    lineage the graph produced — not just consumed internally."""
+    from app.chat.control_plane_trace import build_control_plane_trace
+
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    final_state = _compiled_chat_graph_cp().invoke(
+        {
+            "request": ChatRequest(message=QUERY),
+            "session_role": None,
+            "mcp_recipe_id": "hunt_baseline",
+        },
+        {"recursion_limit": MAX_MCP_HOPS * 2 + 30},
+    )
+    trace = build_control_plane_trace(final_state)
+    calls = trace.get("mcp_calls")
+    assert isinstance(calls, list) and len(calls) >= 1
+    assert calls[0]["call_id"] == "c1_discovery"
+    assert calls[0]["call_class"] == "metadata_discovery"
+    assert trace.get("mcp_loop") is not None

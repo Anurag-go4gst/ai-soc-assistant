@@ -18,6 +18,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.connectors.mcp.mcp_tool_chronology import load_playbook
+from app.orchestration.mcp_orchestration import CallBudget, CallOutcome, McpCallRecord
+from app.planner.orchestration_scheduler import ScheduleDecision, outcome_edge, schedule_next
+from app.planner.recipe_registry import Recipe
 
 # A single bound covers discovery hops + execution retries combined, so the loop
 # is guaranteed to terminate regardless of how routing fans out.
@@ -101,8 +104,12 @@ def declare_hop_requirements(
 
 
 def loop_initialized(state: dict[str, Any]) -> bool:
-    """Re-entry guard: True once the HUB has composed the loop plan this turn."""
-    return isinstance(state.get("mcp_chronology"), list)
+    """Re-entry guard: True once the HUB has composed the loop plan this turn.
+
+    A recipe-driven turn (item 3.1) never sets mcp_chronology — it initializes
+    mcp_call_records instead — so this checks either.
+    """
+    return isinstance(state.get("mcp_chronology"), list) or isinstance(state.get("mcp_call_records"), list)
 
 
 def initialize_loop(
@@ -322,6 +329,135 @@ def assess_loop(
         reason="all servable requirements delivered; finalize",
         sufficiency="sufficient",
         capability_gaps=capability_gaps,
+    )
+
+
+# --- O5c: recipe-aware HUB path (item 3.1, 2026-07-03) ---------------------
+#
+# The chronology-driven assess_loop above stays the default for every turn
+# without a selected recipe (item 3.2 is the only thing that ever sets
+# state["mcp_recipe_id"] — until it lands, this path is unreachable in live
+# traffic). When a recipe IS selected, these functions delegate the actual
+# scheduling decision to the pure O5b functions (schedule_next/outcome_edge)
+# and translate their vocabulary into the SAME LoopDecision route labels the
+# chronology path uses, so no existing dispatch/routing code needs to change.
+
+_STATUS_TO_OUTCOME: dict[str, CallOutcome] = {
+    "requires_human_review": "denied",  # only reached if somehow re-entered without HIL resolution
+    "blocked": "blocked",
+    "skipped": "failed",
+}
+
+
+def classify_call_outcome(execution: dict[str, Any]) -> CallOutcome | None:
+    """Classify a completed execution result into the O5b outcome vocabulary.
+
+    Returns None when the call has not actually terminated yet (still pending
+    analyst confirmation) — callers must not record a McpCallRecord for that
+    turn; the loop stops at ROUTE_HUMAN_REVIEW until the next request resolves it.
+    """
+    status = str(execution.get("status") or "")
+    if status == "requires_human_review":
+        return None
+    if status == "executed":
+        result_count = int(execution.get("result_count") or 0)
+        return "ok" if result_count > 0 else "empty"
+    return _STATUS_TO_OUTCOME.get(status, "failed")
+
+
+def record_recipe_call(
+    state: dict[str, Any],
+    *,
+    call_id: str,
+    execution: dict[str, Any],
+) -> dict[str, Any]:
+    """Return a state patch recording one completed recipe call, or {} when the
+    call has not terminated yet (pending HIL — nothing to record this turn)."""
+    outcome = classify_call_outcome(execution)
+    if outcome is None:
+        return {}
+    records = list(state.get("mcp_call_records") or [])
+    sequence = len(records)
+    record = McpCallRecord(
+        call_id=call_id,
+        sequence=sequence,
+        outcome=outcome,
+        result_count=int(execution.get("result_count") or 0),
+        error_type=str(execution.get("block_reason")) if outcome not in ("ok", "empty") and execution.get("block_reason") else None,
+    )
+    records.append(record.model_dump(mode="json"))
+    return {
+        "mcp_call_records": records,
+        "mcp_hops_done": int(state.get("mcp_hops_done", 0)) + 1,
+    }
+
+
+def assess_loop_with_recipe(state: dict[str, Any], recipe: Recipe) -> LoopDecision:
+    """The O5c HUB decision for a recipe-driven turn. Deterministic; never
+    mutates state — callers apply `record_recipe_call`'s patch first."""
+    hops_done = int(state.get("mcp_hops_done", 0))
+    if hops_done >= MAX_MCP_HOPS:
+        return LoopDecision(
+            route=ROUTE_EXHAUSTED,
+            reason=f"hop budget {MAX_MCP_HOPS} reached; proceed with available evidence",
+            sufficiency="exhausted",
+            proceed_with_available=True,
+        )
+
+    raw_records = state.get("mcp_call_records") or []
+    records = [McpCallRecord.model_validate(item) for item in raw_records]
+    # Budget = min(MAX_MCP_HOPS, recipe budget); never raised at runtime — the
+    # single global hop bound above is a second, independent floor on top.
+    budget = CallBudget(max_calls=min(MAX_MCP_HOPS - hops_done, recipe.max_calls - len(records)))
+
+    decision: ScheduleDecision = schedule_next(recipe, records, budget)
+
+    if decision.action == "stop":
+        if decision.stop_reason == "evidence_satisfied":
+            # "evidence_satisfied" covers two distinct cases the scheduler does
+            # not itself distinguish: genuinely done, or the last call came
+            # back empty and nothing else is ready. A recipe may predeclare the
+            # latter as an analyst hand-off (RecipeCall.on_empty="hil") rather
+            # than a silent finalize — consult outcome_edge for that call.
+            if records and records[-1].outcome == "empty":
+                last_call = recipe.call_by_id(records[-1].call_id)
+                if last_call is not None and outcome_edge(last_call, "empty") == "hil":
+                    return LoopDecision(
+                        route=ROUTE_HUMAN_REVIEW,
+                        reason=f"{records[-1].call_id} returned empty; recipe routes empty to analyst hand-off",
+                        sufficiency="needs_more",
+                    )
+            return LoopDecision(
+                route=ROUTE_FINALIZE,
+                reason="recipe evidence satisfied",
+                sufficiency="sufficient",
+            )
+        if decision.stop_reason == "budget_exhausted":
+            return LoopDecision(
+                route=ROUTE_EXHAUSTED,
+                reason="recipe call budget exhausted",
+                sufficiency="exhausted",
+                proceed_with_available=True,
+                missing=decision.unresolved_evidence_keys,
+            )
+        # fail_closed:<outcome> or any other stop reason — hard failures fail
+        # closed per the recipe layer's governance invariant: no further
+        # scheduling, stop for review.
+        return LoopDecision(
+            route=ROUTE_HUMAN_REVIEW,
+            reason=decision.stop_reason or "recipe scheduling stopped",
+            sufficiency="needs_more",
+            missing=decision.unresolved_evidence_keys,
+        )
+
+    call = recipe.call_by_id(decision.call_id)
+    route = ROUTE_DISCOVERY_HOP if call is not None and call.call_class == "metadata_discovery" else ROUTE_EXECUTE
+    return LoopDecision(
+        route=route,
+        reason=f"recipe call ready: {decision.call_id}",
+        next_tool=decision.call_id,
+        sufficiency="needs_more",
+        missing=decision.unresolved_evidence_keys,
     )
 
 
