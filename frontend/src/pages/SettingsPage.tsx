@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Settings as SettingsIcon, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -31,37 +31,42 @@ export function SettingsPage() {
   const [currentTab, setCurrentTab] = useState(
     location.pathname === '/settings/providers'
       ? 'providers'
+      : location.pathname === '/settings/mcp'
+        ? 'mcp'
       : location.pathname === '/settings/source-profiles'
         ? 'source-profiles'
-        : 'mcp',
+        : 'providers',
   );
+
+  const refreshStatus = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [live, providers] = await Promise.all([getSettingsStatus(), getProviderSettingsStatus()]);
+      setStatus(live);
+      setProviderStatus(providers);
+      setUsingMock(false);
+    } catch (err) {
+      toast.error(`Settings status unavailable — using mock. (${(err as Error).message})`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (location.pathname === '/settings/providers') {
       setCurrentTab('providers');
+    } else if (location.pathname === '/settings/mcp') {
+      setCurrentTab('mcp');
     } else if (location.pathname === '/settings/source-profiles') {
       setCurrentTab('source-profiles');
+    } else if (location.pathname === '/settings') {
+      setCurrentTab('providers');
     }
   }, [location.pathname]);
 
   useEffect(() => {
-    let cancelled = false;
-    Promise.all([getSettingsStatus(), getProviderSettingsStatus()])
-      .then(([live, providers]) => {
-        if (cancelled) return;
-        setStatus(live);
-        setProviderStatus(providers);
-        setUsingMock(false);
-      })
-      .catch((err: Error) => {
-        if (cancelled) return;
-        toast.error(`Settings status unavailable — using mock. (${err.message})`);
-      })
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void refreshStatus();
+  }, [refreshStatus]);
 
   return (
     <ScrollArea className="h-full">
@@ -75,7 +80,7 @@ export function SettingsPage() {
             </h2>
             <p className="mt-1 text-xs text-slate-500">
               Non-secret configuration status for Providers, MCP, RAG, LLM, Routing, Safeguards, and Observability.
-              Edits and live connectors land in a later phase.
+              MCP connections can be saved and tested here; Splunk live-search policy is managed on Providers/MCP.
             </p>
           </div>
           {loading ? (
@@ -98,6 +103,8 @@ export function SettingsPage() {
               navigate('/settings/providers');
             } else if (value === 'source-profiles') {
               navigate('/settings/source-profiles');
+            } else if (value === 'mcp') {
+              navigate('/settings/mcp');
             } else {
               navigate('/settings');
             }
@@ -118,10 +125,10 @@ export function SettingsPage() {
           </TabsList>
           <div className="mt-3">
             <TabsContent value="providers" className="m-0">
-              <ProvidersSettingsPanel status={providerStatus} />
+              <ProvidersSettingsPanel status={providerStatus} onStatusChange={refreshStatus} />
             </TabsContent>
             <TabsContent value="mcp" className="m-0">
-              <McpSettingsPanel status={status.mcp} />
+              <McpSettingsPanel status={status.mcp} onStatusChange={refreshStatus} />
             </TabsContent>
             <TabsContent value="source-profiles" className="m-0">
               <SourceProfileSettingsPanel />

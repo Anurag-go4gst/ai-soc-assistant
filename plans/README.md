@@ -18,6 +18,7 @@ If Cursor also writes a plan under `.cursor/plans/` or `/root/.cursor/plans/`, *
 
 | Plan | Status |
 |------|--------|
+| [`2026-07-04_2105_providers-mcp-connection-hub.md`](2026-07-04_2105_providers-mcp-connection-hub.md) | **Done** — Providers Splunk save + execution switch; MCP tab other MCPs; B1–B9 review fixes |
 | [`2026-07-04_1730_hybrid-intent-deterministic-llm-coordination.md`](2026-07-04_1730_hybrid-intent-deterministic-llm-coordination.md) | **Done** — hybrid advisory OOR-only; command modes excluded; governance green |
 | [`2026-07-04_1610_danger-tiered-mcp-command-intent.md`](2026-07-04_1610_danger-tiered-mcp-command-intent.md) | **Done** — OOR command modes on canonical `spl_and_run` spine (not guided); postprocessor + source_resolve; read-only auto; SPL HIL; governance regression green after `_resolve_path_type` command-signal fix |
 | [`2026-07-04_0428_intent-advisor-value-o5c-live-scorecard.md`](2026-07-04_0428_intent-advisor-value-o5c-live-scorecard.md) | **Done** — consumer-gated intent advisor, O5c live trigger, live scorecard |

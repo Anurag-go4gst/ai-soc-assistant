@@ -434,6 +434,9 @@ export interface McpConnectionConfig {
   splunk_ai_assistant_mode: string;
   allow_saved_search: boolean;
   execution_enabled: boolean;
+  last_check_status?: string | null;
+  last_error?: string | null;
+  last_technical_detail?: string | null;
   source: 'override' | 'env';
 }
 
@@ -492,6 +495,93 @@ export async function verifyMcpConnection(action: 'validate' | 'test' | 'discove
   });
   if (!response.ok) {
     throw new Error(`MCP ${action} failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export interface OtherMcpServerConfig {
+  server_id: string;
+  display_name: string;
+  provider_type: string;
+  enabled: boolean;
+  transport: string;
+  auth_method: string;
+  url_configured: boolean;
+  command_configured: boolean;
+  auth_configured: boolean;
+  timeout_seconds: number;
+  execution_enabled: boolean;
+  last_check_status?: string | null;
+  last_error?: string | null;
+  last_technical_detail?: string | null;
+  discovered_tools: (string | { name: string; description?: string; capability?: string; categories?: string[]; blocked?: boolean; blocked_reason?: string | null })[];
+  bearer_token_configured: boolean;
+  secrets_returned: false;
+}
+
+export interface OtherMcpServersResponse {
+  servers: OtherMcpServerConfig[];
+  supported_provider_types: string[];
+  supported_transports: string[];
+  supported_auth_methods: string[];
+}
+
+export interface OtherMcpServerSaveResult {
+  saved: boolean;
+  validation_errors: string[];
+  server: OtherMcpServerConfig | null;
+}
+
+export async function getOtherMcpServers(): Promise<OtherMcpServersResponse> {
+  const response = await fetch(`${API_BASE_URL}/settings/mcp/servers`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`MCP servers load failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function saveOtherMcpServer(payload: {
+  server_id: string;
+  display_name: string;
+  provider_type: string;
+  enabled: boolean;
+  transport: string;
+  auth_method: string;
+  url: string;
+  bearer_token: string;
+  timeout_seconds: number;
+  execution_enabled: boolean;
+}): Promise<OtherMcpServerSaveResult> {
+  const response = await fetch(`${API_BASE_URL}/settings/mcp/servers`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`MCP server save failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function deleteOtherMcpServer(serverId: string): Promise<{ deleted: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/settings/mcp/servers/${encodeURIComponent(serverId)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error(`MCP server delete failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function verifyOtherMcpServer(serverId: string, action: 'test' | 'discover'): Promise<{ result: McpConnectionVerificationResult; server: OtherMcpServerConfig | null }> {
+  const response = await fetch(`${API_BASE_URL}/settings/mcp/servers/${encodeURIComponent(serverId)}/${action}`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error(`MCP server ${action} failed: ${response.status}`);
   }
   return response.json();
 }
@@ -780,4 +870,3 @@ export async function denyAction(actionId: string): Promise<ActionProposalEnvelo
   }
   return response.json();
 }
-

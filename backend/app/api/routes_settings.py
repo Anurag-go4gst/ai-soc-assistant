@@ -7,6 +7,7 @@ indicating whether they are configured.
 
 import base64
 import json
+import re
 import time
 from datetime import UTC, datetime
 from urllib.error import HTTPError, URLError
@@ -22,6 +23,8 @@ from app.connectors.llm import get_llm_connector
 from app.connectors.llm.registry import SUPPORTED_PROVIDER_TYPES as SUPPORTED_LLM_PROVIDER_TYPES
 from app.connectors.llm.registry import load_llm_registry_status
 from app.connectors.mcp import get_mcp_connector
+from app.connectors.mcp.connection_store import effective_connection as effective_mcp_connection
+from app.connectors.mcp.connection_store import record_splunk_check
 from app.connectors.mcp.discovery import classify_mcp_tool
 from app.connectors.mcp.live_readiness import evaluate_splunk_mcp_live_readiness
 from app.connectors.mcp.mcp_endpoint import normalize_mcp_endpoint_url
@@ -95,6 +98,23 @@ class McpConnectionSaveRequest(BaseModel):
     saia_tools_enabled: bool = False
     splunk_ai_assistant_mode: str = "auto"
     allow_saved_search: bool = False
+    execution_enabled: bool = False
+
+
+class McpServerSaveRequest(BaseModel):
+    server_id: str
+    display_name: str = ""
+    provider_type: str = "generic"
+    enabled: bool = True
+    transport: str = "streamable_http"
+    auth_method: str = "none"
+    url: str = ""
+    bearer_token: str = ""
+    username: str = ""
+    password: str = ""
+    command: str = ""
+    args: str = ""
+    timeout_seconds: int = 10
     execution_enabled: bool = False
 
 
@@ -189,6 +209,7 @@ def _safe_status(status: object) -> dict[str, object]:
 def settings_status() -> dict:
     mcp_status = get_mcp_connector().health()
     mcp_registry = load_mcp_registry_status()
+    splunk_connection = effective_mcp_connection()
     splunk_capability = build_splunk_capability_profile(mcp_registry)
     rag_status = get_rag_connector().health()
     soc_kb_status = soc_kb_status_summary()
@@ -223,7 +244,9 @@ def settings_status() -> dict:
             "allowed_sourcetypes": ["windows:security", "linux:audit", "auth0:log"],
             "timeout_seconds": 60,
             "max_rows": 1000,
-            "last_check_status": "not_checked",
+            "last_check_status": splunk_connection.get("last_check_status") or "not_checked",
+            "last_error": splunk_connection.get("last_error"),
+            "last_technical_detail": splunk_connection.get("last_technical_detail"),
             "splunk_capability": splunk_capability.model_dump(),
             "splunk_live_readiness": evaluate_splunk_mcp_live_readiness(registry=mcp_registry),
             "environment_mode": splunk_capability.environment_mode,
@@ -442,7 +465,7 @@ def provider_settings_status() -> dict:
         },
         "tool_groups": _tool_groups(mcp_registry, splunk_capability),
         "notes": [
-            "Read-only provider readiness surface.",
+            "Provider readiness and connection status surface.",
             "Secrets and credential values are never returned.",
             "Only Splunk MCP and mock asset inventory are active in this stage.",
         ],
@@ -492,7 +515,7 @@ def check_provider_draft(payload: ProviderDraftCheckRequest) -> dict:
         "connection_check": connection,
         "saved": False,
         "not_persisted": True,
-        "safe_message": "Draft checked without storing secrets. Persisted provider settings are not enabled in this stage.",
+        "safe_message": "Draft checked without storing secrets. Save the connection from the appropriate MCP settings surface.",
     }
 
 
@@ -505,13 +528,19 @@ def validate_mcp_settings(payload: McpVerificationRequest | None = None) -> dict
 @router.post("/settings/mcp/test")
 def test_mcp_connection(payload: McpVerificationRequest | None = None) -> dict:
     draft = _mcp_verification_payload(payload)
-    return _mcp_verification_result(draft, action="test")
+    result = _mcp_verification_result(draft, action="test")
+    if payload is None:
+        _record_splunk_check_result(result)
+    return result
 
 
 @router.post("/settings/mcp/discover")
 def discover_mcp_tools(payload: McpVerificationRequest | None = None) -> dict:
     draft = _mcp_verification_payload(payload)
-    return _mcp_verification_result(draft, action="discover")
+    result = _mcp_verification_result(draft, action="discover")
+    if payload is None:
+        _record_splunk_check_result(result)
+    return result
 
 
 @router.get("/settings/mcp/connection")
@@ -542,8 +571,6 @@ def save_mcp_connection(payload: McpConnectionSaveRequest, user: dict = Depends(
         timeout_seconds=payload.timeout_seconds,
     )
     errors = _validate_mcp_draft(draft)
-    if payload.execution_enabled:
-        errors.append("execution_enablement_requires_env_change_control")
     if errors:
         return {"saved": False, "validation_errors": errors, "connection": effective_connection()}
 
@@ -559,10 +586,74 @@ def save_mcp_connection(payload: McpConnectionSaveRequest, user: dict = Depends(
         saia_tools_enabled=payload.saia_tools_enabled,
         splunk_ai_assistant_mode=payload.splunk_ai_assistant_mode,
         allow_saved_search=payload.allow_saved_search,
-        execution_enabled=False,
+        execution_enabled=payload.execution_enabled,
         updated_by=str(user.get("username") or "unknown"),
     )
     return {"saved": True, "validation_errors": [], "connection": effective_connection()}
+
+
+@router.get("/settings/mcp/servers")
+def list_mcp_servers(_user: dict = Depends(require_auth)) -> dict:
+    from app.connectors.mcp.connection_store import list_other_servers
+
+    return {
+        "servers": list_other_servers(),
+        "supported_provider_types": sorted(SUPPORTED_MCP_TYPES - {"splunk"}),
+        "supported_transports": sorted(SUPPORTED_TRANSPORTS),
+        "supported_auth_methods": sorted(SUPPORTED_MCP_AUTH_MODES),
+    }
+
+
+@router.post("/settings/mcp/servers")
+def save_mcp_server(payload: McpServerSaveRequest, user: dict = Depends(require_auth)) -> dict:
+    from app.connectors.mcp.connection_store import get_other_server, save_other_server
+
+    existing = get_other_server(payload.server_id, include_secrets=True)
+    errors = _validate_mcp_server_payload(payload, existing=existing)
+    if errors:
+        return {"saved": False, "validation_errors": errors, "server": None}
+    server = save_other_server(
+        server_id=payload.server_id,
+        display_name=payload.display_name,
+        provider_type=payload.provider_type,
+        enabled=payload.enabled,
+        transport=payload.transport,
+        auth_method=payload.auth_method,
+        url=payload.url or str((existing or {}).get("url") or ""),
+        bearer_token=payload.bearer_token or None,
+        username=payload.username,
+        password=payload.password,
+        command=payload.command,
+        args=payload.args,
+        timeout_seconds=payload.timeout_seconds,
+        execution_enabled=payload.execution_enabled,
+        updated_by=str(user.get("username") or "unknown"),
+    )
+    return {
+        "saved": True,
+        "validation_errors": [],
+        "server": get_other_server(str(server["server_id"])),
+    }
+
+
+@router.delete("/settings/mcp/servers/{server_id}")
+def delete_mcp_server(server_id: str, _user: dict = Depends(require_auth)) -> dict:
+    from app.connectors.mcp.connection_store import delete_other_server
+
+    if server_id.strip().lower() == settings.splunk_mcp_server_id.strip().lower():
+        raise HTTPException(status_code=400, detail="splunk_server_managed_on_providers_tab")
+    deleted = delete_other_server(server_id)
+    return {"deleted": deleted}
+
+
+@router.post("/settings/mcp/servers/{server_id}/test")
+def test_mcp_server(server_id: str, _user: dict = Depends(require_auth)) -> dict:
+    return _check_stored_mcp_server(server_id, action="test")
+
+
+@router.post("/settings/mcp/servers/{server_id}/discover")
+def discover_mcp_server(server_id: str, _user: dict = Depends(require_auth)) -> dict:
+    return _check_stored_mcp_server(server_id, action="discover")
 
 
 @router.get("/settings/llm/health")
@@ -729,7 +820,7 @@ def check_llm_settings_draft(payload: LlmSettingsDraftCheckRequest) -> dict:
         "warnings": warnings,
         "saved": False,
         "not_persisted": True,
-        "safe_message": "Draft validated without storing values. Persisted LLM settings are not enabled in this stage; apply changes via environment variables.",
+        "safe_message": "Draft validated without storing values. Save provider settings from the LLM connection surface.",
     }
 
 
@@ -1018,6 +1109,75 @@ def _validate_mcp_draft(payload: McpVerificationRequest) -> list[str]:
     if payload.timeout_seconds <= 0:
         errors.append("timeout_seconds_must_be_positive")
     return errors
+
+
+def _validate_mcp_server_payload(payload: McpServerSaveRequest, *, existing: dict[str, object] | None = None) -> list[str]:
+    errors: list[str] = []
+    server_id = re.sub(r"[^a-z0-9_]+", "_", payload.server_id.strip().lower()).strip("_")
+    provider_type = payload.provider_type.strip().lower()
+    if not server_id:
+        errors.append("server_id_is_required")
+    if server_id == settings.splunk_mcp_server_id.strip().lower() or provider_type == "splunk":
+        errors.append("splunk_server_managed_on_providers_tab")
+    if provider_type not in SUPPORTED_MCP_TYPES:
+        errors.append("provider_kind_is_not_supported")
+    draft = McpVerificationRequest(
+        provider_kind=provider_type,
+        deployment_mode="coe",
+        discovery_policy="dynamic",
+        transport=payload.transport,
+        auth_method=payload.auth_method,
+        url=payload.url or str((existing or {}).get("url") or ""),
+        bearer_token=payload.bearer_token or str((existing or {}).get("bearer_token") or ""),
+        username=payload.username,
+        password=payload.password,
+        timeout_seconds=payload.timeout_seconds,
+    )
+    errors.extend(error for error in _validate_mcp_draft(draft) if error not in errors)
+    if payload.transport.strip().lower() == "stdio" and not payload.command.strip():
+        errors.append("mcp_command_is_required")
+    return errors
+
+
+def _check_stored_mcp_server(server_id: str, *, action: str) -> dict[str, object]:
+    from app.connectors.mcp.connection_store import get_other_server, record_other_server_check
+
+    server = get_other_server(server_id, include_secrets=True)
+    if server is None:
+        raise HTTPException(status_code=404, detail="mcp_server_not_found")
+    draft = McpVerificationRequest(
+        provider_kind=str(server.get("provider_type") or "generic"),
+        deployment_mode="coe",
+        discovery_policy="dynamic",
+        transport=str(server.get("transport") or "streamable_http"),
+        auth_method=str(server.get("auth_method") or "none"),
+        url=str(server.get("url") or ""),
+        bearer_token=str(server.get("bearer_token") or ""),
+        username=str(server.get("username") or ""),
+        password=str(server.get("password") or ""),
+        timeout_seconds=int(server.get("timeout_seconds") or 10),
+    )
+    result = _mcp_verification_result(draft, action=action)
+    updated = record_other_server_check(
+        str(server.get("server_id") or server_id),
+        status=str(result.get("status") or "Unknown"),
+        failure_reason=str(result.get("failure_reason") or ""),
+        technical_detail=str(result.get("technical_error_detail") or ""),
+        discovered_tools=list(result.get("tools") if isinstance(result.get("tools"), list) else []),
+    )
+    return {
+        "result": result,
+        "server": get_other_server(str(updated.get("server_id") if updated else server_id)),
+    }
+
+
+def _record_splunk_check_result(result: dict[str, object]) -> None:
+    record_splunk_check(
+        status=str(result.get("status") or "Unknown"),
+        failure_reason=str(result.get("failure_reason") or ""),
+        technical_detail=str(result.get("technical_error_detail") or ""),
+        discovered_tools=list(result.get("tools") if isinstance(result.get("tools"), list) else []),
+    )
 
 
 def _fetch_mcp_tools(payload: McpVerificationRequest) -> dict[str, object]:

@@ -131,6 +131,7 @@ export default function App() {
             <Route path="/quality" element={<QualityPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/providers" element={<SettingsPage />} />
+            <Route path="/settings/mcp" element={<SettingsPage />} />
             <Route path="/settings/source-profiles" element={<SettingsPage />} />
             <Route path="/debug" element={<DebugPage />} />
             <Route path="*" element={<Navigate to="/cockpit" replace />} />
