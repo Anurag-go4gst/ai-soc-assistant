@@ -1,24 +1,28 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Boxes, Eye, HelpCircle, PlugZap, Plus, Radar, SlidersHorizontal, Wrench } from 'lucide-react';
+import { Boxes, HelpCircle, PlugZap, Radar, Save, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
-import { checkProviderDraft, verifyMcpConnection } from '@/api/client';
+import { getMcpConnection, saveMcpConnection, verifyMcpConnection } from '@/api/client';
+import type { McpConnectionConfig } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import type { McpConnectionVerificationResult, ProviderDraftCheckResult, ProviderRegistryItem, ProviderSettingsStatus, ProviderToolStatus, ProviderTypeValue } from '@/types/api';
+import type { McpConnectionVerificationResult, ProviderRegistryItem, ProviderSettingsStatus, ProviderToolStatus } from '@/types/api';
 import { BoolPill, SettingRow } from './SettingRow';
 
-const PROVIDER_TYPE_OPTIONS: ProviderTypeValue[] = ['splunk_mcp', 'asset_inventory'];
 const TOOL_GROUP_ORDER = ['discovery', 'context_lookup', 'event_query', 'asset_lookup', 'candidate_generation', 'explanation', 'optimization', 'execution', 'saved_search_execution', 'write_action', 'admin_action', 'unknown'];
+const HUMAN_ERROR: Record<string, string> = {
+  mcp_url_is_required: 'MCP URL is required.',
+  mcp_url_is_not_valid: 'MCP URL must be an http(s) URL from the Splunk MCP app.',
+  bearer_token_is_required: 'Bearer token is required.',
+  timeout_seconds_must_be_positive: 'Timeout must be greater than 0.',
+};
 
-export function ProvidersSettingsPanel({ status }: { status: ProviderSettingsStatus }) {
+export function ProvidersSettingsPanel({ status, onStatusChange }: { status: ProviderSettingsStatus; onStatusChange?: () => void }) {
   const providers = status.providers ?? [];
   const toolGroups = status.tool_groups ?? {};
 
@@ -31,11 +35,10 @@ export function ProvidersSettingsPanel({ status }: { status: ProviderSettingsSta
           <p className="soc-eyebrow text-cyan-400">Providers & MCP</p>
           <h3 className="mt-1 text-base font-semibold text-slate-100">Integration readiness</h3>
         </div>
-        <AddProviderDialog providerTypes={status.provider_types?.length ? status.provider_types : PROVIDER_TYPE_OPTIONS} />
       </header>
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <SplunkCapabilityCard status={status} />
+        <SplunkCapabilityCard status={status} onStatusChange={onStatusChange} />
         <SaiaPanel status={status} />
       </div>
 
@@ -46,7 +49,7 @@ export function ProvidersSettingsPanel({ status }: { status: ProviderSettingsSta
               <Boxes className="h-4 w-4 text-cyan-400" /> Provider Registry
             </CardTitle>
             <div className="flex gap-1.5">
-              <Badge variant="outline">{activeProviders.length} connected</Badge>
+              <Badge variant="outline">{activeProviders.length} configured</Badge>
             </div>
           </div>
         </CardHeader>
@@ -56,26 +59,71 @@ export function ProvidersSettingsPanel({ status }: { status: ProviderSettingsSta
       </Card>
 
       <ToolDiscoveryPanel toolGroups={toolGroups} />
-
-      <div className="rounded-md border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-slate-400">
-        {status.notes?.join(' ')}
-      </div>
     </div>
   );
 }
 
-function SplunkCapabilityCard({ status }: { status: ProviderSettingsStatus }) {
+function SplunkCapabilityCard({ status, onStatusChange }: { status: ProviderSettingsStatus; onStatusChange?: () => void }) {
   const splunk = status.splunk_capability ?? {};
   const coreCount = arrayLength(splunk.available_core_tools) ?? numberValue(splunk.discovered_core_tool_count) ?? 0;
   const saiaCount = arrayLength(splunk.available_saia_tools) ?? numberValue(splunk.discovered_saia_tool_count) ?? 0;
   const [verification, setVerification] = useState<McpConnectionVerificationResult | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [conn, setConn] = useState<McpConnectionConfig | null>(null);
+  const [bearerToken, setBearerToken] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const loadConnection = () => {
+    void getMcpConnection()
+      .then((result) => setConn(result.connection))
+      .catch(() => setConn(null));
+  };
+
+  useEffect(loadConnection, []);
+
+  const patch = (partial: Partial<McpConnectionConfig>) => setConn((current) => (current ? { ...current, ...partial } : current));
+
+  const saveConnection = async () => {
+    if (!conn || saving) return;
+    setSaving(true);
+    try {
+      const result = await saveMcpConnection({
+        enabled: conn.enabled,
+        deployment_mode: conn.deployment_mode,
+        discovery_policy: conn.discovery_policy,
+        transport: conn.transport,
+        auth_method: conn.auth_method,
+        url: conn.url,
+        bearer_token: bearerToken,
+        timeout_seconds: conn.timeout_seconds,
+        saia_tools_enabled: conn.saia_tools_enabled && conn.deployment_mode !== 'air_gapped',
+        splunk_ai_assistant_mode: conn.splunk_ai_assistant_mode,
+        allow_saved_search: conn.allow_saved_search,
+        execution_enabled: conn.execution_enabled,
+      });
+      if (result.saved) {
+        setConn(result.connection);
+        setBearerToken('');
+        onStatusChange?.();
+        toast.success('Splunk MCP connection saved.');
+      } else {
+        const msg = result.validation_errors.map((error) => HUMAN_ERROR[error] ?? error).join(' ');
+        toast.error(msg || 'Validation failed.');
+      }
+    } catch (err) {
+      toast.error(`Save failed: ${(err as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const runVerification = async (action: 'validate' | 'test' | 'discover') => {
     setBusyAction(action);
     try {
       const result = await verifyMcpConnection(action);
       setVerification(result);
+      loadConnection();
+      onStatusChange?.();
       toast[result.status === 'Connected' ? 'success' : 'warning'](result.failure_reason);
     } catch (err) {
       toast.error(`MCP ${action} failed: ${(err as Error).message}`);
@@ -92,12 +140,106 @@ function SplunkCapabilityCard({ status }: { status: ProviderSettingsStatus }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-x-5 md:grid-cols-2">
+        {conn ? (
+          <div className="mb-3 rounded-md border border-cyan-500/20 bg-slate-950/50 p-3 md:col-span-2">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="soc-eyebrow">Splunk connection</p>
+                <p className="text-xs text-slate-500">Endpoint and token are stored locally; the token is write-only.</p>
+              </div>
+              <Badge variant="secondary" className="text-[0.65rem]">
+                source: {conn.source}
+              </Badge>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Connection enabled">
+                <label className="flex items-center gap-2 text-xs text-slate-400">
+                  <input type="checkbox" checked={conn.enabled} onChange={(event) => patch({ enabled: event.target.checked })} className="h-4 w-4 accent-cyan-500" />
+                  Use configured Splunk MCP server
+                </label>
+              </Field>
+              <Field label="Environment">
+                <select
+                  value={conn.deployment_mode}
+                  onChange={(event) => patch({ deployment_mode: event.target.value, saia_tools_enabled: event.target.value === 'air_gapped' ? false : conn.saia_tools_enabled })}
+                  className="w-full rounded bg-slate-950/60 px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-cyan-500/40"
+                >
+                  {['coe', 'customer_test', 'production', 'air_gapped'].map((mode) => (
+                    <option key={mode} value={mode}>
+                      {mode}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <div className="mt-3">
+              <Field label="MCP endpoint URL">
+                <Input value={conn.url} onChange={(event) => patch({ url: event.target.value })} placeholder="https://<MCP_SERVER_ENDPOINT>" className="text-sm" />
+              </Field>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Field label={`Bearer token ${conn.bearer_token_configured ? '(configured - leave blank to keep)' : ''}`}>
+                <Input type="password" value={bearerToken} onChange={(event) => setBearerToken(event.target.value)} placeholder={conn.bearer_token_configured ? 'stored token' : 'Splunk MCP token'} className="text-sm" />
+              </Field>
+              <Field label="Timeout (s)">
+                <Input type="number" value={conn.timeout_seconds} onChange={(event) => patch({ timeout_seconds: Number(event.target.value) || 0 })} className="text-sm" />
+              </Field>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Field label="Discovery policy">
+                <select value={conn.discovery_policy} onChange={(event) => patch({ discovery_policy: event.target.value })} className="w-full rounded bg-slate-950/60 px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-cyan-500/40">
+                  {['dynamic', 'restricted', 'static_only'].map((policy) => (
+                    <option key={policy} value={policy}>
+                      {policy}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Allow live searches in chat">
+                <label className="flex items-center gap-2 text-xs text-slate-400">
+                  <input type="checkbox" checked={conn.execution_enabled} onChange={(event) => patch({ execution_enabled: event.target.checked })} className="h-4 w-4 accent-cyan-500" />
+                  Enable the Splunk MCP execution gate for validated searches
+                </label>
+              </Field>
+              <Field label="Allow saved search execution">
+                <label className="flex items-center gap-2 text-xs text-slate-400">
+                  <input type="checkbox" checked={conn.allow_saved_search} onChange={(event) => patch({ allow_saved_search: event.target.checked })} className="h-4 w-4 accent-cyan-500" />
+                  Include splunk_run_saved_search in the tool allowlist
+                </label>
+              </Field>
+              <Field label="Splunk AI Assistant tools">
+                <label className="flex items-center gap-2 text-xs text-slate-400">
+                  <input type="checkbox" disabled={conn.deployment_mode === 'air_gapped'} checked={conn.saia_tools_enabled && conn.deployment_mode !== 'air_gapped'} onChange={(event) => patch({ saia_tools_enabled: event.target.checked })} className="h-4 w-4 accent-cyan-500" />
+                  {conn.deployment_mode === 'air_gapped' ? 'disabled for air-gapped' : 'include saia_* if discovered'}
+                </label>
+              </Field>
+            </div>
+            {conn.last_error ? (
+              <div className="mt-3 rounded border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+                <p>{conn.last_error}</p>
+                {conn.last_technical_detail ? (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-amber-200">Error details</summary>
+                    <p className="mt-2 break-words font-mono text-[0.65rem] text-amber-100/80">{conn.last_technical_detail}</p>
+                  </details>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button size="sm" disabled={saving} onClick={() => void saveConnection()} className="gap-1">
+                <Save className="h-3.5 w-3.5" />
+                {saving ? 'Saving...' : 'Save connection'}
+              </Button>
+              <BoolPill value={conn.bearer_token_configured} trueLabel="token configured" falseLabel="token missing" />
+            </div>
+          </div>
+        ) : null}
         <div className="mb-3 rounded-md border border-slate-800 bg-slate-950/50 p-3 md:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="soc-eyebrow">Connection status</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
-                <Badge variant={verification?.status === 'Connected' ? 'success' : verification ? 'warning' : 'secondary'}>{verification?.status ?? 'Not checked'}</Badge>
+                <Badge variant={(verification?.status ?? conn?.last_check_status) === 'Connected' ? 'success' : verification || conn?.last_check_status ? 'warning' : 'secondary'}>{verification?.status ?? conn?.last_check_status ?? 'Not checked'}</Badge>
                 {verification?.last_checked_time ? <span className="text-[0.65rem] text-slate-500">{new Date(verification.last_checked_time).toLocaleString()}</span> : null}
               </div>
             </div>
@@ -197,7 +339,6 @@ function ProviderTable({ providers }: { providers: ProviderRegistryItem[] }) {
             <th className="px-3 py-2 font-medium">Discovered</th>
             <th className="px-3 py-2 font-medium">HIL ops</th>
             <th className="px-3 py-2 font-medium">Last discovered</th>
-            <th className="py-2 pl-3 font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -223,19 +364,6 @@ function ProviderTable({ providers }: { providers: ProviderRegistryItem[] }) {
               </td>
               <td className="px-3 py-2 font-mono text-slate-300">{provider.hil_required_operations_count}</td>
               <td className="px-3 py-2 font-mono text-slate-400">{provider.last_discovered ?? 'not run'}</td>
-              <td className="py-2 pl-3">
-                <div className="flex gap-1">
-                  <Button type="button" variant="ghost" size="sm" className="h-8 px-2" title="View provider">
-                    <Eye className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" className="h-8 px-2" disabled title="Discover disabled in this stage">
-                    <Radar className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" className="h-8 px-2" disabled title="Edit disabled in this stage">
-                    <SlidersHorizontal className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </td>
             </tr>
           ))}
         </tbody>
@@ -300,200 +428,6 @@ function MiniFlag({ label, value }: { label: string; value: boolean }) {
       <span>{label}</span>
       <span className={cn('font-mono', value ? 'text-emerald-300' : 'text-slate-500')}>{value ? 'yes' : 'no'}</span>
     </div>
-  );
-}
-
-function AddProviderDialog({ providerTypes }: { providerTypes: ProviderTypeValue[] }) {
-  const [providerType, setProviderType] = useState<ProviderTypeValue>('splunk_mcp');
-  const [providerId, setProviderId] = useState('splunk_soc');
-  const [displayName, setDisplayName] = useState('Splunk MCP');
-  const [environmentMode, setEnvironmentMode] = useState('coe');
-  const [enabled, setEnabled] = useState(true);
-  const [discoveryMode, setDiscoveryMode] = useState('restricted');
-  const [transport, setTransport] = useState('streamable_http');
-  const [authMode, setAuthMode] = useState('bearer');
-  const [baseUrl, setBaseUrl] = useState('');
-  const [authToken, setAuthToken] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [notes, setNotes] = useState('');
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [checkResult, setCheckResult] = useState<ProviderDraftCheckResult | null>(null);
-
-  const handleProviderTypeChange = (value: string) => {
-    setProviderType(value);
-    setCheckResult(null);
-    if (value === 'asset_inventory') {
-      setProviderId('mock_asset_inventory');
-      setDisplayName('Mock Asset Inventory');
-      setTransport('mock');
-      setAuthMode('none');
-      setBaseUrl('');
-      setAuthToken('');
-      setUsername('');
-      setPassword('');
-      return;
-    }
-    setProviderId('splunk_soc');
-    setDisplayName('Splunk MCP');
-    setTransport('streamable_http');
-    setAuthMode('bearer');
-  };
-
-  const handleCheck = async () => {
-    setChecking(true);
-    setCheckResult(null);
-    try {
-      const result = await checkProviderDraft({
-        provider_id: providerId,
-        display_name: displayName,
-        provider_type: providerType,
-        environment_mode: environmentMode,
-        enabled,
-        discovery_mode: discoveryMode,
-        transport,
-        auth_mode: authMode,
-        base_url: baseUrl,
-        auth_token: authToken,
-        username,
-        password,
-        notes,
-      });
-      setCheckResult(result);
-      if (result.validation_status === 'pass' && ['pass', 'reachable'].includes(result.connection_check.status)) {
-        toast.success('Provider draft checked. Endpoint is reachable or mock-ready.');
-      } else {
-        toast.warning('Provider draft checked. Review validation or connection status.');
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Provider check failed');
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button type="button" size="sm" className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Provider
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Add / Check MCP Connection</DialogTitle>
-          <DialogDescription>Enter the MCP endpoint details. Credentials are used only for this check and are not stored.</DialogDescription>
-        </DialogHeader>
-        <form className="mt-4 grid gap-3" onSubmit={(event) => event.preventDefault()}>
-          <Field label="Connection name" help="Readable name shown in settings and traces.">
-            <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Splunk MCP" />
-          </Field>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="MCP URL" help="The endpoint URL supplied by the MCP server deployment.">
-              <Input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://splunk-mcp.example.invalid/mcp" disabled={transport === 'mock' || transport === 'stdio'} />
-            </Field>
-            <Field label="MCP transport" help="How AI-SOC talks to the MCP server. Most URL-based MCP deployments use streamable_http.">
-              <select value={transport} onChange={(event) => setTransport(event.target.value)} className="flex h-10 w-full rounded-lg border border-input bg-slate-950/70 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <option value="streamable_http">streamable_http</option>
-                <option value="sse">sse</option>
-                <option value="stdio">stdio</option>
-                <option value="mock">mock</option>
-              </select>
-            </Field>
-          </div>
-          <div className="rounded-md border border-slate-800 bg-slate-950/55 p-3">
-            <Field label="Authentication method" help="Select the authentication scheme required by this MCP server. The matching credential fields appear below.">
-              <select value={authMode} onChange={(event) => setAuthMode(event.target.value)} className="flex h-10 w-full rounded-lg border border-input bg-slate-950/70 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <option value="none">none</option>
-                <option value="bearer">bearer token</option>
-                <option value="basic">username and password</option>
-              </select>
-            </Field>
-            {authMode === 'bearer' ? (
-              <div className="mt-3">
-                <Field label="Bearer token" help="Sent as Authorization bearer token for this check only. It is not saved.">
-                  <Input type="password" value={authToken} onChange={(event) => setAuthToken(event.target.value)} placeholder="not stored" />
-                </Field>
-              </div>
-            ) : null}
-            {authMode === 'basic' ? (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <Field label="Username">
-                  <Input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="not stored" />
-                </Field>
-                <Field label="Password">
-                  <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="not stored" />
-                </Field>
-              </div>
-            ) : null}
-            {authMode === 'none' ? <p className="mt-2 text-xs text-slate-500">No credential will be sent for the connection check.</p> : null}
-          </div>
-          <button type="button" onClick={() => setAdvancedOpen((value) => !value)} className="text-left text-xs font-medium text-cyan-300 hover:text-cyan-200">
-            {advancedOpen ? 'Hide advanced connection settings' : 'Show advanced connection settings'}
-          </button>
-          {advancedOpen ? (
-            <div className="grid gap-3 rounded-md border border-slate-800 bg-slate-950/45 p-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Internal provider key" help="Stable backend key for policies and traces. Keep unique.">
-                  <Input value={providerId} onChange={(event) => setProviderId(event.target.value)} placeholder="splunk_soc" />
-                </Field>
-                <Field label="Provider kind" help="Only connected provider kinds are shown in this stage.">
-                  <select value={providerType} onChange={(event) => handleProviderTypeChange(event.target.value)} className="flex h-10 w-full rounded-lg border border-input bg-slate-950/70 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    {providerTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Field label="Deployment mode" help="Controls deployment safety behavior such as air-gapped fallback handling.">
-                  <select value={environmentMode} onChange={(event) => setEnvironmentMode(event.target.value)} className="flex h-10 w-full rounded-lg border border-input bg-slate-950/70 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <option value="coe">coe</option>
-                    <option value="customer_test">customer_test</option>
-                    <option value="production">production</option>
-                    <option value="air_gapped">air_gapped</option>
-                  </select>
-                </Field>
-                <Field label="Discovery policy" help="How AI-SOC treats MCP tool discovery metadata.">
-                  <select value={discoveryMode} onChange={(event) => setDiscoveryMode(event.target.value)} className="flex h-10 w-full rounded-lg border border-input bg-slate-950/70 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <option value="dynamic">dynamic</option>
-                    <option value="restricted">restricted</option>
-                    <option value="static_only">static_only</option>
-                  </select>
-                </Field>
-                <Field label="Connection state">
-                  <select value={String(enabled)} onChange={(event) => setEnabled(event.target.value === 'true')} className="flex h-10 w-full rounded-lg border border-input bg-slate-950/70 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <option value="false">disabled</option>
-                    <option value="true">enabled</option>
-                  </select>
-                </Field>
-              </div>
-              <Field label="Notes">
-                <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Operational notes, owner, or rollout assumptions." />
-              </Field>
-            </div>
-          ) : null}
-          {checkResult ? (
-            <div className="rounded-md border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs text-slate-300">
-              <div className="flex flex-wrap gap-2">
-                <Badge variant={checkResult.validation_status === 'pass' ? 'success' : 'destructive'}>validation {checkResult.validation_status}</Badge>
-                <Badge variant={['pass', 'reachable'].includes(checkResult.connection_check.status) ? 'success' : 'warning'}>connection {checkResult.connection_check.status}</Badge>
-                <Badge variant="secondary">not persisted</Badge>
-              </div>
-              <p className="mt-2 font-mono text-slate-400">{checkResult.connection_check.reason}</p>
-              {checkResult.validation_errors.length ? <p className="mt-1 text-amber-200">{checkResult.validation_errors.join(', ')}</p> : null}
-            </div>
-          ) : null}
-          <Button type="button" className="mt-1" onClick={handleCheck} disabled={checking}>
-            {checking ? 'Checking…' : 'Save draft & check connection'}
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 

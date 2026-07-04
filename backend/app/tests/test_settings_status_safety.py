@@ -66,7 +66,7 @@ def test_splunk_mcp_readiness_scaffold_advertises_not_available() -> None:
     assert status.implemented is True
     assert status.available is False
     assert status.fallback == "mock"
-    assert status.detail in {"execution_disabled", "real_adapter_schema_unverified"}
+    assert status.detail in {"execution_disabled", "credentials_missing", "real_adapter_schema_unverified"}
 
 
 def test_mock_connectors_remain_available() -> None:
