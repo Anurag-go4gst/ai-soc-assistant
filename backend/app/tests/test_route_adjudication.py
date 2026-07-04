@@ -42,7 +42,18 @@ def test_explicit_run_spl_adjudicates_to_spl_generation_not_knowledge_recall() -
         deterministic_route="knowledge_recall",
     )
     assert result["final_route"] == "spl_generation"
-    assert result["authority_source"] == "explicit_run_spl_hil_gate"
+    assert result["authority_source"] == "command_intent_run_spl"
+
+
+def test_deferred_run_pasted_spl_uses_command_spine() -> None:
+    result = _adjudicate_for_query(
+        "Here is SPL: search index=pgcil_soc sourcetype=pgcil:ot_agc earliest=-2h "
+        "| stats count by command_src setpoint. Validate and optimize it, and if it passes, "
+        "ask me before running.",
+        deterministic_route="guided_investigation",
+    )
+    assert result["final_route"] == "spl_generation"
+    assert result["authority_source"] == "command_intent_run_spl"
 
 
 def test_policy_escalation_failed_login_is_knowledge_recall_not_attack_discovery() -> None:

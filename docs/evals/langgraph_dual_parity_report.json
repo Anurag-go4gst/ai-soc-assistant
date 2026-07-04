@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T06:13:21.924021+00:00",
+  "generated_at": "2026-07-04T15:07:42.057025+00:00",
   "profile": {
     "ai_soc_curated_enrichment_activation_enabled": true,
     "ai_soc_langgraph_shadow_enabled": true,
@@ -1210,7 +1210,7 @@
       ],
       "imperative": {
         "answer_mode": "live_investigation",
-        "answer_profile": null,
+        "answer_profile": "spl_only",
         "branches": [
           "evidence",
           "severity",
@@ -1607,7 +1607,7 @@
       "runtime_active": true,
       "shadow": {
         "answer_mode": "live_investigation",
-        "answer_profile": null,
+        "answer_profile": "spl_only",
         "branches": [
           "evidence",
           "severity",
@@ -1977,7 +1977,7 @@
         "execution_intent": "spl_search",
         "execution_status": "requires_human_review",
         "hil_required": true,
-        "hil_review_type": "spl_revision",
+        "hil_review_type": "precondition_review",
         "live_execution_skill": "attack_discovery",
         "missing_evidence_count": 6,
         "mitre_answer_visible": false,
@@ -2356,7 +2356,7 @@
         "execution_intent": "spl_search",
         "execution_status": "requires_human_review",
         "hil_required": true,
-        "hil_review_type": "spl_revision",
+        "hil_review_type": "precondition_review",
         "live_execution_skill": "attack_discovery",
         "missing_evidence_count": 6,
         "mitre_answer_visible": false,
@@ -2914,7 +2914,7 @@
         "execution_intent": "none",
         "execution_status": "skipped",
         "hil_required": false,
-        "hil_review_type": "execution_approval",
+        "hil_review_type": "none",
         "live_execution_skill": "knowledge_recall",
         "missing_evidence_count": 0,
         "mitre_answer_visible": false,
@@ -3120,7 +3120,7 @@
         "execution_intent": "none",
         "execution_status": "skipped",
         "hil_required": false,
-        "hil_review_type": "execution_approval",
+        "hil_review_type": "none",
         "live_execution_skill": "knowledge_recall",
         "missing_evidence_count": 0,
         "mitre_answer_visible": false,
@@ -3277,7 +3277,7 @@
       ],
       "imperative": {
         "answer_mode": "clarification",
-        "answer_profile": "hybrid_alert_review",
+        "answer_profile": null,
         "branches": [
           "clarification",
           "hil"
@@ -3463,7 +3463,7 @@
       "runtime_active": false,
       "shadow": {
         "answer_mode": "clarification",
-        "answer_profile": "hybrid_alert_review",
+        "answer_profile": null,
         "branches": [
           "clarification",
           "hil"

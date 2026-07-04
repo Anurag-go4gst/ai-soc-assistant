@@ -32,7 +32,8 @@
         "splunk_get_index_info",
         "splunk_get_knowledge_objects",
         "splunk_get_user_info",
-        "splunk_run_query"
+        "splunk_run_query",
+        "splunk_run_saved_search"
       ]
     },
     "soc_lead": {
@@ -43,7 +44,8 @@
         "splunk_get_index_info",
         "splunk_get_knowledge_objects",
         "splunk_get_user_info",
-        "splunk_run_query"
+        "splunk_run_query",
+        "splunk_run_saved_search"
       ]
     }
   },

@@ -331,6 +331,23 @@ def _resolve_path_type(
     if _unsafe_containment_detected(intent, query_understanding):
         return "unsafe_blocked"
 
+    raw_query = getattr(query_understanding, "raw_query", None)
+    command_signals: dict[str, Any] = {}
+    if isinstance(raw_query, str) and raw_query.strip():
+        command_signals = extract_query_signals(raw_query)
+    if (
+        command_signals.get("run_spl")
+        or command_signals.get("optimize_spl")
+        or command_signals.get("run_saved_search")
+    ) and not command_signals.get("block_or_contain"):
+        # Command-shaped SPL execution/authoring asks land on the canonical
+        # spl_and_run / spl_authoring dispatch spine (danger-tiered MCP command
+        # plan), not the generic_soc_guidance fallback. This must hold even when
+        # evidence_plan is None (control_plane_enabled=false default posture),
+        # since intent_family alone (spl_generation_and_run/spl_generation_only)
+        # has no dedicated branch below and plan.get("needs_spl") is unavailable.
+        return "spl_review"
+
     if family == "clarification_required":
         action_mode = str(intent.get("action_mode") or "")
         if action_mode == "recommend_only" and bool(intent.get("requires_hil")):

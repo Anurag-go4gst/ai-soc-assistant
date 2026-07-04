@@ -66,16 +66,22 @@ def apply_guidance_summary_render(
         return analyst_response, message
 
     lead = _lead_prose(summary, user_query=user_query, path_type=path_type)
-    if items:
-        rendered = f"{lead}\n\nSOC review checklist:\n" + "\n".join(f"- {item}" for item in items[:8])
-    else:
+    # Checklist items belong in investigation_steps / recommended_actions /
+    # analyst_checklist only. final_answer_validator Gate 3A rejects checklist
+    # text embedded in direct_answer_summary.
+    if not items:
         triage = build_investigation_triage_guidance(user_query)
-        rendered = f"{lead}\n\n{triage}".strip() if triage else lead
+        if triage:
+            items = [
+                line.strip().lstrip("- ").strip()
+                for line in triage.splitlines()
+                if line.strip().startswith("- ")
+            ]
 
     updated = analyst_response.model_copy(
         update={
-            "direct_answer_summary": rendered[:2000],
-            "one_sentence_finding": rendered[:500],
+            "direct_answer_summary": lead[:2000],
+            "one_sentence_finding": lead[:500],
             "investigation_steps": items[:12] or list(analyst_response.investigation_steps or []),
             "recommended_actions": items[:8] or list(analyst_response.recommended_actions or []),
             "analyst_checklist": items[:8] or list(analyst_response.analyst_checklist or []),
@@ -96,6 +102,10 @@ def _is_thin_guidance_stub(text: str) -> bool:
 
 def _lead_prose(summary: str, *, user_query: str, path_type: str | None) -> str:
     body = str(summary or "").strip()
+    # Drop any checklist block already embedded in the summary.
+    if _CHECKLIST_MARKER in body.lower():
+        cut = body.lower().find(_CHECKLIST_MARKER)
+        body = body[:cut].strip()
     if body and not _is_thin_guidance_stub(body):
         if _CHECKLIST_MARKER not in body.lower():
             return body[:1200]

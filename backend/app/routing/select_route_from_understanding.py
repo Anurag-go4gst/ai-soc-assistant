@@ -35,6 +35,16 @@ def select_route_from_understanding(
 
     if path in _EXACT_105_PATHS:
         return _route_exact_105(understanding, query, path, keyword_would_have)
+
+    # Hybrid advisory shapes apply only on true out-of-registry turns so
+    # in-catalogue / near-105 / Cisco-50 contract routes stay byte-stable.
+    if path == "out_of_registry":
+        hybrid_guided = _maybe_route_hybrid_advisory(
+            understanding, query, keyword_would_have, path=path
+        )
+        if hybrid_guided is not None:
+            return hybrid_guided
+
     if path in {"near_105_question", "semantic_105_question"}:
         return _route_near_105(understanding, query, keyword_would_have)
     if path == "use_case_catalog":
@@ -223,6 +233,42 @@ def _route_catalog_only(
     return base, provenance
 
 
+def _maybe_route_hybrid_advisory(
+    understanding: QueryUnderstandingResult,
+    query: str,
+    keyword_would_have: dict[str, Any],
+    *,
+    path: str,
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    """Guided advisory for hybrid shapes when command modes are absent."""
+    from app.chat.query_signals import extract_query_signals
+    from app.config import settings as _settings
+
+    if not _settings.ai_soc_t2_answer_shape_enabled:
+        return None
+    if path != "out_of_registry":
+        return None
+    signals = extract_query_signals(query, understanding)
+    # Never override command spines. Enforcement containment still wins unless
+    # this is a pure hybrid advisory shape (source-health / process-aware OT).
+    if signals.get("command_mode_active"):
+        return None
+    hybrid_shape = bool(
+        signals.get("hybrid_advisory_source_health")
+        or signals.get("hybrid_advisory_process_aware_ot")
+    )
+    if signals.get("block_or_contain") and not hybrid_shape:
+        return None
+    if not hybrid_shape:
+        return None
+    return _route_guided_investigation_rescue(
+        understanding,
+        query,
+        keyword_would_have,
+        reason="hybrid_advisory_shape_floor",
+    )
+
+
 def _route_out_of_registry(
     understanding: QueryUnderstandingResult,
     query: str,
@@ -242,6 +288,14 @@ def _route_out_of_registry(
     action = bool(signals["action_or_containment_shaped"])
     live_data = bool(signals.get("live_data_request"))
     guidance = bool(signals.get("guidance_request"))
+    # Command-shaped SPL/MCP turns (danger-tiered plan) never enter guided rescue.
+    if signals.get("command_mode_active") and not signals.get("block_or_contain"):
+        return _route_detection_spl(
+            understanding,
+            query,
+            keyword_would_have,
+            reason="out_of_registry_command_mode_spine",
+        )
     spl_native_floor = (
         not action
         and (
@@ -259,17 +313,19 @@ def _route_out_of_registry(
 
     if _settings.ai_soc_t2_answer_shape_enabled:
         normalized = " ".join(query.lower().split())
-        # ``run_execution`` is the returned signal that captures explicit run-SPL
-        # intent (``explicit_run_spl`` is internal-only and never returned, so the
-        # old ``.get("explicit_run_spl")`` guard was always falsy / a no-op).
+        from app.chat.answer_shape_router import classify_answer_shape
+
+        shape = classify_answer_shape(query).primary_shape
+        shape_can_override_live_data = shape in {"source_health", "process_aware_ot"}
+        # Prefer explicit hybrid-advisory signals when present; suppress when any
+        # command mode is active (run/optimize/pasted-SPL command spine).
         if (
-            not spl_native_floor
+            (not spl_native_floor or shape_can_override_live_data)
             and not is_unsafe_execution(normalized)
             and not signals.get("run_execution")
+            and not signals.get("command_mode_active")
         ):
-            from app.chat.answer_shape_router import classify_answer_shape
-
-            if classify_answer_shape(query).primary_shape != "hunt":
+            if shape != "hunt" and (not spl_native_floor or shape_can_override_live_data):
                 return _route_guided_investigation_rescue(
                     understanding,
                     query,
@@ -353,7 +409,7 @@ def _route_guided_investigation_rescue(
     }
     provenance = build_routing_provenance(
         understanding,
-        selected_by="out_of_registry_investigation_rescue",
+        selected_by=reason,
         authority_source="guided_investigation_rescue",
         skill=base["skill"],
         tool_plan=list(base["tool_plan"]),
@@ -362,6 +418,7 @@ def _route_guided_investigation_rescue(
         rescue_mode=True,
         why_not_knowledge_recall="Query requests investigation guidance, not a bounded catalog SPL artifact.",
     )
+    provenance["rescue_reason"] = reason
     if reason.startswith("catalog_"):
         provenance["deterministic_match_path"] = "out_of_registry"
         provenance["catalog_keyword_rescue"] = True
@@ -389,8 +446,8 @@ def _route_detection_spl(
     }
     provenance = build_routing_provenance(
         understanding,
-        selected_by="out_of_registry_detection_floor",
-        authority_source="out_of_registry_detection_floor",
+        selected_by=reason,
+        authority_source=reason,
         skill=base["skill"],
         tool_plan=list(base["tool_plan"]),
         confidence=float(base["confidence"]),

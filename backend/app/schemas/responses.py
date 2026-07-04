@@ -529,6 +529,7 @@ class PlaceholderResponse(BaseModel):
     synthesis_status: SynthesisStatus | None = None
     answer_guard: AnswerGuardStatus | None = None
     action_capability: ActionCapability | None = None
+    proposed_actions: list[dict[str, object]] | None = None
     experience_center_governance: ExperienceCenterGovernance | None = None
     governance_trace: GovernanceTrace | None = None
     # Batch 4 — additive visibility (control-plane gated; None when flag off).

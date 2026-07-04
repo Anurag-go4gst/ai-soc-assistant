@@ -227,7 +227,7 @@ from app.chat.spl_authoring_intent import (
     should_skip_intent_for_universal_utility_spl,
 )
 from app.chat.intent_classifier import build_query_to_intent
-from app.chat.llm_intent_advisor import generate_llm_intent_advisory
+from app.chat.llm_intent_advisor import generate_llm_intent_advisory, intent_advisor_consumable
 from app.llm.t2_advisory_latency_policy import (
     cap_turn_deadline_for_t2_advisory,
     enrich_intent_advisory_trace,
@@ -962,6 +962,16 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
     ):
         skip_advisory = False
         skip_reason = None
+    if not skip_advisory:
+        _consumable, _no_consumer_reason = intent_advisor_consumable(
+            match_path=candidate_mappings.get("match_path"),
+            signals=preliminary_signals if isinstance(preliminary_signals, dict) else None,
+            query=query_text,
+            t0_weak_row=bound_intent_advisor,
+        )
+        if not _consumable:
+            skip_advisory = True
+            skip_reason = _no_consumer_reason
     skip_policy = skip_reason
     bound_t2_intent_advisor, t2_bound_reason = should_bound_t2_intent_advisor(
         match_path=candidate_mappings.get("match_path"),
@@ -1364,7 +1374,16 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
     # of the established chronology path broke 5 pinned tests when tried
     # unscoped (same query text, same shape, previously chronology-routed).
     _resource_plan_for_shape = evidence_payload.get("resource_plan")
-    if isinstance(_resource_plan_for_shape, dict) and _match_path_from_state(state) in {
+    # match_path must come from the just-composed plan's own provenance:
+    # state["evidence_plan"]/["planning_decision"] are not set yet at this point
+    # (they are still the local payloads), and routed.routing_provenance uses the
+    # key "deterministic_match_path" — so _match_path_from_state(state) returned
+    # None here on every first-entry turn and the recipe block never fired live.
+    _recipe_match_path = None
+    if isinstance(_resource_plan_for_shape, dict):
+        _recipe_match_path = (_resource_plan_for_shape.get("provenance") or {}).get("match_path")
+    _recipe_match_path = _recipe_match_path or _match_path_from_state(state)
+    if isinstance(_resource_plan_for_shape, dict) and _recipe_match_path in {
         "out_of_registry",
         "near_105_question",
     }:
@@ -4555,6 +4574,24 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         severity_decision.severity_label,
         hil_required=run_contract.effective_hil_required,
     )
+    proposed_actions: list[dict[str, Any]] | None = None
+    try:
+        from app.actions.live_action_proposals import attach_live_action_proposals
+
+        gate_state_for_actions = {
+            **state,
+            "analyst_response": analyst_response.model_dump() if analyst_response is not None else None,
+            "severity_decision": (
+                severity_decision.model_dump()
+                if hasattr(severity_decision, "model_dump")
+                else severity_decision
+            ),
+            "message": message,
+        }
+        proposals = attach_live_action_proposals(gate_state_for_actions, trace_id=trace_id)
+        proposed_actions = proposals or None
+    except Exception:  # noqa: BLE001 - proposals are advisory, never break chat
+        logger.warning("live_action_proposal_attach_failed", exc_info=True)
     response = PlaceholderResponse(
         trace_id=trace_id,
         user_query=request.message,
@@ -4614,6 +4651,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         synthesis_status=synthesis_status,
         answer_guard=answer_guard,
         action_capability=action_capability,
+        proposed_actions=proposed_actions,
         governance_trace=governance_trace,
         query_to_intent=state.get("query_to_intent"),
         planning_decision=state.get("planning_decision"),
@@ -6127,6 +6165,133 @@ def _session_spl_refine_stage(
     return candidate_payload, validation_payload
 
 
+_FENCED_SPL_RE = re.compile(r"```(?:spl)?\s*(?P<spl>.*?)```", re.IGNORECASE | re.DOTALL)
+_INLINE_SPL_RE = re.compile(r"\b(search\s+index\s*=.*)$", re.IGNORECASE | re.DOTALL)
+_INLINE_SPL_TRAILER_RE = re.compile(
+    r"\.\s+(?:validate|optimize|revalidate|simplify|rewrite|list|and\s+if|if\s+it|ask\s+me|do\s+not)\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_user_provided_spl(user_query: str) -> str | None:
+    fenced = _FENCED_SPL_RE.search(user_query)
+    if fenced:
+        spl = fenced.group("spl").strip()
+        return spl or None
+    inline = _INLINE_SPL_RE.search(user_query)
+    if not inline:
+        return None
+    spl = inline.group(1).strip().strip("`")
+    trailer = _INLINE_SPL_TRAILER_RE.search(spl)
+    if trailer:
+        spl = spl[: trailer.start()].strip()
+    return spl.strip().rstrip(".") or None
+
+
+def _candidate_from_user_provided_spl(
+    *,
+    trace_id: str,
+    skill: str,
+    user_query: str,
+    user_spl: str,
+    telemetry: Any,
+    profile: Any,
+    spl_governance: dict[str, Any] | None,
+    query_signals: dict[str, Any] | None,
+    slot_binding_enabled: bool,
+    template_id: str | None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    postprocessor_trace: dict[str, Any] = {}
+    postprocessor_warnings: list[str] = []
+    final_spl = user_spl
+    if not _defer_spl_postprocessor_inline():
+        postprocessed = finalize_review_only_spl(
+            user_spl,
+            query=user_query,
+            family="user_provided_spl",
+            llm_generated=False,
+        )
+        final_spl = postprocessed.normalized_spl
+        postprocessor_trace = dict(postprocessed.trace)
+        postprocessor_warnings = list(postprocessed.warnings)
+    validation = validate_spl(final_spl)
+    optimization: dict[str, Any] = {
+        "provider": "rule_based",
+        "optimization_applied": False,
+        "revalidation_status": None,
+        "revalidation_approved": False,
+    }
+    if isinstance(query_signals, dict) and query_signals.get("optimize_spl"):
+        final_spl, validation, optimization = merge_post_validation_optimization(
+            final_spl,
+            validation,
+            profile=profile,
+            user_query=user_query,
+        )
+    candidate_payload: dict[str, Any] = {
+        "trace_id": trace_id,
+        "skill": skill,
+        "user_query": user_query,
+        "candidate_spl": final_spl,
+        "generation_mode": "user_provided_spl",
+        "confidence": 0.9,
+        "assumptions": ["user_provided_spl_reused_as_candidate"],
+        "warnings": ["user_provided_spl_requires_validation_and_hil"],
+        "selected_candidate_spl_provider": "user_provided_spl",
+        "fallback_required": False,
+        "candidate_spl_generated": True,
+        "validation_required": True,
+        "execution_eligible": False,
+        "capability_profile": profile.model_dump(),
+        "template_id": template_id,
+        "postprocessor_applied": bool(postprocessor_trace.get("postprocessor_applied")),
+        "review_only_spl_postprocessor_trace": postprocessor_trace,
+    }
+    if postprocessor_warnings:
+        candidate_payload["review_only_spl_postprocessor_warnings"] = postprocessor_warnings
+    validation_payload: dict[str, Any] = {
+        "approved": validation["approved"],
+        "normalized_spl": validation["normalized_spl"],
+        "reject_reasons": validation["reject_reasons"],
+        "warnings": validation["warnings"],
+        "enforced_limits": validation["enforced_limits"],
+        "policy_version": validation["policy_version"],
+        "selected_candidate_spl_provider": "user_provided_spl",
+        "candidate_provider_reason": "user_provided_spl",
+        "saia_available": False,
+        "fallback_required": False,
+        "spl_explanation_provider": "rule_based",
+        "spl_optimization_provider": optimization.get("provider") or "rule_based",
+        "spl_guidance_provider": "rule_based",
+        "optimization_applied": bool(optimization.get("optimization_applied")),
+        "optimization_revalidation_status": optimization.get("revalidation_status"),
+        "optimization_revalidation_approved": bool(optimization.get("revalidation_approved")),
+        "capability_profile": profile.model_dump(),
+        "template_id": template_id,
+        "review_only_spl_postprocessor_trace": postprocessor_trace,
+        "template_production_executable": False,
+    }
+    _merge_spl_governance(candidate_payload, validation_payload, spl_governance)
+    _mark_spl_review_status(candidate_payload, validation_payload)
+    if slot_binding_enabled:
+        validation_payload = validate_spl_slot_bindings(
+            validation_payload,
+            user_query=user_query,
+            query_signals=query_signals,
+            template_id=template_id,
+        )
+        _mark_spl_review_status(candidate_payload, validation_payload)
+    telemetry.record_spl_validation(
+        trace_id,
+        stage="spl_validation_result",
+        approved=validation_payload["approved"],
+        reject_reasons=validation_payload["reject_reasons"],
+        warnings=validation_payload["warnings"],
+        policy_version=validation_payload["policy_version"],
+    )
+    return candidate_payload, validation_payload
+
+
 
 
 def _spl_user_constraint_bindings(
@@ -6267,6 +6432,21 @@ def _candidate_spl_stage(
     telemetry = _routes_chat().get_telemetry_connector()
     profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
     spl_governance = _runtime_spl_governance(use_case_id)
+    if signals.get("command_shaped_spl") or signals.get("run_spl") or signals.get("optimize_spl"):
+        user_spl = _extract_user_provided_spl(user_query)
+        if user_spl:
+            return _candidate_from_user_provided_spl(
+                trace_id=trace_id,
+                skill=skill,
+                user_query=user_query,
+                user_spl=user_spl,
+                telemetry=telemetry,
+                profile=profile,
+                spl_governance=spl_governance,
+                query_signals=signals,
+                slot_binding_enabled=slot_binding_enabled,
+                template_id=template_id,
+            )
     _dispatch_v2_on = bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False))
     if guided_spl_rescue and not _dispatch_v2_on:
         t2_native_candidate = _candidate_from_t2_spl_native(

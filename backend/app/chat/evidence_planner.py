@@ -298,6 +298,39 @@ def plan_evidence(
             unsupported_claims_avoid=["confirmed compromise", "confirmed MITRE technique", "P1/P2 severity"],
             evidence_plan_reason="out_of_registry_guided_investigation",
         )
+        _q2i_signals: dict[str, Any] = {}
+        if isinstance(query_to_intent, dict):
+            raw_signals = query_to_intent.get("query_signals")
+            if isinstance(raw_signals, dict):
+                _q2i_signals = raw_signals
+        _hybrid_advisory = bool(
+            (
+                _q2i_signals.get("hybrid_advisory_source_health")
+                or _q2i_signals.get("hybrid_advisory_process_aware_ot")
+            )
+            and not _q2i_signals.get("command_mode_active")
+        )
+        if _hybrid_advisory:
+            # Analyst-visible planning for hybrid advisory shapes (not command spine).
+            guided_plan = guided_plan.model_copy(
+                update={
+                    "discovery_allowed": True,
+                    "spl_review_allowed": True,
+                    "safe_spl_execution_allowed": False,
+                    "freeform_spl_execution_allowed": False,
+                    "mcp_action_allowed": False,
+                    "requires_hil": True,
+                    "needs_hil": True,
+                    "reasons": [
+                        *guided_plan.reasons,
+                        "hybrid_advisory_evidence_plan",
+                    ],
+                    "limitations": [
+                        *guided_plan.limitations,
+                        "Review-only SPL may be prepared; live MCP search requires analyst approval.",
+                    ],
+                }
+            )
         if hybrid_enabled:
             guided_plan = guided_plan.model_copy(
                 update={
@@ -313,7 +346,7 @@ def plan_evidence(
                     ],
                 }
             )
-        elif settings.ai_soc_guided_mcp_discovery_enabled:
+        elif settings.ai_soc_guided_mcp_discovery_enabled and not _hybrid_advisory:
             guided_plan = guided_plan.model_copy(
                 update={
                     "discovery_allowed": True,

@@ -17,6 +17,7 @@ import type {
   LlmSettingsDraftCheckRequest,
   LlmSettingsDraftCheckResult,
   McpConnectionVerificationResult,
+  ActionProposalEnvelope,
   PlaceholderResponse,
   ProviderDraftCheckRequest,
   ProviderDraftCheckResult,
@@ -757,3 +758,26 @@ export async function getDebugReadiness(): Promise<DebugReadinessResponse> {
   if (!response.ok) throw new Error(`Debug readiness failed: ${response.status}`);
   return response.json();
 }
+
+export async function approveAction(actionId: string): Promise<ActionProposalEnvelope> {
+  const response = await fetch(`${API_BASE_URL}/actions/${encodeURIComponent(actionId)}/approve`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error(`Action approval failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function denyAction(actionId: string): Promise<ActionProposalEnvelope> {
+  const response = await fetch(`${API_BASE_URL}/actions/${encodeURIComponent(actionId)}/deny`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error(`Action denial failed: ${response.status}`);
+  }
+  return response.json();
+}
+

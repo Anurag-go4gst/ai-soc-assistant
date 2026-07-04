@@ -90,6 +90,7 @@ export interface PlaceholderResponse {
   synthesis_status?: SynthesisStatus | null;
   answer_guard?: AnswerGuardStatus | null;
   action_capability?: ActionCapability | null;
+  proposed_actions?: ActionProposalEnvelope[] | null;
   experience_center_governance?: ExperienceCenterGovernance | null;
   governance_trace?: ExperienceCenterGovernance | null;
   mitre_evidence_status?: Record<string, string> | null;
@@ -402,6 +403,31 @@ export interface AnswerGuardStatus {
   blocked_reason?: string | null;
   analyst_review_required: boolean;
   reason: string;
+}
+
+export interface ActionProposalEnvelope {
+  action_id: string;
+  tool_id: string;
+  payload?: {
+    summary?: string;
+    severity_label?: string;
+    source_refs?: string[];
+    [key: string]: unknown;
+  };
+  trace_id?: string | null;
+  proposed_at?: string;
+  status?: 'pending_approval' | 'approved' | 'denied' | 'executed' | 'rejected' | string;
+  reject_reason?: string | null;
+  approver?: string | null;
+  resolved_at?: string | null;
+  outcome?: {
+    status?: string;
+    ticket_id?: string;
+    provider?: string;
+    created_at?: string;
+    summary?: string;
+    [key: string]: unknown;
+  } | null;
 }
 
 export interface ActionCapability {

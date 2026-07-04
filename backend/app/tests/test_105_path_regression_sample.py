@@ -199,6 +199,6 @@ def test_unsafe_rows_stay_blocked(query: str) -> None:
 @pytest.mark.parametrize("query", EXPLICIT_RUN_SPL_ROWS)
 def test_explicit_run_spl_rows_stay_review_only(query: str) -> None:
     row = _run_path(query)
-    assert row["intent_family"] == "clarification_required", (query, row["intent_family"])
+    assert row["intent_family"] == "spl_generation_and_run", (query, row["intent_family"])
     assert row["path_type"] == "spl_review", (query, row["path_type"])
     assert row["execution_enabled"] is False

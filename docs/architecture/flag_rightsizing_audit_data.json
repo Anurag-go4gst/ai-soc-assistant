@@ -313,7 +313,7 @@
       "development": "stub_evidence"
     },
     "read_sites": [],
-    "risk_note": "Stage-scaffold / trace-only; limited read sites."
+    "risk_note": "Retired 7.1 Batch A \u2014 compat shim logs warning if env still set."
   },
   {
     "batch": "C",
@@ -4891,5 +4891,112 @@
       "docs/architecture/catalogue_auto_execute_policy.md"
     ],
     "risk_note": "COE kill-switch \u2014 default false; enables catalogue-known HIL exemption only when pilot map signed."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_host_bind",
+    "default_env": "127.0.0.1",
+    "disposition": "keep",
+    "env_key": "AI_SOC_HOST_BIND",
+    "evidence": "rg: docker-compose.yml; git: 4280260 feat(deploy): Mac staging profile and Docker port portability",
+    "git_intro": "4280260 2026-07-03 docker-compose host bind",
+    "profile_values": {},
+    "read_sites": [
+      "docker-compose.yml"
+    ],
+    "risk_note": "Docker publish bind \u2014 operator infra, not app Settings field."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_backend_host_port",
+    "default_env": "8010",
+    "disposition": "keep",
+    "env_key": "AI_SOC_BACKEND_HOST_PORT",
+    "evidence": "rg: docker-compose.yml; git: 4280260 feat(deploy): Mac staging profile and Docker port portability",
+    "git_intro": "4280260 2026-07-03 docker-compose backend port",
+    "profile_values": {},
+    "read_sites": [
+      "docker-compose.yml"
+    ],
+    "risk_note": "Docker host port mapping for backend."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_frontend_host_port",
+    "default_env": "3010",
+    "disposition": "keep",
+    "env_key": "AI_SOC_FRONTEND_HOST_PORT",
+    "evidence": "rg: docker-compose.yml; git: 4280260 feat(deploy): Mac staging profile and Docker port portability",
+    "git_intro": "4280260 2026-07-03 docker-compose frontend port",
+    "profile_values": {},
+    "read_sites": [
+      "docker-compose.yml"
+    ],
+    "risk_note": "Docker host port mapping for Vite frontend."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_postgres_host_port",
+    "default_env": "5434",
+    "disposition": "keep",
+    "env_key": "AI_SOC_POSTGRES_HOST_PORT",
+    "evidence": "rg: docker-compose.yml; git: 4280260 feat(deploy): Mac staging profile and Docker port portability",
+    "git_intro": "4280260 2026-07-03 docker-compose postgres port",
+    "profile_values": {},
+    "read_sites": [
+      "docker-compose.yml"
+    ],
+    "risk_note": "Docker host port mapping for Postgres."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_public_api_base_url",
+    "default_env": "",
+    "disposition": "keep",
+    "env_key": "AI_SOC_PUBLIC_API_BASE_URL",
+    "evidence": "rg: frontend/src/lib/runtimeMode.ts, docs/operations/mac-staging-docker-deploy.md",
+    "git_intro": "4280260 2026-07-03 Mac staging public API base URL",
+    "profile_values": {},
+    "read_sites": [
+      "frontend/src/lib/runtimeMode.ts"
+    ],
+    "risk_note": "Frontend runtime API base override for non-default host ports."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_cors_allowed_origins",
+    "default_env": "http://localhost:3010,http://127.0.0.1:3010",
+    "disposition": "keep",
+    "env_key": "AI_SOC_CORS_ALLOWED_ORIGINS",
+    "evidence": "rg: backend/app/config.py",
+    "git_intro": "config.py CORS allowlist",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/config.py"
+    ],
+    "risk_note": "Operator CORS allowlist for dev/staging origins."
+  },
+  {
+    "batch": null,
+    "classification": "b_posture",
+    "config_field": "ai_soc_action_lane_live_proposals_enabled",
+    "default_env": "false",
+    "disposition": "keep",
+    "env_key": "AI_SOC_ACTION_LANE_LIVE_PROPOSALS_ENABLED",
+    "evidence": "rg: backend/app/actions/live_action_proposals.py, backend/app/config.py, backend/app/tests/test_live_action_proposals.py",
+    "git_intro": "2026-07-03 item 6.2 action lane UI wire-up",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/actions/live_action_proposals.py",
+      "backend/app/config.py",
+      "backend/app/tests/test_live_action_proposals.py"
+    ],
+    "risk_note": "Default false \u2014 surfaces pending action proposals on /chat; approve/deny via authenticated /api/actions."
   }
 ]

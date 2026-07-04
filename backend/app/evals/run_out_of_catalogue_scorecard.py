@@ -190,6 +190,16 @@ def extract_evidence_classes(payload: dict[str, Any]) -> list[str]:
         source_type = str(record.get("source_type") or "")
         if source_type == "cve_snapshot":
             classes.add("cve")
+        # Loop-driven MCP evidence lands here as collected rows while the
+        # search gate itself terminates at HIL — execution.status never says
+        # "executed" on those turns, so source_evidence is the only honest
+        # signal that discovery/search evidence actually reached the answer.
+        collection_status = str(record.get("collection_status") or "")
+        if collection_status == "collected":
+            if source_type == "mcp_discovery":
+                classes.add("mcp_discovery")
+            elif source_type in {"splunk_mcp", "mcp_search"}:
+                classes.add("mcp_search")
 
     mitre = trace.get("mitre_decision") if isinstance(trace.get("mitre_decision"), dict) else {}
     if not mitre and isinstance(payload.get("mitre_decision"), dict):

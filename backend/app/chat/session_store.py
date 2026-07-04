@@ -76,6 +76,7 @@ def _read_file_pins(session_id: str) -> dict[str, Any] | None:
 
 
 def _write_file_pins(session_id: str, payload: dict[str, Any]) -> None:
+    """Best-effort file persist; PermissionError must never break /chat."""
     directory = _session_store_dir()
     directory.mkdir(parents=True, exist_ok=True)
     _file_path(session_id).write_text(json.dumps(payload), encoding="utf-8")
@@ -123,7 +124,12 @@ def save_session_pins(pins: SessionPins, *, refresh_ttl: bool = True) -> Session
     payload = updated.model_dump(mode="json")
     with _store_lock:
         if _use_file_backend():
-            _write_file_pins(updated.session_id, payload)
+            try:
+                _write_file_pins(updated.session_id, payload)
+            except OSError:
+                # Unwritable store dir (sandbox / misconfigured volume): keep
+                # in-process pins so chat finalize never fails closed.
+                _pins_by_session[updated.session_id] = payload
         else:
             _pins_by_session[updated.session_id] = payload
     return updated

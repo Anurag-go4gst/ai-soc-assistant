@@ -26,6 +26,59 @@ DROP_JSON_EXTRACTION_FAILED = "json_extraction_failed"
 DROP_SCHEMA_INVALID = "schema_invalid"
 DROP_LLM_TIMED_OUT = "llm_timed_out"
 DROP_ADVISOR_DISABLED = "llm_intent_advisor_disabled"
+SKIP_NO_CONSUMER = "intent_advisory_no_consumer"
+
+
+def intent_advisor_consumable(
+    *,
+    match_path: str | None,
+    signals: dict[str, Any] | None,
+    query: str,
+    t0_weak_row: bool = False,
+) -> tuple[bool, str | None]:
+    """Return (consumable, skip_reason) for the advisory LLM hop.
+
+    The advisory has exactly two actuation channels downstream of
+    ``build_query_to_intent``: (a) ``apply_advisory_promotion`` — only possible
+    when the deterministic match path is ``out_of_registry``; (b) the SPL
+    authoring reconcile in ``reconcile_spl_authoring_intent`` — relevant only
+    on SPL-shaped queries without unsafe execution signals. Pinned exception:
+    weak/demoted T0 rows (``t0_weak_row``, the q046-guard population) keep the
+    hop with their existing sharp bound rather than skipping — that trade was
+    decided when the 2s frozen-T0 bound landed (PR #54) and is test-pinned.
+    Every other turn spends the full advisory wall-clock (25-44s on the dev
+    VPS) producing output no consumer can act on — measured at 0 actuations
+    across 1279 recorded runs. Preview hints and trace display do not justify
+    the hop; they degrade gracefully without it.
+    """
+    sig = signals or {}
+    # Command-mode spines (danger-tiered MCP plan) never spend advisory budget.
+    if sig.get("command_mode_active") or sig.get("explicit_run_spl"):
+        return False, "intent_advisory_command_mode"
+    if match_path in {"out_of_registry", "near_105_question", "semantic_105_question"}:
+        # Promotion lane (out_of_registry) or the pinned paraphrase-confirmation
+        # lane (near/semantic 105 rows keep the advisor as match co-signer).
+        return True, None
+    if t0_weak_row:
+        return True, None
+    # Hybrid advisory co-sign window (source-health / process-aware OT).
+    if sig.get("hybrid_advisory_source_health") or sig.get("hybrid_advisory_process_aware_ot"):
+        return True, None
+    normalized = (query or "").lower()
+    spl_shaped = bool(
+        sig.get("spl_generation")
+        or sig.get("explicit_spl_authoring")
+        or "spl" in normalized
+        or "splunk" in normalized
+    )
+    unsafe = bool(
+        sig.get("block_or_contain")
+        or sig.get("explicit_run_spl")
+        or sig.get("run_execution")
+    )
+    if spl_shaped and not unsafe:
+        return True, None
+    return False, SKIP_NO_CONSUMER
 
 
 _TRUE_TOKENS = {"true", "yes", "y", "1", "t"}
@@ -105,6 +158,43 @@ def _coerce_intent_advisory_payload(payload: Any) -> tuple[dict[str, Any], list[
     return out, warnings
 
 
+_CONSTRAINED_ABSTAIN = "none_of_these"
+_CONSTRAINED_CANDIDATE_LIMIT = 5
+
+
+def _constrained_intent_prompt(
+    *,
+    query: str,
+    context_block: str,
+    candidates: list[dict[str, Any]],
+) -> str:
+    """Candidate-constrained choice prompt (plan 2026-07-04 item 1.2).
+
+    Promotion can only ever land a candidate the semantic index already
+    suggested, so when suggestions exist the model's job is precision: pick
+    one or abstain. A short choice answer is dramatically cheaper than the
+    open-vocabulary extraction prompt on a slow output-token-bound model, and
+    the chosen ref is registry-valid and semantic-agreeing by construction.
+    Output schema is unchanged (``question_ref_candidate`` carries the choice).
+    """
+    options = "\n".join(
+        f"- {row.get('question_ref')}: {str(row.get('question') or '').strip()}"
+        for row in candidates
+    )
+    return (
+        "You map an analyst query onto a governed SOC question registry.\n"
+        f"{context_block}\n"
+        f"Analyst query: {query}\n\n"
+        "Choose the ONE registry question below that asks the same thing as the "
+        f"analyst query, or `{_CONSTRAINED_ABSTAIN}` if none do. Do not choose a "
+        "question that is merely related.\n"
+        f"Options:\n{options}\n- {_CONSTRAINED_ABSTAIN}\n\n"
+        "Answer with ONLY a JSON object: {\"question_ref_candidate\": \"<ref or "
+        f"{_CONSTRAINED_ABSTAIN}>\", \"confidence_metadata\": {{\"confidence\": 0.0-1.0}}, "
+        "\"spl_authoring_request\": true|false}"
+    )
+
+
 def _build_user_prompt(*, query: str, context_block: str, prompt_mode: Any | None) -> str:
     """Mode-specific prompt when a non-skip IntentPromptMode is supplied; else legacy.
 
@@ -153,6 +243,13 @@ def generate_llm_intent_advisory(
     raw_output: str | None = None
     timed_out = False
 
+    constrained_candidates: list[dict[str, Any]] = []
+    match_path = (candidate_mappings or {}).get("match_path")
+    if match_path == "out_of_registry":
+        from app.coverage.semantic_question_index import semantic_candidates
+
+        constrained_candidates = semantic_candidates(query)[:_CONSTRAINED_CANDIDATE_LIMIT]
+
     if llm_raw_output_provider is None:
         context = build_governed_context_package_v1(
             query=query,
@@ -160,11 +257,20 @@ def generate_llm_intent_advisory(
             candidate_mappings=candidate_mappings,
             routed_skill=routed_skill,
         )
-        user_prompt = _build_user_prompt(
-            query=query,
-            context_block=context.to_prompt_block(),
-            prompt_mode=prompt_mode,
-        )
+        if constrained_candidates:
+            user_prompt = _constrained_intent_prompt(
+                query=query,
+                context_block=context.to_prompt_block(),
+                candidates=constrained_candidates,
+            )
+            max_tokens = 300
+        else:
+            user_prompt = _build_user_prompt(
+                query=query,
+                context_block=context.to_prompt_block(),
+                prompt_mode=prompt_mode,
+            )
+            max_tokens = 800
         effective_timeout = (
             timeout_seconds
             if timeout_seconds is not None
@@ -173,7 +279,7 @@ def generate_llm_intent_advisory(
         raw_output, timed_out, provider_label = invoke_sidecar_role(
             role=INTENT_ROLE,
             user_prompt=user_prompt,
-            max_tokens=800,
+            max_tokens=max_tokens,
             timeout_seconds=effective_timeout,
             temperature=0.0,
             allow_failover=allow_failover,
@@ -224,18 +330,25 @@ def generate_llm_intent_advisory(
             adapter_warnings=[str(exc.errors()[0].get("type") or "schema_error")],
             provider_label=provider_label,
         )
-    return advisory.model_copy(
-        update={
-            "llm_called": True,
-            "adapter_warnings": [
-                *advisory.adapter_warnings,
-                *pre.extraction_warnings,
-                *pre.repairs,
-                *coercion_warnings,
-            ],
-            "provider_label": provider_label,
+    updates: dict[str, Any] = {
+        "llm_called": True,
+        "adapter_warnings": [
+            *advisory.adapter_warnings,
+            *pre.extraction_warnings,
+            *pre.repairs,
+            *coercion_warnings,
+        ],
+        "provider_label": provider_label,
+    }
+    if constrained_candidates:
+        updates["confidence_metadata"] = {
+            **advisory.confidence_metadata,
+            "prompt_variant": "constrained_choice",
         }
-    )
+        chosen = (advisory.question_ref_candidate or "").strip()
+        if chosen.lower() == _CONSTRAINED_ABSTAIN:
+            updates["question_ref_candidate"] = None
+    return advisory.model_copy(update=updates)
 
 
 def adjudicate_llm_intent_advisory(

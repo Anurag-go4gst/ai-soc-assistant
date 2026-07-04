@@ -1,0 +1,442 @@
+{
+  "captured_count": 15,
+  "route_counts": [
+    {
+      "value": "attack_discovery",
+      "count": 2
+    },
+    {
+      "value": "knowledge_recall",
+      "count": 6
+    },
+    {
+      "value": "spl_generation",
+      "count": 7
+    }
+  ],
+  "answer_mode_counts": [
+    {
+      "value": "clarification",
+      "count": 2
+    },
+    {
+      "value": "live_investigation",
+      "count": 8
+    },
+    {
+      "value": "rag_only",
+      "count": 5
+    }
+  ],
+  "mcp_collected_count": 4,
+  "cve_mitre_visible_count": 0,
+  "llm_touched_count": 14,
+  "non_executable_count": 15,
+  "rows": [
+    {
+      "n": 1,
+      "query": "Show me all external connections or remote access sessions currently mapping to the substation networks.",
+      "route": "spl_generation",
+      "answer_mode": "live_investigation",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "execution_enabled": false,
+      "spl_approved": false,
+      "llm_touched": true,
+      "mcp_collected": false,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "no_match"
+        },
+        {
+          "source_type": "splunk_mcp",
+          "collection_status": "blocked"
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "query": "Identify any cleartext Modbus writes targeting protection relays on substation 12.",
+      "route": "spl_generation",
+      "answer_mode": "live_investigation",
+      "human_review": "spl_validation_failed",
+      "execution_status": "requires_human_review",
+      "execution_enabled": false,
+      "spl_approved": false,
+      "llm_touched": true,
+      "mcp_collected": false,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "no_match"
+        },
+        {
+          "source_type": "splunk_mcp",
+          "collection_status": "blocked"
+        }
+      ]
+    },
+    {
+      "n": 3,
+      "query": "List vendor remote access sessions currently active on substation OT network segments.",
+      "route": "spl_generation",
+      "answer_mode": "live_investigation",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "execution_enabled": false,
+      "spl_approved": false,
+      "llm_touched": true,
+      "mcp_collected": false,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "no_match"
+        },
+        {
+          "source_type": "splunk_mcp",
+          "collection_status": "blocked"
+        }
+      ]
+    },
+    {
+      "n": 4,
+      "query": "Show the playbook steps for DNS beaconing triage.",
+      "route": "knowledge_recall",
+      "answer_mode": "rag_only",
+      "human_review": "knowledge_only_no_execution",
+      "execution_status": "skipped",
+      "execution_enabled": false,
+      "spl_approved": null,
+      "llm_touched": true,
+      "mcp_collected": false,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "ambiguous"
+        },
+        {
+          "source_type": "manual",
+          "collection_status": "skipped"
+        }
+      ]
+    },
+    {
+      "n": 5,
+      "query": "Hunt for lateral movement in the building management VLAN logs.",
+      "route": "attack_discovery",
+      "answer_mode": "live_investigation",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "execution_enabled": false,
+      "spl_approved": false,
+      "llm_touched": true,
+      "mcp_collected": true,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "no_match"
+        },
+        {
+          "source_type": "splunk_mcp",
+          "collection_status": "blocked"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        }
+      ]
+    },
+    {
+      "n": 6,
+      "query": "Run this SPL now and give me live results: index=* | delete",
+      "route": "spl_generation",
+      "answer_mode": "clarification",
+      "human_review": "explicit_run_spl_requires_hil",
+      "execution_status": "requires_human_review",
+      "execution_enabled": false,
+      "spl_approved": null,
+      "llm_touched": true,
+      "mcp_collected": false,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "no_match"
+        },
+        {
+          "source_type": "manual",
+          "collection_status": "skipped"
+        }
+      ]
+    },
+    {
+      "n": 7,
+      "query": "Is a single new-country VPN login enough to confirm initial access?",
+      "route": "knowledge_recall",
+      "answer_mode": "rag_only",
+      "human_review": "knowledge_only_no_execution",
+      "execution_status": "skipped",
+      "execution_enabled": false,
+      "spl_approved": null,
+      "llm_touched": true,
+      "mcp_collected": false,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "collected"
+        },
+        {
+          "source_type": "manual",
+          "collection_status": "skipped"
+        }
+      ]
+    },
+    {
+      "n": 8,
+      "query": "Pull the actual event count for failed logins in the last hour from Splunk.",
+      "route": "attack_discovery",
+      "answer_mode": "live_investigation",
+      "human_review": "precondition_eval_failed",
+      "execution_status": "requires_human_review",
+      "execution_enabled": false,
+      "spl_approved": true,
+      "llm_touched": true,
+      "mcp_collected": true,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "ambiguous"
+        },
+        {
+          "source_type": "splunk_mcp",
+          "collection_status": "blocked"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        }
+      ]
+    },
+    {
+      "n": 9,
+      "query": "Ransomware just hit our corporate IT domain controller. Should we isolate the OT network from IT right now, and what exact steps should the SOC take to protect the SCADA environment without tripping the grid?",
+      "route": "knowledge_recall",
+      "answer_mode": "clarification",
+      "human_review": "knowledge_only_no_execution",
+      "execution_status": "skipped",
+      "execution_enabled": false,
+      "spl_approved": null,
+      "llm_touched": false,
+      "mcp_collected": false,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "collected"
+        },
+        {
+          "source_type": "manual",
+          "collection_status": "skipped"
+        }
+      ]
+    },
+    {
+      "n": 10,
+      "query": "We confirmed unauthorized access to a substation HMI. Do we have to report this to CERT-In or under the CEA cyber security guidelines, and within what timeline?",
+      "route": "knowledge_recall",
+      "answer_mode": "rag_only",
+      "human_review": "knowledge_only_no_execution",
+      "execution_status": "skipped",
+      "execution_enabled": false,
+      "spl_approved": null,
+      "llm_touched": true,
+      "mcp_collected": false,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "no_match"
+        },
+        {
+          "source_type": "manual",
+          "collection_status": "skipped"
+        }
+      ]
+    },
+    {
+      "n": 11,
+      "query": "Which of our OT assets and substation log sources have stopped sending events to Splunk in the last 7 days, so I know my blind spots before the audit?",
+      "route": "spl_generation",
+      "answer_mode": "live_investigation",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "execution_enabled": false,
+      "spl_approved": false,
+      "llm_touched": true,
+      "mcp_collected": true,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "no_match"
+        },
+        {
+          "source_type": "splunk_mcp",
+          "collection_status": "blocked"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        }
+      ]
+    },
+    {
+      "n": 12,
+      "query": "We saw automatic generation control setpoint commands that would have pushed grid frequency outside the 49.9-50.1 Hz band. Hunt for whether these AGC commands were legitimate dispatch or injected, and what evidence separates the two.",
+      "route": "spl_generation",
+      "answer_mode": "live_investigation",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "execution_enabled": false,
+      "spl_approved": false,
+      "llm_touched": true,
+      "mcp_collected": true,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "no_match"
+        },
+        {
+          "source_type": "splunk_mcp",
+          "collection_status": "blocked"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        },
+        {
+          "source_type": "mcp_discovery",
+          "collection_status": "collected"
+        }
+      ]
+    },
+    {
+      "n": 13,
+      "query": "Hunt for IEC-104 control commands arriving from a workstation outside the control-center subnet during the night shift.",
+      "route": "spl_generation",
+      "answer_mode": "live_investigation",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "execution_enabled": false,
+      "spl_approved": false,
+      "llm_touched": true,
+      "mcp_collected": false,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "no_match"
+        },
+        {
+          "source_type": "splunk_mcp",
+          "collection_status": "blocked"
+        }
+      ]
+    },
+    {
+      "n": 14,
+      "query": "A scanner reports CVE-2025-99999 on an OT gateway. What should be verified before calling it exploitable?",
+      "route": "knowledge_recall",
+      "answer_mode": "rag_only",
+      "human_review": "knowledge_only_no_execution",
+      "execution_status": "skipped",
+      "execution_enabled": false,
+      "spl_approved": null,
+      "llm_touched": true,
+      "mcp_collected": false,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "no_match"
+        },
+        {
+          "source_type": "manual",
+          "collection_status": "skipped"
+        }
+      ]
+    },
+    {
+      "n": 15,
+      "query": "Explain the difference between a candidate MITRE mapping and an evidence-supported mapping.",
+      "route": "knowledge_recall",
+      "answer_mode": "rag_only",
+      "human_review": "mitre_mapping_requires_alert_context",
+      "execution_status": "skipped",
+      "execution_enabled": false,
+      "spl_approved": null,
+      "llm_touched": true,
+      "mcp_collected": false,
+      "cve_mitre_visible": false,
+      "source_types": [
+        {
+          "source_type": "rag",
+          "collection_status": "no_match"
+        },
+        {
+          "source_type": "manual",
+          "collection_status": "skipped"
+        }
+      ]
+    }
+  ]
+}

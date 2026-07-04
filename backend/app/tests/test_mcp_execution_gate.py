@@ -246,6 +246,42 @@ def test_llm_recommendation_cannot_override_policy(monkeypatch) -> None:
     assert selection["blocked_reason"] == "requested_tool_intent_mismatch"
 
 
+def test_metadata_discovery_selects_read_only_tool_without_spl_validation(monkeypatch) -> None:
+    monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
+
+    selection = select_mcp_tool(
+        trace_id="trace-discovery-select",
+        selected_skill="knowledge_recall",
+        workflow_plan={},
+        execution_intent="metadata_discovery",
+        spl_validation=None,
+        user_requested_mcp_tool="splunk_get_indexes",
+        rbac_role="analyst",
+    )
+
+    assert selection["tool_selection_status"] == "selected"
+    assert selection["selected_mcp_tool"] == "splunk_get_indexes"
+
+
+def test_sensitive_user_list_stays_blocked_for_identity_lookup(monkeypatch) -> None:
+    monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
+
+    selection = select_mcp_tool(
+        trace_id="trace-user-list",
+        selected_skill="knowledge_recall",
+        workflow_plan={},
+        execution_intent="identity_lookup",
+        spl_validation=None,
+        user_requested_mcp_tool="splunk_get_user_list",
+        rbac_role="analyst",
+    )
+
+    assert selection["tool_selection_status"] == "requires_human_review"
+    assert selection["blocked_reason"] in {"requested_tool_not_found", "admin_or_sensitive_tool"}
+
+
 def test_registry_mode_without_credentials_blocks_for_config(monkeypatch) -> None:
     # Step 3: the live adapter is implemented, so registry mode no longer reports
     # "not implemented". Without URL/token it fails closed on configuration.
@@ -275,6 +311,30 @@ def test_registry_mode_without_credentials_blocks_for_config(monkeypatch) -> Non
     assert execution["executed_spl"] is None
     assert execution["block_reason"] == "splunk_mcp_not_configured"
     assert review["review_type"] == "connector_configuration"
+
+
+def test_read_only_metadata_discovery_auto_executes_without_hil(monkeypatch) -> None:
+    telemetry = FakeTelemetry()
+    monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
+
+    execution, review = evaluate_mcp_execution(
+        trace_id="trace-read-only",
+        selected_skill="knowledge_recall",
+        workflow_plan={},
+        spl_validation=None,
+        execution_intent="metadata_discovery",
+        requested_mcp_tool="splunk_get_indexes",
+    )
+
+    assert execution["status"] == "executed"
+    assert execution["execution_intent"] == "metadata_discovery"
+    assert execution["selected_mcp_tool"] == "splunk_get_indexes"
+    assert execution["executed_spl"] is None
+    assert execution["result_count"] >= 1
+    assert review["required"] is False
+    assert any(event["event_type"] == "mcp_execution_completed" for event in telemetry.mcp_events)
 
 
 def test_saved_search_is_blocked_at_execution_gate() -> None:
@@ -325,6 +385,57 @@ def test_saved_search_is_blocked_at_execution_gate() -> None:
 
     assert review["required"] is True
     assert review["reason"] == "saved_search_execution_disabled"
+
+
+def test_saved_search_requires_hil_before_execution(monkeypatch) -> None:
+    telemetry = FakeTelemetry()
+    monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.splunk_allow_run_saved_search", True)
+    monkeypatch.setattr("app.orchestration.mcp_tool_selector.settings.splunk_allow_run_saved_search", True)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
+
+    execution, review = evaluate_mcp_execution(
+        trace_id="trace-saved-hil",
+        selected_skill="spl_generation",
+        workflow_plan={},
+        spl_validation={"saved_search_name": "SOC - Failed login spike"},
+        execution_intent="saved_search_execution",
+        requested_mcp_tool="splunk_run_saved_search",
+    )
+
+    assert execution["status"] == "requires_human_review"
+    assert execution["selected_mcp_tool"] == "splunk_run_saved_search"
+    assert execution["pending_execution_confirmation"]["saved_search_name"] == "SOC - Failed login spike"
+    assert review["review_type"] == "saved_search_execution_confirmation"
+    assert review["required"] is True
+
+
+def test_saved_search_executes_after_confirmation(monkeypatch) -> None:
+    telemetry = FakeTelemetry()
+    monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.splunk_allow_run_saved_search", True)
+    monkeypatch.setattr("app.orchestration.mcp_tool_selector.settings.splunk_allow_run_saved_search", True)
+    monkeypatch.setattr("app.connectors.mcp.mock.settings.splunk_allow_run_saved_search", True)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
+
+    execution, review = evaluate_mcp_execution(
+        trace_id="trace-saved-confirm",
+        selected_skill="spl_generation",
+        workflow_plan={},
+        spl_validation={"saved_search_name": "SOC - Failed login spike"},
+        execution_intent="saved_search_execution",
+        requested_mcp_tool="splunk_run_saved_search",
+        execution_review_action="confirm",
+        pending_execution={"saved_search_name": "SOC - Failed login spike", "saved_search_app": "search"},
+    )
+
+    assert execution["status"] == "executed"
+    assert execution["execution_intent"] == "saved_search_execution"
+    assert execution["saved_search_name"] == "SOC - Failed login spike"
+    assert execution["result_count"] == 1
+    assert review["required"] is False
 
 
 def test_unresolved_source_slots_are_never_execution_eligible() -> None:

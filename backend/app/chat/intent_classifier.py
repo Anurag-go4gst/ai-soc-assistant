@@ -21,6 +21,7 @@ from app.chat.query_signals import (
     is_cve_focus_query,
     is_github_investigation_query,
 )
+from app.chat.answer_shape_router import classify_answer_shape
 from app.config import settings
 from app.coverage.hunt_pattern_types import EXACT_105_HUNT_PATTERNS, cisco_hunt_pattern_types
 from app.coverage.question_runtime_map import question_runtime_entry
@@ -57,6 +58,8 @@ _EXPLICIT_GUIDED_MARKERS = (
     "build guided",
     "provide guided",
 )
+
+_GUIDED_SPECIALIZED_SHAPES = frozenset({"source_health", "process_aware_ot"})
 
 
 def _is_summary_output_request(
@@ -237,18 +240,63 @@ def classify_intent(
     candidate_mappings: dict[str, Any],
     query_understanding: QueryUnderstandingResult | None = None,
 ) -> IntentClassification:
-    if signals.get("explicit_run_spl"):
+    if signals.get("run_spl") or signals.get("run_saved_search"):
         return _build_classification(
-            intent_family="clarification_required",
-            primary_intent="human_review",
-            query_type="ask_for_next_action",
-            answer_goal=["clarification", "analyst_action_guidance"],
+            intent_family="spl_generation_and_run",
+            primary_intent="spl_generation",
+            secondary_intents=["live_investigation"],
+            query_type="ask_for_query_generation_and_execution",
+            answer_goal=["spl_artifact", "live_results", "analyst_action_guidance"],
             confidence=0.9,
-            requires_clarification=True,
+            requires_clarification=False,
             requires_hil=True,
             action_mode="recommend_only",
-            reason="Direct SPL execution and live-results request requires human review; execution is blocked.",
-            requested_output_type="ACTION_PLAN",
+            reason="Command-shaped SPL execution request uses canonical SPL-and-run dispatch; HIL remains a downstream gate.",
+            requested_output_type="INVESTIGATION",
+        )
+
+    if signals.get("optimize_spl") or signals.get("command_shaped_spl"):
+        return _build_classification(
+            intent_family="spl_generation_only",
+            primary_intent="spl_generation",
+            secondary_intents=["spl_optimization"],
+            query_type="ask_for_query_generation",
+            answer_goal=["spl_artifact", "analyst_action_guidance"],
+            confidence=0.88,
+            requires_clarification=False,
+            requires_hil=False,
+            action_mode="recommend_only",
+            reason="Command-shaped SPL validate/optimize request uses canonical SPL authoring dispatch.",
+            requested_output_type="INVESTIGATION",
+        )
+
+    if signals.get("containment_decision_support"):
+        return _build_guided_investigation_classification(
+            reason=(
+                "Containment decision-support request receives governed, review-only "
+                "IR guidance instead of an execution/containment action."
+            ),
+            confidence=0.78,
+        )
+
+    if (
+        str(candidate_mappings.get("match_path") or "") == "out_of_registry"
+        and (
+            signals.get("hybrid_advisory_source_health")
+            or signals.get("hybrid_advisory_process_aware_ot")
+        )
+    ):
+        shape = (
+            "source_health"
+            if signals.get("hybrid_advisory_source_health")
+            else "process_aware_ot"
+        )
+        return _build_guided_investigation_classification(
+            reason=(
+                f"Hybrid advisory shape ({shape}) receives guided investigation "
+                "planning before generic SPL; command-mode turns are excluded upstream."
+            ),
+            confidence=0.76,
         )
 
     if signals.get("block_or_contain"):
@@ -325,6 +373,21 @@ def classify_intent(
                 "authoring without source-profile clarification."
             ),
             requested_output_type="SPL",
+        )
+
+    if (
+        str(candidate_mappings.get("match_path") or "") == "out_of_registry"
+        and classify_answer_shape(query).primary_shape in _GUIDED_SPECIALIZED_SHAPES
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+        and not signals.get("run_execution")
+    ):
+        return _build_guided_investigation_classification(
+            reason=(
+                "Out-of-registry specialized OT/source-health question receives "
+                "guided review-only investigation posture before generic live-data SPL routing."
+            ),
+            confidence=0.72,
         )
 
     if (

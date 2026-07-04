@@ -10,6 +10,8 @@ from app.orchestration.human_review import human_review
 from app.splunk.capabilities import RUN_QUERY_ALIASES
 
 EXECUTION_ELIGIBLE_SKILLS = {"attack_discovery", "spl_generation"}
+READ_ONLY_EXECUTION_INTENTS = {"metadata_discovery", "identity_lookup"}
+SUPPORTED_EXECUTION_INTENTS = READ_ONLY_EXECUTION_INTENTS | {"spl_search", "saved_search_execution"}
 
 
 def select_mcp_tool(
@@ -100,7 +102,7 @@ def _rbac_review(trace_id: str, execution_intent: str, tool_name: str, rbac_role
 
 
 def _preflight_review(selected_skill: str, execution_intent: str, spl_validation: dict[str, Any] | None) -> dict[str, Any] | None:
-    if execution_intent != "spl_search":
+    if execution_intent not in SUPPORTED_EXECUTION_INTENTS:
         return human_review(
             "tool_selection_review",
             "execution_intent_ambiguous",
@@ -108,6 +110,8 @@ def _preflight_review(selected_skill: str, execution_intent: str, spl_validation
             ["choose_different_mcp_tool", "reject_execution"],
             "The execution intent is ambiguous and needs analyst review.",
         )
+    if execution_intent in READ_ONLY_EXECUTION_INTENTS:
+        return None
     if selected_skill not in EXECUTION_ELIGIBLE_SKILLS:
         return human_review(
             "tool_selection_review",
@@ -116,6 +120,16 @@ def _preflight_review(selected_skill: str, execution_intent: str, spl_validation
             ["reject_execution"],
             "This routed skill is not eligible for MCP execution.",
         )
+    if execution_intent == "saved_search_execution":
+        if not settings.splunk_allow_run_saved_search:
+            return human_review(
+                "execution_approval",
+                "saved_search_execution_disabled",
+                "soc_lead",
+                ["approve_execution_after_policy_check", "reject_execution"],
+                "Saved-search execution is disabled until an operator enables it.",
+            )
+        return None
     if not spl_validation or not spl_validation.get("approved"):
         return human_review(
             "spl_revision",
@@ -151,7 +165,16 @@ def _tool_blocked(tool: dict[str, Any]) -> bool:
 
 
 def _tool_matches_intent(tool: dict[str, Any], execution_intent: str) -> bool:
-    return execution_intent == "spl_search" and tool.get("capability") == "spl_search"
+    capability = str(tool.get("capability") or "")
+    if execution_intent == "spl_search":
+        return capability == "spl_search"
+    if execution_intent == "metadata_discovery":
+        return capability in {"metadata_lookup", "knowledge_object_discovery"}
+    if execution_intent == "identity_lookup":
+        return capability == "identity_lookup" and str(tool.get("name") or "") == "splunk_get_user_info"
+    if execution_intent == "saved_search_execution":
+        return capability == "saved_search_execution" and str(tool.get("name") or "") == "splunk_run_saved_search"
+    return False
 
 
 def _tool_names_equivalent(discovered_name: str, requested_name: str) -> bool:

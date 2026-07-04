@@ -319,6 +319,13 @@ def test_auth_failed_login_spike_spl_preamble_appears_once() -> None:
 
 
 def test_cli_check_passes_on_subset() -> None:
+    # The subprocess escapes config.py's "pytest in sys.modules" dotenv guard,
+    # and with cwd=REPO_ROOT it would load the operator's live .env and flip
+    # default-off flags. Use the config layer's own escape hatch so the check
+    # stays the same deterministic default-posture eval regardless of .env.
+    import os
+
+    hermetic_env = {**os.environ, "AI_SOC_DISABLE_DOTENV": "1"}
     proc = subprocess.run(
         [
             sys.executable,
@@ -332,5 +339,6 @@ def test_cli_check_passes_on_subset() -> None:
         capture_output=True,
         text=True,
         check=False,
+        env=hermetic_env,
     )
     assert proc.returncode == 0, proc.stderr

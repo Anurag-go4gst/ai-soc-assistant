@@ -1,6 +1,7 @@
 import os
 import sys
 
+import logging
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ``env_file`` is resolved relative to the current working directory, so running
@@ -77,6 +78,8 @@ class Settings(BaseSettings):
     splunk_allow_run_saved_search: bool = False
     splunk_run_saved_search_require_hil: bool = True
     ai_soc_catalogue_auto_execute_enabled: bool = False
+    # Item 6.2 — surface pending action proposals on /chat (default off; approve/deny via /api/actions).
+    ai_soc_action_lane_live_proposals_enabled: bool = False
     splunk_run_query_require_validation: bool = True
     splunk_metadata_discovery_allowed: bool = True
     splunk_knowledge_object_discovery_allowed: bool = True
@@ -381,8 +384,10 @@ class Settings(BaseSettings):
     demo_llm_shadow_model: str = ""
     demo_llm_shadow_endpoint: str = ""
     demo_llm_shadow_timeout_seconds: int = 5
-    # P0-9 documentation/readiness: proposed profile name for COE system-check demos.
-    # Empty = unset. Does not orchestrate env vars until a later stage wires it.
+    # RETIRED (flag rightsizing Batch A, 2026-07-03): read nowhere in the codebase.
+    # Field kept one release so a .env that still sets it degrades to the logged
+    # warning in _validate instead of a config crash — dotenv keys hit pydantic's
+    # extra=forbid, unlike process-env vars which are silently ignored.
     ai_soc_flow_check_mode: str = ""
     # When true, /chat returns the same governed payload as Experience Center when the
     # user message exactly matches a demo scenario query (normalized). Does not enable
@@ -488,12 +493,6 @@ def _validate(s: Settings) -> Settings:
     if routing_mode == "llm_primary_lab":
         if s.ai_soc_environment_mode == "production" or not s.routing_lab_llm_primary_enabled:
             raise ConfigError("ROUTING_MODE=llm_primary_lab requires non-production mode and ROUTING_LAB_LLM_PRIMARY_ENABLED=true.")
-    flow_check = s.ai_soc_flow_check_mode.strip().lower()
-    if flow_check and flow_check not in SUPPORTED_AI_SOC_FLOW_CHECK_MODES:
-        raise ConfigError(
-            f"AI_SOC_FLOW_CHECK_MODE={s.ai_soc_flow_check_mode!r} is not valid. "
-            f"Use one of: {SUPPORTED_AI_SOC_FLOW_CHECK_MODES}."
-        )
     shadow_provider = s.demo_llm_shadow_provider.strip().lower()
     if shadow_provider not in {"disabled", "fake", "huggingface"}:
         raise ConfigError(
@@ -511,6 +510,15 @@ def _validate(s: Settings) -> Settings:
         except ValueError as exc:
             raise ConfigError(str(exc)) from exc
     parse_cors_allowed_origins(s.ai_soc_cors_allowed_origins)
+    retired_flow_check = (
+        s.ai_soc_flow_check_mode.strip()
+        or os.environ.get("AI_SOC_FLOW_CHECK_MODE", "").strip()
+    )
+    if retired_flow_check:
+        logging.getLogger("ai_soc.config").warning(
+            "retired_env_key_ignored",
+            extra={"key": "AI_SOC_FLOW_CHECK_MODE", "value": retired_flow_check},
+        )
     return s
 
 
