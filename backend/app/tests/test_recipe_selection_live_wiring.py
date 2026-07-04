@@ -112,3 +112,33 @@ def test_out_of_registry_without_grant_selects_no_recipe(monkeypatch: pytest.Mon
     }
     result = pl.graph_node_evidence_planning(state)
     assert result.get("mcp_recipe_id") is None
+
+
+def test_natural_hunt_query_recipe_routes_without_matchpath_monkeypatch(
+    _mock_execution_enabled, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression for the 2026-07-04 fix: _match_path_from_state(state) returns
+    None at the wiring point on first entry (evidence_plan/planning_decision are
+    still local payloads; routing_provenance uses deterministic_match_path), so
+    the earlier monkeypatched test masked a wiring block that never fired on any
+    live turn. This drives the REAL compiled langgraph with a natural hunt query
+    and no match-path monkeypatch — the match path must come from the composed
+    plan's own provenance."""
+    from app.graph.chat_workflow import _compiled_chat_graph_cp
+    from app.schemas.requests import ChatRequest
+
+    final_state = _compiled_chat_graph_cp().invoke(
+        {
+            "request": ChatRequest(
+                message=(
+                    "Hunt for unusual outbound connections from our OT engineering "
+                    "workstations to rare external destinations in the last 24 hours"
+                )
+            ),
+            "session_role": None,
+        },
+        {"recursion_limit": 60},
+    )
+    assert final_state.get("mcp_recipe_id") == "hunt_baseline"
+    records = final_state.get("mcp_call_records")
+    assert isinstance(records, list) and records, "recipe call records must be populated"

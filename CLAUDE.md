@@ -250,6 +250,7 @@ Most-relevant in-flight/recent plans:
 
 | Plan | Status |
 |------|--------|
+| `plans/2026-07-04_0428_intent-advisor-value-o5c-live-scorecard.md` | **Done** — consumer-gated intent advisor (`intent_advisory_no_consumer`), candidate-constrained advisory prompt (first live promotion, 13.1s), O5c live-trigger match-path fix, live scorecard: MCP 26.67% / LLM util 45% / CVE-MITRE 13.33% |
 | `plans/2026-07-02_1327_dynamic-resource-planning-out-of-catalogue.md` | **Done** — LLM-primary planner, all-tier MCP eligibility, O5c multi-call, CVE/MITRE resources, CanonicalFacts spine + grounding, action lane + UI (`AI_SOC_ACTION_LANE_LIVE_PROPOSALS_ENABLED`), Batch A flag retirement, post-change scorecard in `docs/evals/out_of_catalogue_after_2026-07/` |
 | `plans/2026-06-29_conditional-pipeline-canonical-dispatch.md` | In Progress (`feat/pipeline-dispatch-v2`) — all 12 phases done behind `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` (default false, flag-off byte-identical) |
 | `plans/2026-07-01_1545_guided-readonly-mcp-discovery-lane.md` | Draft — read-only MCP discovery lane for `guided_investigation`, behind `AI_SOC_GUIDED_MCP_DISCOVERY_ENABLED` |

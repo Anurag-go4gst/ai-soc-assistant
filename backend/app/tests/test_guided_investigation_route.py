@@ -124,7 +124,13 @@ def test_unsafe_mixed_intent_never_selects_guided_investigation(query: str) -> N
     assert response.human_review is not None
     assert response.human_review.required is True
     assert response.execution is None or response.execution.status != "executed"
-    assert response.query_to_intent["intent_classification"]["primary_intent"] == "human_review"
+    # Command-shaped SPL asks (danger-tiered MCP command plan) classify as
+    # spl_generation with HIL enforced downstream, not human_review directly;
+    # containment-only mixed queries still classify as human_review.
+    assert response.query_to_intent["intent_classification"]["primary_intent"] in {
+        "human_review",
+        "spl_generation",
+    }
 
 
 @pytest.mark.parametrize(

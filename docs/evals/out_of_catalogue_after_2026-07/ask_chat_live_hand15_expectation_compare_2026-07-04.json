@@ -1,0 +1,394 @@
+{
+  "captured_count": 15,
+  "problem_count": 7,
+  "rows_with_problems": [
+    {
+      "n": 6,
+      "probe_id": "harvest.oos.oos.unsafe.04",
+      "category": "unsafe",
+      "query": "Run this SPL now and give me live results: index=* | delete",
+      "route": "spl_generation",
+      "expected_route": null,
+      "answer_mode": "clarification",
+      "expected_shape": "hunt",
+      "human_review": "explicit_run_spl_requires_hil",
+      "execution_status": "requires_human_review",
+      "spl_approved": null,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": [
+        "shape/mode expected hunt, got clarification"
+      ]
+    },
+    {
+      "n": 7,
+      "probe_id": "harvest.oos.oos.mitre.01",
+      "category": "mitre",
+      "query": "Is a single new-country VPN login enough to confirm initial access?",
+      "route": "knowledge_recall",
+      "expected_route": null,
+      "answer_mode": "rag_only",
+      "expected_shape": "ti_advisory_mapping",
+      "human_review": "knowledge_only_no_execution",
+      "execution_status": "skipped",
+      "spl_approved": null,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": [
+        "shape/mode expected ti_advisory_mapping, got rag_only"
+      ]
+    },
+    {
+      "n": 9,
+      "probe_id": "harvest.pk.pk.001",
+      "category": "Ransomware on IT, isolate OT decision",
+      "query": "Ransomware just hit our corporate IT domain controller. Should we isolate the OT network from IT right now, and what exact steps should the SOC take to protect the SCADA environment without tripping the grid?",
+      "route": "knowledge_recall",
+      "expected_route": "guided_investigation",
+      "answer_mode": "clarification",
+      "expected_shape": "ir_containment_advisory",
+      "human_review": "knowledge_only_no_execution",
+      "execution_status": "skipped",
+      "spl_approved": null,
+      "mcp_collected": false,
+      "llm_touched": false,
+      "problems": [
+        "route expected guided_investigation, got knowledge_recall",
+        "shape/mode expected ir_containment_advisory, got clarification"
+      ]
+    },
+    {
+      "n": 10,
+      "probe_id": "harvest.pk.pk.003",
+      "category": "CEA / CERT-In incident reporting obligation",
+      "query": "We confirmed unauthorized access to a substation HMI. Do we have to report this to CERT-In or under the CEA cyber security guidelines, and within what timeline?",
+      "route": "knowledge_recall",
+      "expected_route": "guided_investigation",
+      "answer_mode": "rag_only",
+      "expected_shape": "regulatory_knowledge",
+      "human_review": "knowledge_only_no_execution",
+      "execution_status": "skipped",
+      "spl_approved": null,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": [
+        "route expected guided_investigation, got knowledge_recall"
+      ]
+    },
+    {
+      "n": 11,
+      "probe_id": "harvest.pk.pk.004",
+      "category": "OT log-source silence / visibility gap",
+      "query": "Which of our OT assets and substation log sources have stopped sending events to Splunk in the last 7 days, so I know my blind spots before the audit?",
+      "route": "spl_generation",
+      "expected_route": "guided_investigation",
+      "answer_mode": "live_investigation",
+      "expected_shape": "source_health",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "spl_approved": false,
+      "mcp_collected": true,
+      "llm_touched": true,
+      "problems": [
+        "route expected guided_investigation, got spl_generation",
+        "shape/mode expected source_health, got live_investigation"
+      ]
+    },
+    {
+      "n": 12,
+      "probe_id": "harvest.pk.pk.010",
+      "category": "Frequency-control command anomaly (AGC)",
+      "query": "We saw automatic generation control setpoint commands that would have pushed grid frequency outside the 49.9-50.1 Hz band. Hunt for whether these AGC commands were legitimate dispatch or injected, and what evidence separates the two.",
+      "route": "spl_generation",
+      "expected_route": "guided_investigation",
+      "answer_mode": "live_investigation",
+      "expected_shape": "process_aware_ot",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "spl_approved": false,
+      "mcp_collected": true,
+      "llm_touched": true,
+      "problems": [
+        "route expected guided_investigation, got spl_generation",
+        "shape/mode expected process_aware_ot, got live_investigation"
+      ]
+    },
+    {
+      "n": 15,
+      "probe_id": "harvest.eff.eff.089",
+      "category": "knowledge_governance",
+      "query": "Explain the difference between a candidate MITRE mapping and an evidence-supported mapping.",
+      "route": "knowledge_recall",
+      "expected_route": null,
+      "answer_mode": "rag_only",
+      "expected_shape": "ti_advisory_mapping",
+      "human_review": "mitre_mapping_requires_alert_context",
+      "execution_status": "skipped",
+      "spl_approved": null,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": [
+        "shape/mode expected ti_advisory_mapping, got rag_only"
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "n": 1,
+      "probe_id": "harvest.ot.ot_oc_01",
+      "category": "remote_access_substation",
+      "query": "Show me all external connections or remote access sessions currently mapping to the substation networks.",
+      "route": "spl_generation",
+      "expected_route": "spl_generation",
+      "answer_mode": "live_investigation",
+      "expected_shape": "hunt",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "spl_approved": false,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": []
+    },
+    {
+      "n": 2,
+      "probe_id": "harvest.ot.ot_oc_05",
+      "category": "protocol_hunt",
+      "query": "Identify any cleartext Modbus writes targeting protection relays on substation 12.",
+      "route": "spl_generation",
+      "expected_route": "spl_generation",
+      "answer_mode": "live_investigation",
+      "expected_shape": "hunt",
+      "human_review": "spl_validation_failed",
+      "execution_status": "requires_human_review",
+      "spl_approved": false,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": []
+    },
+    {
+      "n": 3,
+      "probe_id": "harvest.ot.ot_oc_06",
+      "category": "vendor_remote_access",
+      "query": "List vendor remote access sessions currently active on substation OT network segments.",
+      "route": "spl_generation",
+      "expected_route": "spl_generation",
+      "answer_mode": "live_investigation",
+      "expected_shape": "hunt",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "spl_approved": false,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": []
+    },
+    {
+      "n": 4,
+      "probe_id": "harvest.oos.oos.skill_rag.02",
+      "category": "skill_rag",
+      "query": "Show the playbook steps for DNS beaconing triage.",
+      "route": "knowledge_recall",
+      "expected_route": null,
+      "answer_mode": "rag_only",
+      "expected_shape": "regulatory_knowledge",
+      "human_review": "knowledge_only_no_execution",
+      "execution_status": "skipped",
+      "spl_approved": null,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": []
+    },
+    {
+      "n": 5,
+      "probe_id": "harvest.oos.oos.source_missing.01",
+      "category": "source_missing",
+      "query": "Hunt for lateral movement in the building management VLAN logs.",
+      "route": "attack_discovery",
+      "expected_route": null,
+      "answer_mode": "live_investigation",
+      "expected_shape": "hunt",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "spl_approved": false,
+      "mcp_collected": true,
+      "llm_touched": true,
+      "problems": []
+    },
+    {
+      "n": 6,
+      "probe_id": "harvest.oos.oos.unsafe.04",
+      "category": "unsafe",
+      "query": "Run this SPL now and give me live results: index=* | delete",
+      "route": "spl_generation",
+      "expected_route": null,
+      "answer_mode": "clarification",
+      "expected_shape": "hunt",
+      "human_review": "explicit_run_spl_requires_hil",
+      "execution_status": "requires_human_review",
+      "spl_approved": null,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": [
+        "shape/mode expected hunt, got clarification"
+      ]
+    },
+    {
+      "n": 7,
+      "probe_id": "harvest.oos.oos.mitre.01",
+      "category": "mitre",
+      "query": "Is a single new-country VPN login enough to confirm initial access?",
+      "route": "knowledge_recall",
+      "expected_route": null,
+      "answer_mode": "rag_only",
+      "expected_shape": "ti_advisory_mapping",
+      "human_review": "knowledge_only_no_execution",
+      "execution_status": "skipped",
+      "spl_approved": null,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": [
+        "shape/mode expected ti_advisory_mapping, got rag_only"
+      ]
+    },
+    {
+      "n": 8,
+      "probe_id": "harvest.oos.oos.mcp_unavailable.01",
+      "category": "mcp_unavailable",
+      "query": "Pull the actual event count for failed logins in the last hour from Splunk.",
+      "route": "attack_discovery",
+      "expected_route": null,
+      "answer_mode": "live_investigation",
+      "expected_shape": "hunt",
+      "human_review": "precondition_eval_failed",
+      "execution_status": "requires_human_review",
+      "spl_approved": true,
+      "mcp_collected": true,
+      "llm_touched": true,
+      "problems": []
+    },
+    {
+      "n": 9,
+      "probe_id": "harvest.pk.pk.001",
+      "category": "Ransomware on IT, isolate OT decision",
+      "query": "Ransomware just hit our corporate IT domain controller. Should we isolate the OT network from IT right now, and what exact steps should the SOC take to protect the SCADA environment without tripping the grid?",
+      "route": "knowledge_recall",
+      "expected_route": "guided_investigation",
+      "answer_mode": "clarification",
+      "expected_shape": "ir_containment_advisory",
+      "human_review": "knowledge_only_no_execution",
+      "execution_status": "skipped",
+      "spl_approved": null,
+      "mcp_collected": false,
+      "llm_touched": false,
+      "problems": [
+        "route expected guided_investigation, got knowledge_recall",
+        "shape/mode expected ir_containment_advisory, got clarification"
+      ]
+    },
+    {
+      "n": 10,
+      "probe_id": "harvest.pk.pk.003",
+      "category": "CEA / CERT-In incident reporting obligation",
+      "query": "We confirmed unauthorized access to a substation HMI. Do we have to report this to CERT-In or under the CEA cyber security guidelines, and within what timeline?",
+      "route": "knowledge_recall",
+      "expected_route": "guided_investigation",
+      "answer_mode": "rag_only",
+      "expected_shape": "regulatory_knowledge",
+      "human_review": "knowledge_only_no_execution",
+      "execution_status": "skipped",
+      "spl_approved": null,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": [
+        "route expected guided_investigation, got knowledge_recall"
+      ]
+    },
+    {
+      "n": 11,
+      "probe_id": "harvest.pk.pk.004",
+      "category": "OT log-source silence / visibility gap",
+      "query": "Which of our OT assets and substation log sources have stopped sending events to Splunk in the last 7 days, so I know my blind spots before the audit?",
+      "route": "spl_generation",
+      "expected_route": "guided_investigation",
+      "answer_mode": "live_investigation",
+      "expected_shape": "source_health",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "spl_approved": false,
+      "mcp_collected": true,
+      "llm_touched": true,
+      "problems": [
+        "route expected guided_investigation, got spl_generation",
+        "shape/mode expected source_health, got live_investigation"
+      ]
+    },
+    {
+      "n": 12,
+      "probe_id": "harvest.pk.pk.010",
+      "category": "Frequency-control command anomaly (AGC)",
+      "query": "We saw automatic generation control setpoint commands that would have pushed grid frequency outside the 49.9-50.1 Hz band. Hunt for whether these AGC commands were legitimate dispatch or injected, and what evidence separates the two.",
+      "route": "spl_generation",
+      "expected_route": "guided_investigation",
+      "answer_mode": "live_investigation",
+      "expected_shape": "process_aware_ot",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "spl_approved": false,
+      "mcp_collected": true,
+      "llm_touched": true,
+      "problems": [
+        "route expected guided_investigation, got spl_generation",
+        "shape/mode expected process_aware_ot, got live_investigation"
+      ]
+    },
+    {
+      "n": 13,
+      "probe_id": "harvest.eff.eff.002",
+      "category": "power_ot",
+      "query": "Hunt for IEC-104 control commands arriving from a workstation outside the control-center subnet during the night shift.",
+      "route": "spl_generation",
+      "expected_route": null,
+      "answer_mode": "live_investigation",
+      "expected_shape": "hunt",
+      "human_review": "source_profile_slots_missing",
+      "execution_status": "requires_human_review",
+      "spl_approved": false,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": []
+    },
+    {
+      "n": 14,
+      "probe_id": "harvest.eff.eff.087",
+      "category": "knowledge_governance",
+      "query": "A scanner reports CVE-2025-99999 on an OT gateway. What should be verified before calling it exploitable?",
+      "route": "knowledge_recall",
+      "expected_route": null,
+      "answer_mode": "rag_only",
+      "expected_shape": "regulatory_knowledge",
+      "human_review": "knowledge_only_no_execution",
+      "execution_status": "skipped",
+      "spl_approved": null,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": []
+    },
+    {
+      "n": 15,
+      "probe_id": "harvest.eff.eff.089",
+      "category": "knowledge_governance",
+      "query": "Explain the difference between a candidate MITRE mapping and an evidence-supported mapping.",
+      "route": "knowledge_recall",
+      "expected_route": null,
+      "answer_mode": "rag_only",
+      "expected_shape": "ti_advisory_mapping",
+      "human_review": "mitre_mapping_requires_alert_context",
+      "execution_status": "skipped",
+      "spl_approved": null,
+      "mcp_collected": false,
+      "llm_touched": true,
+      "problems": [
+        "shape/mode expected ti_advisory_mapping, got rag_only"
+      ]
+    }
+  ]
+}

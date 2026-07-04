@@ -23,9 +23,12 @@ def test_guidance_summary_render_replaces_thin_guided_stub() -> None:
     )
     assert rendered is not None
     summary = str(rendered.direct_answer_summary or "")
-    assert "SOC review checklist" in summary
-    assert "Validate VPN geo anomalies" in summary
-    assert "Correlate source IPs" in summary
+    # Lead prose stays in the summary; checklist items live in owned sections.
+    assert "SOC review checklist" not in summary
+    assert "Guided investigation prepared" in summary
+    steps = list(rendered.investigation_steps or [])
+    assert "Validate VPN geo anomalies" in steps
+    assert any("Correlate source IPs" in str(item) for item in steps)
     assert message == ""
 
 

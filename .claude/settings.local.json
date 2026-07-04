@@ -60,7 +60,30 @@
       "Bash(PYTHONPATH=/var/www/ai-soc-assistant/backend:/var/www/ai-soc-assistant python3 -m pytest -q)",
       "Bash(echo \"exit=$?\")",
       "Bash(curl -s -o /dev/null -w \"status route: %{http_code}\\\\n\" http://127.0.0.1:8010/llm-lab/status)",
-      "Bash(curl -s http://127.0.0.1:8010/llm-lab/status)"
+      "Bash(curl -s http://127.0.0.1:8010/llm-lab/status)",
+      "Bash(.cursor/hooks/audit-plan-discipline.sh plans/2026-07-02_1327_dynamic-resource-planning-out-of-catalogue.md)",
+      "Bash(export PYTHONPATH=../backend:..)",
+      "Bash(export PYTHONPATH=/tmp/plan-continue-5.4/backend:/tmp/plan-continue-5.4)",
+      "Bash(export PYTHONPATH=/tmp/plan-continue-5.5/backend:/tmp/plan-continue-5.5)",
+      "Bash(mkdir -p /tmp/plan-continue-5.5/docs/evals/out)",
+      "Bash(cp -r /var/www/ai-soc-assistant/docs/evals/out/* /tmp/plan-continue-5.5/docs/evals/out/)",
+      "Bash(export PYTHONPATH=/tmp/plan-continue-6.1/backend:/tmp/plan-continue-6.1)",
+      "Bash(export PYTHONPATH=/tmp/verify-6.1-baseline/backend:/tmp/verify-6.1-baseline)",
+      "Bash(docker exec *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST http://127.0.0.1:8010/actions/whatever/approve)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://127.0.0.1:8010/debug/traces)",
+      "Bash(curl -s -b cookies.txt http://127.0.0.1:8010/actions/act_0f1df2bd772b)",
+      "Bash(PYTHONPATH=/var/www/ai-soc-assistant/backend:/var/www/ai-soc-assistant python3 -m pytest \"/var/www/ai-soc-assistant/backend/app/tests/test_soc_clean_answer_eval.py::test_cli_check_passes_on_subset\")",
+      "Bash(PYTHONPATH=/var/www/ai-soc-assistant/backend:/var/www/ai-soc-assistant python3 -m pytest \"/var/www/ai-soc-assistant/backend/app/tests/test_soc_clean_answer_eval.py::test_cli_check_passes_on_subset\" -q)",
+      "Bash(AI_SOC_LLM_MODE=disabled python3 /var/www/ai-soc-assistant/scripts/run_soc_clean_answer_eval.py --check --limit 8 --skip-105)",
+      "Bash(PYTHONPATH=/var/www/ai-soc-assistant/backend:/var/www/ai-soc-assistant python3 -m pytest /var/www/ai-soc-assistant/backend/app/tests/test_intent_advisor_consumer_gate.py -q)",
+      "Bash(AI_SOC_DISABLE_DOTENV=1 PYTHONPATH=/var/www/ai-soc-assistant/backend:/var/www/ai-soc-assistant python3 *)",
+      "Bash(PYTHONPATH=/var/www/ai-soc-assistant/backend:/var/www/ai-soc-assistant python3 -m pytest /var/www/ai-soc-assistant/backend/app/tests/test_out_of_catalogue_scorecard.py -q)",
+      "Bash(bash .cursor/hooks/audit-plan-discipline.sh plans/2026-07-04_1610_danger-tiered-mcp-command-intent.md)",
+      "Bash(bash .cursor/hooks/audit-plan-discipline.sh plans/2026-07-04_1730_hybrid-intent-deterministic-llm-coordination.md)",
+      "Bash(PYTHONPATH=../backend:.. timeout 300 python3 -m pytest app/tests/test_*intent* app/tests/test_*routing* -q)",
+      "Bash(timeout 580 ./scripts/run_stage3_governance_regression.sh)",
+      "Bash(echo \"EXIT: $?\")"
     ]
   }
 }

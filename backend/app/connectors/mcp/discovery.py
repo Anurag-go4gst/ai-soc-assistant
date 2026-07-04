@@ -127,6 +127,7 @@ def mock_discovered_tools(server_type: str = "splunk") -> list[McpToolDescriptor
         classify_mcp_tool("splunk_get_metadata", "Read Splunk host, source, and sourcetype metadata.", server_type),
         classify_mcp_tool("splunk_get_user_info", "Read the authenticated Splunk user context.", server_type),
         classify_mcp_tool("splunk_get_knowledge_objects", "Read Splunk knowledge-object metadata.", server_type),
+        classify_mcp_tool("splunk_run_saved_search", "Run an allowlisted saved search after analyst approval.", server_type),
         classify_mcp_tool("saia_generate_spl", "Generate SPL with Splunk AI Assistant.", server_type),
     ]
     return tools

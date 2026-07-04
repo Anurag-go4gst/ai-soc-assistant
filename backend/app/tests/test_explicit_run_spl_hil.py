@@ -41,3 +41,22 @@ def test_explicit_run_spl_hil_wiring_noop_for_non_run_spl_query() -> None:
     )
     assert review == prior
     assert execution["status"] == "skipped"
+
+
+def test_explicit_run_spl_hil_preserves_gate_confirmation() -> None:
+    prior_review = {"required": True, "reason": "execution_confirmation_required"}
+    prior_execution = {
+        "status": "requires_human_review",
+        "tool_selection_status": "selected",
+        "selected_mcp_tool": "splunk_run_query",
+        "pending_execution_confirmation": {"normalized_spl": "search index=pgcil_soc earliest=-15m latest=now | head 100"},
+    }
+    review, execution = apply_explicit_run_spl_hil_wiring(
+        user_query="Run the SPL and give me results.",
+        path_type="spl_review",
+        human_review=prior_review,
+        execution=prior_execution,
+    )
+
+    assert review == prior_review
+    assert execution == prior_execution

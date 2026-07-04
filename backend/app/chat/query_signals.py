@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.chat.answer_shape_router import is_regulatory_reporting_query
+from app.chat.answer_shape_router import classify_answer_shape, is_regulatory_reporting_query
 from app.coverage.hunt_pattern_types import EXACT_105_HUNT_PATTERNS, cisco_hunt_pattern_types
 from app.query_understanding.models import QueryUnderstandingResult
 from app.query_understanding.soc_investigation_shape import (
@@ -330,6 +330,79 @@ def is_cross_skill_investigation_query(query: str) -> bool:
     # Require all three domains; alert+MITRE+CVE flagship review is not this path.
     return has_cve and has_mitre and has_github
 
+
+_EXPLICIT_RUN_SPL_RE = re.compile(
+    r"\b(run the spl|run spl|run this spl|execute the spl|execute spl|execute this search)\b",
+    re.IGNORECASE,
+)
+_EXPLICIT_RUN_THIS_SPL_RE = re.compile(r"\brun this\b.{0,32}\bspl\b", re.IGNORECASE)
+_RUN_SPL_NEGATION_RE = re.compile(
+    r"\b(do\s+not|don't|dont|never|without)\s+(run|execute)\b|"
+    r"\b(not\s+run|not\s+execute)\b|"
+    r"\buntil\s+i\s+approve\b|"
+    r"\bask\s+me\s+before\s+(running|executing|you\s+run)\b|"
+    r"\bbefore\s+(i\s+)?(approve|running)\b",
+    re.IGNORECASE,
+)
+_PASTED_SPL_BODY_RE = re.compile(
+    r"\bhere is spl\b|"
+    r"\bsearch\s+index\s*=|"
+    r"\bindex\s*=\s*\w+",
+    re.IGNORECASE,
+)
+_COMMAND_SPL_VERBS_RE = re.compile(
+    r"\b(validate|optimize|revalidate|simplify|rewrite)\b|"
+    r"\b(run|execute)\b.{0,24}\b(it|this|the\s+search|the\s+query|the\s+spl)\b",
+    re.IGNORECASE,
+)
+_OPTIMIZE_SPL_COMMAND_RE = re.compile(
+    r"\b(validate|optimize|revalidate|simplify|rewrite|tune)\b.{0,80}\b(spl|search|query)\b|"
+    r"\b(spl|search|query)\b.{0,80}\b(validate|optimize|revalidate|simplify|rewrite|tune)\b",
+    re.IGNORECASE,
+)
+_OPTIMIZE_COMMAND_VERB_RE = re.compile(r"\b(validate|optimize|revalidate|simplify|rewrite|tune)\b", re.IGNORECASE)
+_RUN_SAVED_SEARCH_COMMAND_RE = re.compile(
+    r"\b(run|execute)\b.{0,40}\b(saved\s+search|savedsearch|report)\b",
+    re.IGNORECASE,
+)
+_DISCOVERY_COMMAND_RE = re.compile(
+    r"\b(list|show|get|display)\b.{0,40}\b(indexes|indices|sourcetypes|fields|metadata|knowledge\s+objects|saved\s+searches|kv\s+store|splunk\s+version|splunk\s+info)\b|"
+    r"\b(which|what)\b.{0,40}\b(indexes|indices|sourcetypes|fields|metadata)\b",
+    re.IGNORECASE,
+)
+_RUN_AFTER_REVIEW_RE = re.compile(
+    r"\b(if|when)\b.{0,40}\b(pass(?:es)?|validat(?:es|ed)|approved?)\b.{0,60}\b(run|execute|running|executing)\b|"
+    r"\bask\s+me\s+before\s+(running|executing|you\s+run)\b",
+    re.IGNORECASE,
+)
+
+
+def _explicit_run_spl_requested(normalized: str) -> bool:
+    """Affirmative run-SPL / live-results intent; ignores deferred or negated run phrasing."""
+    if _RUN_SPL_NEGATION_RE.search(normalized):
+        return False
+    if _EXPLICIT_RUN_SPL_RE.search(normalized) or _EXPLICIT_RUN_THIS_SPL_RE.search(normalized):
+        return True
+    if (
+        "give me results" in normalized
+        or "give me live results" in normalized
+        or "live results" in normalized
+    ) and ("spl" in normalized or "query" in normalized or "search" in normalized):
+        return True
+    if "query splunk" in normalized or bool(re.search(r"\bquery splunk directly\b", normalized)):
+        return True
+    return False
+
+
+def _command_shaped_spl_request(normalized: str, *, explicit_run_spl: bool) -> bool:
+    """Pasted/inline SPL with validate/optimize/run framing (command spine, not hybrid advisory)."""
+    if explicit_run_spl:
+        return True
+    if not _PASTED_SPL_BODY_RE.search(normalized):
+        return False
+    return bool(_COMMAND_SPL_VERBS_RE.search(normalized) or _RUN_SPL_NEGATION_RE.search(normalized))
+
+
 def extract_query_signals(
     query: str,
     query_understanding: QueryUnderstandingResult | None = None,
@@ -389,22 +462,38 @@ def extract_query_signals(
             )
         )
     )
-    explicit_run_spl = bool(
-        re.search(
-            r"\b(run the spl|run spl|run this spl|execute the spl|execute spl|execute this search)\b",
-            normalized,
-        )
-        or re.search(r"\brun this\b.{0,32}\bspl\b", normalized)
+    explicit_run_spl = _explicit_run_spl_requested(normalized)
+    command_shaped_spl = _command_shaped_spl_request(normalized, explicit_run_spl=explicit_run_spl)
+    optimize_spl = bool(
+        command_shaped_spl
+        and (_OPTIMIZE_SPL_COMMAND_RE.search(normalized) or _OPTIMIZE_COMMAND_VERB_RE.search(normalized))
+    )
+    run_saved_search = bool(_RUN_SAVED_SEARCH_COMMAND_RE.search(normalized))
+    run_spl = bool(
+        explicit_run_spl
+        or run_saved_search
         or (
-            (
-                "give me results" in normalized
-                or "give me live results" in normalized
-                or "live results" in normalized
+            command_shaped_spl
+            and (
+                bool(re.search(r"\b(run|execute|running|executing)\b", normalized))
+                or bool(_RUN_AFTER_REVIEW_RE.search(normalized))
             )
-            and ("spl" in normalized or "query" in normalized or "search" in normalized)
         )
-        or "query splunk" in normalized
-        or bool(re.search(r"\bquery splunk directly\b", normalized))
+    )
+    discovery_ask = bool(_DISCOVERY_COMMAND_RE.search(normalized))
+    # Command modes (danger-tiered MCP plan) win over hybrid advisory shapes, but
+    # discovery sub-requests embedded in a hybrid advisory ("list metadata, then
+    # prepare a review-only hunt") should not steal the whole turn from guided.
+    hard_command_mode = bool(run_spl or optimize_spl or run_saved_search or command_shaped_spl)
+    hybrid_advisory_source_health = False
+    hybrid_advisory_process_aware_ot = False
+    if not hard_command_mode:
+        _hybrid_shape = classify_answer_shape(query).primary_shape
+        hybrid_advisory_source_health = _hybrid_shape == "source_health"
+        hybrid_advisory_process_aware_ot = _hybrid_shape == "process_aware_ot"
+    command_mode_active = bool(
+        hard_command_mode
+        or (discovery_ask and not (hybrid_advisory_source_health or hybrid_advisory_process_aware_ot))
     )
     spl_suppressed = _spl_generation_suppressed(normalized) or sop_show_request
     explicit_log_search = _explicit_log_search_requested(normalized)
@@ -414,8 +503,12 @@ def extract_query_signals(
         or _spl_generation_requested(normalized)
         or explicit_log_search
         or explicit_run_spl
+        or command_shaped_spl
+        or optimize_spl
+        or run_spl
+        or run_saved_search
     )
-    run_execution = explicit_run_spl or any(
+    run_execution = run_spl or any(
         term in normalized
         for term in (
             " and run",
@@ -668,8 +761,8 @@ def extract_query_signals(
         # network-segmentation containment phrasings: "cut the link", "sever the
         # connection", "air-gap / segment off the OT network".
         re.search(r"\b(cut|sever)\b[^.?!]{0,24}\b(link|connection|network)\b", normalized)
-        or "air-gap" in normalized
-        or "air gap" in normalized
+        # Actionable air-gap ("air-gap the OT network"), not adjective "air-gapped collectors".
+        or bool(re.search(r"\bair[\s-]?gap(?:\s+the|\s+off|\s+from)\b", normalized))
         or "segment off" in normalized
     ) or bool(
         # destructive firewall/policy deletion without an explicit "block" verb
@@ -703,14 +796,13 @@ def extract_query_signals(
     # IR/containment advisory shape (review-only staged guidance) instead of the
     # bare unsafe refusal. Conservative: requires interrogative/advisory framing
     # AND must not be an explicit "run it / do it now" enforcement imperative.
+    # Advisory framing must be decision-support, not a hunt opener like
+    # "where should I start" after an imperative isolate/block command.
     _advisory_framing = any(
         phrase in normalized
         for phrase in (
-            "should we",
-            "should i",
             "what step",
             "what exact step",
-            "how should",
             "how do we",
             "how can we",
             "is it safe to",
@@ -719,6 +811,12 @@ def extract_query_signals(
             "what do you recommend",
             "without tripping",
             "without disrupting",
+        )
+    ) or bool(
+        re.search(
+            r"\b(should we|should i|how should)\s+"
+            r"(isolate|block|contain|quarantine|disable|segment)\b",
+            normalized,
         )
     )
     _enforcement_imperative = any(
@@ -736,7 +834,10 @@ def extract_query_signals(
         )
     )
     containment_decision_support = bool(
-        block_or_contain and _advisory_framing and not _enforcement_imperative and not explicit_run_spl
+        block_or_contain
+        and _advisory_framing
+        and not _enforcement_imperative
+        and not command_mode_active
     )
     conceptual_mitre_judgment = bool(
         re.search(
@@ -1256,6 +1357,14 @@ def extract_query_signals(
         or (spl_generation and run_execution and not block_or_contain),
         "requires_hil": block_or_contain or explicit_run_spl,
         "explicit_run_spl": explicit_run_spl,
+        "command_shaped_spl": command_shaped_spl,
+        "run_spl": run_spl,
+        "optimize_spl": optimize_spl,
+        "run_saved_search": run_saved_search,
+        "discovery_ask": discovery_ask,
+        "command_mode_active": command_mode_active,
+        "hybrid_advisory_source_health": hybrid_advisory_source_health,
+        "hybrid_advisory_process_aware_ot": hybrid_advisory_process_aware_ot,
         "projected_action_mode": "recommend_only" if block_or_contain else None,
     }
 

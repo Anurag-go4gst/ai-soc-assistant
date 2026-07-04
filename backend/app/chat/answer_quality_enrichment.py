@@ -201,18 +201,12 @@ def apply_answer_quality_enrichment(
                         steps.append(item)
                     if item and item not in recommended:
                         recommended.append(item)
+        # Checklist items stay in investigation_steps / recommended_actions only.
+        # final_answer_validator rejects "SOC review checklist" inside
+        # direct_answer_summary (owned-section separation).
         summary = scrub_ec_analyst_visible_phrasing(
             str(analyst_response.direct_answer_summary or enriched)
         )
-        if (
-            guidance_blocks
-            and steps
-            and "soc review checklist" not in summary.lower()
-            and not _GUIDANCE_MARKERS.search(summary)
-        ):
-            summary = f"{summary}\n\nSOC review checklist:\n" + "\n".join(
-                f"- {step}" for step in steps[:6]
-            )
         analyst_response = analyst_response.model_copy(
             update={
                 "direct_answer_summary": summary,

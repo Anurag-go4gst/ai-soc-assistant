@@ -12,6 +12,8 @@ Cross-cutting rules learned from review cycles. These apply to **every** task, n
 
 **Do not implement against prose.** When creating or executing a plan in `plans/`, follow this loop. Cursor enforces it via [`.cursor/rules/plan-discipline.mdc`](.cursor/rules/plan-discipline.mdc) and hooks ([`hooks.md`](hooks.md)); Claude Code and other agents follow this section directly.
 
+**Canonical location:** always save plans under [`plans/`](plans/) as `plans/YYYY-MM-DD_HHMM_<slug>.md`, set frontmatter `canonical_plan: plans/<filename>.md`, and list them in [`plans/README.md`](plans/README.md). Cursor-local copies (`.cursor/plans/`, `/root/.cursor/plans/`) are optional mirrors only — never leave a plan only there.
+
 | Principle | Requirement |
 |-----------|-------------|
 | **Decompose** | Break work into atomic items where "done" is unambiguous (function shipped, test green, behavior traced). If the plan is prose-only, restructure into a checklist ([`.cursor/templates/plan-checklist-template.md`](.cursor/templates/plan-checklist-template.md) or `plans/LOOP_RUNNER_<slug>.md`) **before** writing code. |

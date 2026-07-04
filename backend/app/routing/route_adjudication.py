@@ -152,11 +152,35 @@ def adjudicate_route(
         return finish(
             final_route="spl_generation",
             final_use_case_id=_first_use_case_id(mappings),
-            authority_source="explicit_run_spl_hil_gate",
+            authority_source="command_intent_run_spl",
             reason=(
                 "Explicit SPL execution/results request routed to review-only SPL "
-                "generation with human review; live execution is blocked."
+                "generation; HIL is required before execution."
             ),
+        )
+
+    if signals.get("run_spl") and not signals.get("block_or_contain"):
+        return finish(
+            final_route="spl_generation",
+            final_use_case_id=_first_use_case_id(mappings),
+            authority_source="command_intent_run_spl",
+            reason="Run-SPL command intent stays on the canonical SPL-and-run spine.",
+        )
+
+    if signals.get("optimize_spl") and not signals.get("block_or_contain"):
+        return finish(
+            final_route="spl_generation",
+            final_use_case_id=_first_use_case_id(mappings),
+            authority_source="command_intent_optimize_spl",
+            reason="Optimize-SPL command intent stays on the canonical SPL authoring spine.",
+        )
+
+    if signals.get("run_saved_search") and not signals.get("block_or_contain"):
+        return finish(
+            final_route="spl_generation",
+            final_use_case_id=_first_use_case_id(mappings),
+            authority_source="command_intent_saved_search",
+            reason="Saved-search execution command intent stays on the canonical SPL-and-run spine.",
         )
 
     if intent.requires_clarification:
@@ -300,11 +324,81 @@ def adjudicate_route(
         )
 
     final_route = deterministic_route.strip() or "knowledge_recall"
+    rescued_route, rescue_authority, rescue_reason = hybrid_llm_advisory_rescue(
+        deterministic_route=final_route,
+        signals=signals,
+        llm_suggested_route=llm_route,
+        match_path=match_path,
+    )
+    if rescue_authority:
+        return finish(
+            final_route=rescued_route,
+            final_use_case_id=_first_use_case_id(mappings),
+            authority_source=rescue_authority,
+            reason=rescue_reason,
+        )
     return finish(
         final_route=final_route,
         final_use_case_id=_first_use_case_id(mappings),
         authority_source="deterministic_route_default",
         reason="Default to deterministic route with shadow enrichment context.",
+    )
+
+
+_HYBRID_RESCUE_FROM = frozenset({"knowledge_recall", "spl_generation"})
+_HYBRID_RESCUE_TO = "guided_investigation"
+
+
+def hybrid_llm_advisory_rescue(
+    *,
+    deterministic_route: str,
+    signals: dict[str, Any],
+    llm_suggested_route: str | None,
+    match_path: str | None = None,
+) -> tuple[str, str | None, str]:
+    """Co-sign ambiguous hybrid advisory turns; never override command/unsafe spines.
+
+    Returns ``(route, authority_source|None, reason)``. When authority is None the
+    caller keeps the deterministic default.
+    """
+    det = (deterministic_route or "").strip() or "knowledge_recall"
+    llm = (llm_suggested_route or "").strip()
+    if not llm:
+        return det, None, ""
+    # Catalogue / near-105 rows stay on their registry skill (contract guard).
+    if (match_path or "") != "out_of_registry":
+        return det, None, "llm_hybrid_rescue_blocked_catalogue_path"
+
+    if signals.get("command_mode_active") or signals.get("explicit_run_spl"):
+        return det, None, "llm_hybrid_rescue_blocked_command_mode"
+    if signals.get("block_or_contain") and not signals.get("containment_decision_support"):
+        return det, None, "llm_hybrid_rescue_blocked_unsafe"
+    if signals.get("requires_hil") and signals.get("explicit_run_spl"):
+        return det, None, "llm_hybrid_rescue_blocked_hil"
+
+    hybrid_window = bool(
+        signals.get("hybrid_advisory_source_health")
+        or signals.get("hybrid_advisory_process_aware_ot")
+        or signals.get("containment_decision_support")
+    )
+    # Only co-sign inside an explicit hybrid advisory window when deterministic
+    # landed on generic SPL/knowledge (ambiguous / conflicting with hybrid shape).
+    if not hybrid_window:
+        return det, None, ""
+    if llm != _HYBRID_RESCUE_TO:
+        return det, None, "llm_hybrid_rescue_skill_not_guided"
+    if det == _HYBRID_RESCUE_TO:
+        return det, None, ""
+    if det not in _HYBRID_RESCUE_FROM:
+        return det, None, "llm_hybrid_rescue_deterministic_not_ambiguous"
+
+    return (
+        _HYBRID_RESCUE_TO,
+        "hybrid_llm_advisory_rescue",
+        (
+            "LLM advisory co-signed guided investigation for an ambiguous hybrid "
+            f"advisory turn (deterministic={det}); command/unsafe spines unchanged."
+        ),
     )
 
 

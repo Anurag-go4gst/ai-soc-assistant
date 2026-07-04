@@ -21,6 +21,7 @@ from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS, selec
 from app.orchestration.spl_revision_hil import resolve_spl_revision_hil_reason
 
 RESULT_PREVIEW_CAP = 5
+READ_ONLY_EXECUTION_INTENTS = {"metadata_discovery", "identity_lookup"}
 
 
 def _mock_success_requires_hil() -> bool:
@@ -53,6 +54,7 @@ def evaluate_mcp_execution(
     pending_execution: dict[str, Any] | None = None,
     rbac_role: str | None = None,
     llm_lineage_auto_eligible: bool = False,
+    execution_intent: str = "spl_search",
     catalogue_match_path: str | None = None,
     catalogue_question_ref: str | None = None,
     catalogue_use_case_id: str | None = None,
@@ -61,7 +63,7 @@ def evaluate_mcp_execution(
     precondition_block_reason = _precondition_block_reason(precondition_evaluation)
     if precondition_block_reason:
         selection = {
-            "execution_intent": "spl_search",
+            "execution_intent": execution_intent,
             "selected_mcp_server": None,
             "selected_mcp_tool": None,
             "tool_selection_status": "blocked_by_precondition_eval",
@@ -89,7 +91,7 @@ def evaluate_mcp_execution(
         trace_id=trace_id,
         selected_skill=selected_skill,
         workflow_plan=workflow_plan,
-        execution_intent="spl_search",
+        execution_intent=execution_intent,
         spl_validation=spl_validation,
         user_requested_mcp_server=requested_mcp_server,
         user_requested_mcp_tool=requested_mcp_tool,
@@ -112,12 +114,34 @@ def evaluate_mcp_execution(
         selected_mcp_server=str(selection["selected_mcp_server"]),
         selected_mcp_tool=str(selection["selected_mcp_tool"]),
         registry=registry,
+        execution_intent=execution_intent,
     )
     if review["required"]:
         execution = _blocked_execution(selection, "requires_human_review", review["reason"])
         telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_blocked", reason=review["reason"])
         telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=review["reason"])
         return execution, review
+
+    if execution_intent in READ_ONLY_EXECUTION_INTENTS:
+        return _execute_read_only_mcp_tool(
+            trace_id=trace_id,
+            selection=selection,
+            registry=registry,
+            telemetry=telemetry,
+        )
+
+    if execution_intent == "saved_search_execution":
+        return _execute_saved_search_with_hil(
+            trace_id=trace_id,
+            selection=selection,
+            spl_validation=spl_validation or {},
+            execution_review_action=execution_review_action,
+            pending_execution=pending_execution,
+            catalogue_question_ref=catalogue_question_ref,
+            catalogue_use_case_id=catalogue_use_case_id,
+            telemetry=telemetry,
+            registry=registry,
+        )
 
     catalogue_eligible, catalogue_reason = catalogue_auto_execute_eligible(
         match_path=catalogue_match_path,
@@ -319,22 +343,30 @@ def _gate_review(
     selected_mcp_server: str,
     selected_mcp_tool: str,
     registry: Any,
+    execution_intent: str = "spl_search",
 ) -> dict[str, Any]:
-    if selected_skill not in EXECUTION_ELIGIBLE_SKILLS:
-        return _review("tool_selection_review", "skill_not_execution_eligible")
-    if not spl_validation or spl_validation.get("approved") is not True:
-        reason = resolve_spl_revision_hil_reason(spl_validation)
-        return _review("spl_revision", reason, "analyst", ["regenerate_spl", "edit_spl", "reject_execution"])
-    if spl_validation.get("normalized_spl") is None:
-        return _review("spl_revision", "normalized_spl_null", "analyst", ["regenerate_spl", "edit_spl", "reject_execution"])
-    normalized_spl = str(spl_validation.get("normalized_spl") or "")
-    if "<" in normalized_spl or ">" in normalized_spl:
-        return _review(
-            "spl_revision",
-            "spl_source_slots_unresolved",
-            "analyst",
-            ["confirm_source_profile", "regenerate_spl", "reject_execution"],
-        )
+    read_only = execution_intent in READ_ONLY_EXECUTION_INTENTS
+    saved_search = execution_intent == "saved_search_execution" or selected_mcp_tool == "splunk_run_saved_search"
+    if not read_only:
+        if selected_skill not in EXECUTION_ELIGIBLE_SKILLS:
+            return _review("tool_selection_review", "skill_not_execution_eligible")
+        if saved_search:
+            if not settings.splunk_allow_run_saved_search:
+                return _review("execution_approval", "saved_search_execution_disabled", "soc_lead", ["approve_execution_after_policy_check", "reject_execution"])
+        else:
+            if not spl_validation or spl_validation.get("approved") is not True:
+                reason = resolve_spl_revision_hil_reason(spl_validation)
+                return _review("spl_revision", reason, "analyst", ["regenerate_spl", "edit_spl", "reject_execution"])
+            if spl_validation.get("normalized_spl") is None:
+                return _review("spl_revision", "normalized_spl_null", "analyst", ["regenerate_spl", "edit_spl", "reject_execution"])
+            normalized_spl = str(spl_validation.get("normalized_spl") or "")
+            if "<" in normalized_spl or ">" in normalized_spl:
+                return _review(
+                    "spl_revision",
+                    "spl_source_slots_unresolved",
+                    "analyst",
+                    ["confirm_source_profile", "regenerate_spl", "reject_execution"],
+                )
     if not registry.global_execution_enabled:
         return _review("execution_approval", "mcp_global_execution_disabled", "soc_lead", ["approve_execution_after_policy_check", "reject_execution"])
     server = next((item for item in registry.servers if item.name == selected_mcp_server), None)
@@ -351,7 +383,12 @@ def _gate_review(
         return _review("policy_exception_request", tool.get("blocked_reason") or "selected_tool_blocked", "security_admin", ["request_policy_exception", "reject_execution"])
     if selected_mcp_tool == "splunk_run_saved_search" and not settings.splunk_allow_run_saved_search:
         return _review("execution_approval", "saved_search_execution_disabled", "soc_lead", ["approve_execution_after_policy_check", "reject_execution"])
-    if tool.get("capability") != "spl_search":
+    capability = str(tool.get("capability") or "")
+    if read_only and capability not in {"metadata_lookup", "knowledge_object_discovery", "identity_lookup"}:
+        return _review("tool_selection_review", "selected_tool_not_read_only")
+    if saved_search and capability != "saved_search_execution":
+        return _review("tool_selection_review", "selected_tool_not_saved_search_execution")
+    if not read_only and not saved_search and capability != "spl_search":
         return _review("tool_selection_review", "selected_tool_not_spl_search")
     if registry.mode not in {"mock", "registry"}:
         return _review("admin_action_required", "real_mcp_adapter_not_implemented", "platform_admin", ["configure_connector", "reject_execution"])
@@ -363,6 +400,209 @@ def _gate_review(
     ):
         return _review("connector_configuration", "splunk_mcp_not_configured", "platform_admin", ["configure_connector", "reject_execution"])
     return no_human_review()
+
+
+def _execute_read_only_mcp_tool(
+    *,
+    trace_id: str,
+    selection: dict[str, Any],
+    registry: Any,
+    telemetry: Any,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    selected_tool = str(selection["selected_mcp_tool"])
+    started = perf_counter()
+    telemetry.record_mcp_execution(
+        trace_id,
+        event_type="mcp_execution_started",
+        selected_mcp_server=selection["selected_mcp_server"],
+        selected_mcp_tool=selected_tool,
+    )
+    try:
+        result = get_mcp_connector().call_tool(
+            selected_tool,
+            _read_only_tool_arguments(selected_tool, trace_id=trace_id),
+            server_name=str(selection["selected_mcp_server"]),
+        )
+    except NotImplementedError:
+        review = _review("admin_action_required", "real_mcp_adapter_not_implemented", "platform_admin", ["configure_connector", "reject_execution"])
+        execution = _blocked_execution(selection, "requires_human_review", review["reason"])
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_failed", reason=review["reason"])
+        return execution, review
+    except Exception as exc:  # noqa: BLE001
+        review = _review("admin_action_required", "mcp_execution_failed", "platform_admin", ["configure_connector", "reject_execution"])
+        execution = _blocked_execution(selection, "failed", f"mcp_execution_failed:{type(exc).__name__}")
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_failed", reason=type(exc).__name__)
+        return execution, review
+
+    duration_ms = int((perf_counter() - started) * 1000)
+    result_status = str(result.get("status") or "ok").strip().lower()
+    if result_status not in {"ok", "completed", "success"}:
+        outcome_review, exec_status = _classify_failed_call(result_status, result)
+        execution = _blocked_execution(selection, exec_status, str(result.get("error") or result_status))
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_failed", reason=result_status)
+        return execution, outcome_review
+    rows = result.get("rows") if isinstance(result.get("rows"), list) else []
+    execution = {
+        "status": "executed",
+        "execution_intent": selection["execution_intent"],
+        "selected_mcp_server": selection["selected_mcp_server"],
+        "selected_mcp_tool": selection["selected_mcp_tool"],
+        "tool_selection_status": selection["tool_selection_status"],
+        "tool_selection_reason": selection["tool_selection_reason"],
+        "executed_spl": None,
+        "result_count": int(result.get("row_count") or len(rows)),
+        "results_preview": rows[:RESULT_PREVIEW_CAP],
+        "raw_result": result,
+        "block_reason": None,
+        "duration_ms": duration_ms,
+        "evidence_source": "live" if registry.mode == "registry" else "mock",
+        "execution_status_label": "metadata_discovery_executed",
+    }
+    telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_completed", result_count=execution["result_count"], duration_ms=duration_ms)
+    review = no_human_review()
+    review["safe_message_for_user"] = "Read-only MCP discovery executed; no SPL search was run."
+    return execution, review
+
+
+def _execute_saved_search_with_hil(
+    *,
+    trace_id: str,
+    selection: dict[str, Any],
+    spl_validation: dict[str, Any],
+    execution_review_action: str | None,
+    pending_execution: dict[str, Any] | None,
+    catalogue_question_ref: str | None,
+    catalogue_use_case_id: str | None,
+    telemetry: Any,
+    registry: Any,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    saved_name, saved_app = _saved_search_binding(
+        spl_validation=spl_validation,
+        pending_execution=pending_execution,
+        catalogue_question_ref=catalogue_question_ref,
+        catalogue_use_case_id=catalogue_use_case_id,
+    )
+    if not saved_name:
+        review = _review("saved_search_binding", "saved_search_name_missing", "analyst", ["choose_saved_search", "reject_execution"])
+        return _blocked_execution(selection, "requires_human_review", review["reason"]), review
+
+    if (execution_review_action or "").strip().lower() != "confirm":
+        review = human_review(
+            "saved_search_execution_confirmation",
+            "analyst_confirmation_required",
+            "analyst",
+            ["confirm_execution", "reject_execution"],
+            (
+                "Review the saved search before it runs in Splunk. "
+                f"Tool: {selection['selected_mcp_tool']} on {selection['selected_mcp_server']}. "
+                f"Saved search: {saved_name}. Reply with Confirm to run it or Reject to cancel."
+            ),
+            required=True,
+            saved_search_name=saved_name,
+            selected_mcp_tool=selection["selected_mcp_tool"],
+            selected_mcp_server=selection["selected_mcp_server"],
+        )
+        execution = _blocked_execution(selection, "requires_human_review", review["reason"])
+        execution["pending_execution_confirmation"] = {
+            "saved_search_name": saved_name,
+            "saved_search_app": saved_app,
+            "selected_mcp_server": selection["selected_mcp_server"],
+            "selected_mcp_tool": selection["selected_mcp_tool"],
+            "trace_id": trace_id,
+        }
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=review["reason"])
+        return execution, review
+
+    tool_arguments = splunk_saved_search_tool_arguments(
+        saved_search_name=saved_name,
+        saved_search_app=saved_app,
+        trace_id=trace_id,
+    )
+    started = perf_counter()
+    telemetry.record_mcp_execution(
+        trace_id,
+        event_type="mcp_execution_started",
+        selected_mcp_server=selection["selected_mcp_server"],
+        selected_mcp_tool=selection["selected_mcp_tool"],
+    )
+    try:
+        result = get_mcp_connector().call_tool(
+            str(selection["selected_mcp_tool"]),
+            tool_arguments,
+            server_name=str(selection["selected_mcp_server"]),
+        )
+    except Exception as exc:  # noqa: BLE001
+        review = _review("admin_action_required", "mcp_execution_failed", "platform_admin", ["configure_connector", "reject_execution"])
+        execution = _blocked_execution(selection, "failed", f"mcp_execution_failed:{type(exc).__name__}")
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_failed", reason=type(exc).__name__)
+        return execution, review
+
+    duration_ms = int((perf_counter() - started) * 1000)
+    result_status = str(result.get("status") or "ok").strip().lower()
+    if result_status not in {"ok", "completed", "success"}:
+        outcome_review, exec_status = _classify_failed_call(result_status, result)
+        execution = _blocked_execution(selection, exec_status, str(result.get("error") or result_status))
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_failed", reason=result_status)
+        return execution, outcome_review
+    rows = result.get("rows") if isinstance(result.get("rows"), list) else []
+    execution = {
+        "status": "executed",
+        "execution_intent": "saved_search_execution",
+        "selected_mcp_server": selection["selected_mcp_server"],
+        "selected_mcp_tool": selection["selected_mcp_tool"],
+        "tool_selection_status": selection["tool_selection_status"],
+        "tool_selection_reason": selection["tool_selection_reason"],
+        "executed_spl": None,
+        "saved_search_name": saved_name,
+        "result_count": int(result.get("row_count") or len(rows)),
+        "results_preview": rows[:RESULT_PREVIEW_CAP],
+        "raw_result": result,
+        "block_reason": None,
+        "duration_ms": duration_ms,
+        "evidence_source": "live" if registry.mode == "registry" else "mock",
+        "execution_status_label": "executed" if registry.mode == "registry" else "mock_executed",
+    }
+    telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_completed", result_count=execution["result_count"], duration_ms=duration_ms)
+    review = no_human_review()
+    review["safe_message_for_user"] = "Saved search executed after analyst confirmation."
+    return execution, review
+
+
+def _saved_search_binding(
+    *,
+    spl_validation: dict[str, Any],
+    pending_execution: dict[str, Any] | None,
+    catalogue_question_ref: str | None,
+    catalogue_use_case_id: str | None,
+) -> tuple[str, str]:
+    pending = pending_execution if isinstance(pending_execution, dict) else {}
+    binding = resolve_catalogue_execution_binding(
+        question_ref=catalogue_question_ref,
+        use_case_id=catalogue_use_case_id,
+    )
+    name = (
+        str(pending.get("saved_search_name") or "").strip()
+        or str(spl_validation.get("saved_search_name") or "").strip()
+        or ((binding.saved_search_name or "").strip() if binding else "")
+    )
+    app = (
+        str(pending.get("saved_search_app") or "").strip()
+        or str(spl_validation.get("saved_search_app") or "").strip()
+        or ((binding.saved_search_app or "").strip() if binding else "")
+        or "search"
+    )
+    return name, app
+
+
+def _read_only_tool_arguments(tool_name: str, *, trace_id: str) -> dict[str, Any]:
+    args: dict[str, Any] = {
+        "_governance": {"discovery_allowed": True},
+        "trace_id": trace_id,
+        "correlation_id": trace_id,
+    }
+    if tool_name == "splunk_get_knowledge_objects":
+        args["object_type"] = "savedsearch"
+    return args
 
 
 def _classify_failed_call(result_status: str, result: dict[str, Any]) -> tuple[dict[str, Any], str]:

@@ -1,0 +1,68 @@
+[
+  {
+    "probe": "Q1",
+    "query_preview": "We saw AGC setpoint commands that could push frequency outside 49.9-50.1 Hz. First list the Splunk indexes or metadata t",
+    "trace_id": "3a31576f-0435-4f4d-bf34-362a84d9eb48",
+    "selected_skill": "spl_generation",
+    "answer_mode": "clarification",
+    "response_mode": "human_review_required",
+    "match_path": "out_of_registry",
+    "intent_family": null,
+    "primary_intent": null,
+    "path_type": "spl_review",
+    "request_mode": "clarification",
+    "route_authority": "explicit_run_spl_hil_gate",
+    "evidence_answer_mode": "clarification",
+    "needs_spl": false,
+    "needs_mcp": false,
+    "discovery_allowed": null,
+    "mcp_allowed": false,
+    "spl_approved": null,
+    "candidate_spl_present": false,
+    "execution_status": "requires_human_review",
+    "human_review_reason": "explicit_run_spl_requires_hil",
+    "workflow_execution_enabled": false,
+    "note": "Governed template SPL was not produced. HIL/SOC review is required. No MCP execution was run. Orchestration: langgraph (parity mode).",
+    "failure_nodes": [
+      "route_adjudication: skill=spl_generation (want guided/hybrid advisory, not generic SPL-only collapse)",
+      "evidence_planning: no discovery_allowed/needs_mcp for index/metadata ask"
+    ],
+    "gaps_vs_expected": [
+      "route_adjudication: skill=spl_generation (want guided/hybrid advisory, not generic SPL-only collapse)",
+      "evidence_planning: no discovery_allowed/needs_mcp for index/metadata ask"
+    ]
+  },
+  {
+    "probe": "Q2",
+    "query_preview": "Here is SPL: search index=pgcil_soc sourcetype=pgcil:ot_agc earliest=-2h | stats count by command_src setpoint. Validate",
+    "trace_id": "ca71c2d0-36c2-48bf-8471-4e24260ab246",
+    "selected_skill": "guided_investigation",
+    "answer_mode": "guided_investigation",
+    "response_mode": "deterministic_knowledge_or_routing",
+    "match_path": "out_of_registry",
+    "intent_family": null,
+    "primary_intent": null,
+    "path_type": "guided_investigation",
+    "request_mode": "clarification",
+    "route_authority": "guided_investigation_rescue",
+    "evidence_answer_mode": "guided_investigation",
+    "needs_spl": false,
+    "needs_mcp": false,
+    "discovery_allowed": true,
+    "mcp_allowed": false,
+    "spl_approved": null,
+    "candidate_spl_present": false,
+    "execution_status": "skipped",
+    "human_review_reason": "policy_checks_passed",
+    "workflow_execution_enabled": false,
+    "note": "No governed KB/SOP match found. SPL and MCP were skipped; final synthesis remains disabled. Orchestration: langgraph (parity mode).",
+    "failure_nodes": [
+      "route_adjudication: command-shaped SPL stolen by guided_investigation",
+      "route_adjudication: skill=guided_investigation (want spl_generation for command SPL)"
+    ],
+    "gaps_vs_expected": [
+      "route_adjudication: command-shaped SPL stolen by guided_investigation",
+      "route_adjudication: skill=guided_investigation (want spl_generation for command SPL)"
+    ]
+  }
+]

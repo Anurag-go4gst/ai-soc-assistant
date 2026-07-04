@@ -28,6 +28,12 @@ def apply_explicit_run_spl_hil_wiring(
     path = str(path_type or "")
     if path != "spl_review":
         return human_review or {}, execution or {}
+    if isinstance(execution, dict) and (
+        execution.get("pending_execution_confirmation")
+        or execution.get("selected_mcp_tool")
+        or execution.get("tool_selection_status") == "selected"
+    ):
+        return human_review or {}, execution
 
     refusal = build_spl_execution_refusal_guidance()
     review = build_human_review(

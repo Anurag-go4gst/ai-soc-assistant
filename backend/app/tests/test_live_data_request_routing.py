@@ -94,6 +94,33 @@ def test_live_data_intent_beats_soc_investigation_shaped_for_substation_query() 
     assert qi.intent_classification.intent_family == "spl_generation_only"
 
 
+@pytest.mark.parametrize(
+    "query",
+    (
+        "Which of our OT assets and substation log sources have stopped sending events to Splunk in the last 7 days, so I know my blind spots before the audit?",
+        "We saw automatic generation control setpoint commands that would have pushed grid frequency outside the 49.9-50.1 Hz band. Hunt for whether these AGC commands were legitimate dispatch or injected, and what evidence separates the two.",
+    ),
+)
+def test_specialized_ot_live_data_shapes_route_guided_before_generic_spl(
+    query: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "ai_soc_t2_answer_shape_enabled", True)
+    signals = extract_query_signals(query)
+    assert is_live_data_request(signals)
+
+    understanding = understand_query(query)
+    assert understanding.deterministic_match_path == "out_of_registry"
+
+    route, _ = select_route_from_understanding(understanding, query)
+    assert route["skill"] == "guided_investigation"
+
+    qi = build_query_to_intent(query=query, query_understanding=understanding, routed_skill=route["skill"])
+    assert qi.intent_classification.intent_family == "guided_investigation"
+
+
 def test_no_collected_evidence_scrubs_live_result_phrasing() -> None:
     from app.chat.contracts.answer_contract import AnswerContract
     from app.chat.final_answer_readability import apply_final_answer_readability
