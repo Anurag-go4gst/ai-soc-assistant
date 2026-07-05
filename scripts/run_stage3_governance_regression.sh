@@ -51,6 +51,10 @@ python3 scripts/eval_out_of_catalog_ot_probe.py --check || fail "out-of-catalog 
 section "backend pytest"
 (cd backend && python3 -m pytest -q) || fail "backend pytest"
 
+section "reference knowledge answer quality"
+(cd backend && TELEMETRY_MODE=none PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_reference_answer_quality.py -q) \
+  || fail "reference knowledge answer quality pytest"
+
 section "test harness (6/6)"
 python3 -m test_harness.harness.runner --json >/tmp/stage3_harness.jsonl
 if ! python3 -c "
