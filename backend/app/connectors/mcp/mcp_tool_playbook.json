@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "server_type": "splunk",
   "notes": "Declarative when/why/chronology for the air-gapped Splunk MCP tool surface. Single source the deterministic planner reviews an LLM-proposed chronology against. Execution stays gated by MCP_GLOBAL_EXECUTION_ENABLED + server flags + HIL/COE regardless of this playbook.",
   "default_chronology": [
@@ -33,6 +33,10 @@
         "viewer",
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "system_health",
+        "connection_diagnostics"
       ]
     },
     "splunk_get_indexes": {
@@ -58,6 +62,10 @@
         "viewer",
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "source_mapping",
+        "scoping_data_availability"
       ]
     },
     "splunk_get_metadata": {
@@ -86,6 +94,11 @@
         "viewer",
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "data_silence_check",
+        "asset_visibility_audit",
+        "telemetry_verification"
       ]
     },
     "splunk_get_index_info": {
@@ -112,6 +125,9 @@
         "viewer",
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "index_capacity_audit"
       ]
     },
     "splunk_get_knowledge_objects": {
@@ -148,6 +164,10 @@
         "viewer",
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "detection_rule_audit",
+        "knowledge_object_audit"
       ]
     },
     "splunk_run_query": {
@@ -171,6 +191,10 @@
       "rbac_roles": [
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "forensic_search",
+        "raw_event_analysis"
       ]
     },
     "splunk_get_user_info": {
@@ -191,6 +215,9 @@
       "rbac_roles": [
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "session_capability_audit"
       ]
     },
     "splunk_get_user_list": {
