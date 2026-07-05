@@ -126,6 +126,19 @@ def _build_cve_investigation_classification(*, reason: str, confidence: float = 
         requested_output_type="INVESTIGATION",
     )
 
+def _build_reference_knowledge_classification(*, reason: str, confidence: float = 0.9) -> IntentClassification:
+    return _build_classification(
+        intent_family="reference_knowledge",
+        primary_intent="reference_knowledge",
+        query_type="ask_for_explanation",
+        answer_goal=["reference_lookup"],
+        confidence=confidence,
+        requires_clarification=False,
+        action_mode="recommend_only",
+        reason=reason,
+        requested_output_type="REFERENCE",
+    )
+
 def _build_cross_skill_investigation_classification(*, reason: str, confidence: float = 0.76) -> IntentClassification:
     return _build_classification(
         intent_family="github_investigation",
@@ -239,6 +252,7 @@ def classify_intent(
     signals: dict[str, Any],
     candidate_mappings: dict[str, Any],
     query_understanding: QueryUnderstandingResult | None = None,
+    answer_shape_override: str | None = None,
 ) -> IntentClassification:
     if signals.get("run_spl") or signals.get("run_saved_search"):
         return _build_classification(
@@ -612,6 +626,11 @@ def classify_intent(
             requires_clarification=False,
             reason="Regulatory reporting obligation question routed to governed knowledge recall.",
             requested_output_type="SOP",
+        )
+
+    if answer_shape_override == "reference_taxonomy" or classify_answer_shape(query).primary_shape == "reference_taxonomy":
+        return _build_reference_knowledge_classification(
+            reason="Reference taxonomy lookup resolved by local registry; no alert context required.",
         )
 
     if signals.get("mitre_explain"):
@@ -1110,6 +1129,7 @@ def build_query_to_intent(
     routed_skill: str | None = None,
     routing_provenance: dict[str, Any] | None = None,
     llm_intent_advisory: LLMIntentAdvisory | None = None,
+    answer_shape_override: str | None = None,
 ) -> QueryToIntentResult:
     signals = extract_query_signals(query, query_understanding)
     candidate_mappings = build_candidate_mappings(
@@ -1122,6 +1142,7 @@ def build_query_to_intent(
         signals=signals,
         candidate_mappings=candidate_mappings,
         query_understanding=query_understanding,
+        answer_shape_override=answer_shape_override,
     )
     adjudicated_advisory = adjudicate_llm_intent_advisory(
         llm_intent_advisory,

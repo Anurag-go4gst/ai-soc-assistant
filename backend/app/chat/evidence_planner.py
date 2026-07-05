@@ -141,6 +141,34 @@ def plan_evidence(
             )
         )
 
+    if family == "reference_knowledge":
+        return with_enrichment(
+            EvidencePlan(
+                answer_mode="rag_only",
+                rag_phase="rag_only",
+                needs_rag=True,
+                needs_spl=False,
+                needs_mcp=False,
+                needs_mitre=False,
+                spl_allowed=False,
+                mcp_allowed=False,
+                policy_context_required=False,
+                policy_context_recommended=True,
+                requires_hil=False,
+                action_mode="recommend_only",
+                rag_no_match_behavior="general_guidance_allowed",
+                reasons=["reference_taxonomy_lookup"],
+                required_evidence_keys=["reference_dataset"],
+                required_sources=["reference_registry"],
+                unsupported_claims_avoid=[
+                    "live environment exposure",
+                    "confirmed exploitation",
+                    "confirmed alert mapping",
+                ],
+                evidence_plan_reason="reference_taxonomy_lookup",
+            )
+        )
+
     if family == "github_investigation":
         return with_enrichment(
             EvidencePlan(

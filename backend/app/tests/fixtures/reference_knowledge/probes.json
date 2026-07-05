@@ -1,0 +1,62 @@
+[
+  {
+    "id": "P1",
+    "kind": "positive",
+    "query": "What MITRE ATLAS techniques apply to prompt injection against our LLM agent using MCP tools?",
+    "expected_future_shape": "reference_taxonomy"
+  },
+  {
+    "id": "P2",
+    "kind": "positive",
+    "query": "Using the onboarded MITRE ATLAS data, list the top AML techniques relevant to LLM prompt injection and MCP-agent abuse. This is a taxonomy question, not an alert mapping.",
+    "expected_future_shape": "reference_taxonomy"
+  },
+  {
+    "id": "P3",
+    "kind": "positive",
+    "query": "What is T1110.003 and how do we detect it?",
+    "expected_future_shape": "reference_taxonomy"
+  },
+  {
+    "id": "P4",
+    "kind": "positive",
+    "query": "Explain CVE-2024-3400. Are we affected?",
+    "expected_future_shape": "reference_taxonomy"
+  },
+  {
+    "id": "P5",
+    "kind": "positive_non_regression",
+    "query": "Map this alert to MITRE: 5 failed logins then success on DC-01",
+    "expected_future_shape": "alert_mapping"
+  },
+  {
+    "id": "P6",
+    "kind": "positive_non_regression",
+    "query": "Give me SPL to detect brute force",
+    "expected_future_shape": "spl_generation"
+  },
+  {
+    "id": "N1",
+    "kind": "negative",
+    "query": "Search our logs for CVE-2024-3400 exploitation attempts",
+    "must_not_shape": "reference_taxonomy"
+  },
+  {
+    "id": "N2",
+    "kind": "negative",
+    "query": "Was T1110 activity seen on our network last week?",
+    "must_not_shape": "reference_taxonomy"
+  },
+  {
+    "id": "N3",
+    "kind": "negative",
+    "query": "Map alert 4625-burst on DC-01 to MITRE",
+    "must_not_shape": "reference_taxonomy"
+  },
+  {
+    "id": "N4",
+    "kind": "negative",
+    "query": "Update our ATLAS coverage dashboard",
+    "must_not_shape": "reference_taxonomy"
+  }
+]

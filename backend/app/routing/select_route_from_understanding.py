@@ -284,10 +284,22 @@ def _route_out_of_registry(
         detect_spl_artifact_request,
     )
 
+    from app.config import settings as _settings
+
     signals = extract_query_signals(query, understanding)
     action = bool(signals["action_or_containment_shaped"])
     live_data = bool(signals.get("live_data_request"))
     guidance = bool(signals.get("guidance_request"))
+    if _settings.ai_soc_t2_answer_shape_enabled:
+        from app.chat.answer_shape_router import classify_answer_shape
+
+        if classify_answer_shape(query).primary_shape == "reference_taxonomy":
+            return _route_reference_knowledge(
+                understanding,
+                query,
+                keyword_would_have,
+                reason="out_of_registry_reference_taxonomy_shape_floor",
+            )
     # Command-shaped SPL/MCP turns (danger-tiered plan) never enter guided rescue.
     if signals.get("command_mode_active") and not signals.get("block_or_contain"):
         return _route_detection_spl(
@@ -308,7 +320,6 @@ def _route_out_of_registry(
     # T2 answer-shape floor — runs for containment decision-support asks too, but
     # never for unsafe execution, explicit run-SPL, or concrete SPL-native asks
     # (index/metric/entity SPL drafts must not collapse to baselining guidance).
-    from app.config import settings as _settings
     from app.query_understanding.soc_investigation_shape import is_unsafe_execution
 
     if _settings.ai_soc_t2_answer_shape_enabled:
@@ -422,6 +433,33 @@ def _route_guided_investigation_rescue(
     if reason.startswith("catalog_"):
         provenance["deterministic_match_path"] = "out_of_registry"
         provenance["catalog_keyword_rescue"] = True
+    return base, provenance
+
+
+def _route_reference_knowledge(
+    understanding: QueryUnderstandingResult,
+    query: str,
+    keyword_would_have: dict[str, Any],
+    *,
+    reason: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    base = {
+        "skill": "knowledge_recall",
+        "tool_plan": _tool_plan_for_skill("knowledge_recall"),
+        "confidence": 0.82,
+        "reasons": [reason, "reference_registry_lookup", "execution_disabled"],
+    }
+    provenance = build_routing_provenance(
+        understanding,
+        selected_by=reason,
+        authority_source="reference_taxonomy_shape",
+        skill=base["skill"],
+        tool_plan=list(base["tool_plan"]),
+        confidence=float(base["confidence"]),
+        keyword_router_would_have_selected=keyword_would_have,
+        rescue_mode=True,
+    )
+    provenance["answer_shape"] = "reference_taxonomy"
     return base, provenance
 
 

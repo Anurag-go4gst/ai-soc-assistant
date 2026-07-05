@@ -79,6 +79,14 @@ class GovernedSynthesisPackage(BaseModel):
     permitted_actions: list[PermittedAction]
     guard_constraints: SynthesisGuardConstraints = Field(default_factory=SynthesisGuardConstraints)
     source_evidence_refs: list[str] = Field(default_factory=list)
+    advisory_observations: list["GovernedEvidenceObservation"] = Field(default_factory=list)
+
+
+class GovernedEvidenceObservation(BaseModel):
+    claim: str
+    row_refs: list[int] = Field(min_length=1)
+    confidence: Literal["low", "medium", "high"]
+    provenance: Literal["llm_observation"] = "llm_observation"
 
 
 DEFAULT_MISSING_EVIDENCE: dict[str, str] = {
@@ -109,6 +117,7 @@ def build_governed_synthesis_package(
         permitted_mitre_techniques=_permitted_mitre_techniques(mitre_mappings or [], structured_context),
         permitted_actions=_permitted_actions(action_capability),
         source_evidence_refs=source_refs,
+        advisory_observations=_advisory_observations(structured_context),
     )
 
 
@@ -140,6 +149,21 @@ def _precomputed_aggregates(structured_context: dict[str, Any], source_refs: lis
             safe_for_model_use=False,
         )
     ]
+
+
+def _advisory_observations(structured_context: dict[str, Any]) -> list[GovernedEvidenceObservation]:
+    raw = structured_context.get("llm_observations")
+    if not isinstance(raw, list):
+        return []
+    observations: list[GovernedEvidenceObservation] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            observations.append(GovernedEvidenceObservation.model_validate(item))
+        except Exception:  # noqa: BLE001 - advisory context must not break synthesis packaging
+            continue
+    return observations
 
 
 def _missing_evidence(structured_context: dict[str, Any]) -> list[MissingEvidenceItem]:

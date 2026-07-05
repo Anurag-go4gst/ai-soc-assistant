@@ -162,3 +162,12 @@ def test_deterministic_default_exempt_from_intent_filter() -> None:
     )
     assert plan.decision_source == "deterministic_default"
     assert "splunk_get_info" in plan.approved_tools
+
+
+def test_surface_pending_kv_store_dropped_from_llm_proposal() -> None:
+    plan = review_proposed_tool_chronology(
+        ["splunk_get_indexes", "splunk_get_kv_store_collections", "splunk_get_metadata"],
+    )
+    dropped = {d.tool: d.reason for d in plan.dropped}
+    assert dropped["splunk_get_kv_store_collections"] == "surface_unconfirmed"
+    assert "splunk_get_kv_store_collections" not in plan.approved_tools

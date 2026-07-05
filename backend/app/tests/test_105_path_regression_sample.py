@@ -59,7 +59,7 @@ RAG_SOP_ROWS = (
     ("What is the playbook for ransomware response?", "sop_or_playbook", "rag_only"),
     ("When should we escalate a P2 incident?", "policy_knowledge", "rag_only"),
     ("What is DNS beaconing?", "knowledge_only", "generic_soc_guidance"),
-    ("Explain T1110.001 password guessing", "mitre_explanation", "rag_only"),
+    ("Explain T1110.001 password guessing", "reference_knowledge", "rag_only"),
 )
 
 UNSAFE_ENFORCEMENT_ROWS = (

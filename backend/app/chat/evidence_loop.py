@@ -14,10 +14,13 @@ pipeline node and the LangGraph wiring, and is fully unit-testable on its own.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.connectors.mcp.mcp_tool_chronology import load_playbook
+from app.chat.canonical_facts_spine import harvest_canonical_facts_from_state
+from app.connectors.mcp.mcp_rbac import canonical_mcp_tool_name
+from app.connectors.mcp.mcp_tool_chronology import _evaluate_tool_step, load_playbook
 from app.orchestration.mcp_orchestration import CallBudget, CallOutcome, McpCallRecord
 from app.planner.orchestration_scheduler import ScheduleDecision, outcome_edge, schedule_next
 from app.planner.recipe_registry import Recipe
@@ -207,6 +210,195 @@ def delivered_produces(state: dict[str, Any]) -> set[str]:
     return delivered
 
 
+def apply_observer_next_hop_hint(state: dict[str, Any]) -> dict[str, Any]:
+    """Validate an observer next-hop hint and return a state patch.
+
+    The observer may only propose one extra read-only discovery hop. The HUB
+    remains the actor: every hint is reviewed against the same playbook policy
+    used for chronology review before it can be scheduled.
+    """
+    trace = state.get("evidence_observer_trace")
+    if not isinstance(trace, dict):
+        return {}
+    hint = str(trace.get("next_hop_hint") or "").strip()
+    if not hint:
+        return {}
+    if state.get("mcp_recipe_id"):
+        return {"evidence_observer_trace": {**trace, "observer_hint_ignored_recipe_turn": True}}
+
+    canonical = canonical_mcp_tool_name(hint)
+    rejected = _observer_hint_rejection_reason(state, canonical)
+    if rejected:
+        return {
+            "evidence_observer_trace": {
+                **trace,
+                "observer_hint_rejected": True,
+                "observer_hint_rejected_reason": rejected,
+            }
+        }
+
+    chronology = list(state.get("mcp_chronology") or [])
+    return {
+        "mcp_chronology": [*chronology, canonical],
+        "evidence_observer_trace": {
+            **trace,
+            "observer_hint_accepted": True,
+            "observer_hint_tool": canonical,
+        },
+    }
+
+
+def _observer_hint_rejection_reason(state: dict[str, Any], canonical: str) -> str | None:
+    if canonical in {"splunk_run_query", "splunk_run_saved_search"}:
+        return "execution_class_hint"
+    playbook = load_playbook()
+    tools = playbook.get("tools") if isinstance(playbook, dict) else {}
+    if not isinstance(tools, dict) or canonical not in tools:
+        return "unknown_tool"
+    collected = {
+        str(hop.get("tool") or "")
+        for hop in (state.get("mcp_evidence") or [])
+        if isinstance(hop, dict)
+    }
+    cursor = int(state.get("mcp_cursor", 0))
+    completed = set(list(state.get("mcp_chronology") or [])[:cursor])
+    if canonical in collected or canonical in completed:
+        return "already_collected"
+    if int(state.get("mcp_hops_done", 0)) >= MAX_MCP_HOPS:
+        return "budget"
+    turn_intents = state.get("mcp_turn_intents")
+    intent_set = (
+        frozenset(str(item) for item in turn_intents)
+        if isinstance(turn_intents, (list, tuple, set, frozenset))
+        else None
+    )
+    return _evaluate_tool_step(
+        canonical,
+        tools.get(canonical),
+        target_index=_target_index_from_spl_validation(state.get("spl_validation")),
+        spl_approved=False,
+        rbac_role=None,
+        turn_intents=intent_set,
+    )
+
+
+def _target_index_from_spl_validation(spl_validation: dict[str, Any] | None) -> str | None:
+    if not isinstance(spl_validation, dict):
+        return None
+    normalized = str(spl_validation.get("normalized_spl") or "")
+    match = re.search(r"\bindex\s*=\s*([^\s|]+)", normalized, re.IGNORECASE)
+    return match.group(1).strip() if match else None
+
+
+def extract_loop_scoping_targets(state: dict[str, Any]) -> dict[str, Any]:
+    """Loop-time scoping targets for data-silence checks (never reads canonical_facts on state)."""
+    facts = harvest_canonical_facts_from_state(state)
+    hosts: list[str] = []
+    timeframes: list[dict[str, Any]] = []
+    for fact in facts.facts:
+        if fact.kind == "entity":
+            payload = fact.payload if isinstance(fact.payload, dict) else {"value": str(fact.payload)}
+            for key in ("host", "hostname", "value", "entity", "name"):
+                value = payload.get(key)
+                if isinstance(value, str) and value.strip():
+                    hosts.append(value.strip().lower())
+        elif fact.kind == "timeframe":
+            payload = fact.payload if isinstance(fact.payload, dict) else {"value": fact.payload}
+            timeframes.append(payload)
+    index = _target_index_from_spl_validation(state.get("spl_validation"))
+    unique_hosts = list(dict.fromkeys(hosts))
+    has_scope = bool(unique_hosts or timeframes or index)
+    return {
+        "hosts": unique_hosts,
+        "timeframes": timeframes,
+        "index": index,
+        "has_scope": has_scope,
+    }
+
+
+def _latest_metadata_hop(state: dict[str, Any]) -> dict[str, Any] | None:
+    for hop in reversed(state.get("mcp_evidence") or []):
+        if hop.get("tool") == "splunk_get_metadata":
+            return hop if isinstance(hop, dict) else None
+    return None
+
+
+def _row_count(row: dict[str, Any]) -> int:
+    for key in ("totalCount", "count", "event_count"):
+        raw = row.get(key)
+        if raw is not None:
+            try:
+                return int(raw)
+            except (TypeError, ValueError):
+                continue
+    return 0
+
+
+def metadata_shows_zero_footprint(payload: dict[str, Any], targets: dict[str, Any]) -> bool:
+    """True when metadata indicates zero footprint for scoped entity/index/timeframe."""
+    if not targets.get("has_scope"):
+        return False
+    payload = payload or {}
+    if payload.get("totalCount") == 0:
+        return True
+    preview_rows = [row for row in (payload.get("preview_rows") or []) if isinstance(row, dict)]
+    result_summary = payload.get("result_summary") if isinstance(payload.get("result_summary"), dict) else {}
+    target_hosts = targets.get("hosts") or []
+    if target_hosts:
+        matching = [
+            row
+            for row in preview_rows
+            if any(str(row.get(field, "")).lower() in target_hosts for field in ("host", "hostname", "name"))
+        ]
+        if matching:
+            return all(_row_count(row) == 0 for row in matching)
+        payload_hosts = [str(item).lower() for item in (payload.get("hosts") or []) if item]
+        if not payload_hosts:
+            return True
+        return not any(host in target_hosts for host in payload_hosts)
+    if targets.get("index") or targets.get("timeframes"):
+        if result_summary.get("sourcetype_count") == 0:
+            return True
+        if preview_rows and all(_row_count(row) == 0 for row in preview_rows):
+            return True
+    return False
+
+
+def should_emit_data_silence_advisory(state: dict[str, Any]) -> bool:
+    existing = state.get("data_silence_advisory")
+    if isinstance(existing, dict) and (existing.get("dismissed") or existing.get("halted")):
+        return False
+    targets = extract_loop_scoping_targets(state)
+    if not targets["has_scope"]:
+        return False
+    hop = _latest_metadata_hop(state)
+    if hop is None:
+        return False
+    payload = hop.get("payload") if isinstance(hop.get("payload"), dict) else {}
+    return metadata_shows_zero_footprint(payload, targets)
+
+
+def build_data_silence_advisory(state: dict[str, Any]) -> dict[str, Any]:
+    targets = extract_loop_scoping_targets(state)
+    hop = _latest_metadata_hop(state) or {}
+    return {
+        "active": True,
+        "review_type": "data_silence_advisory",
+        "targets": {
+            key: targets[key]
+            for key in ("hosts", "index", "timeframes")
+            if targets.get(key)
+        },
+        "metadata_tool": hop.get("tool"),
+        "metadata_outcome": hop.get("outcome"),
+        "reason": "metadata_zero_footprint",
+        "note": (
+            "Metadata window may lag the proposed search window; "
+            "this is advisory, not a hard circuit breaker."
+        ),
+    }
+
+
 def assess_loop(
     state: dict[str, Any],
     *,
@@ -303,6 +495,18 @@ def assess_loop(
                 route=ROUTE_FINALIZE,
                 reason="discovery-only lane; run_query not permitted",
                 sufficiency="sufficient" if not missing else "needs_more",
+                missing=missing,
+                capability_gaps=capability_gaps,
+            )
+        if should_emit_data_silence_advisory(state):
+            return LoopDecision(
+                route=ROUTE_HUMAN_REVIEW,
+                reason=(
+                    "data_silence: metadata shows zero target footprint before run_query; "
+                    "metadata window may lag the search window"
+                ),
+                next_tool="splunk_run_query",
+                sufficiency="needs_more",
                 missing=missing,
                 capability_gaps=capability_gaps,
             )

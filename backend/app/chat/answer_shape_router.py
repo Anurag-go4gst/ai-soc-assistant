@@ -11,6 +11,7 @@ from app.chat.multi_leg_evidence import compose_multi_leg_evidence, render_multi
 from app.config import settings
 
 AnswerShape = Literal[
+    "reference_taxonomy",
     "hunt",
     "ir_containment_advisory",
     "ti_advisory_mapping",
@@ -33,6 +34,7 @@ IN_CATALOG_MATCH_PATHS = frozenset(
 )
 
 _SHAPE_PRECEDENCE: tuple[AnswerShape, ...] = (
+    "reference_taxonomy",
     "ir_containment_advisory",
     "regulatory_knowledge",
     "process_aware_ot",
@@ -105,6 +107,26 @@ _SUPPLY_CHAIN_FW = re.compile(
 _HUNT = re.compile(
     r"\b(hunt|investigate|suspicious|anomal|unusual|anything to|where should i start|"
     r"what should (?:soc|analyst)|evidence (?:to )?collect)\b",
+    re.IGNORECASE,
+)
+_REFERENCE_TAXONOMY_PHRASE = re.compile(
+    r"\b(?:what is|explain|define|list|which|what)\b.{0,80}\b(?:techniques?|taxonomy|cve|atlas|att&ck|mitre)\b|"
+    r"\b(?:techniques?)\b.{0,80}\b(?:apply|relevant|associated|cover)\b|"
+    r"\b(?:CVE-\d{4}-\d{4,7}|AML\.T\d{4}|T\d{4}(?:\.\d{3})?)\b",
+    re.IGNORECASE,
+)
+_REFERENCE_NEGATIVE = re.compile(
+    r"\b(?:search|hunt|investigate|run|query|show|find)\b.{0,80}\b(?:logs?|events?|network|last\s+\w+|attempts?)\b|"
+    r"\b(?:seen|observed|detected)\b.{0,80}\b(?:network|environment|logs?|last\s+\w+)\b|"
+    r"\bmap\b.{0,60}\b(?:alert|this alert|notable|event)\b|"
+    r"\b(?:notable|event id|4625-burst)\b|"
+    r"\b(?:update|edit|modify)\b.{0,80}\b(?:dashboard|coverage|report)\b|"
+    r"\bfor alert\b|"
+    r"\bALT-\d{4}-\d+\b|"
+    r"\bseverity\b.{0,80}\bmitre\b|"
+    r"\bgoverned spl\b|"
+    r"\bmitre mapping with status\b|"
+    r"\breview\b.{0,80}\b(?:cve|vulnerability)\b.{0,80}\b(?:exposure|without live)\b",
     re.IGNORECASE,
 )
 
@@ -183,11 +205,54 @@ def _regex_high_confidence(result: AnswerShapeResult, normalized_query: str) -> 
     return bool(_HUNT.search(normalized_query))
 
 
+def _reference_taxonomy_matches(query: str) -> bool:
+    normalized = " ".join((query or "").lower().split())
+    if not normalized or reference_taxonomy_negative_signal(normalized):
+        return False
+    if not _REFERENCE_TAXONOMY_PHRASE.search(query or ""):
+        return False
+    if not reference_taxonomy_registry_signal(query):
+        return False
+    # Legacy MITRE technique explain/definition asks stay on mitre_explanation/knowledge_only
+    # unless the turn carries explicit taxonomy framing (ATLAS/AML/list techniques/detect/CVE affect).
+    if _LEGACY_MITRE_EXPLAIN_RE.search(normalized) and not _STRONG_REFERENCE_TAXONOMY_RE.search(normalized):
+        return False
+    return True
+
+
+_LEGACY_MITRE_EXPLAIN_RE = re.compile(
+    r"\b(?:explain|what is|describe|what does)\b.{0,80}\b(?:mitre|att&ck)\b|"
+    r"\b(?:mitre|att&ck)\b.{0,80}\b(?:technique|t\d{4})\b",
+    re.IGNORECASE,
+)
+_STRONG_REFERENCE_TAXONOMY_RE = re.compile(
+    r"\b(?:atlas|aml\.t|taxonomy|list\b.{0,40}\btechniques?|how do we detect|are we affected)\b|"
+    r"\bCVE-\d{4}-\d+",
+    re.IGNORECASE,
+)
+
+
+def reference_taxonomy_negative_signal(query: str) -> bool:
+    return bool(_REFERENCE_NEGATIVE.search(" ".join((query or "").lower().split())))
+
+
+def reference_taxonomy_registry_signal(query: str) -> bool:
+    from app.planner.reference_registry import load_reference_registry
+
+    registry = load_reference_registry()
+    if registry.extract_ids(query):
+        return True
+    normalized = " ".join((query or "").lower().split())
+    return any(dataset.matches_keywords(normalized) for dataset in registry.datasets)
+
+
 def _classify_answer_shape_regex(query: str, *, entities: dict[str, Any] | None = None) -> AnswerShapeResult:
     """Regex-only shape classifier (deterministic floor)."""
     _ = entities
     normalized = " ".join(query.lower().split())
     matched: list[AnswerShape] = []
+    if _reference_taxonomy_matches(query):
+        matched.append("reference_taxonomy")
     for shape, pattern in _SHAPE_DETECTORS:
         if pattern.search(normalized):
             matched.append(shape)
@@ -312,6 +377,8 @@ def _build_primary_shape_guidance(
 ) -> str:
     if shape == "hunt":
         return build_signal_class_guidance(query, entities)
+    if shape == "reference_taxonomy":
+        return _reference_taxonomy_guidance(query)
     if shape == "ir_containment_advisory":
         return _ir_containment_guidance(query)
     if shape == "ti_advisory_mapping":
@@ -344,6 +411,15 @@ def _build_secondary_section(
     label = shape.replace("_", " ").title()
     body = _build_primary_shape_guidance(query, shape, entities=entities)
     return f"Secondary focus ({label}):\n\n{body}"
+
+
+def _reference_taxonomy_guidance(query: str) -> str:
+    _ = query
+    return (
+        "Reference taxonomy lookup (knowledge-only — no SPL)\n\n"
+        "Resolve the cited ATT&CK, ATLAS, or CVE reference from the local reference registry. "
+        "Use citations from the resolver output and state when local environment exposure is unknown."
+    )
 
 
 def _ir_containment_guidance(query: str) -> str:
@@ -507,7 +583,7 @@ def shape_suppresses_spl(shape: AnswerShape) -> bool:
 
     `baselining` is intentionally NOT suppressed: per plan WS-0 it should surface
     a descriptive-stats (`stats`/`timechart`) draft for analyst review, distinct
-    from a detection hunt. Only `regulatory_knowledge` and `source_health`
+    from a detection hunt. Only `reference_taxonomy`, `regulatory_knowledge` and `source_health`
     (coverage assessment, not a query) suppress the SPL artifact.
     """
-    return shape in {"regulatory_knowledge", "source_health"}
+    return shape in {"reference_taxonomy", "regulatory_knowledge", "source_health"}

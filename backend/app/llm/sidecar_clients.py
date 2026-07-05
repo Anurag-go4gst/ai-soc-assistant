@@ -35,6 +35,8 @@ _ROLE_TIMEOUT_SECONDS: dict[str, float] = {
     "spl_advisory_generator": 120.0,
     "mitre_candidate_mapper": 120.0,
     "mitre_reasoner": 120.0,
+    "evidence_observer": 120.0,
+    "shape_advisor": 10.0,
     "template_match_semantic_assist": 90.0,
     "template_render_parameter_assist": 90.0,
     "governed_composer": 120.0,

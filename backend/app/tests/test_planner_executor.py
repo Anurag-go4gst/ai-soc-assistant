@@ -47,6 +47,7 @@ def _hooks(calls: list[str], *, rag_only: bool = False, pre_mcp: bool = False) -
         workflow_spl=node("workflow_spl"),
         spl_postprocessor=node("spl_postprocessor"),
         ensure_workflow_plan=node("ensure_workflow_plan"),
+        reference_finalize=node("reference_finalize"),
         execution=node("execution"),
     )
 
@@ -124,6 +125,35 @@ def test_execution_stage_always_runs_on_live_branch() -> None:
     )
     execute_plan_dispatch(state, _hooks(calls))
     assert calls == ["workflow_spl", "spl_source_resolve", "execution"]
+
+
+def test_v2_non_spl_schedule_does_not_synthesize_execution_without_workflow_plan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", True)
+    calls: list[str] = []
+    state = _state_with_plan(
+        [
+            {
+                "step_id": "mitre",
+                "resource_id": "skill:mitre_mapping",
+                "purpose": "mitre_mapping",
+            }
+        ],
+        pipeline_dispatch={
+            "decision": {
+                "stage_schedule": ["spl_postprocessor", "mitre_finalize"],
+                "slot_handoff": {"normalized_slots": {}},
+            },
+            "runtime_context": {},
+        },
+    )
+    result = execute_plan_dispatch(state, _hooks(calls))
+    assert calls == ["spl_postprocessor"]
+    assert "execution" not in calls
+    assert result["plan_dispatch_trace"]["dispatch_schedule"] == ["spl_postprocessor"]
 
 
 def test_annotate_statuses_executed_fallback_blocked() -> None:

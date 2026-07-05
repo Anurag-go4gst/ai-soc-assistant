@@ -59,6 +59,14 @@ def test_H_sop_playbook_is_rag_only() -> None:
     assert d.stage_schedule == [PipelineStage.rag_early]
 
 
+def test_H2_reference_knowledge_schedules_rag_and_reference_finalize() -> None:
+    d = _dispatch(_plan(answer_mode="rag_only", needs_rag=True), "reference_knowledge")
+    assert d.request_mode == "reference_knowledge"
+    assert d.stage_schedule == [PipelineStage.rag_early, PipelineStage.reference_finalize]
+    assert PipelineStage.workflow_spl not in d.stage_schedule
+    assert PipelineStage.mitre_finalize not in d.stage_schedule
+
+
 def test_I_spl_meta_uses_plan_compiler_and_postprocessor(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "app.chat.pipeline_dispatch_builder.settings.ai_soc_llm_spl_fallback_enabled", True

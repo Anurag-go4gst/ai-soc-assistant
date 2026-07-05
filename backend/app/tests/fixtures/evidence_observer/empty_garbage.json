@@ -1,0 +1,9 @@
+{
+  "fixture_source": "handrolled_pending_live_refresh",
+  "description": "Empty and low-signal rows.",
+  "rows": [
+    {},
+    {"_time": "2026-07-05T00:03:00Z", "message": ""},
+    {"_time": "2026-07-05T00:04:00Z", "host": "", "action": ""}
+  ]
+}

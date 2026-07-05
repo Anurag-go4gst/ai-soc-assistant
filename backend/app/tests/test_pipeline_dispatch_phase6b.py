@@ -52,6 +52,7 @@ def _noop_hooks() -> DispatchHooks:
         workflow_spl=lambda s: s,
         spl_postprocessor=lambda s: s,
         ensure_workflow_plan=lambda s: s,
+        reference_finalize=lambda s: s,
         execution=lambda s: s,
     )
 
@@ -317,6 +318,7 @@ def test_execute_plan_dispatch_calls_match_v2_schedule(monkeypatch: pytest.Monke
         workflow_spl=node("workflow_spl"),
         spl_postprocessor=node("spl_postprocessor"),
         ensure_workflow_plan=node("ensure_workflow_plan"),
+        reference_finalize=node("reference_finalize"),
         execution=node("execution"),
     )
     expected = _executor_hooks(state, hooks)

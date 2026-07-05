@@ -23,6 +23,7 @@ IntentFamily = Literal[
     "alert_summary",
     "github_investigation",
     "cve_investigation",
+    "reference_knowledge",
 ]
 QueryType = Literal[
     "ask_for_policy",
@@ -45,6 +46,7 @@ AnswerGoal = Literal[
     "severity_assessment",
     "procedural_steps",
     "clarification",
+    "reference_lookup",
 ]
 ConfidenceBand = Literal["high", "medium", "low"]
 LlmIntentAssistStatus = Literal["skipped", "attempted", "accepted", "rejected", "corrected", "promoted"]

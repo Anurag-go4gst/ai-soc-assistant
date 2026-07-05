@@ -113,6 +113,8 @@ def deterministic_default_chronology(
         spec = tools.get(name, {})
         if spec.get("blocked"):
             continue
+        if spec.get("phase") == "surface_pending":
+            continue
         if name == "splunk_get_index_info" and not target_index:
             continue
         if name == "splunk_get_knowledge_objects" and not include_knowledge_objects:
@@ -139,6 +141,8 @@ def _evaluate_tool_step(
         return "unknown_tool"
     if spec.get("blocked"):
         return str(spec.get("blocked_reason", "blocked"))
+    if spec.get("phase") == "surface_pending":
+        return "surface_unconfirmed"
     if canonical == "splunk_run_query" and not spl_approved:
         return "approved_normalized_spl_missing"
     if canonical == "splunk_get_index_info" and not target_index:

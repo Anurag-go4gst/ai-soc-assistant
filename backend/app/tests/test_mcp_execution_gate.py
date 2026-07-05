@@ -7,6 +7,13 @@ from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.mcp_execution_gate import _gate_review
 from app.orchestration.mcp_tool_selector import select_mcp_tool
 
+DATA_SILENCE_ADVISORY = {
+    "active": True,
+    "review_type": "data_silence_advisory",
+    "targets": {"hosts": ["fw01"], "index": "pgcil_soc"},
+    "reason": "metadata_zero_footprint",
+}
+
 
 APPROVED_VALIDATION = {
     "approved": True,
@@ -392,6 +399,7 @@ def test_saved_search_requires_hil_before_execution(monkeypatch) -> None:
     monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.splunk_allow_run_saved_search", True)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.splunk_allowed_saved_searches", "SOC - Failed login spike")
     monkeypatch.setattr("app.orchestration.mcp_tool_selector.settings.splunk_allow_run_saved_search", True)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
 
@@ -416,6 +424,7 @@ def test_saved_search_executes_after_confirmation(monkeypatch) -> None:
     monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.splunk_allow_run_saved_search", True)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.splunk_allowed_saved_searches", "SOC - Failed login spike")
     monkeypatch.setattr("app.orchestration.mcp_tool_selector.settings.splunk_allow_run_saved_search", True)
     monkeypatch.setattr("app.connectors.mcp.mock.settings.splunk_allow_run_saved_search", True)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
@@ -488,6 +497,76 @@ def test_unresolved_source_slots_are_never_execution_eligible() -> None:
 
     assert review["required"] is True
     assert review["reason"] == "spl_source_slots_unresolved"
+
+
+def test_data_silence_advisory_blocks_before_search_hil(monkeypatch) -> None:
+    telemetry = FakeTelemetry()
+    monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_mcp_connector", lambda: RaisingConnector())
+
+    execution, review = evaluate_mcp_execution(
+        trace_id="trace-data-silence-block",
+        selected_skill="attack_discovery",
+        workflow_plan={},
+        spl_validation=APPROVED_VALIDATION,
+        data_silence_advisory=DATA_SILENCE_ADVISORY,
+    )
+
+    assert execution["status"] == "requires_human_review"
+    assert execution["executed_spl"] is None
+    assert review["review_type"] == "data_silence_advisory"
+    assert review["required"] is True
+    assert "proceed_anyway" in review["allowed_actions"]
+
+
+def test_data_silence_proceed_anyway_reaches_normal_gate(monkeypatch) -> None:
+    telemetry = FakeTelemetry()
+    connector = CapturingConnector()
+    monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_demo_or_lab_execution_mode", True)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_allow_mock_execution_without_hil_in_demo", True)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_require_spl_execution_confirmation", False)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_mcp_connector", lambda: connector)
+
+    execution, review = evaluate_mcp_execution(
+        trace_id="trace-data-silence-proceed",
+        selected_skill="attack_discovery",
+        workflow_plan={},
+        spl_validation=APPROVED_VALIDATION,
+        data_silence_advisory=DATA_SILENCE_ADVISORY,
+        execution_review_action="proceed_anyway",
+    )
+
+    assert execution["status"] == "executed"
+    assert connector.arguments is not None
+    assert review["required"] is False
+
+
+def test_data_silence_halt_skips_connector_call(monkeypatch) -> None:
+    telemetry = FakeTelemetry()
+    monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_mcp_connector", lambda: RaisingConnector())
+
+    execution, review = evaluate_mcp_execution(
+        trace_id="trace-data-silence-halt",
+        selected_skill="attack_discovery",
+        workflow_plan={},
+        spl_validation=APPROVED_VALIDATION,
+        data_silence_advisory=DATA_SILENCE_ADVISORY,
+        execution_review_action="halt",
+    )
+
+    assert execution["status"] == "skipped"
+    assert execution.get("data_silence_halted") is True
+    assert execution.get("data_silence_note") is True
+    assert review["review_type"] == "data_silence_advisory"
+    assert review.get("data_silence_note") is True
 
 
 class FakeTelemetry:

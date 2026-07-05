@@ -1,0 +1,10 @@
+{
+  "fixture_source": "handrolled_pending_live_refresh",
+  "description": "Firewall admin service-stop events among bounded rows.",
+  "rows": [
+    {"_time": "2026-07-05T00:00:00Z", "host": "fw-edge-01", "sourcetype": "pan:traffic", "action": "allowed", "dest_port": "443"},
+    {"_time": "2026-07-05T00:00:07Z", "host": "fw-edge-01", "sourcetype": "pan:system", "user": "admin", "action": "service-stop"},
+    {"_time": "2026-07-05T00:00:12Z", "host": "fw-edge-01", "sourcetype": "pan:system", "user": "admin", "action": "commit"},
+    {"_time": "2026-07-05T00:00:20Z", "host": "fw-edge-02", "sourcetype": "pan:traffic", "action": "denied", "dest_port": "445"}
+  ]
+}

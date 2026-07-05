@@ -197,6 +197,36 @@
         "raw_event_analysis"
       ]
     },
+    "splunk_get_kv_store_collections": {
+      "order": null,
+      "phase": "surface_pending",
+      "when": "On demand when threat-intel feed state or asset-mapping KV collections must be audited — only after operator confirms the live server exposes this tool.",
+      "why": "KV store collection metadata supports threat-intel feed and asset-mapping audits; surface is pending operator confirmation against the live Splunk MCP server.",
+      "preconditions": [
+        "accessible_indexes"
+      ],
+      "produces": [
+        "kv_store_collections"
+      ],
+      "next_tools": [
+        "splunk_run_query"
+      ],
+      "capability": "metadata_lookup",
+      "capability_class": "metadata_discovery",
+      "read_only": true,
+      "blocked": false,
+      "optional": true,
+      "rbac_roles": [
+        "viewer",
+        "analyst",
+        "soc_lead"
+      ],
+      "intents": [
+        "threat_intel_feed_audit",
+        "asset_mapping_state"
+      ],
+      "notes": "surface_pending — not in default chronology until operator confirms live MCP exposes splunk_get_kv_store_collections (schema_confirmed-style sign-off)."
+    },
     "splunk_get_user_info": {
       "order": null,
       "phase": "identity",
@@ -225,6 +255,7 @@
       "capability_class": "action_execution",
       "when": "Never via the agent.",
       "why": "Enumerates all users (directory recon + PII). Out of scope for read-only evidence collection.",
+      "notes": "Blocked (admin_or_sensitive_tool): user-enumeration recon/PII. Insider-threat and user-behavior asks route to splunk_run_query over allowlisted auth/audit indexes (index must be in SPL_ALLOWED_INDEXES — internal indexes like _audit require explicit allowlist + COE decision, not a default).",
       "blocked": true,
       "blocked_reason": "admin_or_sensitive_tool"
     },

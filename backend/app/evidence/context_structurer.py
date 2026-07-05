@@ -37,6 +37,7 @@ def structure_context(
         "metrics": _metrics(collected),
         "timeline_candidates": _timeline_candidates(collected),
         "mitre_candidates": _mitre_candidates(collected),
+        "reference_facts": _reference_facts(collected),
         "tool_outputs_summary": _tool_outputs_summary(source_evidence),
         "capability_profile_ref": _capability_profile_ref(spl_validation),
         "spl_generation_provider": _provider(spl_validation, "selected_candidate_spl_provider"),
@@ -150,6 +151,17 @@ def _tool_outputs_summary(source_evidence: list[dict[str, Any]]) -> list[dict[st
     ]
 
 
+def _reference_facts(collected: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    facts: list[dict[str, Any]] = []
+    for evidence in collected:
+        if evidence.get("source_type") != "reference_dataset":
+            continue
+        for row in evidence.get("preview_rows") or []:
+            if isinstance(row, dict):
+                facts.append(dict(row))
+    return facts
+
+
 def _policy_context_refs(spl_validation: dict[str, Any] | None) -> list[str]:
     if not spl_validation:
         return []
@@ -178,6 +190,8 @@ def _source_ref(evidence: dict[str, Any]) -> str:
         return "mcp:splunk"
     if evidence.get("source_type") == "rag":
         return "rag:sop"
+    if evidence.get("source_type") == "reference_dataset":
+        return "reference_registry"
     return str(evidence.get("source_type"))
 
 

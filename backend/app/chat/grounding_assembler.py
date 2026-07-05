@@ -18,17 +18,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.knowledge.mapping_exports import build_atlas_coverage_gap
+from app.planner.reference_registry import AI_THREAT_KEYWORDS as _AI_THREAT_KEYWORDS
 from app.threat.resolver_types import NullTechniqueResolver, TechniqueResolver
-
-# Keywords that flag a question as AI/LLM/MCP-threat shaped → attach ATLAS reference.
-# Deterministic and intentionally broad; this only adds advisory context, never routes.
-_AI_THREAT_KEYWORDS: tuple[str, ...] = (
-    "llm", "large language model", "prompt injection", "jailbreak", "model theft",
-    "model extraction", "data poisoning", "training data", "rag poisoning",
-    "embedding", "ai model", "ml model", "machine learning model", "inference api",
-    "model endpoint", "mcp server", "mcp tool", "agent", "ai assistant",
-    "foundation model", "adversarial example", "model evasion",
-)
 
 
 @dataclass

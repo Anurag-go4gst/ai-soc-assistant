@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -243,3 +243,41 @@ class MitreCandidateMapperPayload(AdapterPayload):
     secondary_techniques: list[MitreCandidateTechnique] = Field(default_factory=list)
     not_applicable_reason: str | None = None
     assumptions: list[str] = Field(default_factory=list)
+
+
+class EvidenceObservationItem(AdapterPayload):
+    claim: str
+    row_refs: list[int] = Field(min_length=1)
+    confidence: Literal["low", "medium", "high"]
+
+
+class EvidenceObserverPayload(AdapterPayload):
+    observations: list[EvidenceObservationItem] = Field(default_factory=list)
+    next_hop_hint: str | None = None
+    unreadable: bool = False
+
+    @field_validator("observations", mode="before")
+    @classmethod
+    def _cap_observations(cls, value: Any) -> Any:
+        if isinstance(value, list) and len(value) > 5:
+            return value[:5]
+        return value
+
+
+class ShapeAdvisorPayload(AdapterPayload):
+    suggested_shape: Literal[
+        "reference_taxonomy",
+        "hunt",
+        "ir_containment_advisory",
+        "ti_advisory_mapping",
+        "regulatory_knowledge",
+        "source_health",
+        "baselining",
+        "timeline_reconstruction",
+        "insider_dlp",
+        "process_aware_ot",
+        "supply_chain_firmware_integrity",
+        "none",
+    ]
+    confidence: float | None = None
+    rationale: str = ""

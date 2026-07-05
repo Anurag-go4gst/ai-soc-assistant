@@ -30,6 +30,7 @@ from datetime import UTC, datetime
 
 from app.chat.pipeline import (
     ChatPipelineState,
+    _dispatch_schedule_and_cursor,
     build_live_chat_response,
     finalize_chat_trace_from_state,
     graph_node_composed_dispatch,
@@ -41,6 +42,7 @@ from app.chat.pipeline import (
     graph_node_prepare_rag_only,
     graph_node_query_to_intent,
     graph_node_rag_early,
+    graph_node_reference_finalize,
     graph_node_route_contract,
     graph_node_route_resolution,
     graph_node_shadow_enrichment,
@@ -52,6 +54,7 @@ from app.chat.pipeline import (
     graph_node_spl_postprocessor,
     dispatch_v2_route_after_spl_postprocessor,
 )
+from app.chat.contracts.pipeline_dispatch import PipelineStage, next_stage_after
 from app.config import settings
 from app.planner.executor import has_composed_plan
 from app.schemas.requests import ChatRequest
@@ -91,10 +94,15 @@ def _add_linear_chain(graph: StateGraph) -> None:
     graph.add_conditional_edges(
         "rag_early",
         _after_rag_early,
-        {"context_finalize": "context_finalize", "spl_source_resolve": "spl_source_resolve"},
+        {
+            "context_finalize": "context_finalize",
+            "reference_finalize": "reference_finalize",
+            "spl_source_resolve": "spl_source_resolve",
+        },
     )
     graph.add_edge("spl_source_resolve", "execution")
     graph.add_edge("composed_dispatch", "context_finalize")
+    graph.add_edge("reference_finalize", "context_finalize")
     graph.add_edge("context_finalize", END)
 
 
@@ -108,6 +116,7 @@ def _core_nodes(graph: StateGraph) -> None:
     graph.add_node("shadow_enrichment", graph_node_shadow_enrichment)
     graph.add_node("prepare_rag_only", graph_node_prepare_rag_only)
     graph.add_node("rag_early", graph_node_rag_early)
+    graph.add_node("reference_finalize", graph_node_reference_finalize)
     graph.add_node("workflow_spl", graph_node_workflow_spl)
     graph.add_node("spl_postprocessor", graph_node_spl_postprocessor)
     graph.add_node("spl_source_resolve", graph_node_spl_source_resolve)
@@ -225,6 +234,11 @@ def _after_spl_postprocessor(state: ChatPipelineState) -> str:
 
 
 def _after_rag_early(state: ChatPipelineState) -> str:
+    dispatch = state.get("pipeline_dispatch")
+    if isinstance(dispatch, dict):
+        schedule, cursor = _dispatch_schedule_and_cursor(dispatch)
+        if next_stage_after(schedule, cursor) is PipelineStage.reference_finalize:
+            return "reference_finalize"
     # rag_only path already set `execution` in prepare_rag_only → finalize.
     if "execution" in state:
         return "context_finalize"

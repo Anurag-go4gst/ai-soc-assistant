@@ -19,6 +19,7 @@ class PipelineStage(str, Enum):
     mcp_execution = "mcp_execution"
     mitre_finalize = "mitre_finalize"
     cve_adapter = "cve_adapter"
+    reference_finalize = "reference_finalize"
 
 
 class LlmHop(str, Enum):
@@ -35,6 +36,7 @@ RequestMode = Literal[
     "live_investigation",
     "knowledge",
     "mitre_knowledge",
+    "reference_knowledge",
     "cve_review",
     "hybrid",
     "clarification",
@@ -65,6 +67,8 @@ class McpDiscoveryContext(BaseModel):
     field_hints: dict[str, str] = Field(default_factory=dict)
     discovery_hops: list[dict[str, Any]] = Field(default_factory=list)
     populated_at_stage: str | None = None
+    harvested_saved_searches: list[dict[str, str]] = Field(default_factory=list)
+    saved_search_preference: dict[str, Any] | None = None
 
 
 class LlmSplPlanSnapshot(BaseModel):
@@ -110,6 +114,7 @@ def project_dispatch_flags(decision: PipelineDispatchContract) -> dict[str, bool
         "run_mcp_execution": PipelineStage.mcp_execution in stages,
         "run_mitre_finalize": PipelineStage.mitre_finalize in stages,
         "run_cve_adapter": PipelineStage.cve_adapter in stages,
+        "run_reference_finalize": PipelineStage.reference_finalize in stages,
         "call_mcp_tool_planner": LlmHop.mcp_tool_planner in hops,
         "call_spl_llm": LlmHop.spl_plan_compiler in hops,
         "call_narration_llm": LlmHop.narration in hops,
@@ -205,6 +210,9 @@ def imperative_hook_schedule_from_state(state: dict[str, Any] | None) -> list[st
         elif stage is PipelineStage.mcp_execution:
             if "execution" not in hooks:
                 hooks.append("execution")
+        elif stage is PipelineStage.reference_finalize:
+            if "reference_finalize" not in hooks:
+                hooks.append("reference_finalize")
         elif stage in {PipelineStage.mitre_finalize, PipelineStage.cve_adapter}:
             continue
     return hooks
