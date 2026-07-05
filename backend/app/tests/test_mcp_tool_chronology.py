@@ -113,3 +113,52 @@ def test_alias_duplicates_deduped_to_single_canonical_hop() -> None:
     assert plan.approved_tools.count("splunk_get_metadata") == 1
     assert plan.approved_tools.count("splunk_run_query") == 1
     assert sum(1 for d in plan.dropped if d.reason == "duplicate") == 2
+
+
+_DATA_SILENCE_INTENTS = frozenset(
+    {
+        "data_silence_check",
+        "telemetry_verification",
+        "source_mapping",
+        "scoping_data_availability",
+    }
+)
+
+
+def test_intent_mismatch_drops_user_info_on_data_silence_turn() -> None:
+    plan = review_proposed_tool_chronology(
+        ["splunk_get_user_info", "splunk_get_metadata"],
+        turn_intents=_DATA_SILENCE_INTENTS,
+    )
+    dropped = {d.tool: d.reason for d in plan.dropped}
+    assert dropped["splunk_get_user_info"] == "intent_mismatch_dropped"
+    assert "splunk_get_metadata" in plan.approved_tools
+
+
+def test_intent_match_keeps_indexes_and_metadata_for_data_silence() -> None:
+    plan = review_proposed_tool_chronology(
+        ["splunk_get_indexes", "splunk_get_metadata"],
+        turn_intents=_DATA_SILENCE_INTENTS,
+    )
+    assert plan.approved_tools == ["splunk_get_indexes", "splunk_get_metadata"]
+    assert not any(d.reason == "intent_mismatch_dropped" for d in plan.dropped)
+
+
+def test_intent_mismatch_drops_run_query_without_forensic_intent() -> None:
+    plan = review_proposed_tool_chronology(
+        ["splunk_get_metadata", "splunk_run_query"],
+        spl_approved=True,
+        turn_intents=_DATA_SILENCE_INTENTS,
+    )
+    dropped = {d.tool: d.reason for d in plan.dropped}
+    assert dropped["splunk_run_query"] == "intent_mismatch_dropped"
+    assert plan.approved_tools == ["splunk_get_metadata"]
+
+
+def test_deterministic_default_exempt_from_intent_filter() -> None:
+    plan = review_proposed_tool_chronology(
+        None,
+        turn_intents=_DATA_SILENCE_INTENTS,
+    )
+    assert plan.decision_source == "deterministic_default"
+    assert "splunk_get_info" in plan.approved_tools

@@ -25,6 +25,45 @@ from app.connectors.mcp.mcp_rbac import canonical_mcp_tool_name, is_tool_allowed
 
 _PLAYBOOK_PATH = Path(__file__).with_name("mcp_tool_playbook.json")
 
+# Maps turn-level signals (evidence-plan purposes, intent family, answer-shape hints)
+# to playbook ``intents`` strings. Unmapped signals are ignored; empty union → filter inert.
+_TURN_SIGNAL_TO_PLAYBOOK_INTENTS: dict[str, tuple[str, ...]] = {
+    "source_health": ("data_silence_check", "telemetry_verification"),
+    "data_silence_check": (
+        "data_silence_check",
+        "telemetry_verification",
+        "source_mapping",
+        "scoping_data_availability",
+    ),
+    "asset_visibility": ("asset_visibility_audit",),
+    "asset_visibility_audit": ("asset_visibility_audit",),
+    "detection_rule_audit": ("detection_rule_audit", "knowledge_object_audit"),
+    "knowledge_object_audit": ("detection_rule_audit", "knowledge_object_audit"),
+    "forensic_search": ("forensic_search", "raw_event_analysis"),
+    "raw_event_analysis": ("forensic_search", "raw_event_analysis"),
+    "session_capability_audit": ("session_capability_audit",),
+    "index_capacity_audit": ("index_capacity_audit",),
+    "source_mapping": ("source_mapping", "scoping_data_availability"),
+    "scoping_data_availability": ("source_mapping", "scoping_data_availability"),
+    "system_health": ("system_health", "connection_diagnostics"),
+    "connection_diagnostics": ("system_health", "connection_diagnostics"),
+}
+
+
+def playbook_intents_for_turn_signals(signals: list[str] | None) -> frozenset[str]:
+    """Translate heterogeneous turn signals into playbook intent strings."""
+    if not signals:
+        return frozenset()
+    out: set[str] = set()
+    for raw in signals:
+        key = str(raw).strip().lower()
+        if not key:
+            continue
+        mapped = _TURN_SIGNAL_TO_PLAYBOOK_INTENTS.get(key)
+        if mapped:
+            out.update(mapped)
+    return frozenset(out)
+
 DecisionSource = Literal[
     "deterministic_default",
     "llm_reviewed",
@@ -92,6 +131,7 @@ def _evaluate_tool_step(
     target_index: str | None,
     spl_approved: bool,
     rbac_role: str | None,
+    turn_intents: frozenset[str] | None = None,
 ) -> str | None:
     """Return a drop reason, or None when the tool may enter the approved plan."""
     canonical = canonical_mcp_tool_name(tool)
@@ -105,6 +145,12 @@ def _evaluate_tool_step(
         return "no_target_index"
     if rbac_role is not None and not is_tool_allowed_for_role(canonical, rbac_role):
         return rbac_denial_reason(canonical, rbac_role) or f"rbac_denied:{rbac_role}"
+    if turn_intents:
+        declared = spec.get("intents")
+        if isinstance(declared, list) and declared:
+            tool_intents = {str(item).strip() for item in declared if str(item).strip()}
+            if tool_intents and not (tool_intents & set(turn_intents)):
+                return "intent_mismatch_dropped"
     return None
 
 
@@ -145,6 +191,7 @@ def review_proposed_tool_chronology(
     include_knowledge_objects: bool = True,
     spl_approved: bool = False,
     rbac_role: str | None = None,
+    turn_intents: frozenset[str] | None = None,
 ) -> ChronologyPlan:
     """Validate an LLM-proposed chronology; fall back to the deterministic plan.
 
@@ -190,6 +237,7 @@ def review_proposed_tool_chronology(
             target_index=target_index,
             spl_approved=spl_approved,
             rbac_role=rbac_role,
+            turn_intents=turn_intents,
         )
         if reason:
             dropped.append(DroppedStep(tool, reason))
