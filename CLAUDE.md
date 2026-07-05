@@ -273,6 +273,8 @@ Project skills in `.claude/skills/` (auto-listed in every Claude Code session he
 
 - **`/execute-plan-item`** — executing any checklist item under `plans/`: anchor verification, verbatim Verify, Evidence recording, stop conditions. Use for every plan item; do not free-style plan execution.
 - **`/invariant-check`** — REQUIRED before any commit touching pipeline/planner/SPL/MCP/LLM code: 7-group governance diff review (LLM↔MCP mediation, SPL executability, EC purity, redaction, state channels, flags, test honesty).
+- **`/llm-live-probe`** — REQUIRED before wiring/changing any LLM role or prompt, or deciding shadow-vs-main promotion: closed case set, zero-shot vs few-shot, warm/cold latency on :8081, decision rubric from the measured intensity policy.
+- **`/reference-probe-audit`** — run the 10-probe reference-knowledge contract (P1–P6/N1–N4) and diff against baseline; required for Phase 3 of `plans/2026-07-04_1736` and any change to answer shapes/routing floors/MITRE-CVE-ATLAS handling.
 - **`/deep-think`** (user-level) — start of any non-trivial task: verify-before-trust protocol.
 - **`/self-improve-loop`** (user-level) — metric-target quality pushes (e.g. scorecard improvements): evaluator-first, one-hypothesis iterations, KEEP/REVERT ledger.
 - **`/handoff`** (user-level) — ending a session mid-plan: 7-section state note for the next agent.
