@@ -1,6 +1,6 @@
 # Reference Knowledge Probe Baseline
 
-Generated: 2026-07-05 09:24 UTC
+Generated: 2026-07-05 17:59 UTC
 
 Current baseline for the reference-knowledge probe contract. P1-P4 should route through `reference_taxonomy` / `reference_knowledge`; P5/P6/N1-N4 are frozen non-regression rows.
 
