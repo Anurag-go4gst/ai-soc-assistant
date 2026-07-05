@@ -140,3 +140,39 @@ def test_record_execution_hop_increments_counter_once() -> None:
     state = {**state, **patch}
     assert state["mcp_hops_done"] == before + 1
     assert record_execution_hop(state, {"status": "executed", "result_count": 0}) == {}
+
+
+def test_await_execution_when_only_execution_produces_missing() -> None:
+    # Live chronology never contains run_query (spl_approved=False at compose):
+    # after discovery drains, a missing "result_rows" is satisfied later by the
+    # gated execution stage — the verdict must not read as an analyst gap.
+    from app.chat.evidence_loop import ROUTE_AWAIT_EXECUTION
+
+    state = initialize_loop(
+        ["splunk_get_indexes", "splunk_get_metadata"],
+        required_produces=["accessible_indexes", "result_rows"],
+    )
+    state = {**state, **record_hop(state, tool="splunk_get_indexes", delivered=["accessible_indexes"])}
+    state = {**state, **record_hop(state, tool="splunk_get_metadata", delivered=["sourcetypes"])}
+    decision = assess_loop(state)
+    assert decision.route == ROUTE_AWAIT_EXECUTION
+    assert decision.missing == ["result_rows"]
+
+
+def test_discovery_only_lane_keeps_human_review_for_execution_produces() -> None:
+    state = initialize_loop(
+        ["splunk_get_indexes"],
+        required_produces=["accessible_indexes", "result_rows"],
+    )
+    state = {**state, "mcp_discovery_only": True}
+    state = {**state, **record_hop(state, tool="splunk_get_indexes", delivered=["accessible_indexes"])}
+    decision = assess_loop(state)
+    assert decision.route == ROUTE_HUMAN_REVIEW
+
+
+def test_execution_hop_delivers_result_rows_key() -> None:
+    # record_execution_hop must close the playbook "result_rows" requirement.
+    state = initialize_loop(["splunk_get_indexes"], required_produces=["result_rows"])
+    patch = record_execution_hop(state, {"status": "executed", "result_count": 3})
+    delivered = patch["mcp_evidence"][-1]["delivered"]
+    assert "result_rows" in delivered and "events" in delivered

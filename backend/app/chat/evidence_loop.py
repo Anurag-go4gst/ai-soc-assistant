@@ -34,6 +34,13 @@ ROUTE_BROADEN = "broaden"                     # execution empty + broaden-eligib
 ROUTE_HUMAN_REVIEW = "human_review"           # gap an analyst can resolve
 ROUTE_CAPABILITY_GAP = "capability_gap"       # no tool/data can produce it (honest degrade → finalize)
 ROUTE_EXHAUSTED = "exhausted"                 # hop budget hit → proceed-with-available / HIL
+ROUTE_AWAIT_EXECUTION = "await_execution"     # discovery done; remaining requirement is produced by the gated execution stage
+
+# Produces only the gated run_query execution stage can deliver. The live
+# chronology is composed with spl_approved=False (run_query never enters the
+# loop plan); these requirements are satisfied later by the execution stage,
+# so their absence after discovery is not an analyst-resolvable gap.
+EXECUTION_STAGE_PRODUCES = frozenset({"result_rows", "events"})
 
 # Requirements that no governed Splunk tool can satisfy (e.g. CVE / asset / vuln
 # data is not indexed in Splunk). Declared unservable → honest capability gap,
@@ -173,7 +180,9 @@ def record_execution_hop(state: dict[str, Any], execution: dict[str, Any]) -> di
     result_count = int(execution.get("result_count") or 0)
     delivered: list[str] = []
     if status == "executed" and result_count > 0:
-        delivered = ["events"]
+        # "result_rows" is run_query's playbook `produces` key; deliver it too
+        # so requirement<->deliverable accounting closes after execution.
+        delivered = ["events", "result_rows"]
     elif status == "executed":
         delivered = ["negative_result"]
     outcome = "collected" if status == "executed" else status
@@ -310,6 +319,19 @@ def assess_loop(
     # if a servable requirement is still missing and budget remains, the analyst
     # resolves it (no tool left in the plan to produce it).
     if missing:
+        # Requirements only the gated execution stage can deliver are not an
+        # analyst gap mid-turn: the dispatch chain still runs run_query after
+        # this loop (chronology is composed with spl_approved=False, so
+        # run_query is never in the plan). Labeling those "human_review" put a
+        # misleading verdict in the trace on turns that execute fine.
+        if not discovery_only and set(missing) <= EXECUTION_STAGE_PRODUCES:
+            return LoopDecision(
+                route=ROUTE_AWAIT_EXECUTION,
+                reason="discovery complete; remaining requirement is produced by the gated execution stage",
+                sufficiency="needs_more",
+                missing=missing,
+                capability_gaps=capability_gaps,
+            )
         return LoopDecision(
             route=ROUTE_HUMAN_REVIEW,
             reason="servable requirement unmet and no remaining tool produces it",
@@ -335,15 +357,17 @@ def assess_loop(
 # --- O5c: recipe-aware HUB path (item 3.1, 2026-07-03) ---------------------
 #
 # The chronology-driven assess_loop above stays the default for every turn
-# without a selected recipe (item 3.2 is the only thing that ever sets
-# state["mcp_recipe_id"] — until it lands, this path is unreachable in live
-# traffic). When a recipe IS selected, these functions delegate the actual
+# without a selected recipe. The item-3.2 selector (in the pipeline's
+# evidence-planning first entry) sets state["mcp_recipe_id"] live for
+# out_of_registry / near_105_question turns with a matching answer shape.
+# When a recipe IS selected, these functions delegate the actual
 # scheduling decision to the pure O5b functions (schedule_next/outcome_edge)
 # and translate their vocabulary into the SAME LoopDecision route labels the
 # chronology path uses, so no existing dispatch/routing code needs to change.
 
+# "requires_human_review" is intentionally absent: classify_call_outcome
+# returns None for it before this map is consulted (pending HIL = not terminal).
 _STATUS_TO_OUTCOME: dict[str, CallOutcome] = {
-    "requires_human_review": "denied",  # only reached if somehow re-entered without HIL resolution
     "blocked": "blocked",
     "skipped": "failed",
 }

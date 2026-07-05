@@ -177,10 +177,13 @@ def review_proposed_tool_chronology(
     for raw in proposed:
         tool = str(raw).strip()
         canonical = canonical_mcp_tool_name(tool)
-        if tool in seen:
+        # Dedupe on the canonical id: an LLM proposal may name the same tool
+        # twice via aliases (e.g. "get_splunk_metadata" + "splunk_get_metadata"),
+        # which would otherwise burn duplicate hops from the shared budget.
+        if canonical in seen:
             dropped.append(DroppedStep(tool, "duplicate"))
             continue
-        seen.add(tool)
+        seen.add(canonical)
         reason = _evaluate_tool_step(
             canonical,
             tools.get(canonical),

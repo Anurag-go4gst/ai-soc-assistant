@@ -101,3 +101,15 @@ def test_all_rejected_falls_back_to_deterministic() -> None:
     assert plan.decision_source == "deterministic_fallback"
     assert plan.approved_tools[0] == "splunk_get_info"
     assert "llm_proposal_empty_after_review_fell_back_to_deterministic" in plan.warnings
+
+
+def test_alias_duplicates_deduped_to_single_canonical_hop() -> None:
+    # An LLM proposal may name the same tool twice via aliases; only one
+    # canonical hop may enter the approved plan (duplicate hops burn budget).
+    plan = review_proposed_tool_chronology(
+        ["get_splunk_metadata", "splunk_get_metadata", "run_splunk_query", "splunk_run_query"],
+        spl_approved=True,
+    )
+    assert plan.approved_tools.count("splunk_get_metadata") == 1
+    assert plan.approved_tools.count("splunk_run_query") == 1
+    assert sum(1 for d in plan.dropped if d.reason == "duplicate") == 2

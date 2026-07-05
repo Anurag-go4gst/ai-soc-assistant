@@ -1230,12 +1230,12 @@ def _attach_pipeline_dispatch_if_enabled(
 
 
 def _active_recipe(state: ChatPipelineState) -> Any | None:
-    """O5c (item 3.1, 2026-07-03): the recipe for this turn, if any.
+    """O5c: the recipe for this turn, if any.
 
-    Only ever set by item 3.2's selector — no live pipeline stage sets
-    `mcp_recipe_id` yet, so this returns None on every turn today and every
-    call site below falls through to the pre-existing chronology behavior,
-    byte-identical to before this item.
+    `mcp_recipe_id` is set by the item-3.2 selector on first entry into
+    graph_node_evidence_planning for out_of_registry / near_105_question turns
+    whose answer shape matches a recipe. Every other turn returns None here and
+    falls through to the chronology behavior.
     """
     recipe_id = state.get("mcp_recipe_id")
     if not isinstance(recipe_id, str) or not recipe_id:
