@@ -246,7 +246,9 @@ class StructuredContextPackage(BaseModel):
     metrics: dict[str, object]
     timeline_candidates: list[dict[str, object]]
     mitre_candidates: list[dict[str, object]]
+    reference_facts: list[dict[str, object]] = []
     tool_outputs_summary: list[dict[str, object]]
+    llm_observations: list[dict[str, object]] = []
     capability_profile_ref: str | None = None
     spl_generation_provider: str | None = None
     spl_explanation_provider: str | None = None
@@ -367,6 +369,7 @@ class AnalystResponseEnvelope(BaseModel):
     splunk_results_table: list[dict[str, object]] = []
     mitre_mappings: list[dict[str, object]] = []
     not_claimed: list[dict[str, object]] = []
+    reference_facts: list[dict[str, object]] = []
     retrieved_playbook: dict[str, object] | None = None
     sop_guidance: dict[str, object] | None = None
     foundation_sec_analysis: str | None = None

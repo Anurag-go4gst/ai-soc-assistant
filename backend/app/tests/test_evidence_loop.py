@@ -9,6 +9,7 @@ from app.chat.evidence_loop import (
     ROUTE_EXHAUSTED,
     ROUTE_FINALIZE,
     ROUTE_HUMAN_REVIEW,
+    apply_observer_next_hop_hint,
     assess_loop,
     declare_hop_requirements,
     initialize_loop,
@@ -140,3 +141,161 @@ def test_record_execution_hop_increments_counter_once() -> None:
     state = {**state, **patch}
     assert state["mcp_hops_done"] == before + 1
     assert record_execution_hop(state, {"status": "executed", "result_count": 0}) == {}
+
+
+def test_await_execution_when_only_execution_produces_missing() -> None:
+    # Live chronology never contains run_query (spl_approved=False at compose):
+    # after discovery drains, a missing "result_rows" is satisfied later by the
+    # gated execution stage — the verdict must not read as an analyst gap.
+    from app.chat.evidence_loop import ROUTE_AWAIT_EXECUTION
+
+    state = initialize_loop(
+        ["splunk_get_indexes", "splunk_get_metadata"],
+        required_produces=["accessible_indexes", "result_rows"],
+    )
+    state = {**state, **record_hop(state, tool="splunk_get_indexes", delivered=["accessible_indexes"])}
+    state = {**state, **record_hop(state, tool="splunk_get_metadata", delivered=["sourcetypes"])}
+    decision = assess_loop(state)
+    assert decision.route == ROUTE_AWAIT_EXECUTION
+    assert decision.missing == ["result_rows"]
+
+
+def test_discovery_only_lane_keeps_human_review_for_execution_produces() -> None:
+    state = initialize_loop(
+        ["splunk_get_indexes"],
+        required_produces=["accessible_indexes", "result_rows"],
+    )
+    state = {**state, "mcp_discovery_only": True}
+    state = {**state, **record_hop(state, tool="splunk_get_indexes", delivered=["accessible_indexes"])}
+    decision = assess_loop(state)
+    assert decision.route == ROUTE_HUMAN_REVIEW
+
+
+def test_execution_hop_delivers_result_rows_key() -> None:
+    # record_execution_hop must close the playbook "result_rows" requirement.
+    state = initialize_loop(["splunk_get_indexes"], required_produces=["result_rows"])
+    patch = record_execution_hop(state, {"status": "executed", "result_count": 3})
+    delivered = patch["mcp_evidence"][-1]["delivered"]
+    assert "result_rows" in delivered and "events" in delivered
+
+
+def _state_with_host_target(host: str = "fw01") -> dict:
+    state = _init()
+    return {
+        **state,
+        "query_understanding": {
+            "entities": [{"host": host}],
+            "timeframe": {"earliest": "-24h", "latest": "now"},
+        },
+        "spl_validation": {
+            "approved": True,
+            "normalized_spl": (
+                "search index=pgcil_soc sourcetype=pgcil:auth earliest=-15m latest=now | head 100"
+            ),
+        },
+    }
+
+
+def test_metadata_zero_footprint_routes_data_silence_advisory() -> None:
+    state = _state_with_host_target()
+    for tool in ["splunk_get_info", "splunk_get_indexes"]:
+        state = {**state, **record_hop(state, tool=tool, delivered=["x"])}
+    state = {
+        **state,
+        **record_hop(
+            state,
+            tool="splunk_get_metadata",
+            delivered=["hosts", "sourcetypes"],
+            payload={
+                "preview_rows": [{"host": "fw01", "totalCount": 0}],
+                "result_summary": {"sourcetype_count": 0},
+            },
+        ),
+    }
+    decision = assess_loop(state)
+    assert decision.route == ROUTE_HUMAN_REVIEW
+    assert "data_silence" in decision.reason
+
+
+def test_metadata_nonzero_footprint_routes_execute_unchanged() -> None:
+    state = _state_with_host_target()
+    for tool in ["splunk_get_info", "splunk_get_indexes"]:
+        state = {**state, **record_hop(state, tool=tool, delivered=["x"])}
+    state = {
+        **state,
+        **record_hop(
+            state,
+            tool="splunk_get_metadata",
+            delivered=["hosts", "sourcetypes"],
+            payload={
+                "preview_rows": [{"host": "fw01", "totalCount": 42}],
+                "result_summary": {"sourcetype_count": 3},
+            },
+        ),
+    }
+    decision = assess_loop(state)
+    assert decision.route == ROUTE_EXECUTE
+    assert decision.next_tool == "splunk_run_query"
+
+
+def _state_for_observer_hint() -> dict:
+    state = initialize_loop(["splunk_get_indexes"], required_produces=["accessible_indexes", "hosts"])
+    state = {**state, **record_hop(state, tool="splunk_get_indexes", delivered=["accessible_indexes"])}
+    return {
+        **state,
+        "mcp_turn_intents": ["data_silence_check"],
+        "evidence_observer_trace": {"next_hop_hint": "splunk_get_metadata"},
+    }
+
+
+def test_observer_hint_matching_intent_appends_discovery_hop() -> None:
+    state = _state_for_observer_hint()
+    patch = apply_observer_next_hop_hint(state)
+    state = {**state, **patch}
+
+    assert state["evidence_observer_trace"]["observer_hint_accepted"] is True
+    assert state["mcp_chronology"][-1] == "splunk_get_metadata"
+    decision = assess_loop(state)
+    assert decision.route == ROUTE_DISCOVERY_HOP
+    assert decision.next_tool == "splunk_get_metadata"
+
+
+def test_observer_hint_execution_tool_rejected() -> None:
+    state = {**_state_for_observer_hint(), "evidence_observer_trace": {"next_hop_hint": "splunk_run_query"}}
+    patch = apply_observer_next_hop_hint(state)
+
+    assert patch["evidence_observer_trace"]["observer_hint_rejected"] is True
+    assert patch["evidence_observer_trace"]["observer_hint_rejected_reason"] == "execution_class_hint"
+
+
+def test_observer_hint_unknown_tool_rejected() -> None:
+    state = {**_state_for_observer_hint(), "evidence_observer_trace": {"next_hop_hint": "splunk_totally_fake"}}
+    patch = apply_observer_next_hop_hint(state)
+
+    assert patch["evidence_observer_trace"]["observer_hint_rejected"] is True
+    assert patch["evidence_observer_trace"]["observer_hint_rejected_reason"] == "unknown_tool"
+
+
+def test_observer_hint_already_run_tool_rejected() -> None:
+    state = _state_for_observer_hint()
+    state = {**state, **record_hop(state, tool="splunk_get_metadata", delivered=["hosts"])}
+    patch = apply_observer_next_hop_hint(state)
+
+    assert patch["evidence_observer_trace"]["observer_hint_rejected"] is True
+    assert patch["evidence_observer_trace"]["observer_hint_rejected_reason"] == "already_collected"
+
+
+def test_observer_hint_at_hop_budget_rejected() -> None:
+    state = {**_state_for_observer_hint(), "mcp_hops_done": MAX_MCP_HOPS}
+    patch = apply_observer_next_hop_hint(state)
+
+    assert patch["evidence_observer_trace"]["observer_hint_rejected"] is True
+    assert patch["evidence_observer_trace"]["observer_hint_rejected_reason"] == "budget"
+
+
+def test_observer_hint_ignored_on_recipe_turn() -> None:
+    state = {**_state_for_observer_hint(), "mcp_recipe_id": "recipe.test"}
+    patch = apply_observer_next_hop_hint(state)
+
+    assert patch["evidence_observer_trace"]["observer_hint_ignored_recipe_turn"] is True
+    assert "mcp_chronology" not in patch

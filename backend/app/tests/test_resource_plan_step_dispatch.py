@@ -51,6 +51,7 @@ def _hooks(calls: list[str], *, rag_only: bool = False, pre_mcp: bool = False) -
         workflow_spl=node("workflow_spl"),
         spl_postprocessor=node("spl_postprocessor"),
         ensure_workflow_plan=node("ensure_workflow_plan"),
+        reference_finalize=node("reference_finalize"),
         execution=node("execution"),
     )
 

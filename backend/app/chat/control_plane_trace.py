@@ -64,6 +64,9 @@ def build_control_plane_trace(
         "planning_decision": state.get("planning_decision"),
         "query_to_intent": state.get("query_to_intent"),
         "llm_intent_advisory": advisory,
+        "shape_advisory": state.get("shape_advisory")
+        if isinstance(state.get("shape_advisory"), dict)
+        else None,
         "evidence_plan": state.get("evidence_plan"),
         "route_adjudication": state.get("route_adjudication"),
         "llm_plan_validation": state.get("llm_plan_validation"),

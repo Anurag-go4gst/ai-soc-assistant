@@ -41,12 +41,33 @@ def test_knowledge_only_schedules_rag_early() -> None:
     assert state.decision.llm_hops == []
 
 
-def test_mitre_explanation_schedules_rag_and_finalize() -> None:
+def test_bare_mitre_id_explanation_stays_on_legacy_mitre_knowledge() -> None:
+    # Policy (drift log 2026-07-05): a bare "Explain MITRE T####" ask was already
+    # answered correctly by the legacy mitre_knowledge path — the reference lane
+    # only takes taxonomy/apply/detect/ATLAS/CVE-framed asks. Route-stealing a
+    # working query into the new lane is a regression, not a feature.
     state = _dispatch_for_query("Explain MITRE technique T1021", routed_skill="knowledge_recall")
     assert state.decision.request_mode == "mitre_knowledge"
+    assert PipelineStage.mitre_finalize in state.decision.stage_schedule
+    assert PipelineStage.reference_finalize not in state.decision.stage_schedule
+
+
+def test_detect_framed_mitre_id_routes_reference_knowledge() -> None:
+    # P3-class framing (ID + "how do we detect") is the reference lane's positive case.
+    state = _dispatch_for_query("What is T1110.003 and how do we detect it?", routed_skill="knowledge_recall")
+    assert state.decision.request_mode == "reference_knowledge"
     assert state.decision.stage_schedule == [
         PipelineStage.rag_early,
-        PipelineStage.mitre_finalize,
+        PipelineStage.reference_finalize,
+    ]
+
+
+def test_reference_taxonomy_query_schedules_reference_finalize() -> None:
+    state = _dispatch_for_query("What MITRE ATLAS techniques apply to prompt injection against our LLM agent using MCP tools?", routed_skill="knowledge_recall")
+    assert state.decision.request_mode == "reference_knowledge"
+    assert state.decision.stage_schedule == [
+        PipelineStage.rag_early,
+        PipelineStage.reference_finalize,
     ]
 
 

@@ -107,3 +107,29 @@ def test_scorecard_shape_corrections_only_when_plan_promoted() -> None:
                 query, resource_plan=_promoted_plan("spl_artifact")
             ).primary_shape
             assert promoted_shape == regex_shape
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "What MITRE ATLAS techniques apply to prompt injection against our LLM agent using MCP tools?",
+        "Using the onboarded MITRE ATLAS data, list the top AML techniques relevant to LLM prompt injection and MCP-agent abuse. This is a taxonomy question, not an alert mapping.",
+        "What is T1110.003 and how do we detect it?",
+        "Explain CVE-2024-3400. Are we affected?",
+    ],
+)
+def test_reference_taxonomy_positive_probe_shapes(query: str) -> None:
+    assert classify_answer_shape(query).primary_shape == "reference_taxonomy"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Search our logs for CVE-2024-3400 exploitation attempts",
+        "Was T1110 activity seen on our network last week?",
+        "Map alert 4625-burst on DC-01 to MITRE",
+        "Update our ATLAS coverage dashboard",
+    ],
+)
+def test_reference_taxonomy_negative_probe_shapes(query: str) -> None:
+    assert classify_answer_shape(query).primary_shape != "reference_taxonomy"

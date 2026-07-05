@@ -77,6 +77,7 @@ class Settings(BaseSettings):
     splunk_saia_require_discovery: bool = True
     splunk_allow_run_saved_search: bool = False
     splunk_run_saved_search_require_hil: bool = True
+    splunk_allowed_saved_searches: str = ""
     ai_soc_catalogue_auto_execute_enabled: bool = False
     # Item 6.2 — surface pending action proposals on /chat (default off; approve/deny via /api/actions).
     ai_soc_action_lane_live_proposals_enabled: bool = False

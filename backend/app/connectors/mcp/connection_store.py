@@ -101,6 +101,11 @@ def apply_to_settings() -> dict[str, Any]:
     saia_tools_enabled = bool(splunk.get("saia_tools_enabled")) if "saia_tools_enabled" in splunk else bool(settings.splunk_saia_tools_enabled)
     ai_assistant_mode = str(splunk.get("splunk_ai_assistant_mode") if "splunk_ai_assistant_mode" in splunk else settings.splunk_ai_assistant_mode or "auto").strip().lower()
     allow_saved_search = bool(splunk.get("allow_saved_search")) if "allow_saved_search" in splunk else bool(settings.splunk_allow_run_saved_search)
+    allowed_saved_searches = str(
+        splunk.get("allowed_saved_searches")
+        if "allowed_saved_searches" in splunk
+        else settings.splunk_allowed_saved_searches or ""
+    ).strip()
     server_names = [_SPLUNK_SERVER_ID] if enabled else []
     server_names.extend(_server_id(server) for server in other_servers if bool(server.get("enabled")) and _server_id(server))
     default_server = _SPLUNK_SERVER_ID if enabled else (server_names[0] if server_names else "")
@@ -122,6 +127,7 @@ def apply_to_settings() -> dict[str, Any]:
     settings.splunk_saia_tools_enabled = saia_tools_enabled and deployment_mode != "air_gapped"
     settings.splunk_ai_assistant_mode = "disabled" if deployment_mode == "air_gapped" and "splunk_ai_assistant_mode" in splunk else ai_assistant_mode
     settings.splunk_allow_run_saved_search = allow_saved_search
+    settings.splunk_allowed_saved_searches = allowed_saved_searches
     settings.mcp_mode = mode
     settings.mcp_servers = ",".join(server_names)
     settings.mcp_default_server = default_server or _SPLUNK_SERVER_ID
@@ -160,6 +166,7 @@ def save_connection(
     saia_tools_enabled: bool,
     splunk_ai_assistant_mode: str,
     allow_saved_search: bool,
+    allowed_saved_searches: str = "",
     execution_enabled: bool,
     updated_by: str,
 ) -> dict[str, Any]:
@@ -176,6 +183,7 @@ def save_connection(
         "saia_tools_enabled": bool(saia_tools_enabled) and deployment_mode.strip().lower() != "air_gapped",
         "splunk_ai_assistant_mode": "disabled" if deployment_mode.strip().lower() == "air_gapped" else splunk_ai_assistant_mode.strip().lower(),
         "allow_saved_search": bool(allow_saved_search),
+        "allowed_saved_searches": str(allowed_saved_searches or "").strip(),
         "execution_enabled": bool(execution_enabled),
         "updated_by": str(updated_by or "unknown"),
     }
@@ -358,6 +366,7 @@ def effective_connection() -> dict[str, Any]:
         "saia_tools_enabled": bool(settings.splunk_saia_tools_enabled) and settings.ai_soc_environment_mode != "air_gapped",
         "splunk_ai_assistant_mode": settings.splunk_ai_assistant_mode,
         "allow_saved_search": bool(settings.splunk_allow_run_saved_search),
+        "allowed_saved_searches": str(settings.splunk_allowed_saved_searches or "").strip(),
         "execution_enabled": os.environ.get("MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED", "false").lower() == "true",
         "last_check_status": splunk.get("last_check_status"),
         "last_error": splunk.get("last_error"),

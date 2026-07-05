@@ -11,6 +11,7 @@ from app.connectors.mcp.splunk_mcp_readiness import splunk_saved_search_tool_arg
 from app.connectors.telemetry import get_telemetry_connector
 from app.coverage.catalogue_execution_map import resolve_catalogue_execution_binding
 from app.orchestration.catalogue_execution_eligibility import catalogue_auto_execute_eligible
+from app.orchestration.data_silence_advisory import resolve_data_silence_at_gate
 from app.orchestration.execution_confirmation import (
     build_execution_confirmation_review,
     resolve_execution_spl,
@@ -18,6 +19,7 @@ from app.orchestration.execution_confirmation import (
 from app.orchestration.human_review import human_review, no_human_review
 from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS, select_mcp_tool
+from app.orchestration.saved_search_allowlist import saved_search_name_allowed
 from app.orchestration.spl_revision_hil import resolve_spl_revision_hil_reason
 
 RESULT_PREVIEW_CAP = 5
@@ -58,6 +60,7 @@ def evaluate_mcp_execution(
     catalogue_match_path: str | None = None,
     catalogue_question_ref: str | None = None,
     catalogue_use_case_id: str | None = None,
+    data_silence_advisory: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     telemetry = get_telemetry_connector()
     precondition_block_reason = _precondition_block_reason(precondition_evaluation)
@@ -108,6 +111,27 @@ def evaluate_mcp_execution(
         telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=selection["tool_selection_reason"])
         return execution, review
 
+    if execution_intent == "spl_search" and isinstance(data_silence_advisory, dict):
+        disposition, ds_review = resolve_data_silence_at_gate(
+            data_silence_advisory,
+            execution_review_action=execution_review_action,
+        )
+        if disposition == "block" and ds_review is not None:
+            execution = _blocked_execution(selection, "requires_human_review", ds_review["reason"])
+            execution["pending_data_silence_advisory"] = data_silence_advisory
+            telemetry.record_mcp_execution(
+                trace_id,
+                event_type="mcp_execution_requires_human_review",
+                reason=ds_review["reason"],
+            )
+            return execution, ds_review
+        if disposition == "halt":
+            execution = _blocked_execution(selection, "skipped", "data_silence_halted")
+            execution["data_silence_halted"] = True
+            execution["data_silence_note"] = True
+            telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_blocked", reason="data_silence_halted")
+            return execution, ds_review or no_human_review()
+
     review = _gate_review(
         selected_skill=selected_skill,
         spl_validation=spl_validation,
@@ -131,6 +155,22 @@ def evaluate_mcp_execution(
         )
 
     if execution_intent == "saved_search_execution":
+        saved_name, _saved_app = _saved_search_binding(
+            spl_validation=spl_validation or {},
+            pending_execution=pending_execution,
+            catalogue_question_ref=catalogue_question_ref,
+            catalogue_use_case_id=catalogue_use_case_id,
+        )
+        if saved_name and not saved_search_name_allowed(saved_name):
+            review = _review(
+                "saved_search_allowlist",
+                "saved_search_not_allowlisted",
+                "analyst",
+                ["choose_saved_search", "reject_execution"],
+            )
+            execution = _blocked_execution(selection, "requires_human_review", review["reason"])
+            telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_blocked", reason=review["reason"])
+            return execution, review
         return _execute_saved_search_with_hil(
             trace_id=trace_id,
             selection=selection,
@@ -484,6 +524,15 @@ def _execute_saved_search_with_hil(
     )
     if not saved_name:
         review = _review("saved_search_binding", "saved_search_name_missing", "analyst", ["choose_saved_search", "reject_execution"])
+        return _blocked_execution(selection, "requires_human_review", review["reason"]), review
+
+    if not saved_search_name_allowed(saved_name):
+        review = _review(
+            "saved_search_allowlist",
+            "saved_search_not_allowlisted",
+            "analyst",
+            ["choose_saved_search", "reject_execution"],
+        )
         return _blocked_execution(selection, "requires_human_review", review["reason"]), review
 
     if (execution_review_action or "").strip().lower() != "confirm":

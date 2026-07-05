@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "server_type": "splunk",
   "notes": "Declarative when/why/chronology for the air-gapped Splunk MCP tool surface. Single source the deterministic planner reviews an LLM-proposed chronology against. Execution stays gated by MCP_GLOBAL_EXECUTION_ENABLED + server flags + HIL/COE regardless of this playbook.",
   "default_chronology": [
@@ -33,6 +33,10 @@
         "viewer",
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "system_health",
+        "connection_diagnostics"
       ]
     },
     "splunk_get_indexes": {
@@ -58,6 +62,10 @@
         "viewer",
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "source_mapping",
+        "scoping_data_availability"
       ]
     },
     "splunk_get_metadata": {
@@ -86,6 +94,11 @@
         "viewer",
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "data_silence_check",
+        "asset_visibility_audit",
+        "telemetry_verification"
       ]
     },
     "splunk_get_index_info": {
@@ -112,6 +125,9 @@
         "viewer",
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "index_capacity_audit"
       ]
     },
     "splunk_get_knowledge_objects": {
@@ -148,6 +164,10 @@
         "viewer",
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "detection_rule_audit",
+        "knowledge_object_audit"
       ]
     },
     "splunk_run_query": {
@@ -171,7 +191,41 @@
       "rbac_roles": [
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "forensic_search",
+        "raw_event_analysis"
       ]
+    },
+    "splunk_get_kv_store_collections": {
+      "order": null,
+      "phase": "surface_pending",
+      "when": "On demand when threat-intel feed state or asset-mapping KV collections must be audited — only after operator confirms the live server exposes this tool.",
+      "why": "KV store collection metadata supports threat-intel feed and asset-mapping audits; surface is pending operator confirmation against the live Splunk MCP server.",
+      "preconditions": [
+        "accessible_indexes"
+      ],
+      "produces": [
+        "kv_store_collections"
+      ],
+      "next_tools": [
+        "splunk_run_query"
+      ],
+      "capability": "metadata_lookup",
+      "capability_class": "metadata_discovery",
+      "read_only": true,
+      "blocked": false,
+      "optional": true,
+      "rbac_roles": [
+        "viewer",
+        "analyst",
+        "soc_lead"
+      ],
+      "intents": [
+        "threat_intel_feed_audit",
+        "asset_mapping_state"
+      ],
+      "notes": "surface_pending — not in default chronology until operator confirms live MCP exposes splunk_get_kv_store_collections (schema_confirmed-style sign-off)."
     },
     "splunk_get_user_info": {
       "order": null,
@@ -191,6 +245,9 @@
       "rbac_roles": [
         "analyst",
         "soc_lead"
+      ],
+      "intents": [
+        "session_capability_audit"
       ]
     },
     "splunk_get_user_list": {
@@ -198,6 +255,7 @@
       "capability_class": "action_execution",
       "when": "Never via the agent.",
       "why": "Enumerates all users (directory recon + PII). Out of scope for read-only evidence collection.",
+      "notes": "Blocked (admin_or_sensitive_tool): user-enumeration recon/PII. Insider-threat and user-behavior asks route to splunk_run_query over allowlisted auth/audit indexes (index must be in SPL_ALLOWED_INDEXES — internal indexes like _audit require explicit allowlist + COE decision, not a default).",
       "blocked": true,
       "blocked_reason": "admin_or_sensitive_tool"
     },

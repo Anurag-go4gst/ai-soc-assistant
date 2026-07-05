@@ -4,6 +4,7 @@ from typing import TypeAlias
 
 from app.llm.adapter.schemas import (
     AnalystResponseDraft,
+    EvidenceObserverPayload,
     MitreCandidateMapperPayload,
     QueryUnderstandingCandidate,
     ReasoningAdvisoryResult,
@@ -13,10 +14,18 @@ from app.llm.adapter.schemas import (
     SplAdvisoryCandidate,
     TemplateMatchSemanticAssistPayload,
     TemplateRenderParameterAssistPayload,
+    ShapeAdvisorPayload,
 )
 from app.llm.registry_settings import ROLE_DEFAULTS, ROLE_ENV_MAP
 
-AdapterSchema: TypeAlias = type[QueryUnderstandingCandidate | ReasoningAdvisoryResult | AnalystResponseDraft | SplAdvisoryCandidate | SeverityRationaleAdvisory]
+AdapterSchema: TypeAlias = type[
+    QueryUnderstandingCandidate
+    | ReasoningAdvisoryResult
+    | AnalystResponseDraft
+    | SplAdvisoryCandidate
+    | SeverityRationaleAdvisory
+    | ShapeAdvisorPayload
+]
 
 ROLE_SCHEMA_REGISTRY: dict[str, AdapterSchema] = {
     "intent_shadow_classifier": QueryUnderstandingCandidate,
@@ -31,6 +40,8 @@ ROLE_SCHEMA_REGISTRY: dict[str, AdapterSchema] = {
     "route_plan_candidate_generator": RoutePlanCandidateLlmPayload,
     "analyst_summary_narration": AnalystSummaryNarrationPayload,
     "mitre_candidate_mapper": MitreCandidateMapperPayload,
+    "evidence_observer": EvidenceObserverPayload,
+    "shape_advisor": ShapeAdvisorPayload,
 }
 
 

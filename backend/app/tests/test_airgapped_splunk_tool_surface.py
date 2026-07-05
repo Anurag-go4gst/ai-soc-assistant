@@ -94,6 +94,15 @@ def test_resource_registry_contains_all_seven_canonical_entries() -> None:
     assert "rbac_gated" in user_info.capabilities
 
 
+def test_kv_store_collections_classified_not_blocked_and_absent_from_discovery_plan(monkeypatch) -> None:
+    descriptor = classify_mcp_tool("splunk_get_kv_store_collections", server_type="splunk")
+    assert descriptor.blocked is False
+
+    monkeypatch.delenv("MCP_GLOBAL_EXECUTION_ENABLED", raising=False)
+    records = plan_splunk_discovery_calls(target_index="security")
+    assert "splunk_get_kv_store_collections" not in {record.tool_name for record in records}
+
+
 def test_live_readiness_accepts_confirmed_search_and_metadata_names_but_keeps_other_gates() -> None:
     server = McpServerStatus(
         name="splunk_soc",

@@ -17,7 +17,11 @@ from app.chat.analyst_response_builder import build_analyst_response_for_live
 from app.answer_guard.models import AnswerGuardStatus
 from app.evidence.context_structurer import structure_context
 from app.evidence.context_sufficiency import check_context_sufficiency
-from app.evidence.source_evidence import append_mcp_loop_source_evidence, build_source_evidence
+from app.evidence.source_evidence import (
+    append_mcp_loop_source_evidence,
+    build_provider_source_evidence,
+    build_source_evidence,
+)
 from app.knowledge.rag_evidence_lineage import resolve_answer_readiness, resolve_response_evidence_origin
 from app.knowledge.soc_kb_retriever import retrieve_soc_kb
 from app.lineage.builder import build_investigation_lineage
@@ -67,7 +71,7 @@ from app.risk.severity_policy import (
 from app.safeguards.spl_validator import validate_spl
 from app.safeguards.spl_slot_binding_validator import validate_spl_slot_bindings
 from app.schemas.requests import ChatRequest
-from app.schemas.responses import PlaceholderResponse, SessionContextStatusEnvelope
+from app.schemas.responses import AnalystResponseEnvelope, PlaceholderResponse, SessionContextStatusEnvelope
 from app.skills.selector import select_skill_chain
 from app.spl.template_registry import QUERY_SHAPE_RAW_SEARCH, get_spl_template, template_summary
 from app.splunk.capabilities import build_splunk_capability_profile
@@ -88,6 +92,10 @@ from app.spl.review_only_spl_postprocessor import finalize_review_only_spl
 from app.spl.spl_relevance_check import check_spl_relevance
 from app.spl.mcp_loop_discovery import execute_loop_discovery_hop
 from app.spl.mcp_source_discovery import run_mcp_source_discovery
+from app.spl.saved_search_preference import (
+    apply_saved_search_preference_to_spl,
+    preference_from_discovery_context,
+)
 from app.spl.source_profile_resolver import extract_placeholder_slots
 from app.spl.spl_source_resolve import build_spl_source_profile_review, resolve_spl_source_profile
 from app.spl.t2_generation import generate_review_only_spl
@@ -108,6 +116,12 @@ from app.llm.guided_llm_budget import (
     should_skip_intent_advisor_for_guided,
 )
 from app.llm.turn_llm_budget import TurnLlmBudget
+from app.llm.evidence_observer import (
+    EVIDENCE_OBSERVER_ROLE,
+    parse_evidence_observer_output,
+    sanitize_rows_for_observer,
+)
+from app.llm.sidecar_clients import invoke_sidecar_role_with_metadata
 from app.synthesis.composer_context_builders import (
     mcp_tool_hints_from_registry,
     skill_sections_from_enrichment,
@@ -130,6 +144,7 @@ from app.use_cases.content_enrichment import (
     llm_facing_curated_enrichment_projection,
 )
 from app.synthesis.models import SynthesisStatus
+from app.synthesis.observation_grounding import ground_evidence_observations
 from app.threat.mitre_decision import resolve_mitre_decision
 from app.threat.mitre_kb import MitreMappingDecision, map_mitre_for_use_case
 from app.use_cases.content_enrichment import enrichment_spl_governance, enrichment_spl_governance_for_runtime
@@ -164,6 +179,7 @@ from app.chat.answer_shape_router import (
     plan_purposes_from_resource_plan,
     should_bypass_shape_router,
 )
+from app.chat.shape_advisor import apply_shape_advisory_promotion, generate_shape_advisory
 from app.chat.final_answer_validator import validate_final_answer
 from app.chat.guidance_summary_renderer import is_guidance_summary_path
 from app.chat.negative_evidence_extractor import extract_negative_evidence
@@ -187,6 +203,8 @@ from app.chat.evidence_loop import (
     ROUTE_DISCOVERY_HOP,
     assess_loop,
     assess_loop_with_recipe,
+    apply_observer_next_hop_hint,
+    build_data_silence_advisory,
     cve_requirements_present,
     initialize_loop,
     loop_initialized,
@@ -252,6 +270,7 @@ from app.chat.mitre_branch import planner_mitre_branch_suppressed_decision, run_
 from app.chat.hil_resolution import resolve_effective_hil_required
 from app.chat.planning_decision import plan_path_and_tools
 from app.chat.control_plane_trace import build_control_plane_trace
+from app.chat.canonical_facts_spine import harvest_canonical_facts_from_state
 from app.chat.debug_summary import build_debug_summary
 from app.chat.guided_discovery_promotion import build_guided_discovery_promotion_offer
 from app.chat.guided_answer_contract import enhance_answer_contract_for_guided_hybrid
@@ -306,6 +325,7 @@ logger = logging.getLogger("ai_soc.telemetry")
 _PARTIAL_SYNTHESIS_MESSAGE = (
     "Final LLM synthesis timed out; showing validated intermediate result."
 )
+OBSERVER_MAX_CALLS_PER_TURN = 1
 
 
 def _routes_chat():
@@ -351,6 +371,13 @@ class ChatPipelineState(TypedDict, total=False):
     governance_trace: Any
     query_to_intent: dict[str, Any] | None
     llm_intent_advisory: LLMIntentAdvisory | None
+    # LangGraph silently drops any state key not declared here (see executor
+    # guide). shape_advisory was set by graph_node_query_understanding but
+    # never declared — the LangGraph edge (LANGGRAPH_ORCHESTRATION_ENABLED=true,
+    # the live default) dropped it every turn, so control_plane_trace.shape_advisory
+    # read null in production even though the sidecar ran and item 21's tests
+    # passed (tests call the node function directly, bypassing the graph edge).
+    shape_advisory: dict[str, Any] | None
     intent_classification: dict[str, Any] | None
     evidence_plan: dict[str, Any] | None
     planning_decision: dict[str, Any] | None
@@ -380,11 +407,14 @@ class ChatPipelineState(TypedDict, total=False):
     mcp_required_produces: list[str]
     mcp_loop: dict[str, Any]
     mcp_loop_planner: dict[str, Any] | None
+    evidence_observer_trace: dict[str, Any] | None
+    reference_resolution: dict[str, Any] | None
     # O5c recipe-aware HUB path (item 3.1, 2026-07-03) — unset unless item 3.2's
     # selector chooses a recipe; the chronology-driven path above is unaffected.
     mcp_recipe_id: str | None
     mcp_recipe_pending_call_id: str | None
     mcp_call_records: list[dict[str, Any]]
+    data_silence_advisory: dict[str, Any] | None
     # C1/C9 v2 additive visibility (packaging mirrors response; routed stays authority).
     live_execution_skill: str | None
     planning_or_analytic_skill: str | None
@@ -1129,6 +1159,41 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
                     ),
                 }
             )
+    deterministic_shape = classify_answer_shape(query_text).primary_shape
+    if (shape_hop_block := budget.sidecar_hop_blocked(role="shape_advisor")):
+        shape_advisory = {
+            "role": "shape_advisor",
+            "deterministic_shape": deterministic_shape,
+            "skipped_reason": shape_hop_block,
+            "used": False,
+        }
+        answer_shape_override = None
+    else:
+        _shape_started = time.monotonic()
+        shape_result = generate_shape_advisory(
+            query_text,
+            deterministic_shape=deterministic_shape,
+            timeout_seconds=min(10.0, budget.capped_hop_timeout_seconds(role="shape_advisor") or 10.0),
+        )
+        shape_result = apply_shape_advisory_promotion(query_text, shape_result)
+        if shape_result.llm_called:
+            budget.record_sidecar(
+                role="shape_advisor",
+                provider_label=shape_result.provider_label,
+                outcome="timed_out" if shape_result.timed_out else "completed",
+                latency_ms=int((time.monotonic() - _shape_started) * 1000),
+            )
+        shape_advisory = shape_result.to_trace()
+        answer_shape_override = shape_result.promoted_shape if shape_result.used else None
+        if answer_shape_override == "reference_taxonomy" and isinstance(routed, dict):
+            routed = {
+                **routed,
+                "skill": "knowledge_recall",
+                "tool_plan": [],
+                "shape_advisory_promotion": "reference_taxonomy",
+            }
+            routed_skill = "knowledge_recall"
+
     result = build_query_to_intent(
         query=query_text,
         query_understanding=query_understanding,
@@ -1137,6 +1202,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         if isinstance(routed.get("routing_provenance"), dict)
         else None,
         llm_intent_advisory=llm_advisory,
+        answer_shape_override=answer_shape_override,
     )
     payload = result.model_dump()
     signals = payload.get("query_signals") if isinstance(payload.get("query_signals"), dict) else None
@@ -1151,6 +1217,8 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         # remains in query_to_intent for the wire/trace contract, while live
         # consumers receive the typed advisory and cannot silently lose fields.
         "llm_intent_advisory": result.llm_intent_advisory,
+        "shape_advisory": shape_advisory,
+        "routed": routed,
         "intent_classification": payload.get("intent_classification"),
         "selected_use_case": selected_use_case,
         "llm_turn_budget": budget,
@@ -1230,17 +1298,213 @@ def _attach_pipeline_dispatch_if_enabled(
 
 
 def _active_recipe(state: ChatPipelineState) -> Any | None:
-    """O5c (item 3.1, 2026-07-03): the recipe for this turn, if any.
+    """O5c: the recipe for this turn, if any.
 
-    Only ever set by item 3.2's selector — no live pipeline stage sets
-    `mcp_recipe_id` yet, so this returns None on every turn today and every
-    call site below falls through to the pre-existing chronology behavior,
-    byte-identical to before this item.
+    `mcp_recipe_id` is set by the item-3.2 selector on first entry into
+    graph_node_evidence_planning for out_of_registry / near_105_question turns
+    whose answer shape matches a recipe. Every other turn returns None here and
+    falls through to the chronology behavior.
     """
     recipe_id = state.get("mcp_recipe_id")
     if not isinstance(recipe_id, str) or not recipe_id:
         return None
     return get_recipe(recipe_id)
+
+
+def _observer_already_called(state: ChatPipelineState) -> bool:
+    trace = state.get("evidence_observer_trace")
+    if isinstance(trace, dict) and int(trace.get("invocation_count") or 0) >= OBSERVER_MAX_CALLS_PER_TURN:
+        return True
+    structured = state.get("structured_context")
+    return bool(isinstance(structured, dict) and structured.get("llm_observations"))
+
+
+def _rows_from_execution_for_observer(execution: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not isinstance(execution, dict):
+        return []
+    raw = execution.get("raw_result")
+    if isinstance(raw, dict) and isinstance(raw.get("rows"), list):
+        return [row for row in raw["rows"] if isinstance(row, dict)]
+    preview = execution.get("results_preview")
+    if isinstance(preview, list):
+        return [row for row in preview if isinstance(row, dict)]
+    return []
+
+
+def _rows_from_terminal_discovery_for_observer(state: ChatPipelineState, decision: Any) -> list[dict[str, Any]]:
+    if getattr(decision, "route", None) == ROUTE_DISCOVERY_HOP:
+        return []
+    evidence = state.get("mcp_evidence")
+    if not isinstance(evidence, list) or not evidence:
+        return []
+    latest = evidence[-1]
+    if not isinstance(latest, dict):
+        return []
+    payload = latest.get("payload")
+    if not isinstance(payload, dict):
+        return []
+    for key in ("preview_rows", "rows", "results_preview"):
+        rows = payload.get(key)
+        if isinstance(rows, list):
+            return [row for row in rows if isinstance(row, dict)]
+    return []
+
+
+def _evidence_observer_prompt(state: ChatPipelineState, rows: list[dict[str, Any]]) -> tuple[str, dict[int, str], int]:
+    request = state.get("request")
+    query = str(state.get("effective_query") or getattr(request, "message", "") or "")
+    facts = harvest_canonical_facts_from_state(state).model_dump(mode="json")
+    sanitized = sanitize_rows_for_observer(rows)
+    prompt = (
+        "Analyst question:\n"
+        f"{query}\n\n"
+        "Canonical facts:\n"
+        f"{facts}\n\n"
+        "Numbered sanitized MCP rows:\n"
+        f"{sanitized.prompt_text}\n"
+    )
+    return prompt, sanitized.row_text_by_index, sanitized.injection_withheld_count
+
+
+def _persist_evidence_observer_trace(state: ChatPipelineState, trace: dict[str, Any]) -> None:
+    trace_id = state.get("trace_id")
+    if not isinstance(trace_id, str) or not trace_id:
+        return
+    safe_trace = dict(trace)
+    try:
+        telemetry = get_telemetry_connector()
+        telemetry.record_llm_call(
+            trace_id,
+            role=EVIDENCE_OBSERVER_ROLE,
+            event_type="evidence_observer",
+            provider_label=safe_trace.get("provider_label"),
+            latency_ms=safe_trace.get("latency_ms"),
+            guard_status=safe_trace.get("guard_status"),
+            grounded_n=safe_trace.get("grounded_n"),
+            dropped_m=safe_trace.get("dropped_m"),
+            skipped_reason=safe_trace.get("skipped_reason"),
+            injection_withheld_row_count=safe_trace.get("injection_withheld_row_count"),
+            hint_accepted=safe_trace.get("observer_hint_accepted"),
+            hint_rejected=safe_trace.get("observer_hint_rejected"),
+            hint_rejected_reason=safe_trace.get("observer_hint_rejected_reason"),
+        )
+        telemetry.merge_run_metadata(
+            trace_id,
+            {"control_plane_trace": {"evidence_observer": safe_trace}},
+        )
+    except Exception:  # noqa: BLE001 - telemetry must never break chat
+        logger.warning("evidence_observer_telemetry_failed", exc_info=True)
+
+
+def _state_with_evidence_observer_trace(
+    state: ChatPipelineState,
+    trace: dict[str, Any],
+    *,
+    budget: TurnLlmBudget | None = None,
+    structured_context: dict[str, Any] | None = None,
+) -> ChatPipelineState:
+    _persist_evidence_observer_trace(state, trace)
+    out: ChatPipelineState = {**state, "evidence_observer_trace": trace}
+    if budget is not None:
+        out["llm_turn_budget"] = budget
+    if structured_context is not None:
+        out["structured_context"] = structured_context
+    return out
+
+
+def _attach_evidence_observer(state: ChatPipelineState, *, rows: list[dict[str, Any]]) -> ChatPipelineState:
+    if _observer_already_called(state) or not rows:
+        return state
+    trace: dict[str, Any] = {
+        "role": EVIDENCE_OBSERVER_ROLE,
+        "invocation_count": 0,
+        "grounded_n": 0,
+        "dropped_m": 0,
+    }
+    if not (
+        settings.ai_soc_llm_final_synthesis_enabled
+        and settings.ai_soc_llm_live_synthesis_enabled
+    ):
+        trace["skipped_reason"] = "live_synthesis_disabled"
+        return _state_with_evidence_observer_trace(state, trace)
+
+    budget = state.get("llm_turn_budget") or TurnLlmBudget()
+    hop_block = budget.sidecar_hop_blocked(role=EVIDENCE_OBSERVER_ROLE)
+    if hop_block:
+        trace["skipped_reason"] = hop_block
+        return _state_with_evidence_observer_trace(state, trace, budget=budget)
+    timeout_seconds = budget.capped_hop_timeout_seconds(role=EVIDENCE_OBSERVER_ROLE)
+    if timeout_seconds is None:
+        trace["skipped_reason"] = "insufficient_deadline_reserve"
+        return _state_with_evidence_observer_trace(state, trace, budget=budget)
+
+    prompt, row_text_by_index, withheld_count = _evidence_observer_prompt(state, rows)
+    trace["injection_withheld_row_count"] = withheld_count
+    started = time.monotonic()
+    invocation = invoke_sidecar_role_with_metadata(
+        role=EVIDENCE_OBSERVER_ROLE,
+        user_prompt=prompt,
+        max_tokens=256,
+        timeout_seconds=timeout_seconds,
+        temperature=0.0,
+        allow_failover=not budget.time_budget_exhausted(),
+    )
+    latency_ms = int((time.monotonic() - started) * 1000)
+    trace.update(
+        {
+            "invocation_count": 1,
+            "provider_label": invocation.answered_label,
+            "latency_ms": latency_ms,
+            "timed_out": invocation.timed_out,
+        }
+    )
+    budget.record_sidecar(
+        role=EVIDENCE_OBSERVER_ROLE,
+        provider_label=invocation.answered_label,
+        outcome="timed_out" if invocation.timed_out else "completed",
+        latency_ms=latency_ms,
+    )
+    if not invocation.raw_output:
+        trace["skipped_reason"] = "no_model_output"
+        return _state_with_evidence_observer_trace(state, trace, budget=budget)
+
+    parsed = parse_evidence_observer_output(invocation.raw_output)
+    trace["parse_accepted"] = parsed.accepted
+    if not parsed.accepted:
+        trace["guard_status"] = "parse_failed"
+        trace["warnings"] = list(parsed.warnings)
+        trace["errors"] = list(parsed.errors)
+        return _state_with_evidence_observer_trace(state, trace, budget=budget)
+
+    grounded = ground_evidence_observations(
+        parsed.governed_observations,
+        row_text_by_index=row_text_by_index,
+    )
+    observations = [item.model_dump(mode="json") for item in grounded.grounded_observations]
+    trace.update(
+        {
+            "guard_status": "grounded",
+            "grounded_n": grounded.grounded_count,
+            "dropped_m": grounded.dropped_count,
+            "dropped_reasons": [
+                {"reason": item.reason, "detail": item.detail}
+                for item in grounded.dropped
+            ],
+            "next_hop_hint": parsed.next_hop_hint,
+        }
+    )
+    structured = dict(state.get("structured_context") or {})
+    if observations:
+        structured["llm_observations"] = [
+            *list(structured.get("llm_observations") or []),
+            *observations,
+        ]
+    return _state_with_evidence_observer_trace(
+        state,
+        trace,
+        budget=budget,
+        structured_context=structured,
+    )
 
 
 def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
@@ -1259,6 +1523,7 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
             if decision.next_tool:
                 next_state["mcp_recipe_pending_call_id"] = decision.next_tool
             return next_state
+        observer_rows = _rows_from_execution_for_observer(execution if isinstance(execution, dict) else None)
         if isinstance(execution, dict):
             state = {**state, **record_execution_hop(state, execution)}
         decision = assess_loop(
@@ -1266,7 +1531,24 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
             execution=execution,
             broaden_eligible=_loop_broaden_eligible(state),
         )
-        return {**state, "mcp_loop": decision.to_dict()}
+        if not observer_rows:
+            observer_rows = _rows_from_terminal_discovery_for_observer(state, decision)
+        state = _attach_evidence_observer(state, rows=observer_rows)
+        hint_patch = apply_observer_next_hop_hint(state)
+        if hint_patch:
+            state = {**state, **hint_patch}
+            if isinstance(state.get("evidence_observer_trace"), dict):
+                _persist_evidence_observer_trace(state, state["evidence_observer_trace"])
+            if hint_patch.get("mcp_chronology"):
+                decision = assess_loop(
+                    state,
+                    execution=execution,
+                    broaden_eligible=_loop_broaden_eligible(state),
+                )
+        next_state: ChatPipelineState = {**state, "mcp_loop": decision.to_dict()}
+        if "data_silence" in decision.reason:
+            next_state["data_silence_advisory"] = build_data_silence_advisory(state)
+        return next_state
     emit_stage("planning_evidence")
     if not settings.control_plane_enabled:
         planning = plan_path_and_tools(
@@ -2181,7 +2463,10 @@ def graph_node_pre_spl_mcp_discovery(state: ChatPipelineState) -> ChatPipelineSt
     slots = slots if isinstance(slots, dict) else {}
     required = [k for k in ("index", "sourcetype") if not slots.get(k)]
     try:
-        profile, trace = run_mcp_source_discovery(required_slots=required or None)
+        profile, trace = run_mcp_source_discovery(
+            required_slots=required or None,
+            include_knowledge_objects=True,
+        )
     except Exception:  # noqa: BLE001 - discovery must never break the SPL path
         logger.warning("pre_spl_mcp_discovery_failed", exc_info=True)
         runtime = _record_dispatch_stage_skip(runtime, PipelineStage.pre_spl_mcp_discovery, "discovery_failed")
@@ -2190,12 +2475,22 @@ def graph_node_pre_spl_mcp_discovery(state: ChatPipelineState) -> ChatPipelineSt
 
     indexes = [profile["index"]] if profile.get("index") else []
     sourcetypes = [profile["sourcetype"]] if profile.get("sourcetype") else []
+    harvested_saved_searches: list[dict[str, str]] = []
+    if isinstance(trace, dict):
+        raw_saved = trace.get("saved_searches")
+        if isinstance(raw_saved, list):
+            harvested_saved_searches = [
+                {"name": str(item.get("name") or ""), "description": str(item.get("description") or "")}
+                for item in raw_saved
+                if isinstance(item, dict) and str(item.get("name") or "").strip()
+            ]
     discovery_ctx = McpDiscoveryContext(
         indexes=indexes,
         sourcetypes=sourcetypes,
         field_hints={k: str(v) for k, v in profile.items() if v},
         discovery_hops=[trace] if isinstance(trace, dict) else [],
         populated_at_stage="pre_spl_mcp_discovery",
+        harvested_saved_searches=harvested_saved_searches,
     )
     runtime["mcp_discovery_context"] = discovery_ctx.model_dump(mode="json")
     runtime["mcp_phase"] = "pre_spl"
@@ -2283,6 +2578,33 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             slot_handoff=_slot_handoff,
             dispatch_flags=_dispatch_flags,
         )
+    preference = preference_from_discovery_context(
+        query=query_text,
+        discovery_context=(
+            (state.get("pipeline_dispatch") or {}).get("runtime_context") or {}
+        ).get("mcp_discovery_context"),
+        state=state,
+    )
+    if preference is not None:
+        _dispatch = state.get("pipeline_dispatch")
+        if isinstance(_dispatch, dict):
+            _runtime = dict(_dispatch.get("runtime_context") or {})
+            _ctx = dict(_runtime.get("mcp_discovery_context") or {})
+            _ctx["saved_search_preference"] = preference.to_dict()
+            _runtime["mcp_discovery_context"] = _ctx
+            state = {**state, "pipeline_dispatch": {**_dispatch, "runtime_context": _runtime}}
+        if preference.status == "primary_saved_search":
+            candidate_spl, spl_validation = apply_saved_search_preference_to_spl(
+                preference,
+                candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
+                spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
+            )
+        elif preference.analyst_message and isinstance(candidate_spl, dict):
+            candidate_spl = {
+                **candidate_spl,
+                "saved_search_advisory": preference.analyst_message,
+                "harvested_saved_search_names": list(preference.advisory_names),
+            }
     # Phase 4B: persist the LLM detection plan (if any) onto canonical state so
     # downstream nodes prefer it over re-parsing the query. Node-only persistence;
     # the compiler/fallback never write state.
@@ -2402,6 +2724,13 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
 
     qu = state.get("query_understanding")
     mapped_use_case_ids = list(getattr(qu, "mapped_use_case_ids", None) or []) if qu is not None else []
+    execution_intent = "spl_search"
+    requested_mcp_tool = request.requested_mcp_tool
+    candidate_spl = state.get("candidate_spl")
+    if isinstance(candidate_spl, dict) and candidate_spl.get("generation_mode") == "saved_search_primary":
+        execution_intent = "saved_search_execution"
+        if not requested_mcp_tool:
+            requested_mcp_tool = str(candidate_spl.get("planned_tool") or "splunk_run_saved_search")
     execution, human_review = _execution_stage(
         trace_id=state["trace_id"],
         selected_skill=_effective_routing_skill(state),
@@ -2409,7 +2738,8 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         spl_validation=spl_validation,
         precondition_evaluation=state.get("route_plan_shadow", {}).get("precondition_evaluation"),
         requested_mcp_server=request.requested_mcp_server,
-        requested_mcp_tool=request.requested_mcp_tool,
+        requested_mcp_tool=requested_mcp_tool,
+        execution_intent=execution_intent,
         llm_lineage_auto_eligible=llm_lineage_auto_eligible,
         mcp_allowed=_mcp_allowed(state),
         execution_review_action=getattr(request, "execution_review_action", None),
@@ -2419,6 +2749,9 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         catalogue_match_path=getattr(qu, "deterministic_match_path", None) if qu is not None else None,
         catalogue_question_ref=getattr(qu, "mapped_question_ref", None) if qu is not None else None,
         catalogue_use_case_id=mapped_use_case_ids[0] if mapped_use_case_ids else None,
+        data_silence_advisory=state.get("data_silence_advisory")
+        if isinstance(state.get("data_silence_advisory"), dict)
+        else None,
     )
     # O5c Step 2: the broaden confirm turn executed the approved broadened
     # search. Attach the two-call cross-turn envelope (empty primary + broadened
@@ -2604,7 +2937,10 @@ def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
                 )
             except Exception:  # noqa: BLE001 - telemetry must never break chat
                 logger.warning("utility_spl_rag_skip_telemetry_failed", exc_info=True)
-        return {**state, "soc_kb_retrieval": _utility_spl_rag_skipped_payload()}
+        return advance_dispatch_cursor(
+            {**state, "soc_kb_retrieval": _utility_spl_rag_skipped_payload()},
+            PipelineStage.rag_early,
+        )
     workflow_plan = state["workflow_plan"]
     execution = state["execution"] if "execution" in state else {"block_reason": None}
     retrieval = retrieve_soc_kb(
@@ -2618,7 +2954,7 @@ def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
     updated = {**state, "soc_kb_retrieval": retrieval}
     if _path_type(updated) == "guided_investigation" and _rag_no_match(retrieval):
         updated = _record_guided_resource_outcome(updated, rag_no_match=True)
-    return updated
+    return advance_dispatch_cursor(updated, PipelineStage.rag_early)
 
 
 def _utility_spl_rag_skipped_payload() -> dict[str, Any]:
@@ -2905,17 +3241,31 @@ def _ensure_context_finalize_state(state: ChatPipelineState) -> ChatPipelineStat
     """Guarantee finalize prerequisites when LangGraph shortcuts skip execution/RAG hooks."""
     updated: ChatPipelineState = dict(state)
     if not isinstance(updated.get("execution"), dict):
-        updated["execution"] = {"status": "skipped", "block_reason": "finalize_stage_default"}
+        updated["execution"] = {
+            "status": "skipped",
+            "execution_intent": "none",
+            "selected_mcp_server": None,
+            "selected_mcp_tool": None,
+            "tool_selection_status": "unavailable",
+            "tool_selection_reason": "finalize_stage_default",
+            "executed_spl": None,
+            "result_count": 0,
+            "results_preview": [],
+            "block_reason": "finalize_stage_default",
+            "duration_ms": 0,
+            "evidence_source": "unavailable",
+            "execution_status_label": "not_executed",
+        }
     if not isinstance(updated.get("human_review"), dict):
-        updated["human_review"] = {"required": False}
+        updated["human_review"] = no_human_review()
     if not isinstance(updated.get("workflow_plan"), dict):
         skill = str((updated.get("routed") or {}).get("skill") or "knowledge_recall")
-        updated["workflow_plan"] = {
-            "skill": skill,
-            "steps": [],
-            "execution_enabled": False,
-            "required_sources": [],
-        }
+        updated["workflow_plan"] = plan_workflow(
+            selected_skill=skill,
+            tool_plan=list((updated.get("routed") or {}).get("tool_plan") or []),
+            query=str(getattr(updated.get("request"), "message", "") or updated.get("effective_query") or ""),
+            trace_id=str(updated.get("trace_id") or "missing-trace"),
+        )
     return updated
 
 
@@ -2953,6 +3303,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         soc_kb_retrieval=state.get("soc_kb_retrieval"),
         evidence_plan=state.get("evidence_plan"),
         mcp_evidence=state.get("mcp_evidence"),
+        reference_resolution=state.get("reference_resolution")
+        if isinstance(state.get("reference_resolution"), dict)
+        else None,
     )
     if not isinstance(state.get("soc_kb_retrieval"), dict):
         utility_signals = extract_query_signals(state.get("effective_query") or request.message)
@@ -3743,6 +4096,27 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
         llm_spl_candidate=llm_spl_candidate if isinstance(llm_spl_candidate, dict) else None,
     )
+    if analyst_response is None:
+        reference_facts_for_card = _reference_facts_for_card(structured_context)
+        if reference_facts_for_card:
+            reference_summary = _reference_lookup_summary(reference_facts_for_card)
+            message = reference_summary
+            reference_actions = [
+                "Use the cited offline reference rows as taxonomy context only.",
+                "Do not treat taxonomy relevance as observed activity in local telemetry.",
+                "Collect live evidence separately before claiming exploitation, severity, or confirmed technique use.",
+            ]
+            analyst_response = AnalystResponseEnvelope(
+                finding_title="Reference taxonomy lookup",
+                one_sentence_finding=reference_summary[:1200],
+                direct_answer_summary=reference_summary[:2000],
+                recommended_actions=reference_actions,
+                analyst_checklist=reference_actions,
+                investigation_steps=reference_actions,
+                response_profile="knowledge_recall",
+                execution_status=str(execution.get("status") or "skipped"),
+                reference_facts=reference_facts_for_card[:10],
+            )
     if environment_hygiene is not None and analyst_response is not None:
         limitations = list(analyst_response.limitations or [])
         for item in environment_hygiene.get("limitations") or []:
@@ -4086,13 +4460,17 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             else "composer_not_eligible"
         )
     if _rag_no_match(state.get("soc_kb_retrieval")) and spl_validation is None:
+        reference_facts_for_guidance = _reference_facts_for_card(structured_context)
         has_guidance = bool(
-            answer_contract is not None
-            and (
-                answer_contract.analyst_checklist_safe
-                or answer_contract.investigation_steps
-                or answer_contract.limitations
-                or answer_contract.missing_evidence
+            reference_facts_for_guidance
+            or (
+                answer_contract is not None
+                and (
+                    answer_contract.analyst_checklist_safe
+                    or answer_contract.investigation_steps
+                    or answer_contract.limitations
+                    or answer_contract.missing_evidence
+                )
             )
         )
         from app.chat.rag_answer_surfacing import is_substantive_guidance_message
@@ -4144,6 +4522,36 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,
             user_query=request.message,
         )
+    reference_facts_for_card = _reference_facts_for_card(structured_context)
+    if reference_facts_for_card:
+        reference_summary = _reference_lookup_summary(reference_facts_for_card)
+        reference_actions = [
+            "Use the cited offline reference rows as taxonomy context only.",
+            "Do not treat taxonomy relevance as observed activity in local telemetry.",
+            "Collect live evidence separately before claiming exploitation, severity, or confirmed technique use.",
+        ]
+        if analyst_response is None:
+            analyst_response = AnalystResponseEnvelope(
+                finding_title="Reference taxonomy lookup",
+                response_profile="knowledge_recall",
+                execution_status=str(execution.get("status") or "skipped"),
+            )
+        analyst_response = analyst_response.model_copy(
+            update={
+                "finding_title": "Reference taxonomy lookup",
+                "one_sentence_finding": reference_summary[:1200],
+                "direct_answer_summary": reference_summary[:2000],
+                "recommended_actions": list(getattr(analyst_response, "recommended_actions", None) or reference_actions)
+                or reference_actions,
+                "analyst_checklist": list(getattr(analyst_response, "analyst_checklist", None) or reference_actions)
+                or reference_actions,
+                "investigation_steps": list(getattr(analyst_response, "investigation_steps", None) or reference_actions)
+                or reference_actions,
+                "response_profile": "knowledge_recall",
+                "reference_facts": reference_facts_for_card[:10],
+            }
+        )
+        message = reference_summary
     analyst_response = _collapse_card_summary_when_sections_own_details(
         analyst_response, path_type=path_type
     )
@@ -4433,6 +4841,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 "hops": state.get("mcp_evidence") or [],
                 "planner": state.get("mcp_loop_planner"),
             }
+        observer_trace = state.get("evidence_observer_trace")
+        if isinstance(observer_trace, dict) and observer_trace:
+            control_plane_trace["evidence_observer"] = observer_trace
         # Plan §3 A4: attach CVE snapshot provenance when the plan needs vulnerability context.
         vuln_source = _resolve_vulnerability_source_status(state)
         if vuln_source is not None:
@@ -4790,6 +5201,8 @@ def _collapse_card_summary_when_sections_own_details(
     summary = str(getattr(analyst_response, "direct_answer_summary", "") or "").strip()
     if not summary:
         return analyst_response
+    if getattr(analyst_response, "reference_facts", None):
+        return analyst_response
     lowered = summary.lower()
     owns_detail_sections = any(
         getattr(analyst_response, field, None)
@@ -5014,6 +5427,7 @@ def _run_legacy_dispatch_fallback(
             "workflow_spl": graph_node_workflow_spl,
             "spl_postprocessor": graph_node_spl_postprocessor,
             "spl_source_resolve": graph_node_spl_source_resolve,
+            "reference_finalize": graph_node_reference_finalize,
             "execution": graph_node_execution,
         }
         ran_spl = False
@@ -5062,6 +5476,7 @@ def _dispatch_hooks() -> DispatchHooks:
         workflow_spl=graph_node_workflow_spl,
         spl_postprocessor=graph_node_spl_postprocessor,
         ensure_workflow_plan=graph_node_ensure_workflow_plan,
+        reference_finalize=graph_node_reference_finalize,
         execution=graph_node_execution,
     )
 
@@ -5621,6 +6036,7 @@ def _needs_mitre_clarification(
         "alert_summary",
         "hybrid_alert_review",
         "mitre_explanation",
+        "reference_knowledge",
     }:
         return False
     normalized = " ".join(query.lower().split())
@@ -8611,6 +9027,8 @@ def _execution_stage(
     catalogue_match_path: str | None = None,
     catalogue_question_ref: str | None = None,
     catalogue_use_case_id: str | None = None,
+    data_silence_advisory: dict[str, Any] | None = None,
+    execution_intent: str = "spl_search",
 ) -> tuple[dict, dict]:
     if spl_validation is None:
         return (
@@ -8664,6 +9082,8 @@ def _execution_stage(
         catalogue_match_path=catalogue_match_path,
         catalogue_question_ref=catalogue_question_ref,
         catalogue_use_case_id=catalogue_use_case_id,
+        data_silence_advisory=data_silence_advisory,
+        execution_intent=execution_intent,
     )
 
 
@@ -8685,6 +9105,139 @@ def _mcp_tool_plan_needs_mcp(state: ChatPipelineState, spl_validation: dict | No
     return _context_selected_skill(state) in EXECUTION_ELIGIBLE_SKILLS
 
 
+def _reference_resolution_needed(evidence_plan: dict | None) -> bool:
+    if not isinstance(evidence_plan, dict):
+        return False
+    if "reference_registry" in {str(item) for item in evidence_plan.get("required_sources") or []}:
+        return True
+    if "reference_dataset" in {str(item) for item in evidence_plan.get("required_evidence_keys") or []}:
+        return True
+    return "reference_taxonomy_lookup" in {str(item) for item in evidence_plan.get("reasons") or []}
+
+
+def _resolve_reference_knowledge(query: str, *, limit: int = 10) -> dict[str, Any]:
+    from app.planner.reference_registry import ReferenceFact, load_reference_registry
+
+    registry = load_reference_registry()
+    facts: list[ReferenceFact] = []
+    ids_by_dataset = registry.extract_ids(query)
+    for dataset_id, ids in ids_by_dataset.items():
+        dataset = registry.by_id(dataset_id)
+        if dataset is None:
+            continue
+        resolved = dataset.resolver.resolve_ids(ids)
+        facts.extend(resolved)
+        resolved_ids = {fact.reference_id.upper() for fact in resolved}
+        for reference_id in ids:
+            if reference_id.upper() in resolved_ids:
+                continue
+            facts.append(
+                ReferenceFact(
+                    reference_id=reference_id,
+                    dataset_id=dataset_id,
+                    name=reference_id,
+                    description=f"{reference_id} was not found in the local {dataset_id} snapshot.",
+                    citation=f"local {dataset_id} snapshot",
+                    raw={"status": "not_found"},
+                )
+            )
+    for dataset_facts in registry.search_keywords(query, limit=limit).values():
+        facts.extend(dataset_facts)
+
+    deduped: list[ReferenceFact] = []
+    seen: set[tuple[str, str]] = set()
+    for fact in facts:
+        key = (fact.dataset_id, fact.reference_id.upper())
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(fact)
+        if len(deduped) >= limit:
+            break
+    return {
+        "status": "resolved" if deduped else "not_found",
+        "facts": [fact.to_dict() for fact in deduped],
+        "ids_by_dataset": ids_by_dataset,
+    }
+
+
+def _append_reference_source_evidence(
+    source_evidence: list[dict[str, Any]],
+    *,
+    trace_id: str,
+    query: str,
+    evidence_plan: dict | None,
+    reference_resolution: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    if not _reference_resolution_needed(evidence_plan):
+        return source_evidence, reference_resolution
+    resolution = reference_resolution if isinstance(reference_resolution, dict) else _resolve_reference_knowledge(query)
+    rows = [dict(item) for item in resolution.get("facts") or [] if isinstance(item, dict)]
+    item = build_provider_source_evidence(
+        trace_id=trace_id,
+        source_type="reference_dataset",
+        source_name="reference_registry",
+        collection_status="collected" if rows else "skipped",
+        query_or_request_summary="offline reference taxonomy lookup",
+        result_count=len(rows),
+        tool_name="reference_registry",
+        preview_rows=rows,
+        warnings=[] if rows else ["reference_not_found"],
+        tool_category="reference_lookup",
+        provider_used="reference_registry",
+        provenance="operator_vendored_reference_dataset",
+    )
+    item["plan_step_ref"] = "reference"
+    return [*source_evidence, item], resolution
+
+
+def _reference_facts_for_card(structured_context: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not isinstance(structured_context, dict):
+        return []
+    facts: list[dict[str, Any]] = []
+    for item in structured_context.get("reference_facts") or []:
+        if isinstance(item, dict):
+            facts.append(dict(item))
+        if len(facts) >= 10:
+            break
+    return facts
+
+
+def _reference_lookup_summary(reference_facts: list[dict[str, Any]]) -> str:
+    lines = ["Reference taxonomy lookup resolved these offline facts:"]
+    for fact in reference_facts[:5]:
+        reference_id = str(fact.get("reference_id") or fact.get("technique_id") or "").strip()
+        name = str(fact.get("name") or "").strip()
+        dataset = str(fact.get("source_dataset") or fact.get("dataset_id") or "reference_dataset").strip()
+        citation = str(fact.get("citation") or "").strip()
+        if "/techniques/" in citation:
+            citation = "MITRE ATT&CK local export" if dataset == "mitre_attack_enterprise" else "MITRE reference export"
+        tactics_raw = fact.get("tactics")
+        if isinstance(tactics_raw, list):
+            tactics = ", ".join(str(item) for item in tactics_raw if str(item).strip())
+        else:
+            tactics = str(tactics_raw or "").strip()
+        label = " ".join(item for item in (reference_id, name) if item).strip() or dataset
+        suffix_parts = [f"dataset {dataset}"]
+        if tactics:
+            suffix_parts.append(f"tactics {tactics}")
+        if citation:
+            suffix_parts.append(f"citation {citation}")
+        description = str(fact.get("description") or "").strip()
+        if description and ("not found" in description.lower() or "unknown" in description.lower()):
+            suffix_parts.append(description)
+        lines.append(f"- {label} ({'; '.join(suffix_parts)}).")
+    lines.append("No local exploitation, exposure, or alert mapping is asserted from taxonomy lookup alone.")
+    return "\n".join(lines)
+
+
+def graph_node_reference_finalize(state: ChatPipelineState) -> ChatPipelineState:
+    emit_stage("reference_finalize")
+    resolution = _resolve_reference_knowledge(str(state.get("effective_query") or state["request"].message))
+    updated = {**state, "reference_resolution": resolution}
+    return advance_dispatch_cursor(updated, PipelineStage.reference_finalize)
+
+
 def _context_stage(
     *,
     trace_id: str,
@@ -8696,6 +9249,7 @@ def _context_stage(
     soc_kb_retrieval: dict | None = None,
     evidence_plan: dict | None = None,
     mcp_evidence: list[dict[str, Any]] | None = None,
+    reference_resolution: dict[str, Any] | None = None,
 ) -> tuple[list[dict], dict, dict]:
     telemetry = _routes_chat().get_telemetry_connector()
     if soc_kb_retrieval is None:
@@ -8741,6 +9295,13 @@ def _context_stage(
         evidence_plan=evidence_plan,
         query=query,
     )
+    source_evidence, reference_resolution = _append_reference_source_evidence(
+        source_evidence,
+        trace_id=trace_id,
+        query=query,
+        evidence_plan=evidence_plan,
+        reference_resolution=reference_resolution,
+    )
     telemetry.record_step(
         trace_id,
         "source_evidence_created",
@@ -8757,6 +9318,8 @@ def _context_stage(
         execution=execution,
         source_evidence=source_evidence,
     )
+    if reference_resolution is not None:
+        structured_context["reference_resolution"] = reference_resolution
     telemetry.record_step(
         trace_id,
         "context_structured",

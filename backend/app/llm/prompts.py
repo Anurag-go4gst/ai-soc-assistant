@@ -579,3 +579,91 @@ PROMPT_CONTRACTS["answer_guard_assistant"] = {
         "Confidence is advisory metadata only.",
     ],
 }
+
+PROMPT_CONTRACTS["evidence_observer"] = {
+    "model_family": "Foundation-sec-8B-Instruct",
+    "purpose": "Emit grounded advisory observations from bounded sanitized MCP rows; one call per turn.",
+    "max_input_tokens": "4000",
+    "system_instruction": (
+        "You are the evidence observer for a SOC assistant. Read ONLY the numbered sanitized "
+        "MCP rows provided. Return one JSON object. No markdown fences. No prose outside JSON. "
+        "Each observation must cite row_refs that exist in the input. Max 5 observations. "
+        "Set next_hop_hint to a playbook read-only tool name or null. Set unreadable=true "
+        "only if rows cannot be interpreted. Observations are advisory only — never override "
+        "severity, MITRE, or execution policy.\n"
+        "EXAMPLE (3 firewall rows in → 2 observations out):\n"
+        "INPUT ROWS:\n"
+        "1: host=fw-edge-01 action=deny dest_ip=10.0.5.22 dest_port=445\n"
+        "2: host=fw-edge-01 action=deny dest_ip=10.0.5.22 dest_port=139\n"
+        "3: host=fw-edge-01 action=deny dest_ip=10.0.5.22 dest_port=3389\n"
+        "OUTPUT:\n"
+        '{"observations":[{"claim":"Host fw-edge-01 denied SMB port 445 to 10.0.5.22",'
+        '"row_refs":[1],"confidence":"high"},{"claim":"Repeated denies to 10.0.5.22 on '
+        'ports 139 and 3389 from fw-edge-01","row_refs":[2,3],"confidence":"medium"}],'
+        '"next_hop_hint":null,"unreadable":false}'
+    ),
+    "include": [
+        "sanitized analyst question",
+        "canonical facts for the turn",
+        "numbered sanitized MCP rows (≤50 rows, ≤200 chars each, whitelisted fields)",
+    ],
+    "exclude": [
+        "RAG/SOC-KB chunks",
+        "prior LLM outputs",
+        "workflow internals",
+        "credentials",
+        "prompts/reasoning",
+        "raw unrestricted log dumps",
+    ],
+    "output_schema": {
+        "observations": [
+            {
+                "claim": "one sentence grounded in cited rows",
+                "row_refs": [1],
+                "confidence": "high",
+            }
+        ],
+        "next_hop_hint": None,
+        "unreadable": False,
+    },
+    "consumption_rules": [
+        "Extract first balanced JSON object via extract_first_json_object.",
+        "Validate through guarded adapter schema EvidenceObserverPayload.",
+        "Cap observations at 5; drop observations missing row_refs.",
+        "Grounding check (item 9) must pass before display.",
+        "Provenance fixed to llm_observation; never merge into deterministic facts.",
+    ],
+}
+
+PROMPT_CONTRACTS["shape_advisor"] = {
+    "model_family": "Foundation-sec-8B-Instruct",
+    "purpose": "Suggest one closed-list answer shape for trace and guarded reference-taxonomy promotion.",
+    "max_input_tokens": "2000",
+    "system_instruction": (
+        "You are a SOC answer-shape classifier. Return JSON only, no markdown. "
+        "Choose suggested_shape from: reference_taxonomy, hunt, ir_containment_advisory, "
+        "ti_advisory_mapping, regulatory_knowledge, source_health, baselining, "
+        "timeline_reconstruction, insider_dlp, process_aware_ot, "
+        "supply_chain_firmware_integrity, none. "
+        "reference_taxonomy means explaining or listing offline ATT&CK/ATLAS/CVE taxonomy facts. "
+        "hunt means searching or investigating local telemetry. "
+        "Alert mapping and live-data asks are hunt/none, not reference_taxonomy. "
+        "Examples: 'Explain CVE-2024-3400' -> reference_taxonomy; "
+        "'Search logs for CVE-2024-3400 attempts' -> hunt; "
+        "'What is T1110.003?' -> reference_taxonomy; "
+        "'Was T1110 seen last week?' -> hunt; "
+        "'Map alert 4625-burst to MITRE' -> hunt; "
+        "'Update ATLAS coverage dashboard' -> none. "
+        'Output: {"suggested_shape":"reference_taxonomy","confidence":0.9,"rationale":"short"}'
+    ),
+    "output_schema": {
+        "suggested_shape": "reference_taxonomy|hunt|...|none",
+        "confidence": 0.0,
+        "rationale": "",
+    },
+    "consumption_rules": [
+        "Validate through ShapeAdvisorPayload.",
+        "Never override deterministic shape matches.",
+        "May promote only to reference_taxonomy when registry-domain partial signal is present and negative signals are absent.",
+    ],
+}

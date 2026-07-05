@@ -124,6 +124,8 @@ def _resolve_request_mode(
         return "knowledge"
     if family in {"mitre_mapping", "mitre_explanation"}:
         return "mitre_knowledge"
+    if family == "reference_knowledge":
+        return "reference_knowledge"
     if family == "cve_investigation":
         return "cve_review"
     if family == "spl_generation_only":
@@ -288,6 +290,13 @@ def _build_stage_schedule(
         if plan.needs_rag or family == "mitre_explanation":
             stages.append(PipelineStage.rag_early)
         stages.append(PipelineStage.mitre_finalize)
+        return stages
+
+    if request_mode == "reference_knowledge":
+        stages = []
+        if plan.needs_rag:
+            stages.append(PipelineStage.rag_early)
+        stages.append(PipelineStage.reference_finalize)
         return stages
 
     if request_mode == "cve_review":

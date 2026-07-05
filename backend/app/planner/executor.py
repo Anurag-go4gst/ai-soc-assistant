@@ -82,6 +82,7 @@ class DispatchHooks:
     workflow_spl: Node
     spl_postprocessor: Node
     ensure_workflow_plan: Node
+    reference_finalize: Node
     execution: Node
 
 
@@ -206,12 +207,13 @@ def _legacy_predicate_dispatch_schedule(
       v2_schedule = [h for h in v2_schedule if h not in {"prepare_rag_only", "rag_early"}]
     if not v2_schedule and "spl" in blocked_steps and not state.get("workflow_plan"):
       return ["ensure_workflow_plan"]
+    ran_spl = "workflow_spl" in v2_schedule
     rag_only = bool(
       v2_schedule
-      and "workflow_spl" not in v2_schedule
+      and not ran_spl
       and all(h in {"prepare_rag_only", "rag_early"} for h in v2_schedule)
     )
-    if not rag_only and "execution" not in v2_schedule:
+    if not rag_only and "execution" not in v2_schedule and (ran_spl or state.get("workflow_plan")):
       v2_schedule = [*v2_schedule, "execution"]
     return v2_schedule
 
@@ -241,6 +243,7 @@ _HOOK_BY_NAME = {
     "workflow_spl": lambda hooks: hooks.workflow_spl,
     "spl_postprocessor": lambda hooks: hooks.spl_postprocessor,
     "ensure_workflow_plan": lambda hooks: hooks.ensure_workflow_plan,
+    "reference_finalize": lambda hooks: hooks.reference_finalize,
     "execution": lambda hooks: hooks.execution,
 }
 

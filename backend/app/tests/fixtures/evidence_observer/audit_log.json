@@ -1,0 +1,8 @@
+{
+  "fixture_source": "handrolled_pending_live_refresh",
+  "description": "Splunk audit-search rows with search_string fields.",
+  "rows": [
+    {"_time": "2026-07-05T00:01:00Z", "host": "splunk-search-01", "sourcetype": "audittrail", "user": "jdoe", "action": "search", "search_string": "search index=_audit user=jdoe | head 20"},
+    {"_time": "2026-07-05T00:02:00Z", "host": "splunk-search-01", "sourcetype": "audittrail", "user": "asmith", "action": "search", "search_string": "search index=pgcil_soc action=failure | stats count by user"}
+  ]
+}

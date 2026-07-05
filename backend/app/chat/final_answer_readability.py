@@ -374,6 +374,8 @@ def _contains_draft_forbidden_phrase(text: str) -> bool:
 def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
     if envelope.draft_spl_code:
         return _draft_preview_lead_in(envelope.spl_draft_preview)
+    if contract.intent_family == "reference_knowledge" or "reference_lookup" in set(contract.answer_goal or []):
+        return _reference_knowledge_summary(envelope)
     if contract.intent_family == "mitre_explanation":
         text = envelope.one_sentence_finding or envelope.direct_answer_summary
         if text:
@@ -415,6 +417,37 @@ def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerCo
     if not lines and envelope.one_sentence_finding:
         return str(envelope.one_sentence_finding)
     return " ".join(lines)
+
+
+def _reference_knowledge_summary(envelope: AnalystResponseEnvelope) -> str:
+    facts = [item for item in envelope.reference_facts or [] if isinstance(item, dict)]
+    if not facts:
+        return (
+            "No matching offline reference facts were found in the local registry snapshot. "
+            "No live telemetry or environment exposure is claimed."
+        )
+    lines = ["Reference taxonomy lookup resolved these offline facts:"]
+    for fact in facts[:5]:
+        reference_id = str(fact.get("reference_id") or fact.get("technique_id") or "").strip()
+        name = str(fact.get("name") or "").strip()
+        dataset = str(fact.get("source_dataset") or fact.get("dataset_id") or "reference_dataset").strip()
+        citation = str(fact.get("citation") or "").strip()
+        if "/techniques/" in citation:
+            citation = "MITRE ATT&CK local export" if dataset == "mitre_attack_enterprise" else "MITRE reference export"
+        tactics_raw = fact.get("tactics")
+        if isinstance(tactics_raw, list):
+            tactics = ", ".join(str(item) for item in tactics_raw if str(item).strip())
+        else:
+            tactics = str(tactics_raw or "").strip()
+        label = " ".join(item for item in (reference_id, name) if item).strip() or dataset
+        suffix_parts = [f"dataset {dataset}"]
+        if tactics:
+            suffix_parts.append(f"tactics {tactics}")
+        if citation:
+            suffix_parts.append(f"citation {citation}")
+        lines.append(f"- {label} ({'; '.join(suffix_parts)}).")
+    lines.append("No local exploitation, exposure, or alert mapping is asserted from taxonomy lookup alone.")
+    return "\n".join(lines)
 
 
 def _apply_knowledge_profile_cleanup(payload: dict[str, Any], contract: AnswerContract) -> dict[str, Any]:

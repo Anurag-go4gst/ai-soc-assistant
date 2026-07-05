@@ -229,6 +229,34 @@ ROLE_DEFAULTS: tuple[dict[str, Any], ...] = (
         "max_output_tokens": 800,
         "execution_eligible": False,
     },
+    {
+        "role": "evidence_observer",
+        "preferred_provider": INSTRUCT_PROVIDER_ID,
+        "preferred_model": INSTRUCT_DEFAULT_MODEL,
+        "mode": "advisory",
+        "output": "EvidenceObserverPayload JSON",
+        "authority": "advisory",
+        "validator_required": True,
+        "strict_json": True,
+        "temperature": 0.0,
+        "max_input_tokens": 4000,
+        "max_output_tokens": 220,
+        "execution_eligible": False,
+    },
+    {
+        "role": "shape_advisor",
+        "preferred_provider": INSTRUCT_PROVIDER_ID,
+        "preferred_model": INSTRUCT_DEFAULT_MODEL,
+        "mode": "advisory",
+        "output": "ShapeAdvisorPayload JSON",
+        "authority": "advisory",
+        "validator_required": True,
+        "strict_json": True,
+        "temperature": 0.0,
+        "max_input_tokens": 2000,
+        "max_output_tokens": 80,
+        "execution_eligible": False,
+    },
 )
 
 ROLE_ENV_MAP: dict[str, tuple[str, str]] = {
@@ -265,6 +293,11 @@ ROLE_ENV_MAP: dict[str, tuple[str, str]] = {
         "ai_soc_llm_mitre_candidate_provider",
         "ai_soc_llm_mitre_candidate_model",
     ),
+    "evidence_observer": (
+        "ai_soc_llm_synthesis_provider",
+        "ai_soc_llm_synthesis_model",
+    ),
+    "shape_advisor": ("ai_soc_llm_intent_provider", "ai_soc_llm_intent_model"),
 }
 
 

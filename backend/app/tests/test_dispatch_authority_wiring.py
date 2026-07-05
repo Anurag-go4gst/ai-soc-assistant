@@ -85,6 +85,7 @@ def test_legacy_executor_schedule_uses_dispatch_v2(monkeypatch: pytest.MonkeyPat
         workflow_spl=lambda s: s,
         spl_postprocessor=lambda s: s,
         ensure_workflow_plan=lambda s: s,
+        reference_finalize=lambda s: s,
         execution=lambda s: s,
     )
     schedule = _legacy_predicate_dispatch_schedule(state, hooks, set())

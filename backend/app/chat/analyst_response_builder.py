@@ -252,6 +252,7 @@ def build_analyst_response_for_live(
         mitre_rows = _as_table_rows(draft.get("mitre_mappings"))
     not_claimed = _not_claimed_rows(decision_payload)
     playbook, sop_guidance, rag_meta = _playbook_from_rag(source_evidence)
+    reference_facts = _reference_facts_from_evidence(source_evidence)
     recommended = _recommended_actions_from_draft(draft) or _recommended_from_rag(source_evidence)
     if not recommended and draft_preview:
         recommended = _safe_display_list(draft_preview.get("investigation_checklist") or [])
@@ -363,6 +364,28 @@ def build_analyst_response_for_live(
             response_profile="hybrid_alert_review",
             execution_status=str(execution_payload.get("status") or "skipped") or None,
             mitre_mappings=mitre_rows,
+            severity_label=severity_label,
+        )
+        if contract is not None:
+            envelope = apply_final_answer_readability(envelope, contract)
+        return envelope
+    if _is_reference_knowledge_plan(intent, plan):
+        direct = _reference_summary(reference_facts)
+        recommended = _safe_display_list(plan.get("checklist") or [])[:8] or [
+            "Use the cited offline reference rows as taxonomy context only.",
+            "Do not treat taxonomy relevance as observed activity in local telemetry.",
+            "Collect live evidence separately before claiming exploitation, severity, or confirmed technique use.",
+        ]
+        envelope = AnalystResponseEnvelope(
+            finding_title="Reference taxonomy lookup",
+            one_sentence_finding=direct[:1200],
+            direct_answer_summary=direct[:2000],
+            recommended_actions=recommended,
+            analyst_checklist=recommended,
+            investigation_steps=recommended,
+            response_profile="knowledge_recall",
+            execution_status=str(execution_payload.get("status") or "skipped") or None,
+            reference_facts=reference_facts[:10],
             severity_label=severity_label,
         )
         if contract is not None:
@@ -715,6 +738,68 @@ def _safe_display_list(values: Any) -> list[str]:
     if not isinstance(values, list):
         return []
     return [str(item) for item in values if item]
+
+
+def _reference_facts_from_evidence(source_evidence: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    facts: list[dict[str, Any]] = []
+    for evidence in source_evidence:
+        if evidence.get("source_type") != "reference_dataset":
+            continue
+        for row in evidence.get("preview_rows") or []:
+            if isinstance(row, dict):
+                facts.append(dict(row))
+            if len(facts) >= 10:
+                return facts
+    return facts
+
+
+def _is_reference_knowledge_plan(intent: dict[str, Any], plan: dict[str, Any]) -> bool:
+    if str(intent.get("intent_family") or "") == "reference_knowledge":
+        return True
+    if "reference_lookup" in {str(item) for item in intent.get("answer_goal") or []}:
+        return True
+    if "reference_taxonomy_lookup" in {str(item) for item in plan.get("reasons") or []}:
+        return True
+    if "reference_dataset" in {str(item) for item in plan.get("required_evidence_keys") or []}:
+        return True
+    return "reference_registry" in {str(item) for item in plan.get("required_sources") or []}
+
+
+def _reference_summary(reference_facts: list[dict[str, Any]]) -> str:
+    if not reference_facts:
+        return (
+            "No matching offline reference facts were found in the local registry snapshot. "
+            "No live telemetry or environment exposure is claimed."
+        )
+    lines = ["Reference taxonomy lookup resolved these offline facts:"]
+    for fact in reference_facts[:5]:
+        reference_id = str(fact.get("reference_id") or fact.get("technique_id") or "").strip()
+        name = str(fact.get("name") or "").strip()
+        dataset = str(fact.get("source_dataset") or fact.get("dataset_id") or "reference_dataset").strip()
+        citation = str(fact.get("citation") or "").strip()
+        if "/techniques/" in citation:
+            citation = "MITRE ATT&CK local export" if dataset == "mitre_attack_enterprise" else "MITRE reference export"
+        tactics_raw = fact.get("tactics")
+        if isinstance(tactics_raw, list):
+            tactics = ", ".join(str(item) for item in tactics_raw if str(item).strip())
+        else:
+            tactics = str(tactics_raw or "").strip()
+        label = " ".join(item for item in (reference_id, name) if item).strip() or dataset
+        suffix_parts = [f"dataset {dataset}"]
+        if tactics:
+            suffix_parts.append(f"tactics {tactics}")
+        if citation:
+            suffix_parts.append(f"citation {citation}")
+        lines.append(f"- {label} ({'; '.join(suffix_parts)}).")
+    lines.append("No local exploitation, exposure, or alert mapping is asserted from taxonomy lookup alone.")
+    return "\n".join(lines)
+
+
+def reference_summary_line(reference_facts: list[dict[str, Any]]) -> str:
+    """Public entry point for the deterministic synthesis draft (lab_runner.py):
+    render the same governed reference-taxonomy summary this builder uses,
+    so `analyst_summary` and `analyst_response.one_sentence_finding` never diverge."""
+    return _reference_summary(reference_facts)
 
 
 def summarize_failed_login_events(rows: list[dict[str, Any]]) -> str | None:

@@ -250,6 +250,8 @@ Most-relevant in-flight/recent plans:
 
 | Plan | Status |
 |------|--------|
+| `plans/2026-07-04_1736_intent-mcp-tool-routing-hardening.md` | **Done** — Phase 1 intent-hinted tool routing + data-silence advisory HIL + saved-search name allowlist/preference; Phase 2 governed evidence observer (grounded claims, governed ReAct, 1-call cap, telemetry); Phase 3 canonical reference-knowledge path (CVE/ATT&CK/ATLAS registry, `reference_taxonomy` shape, `reference_finalize`, shape advisor main-path advisory, 10-probe + zero-hallucinated-ID evals). Suite 4067 green, governance regression PASS |
+
 | `plans/2026-07-04_0428_intent-advisor-value-o5c-live-scorecard.md` | **Done** — consumer-gated intent advisor (`intent_advisory_no_consumer`), candidate-constrained advisory prompt (first live promotion, 13.1s), O5c live-trigger match-path fix, live scorecard: MCP 26.67% / LLM util 45% / CVE-MITRE 13.33% |
 | `plans/2026-07-02_1327_dynamic-resource-planning-out-of-catalogue.md` | **Done** — LLM-primary planner, all-tier MCP eligibility, O5c multi-call, CVE/MITRE resources, CanonicalFacts spine + grounding, action lane + UI (`AI_SOC_ACTION_LANE_LIVE_PROPOSALS_ENABLED`), Batch A flag retirement, post-change scorecard in `docs/evals/out_of_catalogue_after_2026-07/` |
 | `plans/2026-06-29_conditional-pipeline-canonical-dispatch.md` | In Progress (`feat/pipeline-dispatch-v2`) — all 12 phases done behind `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` (default false, flag-off byte-identical) |
@@ -272,6 +274,8 @@ Project skills in `.claude/skills/` (auto-listed in every Claude Code session he
 
 - **`/execute-plan-item`** — executing any checklist item under `plans/`: anchor verification, verbatim Verify, Evidence recording, stop conditions. Use for every plan item; do not free-style plan execution.
 - **`/invariant-check`** — REQUIRED before any commit touching pipeline/planner/SPL/MCP/LLM code: 7-group governance diff review (LLM↔MCP mediation, SPL executability, EC purity, redaction, state channels, flags, test honesty).
+- **`/llm-live-probe`** — REQUIRED before wiring/changing any LLM role or prompt, or deciding shadow-vs-main promotion: closed case set, zero-shot vs few-shot, warm/cold latency on :8081, decision rubric from the measured intensity policy.
+- **`/reference-probe-audit`** — run the 10-probe reference-knowledge contract (P1–P6/N1–N4) and diff against baseline; required for Phase 3 of `plans/2026-07-04_1736` and any change to answer shapes/routing floors/MITRE-CVE-ATLAS handling.
 - **`/deep-think`** (user-level) — start of any non-trivial task: verify-before-trust protocol.
 - **`/self-improve-loop`** (user-level) — metric-target quality pushes (e.g. scorecard improvements): evaluator-first, one-hypothesis iterations, KEEP/REVERT ledger.
 - **`/handoff`** (user-level) — ending a session mid-plan: 7-section state note for the next agent.

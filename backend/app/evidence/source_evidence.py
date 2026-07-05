@@ -222,21 +222,35 @@ def build_provider_source_evidence(
     provider_used: str | None = None,
     provenance: str | None = None,
 ) -> dict[str, Any]:
-    rows = _safe_rows(preview_rows or [])
+    keyword_scrub = source_type != "reference_dataset"
+    rows = _safe_rows(preview_rows or [], keyword_scrub=keyword_scrub)
     return _evidence(
         trace_id=trace_id,
         source_type=source_type,
         source_name=source_name,
         tool_name=tool_name,
         collection_status=collection_status,
-        query_or_request_summary=_safe_text(query_or_request_summary or "", 300) if query_or_request_summary else None,
+        query_or_request_summary=(
+            _safe_text(query_or_request_summary or "", 300, keyword_scrub=keyword_scrub)
+            if query_or_request_summary
+            else None
+        ),
         result_count=result_count,
         fields_returned=_fields_returned(rows),
         preview_rows=rows,
         raw_result_hash=_raw_hash(rows) if rows else None,
         raw_result_stored=False,
         warnings=warnings or [],
-        sensitivity_flags=_sensitivity_flags(rows, _fields_returned(rows)),
+        # _sensitivity_flags re-scans the same rows with SENSITIVE_PATTERNS to
+        # tell context_sufficiency's "sensitive leak" gate whether to block
+        # synthesis. When keyword_scrub is off (reference_dataset), the words
+        # this check looks for are exactly the ones we deliberately kept —
+        # public MITRE technique vocabulary, not a live-data leak — so it must
+        # skip in lockstep with the scrub, or every taxonomy answer trips
+        # blocked_by_policy + forced human review (found live 2026-07-05:
+        # "What is T1531..." blocked on sensitivity_flags=["sensitive_value_redacted"]
+        # from the technique's own description text).
+        sensitivity_flags=_sensitivity_flags(rows, _fields_returned(rows)) if keyword_scrub else [],
         tool_category=tool_category,
         provider_used=provider_used,
         provenance=provenance,
@@ -463,25 +477,39 @@ def _preview_from_execution(
     return rows, _fields_returned(rows), []
 
 
-def _safe_rows(rows: Any) -> list[dict[str, Any]]:
+def _safe_rows(rows: Any, *, keyword_scrub: bool = True) -> list[dict[str, Any]]:
     if not isinstance(rows, list):
         return []
     safe_rows: list[dict[str, Any]] = []
     for row in rows[:SOURCE_PREVIEW_CAP]:
         if not isinstance(row, dict):
             continue
-        safe_rows.append({_safe_text(str(key), 80): _safe_value(value) for key, value in row.items()})
+        safe_rows.append(
+            {
+                _safe_text(str(key), 80, keyword_scrub=keyword_scrub): _safe_value(value, keyword_scrub=keyword_scrub)
+                for key, value in row.items()
+            }
+        )
     return safe_rows
 
 
-def _safe_value(value: Any) -> Any:
+def _safe_value(value: Any, *, keyword_scrub: bool = True) -> Any:
     if isinstance(value, (int, float, bool)) or value is None:
         return value
-    return _safe_text(str(value), VALUE_CAP)
+    return _safe_text(str(value), VALUE_CAP, keyword_scrub=keyword_scrub)
 
 
-def _safe_text(value: str, max_len: int) -> str:
-    masked = redact_secret_values(SENSITIVE_PATTERNS.sub("[redacted]", value))
+def _safe_text(value: str, max_len: int, *, keyword_scrub: bool = True) -> str:
+    # keyword_scrub=False is for offline reference-dataset facts only (see
+    # build_provider_source_evidence): MITRE technique names/descriptions are
+    # public taxonomy vocabulary from a vetted local bundle, never a live
+    # extracted value, so the blanket credential-keyword substitution below
+    # produces false positives (e.g. "Password Spraying" -> "[redacted]
+    # Spraying" — found live 2026-07-05). redact_secret_values (shape-based:
+    # JWTs, API-key-looking tokens, etc.) still runs unconditionally as the
+    # backstop for any live-shaped secret that could appear regardless of source.
+    text = SENSITIVE_PATTERNS.sub("[redacted]", value) if keyword_scrub else value
+    masked = redact_secret_values(text)
     return masked.replace("\n", " ")[:max_len]
 
 
