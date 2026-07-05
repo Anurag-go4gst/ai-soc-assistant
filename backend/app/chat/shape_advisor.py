@@ -90,12 +90,17 @@ def generate_shape_advisory(
         timed_out = invocation.timed_out
         provider_label = invocation.answered_label
         if raw_output is None:
+            # timed_out=True means the sidecar WAS invoked and the model didn't
+            # answer in time (live-load condition) — distinct from the role
+            # being unconfigured. Conflating the two masks a real timeout as a
+            # config problem in the trace (found live 2026-07-05: 10002ms
+            # latency reported as "unavailable_or_disabled").
             return ShapeAdvisoryResult(
                 deterministic_shape=deterministic_shape,
                 llm_called=False,
                 timed_out=timed_out,
                 provider_label=provider_label,
-                skipped_reason="shape_advisor_unavailable_or_disabled",
+                skipped_reason="shape_advisor_timed_out" if timed_out else "shape_advisor_unavailable_or_disabled",
                 latency_ms=int((time.monotonic() - started) * 1000),
             )
     else:

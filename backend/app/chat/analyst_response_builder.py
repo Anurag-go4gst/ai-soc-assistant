@@ -795,6 +795,13 @@ def _reference_summary(reference_facts: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def reference_summary_line(reference_facts: list[dict[str, Any]]) -> str:
+    """Public entry point for the deterministic synthesis draft (lab_runner.py):
+    render the same governed reference-taxonomy summary this builder uses,
+    so `analyst_summary` and `analyst_response.one_sentence_finding` never diverge."""
+    return _reference_summary(reference_facts)
+
+
 def summarize_failed_login_events(rows: list[dict[str, Any]]) -> str | None:
     """Explain total failed-login event count when the table supports it."""
     if not rows:

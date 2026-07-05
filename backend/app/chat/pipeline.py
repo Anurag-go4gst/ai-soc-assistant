@@ -371,6 +371,13 @@ class ChatPipelineState(TypedDict, total=False):
     governance_trace: Any
     query_to_intent: dict[str, Any] | None
     llm_intent_advisory: LLMIntentAdvisory | None
+    # LangGraph silently drops any state key not declared here (see executor
+    # guide). shape_advisory was set by graph_node_query_understanding but
+    # never declared — the LangGraph edge (LANGGRAPH_ORCHESTRATION_ENABLED=true,
+    # the live default) dropped it every turn, so control_plane_trace.shape_advisory
+    # read null in production even though the sidecar ran and item 21's tests
+    # passed (tests call the node function directly, bypassing the graph edge).
+    shape_advisory: dict[str, Any] | None
     intent_classification: dict[str, Any] | None
     evidence_plan: dict[str, Any] | None
     planning_decision: dict[str, Any] | None

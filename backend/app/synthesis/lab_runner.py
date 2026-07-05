@@ -21,6 +21,7 @@ from app.config import settings
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.llm.clients import LocalChatClient, build_synthesis_client_from_settings
 from app.synthesis.live_narration import narrate_analyst_summary
+from app.chat.analyst_response_builder import reference_summary_line
 from app.evidence.context_sufficiency import (
     ANALYST_REVIEW_REQUIRED,
     BLOCKED_BY_POLICY,
@@ -269,6 +270,9 @@ def _build_deterministic_lab_draft(
     if facts and isinstance(facts[0], dict):
         lead = str(facts[0].get("statement") or "").strip()
 
+    reference_facts = structured_context.get("reference_facts")
+    reference_facts = reference_facts if isinstance(reference_facts, list) else []
+
     mitre_lines: list[str] = []
     for item in package.permitted_mitre_techniques[:3]:
         mitre_lines.append(f"{item.technique_id} ({item.status})")
@@ -281,15 +285,24 @@ def _build_deterministic_lab_draft(
             break
 
     summary_parts = []
-    if lead:
-        summary_parts.append(lead)
-    if mitre_lines:
-        summary_parts.append("MITRE (permitted set): " + ", ".join(mitre_lines) + ".")
-    summary_parts.append(aggregate_note)
-    if severity_label:
-        summary_parts.append(f"Severity matrix: {severity_label}.")
-    if missing:
-        summary_parts.append("Missing evidence: " + " ".join(missing))
+    if reference_facts:
+        # Reference-taxonomy turns (plan item 19) resolve real dataset facts
+        # (e.g. AML.T#### names/tactics/citations) — the generic per-evidence
+        # "N previewable rows through <tool>" lead (built for hunt/discovery
+        # turns) discarded that content entirely. Use the same governed
+        # summary analyst_response.one_sentence_finding renders, so the two
+        # answer surfaces never diverge (found live 2026-07-05).
+        summary_parts.append(reference_summary_line(reference_facts))
+    else:
+        if lead:
+            summary_parts.append(lead)
+        if mitre_lines:
+            summary_parts.append("MITRE (permitted set): " + ", ".join(mitre_lines) + ".")
+        summary_parts.append(aggregate_note)
+        if severity_label:
+            summary_parts.append(f"Severity matrix: {severity_label}.")
+        if missing:
+            summary_parts.append("Missing evidence: " + " ".join(missing))
 
     preview_rows = _preview_rows_from_evidence(source_evidence)
     normalized_spl = None
