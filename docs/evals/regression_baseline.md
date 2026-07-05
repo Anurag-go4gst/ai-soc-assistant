@@ -29,6 +29,7 @@ Canonical command:
 | SKILL_ENUM contract test | backend == harness |
 | Out-of-catalog OT probe `--check` | exit 0 (6 natural analyst asks) |
 | Live efficacy universal checks | duplicate actions, overlap, thin guided, composer skip |
+| Reference knowledge answer quality | `test_reference_answer_quality.py` all pass; P1-P4 grounded, N1-N4 not reference |
 
 ## Recorded counts (2026-06-03)
 

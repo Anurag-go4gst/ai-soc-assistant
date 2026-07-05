@@ -18,7 +18,7 @@ If Cursor also writes a plan under `.cursor/plans/` or `/root/.cursor/plans/`, *
 
 | Plan | Status |
 |------|--------|
-| [`2026-07-04_1736_intent-mcp-tool-routing-hardening.md`](2026-07-04_1736_intent-mcp-tool-routing-hardening.md) | **Draft** (item 0 done, committed `7f3683e`) — Phase 1 tool routing/gates + saved-search name allowlist; Phase 2 governed evidence observation; Phase 3 canonical reference-knowledge path (10-probe contract, `reference_taxonomy`, shape advisor) |
+| [`2026-07-04_1736_intent-mcp-tool-routing-hardening.md`](2026-07-04_1736_intent-mcp-tool-routing-hardening.md) | **Done** — 23/23 items; tool routing + observer + reference-knowledge path; suite 4067 green, governance regression PASS |
 | [`2026-07-04_2105_providers-mcp-connection-hub.md`](2026-07-04_2105_providers-mcp-connection-hub.md) | **Done** — Providers Splunk save + execution switch; MCP tab other MCPs; B1–B9 review fixes |
 | [`2026-07-04_1730_hybrid-intent-deterministic-llm-coordination.md`](2026-07-04_1730_hybrid-intent-deterministic-llm-coordination.md) | **Done** — hybrid advisory OOR-only; command modes excluded; governance green |
 | [`2026-07-04_1610_danger-tiered-mcp-command-intent.md`](2026-07-04_1610_danger-tiered-mcp-command-intent.md) | **Done** — OOR command modes on canonical `spl_and_run` spine (not guided); postprocessor + source_resolve; read-only auto; SPL HIL; governance regression green after `_resolve_path_type` command-signal fix |

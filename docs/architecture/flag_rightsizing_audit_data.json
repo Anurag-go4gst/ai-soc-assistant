@@ -4377,6 +4377,24 @@
   },
   {
     "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "splunk_allowed_saved_searches",
+    "default_env": "",
+    "disposition": "keep",
+    "env_key": "SPLUNK_ALLOWED_SAVED_SEARCHES",
+    "evidence": "rg: backend/app/config.py, backend/app/orchestration/saved_search_allowlist.py, backend/app/connectors/mcp/connection_store.py; plan: 2026-07-04_1736 item 4",
+    "git_intro": "uncommitted 2026-07-05 intent-MCP routing hardening item 4",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/config.py",
+      "backend/app/orchestration/saved_search_allowlist.py",
+      "backend/app/connectors/mcp/connection_store.py",
+      "backend/app/orchestration/mcp_execution_gate.py"
+    ],
+    "risk_note": "Deny-all saved-search name allowlist; not a feature flag."
+  },
+  {
+    "batch": null,
     "classification": "keep_unresolved",
     "config_field": "splunk_knowledge_object_discovery_allowed",
     "default_env": "true",
