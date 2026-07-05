@@ -47,6 +47,15 @@ def test_query_understanding_mitre_without_context_requires_clarification() -> N
     assert result.clarification_question
 
 
+def test_query_understanding_reference_taxonomy_skips_mitre_clarification() -> None:
+    result = understand_query(
+        "What MITRE ATLAS techniques apply to prompt injection against our LLM agent using MCP tools?"
+    )
+
+    assert "mitre_mapping_requires_alert_context" not in (result.ambiguity_flags or [])
+    assert result.clarification_needed is False
+
+
 def test_query_understanding_maps_exact_105_question_registry_rows() -> None:
     entries = list_question_runtime_entries()
     assert len(entries) == 105

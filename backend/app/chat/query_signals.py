@@ -1055,6 +1055,7 @@ def extract_query_signals(
         and qu.clarification_needed
         and "mitre_mapping_requires_alert_context" in (qu.ambiguity_flags or [])
         and not explicit_mitre_context
+        and classify_answer_shape(query).primary_shape != "reference_taxonomy"
     )
 
     analytics_aggregation = bool(

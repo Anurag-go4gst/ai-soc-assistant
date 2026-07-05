@@ -10,6 +10,7 @@ from app.query_understanding.soc_investigation_shape import (
     detect_soc_investigation_shape,
     prefers_guided_investigation_over_catalog,
 )
+from app.chat.answer_shape_router import classify_answer_shape
 from app.chat.query_signals import detect_security_log_aggregation_investigation_query
 from app.query_understanding.time_window import normalize_time_window
 from app.use_cases.registry import load_use_case_catalog, match_use_cases
@@ -256,6 +257,7 @@ def _ambiguity_flags(normalized: str) -> list[str]:
         and not any(marker in normalized for marker in _ALERT_CONTEXT_MARKERS)
         and len(normalized) <= 160
         and not guidance_context
+        and classify_answer_shape(normalized).primary_shape != "reference_taxonomy"
     ):
         flags.append("mitre_mapping_requires_alert_context")
     return flags
