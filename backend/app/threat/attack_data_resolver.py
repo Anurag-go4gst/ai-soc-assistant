@@ -35,7 +35,33 @@ _ENTERPRISE_TECHNIQUE_ID = re.compile(r"^T\d")
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    """Base directory for resolving relative threat-resolver paths.
+
+    Two run modes put this file at a different depth from anything worth
+    calling "root", so a single fixed ``parents[N]`` cannot serve both:
+
+    - Bare-run/pytest: ``<repo>/backend/app/threat/this_file.py`` — the real
+      repo root is 3 parents up, and it has a ``docs/`` sibling of ``backend/``
+      (where the vendored xlsx/yaml resolver data lives, e.g.
+      ``AI_SOC_ATTACK_XLSX_PATH=docs/evals/...``, repo-root relative).
+    - Docker (compose mounts ``./backend:/app``, ``working_dir: /app``): this
+      file lives at ``/app/app/threat/this_file.py``. There is no repo root at
+      all inside the container filesystem — ``parents[3]`` lands on ``/``,
+      which silently broke every threat-resolver path config under Docker
+      (the project's primary run mode) until a live probe surfaced honest
+      "not found" facts for techniques known to be in the bundle (2026-07-05).
+      Backend-relative paths (e.g. ``data/threat_intel/attack/...``) must
+      resolve against ``/app`` — the backend-equivalent root — instead.
+
+    Prefer the repo root only when it's real (has both ``docs/`` and
+    ``backend/`` — the monorepo marker); otherwise fall back to the
+    backend-equivalent root, which always exists in both modes.
+    """
+    backend_root = Path(__file__).resolve().parents[2]
+    candidate_repo_root = Path(__file__).resolve().parents[3]
+    if (candidate_repo_root / "docs").is_dir() and (candidate_repo_root / "backend").is_dir():
+        return candidate_repo_root
+    return backend_root
 
 
 def _resolve_path(path: str | Path | None) -> Path | None:

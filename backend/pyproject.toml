@@ -14,6 +14,7 @@ dependencies = [
     "asyncpg",
     "langgraph>=0.2.60",
     "pytest",
+    "mitreattack-python>=6.0.0",
 ]
 
 [tool.pytest.ini_options]
