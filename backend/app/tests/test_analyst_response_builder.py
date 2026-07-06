@@ -273,7 +273,8 @@ def test_reference_summary_renders_atlas_mitigations_and_case_studies() -> None:
                 "reference_id": "AML.T0065",
                 "name": "LLM Prompt Crafting",
                 "dataset_id": "mitre_atlas",
-                "tactics": ["resource-development"],
+                "tactics": ["AML.TA0003"],
+                "description": "Adversaries may craft prompts that bypass defenses.",
                 "citation": "MITRE ATLAS local coverage artifact",
                 "raw": {
                     "atlas_enrichment": {
@@ -285,11 +286,40 @@ def test_reference_summary_renders_atlas_mitigations_and_case_studies() -> None:
                     }
                 },
             }
-        ]
+        ],
+        user_query="prompt injection against our LLM agent using MCP tools",
     )
-    assert "mitigations:" not in summary
-    assert "related case studies:" in summary
-    assert "Cursor MCP Exfil" in summary
+    assert "dataset mitre_atlas" not in summary
+    assert "Related incidents:" in summary
+    assert "Cursor MCP Exfil (AML.CS0045)" in summary
+    assert "Source:" in summary
+    assert "bundle: docs/threat-intel/atlas/raw/ATLAS.yaml" in summary
+    assert "registry: reference_registry" in summary
+
+
+def test_build_reference_source_playbook_surfaces_bundle_metadata() -> None:
+    from app.chat.analyst_response_builder import build_reference_source_playbook
+
+    playbook = build_reference_source_playbook(
+        [
+            {
+                "reference_id": "AML.T0065",
+                "dataset_id": "mitre_atlas",
+                "provenance_tier": "operator_vendored_atlas",
+            }
+        ],
+        source_evidence=[
+            {
+                "source_type": "reference_dataset",
+                "evidence_id": "ev_ref123",
+            }
+        ],
+    )
+    assert playbook is not None
+    assert playbook["title"] == "MITRE ATLAS reference bundle"
+    assert playbook["retrieval_mode"] == "reference_registry"
+    assert playbook["source_evidence_id"] == "ev_ref123"
+    assert "ATLAS.yaml" in str(playbook["citation"])
 
 
 def test_reference_summary_unaffected_for_non_atlas_dataset() -> None:
@@ -315,3 +345,33 @@ def test_reference_summary_unaffected_for_non_atlas_dataset() -> None:
     assert "mitigations:" not in summary
     assert "related case studies:" not in summary
     assert "Should Not Render" not in summary
+    assert "Source:" in summary
+    assert "MITRE ATT&CK Enterprise reference export" in summary
+
+
+def test_reference_narration_seed_is_compact() -> None:
+    from app.chat.analyst_response_builder import reference_narration_seed, reference_summary_line
+
+    facts = [
+        {
+            "reference_id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "source_dataset": "mitre_atlas",
+            "description": "An adversary may craft prompts to manipulate model behavior.",
+        }
+    ]
+    seed = reference_narration_seed(facts, user_query="ATLAS prompt injection against MCP tools")
+    summary = reference_summary_line(facts, user_query="ATLAS prompt injection against MCP tools")
+    assert len(seed) < len(summary)
+    assert "AML.T0051" in seed
+    assert "Taxonomy context only" in seed
+
+
+def test_merge_reference_message_with_llm_intro() -> None:
+    from app.chat.analyst_response_builder import merge_reference_message_with_llm_intro
+
+    summary = "Source: MITRE ATLAS\n\n1. AML.T0051"
+    merged = merge_reference_message_with_llm_intro(summary, llm_intro="Prompt injection is a known ATLAS risk.")
+    assert merged.startswith("Prompt injection is a known ATLAS risk.")
+    assert merged.endswith(summary)
+    assert merge_reference_message_with_llm_intro(summary, llm_intro=None) == summary

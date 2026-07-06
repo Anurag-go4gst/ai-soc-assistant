@@ -158,6 +158,13 @@ def _build_governed_prompt(
     if missing:
         lines.append("- Missing/unavailable evidence: " + " ".join(missing))
 
+    draft_summary = str(deterministic_draft.get("analyst_summary") or "").strip()
+    if draft_summary:
+        lines.append(
+            "- Summary draft to rewrite in clear analyst prose (use only these facts, do not invent): "
+            + draft_summary[:1800]
+        )
+
     lines.append(
         "\nWrite the analyst summary now using only the facts above."
     )

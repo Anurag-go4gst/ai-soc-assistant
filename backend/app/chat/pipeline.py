@@ -15,6 +15,10 @@ from app.connectors.telemetry.log_context import current_trace_id, reset_trace_i
 from app.actions.capability_policy import action_capability_for
 from app.chat.analyst_response_builder import (
     build_analyst_response_for_live,
+    build_reference_source_playbook,
+    merge_reference_message_with_llm_intro,
+    reference_narration_seed,
+    reference_one_sentence_lead,
     reference_summary_line,
 )
 from app.answer_guard.models import AnswerGuardStatus
@@ -4104,8 +4108,24 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     if analyst_response is None:
         reference_facts_for_card = _reference_facts_for_card(structured_context)
         if reference_facts_for_card:
-            reference_summary = _reference_lookup_summary(reference_facts_for_card)
-            message = reference_summary
+            reference_summary = _reference_lookup_summary(
+                reference_facts_for_card,
+                user_query=request.message,
+                source_evidence=source_evidence,
+            )
+            reference_lead = reference_one_sentence_lead(
+                reference_facts_for_card,
+                user_query=request.message,
+            )
+            llm_intro = (
+                str(analyst_summary_from_lab or "").strip()
+                if synthesis_status.provider == "local_model"
+                else None
+            )
+            message = merge_reference_message_with_llm_intro(
+                reference_summary,
+                llm_intro=llm_intro,
+            )
             reference_actions = [
                 "Use the cited offline reference rows as taxonomy context only.",
                 "Do not treat taxonomy relevance as observed activity in local telemetry.",
@@ -4113,14 +4133,18 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             ]
             analyst_response = AnalystResponseEnvelope(
                 finding_title="Reference taxonomy lookup",
-                one_sentence_finding=reference_summary[:1200],
-                direct_answer_summary=reference_summary[:2000],
+                one_sentence_finding=(llm_intro or reference_lead)[:1200],
+                direct_answer_summary=reference_summary[:4000],
                 recommended_actions=reference_actions,
                 analyst_checklist=reference_actions,
                 investigation_steps=reference_actions,
                 response_profile="knowledge_recall",
                 execution_status=str(execution.get("status") or "skipped"),
                 reference_facts=reference_facts_for_card[:10],
+                retrieved_playbook=build_reference_source_playbook(
+                    reference_facts_for_card[:10],
+                    source_evidence=source_evidence,
+                ),
             )
     if environment_hygiene is not None and analyst_response is not None:
         limitations = list(analyst_response.limitations or [])
@@ -4278,12 +4302,19 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         catalog_row=_catalog_row,
         selected_skill=_effective_routing_skill(state),
     )
+    lab_already_narrated = synthesis_status.provider == "local_model"
+    if lab_already_narrated:
+        composer_trace = {
+            **composer_trace,
+            "llm_composer_skipped_reason": "synthesis_lab_already_narrated",
+        }
     if (
         answer_contract is not None
         and analyst_response is not None
         and hybrid_role_plan is not None
         and hybrid_role_plan.role_enabled("governed_composer")
         and not skip_composer
+        and not lab_already_narrated
     ):
         budget = state.get("llm_turn_budget") or TurnLlmBudget()
         # Do not start slow narration when its configured socket window cannot fit
@@ -4355,6 +4386,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                     "llm_composer_skipped_reason": "insufficient_deadline_reserve",
                 }
             else:
+                _reference_facts_for_compose = _reference_facts_for_card(structured_context)
+                _reference_seed = (
+                    reference_narration_seed(
+                        _reference_facts_for_compose,
+                        user_query=request.message,
+                    )
+                    if _reference_facts_for_compose
+                    else None
+                )
                 _t0 = time.monotonic()
                 composer_result = compose_governed_answer(
                     contract=answer_contract,
@@ -4366,6 +4406,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                     timeout_seconds=_composer_timeout,
                     user_query=request.message or None,
                     selected_skill=_effective_routing_skill(state),
+                    reference_narration_seed=_reference_seed,
                 )
                 composer_trace = {**composer_trace, **composer_result.trace_payload()}
             if composer_result.llm_composer_used:
@@ -4529,7 +4570,23 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         )
     reference_facts_for_card = _reference_facts_for_card(structured_context)
     if reference_facts_for_card:
-        reference_summary = _reference_lookup_summary(reference_facts_for_card)
+        reference_summary = _reference_lookup_summary(
+            reference_facts_for_card,
+            user_query=request.message,
+            source_evidence=source_evidence,
+        )
+        reference_lead = reference_one_sentence_lead(
+            reference_facts_for_card,
+            user_query=request.message,
+        )
+        llm_intro = None
+        if synthesis_status.provider == "local_model":
+            llm_intro = str(analyst_summary_from_lab or "").strip() or None
+        elif isinstance(composer_trace, dict) and composer_trace.get("llm_composer_used"):
+            llm_intro = (
+                str(analyst_response.one_sentence_finding or analyst_response.direct_answer_summary or "").strip()
+                or None
+            )
         reference_actions = [
             "Use the cited offline reference rows as taxonomy context only.",
             "Do not treat taxonomy relevance as observed activity in local telemetry.",
@@ -4544,8 +4601,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         analyst_response = analyst_response.model_copy(
             update={
                 "finding_title": "Reference taxonomy lookup",
-                "one_sentence_finding": reference_summary[:1200],
-                "direct_answer_summary": reference_summary[:2000],
+                "one_sentence_finding": (llm_intro or reference_lead)[:1200],
+                "direct_answer_summary": reference_summary[:4000],
                 "recommended_actions": list(getattr(analyst_response, "recommended_actions", None) or reference_actions)
                 or reference_actions,
                 "analyst_checklist": list(getattr(analyst_response, "analyst_checklist", None) or reference_actions)
@@ -4554,9 +4611,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 or reference_actions,
                 "response_profile": "knowledge_recall",
                 "reference_facts": reference_facts_for_card[:10],
+                "retrieved_playbook": build_reference_source_playbook(
+                    reference_facts_for_card[:10],
+                    source_evidence=source_evidence,
+                ),
             }
         )
-        message = reference_summary
+        message = merge_reference_message_with_llm_intro(
+            reference_summary,
+            llm_intro=llm_intro,
+        )
     analyst_response = _collapse_card_summary_when_sections_own_details(
         analyst_response, path_type=path_type
     )
@@ -9208,8 +9272,17 @@ def _reference_facts_for_card(structured_context: dict[str, Any] | None) -> list
     return facts
 
 
-def _reference_lookup_summary(reference_facts: list[dict[str, Any]]) -> str:
-    return reference_summary_line(reference_facts)
+def _reference_lookup_summary(
+    reference_facts: list[dict[str, Any]],
+    *,
+    user_query: str | None = None,
+    source_evidence: list[dict[str, Any]] | None = None,
+) -> str:
+    return reference_summary_line(
+        reference_facts,
+        user_query=user_query,
+        source_evidence=source_evidence,
+    )
 
 
 def graph_node_reference_finalize(state: ChatPipelineState) -> ChatPipelineState:

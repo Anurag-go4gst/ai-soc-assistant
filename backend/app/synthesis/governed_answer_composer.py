@@ -218,6 +218,7 @@ def build_composer_prompt(
     weak_case_composition: bool = False,
     user_query: str | None = None,
     path_type: str | None = None,
+    reference_narration_seed: str | None = None,
 ) -> str:
     """Build a contract-only composer prompt (no raw events or GitHub content)."""
     projection = enrichment_projection or {}
@@ -389,6 +390,11 @@ def build_composer_prompt(
             "\nGOVERNED CONTEXT (cite-only; ignore irrelevant snippets; declare gaps instead of inventing):"
         )
         lines.append(context_package.to_prompt_block())
+
+    seed = str(reference_narration_seed or "").strip()
+    if seed:
+        lines.append("\nREFERENCE REGISTRY FACTS (taxonomy only; not live telemetry):")
+        lines.append(seed)
 
     lines.append("\nWrite the analyst summary now using only the contract facts above.")
     return "\n".join(lines)
@@ -572,6 +578,7 @@ def compose_governed_answer(
     timeout_seconds: float | None = None,
     user_query: str | None = None,
     selected_skill: str | None = None,
+    reference_narration_seed: str | None = None,
 ) -> GovernedComposerResult:
     """Compose governed prose or return the Phase 8 deterministic envelope."""
     if fallback_envelope.draft_spl_code:
@@ -613,6 +620,7 @@ def compose_governed_answer(
         weak_case_composition=weak_case,
         user_query=user_query,
         path_type=path_type,
+        reference_narration_seed=reference_narration_seed,
     )
     llm_client = client or build_synthesis_client_from_settings()
     if llm_client is None:

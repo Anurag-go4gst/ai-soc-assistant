@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -160,6 +161,33 @@ def atlas_technique_enrichment(technique_id: str) -> dict[str, Any]:
     mitigations.sort(key=lambda item: item["id"])
     case_studies.sort(key=lambda item: item["id"])
     return {"mitigations": mitigations, "case_studies": case_studies}
+
+
+@lru_cache(maxsize=1)
+def atlas_tactic_label_map() -> dict[str, str]:
+    """Map AML.TA#### tactic ids to display names from the vendored ATLAS YAML."""
+    from app.config import settings
+
+    yaml_rel = getattr(settings, "ai_soc_atlas_yaml_path", "") or "docs/threat-intel/atlas/raw/ATLAS.yaml"
+    path = Path(yaml_rel) if Path(yaml_rel).is_absolute() else repo_root() / yaml_rel
+    if not path.exists():
+        return {}
+    try:
+        import yaml
+
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return {}
+    labels: dict[str, str] = {}
+    for matrix in (data or {}).get("matrices", []) if isinstance(data, dict) else []:
+        for tactic in matrix.get("tactics", []) if isinstance(matrix, dict) else []:
+            if not isinstance(tactic, dict):
+                continue
+            tid = str(tactic.get("id") or "").strip()
+            name = str(tactic.get("name") or "").strip()
+            if tid and name:
+                labels[tid] = name
+    return labels
 
 
 def _atlas_technique_names(technique_ids: list[str]) -> dict[str, str]:

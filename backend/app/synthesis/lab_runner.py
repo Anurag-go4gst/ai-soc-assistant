@@ -21,7 +21,7 @@ from app.config import settings
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.llm.clients import LocalChatClient, build_synthesis_client_from_settings
 from app.synthesis.live_narration import narrate_analyst_summary
-from app.chat.analyst_response_builder import reference_summary_line
+from app.chat.analyst_response_builder import reference_narration_seed, reference_summary_line
 from app.evidence.context_sufficiency import (
     ANALYST_REVIEW_REQUIRED,
     BLOCKED_BY_POLICY,
@@ -135,11 +135,7 @@ def run_governed_synthesis_lab(
     # Live narration: the model rewrites ONLY the analyst-summary prose from the
     # governed package; all structured facts stay deterministic. Any failure
     # keeps the deterministic summary, so a live model never breaks the answer.
-    if (
-        settings.ai_soc_llm_live_synthesis_enabled
-        and mode in _LAB_READY_MODES
-        and not settings.control_plane_enabled
-    ):
+    if settings.ai_soc_llm_live_synthesis_enabled and mode in _LAB_READY_MODES:
         skip_narration, skip_reason = should_skip_sidecar(
             match_path=match_path,
             promotion_lifecycle_summary=promotion_lifecycle_summary,
@@ -292,7 +288,9 @@ def _build_deterministic_lab_draft(
         # turns) discarded that content entirely. Use the same governed
         # summary analyst_response.one_sentence_finding renders, so the two
         # answer surfaces never diverge (found live 2026-07-05).
-        summary_parts.append(reference_summary_line(reference_facts))
+        summary_parts.append(
+            reference_narration_seed(reference_facts, user_query=None)
+        )
     else:
         if lead:
             summary_parts.append(lead)

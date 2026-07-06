@@ -93,6 +93,16 @@ def test_qualifies_guided_and_out_of_catalog() -> None:
     )
 
 
+def test_qualifies_reference_knowledge() -> None:
+    contract = AnswerContract(
+        missing_evidence=[],
+        hil_status="not_required",
+        answer_mode="rag_only",
+        intent_family="reference_knowledge",
+    )
+    assert qualifies_for_weak_case_composition(contract, intent_family="reference_knowledge")
+
+
 def test_weak_case_prompt_threads_context_package() -> None:
     contract = _guided_contract()
     pkg = build_governed_context_package_for_contract(

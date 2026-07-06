@@ -1,9 +1,7 @@
-"""Phase 2 (#4): dual narration path gating — composer (CP on) vs lab_runner (CP off).
+"""Phase 2 (#4): dual narration path gating — lab_runner narrates when flags on; composer is fallback.
 
-Documents and locks the rule from the plan: CP on routes prose through the
-governed composer; CP off uses the legacy lab narration. Neither path may run
-when the synthesis flags are off, and a disabled composer returns the
-deterministic envelope byte-for-byte.
+When synthesis lab already narrated (`provider=local_model`), the governed composer
+is skipped so only one live-model hop runs per turn.
 """
 
 from __future__ import annotations

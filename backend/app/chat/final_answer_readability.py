@@ -420,34 +420,10 @@ def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerCo
 
 
 def _reference_knowledge_summary(envelope: AnalystResponseEnvelope) -> str:
+    from app.chat.analyst_response_builder import reference_summary_line
+
     facts = [item for item in envelope.reference_facts or [] if isinstance(item, dict)]
-    if not facts:
-        return (
-            "No matching offline reference facts were found in the local registry snapshot. "
-            "No live telemetry or environment exposure is claimed."
-        )
-    lines = ["Reference taxonomy lookup resolved these offline facts:"]
-    for fact in facts[:5]:
-        reference_id = str(fact.get("reference_id") or fact.get("technique_id") or "").strip()
-        name = str(fact.get("name") or "").strip()
-        dataset = str(fact.get("source_dataset") or fact.get("dataset_id") or "reference_dataset").strip()
-        citation = str(fact.get("citation") or "").strip()
-        if "/techniques/" in citation:
-            citation = "MITRE ATT&CK local export" if dataset == "mitre_attack_enterprise" else "MITRE reference export"
-        tactics_raw = fact.get("tactics")
-        if isinstance(tactics_raw, list):
-            tactics = ", ".join(str(item) for item in tactics_raw if str(item).strip())
-        else:
-            tactics = str(tactics_raw or "").strip()
-        label = " ".join(item for item in (reference_id, name) if item).strip() or dataset
-        suffix_parts = [f"dataset {dataset}"]
-        if tactics:
-            suffix_parts.append(f"tactics {tactics}")
-        if citation:
-            suffix_parts.append(f"citation {citation}")
-        lines.append(f"- {label} ({'; '.join(suffix_parts)}).")
-    lines.append("No local exploitation, exposure, or alert mapping is asserted from taxonomy lookup alone.")
-    return "\n".join(lines)
+    return reference_summary_line(facts)
 
 
 def _apply_knowledge_profile_cleanup(payload: dict[str, Any], contract: AnswerContract) -> dict[str, Any]:
