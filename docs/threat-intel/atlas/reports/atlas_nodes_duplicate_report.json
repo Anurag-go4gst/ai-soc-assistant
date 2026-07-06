@@ -1,0 +1,25 @@
+{
+  "schema_role": "atlas_nodes_duplicate_report_v1",
+  "generated_at_utc": "2026-07-06T07:08:55.983435+00:00",
+  "source_file": "docs/threat-intel/atlas/raw/atlas_nodes_2026_04.csv",
+  "row_count": 278,
+  "entity_counts": {
+    "casestudy": 57,
+    "mitigation": 35,
+    "tactic": 16,
+    "technique": 170
+  },
+  "expected_entity_counts": {
+    "tactic": 16,
+    "technique": 170,
+    "casestudy": 57,
+    "mitigation": 35
+  },
+  "entity_count_mismatches": {},
+  "duplicate_id_count": 0,
+  "duplicate_ids": {},
+  "dangling_reference_count": 0,
+  "dangling_references": [],
+  "dangling_reference_truncated": false,
+  "passed": true
+}

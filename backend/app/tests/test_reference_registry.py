@@ -68,3 +68,29 @@ def test_unknown_ids_fail_closed_without_fabrication() -> None:
     assert registry.by_id("mitre_atlas").resolver.resolve_ids(["AML.T9999"]) == []
     assert registry.by_id("mitre_attack_enterprise").resolver.resolve_ids(["T9999"]) == []
     assert CveReferenceResolver(package_dir=str(FIXTURE_CVE_DIR)).resolve_ids(["CVE-2099-9999"]) == []
+
+
+def test_atlas_technique_fact_carries_enrichment() -> None:
+    registry = load_reference_registry()
+    atlas = registry.by_id("mitre_atlas")
+    facts = atlas.resolver.resolve_ids(["AML.T0000"])
+    assert facts
+    enrichment = facts[0].raw.get("atlas_enrichment") or {}
+    assert enrichment.get("mitigations")
+
+    enterprise = registry.by_id("mitre_attack_enterprise")
+    attack_facts = enterprise.resolver.resolve_ids(["T1110.003"])
+    assert attack_facts
+    assert "atlas_enrichment" not in attack_facts[0].raw
+
+
+def test_atlas_search_domain_carries_enrichment() -> None:
+    registry = load_reference_registry()
+    atlas = registry.by_id("mitre_atlas")
+    facts = atlas.resolver.search_domain(
+        ["prompt injection against an LLM agent using MCP tools"],
+        limit=5,
+    )
+    assert facts
+    enriched = [fact for fact in facts if (fact.raw.get("atlas_enrichment") or {}).get("case_studies")]
+    assert enriched, "search_domain fallback path should carry atlas_enrichment"

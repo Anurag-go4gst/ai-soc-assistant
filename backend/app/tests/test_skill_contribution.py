@@ -208,3 +208,67 @@ def test_evidence_summary_floor_scoped_off_in_catalogue_traffic() -> None:
     analyst = response.analyst_response
     if analyst is not None:
         assert analyst.render_sections.get("evidence_summary") is not True
+
+
+def test_atlas_evidence_summary_floor_renders_atlas_grounding() -> None:
+    from app.chat.skill_contribution import apply_evidence_summary_floor, build_skill_contribution
+
+    env = _env()
+    contrib = build_skill_contribution(selected_skill="guided_investigation", envelope=env)
+    grounding_block = {
+        "evidence_citations": [],
+        "limitations": ["No executed evidence rows available for this turn."],
+        "atlas_references": [
+            {
+                "technique_id": "AML.T0065",
+                "mitigations": [],
+                "case_studies": [{"id": "AML.CS0045", "name": "Cursor MCP Exfil"}],
+            }
+        ],
+    }
+    updated = apply_evidence_summary_floor(envelope=env, contribution=contrib, grounding_block=grounding_block)
+    assert "AML.T0065" in updated.evidence_summary
+    assert "Cursor MCP Exfil" in updated.evidence_summary
+
+
+def test_atlas_evidence_summary_floor_unchanged_without_atlas_refs() -> None:
+    from app.chat.skill_contribution import apply_evidence_summary_floor, build_skill_contribution
+
+    env = _env()
+    contrib = build_skill_contribution(selected_skill="attack_discovery", envelope=env)
+    grounding_block = {
+        "evidence_citations": [
+            {"evidence_id": "ev_1", "source_type": "mcp_search", "row_count": 2, "row_summary": []}
+        ],
+        "limitations": [],
+    }
+    updated = apply_evidence_summary_floor(envelope=env, contribution=contrib, grounding_block=grounding_block)
+    assert updated.evidence_summary == "Evidence collected: 2 row(s) from mcp_search (evidence_id=ev_1)"
+
+
+def test_remediation_preview_floor_appends_recommended_action() -> None:
+    from app.chat.skill_contribution import apply_evidence_summary_floor, build_skill_contribution
+
+    env = _env()
+    contrib = build_skill_contribution(selected_skill="guided_investigation", envelope=env)
+    grounding_block = {
+        "evidence_citations": [],
+        "limitations": ["No executed evidence rows available for this turn."],
+        "atlas_references": [
+            {
+                "technique_id": "AML.T0012",
+                "mitigations": [{"id": "AML.M0000", "name": "Limit Model Artifact Release"}],
+                "case_studies": [],
+                "suggested_detection_hint": {
+                    "attack_technique_ref": "T1078",
+                    "template_ids": ["auth_new_source_ip"],
+                },
+                "remediation_preview": {
+                    "text": "Revoke the session and force re-authentication for the affected account.",
+                    "availability": "not_available_this_tier",
+                },
+            }
+        ],
+    }
+    updated = apply_evidence_summary_floor(envelope=env, contribution=contrib, grounding_block=grounding_block)
+    assert "not available at the current Tier 1" in " ".join(updated.recommended_actions or [])

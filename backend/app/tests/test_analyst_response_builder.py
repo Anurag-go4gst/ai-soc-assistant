@@ -262,3 +262,56 @@ def test_recommended_actions_from_draft_unglues_p2review() -> None:
     assert actions
     assert "P2Review" not in " ".join(actions)
     assert actions[0].startswith("P2 —")
+
+
+def test_reference_summary_renders_atlas_mitigations_and_case_studies() -> None:
+    from app.chat.analyst_response_builder import _reference_summary
+
+    summary = _reference_summary(
+        [
+            {
+                "reference_id": "AML.T0065",
+                "name": "LLM Prompt Crafting",
+                "dataset_id": "mitre_atlas",
+                "tactics": ["resource-development"],
+                "citation": "MITRE ATLAS local coverage artifact",
+                "raw": {
+                    "atlas_enrichment": {
+                        "mitigations": [],
+                        "case_studies": [
+                            {"id": "AML.CS0045", "name": "Cursor MCP Exfil"},
+                            {"id": "AML.CS0054", "name": "Poisoned MCP Tool"},
+                        ],
+                    }
+                },
+            }
+        ]
+    )
+    assert "mitigations:" not in summary
+    assert "related case studies:" in summary
+    assert "Cursor MCP Exfil" in summary
+
+
+def test_reference_summary_unaffected_for_non_atlas_dataset() -> None:
+    from app.chat.analyst_response_builder import _reference_summary
+
+    summary = _reference_summary(
+        [
+            {
+                "reference_id": "T1110.003",
+                "name": "Password Spraying",
+                "dataset_id": "mitre_attack_enterprise",
+                "tactics": ["credential-access"],
+                "citation": "MITRE ATT&CK local export",
+                "raw": {
+                    "atlas_enrichment": {
+                        "mitigations": [{"id": "AML.M0000", "name": "Should Not Render"}],
+                        "case_studies": [],
+                    }
+                },
+            }
+        ]
+    )
+    assert "mitigations:" not in summary
+    assert "related case studies:" not in summary
+    assert "Should Not Render" not in summary

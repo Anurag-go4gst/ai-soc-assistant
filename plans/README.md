@@ -18,6 +18,7 @@ If Cursor also writes a plan under `.cursor/plans/` or `/root/.cursor/plans/`, *
 
 | Plan | Status |
 |------|--------|
+| [`2026-07-06_0337_atlas-casestudies-mitigations-enrichment.md`](2026-07-06_0337_atlas-casestudies-mitigations-enrichment.md) | **Draft** — 22 items, 4 phases: A structured case-studies/mitigations in reference_registry (zero today, fixed to cover both resolve_ids and search_domain paths after review), B RAG narrative depth, C real MITRE ATT&CK-reference crosswalk (34/170 techniques) surfaced via grounding_assembler + wired into the actual analyst-visible surface (skill_contribution.py), D remediation-visibility-only text (execution deferred to a separate follow-up plan); reference_taxonomy stays claim-restricted by design, pinned by test |
 | [`2026-07-04_1736_intent-mcp-tool-routing-hardening.md`](2026-07-04_1736_intent-mcp-tool-routing-hardening.md) | **Done** — 23/23 items; tool routing + observer + reference-knowledge path; suite 4067 green, governance regression PASS |
 | [`2026-07-04_2105_providers-mcp-connection-hub.md`](2026-07-04_2105_providers-mcp-connection-hub.md) | **Done** — Providers Splunk save + execution switch; MCP tab other MCPs; B1–B9 review fixes |
 | [`2026-07-04_1730_hybrid-intent-deterministic-llm-coordination.md`](2026-07-04_1730_hybrid-intent-deterministic-llm-coordination.md) | **Done** — hybrid advisory OOR-only; command modes excluded; governance green |

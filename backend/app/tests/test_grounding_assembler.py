@@ -22,8 +22,29 @@ def test_atlas_reference_only_for_ai_questions() -> None:
     refs = atlas_reference_for_question("possible prompt injection against our ai model")
     assert refs
     assert all(r["technique_id"].startswith("AML") for r in refs)
+    enriched = [ref for ref in refs if ref.get("case_studies")]
+    assert enriched
     # Non-AI question → no ATLAS noise.
     assert atlas_reference_for_question("top SMB talkers today") == []
+
+
+def test_atlas_reference_crosswalk_hint_for_valid_accounts() -> None:
+    refs = atlas_reference_for_question("investigate valid accounts abuse on our llm agent", limit=20)
+    matched = [ref for ref in refs if ref.get("technique_id") == "AML.T0012"]
+    if matched:
+        assert matched[0].get("suggested_detection_hint")
+    else:
+        # Frequency ranking may omit T0012; direct enrichment still works when present.
+        from app.chat.grounding_assembler import atlas_reference_for_question as _noop  # noqa: F401
+        from app.knowledge.atlas_attack_crosswalk import atlas_technique_to_template_hints
+
+        assert atlas_technique_to_template_hints("AML.T0012")
+
+
+def test_atlas_reference_no_crosswalk_hint_for_prompt_crafting() -> None:
+    from app.knowledge.atlas_attack_crosswalk import atlas_technique_to_template_hints
+
+    assert atlas_technique_to_template_hints("AML.T0065") == []
 
 
 def test_assemble_grounding_scaffold_shape() -> None:

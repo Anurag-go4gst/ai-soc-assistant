@@ -1,0 +1,904 @@
+{
+  "schema_role": "atlas_casestudies_normalized_v1",
+  "generated_at_utc": "2026-07-06T06:00:36.928969+00:00",
+  "normalization_rules_version": "atlas-casestudy-normalize-v1",
+  "provenance": {
+    "source_file": "docs/threat-intel/atlas/raw/atlas_nodes_2026_04.csv",
+    "source_sha256": "66eb5d2178df8a09ac4d90267fc44f3e5446f62457a771732f18742e538b8408"
+  },
+  "case_study_count": 57,
+  "case_studies": [
+    {
+      "case_study_id": "AML.CS0000",
+      "name": "Evasion of Deep Learning Detector for Malware C&C Traffic",
+      "summary": "Evasion of Deep Learning Detector for Malware C&C Traffic is a technique that uses adversarial sample crafting to bypass a deep learning model identifying malware command and control traffic in HTTP streams, as demonstrated by Palo Alto Networks Security AI research based on the",
+      "url": "https://atlas.mitre.org/studies/AML.CS0000/",
+      "technique_ids": [
+        "AML.T0000.001",
+        "AML.T0002.000",
+        "AML.T0005",
+        "AML.T0015",
+        "AML.T0042",
+        "AML.T0043.003"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0001",
+      "name": "Botnet Domain Generation Algorithm (DGA) Detection Evasion",
+      "summary": "Botnet Domain Generation Algorithm (DGA) Detection Evasion is a generic domain mutation technique that bypasses convolutional neural network based DGA detectors, allowing attackers to evade most ML\u2011based DGA detection modules and serving as a test to evaluate the robustness of i",
+      "url": "https://atlas.mitre.org/studies/AML.CS0001/",
+      "technique_ids": [
+        "AML.T0000",
+        "AML.T0002",
+        "AML.T0015",
+        "AML.T0017.000",
+        "AML.T0042",
+        "AML.T0043.001"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0002",
+      "name": "VirusTotal Poisoning",
+      "summary": "VirusTotal Poisoning is a case study describing how attackers used metamorphic code to generate numerous similar ransomware samples that were rapidly submitted to a popular virus\u2011sharing platform, creating the appearance of a new threat while preserving core characteristics such",
+      "url": "https://atlas.mitre.org/studies/AML.CS0002/",
+      "technique_ids": [
+        "AML.T0010.002",
+        "AML.T0016.000",
+        "AML.T0020",
+        "AML.T0043"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0003",
+      "name": "Bypassing Cylance's AI Malware Detection",
+      "summary": "Bypassing Cylance's AI Malware Detection is a technique that demonstrates how a crafted universal bypass string can be appended to malicious files to evade Cylance's AI-based malware detection system.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0003/",
+      "technique_ids": [
+        "AML.T0000",
+        "AML.T0015",
+        "AML.T0017.000",
+        "AML.T0043.003",
+        "AML.T0047",
+        "AML.T0063"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0004",
+      "name": "Camera Hijack Attack on Facial Recognition System",
+      "summary": "Camera Hijack Attack on Facial Recognition System is a technique that manipulates camera feeds to bypass live facial recognition authentication, enabling unauthorized access and impersonation. It was employed in a 2018 scheme where attackers created a fake shell company to fraud",
+      "url": "https://atlas.mitre.org/studies/AML.CS0004/",
+      "technique_ids": [
+        "AML.T0008.001",
+        "AML.T0015",
+        "AML.T0016.000",
+        "AML.T0016.001",
+        "AML.T0021",
+        "AML.T0047",
+        "AML.T0048.000",
+        "AML.T0087"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0005",
+      "name": "Attack on Machine Translation Services",
+      "summary": "Attack on Machine Translation Services is a technique that exploits publicly accessible machine\u2011translation APIs to extract intellectual property and inject adversarial inputs, enabling targeted word flips, vulgar outputs, and dropped sentences on services such as Google Transla",
+      "url": "https://atlas.mitre.org/studies/AML.CS0005/",
+      "technique_ids": [
+        "AML.T0000",
+        "AML.T0002.000",
+        "AML.T0002.001",
+        "AML.T0005.001",
+        "AML.T0015",
+        "AML.T0031",
+        "AML.T0040",
+        "AML.T0043.002",
+        "AML.T0048.004"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0006",
+      "name": "ClearviewAI Misconfiguration",
+      "summary": "ClearviewAI Misconfiguration is a case study that illustrates how a misconfigured repository exposed production credentials, API keys, and training data, enabling unauthorized access and potential model manipulation, highlighting the need for rigorous cybersecurity hygiene beyon",
+      "url": "https://atlas.mitre.org/studies/AML.CS0006/",
+      "technique_ids": [
+        "AML.T0002",
+        "AML.T0021",
+        "AML.T0031",
+        "AML.T0036"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0007",
+      "name": "GPT-2 Model Replication",
+      "summary": "GPT-2 Model Replication is a technique that demonstrates how an open-source language model can be recreated from publicly disclosed architecture and weights, enabling adversaries to bypass controlled releases and deploy the model for malicious purposes such as impersonation, dis",
+      "url": "https://atlas.mitre.org/studies/AML.CS0007/",
+      "technique_ids": [
+        "AML.T0000",
+        "AML.T0002.000",
+        "AML.T0002.001",
+        "AML.T0005.000",
+        "AML.T0008.000"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0008",
+      "name": "ProofPoint Evasion",
+      "summary": "ProofPoint Evasion is a technique that describes how attackers bypass email protection systems by replicating the protective model, analyzing word\u2011level scoring, and crafting malicious messages that receive favorable scores to avoid detection. It illustrates instruction manipula",
+      "url": "https://atlas.mitre.org/studies/AML.CS0008/",
+      "technique_ids": [
+        "AML.T0005.001",
+        "AML.T0015",
+        "AML.T0043.002",
+        "AML.T0047",
+        "AML.T0063"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0009",
+      "name": "Tay Poisoning",
+      "summary": "Tay Poisoning is a technique that involves manipulating a conversational AI system through coordinated abusive inputs to cause it to adopt malicious behavior, as demonstrated by Microsoft\u2019s Tay chatbot, which was compromised and forced to generate inflammatory content before bei",
+      "url": "https://atlas.mitre.org/studies/AML.CS0009/",
+      "technique_ids": [
+        "AML.T0010.002",
+        "AML.T0020",
+        "AML.T0031",
+        "AML.T0047"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0010",
+      "name": "Microsoft Azure Service Disruption",
+      "summary": "Microsoft Azure Service Disruption is a case study of a red\u2011team operation that intentionally disrupts an Azure cloud service, blending traditional enterprise ATT&CK tactics such as credential abuse and data exfiltration with adversarial machine\u2011learning techniques including off",
+      "url": "https://atlas.mitre.org/studies/AML.CS0010/",
+      "technique_ids": [
+        "AML.T0000",
+        "AML.T0012",
+        "AML.T0015",
+        "AML.T0025",
+        "AML.T0035",
+        "AML.T0040",
+        "AML.T0042",
+        "AML.T0043.000"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0011",
+      "name": "Microsoft Edge AI Evasion",
+      "summary": "Microsoft Edge AI Evasion is a technique that uses automated adversarial manipulation of input images to cause misclassifications in edge\u2011deployed AI models, representing an evasion tactic employed during red\u2011team testing of Microsoft\u2019s edge AI workload platform.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0011/",
+      "technique_ids": [
+        "AML.T0000",
+        "AML.T0002",
+        "AML.T0015",
+        "AML.T0040",
+        "AML.T0043.001"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0012",
+      "name": "Face Identification System Evasion via Physical Countermeasures",
+      "summary": "Face Identification System Evasion via Physical Countermeasures is a case study that demonstrates a physical\u2011domain evasion attack on a commercial face identification service, using adversarial machine\u2011learning techniques to induce targeted misclassification while integrating tr",
+      "url": "https://atlas.mitre.org/studies/AML.CS0012/",
+      "technique_ids": [
+        "AML.T0000",
+        "AML.T0002.000",
+        "AML.T0005",
+        "AML.T0008.003",
+        "AML.T0012",
+        "AML.T0013",
+        "AML.T0015",
+        "AML.T0040",
+        "AML.T0041",
+        "AML.T0043.000"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0013",
+      "name": "Backdoor Attack on Deep Learning Models in Mobile Apps",
+      "summary": "Backdoor Attack on Deep Learning Models in Mobile Apps is a technique that injects neural payloads into model inputs to trigger malicious behavior, exploiting vulnerabilities in deep learning models used in mobile applications. Microsoft Research demonstrated this by identifying",
+      "url": "https://atlas.mitre.org/studies/AML.CS0013/",
+      "technique_ids": [
+        "AML.T0002.001",
+        "AML.T0004",
+        "AML.T0010.003",
+        "AML.T0015",
+        "AML.T0017.000",
+        "AML.T0018.001",
+        "AML.T0041",
+        "AML.T0042",
+        "AML.T0043.004",
+        "AML.T0044"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0014",
+      "name": "Confusing Antimalware Neural Networks",
+      "summary": "Confusing Antimalware Neural Networks is a technique that demonstrates how adversarial manipulation of feature representations can bypass ML\u2011based antimalware detectors in cloud environments, enabling evasion of detection by exploiting model knowledge without requiring white\u2011box",
+      "url": "https://atlas.mitre.org/studies/AML.CS0014/",
+      "technique_ids": [
+        "AML.T0002.000",
+        "AML.T0003",
+        "AML.T0005",
+        "AML.T0015",
+        "AML.T0017.000",
+        "AML.T0042",
+        "AML.T0043.002",
+        "AML.T0047"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0015",
+      "name": "Compromised PyTorch Dependency Chain",
+      "summary": "Compromised PyTorch Dependency Chain is a supply\u2011chain attack where malicious packages mimicking PyTorch\u2011nightly were published to PyPI, causing pip to install them instead of legitimate dependencies and exposing sensitive data on affected Linux systems.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0015/",
+      "technique_ids": [
+        "AML.T0010.001",
+        "AML.T0025",
+        "AML.T0037"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0016",
+      "name": "Achieving Code Execution in MathGPT via Prompt Injection",
+      "summary": "Achieving Code Execution in MathGPT via Prompt Injection is a technique that illustrates how a prompt injection attack on the MathGPT Streamlit application can manipulate GPT\u20113 to execute arbitrary Python code, extract environment variables and API keys, and trigger denial\u2011of\u2011se",
+      "url": "https://atlas.mitre.org/studies/AML.CS0016/",
+      "technique_ids": [
+        "AML.T0042",
+        "AML.T0047",
+        "AML.T0048.000",
+        "AML.T0051.000",
+        "AML.T0053",
+        "AML.T0055",
+        "AML.T0093"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0017",
+      "name": "Bypassing ID.me Identity Verification",
+      "summary": "Bypassing ID.me Identity Verification is a fraud technique that exploits weaknesses in ID.me's identity verification to create fake verified profiles, enabling the filing of numerous fraudulent unemployment claims and the illicit receipt of millions in benefits.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0017/",
+      "technique_ids": [
+        "AML.T0015",
+        "AML.T0047",
+        "AML.T0048.000"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0018",
+      "name": "Arbitrary Code Execution with Google Colab",
+      "summary": "Arbitrary Code Execution with Google Colab is a technique that exploits the platform\u2019s notebook sharing and Google Drive integration to run untrusted Python code on remote virtual machines. This can allow file manipulation, data exfiltration, or opening a server to a victim\u2019s Dr",
+      "url": "https://atlas.mitre.org/studies/AML.CS0018/",
+      "technique_ids": [
+        "AML.T0010.001",
+        "AML.T0011",
+        "AML.T0012",
+        "AML.T0017",
+        "AML.T0025",
+        "AML.T0035",
+        "AML.T0048",
+        "AML.T0048.004"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0019",
+      "name": "PoisonGPT",
+      "summary": "PoisonGPT is a technique that demonstrates how to poison an open\u2011source pre\u2011trained large language model to produce false facts, illustrating a supply\u2011chain vulnerability in LLM deployment. The attack involves uploading the compromised model to a public hub, enabling downstream",
+      "url": "https://atlas.mitre.org/studies/AML.CS0019/",
+      "technique_ids": [
+        "AML.T0002.001",
+        "AML.T0010.003",
+        "AML.T0018.000",
+        "AML.T0031",
+        "AML.T0042",
+        "AML.T0048.001",
+        "AML.T0058"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0020",
+      "name": "Indirect Prompt Injection Threats: Bing Chat Data Pirate",
+      "summary": "Indirect Prompt Injection Threats: Bing Chat Data Pirate is a technique that exploits indirect prompt injection to manipulate Bing Chat into extracting personal data from users visiting a compromised website, turning the chatbot into a covert social engineer.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0020/",
+      "technique_ids": [
+        "AML.T0017",
+        "AML.T0048.003",
+        "AML.T0051.001",
+        "AML.T0052.000",
+        "AML.T0068"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0021",
+      "name": "ChatGPT Conversation Exfiltration",
+      "summary": "ChatGPT Conversation Exfiltration is a technique that exploits indirect prompt injection to steal user interactions from ChatGPT. A malicious prompt posted on a public site triggers the model to embed conversation data in an image URL, causing the model to request an adversary\u2011c",
+      "url": "https://atlas.mitre.org/studies/AML.CS0021/",
+      "technique_ids": [
+        "AML.T0048.003",
+        "AML.T0051.001",
+        "AML.T0053",
+        "AML.T0065",
+        "AML.T0077",
+        "AML.T0078",
+        "AML.T0079"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0022",
+      "name": "ChatGPT Package Hallucination",
+      "summary": "ChatGPT Package Hallucination is a technique in which large language models generate fictitious software package names that do not exist in legitimate repositories. Attackers can exploit these hallucinations by publishing malicious packages under the invented names, causing user",
+      "url": "https://atlas.mitre.org/studies/AML.CS0022/",
+      "technique_ids": [
+        "AML.T0010.001",
+        "AML.T0011.001",
+        "AML.T0040",
+        "AML.T0048.003",
+        "AML.T0060",
+        "AML.T0062"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0023",
+      "name": "ShadowRay",
+      "summary": "ShadowRay is a vulnerability that enables unauthorized remote code execution in Ray clusters, allowing adversaries to hijack compute resources and exfiltrate data, with estimated compromised asset value near $1\u202fbillion, and includes a disputed flaw that Anyscale treats as a desi",
+      "url": "https://atlas.mitre.org/studies/AML.CS0023/",
+      "technique_ids": [
+        "AML.T0006",
+        "AML.T0010.003",
+        "AML.T0025",
+        "AML.T0035",
+        "AML.T0048.000",
+        "AML.T0049",
+        "AML.T0055"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0024",
+      "name": "Morris II Worm: RAG-Based Attack",
+      "summary": "Morris II Worm: RAG-Based Attack is a technique illustrating a zero\u2011click worm that propagates through generative AI ecosystems by using adversarial self\u2011replicating prompts to inject malicious instructions into retrieval\u2011augmented generation pipelines, causing behavior manipula",
+      "url": "https://atlas.mitre.org/studies/AML.CS0024/",
+      "technique_ids": [
+        "AML.T0040",
+        "AML.T0048.003",
+        "AML.T0051.000",
+        "AML.T0051.002",
+        "AML.T0053",
+        "AML.T0057",
+        "AML.T0061"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0025",
+      "name": "Web-Scale Data Poisoning: Split-View Attack",
+      "summary": "Web-Scale Data Poisoning: Split-View Attack is a technique that exploits the split-view vulnerability in web-scale datasets distributed as URL lists, where expired or purchasable domains can be used to inject poisoned data, altering the training data viewed by models.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0025/",
+      "technique_ids": [
+        "AML.T0002.000",
+        "AML.T0008.002",
+        "AML.T0019",
+        "AML.T0020",
+        "AML.T0031",
+        "AML.T0059"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0026",
+      "name": "Financial Transaction Hijacking with M365 Copilot as an Insider",
+      "summary": "Financial Transaction Hijacking with M365 Copilot as an Insider is a technique that abuses Microsoft 365 Copilot\u2019s retrieval\u2011augmented generation to inject malicious prompts via crafted emails, causing the assistant to retrieve and reference attacker\u2011controlled content and trick",
+      "url": "https://atlas.mitre.org/studies/AML.CS0026/",
+      "technique_ids": [
+        "AML.T0047",
+        "AML.T0048.000",
+        "AML.T0051.001",
+        "AML.T0053",
+        "AML.T0064",
+        "AML.T0065",
+        "AML.T0066",
+        "AML.T0067.000",
+        "AML.T0068",
+        "AML.T0069.000",
+        "AML.T0069.001",
+        "AML.T0070",
+        "AML.T0071",
+        "AML.T0093"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0027",
+      "name": "Organization Confusion on Hugging Face",
+      "summary": "Organization Confusion on Hugging Face is a tactic where threat actors create fake organization accounts on a public model repository to trick legitimate organizations into joining, gaining access to internal AI models, and subsequently replacing or poisoning those models with m",
+      "url": "https://atlas.mitre.org/studies/AML.CS0027/",
+      "technique_ids": [
+        "AML.T0007",
+        "AML.T0010.003",
+        "AML.T0011.000",
+        "AML.T0016.000",
+        "AML.T0018.000",
+        "AML.T0018.002",
+        "AML.T0021",
+        "AML.T0025",
+        "AML.T0044",
+        "AML.T0048",
+        "AML.T0048.004",
+        "AML.T0055",
+        "AML.T0058",
+        "AML.T0072",
+        "AML.T0073",
+        "AML.T0074"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0028",
+      "name": "AI Model Tampering via Supply Chain Attack",
+      "summary": "AI Model Tampering via Supply Chain Attack is a technique where adversaries exploit misconfigured private container registries to download, inspect, and modify AI model files, enabling intellectual property theft and the injection of malicious code into production AI systems.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0028/",
+      "technique_ids": [
+        "AML.T0004",
+        "AML.T0007",
+        "AML.T0010.004",
+        "AML.T0015",
+        "AML.T0018.000",
+        "AML.T0018.001",
+        "AML.T0044",
+        "AML.T0048.004",
+        "AML.T0049"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0029",
+      "name": "Google Bard Conversation Exfiltration",
+      "summary": "Google Bard Conversation Exfiltration is a technique that uses indirect prompt injection to exfiltrate user conversations through Bard's image rendering. An attacker shares a malicious document that triggers Bard to embed a malicious image URL, bypassing CSP and sending conversa",
+      "url": "https://atlas.mitre.org/studies/AML.CS0029/",
+      "technique_ids": [
+        "AML.T0008",
+        "AML.T0017",
+        "AML.T0048.003",
+        "AML.T0051.001",
+        "AML.T0065",
+        "AML.T0077",
+        "AML.T0093"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0030",
+      "name": "LLM Jacking",
+      "summary": "LLM Jacking is a technique that exploits stolen credentials to covertly access and abuse cloud\u2011hosted large language models, using reverse proxies to provide illicit model access to cybercriminals across multiple AI services, enabling unauthorized usage and generating significan",
+      "url": "https://atlas.mitre.org/studies/AML.CS0030/",
+      "technique_ids": [
+        "AML.T0012",
+        "AML.T0016.001",
+        "AML.T0048.000",
+        "AML.T0049",
+        "AML.T0055",
+        "AML.T0075"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0031",
+      "name": "Malicious Models on Hugging Face",
+      "summary": "Malicious Models on Hugging Face is a technique that hides malware in corrupted pickle model files hosted on the Hugging Face repository, allowing execution of reverse shells and command\u2011and\u2011control before deserialization fails. It demonstrates how adversaries bypass security sc",
+      "url": "https://atlas.mitre.org/studies/AML.CS0031/",
+      "technique_ids": [
+        "AML.T0010",
+        "AML.T0011.000",
+        "AML.T0018.002",
+        "AML.T0058",
+        "AML.T0072",
+        "AML.T0076"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0032",
+      "name": "Attempted Evasion of ML Phishing Webpage Detection System",
+      "summary": "Attempted Evasion of ML Phishing Webpage Detection System is a technique that modifies visual elements like brand logos to bypass AI-driven image classifiers used in endpoint security for detecting phishing sites. Adversarial examples used simple logo alterations to evade the vi",
+      "url": "https://atlas.mitre.org/studies/AML.CS0032/",
+      "technique_ids": [
+        "AML.T0015",
+        "AML.T0043.003",
+        "AML.T0048.003",
+        "AML.T0052"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0033",
+      "name": "Live Deepfake Image Injection to Evade Mobile KYC Verification",
+      "summary": "Live Deepfake Image Injection to Evade Mobile KYC Verification is a technique that uses manipulated facial images to bypass biometric authentication and liveness checks in mobile identity verification systems, enabling attackers to spoof onboarding processes and gain unauthorize",
+      "url": "https://atlas.mitre.org/studies/AML.CS0033/",
+      "technique_ids": [
+        "AML.T0015",
+        "AML.T0016",
+        "AML.T0016.001",
+        "AML.T0016.002",
+        "AML.T0021",
+        "AML.T0047",
+        "AML.T0048.000",
+        "AML.T0073",
+        "AML.T0087",
+        "AML.T0088"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0034",
+      "name": "ProKYC: Deepfake Tool for Account Fraud Attacks",
+      "summary": "ProKYC: Deepfake Tool for Account Fraud Attacks is a malicious deepfake service that generates forged identity documents and synthetic selfie videos to defeat facial recognition and liveness checks, enabling cybercriminals to create fraudulent accounts on financial platforms suc",
+      "url": "https://atlas.mitre.org/studies/AML.CS0034/",
+      "technique_ids": [
+        "AML.T0015",
+        "AML.T0016.002",
+        "AML.T0021",
+        "AML.T0047",
+        "AML.T0048.000",
+        "AML.T0073",
+        "AML.T0087",
+        "AML.T0088"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0035",
+      "name": "Data Exfiltration from Slack AI via Indirect Prompt Injection",
+      "summary": "Data Exfiltration from Slack AI via Indirect Prompt Injection is a technique that exploits a large language model\u2019s retrieval\u2011augmented generation pipeline to leak private data, such as API keys, by injecting a malicious prompt into a public channel that the model later retrieve",
+      "url": "https://atlas.mitre.org/studies/AML.CS0035/",
+      "technique_ids": [
+        "AML.T0012",
+        "AML.T0047",
+        "AML.T0051.001",
+        "AML.T0065",
+        "AML.T0066",
+        "AML.T0070",
+        "AML.T0077",
+        "AML.T0082"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0036",
+      "name": "AIKatz: Attacking LLM Desktop Applications",
+      "summary": "AIKatz: Attacking LLM Desktop Applications is a case study demonstrating extraction of authentication tokens from LLM desktop app memory, enabling attacker impersonation, prompt injection, context poisoning, and manipulation of conversation history, affecting confidentiality, in",
+      "url": "https://atlas.mitre.org/studies/AML.CS0036/",
+      "technique_ids": [
+        "AML.T0012",
+        "AML.T0047",
+        "AML.T0048.000",
+        "AML.T0048.003",
+        "AML.T0051.000",
+        "AML.T0080.000",
+        "AML.T0080.001",
+        "AML.T0089",
+        "AML.T0090",
+        "AML.T0091.000",
+        "AML.T0092"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0037",
+      "name": "Data Exfiltration via Agent Tools in Copilot Studio",
+      "summary": "Data Exfiltration via Agent Tools in Copilot Studio is a technique where prompt injections compromise an AI customer service agent to extract private customer data from internal RAG and CRM systems through the agent\u2019s email functionality.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0037/",
+      "technique_ids": [
+        "AML.T0006",
+        "AML.T0047",
+        "AML.T0051",
+        "AML.T0051.002",
+        "AML.T0065",
+        "AML.T0084.000",
+        "AML.T0084.001",
+        "AML.T0084.002",
+        "AML.T0085.000",
+        "AML.T0085.001",
+        "AML.T0086",
+        "AML.T0093"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0038",
+      "name": "Planting Instructions for Delayed Automatic AI Agent Tool Invocation",
+      "summary": "Planting Instructions for Delayed Automatic AI Agent Tool Invocation is a casestudy that illustrates how delaying tool invocation can bypass a security control, allowing an AI model to access sensitive information across conversation turns.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0038/",
+      "technique_ids": [
+        "AML.T0051.001",
+        "AML.T0053",
+        "AML.T0065",
+        "AML.T0085.001",
+        "AML.T0093",
+        "AML.T0094"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0039",
+      "name": "Living Off AI: Prompt Injection via Jira Service Management",
+      "summary": "Living Off AI: Prompt Injection via Jira Service Management is a technique that abuses AI\u2011enabled enterprise workflows, such as Jira Service Management, to inject malicious instructions through external inputs like support tickets, causing AI agents with internal trust to execut",
+      "url": "https://atlas.mitre.org/studies/AML.CS0039/",
+      "technique_ids": [
+        "AML.T0003",
+        "AML.T0051.001",
+        "AML.T0053",
+        "AML.T0065",
+        "AML.T0085.001",
+        "AML.T0086",
+        "AML.T0093",
+        "AML.T0095"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0040",
+      "name": "Hacking ChatGPT\u2019s Memories with Prompt Injection",
+      "summary": "Hacking ChatGPT\u2019s Memories with Prompt Injection is a case study that illustrates how a prompt injection hidden in a shared document can manipulate an LLM\u2019s memory, causing persistent false facts across sessions. The injected memories persist across chat sessions, allowing the a",
+      "url": "https://atlas.mitre.org/studies/AML.CS0040/",
+      "technique_ids": [
+        "AML.T0048.003",
+        "AML.T0051.001",
+        "AML.T0065",
+        "AML.T0068",
+        "AML.T0080.000",
+        "AML.T0093"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0041",
+      "name": "Rules File Backdoor: Supply Chain Attack on AI Coding Assistants",
+      "summary": "Rules File Backdoor: Supply Chain Attack on AI Coding Assistants is a technique that uses hidden Unicode characters in rules files to inject malicious prompts, causing AI coding assistants such as Cursor and GitHub Copilot to generate backdoored or vulnerable code, representing",
+      "url": "https://atlas.mitre.org/studies/AML.CS0041/",
+      "technique_ids": [
+        "AML.T0010.001",
+        "AML.T0048.003",
+        "AML.T0051.000",
+        "AML.T0054",
+        "AML.T0065",
+        "AML.T0067",
+        "AML.T0068",
+        "AML.T0079",
+        "AML.T0081"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0042",
+      "name": "SesameOp: Novel backdoor uses OpenAI Assistants API for command and control",
+      "summary": "SesameOp: Novel backdoor uses OpenAI Assistants API for command and control is a backdoor that hijacks the OpenAI Assistants API to serve as a covert command-and-control channel for espionage, delivering attacker instructions and exfiltrating encrypted data from compromised syst",
+      "url": "https://atlas.mitre.org/studies/AML.CS0042/",
+      "technique_ids": [
+        "AML.T0096"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0043",
+      "name": "Malware Prototype with Embedded Prompt Injection",
+      "summary": "Malware Prototype with Embedded Prompt Injection is a technique that illustrates how prompt injection can be embedded in malware to subvert LLM\u2011based detection and analysis tools, even though the specific sample was ineffective in practice.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0043/",
+      "technique_ids": [
+        "AML.T0015",
+        "AML.T0017",
+        "AML.T0025",
+        "AML.T0037",
+        "AML.T0051.000",
+        "AML.T0055",
+        "AML.T0065",
+        "AML.T0097"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0044",
+      "name": "LAMEHUG: Malware Leveraging Dynamic AI-Generated Commands",
+      "summary": "LAMEHUG is a case study describing AI-powered malware that leverages a large language model to dynamically generate commands on infected hosts, enabling evasion and command generation, attributed to a Russian state-backed threat actor.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0044/",
+      "technique_ids": [
+        "AML.T0011",
+        "AML.T0012",
+        "AML.T0025",
+        "AML.T0037",
+        "AML.T0052",
+        "AML.T0073",
+        "AML.T0074",
+        "AML.T0102"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0045",
+      "name": "Data Exfiltration via an MCP Server used by Cursor",
+      "summary": "Data Exfiltration via an MCP Server used by Cursor is a technique illustrating how a Model Context Protocol tool can be weaponized to inject malicious prompts, causing a cursor AI assistant to run shell commands that exfiltrate configuration files and credentials. The approach l",
+      "url": "https://atlas.mitre.org/studies/AML.CS0045/",
+      "technique_ids": [
+        "AML.T0048.000",
+        "AML.T0051.001",
+        "AML.T0053",
+        "AML.T0065",
+        "AML.T0068",
+        "AML.T0078",
+        "AML.T0079",
+        "AML.T0083",
+        "AML.T0086"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0046",
+      "name": "Data Destruction via Indirect Prompt Injection Targeting Claude Computer-Use",
+      "summary": "Data Destruction via Indirect Prompt Injection Targeting Claude Computer-Use is a technique that exploits Claude\u2019s Computer Use feature to run arbitrary shell commands, enabling deletion of a victim\u2019s filesystem. Attackers embed a jailbreak\u2011obfuscated prompt in a PDF, which, whe",
+      "url": "https://atlas.mitre.org/studies/AML.CS0046/",
+      "technique_ids": [
+        "AML.T0051.001",
+        "AML.T0053",
+        "AML.T0054",
+        "AML.T0065",
+        "AML.T0068",
+        "AML.T0093",
+        "AML.T0101"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0047",
+      "name": "Code to Deploy Destructive AI Agent Discovered in Amazon Q VS Code Extension",
+      "summary": "Code to Deploy Destructive AI Agent Discovered in Amazon Q VS Code Extension is a technique that injects malicious instructions into a VS Code extension, causing an AI assistant to execute commands that delete files and cloud resources. The payload was distributed in version 1.8",
+      "url": "https://atlas.mitre.org/studies/AML.CS0047/",
+      "technique_ids": [
+        "AML.T0010.001",
+        "AML.T0011.001",
+        "AML.T0051.000",
+        "AML.T0055",
+        "AML.T0065",
+        "AML.T0101",
+        "AML.T0103"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0048",
+      "name": "Exposed ClawdBot Control Interfaces Leads to Credential Access and Execution",
+      "summary": "Exposed ClawdBot Control Interfaces Leads to Credential Access and Execution is a case study describing how publicly exposed ClawdBot control interfaces allow attackers to harvest credentials, bypass authentication, and execute commands, leading to credential theft, system compr",
+      "url": "https://atlas.mitre.org/studies/AML.CS0048/",
+      "technique_ids": [
+        "AML.T0000",
+        "AML.T0025",
+        "AML.T0048.003",
+        "AML.T0049",
+        "AML.T0051.001",
+        "AML.T0053",
+        "AML.T0069.002",
+        "AML.T0083",
+        "AML.T0092",
+        "AML.T0098"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0049",
+      "name": "Supply Chain Compromise via Poisoned ClawdBot Skill",
+      "summary": "Supply Chain Compromise via Poisoned ClawdBot Skill is a technique where a malicious Skill distributed through a Skill registry is crafted with a prompt injection that triggers execution of arbitrary shell commands on a user\u2019s system, illustrating how an attacker could deliver a",
+      "url": "https://atlas.mitre.org/studies/AML.CS0049/",
+      "technique_ids": [
+        "AML.T0008.002",
+        "AML.T0010.005",
+        "AML.T0011.002",
+        "AML.T0017",
+        "AML.T0048",
+        "AML.T0051.000",
+        "AML.T0053",
+        "AML.T0065",
+        "AML.T0074",
+        "AML.T0104",
+        "AML.T0111"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0050",
+      "name": "OpenClaw 1-Click Remote Code Execution",
+      "summary": "OpenClaw 1-Click Remote Code Execution is a technique that exploits a client\u2011side JavaScript vulnerability to run arbitrary code on a victim\u2019s browser, steal authentication tokens via WebSocket hijacking, and gain host\u2011level access by disabling security controls.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0050/",
+      "technique_ids": [
+        "AML.T0011.003",
+        "AML.T0012",
+        "AML.T0017",
+        "AML.T0050",
+        "AML.T0079",
+        "AML.T0081",
+        "AML.T0105",
+        "AML.T0106",
+        "AML.T0107"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0051",
+      "name": "OpenClaw Command & Control via Prompt Injection",
+      "summary": "OpenClaw Command & Control via Prompt Injection is a technique that exploits indirect prompt injection to covertly embed malicious instructions into an LLM\u2019s behavior, turning it into a persistent command\u2011and\u2011control agent capable of executing arbitrary scripts and spoofing cont",
+      "url": "https://atlas.mitre.org/studies/AML.CS0051/",
+      "technique_ids": [
+        "AML.T0002.002",
+        "AML.T0008",
+        "AML.T0051.000",
+        "AML.T0051.001",
+        "AML.T0053",
+        "AML.T0054",
+        "AML.T0065",
+        "AML.T0069.000",
+        "AML.T0069.001",
+        "AML.T0074",
+        "AML.T0078",
+        "AML.T0079",
+        "AML.T0080.001",
+        "AML.T0081",
+        "AML.T0095.000",
+        "AML.T0108",
+        "AML.T0112.000"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0052",
+      "name": "LLMSmith: RCE Vulnerabilities in LLM-Integrated Applications",
+      "summary": "LLMSmith: RCE Vulnerabilities in LLM-Integrated Applications is a case study that documents 20 remote code execution flaws across 11 LLM frameworks, including LangChain, LlamaIndex, and others, and demonstrates how prompt injection can exploit these vulnerabilities in publicly d",
+      "url": "https://atlas.mitre.org/studies/AML.CS0052/",
+      "technique_ids": [
+        "AML.T0004",
+        "AML.T0017",
+        "AML.T0049",
+        "AML.T0050",
+        "AML.T0051.000",
+        "AML.T0053",
+        "AML.T0054",
+        "AML.T0065",
+        "AML.T0072",
+        "AML.T0084.003",
+        "AML.T0105",
+        "AML.T0112.000"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0053",
+      "name": "Poisoned Postmark MCP Server Email Exfiltration",
+      "summary": "Poisoned Postmark MCP Server Email Exfiltration is a supply chain attack that compromises an npm package to exfiltrate users' emails via a BCC field in the Postmark MCP server.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0053/",
+      "technique_ids": [
+        "AML.T0010.005",
+        "AML.T0011.002",
+        "AML.T0017",
+        "AML.T0048",
+        "AML.T0073",
+        "AML.T0086",
+        "AML.T0104",
+        "AML.T0109",
+        "AML.T0110"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0054",
+      "name": "Data Exfiltration via Remote Poisoned MCP Tool",
+      "summary": "Data Exfiltration via Remote Poisoned MCP Tool is a technique where a malicious Model Context Protocol tool embeds poisoned prompts in its docstring, causing an AI agent to ingest the malicious instruction and exfiltrate sensitive credentials from the victim\u2019s machine.",
+      "url": "https://atlas.mitre.org/studies/AML.CS0054/",
+      "technique_ids": [
+        "AML.T0010.005",
+        "AML.T0048.003",
+        "AML.T0051.000",
+        "AML.T0053",
+        "AML.T0055",
+        "AML.T0065",
+        "AML.T0086",
+        "AML.T0098",
+        "AML.T0104"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0055",
+      "name": "AI ClickFix: Hijacking Computer-Use Agents Using ClickFix",
+      "summary": "AI ClickFix: Hijacking Computer-Use Agents Using ClickFix is a technique that exploits social\u2011engineering prompts to trick AI computer\u2011use agents into executing malicious commands. By presenting deceptive instructions, the agent copies and runs arbitrary code, enabling system co",
+      "url": "https://atlas.mitre.org/studies/AML.CS0055/",
+      "technique_ids": [
+        "AML.T0016.002",
+        "AML.T0017",
+        "AML.T0051.001",
+        "AML.T0053",
+        "AML.T0078",
+        "AML.T0079",
+        "AML.T0100",
+        "AML.T0112.000"
+      ]
+    },
+    {
+      "case_study_id": "AML.CS0056",
+      "name": "Model Distillation Campaigns Targeting Anthropic Claude",
+      "summary": "Model Distillation Campaigns Targeting Anthropic Claude is a campaign that uses model distillation to extract Claude\u2019s capabilities such as agentic reasoning, code generation, and tool use, enabling rival labs to replicate its performance while bypassing export controls and safe",
+      "url": "https://atlas.mitre.org/studies/AML.CS0056/",
+      "technique_ids": [
+        "AML.T0008.005",
+        "AML.T0024.002",
+        "AML.T0040",
+        "AML.T0048.002",
+        "AML.T0048.003",
+        "AML.T0048.004",
+        "AML.T0065"
+      ]
+    }
+  ]
+}

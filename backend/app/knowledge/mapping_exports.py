@@ -76,6 +76,8 @@ _ATLAS_FREQ_PATH = "docs/threat-intel/atlas/raw/ATLAS_Case_Study_Frequency.json"
 # WS-E E3: collapsed canonical layer (one row per techniqueID with tactics[] +
 # per-tactic scores + source_sha256 provenance). Preferred over raw when present.
 _ATLAS_NORMALIZED_PATH = "docs/threat-intel/atlas/normalized/atlas_matrix_normalized.json"
+_ATLAS_CASESTUDIES_PATH = "docs/threat-intel/atlas/normalized/atlas_casestudies_normalized.json"
+_ATLAS_MITIGATIONS_PATH = "docs/threat-intel/atlas/normalized/atlas_mitigations_normalized.json"
 # ATLAS tactics with no enterprise-ATT&CK analogue → zero SOC coverage by design.
 _ATLAS_AI_ONLY_TACTICS = ("ai-attack-staging", "ai-model-access")
 
@@ -89,6 +91,75 @@ def _load_atlas_normalized() -> dict[str, Any] | None:
         return None
     techniques = payload.get("techniques") if isinstance(payload, dict) else None
     return payload if isinstance(techniques, list) else None
+
+
+def _load_atlas_casestudies() -> dict[str, Any] | None:
+    """Return normalized ATLAS case-study rows, or None if absent/unreadable."""
+    path = repo_root() / _ATLAS_CASESTUDIES_PATH
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return None
+    rows = payload.get("case_studies") if isinstance(payload, dict) else None
+    return payload if isinstance(rows, list) else None
+
+
+def _load_atlas_mitigations() -> dict[str, Any] | None:
+    """Return normalized ATLAS mitigation rows, or None if absent/unreadable."""
+    path = repo_root() / _ATLAS_MITIGATIONS_PATH
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return None
+    rows = payload.get("mitigations") if isinstance(payload, dict) else None
+    return payload if isinstance(rows, list) else None
+
+
+def atlas_technique_enrichment(technique_id: str) -> dict[str, Any]:
+    """Mitigations and case studies linked to one AML technique id (fail-closed)."""
+    tid = str(technique_id or "").strip()
+    empty: dict[str, Any] = {"mitigations": [], "case_studies": []}
+    if not tid:
+        return empty
+
+    case_payload = _load_atlas_casestudies()
+    mitigation_payload = _load_atlas_mitigations()
+    if case_payload is None or mitigation_payload is None:
+        return empty
+
+    mitigations: list[dict[str, str]] = []
+    for row in mitigation_payload.get("mitigations") or []:
+        if not isinstance(row, dict):
+            continue
+        technique_ids = {str(item) for item in row.get("technique_ids") or []}
+        if tid not in technique_ids:
+            continue
+        mitigations.append(
+            {
+                "id": str(row.get("mitigation_id") or ""),
+                "name": str(row.get("name") or ""),
+                "url": str(row.get("url") or ""),
+            }
+        )
+
+    case_studies: list[dict[str, str]] = []
+    for row in case_payload.get("case_studies") or []:
+        if not isinstance(row, dict):
+            continue
+        technique_ids = {str(item) for item in row.get("technique_ids") or []}
+        if tid not in technique_ids:
+            continue
+        case_studies.append(
+            {
+                "id": str(row.get("case_study_id") or ""),
+                "name": str(row.get("name") or ""),
+                "url": str(row.get("url") or ""),
+            }
+        )
+
+    mitigations.sort(key=lambda item: item["id"])
+    case_studies.sort(key=lambda item: item["id"])
+    return {"mitigations": mitigations, "case_studies": case_studies}
 
 
 def _atlas_technique_names(technique_ids: list[str]) -> dict[str, str]:
