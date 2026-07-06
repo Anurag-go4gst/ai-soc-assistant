@@ -112,7 +112,19 @@ _HUNT = re.compile(
 _REFERENCE_TAXONOMY_PHRASE = re.compile(
     r"\b(?:what is|explain|define|list|which|what)\b.{0,80}\b(?:techniques?|taxonomy|cve|atlas|att&ck|mitre)\b|"
     r"\b(?:techniques?)\b.{0,80}\b(?:apply|relevant|associated|cover)\b|"
-    r"\b(?:CVE-\d{4}-\d{4,7}|AML\.T\d{4}|T\d{4}(?:\.\d{3})?)\b",
+    r"\b(?:CVE-\d{4}-\d{4,7}|AML\.T\d{4}|T\d{4}(?:\.\d{3})?)\b|"
+    # Bare definition asks for a specific, unambiguous ATLAS/AI-threat term with no
+    # "technique"/"mitre"/"atlas" framing word (e.g. "what is prompt injection") —
+    # confirmed live 2026-07-06: these fell through to generic knowledge_recall with
+    # no SOP match instead of the reference_taxonomy path, despite the term being a
+    # registered AI_THREAT_KEYWORDS entry. Intentionally a curated subset of
+    # AI_THREAT_KEYWORDS (reference_registry.py), not the full list — excludes
+    # single generic words ("agent", "embedding", "ai model") that would false-positive
+    # on unrelated "what is/explain" questions.
+    r"\b(?:what is|explain|define|describe|what does|what's)\b.{0,60}\b(?:prompt injection|"
+    r"prompt crafting|indirect prompt injection|jailbreak|model theft|model extraction|"
+    r"data poisoning|training data poisoning|rag poisoning|adversarial example|model evasion|"
+    r"mcp server|mcp tool|inference api|model endpoint)\b",
     re.IGNORECASE,
 )
 _REFERENCE_NEGATIVE = re.compile(
