@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.chat.evidence_planner import plan_evidence
-from app.chat.intent_classifier import build_query_to_intent
+from app.chat.intent_classifier import IntentClassification, build_query_to_intent
 from app.query_understanding.parser import understand_query
 
 
@@ -156,3 +156,24 @@ def test_answer_pack_cannot_override_environment_kb(monkeypatch) -> None:
     assert plan.normalized_slot_summary is not None
     assert plan.normalized_slot_summary["normalized_slots"]["index"] == "scada_perf"
     assert plan.normalized_slot_summary["slot_sources"]["index"] == "user_explicit"
+
+
+def test_reference_knowledge_claim_guard() -> None:
+    intent = IntentClassification(
+        intent_family="reference_knowledge",
+        primary_intent="reference_knowledge",
+        query_type="ask_for_explanation",
+        answer_goal=["reference_lookup"],
+        confidence=0.9,
+        confidence_band="high",
+        requires_clarification=False,
+        action_mode="recommend_only",
+        reason="reference taxonomy lookup",
+        requested_output_type="MITRE_MAPPING",
+    )
+    plan = plan_evidence(intent, {}, routed={})
+    assert plan.needs_spl is False
+    assert plan.needs_mcp is False
+    assert plan.spl_allowed is False
+    assert plan.mcp_allowed is False
+    assert "confirmed exploitation" in (plan.unsupported_claims_avoid or [])

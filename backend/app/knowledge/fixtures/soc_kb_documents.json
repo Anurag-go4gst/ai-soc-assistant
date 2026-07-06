@@ -1,5 +1,67 @@
 [
  {
+  "doc_id": "coe-auth-detection-note-v1",
+  "collection_id": "detection_notes",
+  "title": "COE Sample Auth Detection Engineering Note",
+  "document_type": "detection_engineering_note",
+  "namespace": "auth",
+  "domain": "detection_engineering",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "spl_generation",
+   "validation",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "spl_generation",
+   "attack_discovery"
+  ],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "tags": [
+   "auth",
+   "spl",
+   "failed_login"
+  ],
+  "owner": "COE Detection Engineering",
+  "uploaded_by": "coe.sample",
+  "reviewed_by": "coe.deteng",
+  "approved_by": "coe.deteng",
+  "created_at": "2026-04-03T00:00:00Z",
+  "updated_at": "2026-04-03T00:00:00Z",
+  "reviewed_at": "2026-04-03T00:00:00Z",
+  "approved_at": "2026-04-03T00:00:00Z",
+  "published_at": "2026-04-03T00:00:00Z",
+  "retired_at": null,
+  "effective_from": "2026-04-03T00:00:00Z",
+  "effective_to": null,
+  "checksum_sha256": "sample-coe-auth-detection-note-v1",
+  "source_file_name": "coe_auth_detection_note_sample.md",
+  "source_file_ref": "fixtures/coe_auth_detection_note_sample.md",
+  "source_system": "coe_sample_fixture",
+  "supersedes_doc_id": null,
+  "superseded_by_doc_id": null,
+  "canonical_doc_id": "coe-auth-detection-note",
+  "is_current_version": true,
+  "change_summary": "Initial sample detection note for Stage 3G.",
+  "review_notes": "COE sample only; not PGCIL policy.",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "doc:coe-auth-detection-note-v1",
+  "graph_edges": [
+   {
+    "type": "document_has_entry",
+    "to": "entry:coe-auth-spl-pattern"
+   }
+  ]
+ },
+ {
   "doc_id": "coe-auth-sop-v1",
   "collection_id": "soc_sop",
   "title": "COE Sample Auth Investigation SOP",
@@ -60,134 +122,6 @@
    {
     "type": "document_has_entry",
     "to": "entry:coe-auth-bruteforce"
-   }
-  ]
- },
- {
-  "doc_id": "coe-splunk-auth-context-v1",
-  "collection_id": "splunk_context",
-  "title": "COE Sample Splunk Auth Context",
-  "document_type": "splunk_context_document",
-  "namespace": "auth",
-  "domain": "splunk",
-  "environment": "coe",
-  "version": "1.0",
-  "revision": "1",
-  "status": "active",
-  "approval_status": "coe_reviewed",
-  "lifecycle_stage": "published",
-  "allowed_use": [
-   "spl_generation",
-   "validation",
-   "synthesis_context",
-   "environment_grounding"
-  ],
-  "applies_to_skills": [
-   "attack_discovery",
-   "spl_generation"
-  ],
-  "risk_level": "medium",
-  "sensitivity": "internal",
-  "tags": [
-   "auth",
-   "splunk",
-   "index",
-   "sourcetype"
-  ],
-  "owner": "COE Detection Engineering",
-  "uploaded_by": "coe.sample",
-  "reviewed_by": "coe.deteng",
-  "approved_by": "coe.deteng",
-  "created_at": "2026-04-01T00:00:00Z",
-  "updated_at": "2026-04-02T00:00:00Z",
-  "reviewed_at": "2026-04-02T00:00:00Z",
-  "approved_at": "2026-04-02T00:00:00Z",
-  "published_at": "2026-04-03T00:00:00Z",
-  "retired_at": null,
-  "effective_from": "2026-04-03T00:00:00Z",
-  "effective_to": null,
-  "checksum_sha256": "sample-coe-splunk-auth-context-v1",
-  "source_file_name": "coe_splunk_auth_context_sample.md",
-  "source_file_ref": "fixtures/coe_splunk_auth_context_sample.md",
-  "source_system": "coe_sample_fixture",
-  "supersedes_doc_id": null,
-  "superseded_by_doc_id": null,
-  "canonical_doc_id": "coe-splunk-auth-context",
-  "is_current_version": true,
-  "change_summary": "Initial sample Splunk context.",
-  "review_notes": "COE sample only; validate against customer SCD before production use.",
-  "retrieval_backend": "deterministic",
-  "embedding_ref": null,
-  "sparse_ref": null,
-  "graph_node_id": "doc:coe-splunk-auth-context-v1",
-  "graph_edges": [
-   {
-    "type": "scd_allows_index",
-    "to": "index:pgcil_soc"
-   }
-  ]
- },
- {
-  "doc_id": "mitre-auth-grounding-v1",
-  "collection_id": "mitre_enterprise",
-  "title": "COE Sample MITRE Auth Grounding",
-  "document_type": "mitre_enterprise_reference",
-  "namespace": "mitre",
-  "domain": "enterprise",
-  "environment": "global",
-  "version": "1.0",
-  "revision": "1",
-  "status": "published",
-  "approval_status": "coe_reviewed",
-  "lifecycle_stage": "published",
-  "allowed_use": [
-   "mitre_grounding",
-   "synthesis_context",
-   "validation"
-  ],
-  "applies_to_skills": [
-   "alert_summary",
-   "attack_discovery",
-   "knowledge_recall"
-  ],
-  "risk_level": "low",
-  "sensitivity": "public",
-  "tags": [
-   "mitre",
-   "T1110",
-   "T1078",
-   "auth"
-  ],
-  "owner": "COE Threat Intel",
-  "uploaded_by": "coe.sample",
-  "reviewed_by": "coe.ti",
-  "approved_by": "coe.ti",
-  "created_at": "2026-04-01T00:00:00Z",
-  "updated_at": "2026-04-02T00:00:00Z",
-  "reviewed_at": "2026-04-02T00:00:00Z",
-  "approved_at": "2026-04-02T00:00:00Z",
-  "published_at": "2026-04-03T00:00:00Z",
-  "retired_at": null,
-  "effective_from": "2026-04-03T00:00:00Z",
-  "effective_to": null,
-  "checksum_sha256": "sample-mitre-auth-grounding-v1",
-  "source_file_name": "mitre_auth_grounding_sample.md",
-  "source_file_ref": "fixtures/mitre_auth_grounding_sample.md",
-  "source_system": "coe_sample_fixture",
-  "supersedes_doc_id": null,
-  "superseded_by_doc_id": null,
-  "canonical_doc_id": "mitre-auth-grounding",
-  "is_current_version": true,
-  "change_summary": "Initial MITRE sample notes.",
-  "review_notes": "High-level sample mapping aid only.",
-  "retrieval_backend": "deterministic",
-  "embedding_ref": null,
-  "sparse_ref": null,
-  "graph_node_id": "doc:mitre-auth-grounding-v1",
-  "graph_edges": [
-   {
-    "type": "entry_mentions_mitre",
-    "to": "mitre:T1110"
    }
   ]
  },
@@ -314,6 +248,70 @@
   ]
  },
  {
+  "doc_id": "coe-splunk-auth-context-v1",
+  "collection_id": "splunk_context",
+  "title": "COE Sample Splunk Auth Context",
+  "document_type": "splunk_context_document",
+  "namespace": "auth",
+  "domain": "splunk",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "active",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "spl_generation",
+   "validation",
+   "synthesis_context",
+   "environment_grounding"
+  ],
+  "applies_to_skills": [
+   "attack_discovery",
+   "spl_generation"
+  ],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "tags": [
+   "auth",
+   "splunk",
+   "index",
+   "sourcetype"
+  ],
+  "owner": "COE Detection Engineering",
+  "uploaded_by": "coe.sample",
+  "reviewed_by": "coe.deteng",
+  "approved_by": "coe.deteng",
+  "created_at": "2026-04-01T00:00:00Z",
+  "updated_at": "2026-04-02T00:00:00Z",
+  "reviewed_at": "2026-04-02T00:00:00Z",
+  "approved_at": "2026-04-02T00:00:00Z",
+  "published_at": "2026-04-03T00:00:00Z",
+  "retired_at": null,
+  "effective_from": "2026-04-03T00:00:00Z",
+  "effective_to": null,
+  "checksum_sha256": "sample-coe-splunk-auth-context-v1",
+  "source_file_name": "coe_splunk_auth_context_sample.md",
+  "source_file_ref": "fixtures/coe_splunk_auth_context_sample.md",
+  "source_system": "coe_sample_fixture",
+  "supersedes_doc_id": null,
+  "superseded_by_doc_id": null,
+  "canonical_doc_id": "coe-splunk-auth-context",
+  "is_current_version": true,
+  "change_summary": "Initial sample Splunk context.",
+  "review_notes": "COE sample only; validate against customer SCD before production use.",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "doc:coe-splunk-auth-context-v1",
+  "graph_edges": [
+   {
+    "type": "scd_allows_index",
+    "to": "index:pgcil_soc"
+   }
+  ]
+ },
+ {
   "doc_id": "draft-auth-sop-v2",
   "collection_id": "soc_sop",
   "title": "Draft Auth SOP Not Runtime Eligible",
@@ -364,59 +362,6 @@
   "embedding_ref": null,
   "sparse_ref": null,
   "graph_node_id": "doc:draft-auth-sop-v2",
-  "graph_edges": []
- },
- {
-  "doc_id": "old-auth-sop-v0",
-  "collection_id": "soc_sop",
-  "title": "Old Auth SOP Superseded",
-  "document_type": "sop",
-  "namespace": "auth",
-  "domain": "identity",
-  "environment": "coe",
-  "version": "0.9",
-  "revision": "1",
-  "status": "published",
-  "approval_status": "coe_reviewed",
-  "lifecycle_stage": "retired",
-  "allowed_use": [
-   "hil_guidance"
-  ],
-  "applies_to_skills": [
-   "attack_discovery"
-  ],
-  "risk_level": "medium",
-  "sensitivity": "internal",
-  "tags": [
-   "old",
-   "must_not_retrieve"
-  ],
-  "owner": "COE SOC",
-  "uploaded_by": "coe.sample",
-  "reviewed_by": "coe.lead",
-  "approved_by": "coe.lead",
-  "created_at": "2026-03-01T00:00:00Z",
-  "updated_at": "2026-03-02T00:00:00Z",
-  "reviewed_at": "2026-03-02T00:00:00Z",
-  "approved_at": "2026-03-02T00:00:00Z",
-  "published_at": "2026-03-03T00:00:00Z",
-  "retired_at": "2026-04-03T00:00:00Z",
-  "effective_from": "2026-03-03T00:00:00Z",
-  "effective_to": null,
-  "checksum_sha256": "old-auth-sop-v0",
-  "source_file_name": "old.md",
-  "source_file_ref": "fixtures/old.md",
-  "source_system": "coe_sample_fixture",
-  "supersedes_doc_id": null,
-  "superseded_by_doc_id": "coe-auth-sop-v1",
-  "canonical_doc_id": "coe-auth-sop",
-  "is_current_version": false,
-  "change_summary": "Superseded by current SOP.",
-  "review_notes": "Must not be retrieved.",
-  "retrieval_backend": "deterministic",
-  "embedding_ref": null,
-  "sparse_ref": null,
-  "graph_node_id": "doc:old-auth-sop-v0",
   "graph_edges": []
  },
  {
@@ -473,6 +418,123 @@
   "graph_edges": []
  },
  {
+  "doc_id": "mitre-auth-grounding-v1",
+  "collection_id": "mitre_enterprise",
+  "title": "COE Sample MITRE Auth Grounding",
+  "document_type": "mitre_enterprise_reference",
+  "namespace": "mitre",
+  "domain": "enterprise",
+  "environment": "global",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "mitre_grounding",
+   "synthesis_context",
+   "validation"
+  ],
+  "applies_to_skills": [
+   "alert_summary",
+   "attack_discovery",
+   "knowledge_recall"
+  ],
+  "risk_level": "low",
+  "sensitivity": "public",
+  "tags": [
+   "mitre",
+   "T1110",
+   "T1078",
+   "auth"
+  ],
+  "owner": "COE Threat Intel",
+  "uploaded_by": "coe.sample",
+  "reviewed_by": "coe.ti",
+  "approved_by": "coe.ti",
+  "created_at": "2026-04-01T00:00:00Z",
+  "updated_at": "2026-04-02T00:00:00Z",
+  "reviewed_at": "2026-04-02T00:00:00Z",
+  "approved_at": "2026-04-02T00:00:00Z",
+  "published_at": "2026-04-03T00:00:00Z",
+  "retired_at": null,
+  "effective_from": "2026-04-03T00:00:00Z",
+  "effective_to": null,
+  "checksum_sha256": "sample-mitre-auth-grounding-v1",
+  "source_file_name": "mitre_auth_grounding_sample.md",
+  "source_file_ref": "fixtures/mitre_auth_grounding_sample.md",
+  "source_system": "coe_sample_fixture",
+  "supersedes_doc_id": null,
+  "superseded_by_doc_id": null,
+  "canonical_doc_id": "mitre-auth-grounding",
+  "is_current_version": true,
+  "change_summary": "Initial MITRE sample notes.",
+  "review_notes": "High-level sample mapping aid only.",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "doc:mitre-auth-grounding-v1",
+  "graph_edges": [
+   {
+    "type": "entry_mentions_mitre",
+    "to": "mitre:T1110"
+   }
+  ]
+ },
+ {
+  "doc_id": "old-auth-sop-v0",
+  "collection_id": "soc_sop",
+  "title": "Old Auth SOP Superseded",
+  "document_type": "sop",
+  "namespace": "auth",
+  "domain": "identity",
+  "environment": "coe",
+  "version": "0.9",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "retired",
+  "allowed_use": [
+   "hil_guidance"
+  ],
+  "applies_to_skills": [
+   "attack_discovery"
+  ],
+  "risk_level": "medium",
+  "sensitivity": "internal",
+  "tags": [
+   "old",
+   "must_not_retrieve"
+  ],
+  "owner": "COE SOC",
+  "uploaded_by": "coe.sample",
+  "reviewed_by": "coe.lead",
+  "approved_by": "coe.lead",
+  "created_at": "2026-03-01T00:00:00Z",
+  "updated_at": "2026-03-02T00:00:00Z",
+  "reviewed_at": "2026-03-02T00:00:00Z",
+  "approved_at": "2026-03-02T00:00:00Z",
+  "published_at": "2026-03-03T00:00:00Z",
+  "retired_at": "2026-04-03T00:00:00Z",
+  "effective_from": "2026-03-03T00:00:00Z",
+  "effective_to": null,
+  "checksum_sha256": "old-auth-sop-v0",
+  "source_file_name": "old.md",
+  "source_file_ref": "fixtures/old.md",
+  "source_system": "coe_sample_fixture",
+  "supersedes_doc_id": null,
+  "superseded_by_doc_id": "coe-auth-sop-v1",
+  "canonical_doc_id": "coe-auth-sop",
+  "is_current_version": false,
+  "change_summary": "Superseded by current SOP.",
+  "review_notes": "Must not be retrieved.",
+  "retrieval_backend": "deterministic",
+  "embedding_ref": null,
+  "sparse_ref": null,
+  "graph_node_id": "doc:old-auth-sop-v0",
+  "graph_edges": []
+ },
+ {
   "doc_id": "rejected-auth-note-v1",
   "collection_id": "soc_sop",
   "title": "Rejected Auth Guidance",
@@ -526,12 +588,12 @@
   "graph_edges": []
  },
  {
-  "doc_id": "coe-auth-detection-note-v1",
-  "collection_id": "detection_notes",
-  "title": "COE Sample Auth Detection Engineering Note",
-  "document_type": "detection_engineering_note",
-  "namespace": "auth",
-  "domain": "detection_engineering",
+  "doc_id": "atlas-aml.cs0000-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Evasion of Deep Learning Detector for Malware C&C Traffic",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
   "environment": "coe",
   "version": "1.0",
   "revision": "1",
@@ -539,53 +601,3487 @@
   "approval_status": "coe_reviewed",
   "lifecycle_stage": "published",
   "allowed_use": [
-   "spl_generation",
-   "validation",
+   "hil_guidance",
    "synthesis_context"
   ],
   "applies_to_skills": [
-   "spl_generation",
+   "knowledge_recall",
+   "guided_investigation",
    "attack_discovery"
   ],
-  "risk_level": "medium",
+  "risk_level": "low",
   "sensitivity": "internal",
   "tags": [
-   "auth",
-   "spl",
-   "failed_login"
+   "aml-cs0000",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
   ],
-  "owner": "COE Detection Engineering",
-  "uploaded_by": "coe.sample",
-  "reviewed_by": "coe.deteng",
-  "approved_by": "coe.deteng",
-  "created_at": "2026-04-03T00:00:00Z",
-  "updated_at": "2026-04-03T00:00:00Z",
-  "reviewed_at": "2026-04-03T00:00:00Z",
-  "approved_at": "2026-04-03T00:00:00Z",
-  "published_at": "2026-04-03T00:00:00Z",
-  "retired_at": null,
-  "effective_from": "2026-04-03T00:00:00Z",
-  "effective_to": null,
-  "checksum_sha256": "sample-coe-auth-detection-note-v1",
-  "source_file_name": "coe_auth_detection_note_sample.md",
-  "source_file_ref": "fixtures/coe_auth_detection_note_sample.md",
-  "source_system": "coe_sample_fixture",
-  "supersedes_doc_id": null,
-  "superseded_by_doc_id": null,
-  "canonical_doc_id": "coe-auth-detection-note",
-  "is_current_version": true,
-  "change_summary": "Initial sample detection note for Stage 3G.",
-  "review_notes": "COE sample only; not PGCIL policy.",
-  "retrieval_backend": "deterministic",
-  "embedding_ref": null,
-  "sparse_ref": null,
-  "graph_node_id": "doc:coe-auth-detection-note-v1",
-  "graph_edges": [
-   {
-    "type": "document_has_entry",
-    "to": "entry:coe-auth-spl-pattern"
-   }
-  ]
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0001-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Botnet Domain Generation Algorithm (DGA) Detection Evasion",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0001",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0002-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: VirusTotal Poisoning",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0002",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0003-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Bypassing Cylance's AI Malware Detection",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0003",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0004-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Camera Hijack Attack on Facial Recognition System",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0004",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0005-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Attack on Machine Translation Services",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0005",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0006-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: ClearviewAI Misconfiguration",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0006",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0007-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: GPT-2 Model Replication",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0007",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0008-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: ProofPoint Evasion",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0008",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0009-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Tay Poisoning",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0009",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0010-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Microsoft Azure Service Disruption",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0010",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0011-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Microsoft Edge AI Evasion",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0011",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0012-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Face Identification System Evasion via Physical Countermeasures",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0012",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0013-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Backdoor Attack on Deep Learning Models in Mobile Apps",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0013",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0014-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Confusing Antimalware Neural Networks",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0014",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0015-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Compromised PyTorch Dependency Chain",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0015",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0016-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Achieving Code Execution in MathGPT via Prompt Injection",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0016",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0017-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Bypassing ID.me Identity Verification",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0017",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0018-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Arbitrary Code Execution with Google Colab",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0018",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0019-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: PoisonGPT",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0019",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0020-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Indirect Prompt Injection Threats: Bing Chat Data Pirate",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0020",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0021-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: ChatGPT Conversation Exfiltration",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0021",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0022-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: ChatGPT Package Hallucination",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0022",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0023-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: ShadowRay",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0023",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0024-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Morris II Worm: RAG-Based Attack",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0024",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0025-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Web-Scale Data Poisoning: Split-View Attack",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0025",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0026-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Financial Transaction Hijacking with M365 Copilot as an Insider",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0026",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0027-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Organization Confusion on Hugging Face",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0027",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0028-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: AI Model Tampering via Supply Chain Attack",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0028",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0029-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Google Bard Conversation Exfiltration",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0029",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0030-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: LLM Jacking",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0030",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0031-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Malicious Models on Hugging Face",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0031",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0032-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Attempted Evasion of ML Phishing Webpage Detection System",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0032",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0033-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Live Deepfake Image Injection to Evade Mobile KYC Verification",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0033",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0034-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: ProKYC: Deepfake Tool for Account Fraud Attacks",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0034",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0035-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Data Exfiltration from Slack AI via Indirect Prompt Injection",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0035",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0036-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: AIKatz: Attacking LLM Desktop Applications",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0036",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0037-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Data Exfiltration via Agent Tools in Copilot Studio",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0037",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0038-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Planting Instructions for Delayed Automatic AI Agent Tool Invocation",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0038",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0039-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Living Off AI: Prompt Injection via Jira Service Management",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0039",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0040-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Hacking ChatGPT’s Memories with Prompt Injection",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0040",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0041-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Rules File Backdoor: Supply Chain Attack on AI Coding Assistants",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0041",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0042-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: SesameOp: Novel backdoor uses OpenAI Assistants API for command and control",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0042",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0043-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Malware Prototype with Embedded Prompt Injection",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0043",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0044-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: LAMEHUG: Malware Leveraging Dynamic AI-Generated Commands",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0044",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0045-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Data Exfiltration via an MCP Server used by Cursor",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0045",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0046-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Data Destruction via Indirect Prompt Injection Targeting Claude Computer-Use",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0046",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0047-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Code to Deploy Destructive AI Agent Discovered in Amazon Q VS Code Extension",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0047",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0048-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Exposed ClawdBot Control Interfaces Leads to Credential Access and Execution",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0048",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0049-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Supply Chain Compromise via Poisoned ClawdBot Skill",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0049",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0050-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: OpenClaw 1-Click Remote Code Execution",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0050",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0051-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: OpenClaw Command & Control via Prompt Injection",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0051",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0052-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: LLMSmith: RCE Vulnerabilities in LLM-Integrated Applications",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0052",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0053-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Poisoned Postmark MCP Server Email Exfiltration",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0053",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0054-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Data Exfiltration via Remote Poisoned MCP Tool",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0054",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0055-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: AI ClickFix: Hijacking Computer-Use Agents Using ClickFix",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0055",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.cs0056-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS casestudy: Model Distillation Campaigns Targeting Anthropic Claude",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-cs0056",
+   "casestudy",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0000-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Limit Public Release of Information",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0000",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0001-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Limit Model Artifact Release",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0001",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0002-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Passive AI Output Obfuscation",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0002",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0003-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Model Hardening",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0003",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0004-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Restrict Number of AI Model Queries",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0004",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0005-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Control Access to AI Models and Data at Rest",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0005",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0006-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Use Ensemble Methods",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0006",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0007-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Sanitize Training Data",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0007",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0008-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Validate AI Model",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0008",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0009-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Use Multi-Modal Sensors",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0009",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0010-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Input Restoration",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0010",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0011-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Restrict Library Loading",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0011",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0012-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Encrypt Sensitive Information",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0012",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0013-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Code Signing",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0013",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0014-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Verify AI Artifacts",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0014",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0015-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Adversarial Input Detection",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0015",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0016-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Vulnerability Scanning",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0016",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0017-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: AI Model Distribution Methods",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0017",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0018-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: User Training",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0018",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0019-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Control Access to AI Models and Data in Production",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0019",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0020-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Generative AI Guardrails",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0020",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0021-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Generative AI Guidelines",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0021",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0022-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Generative AI Model Alignment",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0022",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0023-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: AI Bill of Materials",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0023",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0024-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: AI Telemetry Logging",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0024",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0025-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Maintain AI Dataset Provenance",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0025",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0026-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Privileged AI Agent Permissions Configuration",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0026",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0027-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Single-User AI Agent Permissions Configuration",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0027",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0028-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: AI Agent Tools Permissions Configuration",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0028",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0029-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Human In-the-Loop for AI Agent Actions",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0029",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0030-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Restrict AI Agent Tool Invocation on Untrusted Data",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0030",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0031-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Memory Hardening",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0031",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0032-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Segmentation of AI Agent Components",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0032",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0033-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Input and Output Validation for AI Agent Components",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0033",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
+ },
+ {
+  "doc_id": "atlas-aml.m0034-v1",
+  "collection_id": "mitre_atlas",
+  "title": "MITRE ATLAS mitigation: Deepfake Detection",
+  "document_type": "other",
+  "namespace": "threat-intel",
+  "domain": "ai-security",
+  "environment": "coe",
+  "version": "1.0",
+  "revision": "1",
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "lifecycle_stage": "published",
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "applies_to_skills": [
+   "knowledge_recall",
+   "guided_investigation",
+   "attack_discovery"
+  ],
+  "risk_level": "low",
+  "sensitivity": "internal",
+  "tags": [
+   "aml-m0034",
+   "mitigation",
+   "mitre_atlas",
+   "source:mitre_atlas"
+  ],
+  "owner": "ATLAS narrative importer",
+  "uploaded_by": "atlas_narrative_importer",
+  "reviewed_by": "anurag",
+  "approved_by": "anurag",
+  "created_at": "2026-07-06T00:00:00Z",
+  "updated_at": "2026-07-06T00:00:00Z",
+  "is_current_version": true
  },
  {
   "doc_id": "skill-enrich-auth_after_hours_critical_asset-v1",

@@ -17,8 +17,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.knowledge.mapping_exports import build_atlas_coverage_gap
+from app.knowledge.atlas_attack_crosswalk import (
+    atlas_technique_suggested_remediation,
+    atlas_technique_to_template_hints,
+)
+from app.knowledge.mapping_exports import atlas_technique_enrichment, build_atlas_coverage_gap
 from app.planner.reference_registry import AI_THREAT_KEYWORDS as _AI_THREAT_KEYWORDS
+from app.threat.attack_data_resolver import technique_resolver_from_settings
 from app.threat.resolver_types import NullTechniqueResolver, TechniqueResolver
 
 
@@ -83,7 +88,23 @@ class GroundingBlock:
         tid = str(ref.get("technique_id") or "")
         detail = self.technique_details.get(tid) or {}
         name = detail.get("name")
-        return f"{tid} ({name})" if name else tid
+        base = f"{tid} ({name})" if name else tid
+        extras: list[str] = []
+        mitigation_names = [
+            str(item.get("name") or "")
+            for item in ref.get("mitigations") or []
+            if isinstance(item, dict) and str(item.get("name") or "").strip()
+        ][:2]
+        case_names = [
+            str(item.get("name") or "")
+            for item in ref.get("case_studies") or []
+            if isinstance(item, dict) and str(item.get("name") or "").strip()
+        ][:2]
+        if mitigation_names:
+            extras.append("mitigations: " + ", ".join(mitigation_names))
+        if case_names:
+            extras.append("case studies: " + ", ".join(case_names))
+        return f"{base}; {'; '.join(extras)}" if extras else base
 
 
 def detect_ai_threat_signal(question: str) -> bool:
@@ -106,14 +127,43 @@ def atlas_reference_for_question(question: str, *, limit: int = 8) -> list[dict[
     if not str(coverage.get("atlas_source_status") or "").startswith("onboarded"):
         return []
     top = coverage.get("top_techniques_by_case_study_frequency") or []
-    return [
-        {
-            "technique_id": row.get("technique_id"),
+    refs: list[dict[str, Any]] = []
+    for row in top[:limit]:
+        technique_id = str(row.get("technique_id") or "")
+        if not technique_id:
+            continue
+        enrichment = atlas_technique_enrichment(technique_id)
+        ref: dict[str, Any] = {
+            "technique_id": technique_id,
             "score": row.get("score"),
             "tactics": list(row.get("tactics") or []),
+            "mitigations": list(enrichment.get("mitigations") or []),
+            "case_studies": list(enrichment.get("case_studies") or []),
         }
-        for row in top[:limit]
-    ]
+        template_ids = atlas_technique_to_template_hints(technique_id)
+        if template_ids:
+            detail = technique_resolver_from_settings().detail(technique_id)
+            attack_ref = str((detail or {}).get("attack_technique_ref") or "")
+            ref["suggested_detection_hint"] = {
+                "attack_technique_ref": attack_ref,
+                "template_ids": template_ids,
+                "disclaimer": (
+                    "heuristic tactic/technique overlap via MITRE's own ATLAS→ATT&CK crosswalk, "
+                    "not an official ATLAS-to-SPL mapping; run only if you judge it relevant"
+                ),
+            }
+        remediation = atlas_technique_suggested_remediation(technique_id)
+        if remediation:
+            ref["remediation_preview"] = {
+                "text": str(remediation.get("text") or ""),
+                "availability": "not_available_this_tier",
+                "note": (
+                    "Descriptive only — no action is taken or proposed. Live remediation requires "
+                    "a separate, explicitly-approved capability tier change."
+                ),
+            }
+        refs.append(ref)
+    return refs
 
 
 def assemble_grounding(

@@ -69,6 +69,41 @@ def test_non_reference_evidence_still_scrubs_sensitive_keywords() -> None:
     assert "password" not in row["note"].lower()
 
 
+def test_reference_dataset_evidence_preserves_nested_raw_dict() -> None:
+    from app.evidence.source_evidence import build_provider_source_evidence
+
+    evidence = build_provider_source_evidence(
+        trace_id="trace-ref-nested",
+        source_type="reference_dataset",
+        source_name="reference_registry",
+        collection_status="collected",
+        query_or_request_summary="AML.T0065",
+        result_count=1,
+        preview_rows=[
+            {
+                "reference_id": "AML.T0065",
+                "name": "LLM Prompt Crafting",
+                "dataset_id": "mitre_atlas",
+                "tactics": ["AML.TA0003"],
+                "raw": {
+                    "technique_id": "AML.T0065",
+                    "atlas_enrichment": {
+                        "mitigations": [],
+                        "case_studies": [
+                            {"id": "AML.CS0045", "name": "Cursor MCP Exfil"},
+                        ],
+                    },
+                },
+            }
+        ],
+    )
+    row = evidence["preview_rows"][0]
+    assert isinstance(row["raw"], dict)
+    assert isinstance(row["tactics"], list)
+    enrichment = row["raw"]["atlas_enrichment"]
+    assert enrichment["case_studies"][0]["name"] == "Cursor MCP Exfil"
+
+
 def test_reference_dataset_evidence_does_not_trip_sensitivity_flags() -> None:
     # Live regression 2026-07-05: once keyword_scrub was correctly disabled for
     # reference-dataset technique text, _sensitivity_flags (a second, redundant

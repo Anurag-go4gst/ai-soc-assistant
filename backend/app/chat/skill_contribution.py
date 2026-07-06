@@ -349,21 +349,77 @@ def apply_evidence_summary_floor(
 
     citations = [c for c in grounding_block.get("evidence_citations") or [] if isinstance(c, dict)]
     limitations = [str(item) for item in grounding_block.get("limitations") or [] if item]
+    atlas_lines: list[str] = []
+    remediation_actions: list[str] = []
+    for ref in grounding_block.get("atlas_references") or []:
+        if not isinstance(ref, dict):
+            continue
+        technique_id = str(ref.get("technique_id") or "").strip()
+        if not technique_id:
+            continue
+        mitigation_names = [
+            str(item.get("name") or "").strip()
+            for item in ref.get("mitigations") or []
+            if isinstance(item, dict) and str(item.get("name") or "").strip()
+        ][:1]
+        case_names = [
+            str(item.get("name") or "").strip()
+            for item in ref.get("case_studies") or []
+            if isinstance(item, dict) and str(item.get("name") or "").strip()
+        ][:1]
+        hint = ref.get("suggested_detection_hint") if isinstance(ref.get("suggested_detection_hint"), dict) else {}
+        attack_ref = str(hint.get("attack_technique_ref") or "").strip()
+        template_ids = [str(item) for item in hint.get("template_ids") or [] if str(item).strip()]
+        if not (mitigation_names or case_names or template_ids):
+            continue
+        parts = [f"ATLAS {technique_id}"]
+        if attack_ref:
+            parts.append(f"crosswalked ATT&CK {attack_ref}")
+        if mitigation_names:
+            parts.append(f"mitigation — {mitigation_names[0]}")
+        if case_names:
+            parts.append(f"case study — {case_names[0]}")
+        if template_ids:
+            parts.append(f"check: {template_ids[0]}")
+        atlas_lines.append("; ".join(parts))
+        preview = ref.get("remediation_preview") if isinstance(ref.get("remediation_preview"), dict) else {}
+        preview_text = str(preview.get("text") or "").strip()
+        if preview_text:
+            remediation_actions.append(
+                "Suggested remediation (not available at the current Tier 1 — Prepare stage): "
+                + preview_text
+            )
     render = dict(envelope.render_sections or {})
     updates: dict[str, Any] = {}
 
+    summary_parts: list[str] = []
     if citations:
-        parts = [
-            f"{c.get('row_count')} row(s) from {c.get('source_type')} (evidence_id={c.get('evidence_id')})"
-            for c in citations
-        ]
-        updates["evidence_summary"] = "Evidence collected: " + "; ".join(parts)
-        render["evidence_summary"] = True
+        summary_parts.append(
+            "Evidence collected: "
+            + "; ".join(
+                f"{c.get('row_count')} row(s) from {c.get('source_type')} (evidence_id={c.get('evidence_id')})"
+                for c in citations
+            )
+        )
     elif limitations:
-        updates["evidence_summary"] = "What was checked: " + "; ".join(limitations)
+        summary_parts.append("What was checked: " + "; ".join(limitations))
+    if atlas_lines:
+        summary_parts.extend(atlas_lines)
+    if summary_parts:
+        updates["evidence_summary"] = " ".join(summary_parts)
         render["evidence_summary"] = True
-        if envelope.severity_confidence == "High":
+        if citations:
+            pass
+        elif limitations and envelope.severity_confidence == "High":
             updates["severity_confidence"] = _CONFIDENCE_CEILING_WITHOUT_EVIDENCE
+
+    if remediation_actions:
+        existing_actions = list(envelope.recommended_actions or [])
+        for action in remediation_actions:
+            if action not in existing_actions:
+                existing_actions.append(action)
+        updates["recommended_actions"] = existing_actions[:8]
+        render["recommended_actions"] = True
 
     if not updates:
         return envelope

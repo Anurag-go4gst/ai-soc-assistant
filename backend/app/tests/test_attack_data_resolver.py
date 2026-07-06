@@ -83,3 +83,9 @@ def test_routing_by_prefix_uses_correct_source():
     r = _resolver()
     assert r.detail("T1003")["domain"] == "enterprise-attack"
     assert r.detail("AML.T0000")["domain"] == "atlas"
+
+
+def test_atlas_attack_technique_ref_crosswalk() -> None:
+    r = _resolver()
+    assert r.detail("AML.T0012")["attack_technique_ref"] == "T1078"
+    assert r.detail("AML.T0065")["attack_technique_ref"] == ""

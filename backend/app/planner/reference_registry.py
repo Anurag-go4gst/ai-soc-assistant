@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from app.cve.snapshot_store import CveSnapshotStore
+from app.knowledge.mapping_exports import atlas_technique_enrichment
 from app.threat.attack_data_resolver import technique_resolver_from_settings
 
 AI_THREAT_KEYWORDS: tuple[str, ...] = (
@@ -141,7 +142,7 @@ class TechniqueReferenceResolver:
                     name=str(row.get("name") or ""),
                     tactics=[str(item) for item in row.get("tactics") or []],
                     citation="MITRE ATLAS local coverage artifact",
-                    raw=dict(row),
+                    raw=_atlas_enrichment_raw(self.dataset_id, rid, dict(row)),
                 )
             )
         return facts
@@ -259,6 +260,13 @@ def load_reference_registry() -> ReferenceRegistry:
     )
 
 
+def _atlas_enrichment_raw(dataset_id: str, reference_id: str, base_raw: dict[str, Any]) -> dict[str, Any]:
+    if dataset_id != "mitre_atlas":
+        return dict(base_raw)
+    enrichment = atlas_technique_enrichment(reference_id)
+    return {**dict(base_raw), "atlas_enrichment": enrichment}
+
+
 def _technique_fact(dataset_id: str, reference_id: str, detail: dict[str, Any]) -> ReferenceFact:
     tactics_raw = detail.get("tactics")
     if isinstance(tactics_raw, str):
@@ -275,5 +283,5 @@ def _technique_fact(dataset_id: str, reference_id: str, detail: dict[str, Any]) 
         description=str(detail.get("description") or ""),
         tactics=tactics,
         citation=citation,
-        raw=dict(detail),
+        raw=_atlas_enrichment_raw(dataset_id, reference_id, dict(detail)),
     )

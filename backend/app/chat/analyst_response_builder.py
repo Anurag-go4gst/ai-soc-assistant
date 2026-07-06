@@ -790,6 +790,26 @@ def _reference_summary(reference_facts: list[dict[str, Any]]) -> str:
             suffix_parts.append(f"tactics {tactics}")
         if citation:
             suffix_parts.append(f"citation {citation}")
+        description = str(fact.get("description") or "").strip()
+        if description and ("not found" in description.lower() or "unknown" in description.lower()):
+            suffix_parts.append(description)
+        if dataset == "mitre_atlas":
+            enrichment = (fact.get("raw") or {}).get("atlas_enrichment") if isinstance(fact.get("raw"), dict) else None
+            if isinstance(enrichment, dict):
+                mitigation_names = [
+                    str(item.get("name") or "").strip()
+                    for item in enrichment.get("mitigations") or []
+                    if isinstance(item, dict) and str(item.get("name") or "").strip()
+                ][:3]
+                case_study_names = [
+                    str(item.get("name") or "").strip()
+                    for item in enrichment.get("case_studies") or []
+                    if isinstance(item, dict) and str(item.get("name") or "").strip()
+                ][:3]
+                if mitigation_names:
+                    suffix_parts.append("mitigations: " + ", ".join(mitigation_names))
+                if case_study_names:
+                    suffix_parts.append("related case studies: " + ", ".join(case_study_names))
         lines.append(f"- {label} ({'; '.join(suffix_parts)}).")
     lines.append("No local exploitation, exposure, or alert mapping is asserted from taxonomy lookup alone.")
     return "\n".join(lines)

@@ -13,7 +13,10 @@ from app.connectors.telemetry import get_telemetry_connector
 from app.connectors.telemetry import metrics as _telemetry_metrics
 from app.connectors.telemetry.log_context import current_trace_id, reset_trace_id, set_trace_id
 from app.actions.capability_policy import action_capability_for
-from app.chat.analyst_response_builder import build_analyst_response_for_live
+from app.chat.analyst_response_builder import (
+    build_analyst_response_for_live,
+    reference_summary_line,
+)
 from app.answer_guard.models import AnswerGuardStatus
 from app.evidence.context_structurer import structure_context
 from app.evidence.context_sufficiency import check_context_sufficiency
@@ -3453,10 +3456,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         if isinstance(raw_facts_for_grounding, dict):
             from app.chat.contracts.canonical_facts import CanonicalFacts
             from app.chat.grounding_assembler import assemble_grounding_from_facts
+            from app.threat.attack_data_resolver import technique_resolver_from_settings
 
             grounding_block = assemble_grounding_from_facts(
                 CanonicalFacts.model_validate(raw_facts_for_grounding),
                 state.get("effective_query") or request.message,
+                resolver=technique_resolver_from_settings(),
             )
             state = {**state, "grounding_block": grounding_block.to_dict()}
     except Exception:  # noqa: BLE001 - grounding is advisory, never breaks chat
@@ -9204,31 +9209,7 @@ def _reference_facts_for_card(structured_context: dict[str, Any] | None) -> list
 
 
 def _reference_lookup_summary(reference_facts: list[dict[str, Any]]) -> str:
-    lines = ["Reference taxonomy lookup resolved these offline facts:"]
-    for fact in reference_facts[:5]:
-        reference_id = str(fact.get("reference_id") or fact.get("technique_id") or "").strip()
-        name = str(fact.get("name") or "").strip()
-        dataset = str(fact.get("source_dataset") or fact.get("dataset_id") or "reference_dataset").strip()
-        citation = str(fact.get("citation") or "").strip()
-        if "/techniques/" in citation:
-            citation = "MITRE ATT&CK local export" if dataset == "mitre_attack_enterprise" else "MITRE reference export"
-        tactics_raw = fact.get("tactics")
-        if isinstance(tactics_raw, list):
-            tactics = ", ".join(str(item) for item in tactics_raw if str(item).strip())
-        else:
-            tactics = str(tactics_raw or "").strip()
-        label = " ".join(item for item in (reference_id, name) if item).strip() or dataset
-        suffix_parts = [f"dataset {dataset}"]
-        if tactics:
-            suffix_parts.append(f"tactics {tactics}")
-        if citation:
-            suffix_parts.append(f"citation {citation}")
-        description = str(fact.get("description") or "").strip()
-        if description and ("not found" in description.lower() or "unknown" in description.lower()):
-            suffix_parts.append(description)
-        lines.append(f"- {label} ({'; '.join(suffix_parts)}).")
-    lines.append("No local exploitation, exposure, or alert mapping is asserted from taxonomy lookup alone.")
-    return "\n".join(lines)
+    return reference_summary_line(reference_facts)
 
 
 def graph_node_reference_finalize(state: ChatPipelineState) -> ChatPipelineState:

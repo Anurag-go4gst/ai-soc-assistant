@@ -105,6 +105,21 @@
     "description": "Placeholder collection for future OT/ICS governed grounding."
   },
   {
+    "collection_id": "mitre_atlas",
+    "name": "MITRE ATLAS Reference Narratives",
+    "purpose": "hil_guidance",
+    "environment": "coe",
+    "enabled": true,
+    "allowed_document_types": ["other"],
+    "allowed_use": ["hil_guidance", "synthesis_context"],
+    "approved_statuses": ["coe_reviewed", "pgcil_approved"],
+    "include_drafts": false,
+    "max_results": 3,
+    "priority": 3,
+    "owner": "COE Threat Intel",
+    "description": "MITRE ATLAS case-study and mitigation narratives (isolated from soc_sop to avoid retrieval bleed)."
+  },
+  {
     "collection_id": "asset_policy",
     "name": "Asset Policy",
     "purpose": "asset_context",

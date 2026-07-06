@@ -13,6 +13,7 @@ from app.safeguards.mcp_result_safeguard import scan_mcp_preview_rows
 SOURCE_PREVIEW_CAP = 5
 FIELD_CAP = 40
 VALUE_CAP = 240
+REFERENCE_NESTED_LIST_CAP = 25
 SENSITIVE_PATTERNS = re.compile(r"(password|passwd|secret|token|api[_-]?key|credential|authorization)", re.IGNORECASE)
 
 
@@ -496,6 +497,22 @@ def _safe_rows(rows: Any, *, keyword_scrub: bool = True) -> list[dict[str, Any]]
 def _safe_value(value: Any, *, keyword_scrub: bool = True) -> Any:
     if isinstance(value, (int, float, bool)) or value is None:
         return value
+    if isinstance(value, dict):
+        if keyword_scrub:
+            return _safe_text(str(value), VALUE_CAP, keyword_scrub=keyword_scrub)
+        return {
+            _safe_text(str(key), 80, keyword_scrub=keyword_scrub): _safe_value(
+                nested, keyword_scrub=keyword_scrub
+            )
+            for key, nested in value.items()
+        }
+    if isinstance(value, list):
+        if keyword_scrub:
+            return _safe_text(str(value), VALUE_CAP, keyword_scrub=keyword_scrub)
+        return [
+            _safe_value(item, keyword_scrub=keyword_scrub)
+            for item in value[:REFERENCE_NESTED_LIST_CAP]
+        ]
     return _safe_text(str(value), VALUE_CAP, keyword_scrub=keyword_scrub)
 
 

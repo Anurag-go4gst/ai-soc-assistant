@@ -1,0 +1,116 @@
+{
+  "schema_role": "atlas_attack_crosswalk_v1",
+  "reviewed_at": "2026-07-06",
+  "entries": [
+    {
+      "attack_technique_ref": "T1078",
+      "template_ids": ["auth_new_source_ip", "privileged_account_failure"],
+      "strength": "strong",
+      "reasoning": "Valid Accounts maps to auth anomaly templates already in the governed registry.",
+      "suggested_remediation": {
+        "action_type": "revoke_session_or_force_reauth",
+        "product": "identity/MFA provider (e.g. Cisco Duo)",
+        "text": "Revoke the session and force re-authentication for the affected account."
+      }
+    },
+    {
+      "attack_technique_ref": "T1059",
+      "template_ids": ["edr_powershell_suspicious_command", "notable_critical_review_mitre"],
+      "strength": "strong",
+      "reasoning": "Command and Scripting Interpreter overlaps governed PowerShell and MITRE review templates.",
+      "suggested_remediation": {
+        "action_type": "isolate_endpoint",
+        "product": "EDR/XDR console (e.g. Cisco Secure Endpoint)",
+        "text": "Isolate the endpoint and review the suspicious script execution chain."
+      }
+    },
+    {
+      "attack_technique_ref": "T1566",
+      "template_ids": ["email_phishing_header_review"],
+      "strength": "strong",
+      "reasoning": "Phishing maps to the email header review template.",
+      "suggested_remediation": {
+        "action_type": "quarantine_message",
+        "product": "email security gateway",
+        "text": "Quarantine related messages and reset credentials for targeted users."
+      }
+    },
+    {
+      "attack_technique_ref": "T1595",
+      "template_ids": ["cisco_stealthwatch_scan_with_asset"],
+      "strength": "strong",
+      "reasoning": "Active Scanning maps to Stealthwatch scan-with-asset template.",
+      "suggested_remediation": {
+        "action_type": "block_source_ip",
+        "product": "perimeter firewall/NDR (e.g. Cisco Stealthwatch/ASA)",
+        "text": "Block the scanning source at the perimeter."
+      }
+    },
+    {
+      "attack_technique_ref": "T1204",
+      "template_ids": ["email_phishing_header_review"],
+      "strength": "moderate",
+      "reasoning": "User Execution often overlaps phishing delivery review when no dedicated template exists.",
+      "suggested_remediation": {
+        "action_type": "user_awareness_and_block",
+        "product": "email security gateway",
+        "text": "Block the lure delivery channel and brief the affected user before re-enabling access."
+      }
+    },
+    {
+      "attack_technique_ref": "T1190",
+      "template_ids": ["firewall_deny_spike", "cisco_asa_ioc_lookup"],
+      "strength": "moderate",
+      "reasoning": "Exploit Public-Facing Application overlaps deny-spike and ASA IOC lookup templates.",
+      "suggested_remediation": {
+        "action_type": "block_source_ip",
+        "product": "perimeter firewall/WAF",
+        "text": "Block the attacking source and patch or restrict the exposed service."
+      }
+    },
+    {
+      "attack_technique_ref": "T1036",
+      "template_ids": ["edr_suspicious_process"],
+      "strength": "moderate",
+      "reasoning": "Masquerading overlaps generic suspicious-process review.",
+      "suggested_remediation": {
+        "action_type": "isolate_endpoint",
+        "product": "EDR/XDR console",
+        "text": "Isolate the host and validate process lineage against known-good baselines."
+      }
+    },
+    {
+      "attack_technique_ref": "T1057",
+      "template_ids": ["edr_suspicious_process"],
+      "strength": "moderate",
+      "reasoning": "Process Discovery overlaps generic suspicious-process review.",
+      "suggested_remediation": {
+        "action_type": "monitor_and_hunt",
+        "product": "EDR/SIEM",
+        "text": "Expand monitoring on the host and hunt for follow-on collection or execution."
+      }
+    },
+    {
+      "attack_technique_ref": "T1003",
+      "template_ids": ["edr_suspicious_process"],
+      "strength": "moderate",
+      "reasoning": "OS Credential Dumping overlaps suspicious-process hunting when no dump-specific template exists.",
+      "suggested_remediation": {
+        "action_type": "reset_credentials",
+        "product": "identity provider",
+        "text": "Reset affected credentials and force re-authentication on exposed accounts."
+      }
+    },
+    {
+      "attack_technique_ref": "T1211",
+      "template_ids": ["edr_suspicious_process"],
+      "strength": "moderate",
+      "reasoning": "Exploitation for Defense Evasion overlaps suspicious-process review.",
+      "suggested_remediation": {
+        "action_type": "isolate_endpoint",
+        "product": "EDR/XDR console",
+        "text": "Isolate the endpoint and collect forensic artifacts before remediation."
+      }
+    }
+  ]
+}

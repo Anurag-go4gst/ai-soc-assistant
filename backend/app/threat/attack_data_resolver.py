@@ -52,15 +52,23 @@ def _repo_root() -> Path:
       "not found" facts for techniques known to be in the bundle (2026-07-05).
       Backend-relative paths (e.g. ``data/threat_intel/attack/...``) must
       resolve against ``/app`` — the backend-equivalent root — instead.
+      Repo-root-relative paths (e.g. ``docs/threat-intel/...``) need the
+      compose-mounted ``.:/workspace:ro`` read-only mirror instead — mirrors
+      ``app.knowledge.mapping_exports._REPO_ROOT_CANDIDATES``, which already
+      does this. Confirmed by live probe 2026-07-06: without this candidate,
+      ``technique_resolver_from_settings()`` silently degrades to
+      ``StixTechniqueResolver`` (no ATLAS bundle configured), so every
+      ``AML.*`` ``resolve_ids`` lookup returned "not found" in the running
+      container despite xlsx/yaml settings being correctly configured.
 
     Prefer the repo root only when it's real (has both ``docs/`` and
     ``backend/`` — the monorepo marker); otherwise fall back to the
     backend-equivalent root, which always exists in both modes.
     """
     backend_root = Path(__file__).resolve().parents[2]
-    candidate_repo_root = Path(__file__).resolve().parents[3]
-    if (candidate_repo_root / "docs").is_dir() and (candidate_repo_root / "backend").is_dir():
-        return candidate_repo_root
+    for candidate_repo_root in (Path(__file__).resolve().parents[3], Path("/workspace")):
+        if (candidate_repo_root / "docs").is_dir() and (candidate_repo_root / "backend").is_dir():
+            return candidate_repo_root
     return backend_root
 
 
@@ -223,6 +231,7 @@ def _parse_atlas_yaml(path: Path) -> dict[str, dict[str, Any]]:
                     "name": str(tech.get("name") or ""),
                     "description": str(tech.get("description") or ""),
                     "tactics": ",".join(tech.get("tactics", []) or []) if isinstance(tech.get("tactics"), list) else "",
+                    "attack_technique_ref": str((tech.get("ATT&CK-reference") or {}).get("id") or ""),
                 }
     return out
 

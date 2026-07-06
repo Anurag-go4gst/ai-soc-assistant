@@ -1,0 +1,458 @@
+{
+  "schema_role": "atlas_mitigations_normalized_v1",
+  "generated_at_utc": "2026-07-06T06:00:36.983782+00:00",
+  "normalization_rules_version": "atlas-mitigation-normalize-v1",
+  "provenance": {
+    "source_file": "docs/threat-intel/atlas/raw/atlas_nodes_2026_04.csv",
+    "source_sha256": "66eb5d2178df8a09ac4d90267fc44f3e5446f62457a771732f18742e538b8408"
+  },
+  "mitigation_count": 35,
+  "mitigations": [
+    {
+      "mitigation_id": "AML.M0000",
+      "name": "Limit Public Release of Information",
+      "summary": "Limit Public Release of Information is a mitigation that restricts disclosure of technical details about an organization\u2019s AI stack, such as model architectures, datasets, and deployment methods, to prevent adversaries from leveraging that knowledge for targeting and tailored at",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0000",
+      "technique_ids": [
+        "AML.T0000",
+        "AML.T0003",
+        "AML.T0004",
+        "AML.T0005.002"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0001",
+      "name": "Limit Model Artifact Release",
+      "summary": "Limit Model Artifact Release is a mitigation that restricts public exposure of production\u2011related technical assets, including data, algorithms, model architectures, and checkpoints used in operational systems.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0001",
+      "technique_ids": [
+        "AML.T0002.000",
+        "AML.T0002.001",
+        "AML.T0005.000",
+        "AML.T0020",
+        "AML.T0035"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0002",
+      "name": "Passive AI Output Obfuscation",
+      "summary": "Passive AI Output Obfuscation is a mitigation technique that intentionally reduces the fidelity of model outputs delivered to end users, thereby limiting an adversary's ability to extract proprietary model information and tailor attacks against the system.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0002",
+      "technique_ids": [
+        "AML.T0005",
+        "AML.T0005.001",
+        "AML.T0024.002",
+        "AML.T0042",
+        "AML.T0043",
+        "AML.T0043.001",
+        "AML.T0063"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0003",
+      "name": "Model Hardening",
+      "summary": "Model Hardening is a mitigation that employs techniques such as adversarial training and network distillation to increase AI model robustness against adversarial inputs. It focuses on strengthening defenses to prevent unintended model behavior.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0003",
+      "technique_ids": [
+        "AML.T0015",
+        "AML.T0031",
+        "AML.T0043.004"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0004",
+      "name": "Restrict Number of AI Model Queries",
+      "summary": "Restrict Number of AI Model Queries is a mitigation that limits the total number and rate of queries a user can perform, reducing abuse and resource exhaustion.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0004",
+      "technique_ids": [
+        "AML.T0005.001",
+        "AML.T0014",
+        "AML.T0024.002",
+        "AML.T0029",
+        "AML.T0034",
+        "AML.T0042",
+        "AML.T0043",
+        "AML.T0043.001",
+        "AML.T0043.001",
+        "AML.T0043.003",
+        "AML.T0046",
+        "AML.T0062"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0005",
+      "name": "Control Access to AI Models and Data at Rest",
+      "summary": "Control Access to AI Models and Data at Rest is a mitigation that enforces strict access controls on internal model registries and production models, ensuring only authorized users can retrieve or modify them, and restricts training data access to approved personnel.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0005",
+      "technique_ids": [
+        "AML.T0007",
+        "AML.T0010.003",
+        "AML.T0018",
+        "AML.T0025",
+        "AML.T0035",
+        "AML.T0042",
+        "AML.T0043.000",
+        "AML.T0044",
+        "AML.T0048.004"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0006",
+      "name": "Use Ensemble Methods",
+      "summary": "Use Ensemble Methods is a mitigation technique that combines multiple models in an ensemble to improve robustness against adversarial inputs, making attacks that succeed against a single model less effective.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0006",
+      "technique_ids": [
+        "AML.T0010.003",
+        "AML.T0014",
+        "AML.T0015",
+        "AML.T0043"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0007",
+      "name": "Sanitize Training Data",
+      "summary": "Sanitize Training Data is a mitigation technique that involves detecting and removing or remediating poisoned training data, applying filters and content policies to prevent unwanted or malicious data from being ingested during model training and recurrent learning.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0007",
+      "technique_ids": [
+        "AML.T0010.002",
+        "AML.T0018.000",
+        "AML.T0020",
+        "AML.T0059"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0008",
+      "name": "Validate AI Model",
+      "summary": "Validate AI Model is a mitigation technique that ensures AI models operate as intended by testing for backdoor triggers, data leakage, and adversarial influence, and by monitoring concept drift and training data drift that may indicate tampering or poisoning.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0008",
+      "technique_ids": [
+        "AML.T0018",
+        "AML.T0018.000",
+        "AML.T0018.001",
+        "AML.T0020",
+        "AML.T0043",
+        "AML.T0043.004",
+        "AML.T0057"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0009",
+      "name": "Use Multi-Modal Sensors",
+      "summary": "Use Multi-Modal Sensors is a mitigation technique that integrates multiple sensor perspectives to prevent single points of failure and resist physical attacks by combining diverse data streams and enhancing situational awareness.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0009",
+      "technique_ids": [
+        "AML.T0015",
+        "AML.T0041",
+        "AML.T0088"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0010",
+      "name": "Input Restoration",
+      "summary": "Input Restoration is a mitigation that preprocesses inference data to nullify or reverse potential adversarial perturbations, thereby restoring the intended model behavior.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0010",
+      "technique_ids": [
+        "AML.T0031",
+        "AML.T0043.001",
+        "AML.T0043.003"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0011",
+      "name": "Restrict Library Loading",
+      "summary": "Restrict Library Loading is a mitigation that prevents abuse of operating system and software library loading mechanisms to stop untrusted code execution, especially via malicious pickle files that can embed exploits for loading harmful libraries.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0011",
+      "technique_ids": [
+        "AML.T0011",
+        "AML.T0011.000",
+        "AML.T0011.001"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0012",
+      "name": "Encrypt Sensitive Information",
+      "summary": "Encrypt Sensitive Information is a mitigation technique that involves encrypting sensitive data, such as AI models, to prevent adversaries from accessing it and protect confidentiality.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0012",
+      "technique_ids": [
+        "AML.T0007",
+        "AML.T0048.004",
+        "AML.T0063"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0013",
+      "name": "Code Signing",
+      "summary": "Code Signing is a mitigation that enforces binary and application integrity through digital signature verification, preventing untrusted code execution. It counters adversaries embedding malicious code in AI software or models by requiring cryptographic signing of SBOM and AIBOM",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0013",
+      "technique_ids": [
+        "AML.T0010.001",
+        "AML.T0010.003",
+        "AML.T0011.000",
+        "AML.T0011.001",
+        "AML.T0018.002"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0014",
+      "name": "Verify AI Artifacts",
+      "summary": "Verify AI Artifacts is a mitigation that ensures the integrity of AI model files by checking cryptographic checksums to detect unauthorized modifications and confirm that the artifact has not been tampered with during storage or transmission.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0014",
+      "technique_ids": [
+        "AML.T0002.001",
+        "AML.T0010",
+        "AML.T0010.002",
+        "AML.T0011",
+        "AML.T0019"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0015",
+      "name": "Adversarial Input Detection",
+      "summary": "Adversarial Input Detection is a mitigation technique that identifies and blocks adversarial inputs or atypical queries deviating from benign behavior, exhibiting patterns observed in prior attacks, or originating from malicious IPs, by applying adversarial detection algorithms",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0015",
+      "technique_ids": [
+        "AML.T0015",
+        "AML.T0029",
+        "AML.T0031",
+        "AML.T0043.001",
+        "AML.T0043.003"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0016",
+      "name": "Vulnerability Scanning",
+      "summary": "Vulnerability Scanning is a mitigation that proactively identifies exploitable software weaknesses, especially in AI model files such as pickle artifacts, to prevent arbitrary code execution and malicious code injection, requiring scanners that can operate without full deseriali",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0016",
+      "technique_ids": [
+        "AML.T0011",
+        "AML.T0011.000",
+        "AML.T0011.001"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0017",
+      "name": "AI Model Distribution Methods",
+      "summary": "AI Model Distribution Methods is a mitigation technique that reduces the attack surface of AI systems by hosting models and feature computation in the cloud, thereby limiting adversary access to model preprocessing and preventing gray\u2011box attacks.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0017",
+      "technique_ids": [
+        "AML.T0010.003",
+        "AML.T0035",
+        "AML.T0043.000",
+        "AML.T0044",
+        "AML.T0048.004",
+        "AML.T0063"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0018",
+      "name": "User Training",
+      "summary": "User Training is a mitigation that educates AI model developers on supply chain risks and malicious AI artifacts, and teaches users to identify deepfakes and phishing attempts.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0018",
+      "technique_ids": [
+        "AML.T0011",
+        "AML.T0011.000",
+        "AML.T0011.001",
+        "AML.T0052",
+        "AML.T0052.000"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0019",
+      "name": "Control Access to AI Models and Data in Production",
+      "summary": "Control Access to AI Models and Data in Production is a mitigation that requires users to verify their identities before accessing a production model, enforces authentication for API endpoints, and monitors production model queries to ensure compliance with usage policies and pr",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0019",
+      "technique_ids": [
+        "AML.T0005",
+        "AML.T0024",
+        "AML.T0029",
+        "AML.T0034",
+        "AML.T0040",
+        "AML.T0042",
+        "AML.T0043",
+        "AML.T0043.001",
+        "AML.T0046",
+        "AML.T0051",
+        "AML.T0063"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0020",
+      "name": "Generative AI Guardrails",
+      "summary": "Generative AI Guardrails is a mitigation technique that consists of safety controls positioned between a generative AI model and its output to block undesired inputs and responses, employing validators such as filters, rule\u2011based logic, regular expressions, classifiers, LLMs, an",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0020",
+      "technique_ids": [
+        "AML.T0010",
+        "AML.T0051",
+        "AML.T0053",
+        "AML.T0054",
+        "AML.T0056",
+        "AML.T0057",
+        "AML.T0061",
+        "AML.T0062"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0021",
+      "name": "Generative AI Guidelines",
+      "summary": "Generative AI Guidelines is a mitigation that comprises safety controls positioned between user input and a generative AI model to steer its behavior and block undesired outputs. These controls are typically implemented as appended instructions or system\u2011prompt directives that s",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0021",
+      "technique_ids": [
+        "AML.T0057",
+        "AML.T0061",
+        "AML.T0062"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0022",
+      "name": "Generative AI Model Alignment",
+      "summary": "Generative AI Model Alignment is a mitigation technique that enhances the safety and policy compliance of generative AI models by employing methods such as supervised fine\u2011tuning, reinforcement learning from human feedback, and targeted safety context distillation.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0022",
+      "technique_ids": [
+        "AML.T0057",
+        "AML.T0061",
+        "AML.T0062"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0023",
+      "name": "AI Bill of Materials",
+      "summary": "AI Bill of Materials is a mitigation technique that provides a comprehensive inventory of artifacts and resources used to build an AI system, enabling supply\u2011chain risk reduction and rapid response to vulnerabilities by tracking dataset provenance and modification history.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0023",
+      "technique_ids": [
+        "AML.T0010",
+        "AML.T0011",
+        "AML.T0011.001",
+        "AML.T0058"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0024",
+      "name": "AI Telemetry Logging",
+      "summary": "AI Telemetry Logging is a mitigation technique that records inputs, outputs, and intermediate actions of deployed AI models\u2014including agent decisions, data access, tool usage, installation commands, and agent identity\u2014to enable monitoring for security threats and to deter advers",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0024",
+      "technique_ids": [
+        "AML.T0005.001",
+        "AML.T0024.002",
+        "AML.T0040",
+        "AML.T0047",
+        "AML.T0051.002",
+        "AML.T0085.001",
+        "AML.T0101"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0025",
+      "name": "Maintain AI Dataset Provenance",
+      "summary": "Maintain AI Dataset Provenance is a mitigation that involves keeping a detailed record of datasets used for AI applications, including their sources and all modifications.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0025",
+      "technique_ids": [
+        "AML.T0010.002",
+        "AML.T0018.000",
+        "AML.T0019",
+        "AML.T0020",
+        "AML.T0059"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0026",
+      "name": "Privileged AI Agent Permissions Configuration",
+      "summary": "Privileged AI Agent Permissions Configuration is a mitigation that addresses elevated access rights granted to AI agents to prevent unauthorized actions. It emphasizes implementing RBAC, ABAC, and least\u2011privilege controls to restrict permissions to only the tools and resources r",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0026",
+      "technique_ids": [
+        "AML.T0082",
+        "AML.T0085",
+        "AML.T0085.000",
+        "AML.T0085.001",
+        "AML.T0101"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0027",
+      "name": "Single-User AI Agent Permissions Configuration",
+      "summary": "Single-User AI Agent Permissions Configuration is a mitigation that enforces strict permission controls, least\u2011privilege access, and lifecycle management for AI agents acting on behalf of a user. It ensures agents only receive privileges the user would have and are decommissione",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0027",
+      "technique_ids": [
+        "AML.T0082",
+        "AML.T0085",
+        "AML.T0085.000",
+        "AML.T0085.001",
+        "AML.T0101"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0028",
+      "name": "AI Agent Tools Permissions Configuration",
+      "summary": "AI Agent Tools Permissions Configuration is a mitigation that enforces least\u2011privilege access and delegated controls for shared AI tools. It applies permission policies in MCP servers or tool configuration files to restrict tool usage to the identities and restrictions of callin",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0028",
+      "technique_ids": [
+        "AML.T0053",
+        "AML.T0085",
+        "AML.T0085.001",
+        "AML.T0086",
+        "AML.T0101"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0029",
+      "name": "Human In-the-Loop for AI Agent Actions",
+      "summary": "Human In-the-Loop for AI Agent Actions is a mitigation technique that requires human stakeholder approval before AI agents execute actions, balancing security assurance against operational overhead by scaling oversight to the consequence of the task.",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0029",
+      "technique_ids": [
+        "AML.T0101"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0030",
+      "name": "Restrict AI Agent Tool Invocation on Untrusted Data",
+      "summary": "Restrict AI Agent Tool Invocation on Untrusted Data is a mitigation that limits or blocks tool calls from untrusted inputs to prevent prompt injection attacks that could compromise confidentiality, integrity, or availability of AI\u2011driven systems. The restriction may require user",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0030",
+      "technique_ids": [
+        "AML.T0101"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0031",
+      "name": "Memory Hardening",
+      "summary": "Memory Hardening is a mitigation technique that establishes trust boundaries and secure processes for how an AI agent stores and accesses memory. It restricts memory storage, requires authentication for updates, performs semantic integrity checks, and monitors and remediates poi",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0031",
+      "technique_ids": [
+        "AML.T0080.000"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0032",
+      "name": "Segmentation of AI Agent Components",
+      "summary": "Segmentation of AI Agent Components is a mitigation that defines security boundaries around agentic tools and data sources, employing API access controls, container isolation, sandboxing, and rate limiting of tool invocation. It restricts resource and network access, uses clean",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0032",
+      "technique_ids": [
+        "AML.T0053",
+        "AML.T0085",
+        "AML.T0085.000",
+        "AML.T0085.001",
+        "AML.T0086",
+        "AML.T0098"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0033",
+      "name": "Input and Output Validation for AI Agent Components",
+      "summary": "Input and Output Validation for AI Agent Components is a mitigation that enforces validation of inputs and outputs for AI agent tools and data sources, ensuring format compliance, schema adherence, leak prevention, and sanitization to limit the spread of compromises across chain",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0033",
+      "technique_ids": [
+        "AML.T0051.002",
+        "AML.T0053",
+        "AML.T0086"
+      ]
+    },
+    {
+      "mitigation_id": "AML.M0034",
+      "name": "Deepfake Detection",
+      "summary": "Deepfake Detection is a mitigation technique that applies deepfake detection algorithms to untrusted or user\u2011provided data in high\u2011impact contexts, such as biometric verification, to block synthetic content. It leverages AI models, identifies inconsistencies like unnatural facia",
+      "url": "https://atlas.mitre.org/mitigations/AML.M0034",
+      "technique_ids": [
+        "AML.T0015",
+        "AML.T0052.000"
+      ]
+    }
+  ]
+}
