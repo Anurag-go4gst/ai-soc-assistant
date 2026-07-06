@@ -75,7 +75,7 @@ def test_cve_reference_answer_states_environment_gap() -> None:
     text = _answer_text(_payload(str(probe["query"]))).lower()
     assert "cve-2024-3400" in text
     assert "not found in the local cve snapshot" in text
-    assert "no local exploitation, exposure, or alert mapping is asserted" in text
+    assert "reference taxonomy only" in text or "not confirmed activity" in text
 
 
 @pytest.mark.parametrize("probe", _probe_rows("negative"), ids=lambda row: row["id"])

@@ -370,7 +370,12 @@ def build_analyst_response_for_live(
             envelope = apply_final_answer_readability(envelope, contract)
         return envelope
     if _is_reference_knowledge_plan(intent, plan):
-        direct = _reference_summary(reference_facts)
+        direct = _reference_summary(
+            reference_facts,
+            user_query=user_query,
+            source_evidence=source_evidence,
+        )
+        lead = reference_one_sentence_lead(reference_facts, user_query=user_query)
         recommended = _safe_display_list(plan.get("checklist") or [])[:8] or [
             "Use the cited offline reference rows as taxonomy context only.",
             "Do not treat taxonomy relevance as observed activity in local telemetry.",
@@ -378,14 +383,18 @@ def build_analyst_response_for_live(
         ]
         envelope = AnalystResponseEnvelope(
             finding_title="Reference taxonomy lookup",
-            one_sentence_finding=direct[:1200],
-            direct_answer_summary=direct[:2000],
+            one_sentence_finding=lead[:1200],
+            direct_answer_summary=direct[:4000],
             recommended_actions=recommended,
             analyst_checklist=recommended,
             investigation_steps=recommended,
             response_profile="knowledge_recall",
             execution_status=str(execution_payload.get("status") or "skipped") or None,
             reference_facts=reference_facts[:10],
+            retrieved_playbook=build_reference_source_playbook(
+                reference_facts[:10],
+                source_evidence=source_evidence,
+            ),
             severity_label=severity_label,
         )
         if contract is not None:
@@ -765,61 +774,342 @@ def _is_reference_knowledge_plan(intent: dict[str, Any], plan: dict[str, Any]) -
     return "reference_registry" in {str(item) for item in plan.get("required_sources") or []}
 
 
-def _reference_summary(reference_facts: list[dict[str, Any]]) -> str:
+_REFERENCE_GOVERNANCE_FOOTER = (
+    "Note: Reference taxonomy only — not confirmed activity in your environment "
+    "without separate live evidence."
+)
+
+_REFERENCE_DATASET_SOURCES: dict[str, dict[str, str]] = {
+    "mitre_atlas": {
+        "title": "MITRE ATLAS reference bundle",
+        "id": "mitre_atlas",
+        "version": "5.6.0",
+        "citation": "docs/threat-intel/atlas/raw/ATLAS.yaml",
+        "bundle_detail": (
+            "ATLAS.yaml + atlas_casestudies_normalized.json + atlas_mitigations_normalized.json"
+        ),
+        "purpose": (
+            "Operator-vendored MITRE ATLAS matrix with linked case studies and mitigations "
+            "from the governed reference registry."
+        ),
+    },
+    "mitre_attack_enterprise": {
+        "title": "MITRE ATT&CK Enterprise reference export",
+        "id": "mitre_attack_enterprise",
+        "version": "enterprise-attack",
+        "citation": "docs/threat-intel/attack/enterprise-attack.json",
+        "bundle_detail": "Operator-vendored ATT&CK enterprise technique export",
+        "purpose": "Local MITRE ATT&CK Enterprise technique definitions from the reference registry.",
+    },
+    "cve": {
+        "title": "CVE reference snapshot",
+        "id": "cve",
+        "version": "local-snapshot",
+        "citation": "operator-vendored CVE snapshot",
+        "bundle_detail": "Governed local CVE reference rows",
+        "purpose": "Offline CVE identifier lookup from the reference registry (not a live scanner feed).",
+    },
+}
+
+
+def _reference_dataset_label(dataset: str) -> str:
+    if dataset == "mitre_atlas":
+        return "MITRE ATLAS"
+    if dataset == "mitre_attack_enterprise":
+        return "MITRE ATT&CK Enterprise"
+    if dataset == "cve":
+        return "CVE reference"
+    return "Offline reference"
+
+
+def _reference_evidence_id(source_evidence: list[dict[str, Any]] | None) -> str | None:
+    for envelope in source_evidence or []:
+        if envelope.get("source_type") != "reference_dataset":
+            continue
+        evidence_id = str(envelope.get("evidence_id") or "").strip()
+        if evidence_id:
+            return evidence_id
+    return None
+
+
+def build_reference_source_playbook(
+    reference_facts: list[dict[str, Any]],
+    *,
+    source_evidence: list[dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
+    if not reference_facts:
+        return None
+    dataset = str(
+        reference_facts[0].get("source_dataset") or reference_facts[0].get("dataset_id") or "reference_dataset"
+    ).strip()
+    catalog = _REFERENCE_DATASET_SOURCES.get(dataset, {})
+    evidence_id = _reference_evidence_id(source_evidence)
+    title = catalog.get("title") or f"{_reference_dataset_label(dataset)} reference bundle"
+    return {
+        "title": title,
+        "id": catalog.get("id") or dataset,
+        "version": catalog.get("version"),
+        "purpose": catalog.get("purpose")
+        or "Governed reference taxonomy lookup from the local operator-vendored bundle.",
+        "citation": catalog.get("citation") or catalog.get("bundle_detail") or dataset,
+        "retrieval_mode": "reference_registry",
+        "source_evidence_id": evidence_id,
+        "bundle_detail": catalog.get("bundle_detail"),
+        "provenance_tier": str(reference_facts[0].get("provenance_tier") or "operator_vendored_reference"),
+    }
+
+
+def _reference_source_header(
+    reference_facts: list[dict[str, Any]],
+    *,
+    source_evidence: list[dict[str, Any]] | None = None,
+) -> str:
+    playbook = build_reference_source_playbook(reference_facts, source_evidence=source_evidence)
+    if not playbook:
+        return "Reference registry lookup"
+    parts = [str(playbook.get("title") or "Reference bundle")]
+    version = str(playbook.get("version") or "").strip()
+    if version:
+        parts.append(f"v{version}" if not version.startswith("v") else version)
+    citation = str(playbook.get("citation") or "").strip()
+    if citation:
+        parts.append(f"bundle: {citation}")
+    bundle_detail = str(playbook.get("bundle_detail") or "").strip()
+    if bundle_detail and bundle_detail != citation:
+        parts.append(bundle_detail)
+    parts.append("registry: reference_registry")
+    evidence_id = str(playbook.get("source_evidence_id") or "").strip()
+    if evidence_id:
+        parts.append(f"evidence: {evidence_id}")
+    return " · ".join(parts)
+
+
+def _reference_first_sentence(text: str, *, max_len: int = 220) -> str:
+    cleaned = " ".join(str(text or "").split())
+    if not cleaned:
+        return ""
+    for sep in (". ", "? ", "! "):
+        idx = cleaned.find(sep)
+        if idx != -1:
+            cleaned = cleaned[: idx + 1]
+            break
+    if len(cleaned) > max_len:
+        return cleaned[: max_len - 1].rstrip() + "…"
+    return cleaned
+
+
+def _rank_atlas_case_studies(
+    case_studies: list[dict[str, Any]],
+    user_query: str | None,
+) -> list[dict[str, Any]]:
+    if not case_studies:
+        return []
+    query = " ".join(str(user_query or "").lower().split())
+    tokens = {word for word in re.findall(r"[a-z0-9]{3,}", query)}
+    if "mcp" in query:
+        tokens.update({"mcp", "cursor", "tool", "server", "exfil", "poison"})
+    if "prompt" in query or "injection" in query:
+        tokens.update({"prompt", "injection", "indirect", "jailbreak"})
+    if not tokens:
+        return case_studies
+
+    def score(item: dict[str, Any]) -> tuple[int, str]:
+        blob = f"{item.get('name', '')} {item.get('id', '')}".lower()
+        return (-sum(1 for token in tokens if token in blob), str(item.get("id") or ""))
+
+    return sorted(case_studies, key=score)
+
+
+def _reference_named_item(item: dict[str, Any], *, id_key: str, name_key: str) -> str:
+    name = str(item.get(name_key) or "").strip()
+    item_id = str(item.get(id_key) or "").strip()
+    if name and item_id:
+        return f"{name} ({item_id})"
+    return name or item_id
+
+
+def _reference_tactics_display(tactics_raw: Any, dataset: str) -> str | None:
+    if isinstance(tactics_raw, list):
+        tactics = [str(item).strip() for item in tactics_raw if str(item).strip()]
+    else:
+        tactics = [str(tactics_raw).strip()] if str(tactics_raw or "").strip() else []
+    if not tactics:
+        return None
+    if dataset == "mitre_atlas":
+        from app.knowledge.mapping_exports import atlas_tactic_label_map
+
+        labels = atlas_tactic_label_map()
+        rendered: list[str] = []
+        for tactic in tactics:
+            if tactic in labels:
+                rendered.append(labels[tactic])
+            elif "-" in tactic and not tactic.startswith("AML."):
+                rendered.append(tactic.replace("-", " ").title())
+            else:
+                rendered.append(tactic)
+        return ", ".join(dict.fromkeys(rendered))
+    return ", ".join(tactics)
+
+
+def reference_narration_seed(
+    reference_facts: list[dict[str, Any]],
+    *,
+    user_query: str | None = None,
+) -> str:
+    """Compact governed reference facts for live-model narration (not the full analyst card)."""
     if not reference_facts:
         return (
             "No matching offline reference facts were found in the local registry snapshot. "
             "No live telemetry or environment exposure is claimed."
         )
-    lines = ["Reference taxonomy lookup resolved these offline facts:"]
-    for fact in reference_facts[:5]:
+    lines: list[str] = []
+    if user_query and str(user_query).strip():
+        lines.append(f"Analyst question: {str(user_query).strip()}")
+    count = len(reference_facts)
+    lines.append(f"Matched {count} governed reference {'entry' if count == 1 else 'entries'}:")
+    for index, fact in enumerate(reference_facts[:5], start=1):
         reference_id = str(fact.get("reference_id") or fact.get("technique_id") or "").strip()
         name = str(fact.get("name") or "").strip()
         dataset = str(fact.get("source_dataset") or fact.get("dataset_id") or "reference_dataset").strip()
-        citation = str(fact.get("citation") or "").strip()
-        if "/techniques/" in citation:
-            citation = "MITRE ATT&CK local export" if dataset == "mitre_attack_enterprise" else "MITRE reference export"
-        tactics_raw = fact.get("tactics")
-        if isinstance(tactics_raw, list):
-            tactics = ", ".join(str(item) for item in tactics_raw if str(item).strip())
-        else:
-            tactics = str(tactics_raw or "").strip()
-        label = " ".join(item for item in (reference_id, name) if item).strip() or dataset
-        suffix_parts = [f"dataset {dataset}"]
+        title = " — ".join(item for item in (reference_id, name) if item).strip() or f"Reference {index}"
+        description = _reference_first_sentence(str(fact.get("description") or ""))[:220]
+        line = f"{index}. [{dataset}] {title}"
+        if description and not any(
+            token in description.lower() for token in ("not found", "unknown reference")
+        ):
+            line += f": {description}"
+        lines.append(line)
+    lines.append(
+        "Taxonomy context only — do not claim confirmed activity, severity, or exploitation in local telemetry."
+    )
+    return "\n".join(lines).strip()[:1200]
+
+
+def merge_reference_message_with_llm_intro(
+    reference_summary: str,
+    *,
+    llm_intro: str | None,
+) -> str:
+    """Prepend live-model prose to the deterministic reference card when narration succeeded."""
+    intro = str(llm_intro or "").strip()
+    summary = str(reference_summary or "").strip()
+    if not intro or intro == summary:
+        return summary
+    return f"{intro}\n\n{summary}"
+
+
+def reference_one_sentence_lead(
+    reference_facts: list[dict[str, Any]],
+    *,
+    user_query: str | None = None,
+) -> str:
+    del user_query
+    if not reference_facts:
+        return (
+            "No matching offline reference facts were found in the local registry snapshot. "
+            "No live telemetry or environment exposure is claimed."
+        )
+    count = len(reference_facts)
+    first = reference_facts[0]
+    reference_id = str(first.get("reference_id") or first.get("technique_id") or "").strip()
+    name = str(first.get("name") or "").strip()
+    dataset = str(first.get("source_dataset") or first.get("dataset_id") or "reference_dataset").strip()
+    source_label = _reference_dataset_label(dataset)
+    label = " ".join(item for item in (reference_id, name) if item).strip() or source_label
+    if count == 1:
+        return f"{source_label} reference lookup matched {label}."
+    return (
+        f"{source_label} reference lookup matched {count} techniques; "
+        f"the strongest textual match is {label}."
+    )
+
+
+def _reference_summary(
+    reference_facts: list[dict[str, Any]],
+    *,
+    user_query: str | None = None,
+    source_evidence: list[dict[str, Any]] | None = None,
+) -> str:
+    if not reference_facts:
+        return (
+            "No matching offline reference facts were found in the local registry snapshot. "
+            "No live telemetry or environment exposure is claimed."
+        )
+    first_dataset = str(
+        reference_facts[0].get("source_dataset") or reference_facts[0].get("dataset_id") or "reference_dataset"
+    ).strip()
+    lines = [
+        f"Source: {_reference_source_header(reference_facts, source_evidence=source_evidence)}",
+        "",
+        (
+            "The following entries were resolved from the governed reference registry and relate to your question. "
+            "They describe how adversaries may operate — not confirmed activity in your environment."
+        ),
+        "",
+    ]
+    for index, fact in enumerate(reference_facts[:5], start=1):
+        reference_id = str(fact.get("reference_id") or fact.get("technique_id") or "").strip()
+        name = str(fact.get("name") or "").strip()
+        dataset = str(fact.get("source_dataset") or fact.get("dataset_id") or first_dataset).strip()
+        title = " — ".join(item for item in (reference_id, name) if item).strip() or f"Reference {index}"
+        lines.append(f"{index}. {title}")
+        tactics = _reference_tactics_display(fact.get("tactics"), dataset)
         if tactics:
-            suffix_parts.append(f"tactics {tactics}")
-        if citation:
-            suffix_parts.append(f"citation {citation}")
-        description = str(fact.get("description") or "").strip()
-        if description and ("not found" in description.lower() or "unknown" in description.lower()):
-            suffix_parts.append(description)
+            lines.append(f"   Tactics: {tactics}")
+        description = _reference_first_sentence(str(fact.get("description") or ""))
+        if description and not any(
+            token in description.lower() for token in ("not found", "unknown reference")
+        ):
+            lines.append(f"   Summary: {description}")
         if dataset == "mitre_atlas":
             enrichment = (fact.get("raw") or {}).get("atlas_enrichment") if isinstance(fact.get("raw"), dict) else None
             if isinstance(enrichment, dict):
-                mitigation_names = [
-                    str(item.get("name") or "").strip()
+                mitigation_items = [
+                    item
                     for item in enrichment.get("mitigations") or []
                     if isinstance(item, dict) and str(item.get("name") or "").strip()
                 ][:3]
-                case_study_names = [
-                    str(item.get("name") or "").strip()
-                    for item in enrichment.get("case_studies") or []
-                    if isinstance(item, dict) and str(item.get("name") or "").strip()
-                ][:3]
-                if mitigation_names:
-                    suffix_parts.append("mitigations: " + ", ".join(mitigation_names))
-                if case_study_names:
-                    suffix_parts.append("related case studies: " + ", ".join(case_study_names))
-        lines.append(f"- {label} ({'; '.join(suffix_parts)}).")
-    lines.append("No local exploitation, exposure, or alert mapping is asserted from taxonomy lookup alone.")
-    return "\n".join(lines)
+                case_items = _rank_atlas_case_studies(
+                    [
+                        item
+                        for item in enrichment.get("case_studies") or []
+                        if isinstance(item, dict) and str(item.get("name") or "").strip()
+                    ],
+                    user_query,
+                )[:3]
+                if mitigation_items:
+                    rendered = "; ".join(
+                        _reference_named_item(item, id_key="id", name_key="name") for item in mitigation_items
+                    )
+                    lines.append(f"   Mitigations: {rendered}")
+                if case_items:
+                    rendered = "; ".join(
+                        _reference_named_item(item, id_key="id", name_key="name") for item in case_items
+                    )
+                    lines.append(f"   Related incidents: {rendered}")
+        elif dataset == "cve":
+            description = str(fact.get("description") or "").strip()
+            if description:
+                lines.append(f"   Status: {description}")
+        lines.append("")
+    lines.append(_REFERENCE_GOVERNANCE_FOOTER)
+    return "\n".join(lines).strip()
 
 
-def reference_summary_line(reference_facts: list[dict[str, Any]]) -> str:
+def reference_summary_line(
+    reference_facts: list[dict[str, Any]],
+    *,
+    user_query: str | None = None,
+    source_evidence: list[dict[str, Any]] | None = None,
+) -> str:
     """Public entry point for the deterministic synthesis draft (lab_runner.py):
     render the same governed reference-taxonomy summary this builder uses,
     so `analyst_summary` and `analyst_response.one_sentence_finding` never diverge."""
-    return _reference_summary(reference_facts)
+    return _reference_summary(
+        reference_facts,
+        user_query=user_query,
+        source_evidence=source_evidence,
+    )
 
 
 def summarize_failed_login_events(rows: list[dict[str, Any]]) -> str | None:

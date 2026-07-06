@@ -60,7 +60,7 @@ def test_reference_finalize_adds_source_context_and_visible_atlas_answer() -> No
     assert any(str(item.get("reference_id") or "").startswith("AML.T") for item in structured.get("reference_facts") or [])
     assert any(reference_id.startswith("AML.T") for reference_id in _reference_ids(payload))
     assert "LLM Prompt Crafting" in summary
-    assert "MITRE ATLAS local YAML" in summary
+    assert "MITRE ATLAS reference bundle" in summary or "ATLAS.yaml" in summary
     assert "alert context before mapping" not in summary.lower()
     assert (payload.get("candidate_spl") or {}).get("candidate_spl") in {None, ""}
     assert (payload.get("execution") or {}).get("status") != "executed"
@@ -72,7 +72,7 @@ def test_reference_finalize_reports_cve_snapshot_gap_without_exposure_claim() ->
 
     assert _reference_ids(payload) == ["CVE-2024-3400"]
     assert "not found in the local cve snapshot" in summary
-    assert "no local exploitation, exposure, or alert mapping is asserted" in summary
+    assert "reference taxonomy only" in summary or "not confirmed activity" in summary
     assert (payload.get("human_review") or {}).get("required") is False
 
 
