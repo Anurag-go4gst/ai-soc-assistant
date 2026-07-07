@@ -55,6 +55,13 @@ def _explicit_generic_utility_index(profile: dict[str, str]) -> tuple[str | None
     return None, None
 
 
+def _policy_default_index() -> str | None:
+    configured = [item.strip() for item in str(settings.spl_allowed_indexes or "").split(",") if item.strip()]
+    if configured:
+        return configured[0]
+    return None
+
+
 def utility_spl_draft_enabled() -> bool:
     return bool(settings.ai_soc_llm_utility_spl_draft_enabled)
 
@@ -91,6 +98,10 @@ def build_utility_postprocessor_context(
         allow_global_index_inference = is_universal_spl
     if not source_profile_index and allow_global_index_inference:
         source_profile_index = _single_approved_profile_index(profile) or ""
+    # Non-universal lab drafts can use generic <index> placeholders; keep those
+    # review-only drafts renderable by falling back to the policy default index.
+    if not source_profile_index and not is_universal_spl:
+        source_profile_index = _policy_default_index() or ""
     utility_default_index, utility_default_source = _explicit_generic_utility_index(profile)
 
     user_time = bool(
@@ -100,9 +111,9 @@ def build_utility_postprocessor_context(
     )
 
     return {
-        "is_explicit_spl_authoring": is_universal_spl,
+        "is_explicit_spl_authoring": True,
         "is_universal_spl": is_universal_spl,
-        "is_template_free": is_universal_spl,
+        "is_template_free": True,
         "llm_generated": llm_generated,
         "deterministic_generated": not llm_generated,
         "execution_authorized": False,
