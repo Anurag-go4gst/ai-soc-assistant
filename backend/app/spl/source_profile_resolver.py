@@ -39,6 +39,12 @@ _INDEX_STEMS = (
     "cisco_wlc_index",
     "cisco_duo_index",
     "cisco_amp_index",
+    "ot_index",
+    "mail_index",
+    "substation_index",
+    "aws_index",
+    "scada_perf_index",
+    "cisco_asa_index",
 )
 
 _SOURCETYPE_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -63,6 +69,9 @@ _SOURCETYPE_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("cisco_wlc_sourcetype", ("wlc", "wireless")),
     ("cisco_duo_sourcetype", ("duo", "mfa")),
     ("cisco_amp_sourcetype", ("amp", "secure endpoint")),
+    ("scada_firewall_sourcetype", ("scada", "ot", "firewall")),
+    ("aws_cloudtrail_sourcetype", ("aws", "cloudtrail")),
+    ("cisco_asa_sourcetype", ("asa", "cisco")),
 )
 
 
@@ -135,6 +144,12 @@ def _stem_matches_index(stem: str, index_name: str) -> bool:
         "cisco_wlc": ("wlc", "wireless"),
         "cisco_duo": ("duo", "mfa"),
         "cisco_amp": ("amp", "secure_endpoint", "edr"),
+        "ot": ("ot", "scada", "ics"),
+        "mail": ("mail", "email", "smtp"),
+        "substation": ("substation", "ot", "scada"),
+        "aws": ("aws", "cloudtrail"),
+        "scada_perf": ("scada_perf", "scada"),
+        "cisco_asa": ("asa", "cisco"),
     }
     for token in aliases.get(stem_key, (stem_key,)):
         if token in lowered:

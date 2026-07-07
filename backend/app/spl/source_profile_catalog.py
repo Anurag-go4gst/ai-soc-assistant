@@ -88,6 +88,39 @@ SOURCE_PROFILE_SLOT_DEFINITIONS: tuple[SourceProfileSlotDefinition, ...] = (
     SourceProfileSlotDefinition("ot_meter_sourcetype", "OT meter sourcetype", "ot_sourcetype", "Sourcetype for AMI / smart-meter firmware telemetry", "ot:meter"),
     SourceProfileSlotDefinition("ot_firewall_index", "OT firewall index", "ot_index", "Index for OT-DMZ firewall audit/config events", "ot_soc"),
     SourceProfileSlotDefinition("ot_firewall_sourcetype", "OT firewall sourcetype", "ot_sourcetype", "Sourcetype for OT-DMZ firewall policy/rule change events", "ot:firewall"),
+    # 2026-07-06 catalog audit: stems referenced by draft_preview.py /
+    # family_engineering.py / llm_plan_compiler.py / cisco_draft_families.py /
+    # tenant_token_spl.py / templates.json with no prior Settings UI field —
+    # COE could never enter a value for these, only the raw env JSON map could.
+    SourceProfileSlotDefinition("hmi_or_os_auth_sourcetype", "HMI/engineering workstation auth sourcetype", "ot_sourcetype", "OS-level auth sourcetype for HMI / engineering workstations", "pgcil:auth"),
+    SourceProfileSlotDefinition("internal_traffic_sourcetype", "Internal traffic sourcetype", "sourcetype", "Internal-only network traffic sourcetype", "pgcil:network"),
+    SourceProfileSlotDefinition("mail_index", "Mail index", "index", "Mail gateway / email security events index", "pgcil_soc"),
+    SourceProfileSlotDefinition("mail_sourcetype", "Mail sourcetype", "sourcetype", "Mail gateway header/verdict sourcetype", "pgcil:mail"),
+    SourceProfileSlotDefinition("monitored_index", "Monitored index", "index", "General monitored-assets index used by lab draft families", "pgcil_soc"),
+    SourceProfileSlotDefinition("notable_index", "Notable index", "index", "Notable / risk event index", "pgcil_soc"),
+    SourceProfileSlotDefinition("notable_or_risk_sourcetype", "Notable or risk sourcetype", "sourcetype", "Notable event or risk-index sourcetype", "pgcil:notable"),
+    SourceProfileSlotDefinition("ot_index", "OT index (generic)", "ot_index", "Generic OT/SCADA index used by the LLM plan compiler", "ot_soc"),
+    SourceProfileSlotDefinition("ot_network_sourcetype", "OT network sourcetype (generic)", "ot_sourcetype", "Generic OT protocol/network sourcetype used by the LLM plan compiler", "ot:network"),
+    SourceProfileSlotDefinition("ot_sourcetype", "OT sourcetype (generic)", "ot_sourcetype", "Generic OT sourcetype used by the LLM plan compiler", "ot:scada"),
+    SourceProfileSlotDefinition("ot_segment_a_zone", "OT segment A zone", "zone", "Firewall zone label for OT network segment A", "OT_SEGMENT_A"),
+    SourceProfileSlotDefinition("ot_segment_b_zone", "OT segment B zone", "zone", "Firewall zone label for OT network segment B", "OT_SEGMENT_B"),
+    SourceProfileSlotDefinition("ot_segment_cidr", "OT segment CIDR", "network", "OT network segment CIDR used by lab draft families", "10.40.1.0/24"),
+    SourceProfileSlotDefinition("ot_zone", "OT zone (generic)", "zone", "Generic OT firewall zone label used by lab draft families", "OT_ZONE"),
+    SourceProfileSlotDefinition("proxy_or_firewall_sourcetype", "Proxy or firewall sourcetype", "sourcetype", "Web proxy or firewall fallback sourcetype", "pgcil:firewall"),
+    SourceProfileSlotDefinition("scada_index", "SCADA index", "ot_index", "SCADA/ICS events index", "ot_soc"),
+    SourceProfileSlotDefinition("scada_sourcetype", "SCADA sourcetype", "ot_sourcetype", "SCADA/ICS event sourcetype", "ot:scada"),
+    SourceProfileSlotDefinition("scada_firewall_index", "SCADA firewall index", "ot_index", "SCADA/OT-boundary firewall events index", "ot_soc"),
+    SourceProfileSlotDefinition("scada_firewall_sourcetype", "SCADA firewall sourcetype", "ot_sourcetype", "SCADA/OT-boundary firewall event sourcetype", "ot:firewall"),
+    SourceProfileSlotDefinition("substation_index", "Substation index", "ot_index", "Substation asset/telemetry index used by lab draft families", "ot_soc"),
+    SourceProfileSlotDefinition("windows_security_or_system_sourcetype", "Windows security or system sourcetype", "sourcetype", "Windows Security or System log sourcetype (broader than Security-only)", "WinEventLog:System"),
+    # Phase 2 (2026-07-06): dedicated stems for governed templates migrated off
+    # hardcoded index/sourcetype. Seeded in the COE store with today's literal
+    # values so the migration is byte-identical (see spl_generation_audit.md).
+    SourceProfileSlotDefinition("aws_index", "AWS index", "index", "Index for AWS CloudTrail events", "pgcil_soc"),
+    SourceProfileSlotDefinition("aws_cloudtrail_sourcetype", "AWS CloudTrail sourcetype", "sourcetype", "Sourcetype for AWS CloudTrail events", "aws:cloudtrail"),
+    SourceProfileSlotDefinition("scada_perf_index", "SCADA performance index", "ot_index", "Dedicated index for SCADA/RTU performance telemetry (distinct from the generic SCADA index)", "scada_perf"),
+    SourceProfileSlotDefinition("cisco_asa_index", "Cisco ASA index", "cisco_index", "Dedicated index for Cisco ASA firewall events (distinct from the generic Cisco firewall index)", "cisco_asa"),
+    SourceProfileSlotDefinition("cisco_asa_sourcetype", "Cisco ASA sourcetype", "cisco_sourcetype", "Cisco ASA event sourcetype (distinct from cisco_firewall_sourcetype)", "cisco:asa"),
 )
 
 
@@ -109,6 +142,10 @@ SOURCE_PROFILE_SLOT_ALIASES: dict[str, str] = {
     "jump_host_ips": "approved_jump_host_ips",
     "approved_ot_destination_allowlist": "approved_ot_destination_cidr",
     "engineering_workstation_cidr": "corporate_cidr",
+    # llm_plan_compiler.py shorthand stem names — same field, different spelling.
+    "endpoint_sourcetype": "endpoint_process_sourcetype",
+    "network_sourcetype": "network_traffic_sourcetype",
+    "internal_umbrella_resolver_cidr": "internal_dns_ip",
 }
 
 

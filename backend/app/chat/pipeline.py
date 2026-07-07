@@ -6646,6 +6646,9 @@ def _session_spl_refine_stage(
         reject_reasons=validation_payload["reject_reasons"],
         warnings=validation_payload["warnings"],
         policy_version=validation_payload["policy_version"],
+        optimization_steps=validation_payload.get("spl_optimization_steps"),
+        optimization_rejected=validation_payload.get("spl_optimization_rejected"),
+        optimization_reject_reason=validation_payload.get("spl_optimization_reject_reason"),
     )
     return candidate_payload, validation_payload
 
@@ -6751,6 +6754,9 @@ def _candidate_from_user_provided_spl(
         "optimization_applied": bool(optimization.get("optimization_applied")),
         "optimization_revalidation_status": optimization.get("revalidation_status"),
         "optimization_revalidation_approved": bool(optimization.get("revalidation_approved")),
+        "spl_optimization_steps": optimization.get("simplification_steps") or [],
+        "spl_optimization_rejected": bool(optimization.get("simplification_rejected")),
+        "spl_optimization_reject_reason": optimization.get("simplification_reject_reason"),
         "capability_profile": profile.model_dump(),
         "template_id": template_id,
         "review_only_spl_postprocessor_trace": postprocessor_trace,
@@ -6773,6 +6779,9 @@ def _candidate_from_user_provided_spl(
         reject_reasons=validation_payload["reject_reasons"],
         warnings=validation_payload["warnings"],
         policy_version=validation_payload["policy_version"],
+        optimization_steps=validation_payload.get("spl_optimization_steps"),
+        optimization_rejected=validation_payload.get("spl_optimization_rejected"),
+        optimization_reject_reason=validation_payload.get("spl_optimization_reject_reason"),
     )
     return candidate_payload, validation_payload
 
@@ -7244,6 +7253,9 @@ def _candidate_spl_stage(
         "optimization_applied": optimization["optimization_applied"],
         "optimization_revalidation_status": optimization["revalidation_status"],
         "optimization_revalidation_approved": optimization["revalidation_approved"],
+        "spl_optimization_steps": optimization.get("simplification_steps") or [],
+        "spl_optimization_rejected": bool(optimization.get("simplification_rejected")),
+        "spl_optimization_reject_reason": optimization.get("simplification_reject_reason"),
         "capability_profile": profile.model_dump(),
     }
     _merge_spl_governance(candidate_payload, validation_payload, spl_governance)
@@ -7263,6 +7275,9 @@ def _candidate_spl_stage(
         reject_reasons=validation_payload["reject_reasons"],
         warnings=validation_payload["warnings"],
         policy_version=validation_payload["policy_version"],
+        optimization_steps=validation_payload.get("spl_optimization_steps"),
+        optimization_rejected=validation_payload.get("spl_optimization_rejected"),
+        optimization_reject_reason=validation_payload.get("spl_optimization_reject_reason"),
     )
     return candidate_payload, validation_payload
 
@@ -7442,6 +7457,9 @@ def _candidate_from_default_template(
         "optimization_applied": optimization["optimization_applied"],
         "optimization_revalidation_status": optimization["revalidation_status"],
         "optimization_revalidation_approved": optimization["revalidation_approved"],
+        "spl_optimization_steps": optimization.get("simplification_steps") or [],
+        "spl_optimization_rejected": bool(optimization.get("simplification_rejected")),
+        "spl_optimization_reject_reason": optimization.get("simplification_reject_reason"),
         "capability_profile": profile.model_dump(),
         "template_id": template.template_id,
         "review_only_spl_postprocessor_trace": postprocessor_trace,

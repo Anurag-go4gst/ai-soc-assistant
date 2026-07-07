@@ -371,11 +371,142 @@ in §7j below. MCP discovery execution (H2) remains COE-gated.
 `app/spl/spl_simplifier.py` runs **after** validation on the optimization path
 (`optimize_spl` in `spl_services.py`). Rules: normalize whitespace, drop
 `| table` before `| stats`, drop redundant SMB `where` when the base search
-already scopes SMB, append default time bounds / `head` after `sort` when missing.
+already scopes SMB, convert a post-`stats` `| search <comparison>` stage to
+`| where <comparison>`, append default time bounds / `head` after `sort` when
+missing.
 
 Every simplification is re-validated and re-checked for relevance; regressions
 reject the change and return the original SPL. `test_spl_simplifier.py` pins
 validation + relevance safety.
+
+**2026-07-06 preprocessor review (3 correctness bugs fixed):**
+- Pipe-splitting rules (`drop_table_before_stats`, `drop_redundant_smb_where`)
+  used a blind `spl.split("|")`, which tears a stage apart whenever it contains
+  a literal `|` inside a quoted string/regex (e.g. `rex field=_raw
+  "(?<a>foo|bar)"`), corrupting the query. Fixed with a quote-aware
+  `_split_pipe_stages()` helper.
+- `drop_table_before_stats` removed **every** `| table` stage once one
+  preceded `| stats`, silently dropping a legitimate trailing output-projection
+  `| table` stage that came *after* stats. Fixed to only drop stages strictly
+  before the first `stats` stage.
+- `drop_redundant_smb_where` matched any `where` clause containing `app_norm`
+  as long as `%smb%` appeared *anywhere* in the query, risking an unrelated
+  `where` clause being dropped. Fixed to require both `%smb%` and `app_norm`
+  in the *same* clause.
+- Added `convert_post_stats_search_to_where`: a `| search <comparison>` stage
+  after `stats` is semantically equivalent to `| where <comparison>` and
+  cheaper, but only when the value has no wildcard (`where` does not
+  glob-match `=` the way `search` does — converting a wildcarded filter would
+  silently change which rows match, so it is explicitly skipped).
+- Evaluated the broader "10-rule SPL performance checklist" against this
+  codebase: index/sourcetype-required (rule 1) is already enforced by
+  `validate_spl`'s `missing_index`/`missing_sourcetype` rejects, not a
+  simplifier concern. IN-consolidation (rule 2), leading-wildcard-to-`LIKE`
+  (rule 3, and invalid as literally stated — bare `field LIKE "..."` is not
+  valid SPL outside `eval`/`where`), push-left filtering (rule 4), and early
+  `| fields` stripping (rule 5) were rejected for this pass: each requires
+  either boolean-precedence-safe rewriting or full downstream field-usage
+  analysis that this regex-based simplifier cannot do safely without a real
+  parser. Ticketing-output shaping (rules 7–10: timestamp formatting, mvjoin
+  flattening, truncation, severity mapping) changes result shape/semantics —
+  out of Phase E's "verbosity reduction on already-correct SPL" charter; would
+  need its own flagged phase, not a silent addition here.
+- `optimize_spl()`'s `simplification_steps` / `simplification_rejected` /
+  `simplification_reject_reason` are now surfaced into `validation_payload`
+  (`spl_optimization_steps` etc.) and into `telemetry.record_spl_validation`,
+  so a trace shows *what specifically changed*, not just that
+  `optimization_applied=true`.
+
+### 2026-07-07 Environment Knowledge (COE) source-profile audit
+
+Separate from Phase E: audited `app/spl/source_profile_catalog.py` /
+`source_profile_resolver.py` / `spl_source_resolve.py` (the Settings →
+`/settings/source-profiles` COE mapping layer) for placeholder stems used by
+SPL-generation code with no Settings-UI field. Found and closed 20 gaps
+(`hmi_or_os_auth_sourcetype`, `mail_index`/`mail_sourcetype`,
+`scada_index`/`scada_sourcetype`/`scada_firewall_index`/`scada_firewall_sourcetype`,
+`ot_segment_a_zone`/`ot_segment_b_zone`/`ot_segment_cidr`/`ot_zone`, etc. — see
+`SOURCE_PROFILE_SLOT_DEFINITIONS`) plus 3 aliases
+(`endpoint_sourcetype`→`endpoint_process_sourcetype`,
+`network_sourcetype`→`network_traffic_sourcetype`,
+`internal_umbrella_resolver_cidr`→`internal_dns_ip`). Purely additive (catalog
+is UI vocabulary only; `save_persisted_source_profile()` already accepted
+arbitrary keys with no whitelist).
+
+Also migrated the last 5 **active** governed templates that still hardcoded
+index/sourcetype instead of going through COE mapping like the other 25:
+`aws_security_group_modifications`, `aws_console_success_logins_by_user`,
+`aws_iam_policy_modifications` → new `<aws_index>`/`<aws_cloudtrail_sourcetype>`
+stems; `scada_perf_threshold_anomaly` → new `<scada_perf_index>` (reused
+existing `<scada_sourcetype>`, exact value match); `cisco_asa_ioc_lookup` → new
+`<cisco_asa_index>`/`<cisco_asa_sourcetype>` (deliberately **not** aliased to
+the generic `scada_index`/`cisco_firewall_sourcetype` stems — their COE values
+differ, e.g. `cisco_firewall_sourcetype=cisco:firepower` vs this template's
+`cisco:asa` — aliasing would have silently repointed the template at the wrong
+sourcetype). Verified byte-identical resolution via `apply_template_env_bindings`
+before and after the edit.
+
+**Critical finding (found, root-caused, fixed):** seeding the new stem values
+into the **persisted COE store** (`backend/data/source_profile_map.json`, the
+file `save_persisted_source_profile()` writes — i.e. exactly what
+`PUT /settings/source-profiles` does) broke 5 unrelated sentinel rows
+(`q0.q002`, `q0.q006`, `q0.q009`, `q0.q010`, `q0.q015` — all `attack_discovery`
+network questions, nothing to do with AWS/SCADA/Cisco ASA):
+`response_mode` flipped `human_review_required` → `clarification_required`
+whenever the store gained a genuinely new/distinct index value (single-index
+policy default no longer applied).
+
+Root cause: `app/spl/utility_spl_authoring.py`'s `_single_approved_profile_index()`
+(a "assume the environment has exactly one index" heuristic feeding a generic
+COE-index fallback) was consulted too broadly — both for unrelated/unregistered
+persisted keys and for non-universal lab-draft families that don't even use
+the generic fallback. Fixed across 3 commits:
+- `8237012` — scoped `_single_approved_profile_index()` to catalog-registered
+  `index`/`ot_index`/`cisco_index` slots only (stopped unregistered garbage
+  keys from counting).
+- `6edeb76` — made `build_utility_postprocessor_context()`'s global
+  single-index inference conditional on `is_universal_spl`, so non-universal
+  lab drafts stop inheriting it (this over-corrected and briefly regressed
+  generic-placeholder lab drafts — caught immediately).
+- `b47e8a7` — restored a policy-default-index fallback specifically for
+  non-universal drafts with generic `<index>`/`<sourcetype>` placeholders,
+  without reintroducing the global leak.
+
+Verified independently (not just by re-running the fix author's own tests):
+reproduced the original break pre-fix, reproduced pass post-fix, on `HEAD`
+exactly, with fresh bytecode, via both the direct pipeline call and the live
+persisted-store file. One genuinely self-inflicted false alarm along the way
+during a *transient* test: a concurrent `docker exec` write to the persisted
+store while a background full-suite run was in flight raced against
+`test_universal_spl_weekend_block_routes_spl_generation`, which correctly fell
+back to a placeholder while the store momentarily held 3 distinct index
+values mid-write.
+
+But a **real, fourth gap** surfaced once the 3-distinct-index config was made
+*permanent* (this migration's actual end state, not a transient race):
+`build_utility_postprocessor_context()`'s policy-default-index fallback
+(`b47e8a7`) only applied to non-universal drafts. The universal-SPL path
+(`is_universal_spl=True`, e.g. the weekend-timestamp query) still only tried
+`_single_approved_profile_index()`, which is correctly ambiguous with 3
+distinct indexes, and had no fallback — so it stayed on `<your_index>`.
+Fixed (`utility_spl_authoring.py`): added the same policy-default fallback to
+the universal path, but *only* when COE has multiple real indexes configured
+(ambiguous) — **not** when COE has configured nothing at all
+(`_configured_profile_indexes(profile)` empty), which must still surface an
+explicit placeholder rather than silently guess. That empty-profile case is
+pinned by `test_placeholder_not_unresolved_when_no_coe_index` /
+`test_llm_draft_index_invention_is_dropped`, which briefly regressed with a
+too-broad first attempt at this fix before being narrowed correctly.
+
+**Current, fully verified state:** the 6 new stems for this migration are
+seeded directly in the persisted COE store (the real
+`/settings/source-profiles` Save path, permanently, not a workaround),
+confirmed byte-identical template resolution, `eval_sentinel.py --check`
+17/17, full backend suite 4110 passed / 0 failed, and
+`run_stage3_governance_regression.sh` PASS — all with `SPL_ALLOWED_INDEXES`
+holding 3 genuinely distinct indexes (`pgcil_soc,scada_perf,cisco_asa`) and no
+concurrent writes during the verification run. The Settings UI is safe for
+routine multi-index COE admin use.
 
 ## 7i. Phase F results (offline template audit)
 

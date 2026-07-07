@@ -28,17 +28,21 @@ from app.spl.source_profile_store import (
 from app.spl.user_constraint_bindings import build_user_constraint_bindings
 
 
-def _single_approved_profile_index(profile: dict[str, str]) -> str | None:
+def _configured_profile_indexes(profile: dict[str, str]) -> set[str]:
     configured_index_slots = {
         str(item.get("slot_id") or "").strip()
         for item in list_source_profile_slot_definitions()
         if str(item.get("category") or "").strip() in {"index", "ot_index", "cisco_index"}
     }
-    indexes = {
+    return {
         str(value).strip()
         for key, value in profile.items()
         if str(key).strip() in configured_index_slots and str(value).strip()
     }
+
+
+def _single_approved_profile_index(profile: dict[str, str]) -> str | None:
+    indexes = _configured_profile_indexes(profile)
     if len(indexes) == 1:
         return next(iter(indexes))
     return None
@@ -98,9 +102,17 @@ def build_utility_postprocessor_context(
         allow_global_index_inference = is_universal_spl
     if not source_profile_index and allow_global_index_inference:
         source_profile_index = _single_approved_profile_index(profile) or ""
-    # Non-universal lab drafts can use generic <index> placeholders; keep those
-    # review-only drafts renderable by falling back to the policy default index.
     if not source_profile_index and not is_universal_spl:
+        # Non-universal lab drafts never attempt single-index inference above
+        # (decoupled from the global heuristic); always give them a policy
+        # default so generic <index> placeholders stay renderable.
+        source_profile_index = _policy_default_index() or ""
+    elif not source_profile_index and is_universal_spl and len(_configured_profile_indexes(profile)) > 1:
+        # Universal drafts did attempt single-index inference above and came
+        # up ambiguous (COE has *multiple* real indexes configured) — fall
+        # back to a sensible policy default rather than a bare placeholder.
+        # But if COE has configured *nothing* at all (zero index slots), stay
+        # as an explicit <your_index> placeholder instead of guessing.
         source_profile_index = _policy_default_index() or ""
     utility_default_index, utility_default_source = _explicit_generic_utility_index(profile)
 

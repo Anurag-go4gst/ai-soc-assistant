@@ -211,7 +211,7 @@
       "sample_only": false,
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
-      "spl_text": "search index=pgcil_soc sourcetype=aws:cloudtrail earliest=-24h latest=now eventSource=ec2.amazonaws.com (eventName=AuthorizeSecurityGroupIngress OR eventName=AuthorizeSecurityGroupEgress OR eventName=RevokeSecurityGroupIngress OR eventName=RevokeSecurityGroupEgress OR eventName=ModifySecurityGroupRules OR eventName=CreateSecurityGroup OR eventName=DeleteSecurityGroup) | stats count as change_count values(eventName) as event_names values(requestParameters.groupId) as security_group_ids values(sourceIPAddress) as source_ips min(_time) as first_seen max(_time) as last_seen by userIdentity.arn userIdentity.userName awsRegion | sort -change_count | head 100",
+      "spl_text": "search index=<aws_index> sourcetype=<aws_cloudtrail_sourcetype> earliest=-24h latest=now eventSource=ec2.amazonaws.com (eventName=AuthorizeSecurityGroupIngress OR eventName=AuthorizeSecurityGroupEgress OR eventName=RevokeSecurityGroupIngress OR eventName=RevokeSecurityGroupEgress OR eventName=ModifySecurityGroupRules OR eventName=CreateSecurityGroup OR eventName=DeleteSecurityGroup) | stats count as change_count values(eventName) as event_names values(requestParameters.groupId) as security_group_ids values(sourceIPAddress) as source_ips min(_time) as first_seen max(_time) as last_seen by userIdentity.arn userIdentity.userName awsRegion | sort -change_count | head 100",
       "returned_fields": [
         "userIdentity.arn",
         "userIdentity.userName",
@@ -279,7 +279,7 @@
       "sample_only": false,
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
-      "spl_text": "search index=pgcil_soc sourcetype=aws:cloudtrail earliest=-24h latest=now eventSource=signin.amazonaws.com eventName=ConsoleLogin responseElements.ConsoleLogin=Success | stats count as login_count values(sourceIPAddress) as source_ips values(userAgent) as user_agents min(_time) as first_seen max(_time) as last_seen by userIdentity.arn userIdentity.userName awsRegion | sort -login_count | head 100",
+      "spl_text": "search index=<aws_index> sourcetype=<aws_cloudtrail_sourcetype> earliest=-24h latest=now eventSource=signin.amazonaws.com eventName=ConsoleLogin responseElements.ConsoleLogin=Success | stats count as login_count values(sourceIPAddress) as source_ips values(userAgent) as user_agents min(_time) as first_seen max(_time) as last_seen by userIdentity.arn userIdentity.userName awsRegion | sort -login_count | head 100",
       "returned_fields": [
         "userIdentity.arn",
         "userIdentity.userName",
@@ -345,7 +345,7 @@
       "sample_only": false,
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
-      "spl_text": "search index=pgcil_soc sourcetype=aws:cloudtrail earliest=-24h latest=now eventSource=iam.amazonaws.com (eventName=CreatePolicy OR eventName=CreatePolicyVersion OR eventName=SetDefaultPolicyVersion OR eventName=DeletePolicy OR eventName=DeletePolicyVersion OR eventName=PutUserPolicy OR eventName=PutRolePolicy OR eventName=PutGroupPolicy OR eventName=DeleteUserPolicy OR eventName=DeleteRolePolicy OR eventName=DeleteGroupPolicy OR eventName=AttachUserPolicy OR eventName=AttachRolePolicy OR eventName=AttachGroupPolicy OR eventName=DetachUserPolicy OR eventName=DetachRolePolicy OR eventName=DetachGroupPolicy) | stats count as change_count values(eventName) as event_names values(requestParameters.policyArn) as policy_arns values(requestParameters.userName) as target_users values(requestParameters.roleName) as target_roles values(sourceIPAddress) as source_ips min(_time) as first_seen max(_time) as last_seen by userIdentity.arn userIdentity.userName awsRegion | sort -change_count | head 100",
+      "spl_text": "search index=<aws_index> sourcetype=<aws_cloudtrail_sourcetype> earliest=-24h latest=now eventSource=iam.amazonaws.com (eventName=CreatePolicy OR eventName=CreatePolicyVersion OR eventName=SetDefaultPolicyVersion OR eventName=DeletePolicy OR eventName=DeletePolicyVersion OR eventName=PutUserPolicy OR eventName=PutRolePolicy OR eventName=PutGroupPolicy OR eventName=DeleteUserPolicy OR eventName=DeleteRolePolicy OR eventName=DeleteGroupPolicy OR eventName=AttachUserPolicy OR eventName=AttachRolePolicy OR eventName=AttachGroupPolicy OR eventName=DetachUserPolicy OR eventName=DetachRolePolicy OR eventName=DetachGroupPolicy) | stats count as change_count values(eventName) as event_names values(requestParameters.policyArn) as policy_arns values(requestParameters.userName) as target_users values(requestParameters.roleName) as target_roles values(sourceIPAddress) as source_ips min(_time) as first_seen max(_time) as last_seen by userIdentity.arn userIdentity.userName awsRegion | sort -change_count | head 100",
       "returned_fields": [
         "userIdentity.arn",
         "userIdentity.userName",
@@ -1722,7 +1722,7 @@
       "sample_only": false,
       "required_entities": [],
       "default_time_window": "earliest=-30d latest=now",
-      "spl_text": "search index=scada_perf sourcetype=ot:scada earliest=-30d latest=now rtu_id=* transmission_error_count=* | bin _time span=1h | stats avg(transmission_error_count) as hourly_metric by _time rtu_id | eval is_recent=if(_time>=relative_time(now(), \"-24h\"), 1, 0) | eventstats avg(eval(if(is_recent=0, hourly_metric, null()))) as baseline_avg stdev(eval(if(is_recent=0, hourly_metric, null()))) as baseline_stdev by rtu_id | eval z_score=if(baseline_stdev>0, (hourly_metric-baseline_avg)/baseline_stdev, null()) | where is_recent=1 AND z_score>=3 | table _time rtu_id hourly_metric baseline_avg baseline_stdev z_score | sort -z_score | head 100",
+      "spl_text": "search index=<scada_perf_index> sourcetype=<scada_sourcetype> earliest=-30d latest=now rtu_id=* transmission_error_count=* | bin _time span=1h | stats avg(transmission_error_count) as hourly_metric by _time rtu_id | eval is_recent=if(_time>=relative_time(now(), \"-24h\"), 1, 0) | eventstats avg(eval(if(is_recent=0, hourly_metric, null()))) as baseline_avg stdev(eval(if(is_recent=0, hourly_metric, null()))) as baseline_stdev by rtu_id | eval z_score=if(baseline_stdev>0, (hourly_metric-baseline_avg)/baseline_stdev, null()) | where is_recent=1 AND z_score>=3 | table _time rtu_id hourly_metric baseline_avg baseline_stdev z_score | sort -z_score | head 100",
       "returned_fields": [
         "_time",
         "rtu_id",
@@ -1774,7 +1774,7 @@
       "sample_only": false,
       "required_entities": [],
       "default_time_window": "earliest=-24h latest=now",
-      "spl_text": "search index=cisco_asa sourcetype=cisco:asa earliest=-24h latest=now dest_ip=* | lookup power_sector_iocs.csv indicator_ip as dest_ip OUTPUT indicator_ip as matched_ioc | where isnotnull(matched_ioc) | stats count as event_count values(action) as actions by src_ip dest_ip matched_ioc | table src_ip dest_ip actions event_count matched_ioc | sort -event_count | head 100",
+      "spl_text": "search index=<cisco_asa_index> sourcetype=<cisco_asa_sourcetype> earliest=-24h latest=now dest_ip=* | lookup power_sector_iocs.csv indicator_ip as dest_ip OUTPUT indicator_ip as matched_ioc | where isnotnull(matched_ioc) | stats count as event_count values(action) as actions by src_ip dest_ip matched_ioc | table src_ip dest_ip actions event_count matched_ioc | sort -event_count | head 100",
       "returned_fields": [
         "src_ip",
         "dest_ip",
