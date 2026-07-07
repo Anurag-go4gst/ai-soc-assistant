@@ -394,6 +394,27 @@ def test_coe_single_approved_index_wins_over_placeholder(
     assert "using a <your_index> placeholder" not in assumptions
 
 
+def test_unrelated_unknown_index_key_does_not_force_placeholder(
+    spl_authoring_flags: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.load_persisted_source_profile",
+        lambda: {
+            "auth_index": "pgcil_soc",
+            "network_index": "pgcil_soc",
+            "zzz_dummy_test_index": "abc",
+        },
+    )
+    monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
+    payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
+    spl_blob = spl_from_payload(payload)
+    post = (payload.get("candidate_spl") or {}).get("review_only_spl_postprocessor_trace") or {}
+    assert "index=pgcil_soc" in spl_blob
+    assert "index=<your_index>" not in spl_blob
+    assert post.get("index_resolution_source") == "source_profile_resolver"
+
+
 def test_unsafe_execute_delete_is_not_utility_authoring(
     spl_authoring_flags: None,
     monkeypatch: pytest.MonkeyPatch,

@@ -19,6 +19,7 @@ from app.spl.llm_fallback import (
     spl_advisory_prompts,
 )
 from app.spl.review_only_spl_postprocessor import finalize_review_only_spl
+from app.spl.source_profile_catalog import list_source_profile_slot_definitions
 from app.spl.source_profile_bindings import build_source_profile_binding_slots
 from app.spl.source_profile_store import (
     load_persisted_source_profile,
@@ -28,10 +29,15 @@ from app.spl.user_constraint_bindings import build_user_constraint_bindings
 
 
 def _single_approved_profile_index(profile: dict[str, str]) -> str | None:
+    configured_index_slots = {
+        str(item.get("slot_id") or "").strip()
+        for item in list_source_profile_slot_definitions()
+        if str(item.get("category") or "").strip() in {"index", "ot_index", "cisco_index"}
+    }
     indexes = {
         str(value).strip()
         for key, value in profile.items()
-        if str(key).endswith("_index") and str(value).strip()
+        if str(key).strip() in configured_index_slots and str(value).strip()
     }
     if len(indexes) == 1:
         return next(iter(indexes))
