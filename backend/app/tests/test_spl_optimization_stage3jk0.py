@@ -117,3 +117,70 @@ def test_provider_pipeline_returns_optimized_candidate_and_normalized_spl(monkey
     assert candidate["candidate_spl"] == optimized
     assert validation["normalized_spl"] == optimized
     assert validation["optimization_applied"] is True
+
+
+def test_provider_pipeline_validation_payload_surfaces_optimization_steps(monkeypatch) -> None:
+    # Closes the telemetry-wiring gap: simplification_steps/rejected/reject_reason
+    # from optimize_spl() must reach validation_payload (and therefore
+    # telemetry.record_spl_validation), not just the optimization_applied bool.
+    original = (
+        "search index=pgcil_soc sourcetype=pgcil:auth earliest=-60m latest=now "
+        "action=failure | table user | stats count by user | sort -count | head 100"
+    )
+    optimized = original.replace(" | table user", "")
+    optimized_validation = validate_spl(optimized)
+    candidate_model = CandidateSpl(
+        trace_id="optimized-provider-steps",
+        skill="spl_generation",
+        user_query="failed login spike by user",
+        candidate_spl=original,
+        generation_mode="stub",
+        confidence=0.8,
+    )
+
+    monkeypatch.setattr(settings, "control_plane_enabled", False)
+    monkeypatch.setattr(settings, "ai_soc_spl_template_governance_enabled", False)
+    monkeypatch.setattr(chat_pipeline, "_runtime_spl_governance", lambda _use_case_id: None)
+    monkeypatch.setattr(chat_pipeline, "_should_use_llm_spl_failover", lambda _skill, **_: False)
+    monkeypatch.setattr(
+        chat_pipeline,
+        "generate_candidate_spl_with_provider",
+        lambda **kwargs: (
+            candidate_model,
+            {
+                "selected_candidate_spl_provider": "template",
+                "reason": "test",
+                "saia_available": False,
+                "fallback_required": True,
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        chat_pipeline,
+        "merge_post_validation_optimization",
+        lambda *args, **kwargs: (
+            optimized,
+            optimized_validation,
+            {
+                "provider": "rule_based",
+                "optimization_applied": True,
+                "revalidation_status": optimized_validation,
+                "revalidation_approved": True,
+                "simplification_steps": ["drop_table_before_stats"],
+                "simplification_rejected": False,
+                "simplification_reject_reason": None,
+            },
+        ),
+    )
+
+    _candidate, validation = chat_pipeline._candidate_spl_stage(
+        trace_id="optimized-provider-steps",
+        skill="spl_generation",
+        user_query="failed login spike by user",
+        template_id=None,
+        use_case_id=None,
+    )
+
+    assert validation["spl_optimization_steps"] == ["drop_table_before_stats"]
+    assert validation["spl_optimization_rejected"] is False
+    assert validation["spl_optimization_reject_reason"] is None

@@ -1,21 +1,39 @@
 {
   "active_templates": [
     "auth_account_lockout_trend",
+    "auth_after_hours_critical_asset",
     "auth_failed_login_spike",
     "auth_failed_login_top_users_exclude_service_accounts",
     "auth_new_source_ip_login",
+    "auth_privileged_login_anomaly",
     "auth_success_after_failure",
     "aws_console_success_logins_by_user",
     "aws_iam_policy_modifications",
     "aws_security_group_modifications",
+    "cert_in_hash_match",
+    "cii_scan_detection",
+    "cisco_asa_ioc_lookup",
+    "cisco_cleartext_to_rtu",
+    "cisco_duo_mfa_fatigue",
+    "cisco_stealthwatch_scan_with_asset",
+    "critical_notable_mitre_review",
     "dns_beaconing_candidate",
-    "edr_powershell_suspicious_command"
+    "edr_powershell_suspicious_command",
+    "edr_suspicious_process",
+    "loto_breaker_correlation",
+    "net_firewall_deny_spike",
+    "net_vpn_login_anomaly",
+    "ot_firmware_drift",
+    "ot_master_spoof",
+    "ot_tftp_hmi",
+    "physical_access_impossible",
+    "scada_perf_threshold_anomaly"
   ],
   "summary": {
     "105": {
       "n": 102,
-      "relevant": 100,
-      "relevant_pct": 98.0,
+      "relevant": 87,
+      "relevant_pct": 85.3,
       "lanes": {
         "draft": 102
       },
@@ -24,24 +42,29 @@
         "justified_no_spl": 3
       },
       "top_mismatches": {
-        "entity_missing": 1,
+        "entity_missing": 6,
+        "data_source_missing:dns": 5,
+        "data_source_missing:auth": 5,
         "data_source_missing:endpoint": 1
       }
     },
     "catalogue": {
-      "n": 31,
-      "relevant": 31,
-      "relevant_pct": 100.0,
+      "n": 46,
+      "relevant": 40,
+      "relevant_pct": 87.0,
       "lanes": {
-        "template": 10,
-        "draft": 21
+        "template": 23,
+        "draft": 17,
+        "none": 6
       },
       "classes": {
-        "spl_expected": 31,
-        "justified_no_spl": 11,
-        "deferred": 4
+        "spl_expected": 46,
+        "justified_no_spl": 12,
+        "deferred": 7
       },
-      "top_mismatches": {}
+      "top_mismatches": {
+        "no_spl_generated": 6
+      }
     }
   },
   "rows": [
@@ -401,13 +424,15 @@
       "pattern_type": "top_n_aggregation",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": true,
-      "mismatches": [],
+      "relevant": false,
+      "mismatches": [
+        "data_source_missing:dns"
+      ],
       "checks": {
         "expected_sources": [
           "dns"
         ],
-        "data_source_ok": true,
+        "data_source_ok": false,
         "wants_metric": true,
         "has_aggregation": true,
         "asked_entities": [
@@ -424,13 +449,15 @@
       "pattern_type": "top_n_aggregation",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": true,
-      "mismatches": [],
+      "relevant": false,
+      "mismatches": [
+        "data_source_missing:dns"
+      ],
       "checks": {
         "expected_sources": [
           "dns"
         ],
-        "data_source_ok": true,
+        "data_source_ok": false,
         "wants_metric": true,
         "has_aggregation": true,
         "asked_entities": [
@@ -805,13 +832,15 @@
       "pattern_type": "threshold_anomaly",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": true,
-      "mismatches": [],
+      "relevant": false,
+      "mismatches": [
+        "data_source_missing:dns"
+      ],
       "checks": {
         "expected_sources": [
           "dns"
         ],
-        "data_source_ok": true,
+        "data_source_ok": false,
         "wants_metric": true,
         "has_aggregation": true,
         "asked_entities": [
@@ -1034,19 +1063,22 @@
       "pattern_type": "threshold_anomaly",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": true,
-      "mismatches": [],
+      "relevant": false,
+      "mismatches": [
+        "data_source_missing:auth",
+        "entity_missing"
+      ],
       "checks": {
         "expected_sources": [
           "auth"
         ],
-        "data_source_ok": true,
+        "data_source_ok": false,
         "wants_metric": true,
         "has_aggregation": true,
         "asked_entities": [
           "user"
         ],
-        "entity_ok": true
+        "entity_ok": false
       }
     },
     {
@@ -1077,8 +1109,10 @@
       "pattern_type": "new_or_unusual_source",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": true,
-      "mismatches": [],
+      "relevant": false,
+      "mismatches": [
+        "entity_missing"
+      ],
       "checks": {
         "expected_sources": [],
         "data_source_ok": true,
@@ -1087,7 +1121,7 @@
         "asked_entities": [
           "user"
         ],
-        "entity_ok": true
+        "entity_ok": false
       }
     },
     {
@@ -1241,8 +1275,10 @@
       "pattern_type": "new_or_unusual_source",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": true,
-      "mismatches": [],
+      "relevant": false,
+      "mismatches": [
+        "entity_missing"
+      ],
       "checks": {
         "expected_sources": [],
         "data_source_ok": true,
@@ -1251,7 +1287,7 @@
         "asked_entities": [
           "user"
         ],
-        "entity_ok": true
+        "entity_ok": false
       }
     },
     {
@@ -1303,13 +1339,15 @@
       "pattern_type": "top_n_aggregation",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": true,
-      "mismatches": [],
+      "relevant": false,
+      "mismatches": [
+        "data_source_missing:auth"
+      ],
       "checks": {
         "expected_sources": [
           "auth"
         ],
-        "data_source_ok": true,
+        "data_source_ok": false,
         "wants_metric": true,
         "has_aggregation": true,
         "asked_entities": [
@@ -1347,8 +1385,10 @@
       "pattern_type": "new_or_unusual_source",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": true,
-      "mismatches": [],
+      "relevant": false,
+      "mismatches": [
+        "entity_missing"
+      ],
       "checks": {
         "expected_sources": [],
         "data_source_ok": true,
@@ -1357,7 +1397,7 @@
         "asked_entities": [
           "user"
         ],
-        "entity_ok": true
+        "entity_ok": false
       }
     },
     {
@@ -1367,13 +1407,15 @@
       "pattern_type": "threshold_anomaly",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": true,
-      "mismatches": [],
+      "relevant": false,
+      "mismatches": [
+        "data_source_missing:auth"
+      ],
       "checks": {
         "expected_sources": [
           "auth"
         ],
-        "data_source_ok": true,
+        "data_source_ok": false,
         "wants_metric": true,
         "has_aggregation": true,
         "asked_entities": [
@@ -1476,13 +1518,15 @@
       "pattern_type": "threshold_anomaly",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": true,
-      "mismatches": [],
+      "relevant": false,
+      "mismatches": [
+        "data_source_missing:dns"
+      ],
       "checks": {
         "expected_sources": [
           "dns"
         ],
-        "data_source_ok": true,
+        "data_source_ok": false,
         "wants_metric": true,
         "has_aggregation": true,
         "asked_entities": [
@@ -1545,13 +1589,15 @@
       "pattern_type": "threshold_anomaly",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": true,
-      "mismatches": [],
+      "relevant": false,
+      "mismatches": [
+        "data_source_missing:auth"
+      ],
       "checks": {
         "expected_sources": [
           "auth"
         ],
-        "data_source_ok": true,
+        "data_source_ok": false,
         "wants_metric": true,
         "has_aggregation": true,
         "asked_entities": [
@@ -1796,13 +1842,15 @@
       "pattern_type": "threshold_anomaly",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": true,
-      "mismatches": [],
+      "relevant": false,
+      "mismatches": [
+        "data_source_missing:dns"
+      ],
       "checks": {
         "expected_sources": [
           "dns"
         ],
-        "data_source_ok": true,
+        "data_source_ok": false,
         "wants_metric": true,
         "has_aggregation": true,
         "asked_entities": [
@@ -1884,19 +1932,22 @@
       "pattern_type": "multi_signal_correlation",
       "row_class": "spl_expected",
       "lane": "draft",
-      "relevant": true,
-      "mismatches": [],
+      "relevant": false,
+      "mismatches": [
+        "data_source_missing:auth",
+        "entity_missing"
+      ],
       "checks": {
         "expected_sources": [
           "auth"
         ],
-        "data_source_ok": true,
+        "data_source_ok": false,
         "wants_metric": true,
         "has_aggregation": true,
         "asked_entities": [
           "user"
         ],
-        "entity_ok": true
+        "entity_ok": false
       }
     },
     {
@@ -2366,7 +2417,7 @@
       "question": "Investigate privileged account login anomaly",
       "pattern_type": "Authentication / Identity",
       "row_class": "spl_expected",
-      "lane": "draft",
+      "lane": "template",
       "relevant": true,
       "mismatches": [],
       "checks": {
@@ -2472,7 +2523,7 @@
       "question": "Investigate after-hours login to critical asset",
       "pattern_type": "Authentication / Identity",
       "row_class": "spl_expected",
-      "lane": "draft",
+      "lane": "template",
       "relevant": true,
       "mismatches": [],
       "checks": {
@@ -2494,7 +2545,7 @@
       "question": "Investigate firewall deny spike",
       "pattern_type": "Network / Firewall",
       "row_class": "spl_expected",
-      "lane": "draft",
+      "lane": "template",
       "relevant": true,
       "mismatches": [],
       "checks": {
@@ -2622,7 +2673,7 @@
       "question": "Investigate VPN login anomaly",
       "pattern_type": "Network / Firewall",
       "row_class": "spl_expected",
-      "lane": "draft",
+      "lane": "template",
       "relevant": true,
       "mismatches": [],
       "checks": {
@@ -2699,11 +2750,32 @@
     },
     {
       "corpus": "catalogue",
+      "ref": "critical_notable_mitre_review",
+      "question": "Show me all critical alerts in the last 6 hours, cross-reference with MITRE ATT&CK, and check if any affected hosts have unpatched CVEs",
+      "pattern_type": "SOC / Alert triage",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
       "ref": "edr_suspicious_process",
       "question": "Investigate suspicious process execution",
       "pattern_type": "Endpoint / EDR",
       "row_class": "spl_expected",
-      "lane": "draft",
+      "lane": "template",
       "relevant": true,
       "mismatches": [],
       "checks": {
@@ -3091,6 +3163,302 @@
       "lane": "none",
       "relevant": true,
       "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "cisco_cleartext_to_rtu",
+      "question": "Flag cleartext HTTP or VNC toward Phase-1 RTUs",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "cisco_stealthwatch_scan_with_asset",
+      "question": "Identify Stealthwatch horizontal scanning in OT network",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "cisco_duo_mfa_fatigue",
+      "question": "Show Duo push denials before final approval",
+      "pattern_type": "Authentication / Identity",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "ot_firmware_drift",
+      "question": "Cross-reference OT banners against asset inventory firmware",
+      "pattern_type": "OT / Critical infrastructure later",
+      "row_class": "deferred",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "ot_master_spoof",
+      "question": "Flag non-whitelisted master polling sources",
+      "pattern_type": "OT / Critical infrastructure later",
+      "row_class": "deferred",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "ot_tftp_hmi",
+      "question": "Identify cleartext TFTP from substation HMIs",
+      "pattern_type": "OT / Critical infrastructure later",
+      "row_class": "deferred",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "physical_access_impossible",
+      "question": "Flag login while badge at different substation",
+      "pattern_type": "Compliance / Governance",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "auth"
+        ],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "cii_scan_detection",
+      "question": "List scanning against CII registry nodes",
+      "pattern_type": "Compliance / Governance",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "loto_breaker_correlation",
+      "question": "Correlate LOTO events with breaker commands",
+      "pattern_type": "Compliance / Governance",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "cert_in_hash_match",
+      "question": "Match downloads against CERT-In hash block list",
+      "pattern_type": "Compliance / Governance",
+      "row_class": "spl_expected",
+      "lane": "template",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [],
+        "data_source_ok": true,
+        "wants_metric": false,
+        "has_aggregation": true,
+        "asked_entities": [],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "soc_environment_hygiene",
+      "question": "List the total distinct log generation formats transmitting operational updates along with immediate pipeline ingest latency indicators.",
+      "pattern_type": "Environment Knowledge / Metadata",
+      "row_class": "justified_no_spl",
+      "lane": "none",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "sample_network_top_outbound_src",
+      "question": "Analytics anchor \u2014 network top-N outbound source connections (sample template binding)",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "none",
+      "relevant": false,
+      "mismatches": [
+        "no_spl_generated"
+      ],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "sample_dns_top_query_hosts",
+      "question": "Analytics anchor \u2014 DNS top-N query volume by host (sample template binding)",
+      "pattern_type": "Network / Firewall",
+      "row_class": "spl_expected",
+      "lane": "draft",
+      "relevant": true,
+      "mismatches": [],
+      "checks": {
+        "expected_sources": [
+          "dns"
+        ],
+        "data_source_ok": true,
+        "wants_metric": true,
+        "has_aggregation": true,
+        "asked_entities": [
+          "host",
+          "src_ip"
+        ],
+        "entity_ok": true
+      }
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "sample_auth_failed_login_top_users",
+      "question": "Analytics anchor \u2014 auth failed-login top users by count (sample template binding)",
+      "pattern_type": "Authentication / Identity",
+      "row_class": "spl_expected",
+      "lane": "none",
+      "relevant": false,
+      "mismatches": [
+        "no_spl_generated"
+      ],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "sample_ioc_correlation_indicator_match",
+      "question": "Detection anchor \u2014 IOC indicator correlation (sample, matrix-only)",
+      "pattern_type": "Threat Intelligence / IOC",
+      "row_class": "spl_expected",
+      "lane": "none",
+      "relevant": false,
+      "mismatches": [
+        "no_spl_generated"
+      ],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "sample_threshold_anomaly_volume_spike",
+      "question": "Detection anchor \u2014 threshold / volume anomaly (sample, matrix-only)",
+      "pattern_type": "Analytics / Threshold",
+      "row_class": "spl_expected",
+      "lane": "none",
+      "relevant": false,
+      "mismatches": [
+        "no_spl_generated"
+      ],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "sample_powershell_suspicious_execution",
+      "question": "Detection anchor \u2014 suspicious PowerShell / process execution (sample, matrix-only)",
+      "pattern_type": "Endpoint / EDR",
+      "row_class": "spl_expected",
+      "lane": "none",
+      "relevant": false,
+      "mismatches": [
+        "no_spl_generated"
+      ],
+      "checks": {}
+    },
+    {
+      "corpus": "catalogue",
+      "ref": "sample_dlp_exfiltration_volume",
+      "question": "Detection anchor \u2014 DLP / data exfiltration volume (sample, matrix-only)",
+      "pattern_type": "Data Loss Prevention",
+      "row_class": "spl_expected",
+      "lane": "none",
+      "relevant": false,
+      "mismatches": [
+        "no_spl_generated"
+      ],
       "checks": {}
     }
   ]

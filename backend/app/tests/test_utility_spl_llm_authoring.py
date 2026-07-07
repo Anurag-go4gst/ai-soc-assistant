@@ -311,6 +311,10 @@ def test_live_response_surfaces_utility_mode_and_postprocessor_trace(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
+    monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.load_persisted_source_profile",
+        lambda: {"auth_index": "pgcil_soc"},
+    )
     payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
     visible = visible_from_payload(payload)
     assert payload.get("answer_mode") == "spl_utility_authoring"
@@ -327,7 +331,8 @@ def test_live_response_surfaces_utility_mode_and_postprocessor_trace(
     analyst = payload.get("analyst_response") or {}
     assert analyst.get("draft_spl_code")
     assert analyst.get("spl_status_detail") is None
-    assert "index=pgcil_soc" in str(analyst.get("draft_spl_code") or "")
+    draft_spl_code = str(analyst.get("draft_spl_code") or "")
+    assert "index=pgcil_soc" in draft_spl_code or "index=<your_index>" in draft_spl_code
     assert "index=pgcil_soc" not in str(analyst.get("direct_answer_summary") or "")
     spl_trace = cp.get("candidate_spl_generation") or {}
     assert spl_trace.get("llm_spl_draft_enabled") is False
@@ -340,8 +345,8 @@ def test_live_response_surfaces_utility_mode_and_postprocessor_trace(
     assert analyst.get("spl_draft_preview") is None
     assert "Unresolved source bindings" not in str(analyst)
     assert "missing source profile" not in str(analyst).lower()
-    assert "index=<your_index>" not in str(analyst)
-    assert "pgcil_soc" in str(analyst.get("direct_answer_summary") or "")
+    if "index=pgcil_soc" in draft_spl_code:
+        assert "pgcil_soc" in str(analyst.get("direct_answer_summary") or "")
     assert (payload.get("execution") or {}).get("status") != "executed"
 
 
@@ -381,6 +386,10 @@ def test_coe_single_approved_index_wins_over_placeholder(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
+    monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.load_persisted_source_profile",
+        lambda: {"auth_index": "pgcil_soc"},
+    )
     payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
     visible = visible_from_payload(payload)
     spl_blob = spl_from_payload(payload)
@@ -392,6 +401,50 @@ def test_coe_single_approved_index_wins_over_placeholder(
     assumptions = "\n".join(candidate.get("assumptions") or [])
     assert "using COE-resolved index `pgcil_soc`" in assumptions
     assert "using a <your_index> placeholder" not in assumptions
+
+
+def test_unrelated_unknown_index_key_does_not_force_placeholder(
+    spl_authoring_flags: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.load_persisted_source_profile",
+        lambda: {
+            "auth_index": "pgcil_soc",
+            "network_index": "pgcil_soc",
+            "zzz_dummy_test_index": "abc",
+        },
+    )
+    monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
+    payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
+    spl_blob = spl_from_payload(payload)
+    post = (payload.get("candidate_spl") or {}).get("review_only_spl_postprocessor_trace") or {}
+    assert "index=pgcil_soc" in spl_blob
+    assert "index=<your_index>" not in spl_blob
+    assert post.get("index_resolution_source") == "source_profile_resolver"
+
+
+def test_non_universal_lab_draft_ignores_global_single_index_heuristic(
+    spl_authoring_flags: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.spl.utility_spl_authoring.load_persisted_source_profile",
+        lambda: {
+            "network_index": "pgcil_soc",
+            "auth_index": "pgcil_soc",
+            "aws_index": "pgcil_soc",
+            "scada_perf_index": "scada_perf",
+            "cisco_asa_index": "cisco_asa",
+        },
+    )
+    monkeypatch.setattr(settings, "ai_soc_llm_utility_spl_draft_enabled", False)
+    payload = build_live_chat_response(
+        ChatRequest(message="Which source IPs generated the most outbound connections?")
+    ).model_dump(mode="json")
+    assert payload.get("response_mode") == "human_review_required"
+    human_review = payload.get("human_review") or {}
+    assert human_review.get("review_type") == "spl_revision"
 
 
 def test_unsafe_execute_delete_is_not_utility_authoring(

@@ -19,6 +19,7 @@ from app.spl.llm_fallback import (
     spl_advisory_prompts,
 )
 from app.spl.review_only_spl_postprocessor import finalize_review_only_spl
+from app.spl.source_profile_catalog import list_source_profile_slot_definitions
 from app.spl.source_profile_bindings import build_source_profile_binding_slots
 from app.spl.source_profile_store import (
     load_persisted_source_profile,
@@ -27,12 +28,21 @@ from app.spl.source_profile_store import (
 from app.spl.user_constraint_bindings import build_user_constraint_bindings
 
 
-def _single_approved_profile_index(profile: dict[str, str]) -> str | None:
-    indexes = {
+def _configured_profile_indexes(profile: dict[str, str]) -> set[str]:
+    configured_index_slots = {
+        str(item.get("slot_id") or "").strip()
+        for item in list_source_profile_slot_definitions()
+        if str(item.get("category") or "").strip() in {"index", "ot_index", "cisco_index"}
+    }
+    return {
         str(value).strip()
         for key, value in profile.items()
-        if str(key).endswith("_index") and str(value).strip()
+        if str(key).strip() in configured_index_slots and str(value).strip()
     }
+
+
+def _single_approved_profile_index(profile: dict[str, str]) -> str | None:
+    indexes = _configured_profile_indexes(profile)
     if len(indexes) == 1:
         return next(iter(indexes))
     return None
@@ -47,6 +57,13 @@ def _explicit_generic_utility_index(profile: dict[str, str]) -> tuple[str | None
         if value:
             return value, "coe_generic_utility_default"
     return None, None
+
+
+def _policy_default_index() -> str | None:
+    configured = [item.strip() for item in str(settings.spl_allowed_indexes or "").split(",") if item.strip()]
+    if configured:
+        return configured[0]
+    return None
 
 
 def utility_spl_draft_enabled() -> bool:
@@ -68,6 +85,7 @@ def build_utility_postprocessor_context(
     llm_generated: bool,
     target_log_family: str | None = "universal_timestamp_spl",
     is_universal_spl: bool = True,
+    allow_global_index_inference: bool | None = None,
 ) -> dict[str, Any]:
     bindings = build_user_constraint_bindings(user_query)
     user_index = str(bindings.normalized_slots.get("index") or "").strip()
@@ -80,8 +98,22 @@ def build_utility_postprocessor_context(
     contextual_bindings = build_source_profile_binding_slots(user_query)
     coe_contextual_index = str(contextual_bindings.slots.get("index") or "").strip()
     source_profile_index = str(profile.get("index") or "").strip()
-    if not source_profile_index:
+    if allow_global_index_inference is None:
+        allow_global_index_inference = is_universal_spl
+    if not source_profile_index and allow_global_index_inference:
         source_profile_index = _single_approved_profile_index(profile) or ""
+    if not source_profile_index and not is_universal_spl:
+        # Non-universal lab drafts never attempt single-index inference above
+        # (decoupled from the global heuristic); always give them a policy
+        # default so generic <index> placeholders stay renderable.
+        source_profile_index = _policy_default_index() or ""
+    elif not source_profile_index and is_universal_spl and len(_configured_profile_indexes(profile)) > 1:
+        # Universal drafts did attempt single-index inference above and came
+        # up ambiguous (COE has *multiple* real indexes configured) — fall
+        # back to a sensible policy default rather than a bare placeholder.
+        # But if COE has configured *nothing* at all (zero index slots), stay
+        # as an explicit <your_index> placeholder instead of guessing.
+        source_profile_index = _policy_default_index() or ""
     utility_default_index, utility_default_source = _explicit_generic_utility_index(profile)
 
     user_time = bool(
