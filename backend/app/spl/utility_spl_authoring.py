@@ -74,6 +74,7 @@ def build_utility_postprocessor_context(
     llm_generated: bool,
     target_log_family: str | None = "universal_timestamp_spl",
     is_universal_spl: bool = True,
+    allow_global_index_inference: bool | None = None,
 ) -> dict[str, Any]:
     bindings = build_user_constraint_bindings(user_query)
     user_index = str(bindings.normalized_slots.get("index") or "").strip()
@@ -86,7 +87,9 @@ def build_utility_postprocessor_context(
     contextual_bindings = build_source_profile_binding_slots(user_query)
     coe_contextual_index = str(contextual_bindings.slots.get("index") or "").strip()
     source_profile_index = str(profile.get("index") or "").strip()
-    if not source_profile_index:
+    if allow_global_index_inference is None:
+        allow_global_index_inference = is_universal_spl
+    if not source_profile_index and allow_global_index_inference:
         source_profile_index = _single_approved_profile_index(profile) or ""
     utility_default_index, utility_default_source = _explicit_generic_utility_index(profile)
 
@@ -97,9 +100,9 @@ def build_utility_postprocessor_context(
     )
 
     return {
-        "is_explicit_spl_authoring": True,
+        "is_explicit_spl_authoring": is_universal_spl,
         "is_universal_spl": is_universal_spl,
-        "is_template_free": True,
+        "is_template_free": is_universal_spl,
         "llm_generated": llm_generated,
         "deterministic_generated": not llm_generated,
         "execution_authorized": False,
