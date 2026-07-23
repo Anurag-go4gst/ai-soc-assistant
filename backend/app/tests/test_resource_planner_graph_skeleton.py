@@ -9,12 +9,16 @@ import pytest
 from app.config import settings
 from app.graph.resource_planner_graph import (
     GOVERNANCE_NODE_NAMES,
+    _SPECIALIST_NODE_NAMES,
     _compiled_resource_planner_graph,
     resource_planner_governance_inbound_targets,
+    resource_planner_graph_edges,
     resource_planner_graph_node_names,
     run_resource_planner_graph,
 )
 from app.schemas.requests import ChatRequest
+
+REF_QUERY = "What is AML.T0043?"
 
 
 def _fake_retrieve(**kwargs: Any) -> dict[str, Any]:
@@ -89,3 +93,35 @@ def test_resource_planner_graph_invoke_visits_governance_chain(
 
 def test_resource_planner_graph_requires_no_new_env_flag() -> None:
     assert not hasattr(settings, "ai_soc_resource_planner_graph_enabled")
+
+
+def test_resource_planner_specialists_fan_out_in_parallel(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
+    monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
+    monkeypatch.setattr("app.chat.pipeline.retrieve_soc_kb", _fake_retrieve)
+
+    state = run_resource_planner_graph(ChatRequest(message=REF_QUERY))
+    visited = state.get("rp_graph_trace", {}).get("visited_nodes") or []
+    delegate_idx = visited.index("resource_planner_delegate")
+    merge_idx = visited.index("resource_planner_merge")
+    for node in _SPECIALIST_NODE_NAMES:
+        assert node in visited
+        assert delegate_idx < visited.index(node) < merge_idx
+
+    edges = resource_planner_graph_edges()
+    assert ("specialist_skill", "specialist_knowledge") not in edges
+    assert ("specialist_knowledge", "specialist_mcp") not in edges
+    assert ("specialist_mcp", "specialist_spl") not in edges
+    for node in _SPECIALIST_NODE_NAMES:
+        assert (node, "resource_planner_merge") in edges
+    assert ("resource_planner_delegate", "specialist_skill") not in edges
+
+    reports = state.get("specialist_reports") or []
+    assert len(reports) >= len(_SPECIALIST_NODE_NAMES)
+    specialist_ids = {str(item.get("specialist_id") or "") for item in reports if isinstance(item, dict)}
+    assert len(specialist_ids) >= len(_SPECIALIST_NODE_NAMES), "parallel fan-in must deliver every specialist lane"
+
+    validated = state.get("validated_work_bundle")
+    if isinstance(validated, dict):
+        assert validated.get("merge_decision_reason") == "specialist_reports_merged"

@@ -112,6 +112,7 @@ def test_apply_specialist_reports_enriches_args_without_policy_mutation() -> Non
     merged = apply_specialist_reports(bundle, reports)
     spl_task = next(task for task in merged.tasks if task.step_id == "spl")
     assert spl_task.args_template["use_case_id"] == "auth_failed_login_spike"
+    assert spl_task.source_specialist == "spl"
     assert "execution_eligible_false" in spl_task.policy_checks
     rebuilt = materialize_resource_plan_from_bundle(merged)
     assert rebuilt.step_by_id("spl") is not None

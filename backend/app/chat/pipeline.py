@@ -251,6 +251,7 @@ from app.chat.spl_authoring_intent import (
     is_universal_utility_spl_authoring,
     should_skip_intent_for_universal_utility_spl,
 )
+from app.catalogue.live_router_bind import apply_live_catalogue_bind
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory, intent_advisor_consumable
 from app.llm.t2_advisory_latency_policy import (
@@ -464,6 +465,13 @@ def _build_live_chat_response_inner(
     session_role: str | None = None,
     entrypoint: str = "chat",
 ) -> PlaceholderResponse:
+    if entrypoint.startswith("rp_"):
+        # ``routes_chat`` is the sole orchestration selector. RP graph fallbacks
+        # must stay on the imperative pipeline and never re-enter
+        # ``run_chat_via_resource_planner_graph`` (recursion when flag is on).
+        from app.graph.resource_planner_graph import guard_rp_imperative_fallback
+
+        guard_rp_imperative_fallback(entrypoint)
     started_at = datetime.now(UTC)
     state: ChatPipelineState | None = None
     try:
@@ -1203,6 +1211,15 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
             }
             routed_skill = "knowledge_recall"
 
+    if isinstance(routed, dict):
+        _pre_use_case, routed, candidate_mappings = apply_live_catalogue_bind(
+            query=query_text,
+            query_understanding=query_understanding,
+            selected_use_case=None,
+            routed=routed,
+            candidate_mappings=candidate_mappings,
+        )
+
     result = build_query_to_intent(
         query=query_text,
         query_understanding=query_understanding,
@@ -1219,6 +1236,20 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case = None
     else:
         selected_use_case = _selected_use_case(query_text, query_signals=signals)
+    selected_use_case, routed, candidate_mappings = apply_live_catalogue_bind(
+        query=query_text,
+        query_understanding=query_understanding,
+        selected_use_case=selected_use_case,
+        routed=routed if isinstance(routed, dict) else {},
+        candidate_mappings=candidate_mappings,
+    )
+    payload = {
+        **payload,
+        "candidate_mappings": {
+            **(payload.get("candidate_mappings") if isinstance(payload.get("candidate_mappings"), dict) else {}),
+            **candidate_mappings,
+        },
+    }
     return {
         **state,
         "query_to_intent": payload,

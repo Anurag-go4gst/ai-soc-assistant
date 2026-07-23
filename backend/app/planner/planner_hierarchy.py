@@ -144,7 +144,6 @@ def work_bundle_from_resource_plan(
             status=step.status,
             status_reason=step.status_reason,
             on_unavailable=step.on_unavailable,
-            source_specialist=_specialist_for_purpose(step.purpose),
         )
         for step in plan.steps
     ]

@@ -128,8 +128,11 @@ def test_resource_planner_graph_typo_parity(monkeypatch: pytest.MonkeyPatch) -> 
     response = resource_planner_graph_response(state)
 
     assert response.selected_skill == "spl_generation"
-    assert (response.evidence_plan or {}).get("use_case_id") is None
-    assert getattr(response, "spl_template_id", None) is None
+    assert (response.evidence_plan or {}).get("use_case_id") == "auth_failed_login_spike"
+    assert response.spl_template is not None
+    assert getattr(response.spl_template, "template_id", None) == "auth_failed_login_spike" or (
+        isinstance(response.spl_template, dict) and response.spl_template.get("template_id") == "auth_failed_login_spike"
+    )
     execution = response.execution.model_dump() if hasattr(response.execution, "model_dump") else response.execution
     assert execution.get("status") == "requires_human_review"
 

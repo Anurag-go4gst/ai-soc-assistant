@@ -12,6 +12,9 @@ from app.evals.sentinel_eval import load_sentinel_rows, sentinel_runtime
 from app.graph.chat_workflow import run_chat_via_langgraph
 from app.graph.resource_planner_graph import (
     GOVERNANCE_NODE_NAMES,
+    _rp_graph_invoke_scope,
+    guard_rp_imperative_fallback,
+    rp_graph_invoke_active,
     run_chat_via_resource_planner_graph,
     run_resource_planner_graph,
 )
@@ -107,3 +110,89 @@ def test_resource_planner_graph_matches_linear_langgraph_core_fields(
     assert rp.selected_skill == linear.selected_skill
     assert rp.tool_plan == linear.tool_plan
     assert rp.execution.status == linear.execution.status
+
+
+def test_rp_fallback_uses_imperative_entrypoint_without_recursion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, str] = {}
+
+    def _fake_build(request: ChatRequest, **kwargs: object) -> object:
+        captured["entrypoint"] = str(kwargs.get("entrypoint") or "")
+        from app.schemas.responses import PlaceholderResponse
+
+        return PlaceholderResponse(
+            trace_id="trace-rp-fallback",
+            message="fallback",
+            note="imperative fallback",
+            user_query=request.message,
+        )
+
+    monkeypatch.setattr(
+        "app.graph.resource_planner_graph.build_live_chat_response",
+        _fake_build,
+    )
+    monkeypatch.setattr(
+        "app.graph.resource_planner_graph.run_resource_planner_graph",
+        lambda *args, **kwargs: {"response": None},
+    )
+
+    run_chat_via_resource_planner_graph(ChatRequest(message=REF_QUERY))
+
+    assert captured.get("entrypoint") == "rp_fallback"
+
+
+def test_imperative_rp_fallback_entrypoint_does_not_reenter_rp_graph(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "langgraph_orchestration_enabled", True)
+    monkeypatch.setattr(settings, "control_plane_enabled", True)
+    monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
+    monkeypatch.setattr(
+        "app.chat.pipeline.retrieve_soc_kb",
+        lambda **kwargs: {
+            "retrieval_status": "collected",
+            "chunks": [{"doc_id": "atlas-aml-t0043", "title": "AML.T0043"}],
+            "required_sources": kwargs.get("required_sources") or [],
+        },
+    )
+
+    def _boom(*args: object, **kwargs: object) -> object:
+        raise AssertionError("RP graph must not run during rp_fallback imperative path")
+
+    monkeypatch.setattr(
+        "app.graph.resource_planner_graph.run_chat_via_resource_planner_graph",
+        _boom,
+    )
+
+    from app.chat.pipeline import build_live_chat_response
+
+    with sentinel_runtime():
+        response = build_live_chat_response(ChatRequest(message=REF_QUERY), entrypoint="rp_fallback")
+
+    assert response.message
+
+
+def test_rp_graph_invoke_depth_is_context_local() -> None:
+    assert rp_graph_invoke_active() is False
+    with _rp_graph_invoke_scope():
+        assert rp_graph_invoke_active() is True
+    assert rp_graph_invoke_active() is False
+
+
+def test_guard_rp_imperative_fallback_raises_when_invoke_active(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "langgraph_orchestration_enabled", True)
+    with _rp_graph_invoke_scope():
+        with pytest.raises(RuntimeError, match="must not recurse"):
+            guard_rp_imperative_fallback("rp_fallback")
+
+
+def test_guard_rp_imperative_fallback_allows_after_invoke_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "langgraph_orchestration_enabled", True)
+    with _rp_graph_invoke_scope():
+        pass
+    guard_rp_imperative_fallback("rp_fallback")
