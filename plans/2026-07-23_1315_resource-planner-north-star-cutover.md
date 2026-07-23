@@ -195,7 +195,22 @@ External review confirmed the following repo truths; hardening items **7c–7g**
   - **Do:** Write a short proposal in this plan describing which specialist(s) may call the governed LLM adapter, the exact existing flag/mode to use, fallback behavior, disagreement handling, and why deterministic policy still wins. Stop for user/COE approval before coding this item.
   - **Verify:** User/COE approval recorded in this plan; no code changes for LLM-primary planning before that approval
   - **Depends on:** 7h
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Proposal below written 2026-07-23; approval pending. No item-8 code changes made.
+
+#### Item 8 Proposal — LLM-Primary Specialist Planning
+
+**Recommended decision:** defer item **9** until after the RP default-runtime cutover proposal (**10**) is approved. The current deterministic RP graph is now carrying the catalogue/specialist changes; adding a live specialist LLM hop before the runtime-default decision increases blast radius without being required for items **10–12**.
+
+If COE approves item **9** before cutover, scope it to **Knowledge specialist only**:
+
+- **Allowed specialist:** `specialist_knowledge` may call the governed LLM adapter to propose knowledge/evidence-domain enrichments only (`reference_domains`, evidence-gap labels, approved corpus ids). It may not propose SPL, MCP tools, route changes, severity/MITRE facts, source profiles, or execution actions.
+- **Blocked specialists for item 9:** `specialist_skill`, `specialist_mcp`, and `specialist_spl` remain deterministic/advisory only. SPL generation continues through governed templates / existing SPL failover paths; MCP selection remains deterministic; skill routing remains catalogue + deterministic adjudication.
+- **Existing flags/mode only:** no new flags. The hop may run only when `control_plane_enabled=true`, `ROUTING_MODE=llm_primary_lab`, `ROUTING_LAB_LLM_PRIMARY_ENABLED=true`, and existing governed LLM gates are on (`bridge_enabled()` / live LLM sidecar availability). Config already rejects `llm_primary_lab` in production.
+- **Fallback:** flags off, timeout, budget exhaustion, missing client, invalid JSON, unknown resource/domain, or validation failure returns the current deterministic `KnowledgeSpecialistReport(decision_reason="knowledge_lane_idle_or_rag")`; record a skipped/rejected decision in `decision_log` and continue.
+- **Disagreement handling:** LLM output is advisory data. It may fill blank knowledge-owned fields only. Conflicts with deterministic route, `intent_classification`, `evidence_plan`, selected use case, COE/manual slots, validated templates, or policy checks are dropped with `warnings` / `disagreements`.
+- **Why deterministic still wins:** `rp_node_resource_planner_merge()` remains the only fan-in authority; workers read only `validated_work_bundle` after `validate_bundle_policy_parity()` and `merge_decision_reason=specialist_reports_merged`. The LLM never calls MCP, never emits executable SPL, never sets execution eligibility, and cannot authorize action tiers.
+
+**Approval choices for COE/user:** approve the limited Knowledge-specialist LLM proposal path for item **9**, or explicitly defer **9** and proceed to the non-LLM cutover gate (**10**).
 
 - [ ] **9** — Implement approved LLM-primary specialist proposal path
   - **Do:** If item 8 is approved, let selected specialists emit real proposals through the governed LLM adapter. Proposals remain advisory until Resource Planner merge validation accepts owned enrichments; conflicts produce warnings/disagreements and deterministic outputs win. Add RP-specialist-specific LLM proposal tests if the existing broader LLM suites do not fail meaningfully on this new path. If item 8 is not approved, explicitly mark this item deferred with evidence and continue only to non-LLM cutover gates.
