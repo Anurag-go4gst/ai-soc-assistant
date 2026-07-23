@@ -78,11 +78,16 @@ def _run_chat_with_progress(
                 return
 
         if settings.langgraph_orchestration_enabled:
-            from app.graph.chat_workflow import run_chat_via_langgraph
+            from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 
             response = _finalize_stream_response(
                 request,
-                run_chat_via_langgraph(request, progress=reporter, session_role=session_role, entrypoint="chat_stream"),
+                run_chat_via_resource_planner_graph(
+                    request,
+                    progress=reporter,
+                    session_role=session_role,
+                    entrypoint="chat_stream",
+                ),
             )
             reporter.final(response)
             return

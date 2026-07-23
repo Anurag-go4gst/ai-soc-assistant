@@ -435,6 +435,8 @@ class ChatPipelineState(TypedDict, total=False):
     canonical_facts: dict[str, Any] | None
     final_evidence_gate: dict[str, Any] | None
     plan_dispatch_trace: dict[str, Any] | None
+    # Resource Planner hierarchy — append-only audit trail (item 4).
+    decision_log: list[dict[str, Any]]
     # Item 5.4 — advisory grounding block assembled from the CanonicalFacts spine.
     grounding_block: dict[str, Any] | None
     response: PlaceholderResponse
@@ -3337,6 +3339,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         "run_contract": enrich_run_contract_payload(run_contract.model_dump_canonical(), gate_state_input),
         "source_evidence": source_evidence,
         "structured_context": structured_context,
+        "context_sufficiency": context_sufficiency,
         "final_evidence_gate": gate_payload,
     }
     from app.chat.canonical_facts_spine import attach_canonical_facts_to_state
@@ -5186,6 +5189,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         pass
     return {
         **state,
+        "context_sufficiency": response.context_sufficiency,
         "response": response,
         "mitre_decision": mitre_decision,
         "answer_contract": answer_contract_payload,

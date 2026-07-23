@@ -228,7 +228,38 @@ def test_grounding_block_wired_end_to_end_on_live_chat(monkeypatch) -> None:
     assert "limitations" in grounding
 
 
-def test_grounding_block_wired_on_langgraph_path(monkeypatch) -> None:
+def test_control_plane_trace_includes_decision_log() -> None:
+    trace = build_control_plane_trace(
+        {
+            "decision_log": [
+                {
+                    "record_id": "dr:1",
+                    "node": "resource_planner.merge",
+                    "authority": "resource_planner",
+                    "decision_reason": "fan_in_complete",
+                    "inputs_ref": ["specialist_reports"],
+                    "outputs_ref": ["work_bundle"],
+                }
+            ]
+        }
+    )
+    records = trace.get("decision_log")
+    assert isinstance(records, list) and len(records) == 1
+    assert records[0]["decision_reason"] == "fan_in_complete"
+
+
+def test_langgraph_wrap_emits_decision_log_to_control_plane_trace(monkeypatch) -> None:
+    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
+    from app.graph.chat_workflow import run_chat_via_langgraph
+
+    response = run_chat_via_langgraph(ChatRequest(message="What is AML.T0043?"))
+    trace = response.control_plane_trace
+    assert trace is not None
+    records = trace.get("decision_log")
+    assert isinstance(records, list) and records
+    assert any(item.get("node") == "init_routing" for item in records if isinstance(item, dict))
+
+
     """Same behavior on the LangGraph dispatch path — required separately because
     LangGraph silently drops any state channel not declared in the TypedDict
     (grounding_block was declared in ChatPipelineState for exactly this reason)."""

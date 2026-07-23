@@ -263,6 +263,13 @@ def _shadow_pipeline_route(state: PlannerLedShadowState) -> str:
     path_type = _path_type(state)
     if path_type in _RAG_PIPELINE_PATH_TYPES:
         return "rag_pipeline"
+    plan = state.get("evidence_plan")
+    if (
+        path_type == "guided_investigation"
+        and isinstance(plan, dict)
+        and bool(plan.get("needs_rag"))
+    ):
+        return "rag_pipeline"
     return "investigation_pipeline"
 
 
@@ -302,6 +309,9 @@ def shadow_node_investigation_execution(state: PlannerLedShadowState) -> Planner
 
 
 def shadow_node_finalize(state: PlannerLedShadowState) -> PlannerLedShadowState:
+    from app.planner.executor import annotate_step_statuses
+
+    state = annotate_step_statuses(state)
     state = graph_node_context_finalize(state)
     trace = _trace_append(state, "finalize")
     trace["topology"] = "planner_led_shadow_fan_out_fan_in"

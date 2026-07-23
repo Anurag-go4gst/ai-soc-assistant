@@ -114,10 +114,10 @@ def _chat_impl(request: ChatRequest, user: object) -> PlaceholderResponse:
 
     session_role = user.get("role") if isinstance(user, dict) else None
     if settings.langgraph_orchestration_enabled:
-        from app.graph.chat_workflow import run_chat_via_langgraph
+        from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 
         return post_chat_response(
-            run_chat_via_langgraph(request, session_role=session_role),
+            run_chat_via_resource_planner_graph(request, session_role=session_role),
             request,
             entrypoint="chat",
             user=user,
