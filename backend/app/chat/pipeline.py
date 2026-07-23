@@ -435,6 +435,8 @@ class ChatPipelineState(TypedDict, total=False):
     canonical_facts: dict[str, Any] | None
     final_evidence_gate: dict[str, Any] | None
     plan_dispatch_trace: dict[str, Any] | None
+    # Resource Planner hierarchy — append-only audit trail (item 4).
+    decision_log: list[dict[str, Any]]
     # Item 5.4 — advisory grounding block assembled from the CanonicalFacts spine.
     grounding_block: dict[str, Any] | None
     response: PlaceholderResponse

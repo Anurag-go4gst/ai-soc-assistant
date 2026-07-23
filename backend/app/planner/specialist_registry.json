@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "specialists": [
+    {
+      "specialist_id": "skill",
+      "display_name": "Skill Specialist",
+      "ownership_scope": [
+        "route",
+        "catalogue_tier",
+        "skill_id",
+        "use_case_id"
+      ],
+      "resource_kinds": ["skill"],
+      "plan_purposes": [
+        "evidence_collection",
+        "grounding",
+        "skill_routing",
+        "catalogue_match"
+      ],
+      "notes": "Chooses route and catalogue tier; does not compose SPL or MCP hops."
+    },
+    {
+      "specialist_id": "mcp",
+      "display_name": "MCP Specialist",
+      "ownership_scope": [
+        "mcp_discovery",
+        "mcp_search_hops",
+        "tool_selection"
+      ],
+      "resource_kinds": ["mcp_tool"],
+      "plan_purposes": ["mcp_execution"],
+      "notes": "Plans discovery/search hops only; execution stays behind gates."
+    },
+    {
+      "specialist_id": "knowledge",
+      "display_name": "Knowledge Specialist",
+      "ownership_scope": [
+        "atlas",
+        "cve",
+        "mitre",
+        "rag",
+        "reference_lookup"
+      ],
+      "resource_kinds": ["rag_corpus", "deterministic_analytic"],
+      "plan_purposes": [
+        "knowledge_retrieval",
+        "cve_lookup",
+        "mitre_mapping"
+      ],
+      "notes": "Owns ATLAS/CVE/MITRE/RAG reference lanes."
+    },
+    {
+      "specialist_id": "spl",
+      "display_name": "SPL Specialist",
+      "ownership_scope": [
+        "spl_compose",
+        "spl_validation_inputs",
+        "candidate_spl"
+      ],
+      "resource_kinds": [
+        "spl_template_family",
+        "spl_lab_draft_family"
+      ],
+      "plan_purposes": ["spl_artifact"],
+      "skill_ids": ["spl_generation"],
+      "notes": "Owns candidate SPL composition inputs; never sets execution_eligible."
+    }
+  ]
+}

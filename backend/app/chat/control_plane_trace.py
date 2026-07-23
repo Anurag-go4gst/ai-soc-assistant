@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.schemas.responses import PlaceholderResponse
 from app.planner.recipe_registry import get_recipe
 from app.spl.spl_artifact_trace_projection import build_spl_artifact_handoff_summary
 from app.governance.trace_authority import (
@@ -135,6 +136,7 @@ def build_control_plane_trace(
         "grounding_block": state.get("grounding_block")
         if isinstance(state.get("grounding_block"), dict)
         else None,
+        "decision_log": _decision_log_trace(state),
     }
     run_contract = state.get("run_contract") if isinstance(state.get("run_contract"), dict) else None
     final_evidence_gate = (
@@ -228,6 +230,36 @@ def _spl_authoring_trace(state: dict[str, Any]) -> dict[str, Any] | None:
         tier=TIER_PLANNING,
         note="Explicit SPL authoring detection and clarification override trace.",
     )
+
+
+def _decision_log_trace(state: dict[str, Any]) -> list[dict[str, Any]] | None:
+    from app.chat.decision_record import decision_log_for_trace
+
+    records = decision_log_for_trace(state)
+    if not records:
+        return None
+    wrapped = attach_authority_tier(
+        {"records": records, "record_count": len(records)},
+        tier=TIER_DIAGNOSTIC,
+        note="Append-only planner hierarchy audit trail; advisory packaging only.",
+    )
+    if isinstance(wrapped, dict):
+        return wrapped.get("records") if isinstance(wrapped.get("records"), list) else records
+    return records
+
+
+def patch_control_plane_trace_decision_log(
+    response: PlaceholderResponse,
+    state: dict[str, Any],
+) -> PlaceholderResponse:
+    """Sync analyst-visible ``decision_log`` after post-compose graph hops."""
+    records = _decision_log_trace(state)
+    if not records:
+        return response
+    trace = response.control_plane_trace
+    trace_payload = dict(trace) if isinstance(trace, dict) else {}
+    trace_payload["decision_log"] = records
+    return response.model_copy(update={"control_plane_trace": trace_payload})
 
 
 def _resource_planner_trace(state: dict[str, Any]) -> dict[str, Any] | None:

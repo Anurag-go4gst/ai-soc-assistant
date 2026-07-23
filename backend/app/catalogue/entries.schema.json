@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-soc.local/schemas/catalogue-entry-v1.json",
+  "title": "UnifiedCatalogueEntry",
+  "description": "Adapter-layer catalogue entry reconciling 105 runtime map rows, use-case catalog rows, SPL templates, and runtime skill catalog bindings. Not a parallel router authority.",
+  "type": "object",
+  "required": [
+    "entry_id",
+    "tier",
+    "source",
+    "match_path"
+  ],
+  "properties": {
+    "entry_id": {
+      "type": "string",
+      "description": "Stable adapter id, e.g. use_case:auth_failed_login_spike or q105:Q042"
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["T0", "T1", "T2", "T3", "T4"],
+      "description": "T0 reference knowledge; T1 exact 105; T2 use-case catalog; T3 fuzzy/alias; T4 out-of-registry"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "reference_registry",
+        "cisco_question_runtime_map_v1",
+        "use_cases_catalog",
+        "spl_template_registry",
+        "runtime_skill_catalog",
+        "fuzzy_alias_adapter"
+      ]
+    },
+    "match_path": {
+      "type": "string",
+      "description": "Wire-compatible deterministic_match_path or adapter path label"
+    },
+    "use_case_id": {
+      "type": ["string", "null"]
+    },
+    "question_ref": {
+      "type": ["string", "null"]
+    },
+    "skill_id": {
+      "type": ["string", "null"]
+    },
+    "spl_template_id": {
+      "type": ["string", "null"]
+    },
+    "alias_applied": {
+      "type": "boolean",
+      "default": false
+    },
+    "match_reason": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

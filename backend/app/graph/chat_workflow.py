@@ -55,6 +55,7 @@ from app.chat.pipeline import (
     dispatch_v2_route_after_spl_postprocessor,
 )
 from app.chat.contracts.pipeline_dispatch import PipelineStage, next_stage_after
+from app.chat.decision_record import wrap_graph_node
 from app.config import settings
 from app.planner.executor import has_composed_plan
 from app.schemas.requests import ChatRequest
@@ -107,22 +108,22 @@ def _add_linear_chain(graph: StateGraph) -> None:
 
 
 def _core_nodes(graph: StateGraph) -> None:
-    graph.add_node("init_routing", graph_node_init_routing)
-    graph.add_node("query_to_intent", graph_node_query_to_intent)
-    graph.add_node("evidence_planning", graph_node_evidence_planning)
-    graph.add_node("route_resolution", graph_node_route_resolution)
-    graph.add_node("route_contract", graph_node_route_contract)
-    graph.add_node("shadow_tail", graph_node_shadow_tail)
-    graph.add_node("shadow_enrichment", graph_node_shadow_enrichment)
-    graph.add_node("prepare_rag_only", graph_node_prepare_rag_only)
-    graph.add_node("rag_early", graph_node_rag_early)
-    graph.add_node("reference_finalize", graph_node_reference_finalize)
-    graph.add_node("workflow_spl", graph_node_workflow_spl)
-    graph.add_node("spl_postprocessor", graph_node_spl_postprocessor)
-    graph.add_node("spl_source_resolve", graph_node_spl_source_resolve)
-    graph.add_node("execution", graph_node_execution)
-    graph.add_node("composed_dispatch", graph_node_composed_dispatch)
-    graph.add_node("context_finalize", graph_node_context_finalize)
+    graph.add_node("init_routing", wrap_graph_node("init_routing", graph_node_init_routing))
+    graph.add_node("query_to_intent", wrap_graph_node("query_to_intent", graph_node_query_to_intent))
+    graph.add_node("evidence_planning", wrap_graph_node("evidence_planning", graph_node_evidence_planning))
+    graph.add_node("route_resolution", wrap_graph_node("route_resolution", graph_node_route_resolution))
+    graph.add_node("route_contract", wrap_graph_node("route_contract", graph_node_route_contract))
+    graph.add_node("shadow_tail", wrap_graph_node("shadow_tail", graph_node_shadow_tail))
+    graph.add_node("shadow_enrichment", wrap_graph_node("shadow_enrichment", graph_node_shadow_enrichment))
+    graph.add_node("prepare_rag_only", wrap_graph_node("prepare_rag_only", graph_node_prepare_rag_only))
+    graph.add_node("rag_early", wrap_graph_node("rag_early", graph_node_rag_early))
+    graph.add_node("reference_finalize", wrap_graph_node("reference_finalize", graph_node_reference_finalize))
+    graph.add_node("workflow_spl", wrap_graph_node("workflow_spl", graph_node_workflow_spl))
+    graph.add_node("spl_postprocessor", wrap_graph_node("spl_postprocessor", graph_node_spl_postprocessor))
+    graph.add_node("spl_source_resolve", wrap_graph_node("spl_source_resolve", graph_node_spl_source_resolve))
+    graph.add_node("execution", wrap_graph_node("execution", graph_node_execution))
+    graph.add_node("composed_dispatch", wrap_graph_node("composed_dispatch", graph_node_composed_dispatch))
+    graph.add_node("context_finalize", wrap_graph_node("context_finalize", graph_node_context_finalize))
     graph.set_entry_point("init_routing")
     graph.add_edge("init_routing", "query_to_intent")
     graph.add_edge("query_to_intent", "route_resolution")
@@ -152,7 +153,7 @@ def _compiled_chat_graph_cp() -> Any:
     """
     graph: StateGraph = StateGraph(ChatPipelineState)
     _core_nodes(graph)
-    graph.add_node("mcp_call", graph_node_mcp_call)
+    graph.add_node("mcp_call", wrap_graph_node("mcp_call", graph_node_mcp_call))
     graph.add_conditional_edges(
         "evidence_planning",
         _hub_route,

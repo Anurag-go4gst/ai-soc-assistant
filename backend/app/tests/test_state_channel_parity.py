@@ -33,7 +33,7 @@ from app.graph.chat_workflow import run_chat_via_langgraph
 from app.schemas.requests import ChatRequest
 
 _PIPELINE_PATH = Path(__file__).resolve().parents[1] / "chat" / "pipeline.py"
-_PHASE52_CHANNELS = ("canonical_facts", "final_evidence_gate", "plan_dispatch_trace")
+_PHASE52_CHANNELS = ("canonical_facts", "final_evidence_gate", "plan_dispatch_trace", "decision_log")
 _VOLATILE_PAYLOAD_KEYS = frozenset({"evidence_id", "source_refs", "fact_id"})
 
 
@@ -95,6 +95,32 @@ def test_canonical_facts_parity_imperative_vs_langgraph(row) -> None:
     graph_sig = _stable_canonical_facts_signature(graph.canonical_facts)
     assert imp_sig == graph_sig, row["key"]
     assert imp_sig[0] != "missing", row["key"]
+
+
+def test_langgraph_final_state_retains_decision_log_channel() -> None:
+    from app.chat.decision_record import emit_decision_record
+    from app.graph.chat_workflow import _compiled_chat_graph
+    from app.planner.planner_hierarchy import DecisionRecord
+
+    row = load_sentinel_rows()[0]
+    with sentinel_runtime():
+        graph = _compiled_chat_graph()
+        seeded = emit_decision_record(
+            {"request": ChatRequest(message=row["question"])},
+            DecisionRecord(
+                record_id="dr:parity",
+                node="test.seed",
+                authority="test",
+                decision_reason="parity_probe",
+                inputs_ref=["request"],
+                outputs_ref=["response"],
+            ),
+        )
+        final_state = graph.invoke(seeded)
+
+    log = final_state.get("decision_log")
+    assert isinstance(log, list) and log
+    assert log[0]["record_id"] == "dr:parity"
 
 
 def test_langgraph_final_state_retains_canonical_facts_channel() -> None:
