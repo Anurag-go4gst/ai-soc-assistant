@@ -121,6 +121,38 @@ def test_resource_planner_graph_produces_response(monkeypatch: pytest.MonkeyPatc
         assert node in trace_nodes, node
 
 
+def test_resource_planner_graph_typo_parity(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable_cp_stack(monkeypatch)
+    with sentinel_runtime():
+        state = run_resource_planner_graph(ChatRequest(message=TYPO_QUERY))
+    response = resource_planner_graph_response(state)
+
+    assert response.selected_skill == "spl_generation"
+    assert (response.evidence_plan or {}).get("use_case_id") is None
+    assert getattr(response, "spl_template_id", None) is None
+    execution = response.execution.model_dump() if hasattr(response.execution, "model_dump") else response.execution
+    assert execution.get("status") == "requires_human_review"
+
+    tier = match_catalogue_tier(TYPO_QUERY)
+    assert tier.tier == "T3"
+    assert tier.use_case_id == "auth_failed_login_spike"
+    assert tier.spl_template_id == "auth_failed_login_spike"
+    assert tier.alias_applied is True
+
+    visited = state.get("rp_graph_trace", {}).get("visited_nodes") or []
+    for node in GOVERNANCE_NODE_NAMES:
+        assert node in visited, node
+
+    state_sufficiency = state.get("context_sufficiency")
+    response_sufficiency = response.context_sufficiency
+    if hasattr(state_sufficiency, "model_dump"):
+        state_sufficiency = state_sufficiency.model_dump()
+    if hasattr(response_sufficiency, "model_dump"):
+        response_sufficiency = response_sufficiency.model_dump()
+    assert state_sufficiency == response_sufficiency
+    assert state_sufficiency.get("status") != "pending_finalize"
+
+
 def test_imperative_shadow_rag_step_status_parity_for_ot_probe(monkeypatch: pytest.MonkeyPatch) -> None:
     _enable_cp_stack(monkeypatch)
     imperative = build_live_chat_response(ChatRequest(message=OT_QUERY))

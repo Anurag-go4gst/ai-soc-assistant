@@ -3339,6 +3339,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         "run_contract": enrich_run_contract_payload(run_contract.model_dump_canonical(), gate_state_input),
         "source_evidence": source_evidence,
         "structured_context": structured_context,
+        "context_sufficiency": context_sufficiency,
         "final_evidence_gate": gate_payload,
     }
     from app.chat.canonical_facts_spine import attach_canonical_facts_to_state
@@ -5188,6 +5189,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         pass
     return {
         **state,
+        "context_sufficiency": response.context_sufficiency,
         "response": response,
         "mitre_decision": mitre_decision,
         "answer_contract": answer_contract_payload,

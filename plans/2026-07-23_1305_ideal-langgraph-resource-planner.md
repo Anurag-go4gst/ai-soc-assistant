@@ -57,7 +57,7 @@ bootstrap (code) → Resource Planner
 | High | A `bootstrap -> RP stub -> finalize` graph can pass compile tests while bypassing `spl_validate`, `mcp_execution_gate`, `context_sufficiency`, `decide_facts`, `answer_guard`, `validate_final_answer`, `human_review`, and `policy_veto`. | Skeleton must encode these governance nodes as explicit nodes or documented adapters to current node functions before any route can call it. |
 | High | New `planner_hierarchy.py`, `specialist_registry.json`, and `catalogue/entries.schema.json` can become parallel truth beside existing `ResourcePlan`, skill catalog, use-case catalog, and resource registry. | Contract/registry work must extend or adapt existing surfaces; tests must prove no duplicate/disconnected authority. |
 | Medium | LangGraph silently drops undeclared state keys. `decision_log` is not currently on `ChatPipelineState`. | Item 4 must add the state channel and a graph-retention test. |
-| Medium | Dry run shows typo query `failed lgon spike top users last hour` does not bind a use case today; it routes to `spl_generation` with fallback SPL. | Unified catalogue work must include fuzzy/alias tier tests if catalogue coverage is an objective. |
+| Medium | Under the dry-run CP/sentinel harness, typo query `failed lgon spike top users last hour` routes to `spl_generation` with no live-router use-case bind and fallback/lab-only draft SPL. Plain local defaults can route differently. | Unified catalogue work must include fuzzy/alias tier tests if catalogue coverage is an objective, and live-router wiring must stay a separate follow-up. |
 | Medium | Planner-led shadow and imperative paths differ on guided OT RAG step status (`skipped_unavailable` vs `not_run`) while core parity passes. | Add a step-status parity assertion before using shadow topology as migration evidence. |
 
 ## Checklist
@@ -182,7 +182,7 @@ Observed:
 |-------|------------------------------------|--------------|
 | `What is AML.T0043?` | `knowledge_recall`, `rag_only`, no SPL/MCP, execution skipped, HIL false | Good baseline; preserve. |
 | OT outbound hunt | `guided_investigation`, no candidate SPL/MCP, execution skipped. ~~Shadow and imperative differ on RAG step status (`not_run` vs `skipped_unavailable`).~~ **Fixed 2026-07-23** — parity test green after shadow routes guided `needs_rag` through rag pipeline + `annotate_step_statuses`. | Closed in item 7. |
-| `failed lgon spike top users last hour` | `spl_generation`, no live-router use-case match, fallback candidate SPL, `spl_validation.approved=false`, MCP blocked. Catalogue adapter (T3) binds typo via alias tier in tests only. | Live router swap deferred to post–item 9 work. |
+| `failed lgon spike top users last hour` | Under the dry-run CP/sentinel harness: `spl_generation`, no live-router use-case match or template id, fallback/lab-only draft SPL, `spl_validation.approved=false`, MCP blocked. Plain local defaults can route differently. Catalogue adapter (T3) binds typo via alias tier in tests only. | Live router swap deferred to post–item 9 work; RP graph typo parity covered in dry-run tests. |
 
 ## Drift log
 
@@ -216,7 +216,7 @@ Observed:
 | `decision_log` channel | Green | `emit_decision_record`; LangGraph retention + live `wrap_graph_node` on core nodes |
 | Catalogue T0–T4 adapter | Green | Typo `lgon` → T3 fuzzy bind (adapter only; live router unchanged) |
 | RP graph (test-only) | Green | Real finalize + governance chain; `resource_planner_graph_response()` |
-| Dry-run probes | Green | AML / OT / typo + imperative↔shadow RAG step parity |
+| Dry-run probes | Green | AML / OT / typo contracts + RP typo parity + imperative↔shadow RAG step parity |
 | Governance regression (item 8) | Green | `./scripts/run_stage3_governance_regression.sh` exit 0 |
 | Post-prep regression (item 12) | Green | `./scripts/run_stage3_governance_regression.sh` exit 0 (~316s) |
 
@@ -224,7 +224,8 @@ Observed:
 
 1. Specialist fan-out is sequential in RP graph; true parallel LangGraph `Send` API deferred.
 2. Unified catalogue adapter not wired into `understand_query` / live router.
-3. Imperative path retirement remains a separate explicit decision gate.
+3. Specialist report proposals are not merged by `rp_node_resource_planner_merge` yet; `apply_specialist_reports()` is contract-only until wired.
+4. Imperative path retirement remains a separate explicit decision gate.
 
 **Rollback:** Keep imperative path as default (`LANGGRAPH_ORCHESTRATION_ENABLED=false`). Toggle off restores current behavior without code revert.
 
