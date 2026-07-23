@@ -14,14 +14,15 @@ veto unsafe actions. `/chat` can run this topology when `LANGGRAPH_ORCHESTRATION
 ```
 bootstrap (code)
   → Resource Planner (delegate / merge / schedule only)
-      → specialists (sequential): Skill → Knowledge → MCP → SPL
-      → RP merge → WorkBundle → code workers
+      → specialists (parallel Send fan-out): Skill | Knowledge | MCP | SPL
+      → RP merge → WorkBundle (+ apply_specialist_reports) → code workers
       → governance gates (SPL validate, MCP gate, HIL, policy veto, …)
       → RP loop (optional iteration)
   → decide_facts → compose → answer_guard → policy_veto → finalize → validate_final_answer + trace
 ```
 
-Specialists have **disjoint ownership** but v1 executes them **serially** in the compiled graph; LangGraph `Send` parallel fan-out is deferred.
+Specialists have **disjoint ownership** and fan out in parallel via LangGraph `Send`; merge
+normalizes reports (sorted by `specialist_id`) before `apply_specialist_reports()`.
 
 The **Resource Planner** never owns catalogue matching, SPL composition, MCP hop
 selection, or reference lookup. It delegates to specialists with disjoint ownership,
@@ -58,6 +59,13 @@ Specialists are **advisory** (`authority: advisory | proposed_validated`). Deter
 code and governance nodes remain authoritative for `execution_eligible`, severity, MITRE
 status, and MCP gate outcomes.
 
+**v1 specialist authority boundary (Option A):** Bootstrap composes the authoritative
+`ResourcePlan` before delegate/specialist fan-out. Specialists are **post-plan enrichers**
+only: they may merge owned `args_template` fields into an existing `WorkBundle` via
+`apply_specialist_reports()`. They do **not** revise route, `intent_classification`,
+`evidence_plan`, or `selected_use_case`. A second RP iteration / reconcile node that lets
+merged bundles rewrite plan authority is **out of scope** for v1 (future north-star item).
+
 ---
 
 ## 3. Existing surfaces (reconciliation)
@@ -76,7 +84,7 @@ The hierarchy **extends** existing planner surfaces; it does not fork parallel t
 | Planner-led shadow | `backend/app/graph/planner_led_shadow_graph.py` | Parity reference topology pre-RP-graph |
 | RP hierarchy graph | `backend/app/graph/resource_planner_graph.py` | Callable always; `/chat` + `/chat/stream` when `LANGGRAPH_ORCHESTRATION_ENABLED=true` |
 | Hierarchy contracts | `backend/app/planner/planner_hierarchy.py` | Specialist / bundle / iteration models |
-| Catalogue adapter | `backend/app/catalogue/match_tiers.py` | T0–T4 tier tests only; live router unchanged |
+| Catalogue adapter | `backend/app/catalogue/match_tiers.py` + `live_router_bind.py` | T0–T4 tiers; live router fill-blanks bind in `graph_node_query_to_intent` |
 
 **Cutover status (items 9–15, 2026-07-23):**
 
@@ -85,7 +93,10 @@ The hierarchy **extends** existing planner surfaces; it does not fork parallel t
 | `/chat` route wiring | **Done** — toggle via `LANGGRAPH_ORCHESTRATION_ENABLED` (no new flag) |
 | Imperative default | **Preserved** — flag off → `build_live_chat_response` |
 | Imperative retirement | **Out of scope** — separate explicit gate |
-| Live catalogue router swap | **Out of scope** — T0–T4 adapter is test/adapter only |
+| Live catalogue router swap | **Done** (north-star item 2) — `apply_live_catalogue_bind()` fill-blanks only |
+| Catalogue surface agreement | **Done** (north-star item 7c) — `test_catalogue_bind_surface_agreement.py` |
+| Validated WorkBundle workers | **Done** (north-star item 7c) — workers read `validated_work_bundle` only |
+| Single-runner invariant | **Done** (north-star item 7g) — RP fallback uses `entrypoint=rp_fallback` |
 | New env flags | **Not added** — `AI_SOC_RESOURCE_PLANNER_GRAPH_ENABLED` rejected by design |
 
 Shadow enrichment still uses `AI_SOC_LANGGRAPH_SHADOW_ENABLED` for planner-led shadow runs.
@@ -103,7 +114,8 @@ LangGraph silently drops undeclared keys. Any new top-level channel must be decl
 | `planning_decision` | **exists** | CP-off planning path summary |
 | `decision_log` | **exists (item 4)** | On `ChatPipelineState`; `emit_decision_record()`; synced to `control_plane_trace` |
 | `planner_iteration` | **RP graph only** | `ResourcePlannerGraphState`; snapshot per RP loop |
-| `work_bundle` | **RP graph only** | Scheduling view from `work_bundle_from_resource_plan()`; must not replace `resource_plan` |
+| `work_bundle` | **RP graph only** | Scheduling view from `work_bundle_from_resource_plan()`; trace/audit mirror |
+| `validated_work_bundle` | **RP graph only** | Written only after `validate_bundle_policy_parity()` + `merge_decision_reason=specialist_reports_merged`; sole input for worker sync |
 | `specialist_reports` / `specialist_delegations` | **RP graph only** | Advisory fan-in envelope; not on base `ChatPipelineState` |
 | `rp_graph_trace` | **RP graph only** | Visited-node audit for topology tests |
 
@@ -148,14 +160,7 @@ Design probes (verified 2026-07-23; imperative + selected RP graph + shadow wher
 |-------|-------------------|--------|
 | `What is AML.T0043?` | `knowledge_recall`, `rag_only`, no SPL/MCP, execution `skipped` | **Green** — imperative and RP graph match |
 | OT outbound hunt | `guided_investigation`, no candidate SPL/MCP, execution `skipped`; imperative↔shadow RAG step status parity | **Green** — fixed item 7 |
-| `failed lgon spike top users last hour` | Under the dry-run CP/sentinel harness: `spl_generation`, no live-router `use_case_id` / template id, fallback or lab-only draft SPL, `spl_validation.approved=false`, execution `requires_human_review`. Plain local defaults can route differently (for example `attack_discovery`), so this is a harness-scoped observation. | **Green** on guarded execution; adapter vs router gap below |
-
-**Adapter vs live router (typo probe):** `match_catalogue_tier()` binds T3 →
-`auth_failed_login_spike` with `alias_applied=true`, but the dry-run live router does not
-yet consume that bind (`use_case_id` absent from `evidence_plan`, no template id on the
-returned response). SPL output therefore comes from fallback / lab-only draft paths, not
-from the adapter-selected catalogue row. Wiring the adapter into `understand_query`
-remains a follow-up.
+| `failed lgon spike top users last hour` | `spl_generation`, T3 alias → `auth_failed_login_spike` on `evidence_plan` / template id (live bind + RP graph parity) | **Green** |
 
 Reproduce:
 
@@ -167,13 +172,13 @@ cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource
 
 1. **Bootstrap** — query understanding, intent → `knowledge_recall`.
 2. **Resource Planner** — composer emits RAG-only `ResourcePlan` (no SPL/MCP steps).
-3. **Skill specialist** — logs advisory route; `catalogue_tier` is stubbed (`adapter`) until live tier bind.
+3. **Skill specialist** — logs advisory route with live `catalogue_tier` from `match_catalogue_tier()`.
 4. **Knowledge specialist** — trace-only in v1 (RAG driven by composer + `graph_node_rag_early`).
 5. **MCP / SPL specialists** — SPL logs `template_or_fallback`; MCP trace-only when idle.
-6. **RP merge** — `WorkBundle` from `work_bundle_from_resource_plan()`; `apply_specialist_reports()` is implemented and unit-tested but not called by `rp_node_resource_planner_merge` yet.
-7. **Code workers** — `prepare_rag_only` → `rag_early`; no execution stage.
+6. **RP merge** — `build_planner_iteration()` calls `apply_specialist_reports()`; merged plan synced to `evidence_plan.resource_plan` and `work_bundle`.
+7. **Code workers** — `prepare_rag_only` → `rag_early`; composed/SPL workers call `_apply_work_bundle_to_workers()` before dispatch.
 8. **Governance** — full chain through `policy_veto` → `finalize` → `validate_final_answer`.
-9. **Decision log** — 19 hops on this probe; synced to `control_plane_trace.decision_log`.
+9. **Decision log** — specialist records emitted in stable order at merge; synced to `control_plane_trace.decision_log`.
 
 ### 6.2 Walkthrough: OT outbound hunt
 
@@ -185,11 +190,10 @@ cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource
 
 ### 6.3 Walkthrough: fuzzy failed-login catalogue
 
-1. **Skill specialist** — under the dry-run harness, `spl_generation`; adapter separately binds T3 → `auth_failed_login_spike` (test/adapter only).
-2. **SPL specialist** — fallback / lab-only draft candidate path; `execution_eligible=false` preserved.
+1. **Skill specialist** — `spl_generation`; live bind sets T3 → `auth_failed_login_spike`.
+2. **SPL specialist** — template bind via merged bundle / selected use case; `execution_eligible=false` preserved.
 3. **MCP specialist** — search hop in plan; blocked when SPL unapproved + HIL required.
 4. **Gates** — `spl_validation.approved=false`; execution `requires_human_review`.
-5. **Follow-up** — wire adapter bind into live router so `evidence_plan` carries `use_case_id`.
 
 ---
 
@@ -198,10 +202,9 @@ cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource
 The **Resource Planner** is the apex orchestrator:
 
 - Fan out `SpecialistDelegation` envelopes with lane-scoped `ownership_scope`.
-- Fan in `SpecialistReport` proposals; **v1 merge** builds `WorkBundle` from
-  `work_bundle_from_resource_plan()` only. `apply_specialist_reports()` is implemented
-  and unit-tested but **not yet called** from `rp_node_resource_planner_merge` — specialist
-  lanes are trace/audit scaffolding until a follow-up wires proposal merge.
+- Fan in `SpecialistReport` proposals via `apply_specialist_reports()` inside
+  `build_planner_iteration()` / `rp_node_resource_planner_merge`.
+- Sync merged `work_bundle` into `evidence_plan.resource_plan` before composed/SPL workers.
 - Treat finalized sufficiency/facts/guard outputs as response and control-plane-trace
   authority. The finalized `context_sufficiency` is synced back into graph state
   before return so graph consumers do not see the pre-finalize placeholder.
@@ -233,9 +236,11 @@ The **Resource Planner** is the apex orchestrator:
 | 14 | Governance trace completeness + `policy_veto` ordering | Done |
 | 15 | `validate_final_answer` graph node + reachability | Done |
 
-**Residual follow-ups (not in plan scope):** parallel specialist `Send` fan-out; wire
-`apply_specialist_reports()` in merge; wire catalogue adapter into live router; imperative
-retirement gate.
+**Residual follow-ups (north-star plan items 8–12):** LLM-primary specialist planning;
+default RP graph runtime; imperative retirement gate.
+
+North-star cutover plan: `plans/2026-07-23_1315_resource-planner-north-star-cutover.md`
+(items 2–7 done 2026-07-23).
 
 ---
 
