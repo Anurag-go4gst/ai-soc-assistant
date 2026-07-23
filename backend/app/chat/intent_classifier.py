@@ -254,6 +254,28 @@ def classify_intent(
     query_understanding: QueryUnderstandingResult | None = None,
     answer_shape_override: str | None = None,
 ) -> IntentClassification:
+    if signals.get("block_or_contain") and (
+        signals.get("run_spl")
+        or signals.get("run_saved_search")
+        or signals.get("run_execution")
+        or signals.get("explicit_run_spl")
+    ):
+        return _build_classification(
+            intent_family="clarification_required",
+            primary_intent="human_review",
+            query_type="ask_for_next_action",
+            answer_goal=["clarification", "analyst_action_guidance"],
+            confidence=0.86,
+            requires_clarification=True,
+            requires_hil=True,
+            action_mode="recommend_only",
+            reason=(
+                "Destructive containment combined with SPL execution requires "
+                "human review and overrides SPL-and-run dispatch."
+            ),
+            requested_output_type="ACTION_PLAN",
+        )
+
     if signals.get("run_spl") or signals.get("run_saved_search"):
         return _build_classification(
             intent_family="spl_generation_and_run",

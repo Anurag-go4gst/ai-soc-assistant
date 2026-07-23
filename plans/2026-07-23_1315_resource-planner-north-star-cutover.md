@@ -185,11 +185,11 @@ External review confirmed the following repo truths; hardening items **7c–7g**
   - **Depends on:** 7f
   - **Evidence:** `run_chat_via_resource_planner_graph` fallback → `entrypoint=rp_fallback`. **B1 fix:** `contextvars` invoke depth + `guard_rp_imperative_fallback()` (`RuntimeError`, not `assert`). `test_rp_fallback_*` + context-local guard tests green.
 
-- [ ] **7h** — Fix unsafe intent probe baseline (`probe.unsafe.block_and_run`)
+- [x] **7h** — Fix unsafe intent probe baseline (`probe.unsafe.block_and_run`)
   - **Do:** Unsafe "block and run" probe must route to `clarification_required` / human-review, not `spl_generation_and_run`. Pre-existing baseline drift (9/11 on `eval_out_of_set_intent_probe.py --check`); downstream HIL still blocks execution but unsafe-intent classification regressing silently is safety-relevant. Fix routing/intent guard and refresh `docs/evals/intent_out_of_set_probes_baseline.json` only (no unrelated eval drift).
   - **Verify:** `PYTHONPATH=backend:. python3 scripts/eval_out_of_set_intent_probe.py --check` exits 0; targeted pytest on unsafe-block probe if added
   - **Depends on:** 7g
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Fixed intent precedence so `block_or_contain` + explicit SPL execution signals route to `clarification_required` / `human_review`; final chat unsafe response keeps `unsafe_action_blocked` over explicit-run labeling. `PYTHONPATH=backend:. python3 scripts/eval_out_of_set_intent_probe.py --check` → PASS (11/11). `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_chat_routing.py -q` → 6 passed. Adjacent regression slice `test_query_to_intent.py test_route_policy_smoke_fix.py test_explicit_run_spl_routing.py test_explicit_run_spl_hil.py -q` → 56 passed. Baseline refresh not required.
 
 - [ ] **8** — Decision gate for LLM-primary specialist planning
   - **Do:** Write a short proposal in this plan describing which specialist(s) may call the governed LLM adapter, the exact existing flag/mode to use, fallback behavior, disagreement handling, and why deterministic policy still wins. Stop for user/COE approval before coding this item.

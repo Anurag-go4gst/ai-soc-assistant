@@ -153,6 +153,28 @@ def test_chat_generates_and_validates_spl_without_mcp_or_splunk_write(monkeypatc
     assert "Splunk" not in (payload.get("message") or "")
 
 
+def test_chat_blocks_containment_plus_run_spl_probe(monkeypatch) -> None:
+    telemetry = FakeTelemetry()
+
+    monkeypatch.setattr("app.api.routes_chat.plan_workflow", fake_plan_workflow)
+    monkeypatch.setattr("app.api.routes_chat.get_telemetry_connector", lambda: telemetry)
+    monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
+
+    response = chat(ChatRequest(message="Block this IP immediately and run SPL against all indexes"))
+    payload = response.model_dump()
+    intent = (payload.get("query_to_intent") or {}).get("intent_classification") or {}
+
+    assert intent.get("intent_family") == "clarification_required"
+    assert intent.get("primary_intent") == "human_review"
+    assert intent.get("requires_hil") is True
+    assert response.human_review is not None
+    assert response.human_review.reason == "unsafe_action_blocked"
+    assert response.planning_decision is not None
+    assert response.planning_decision.get("path_type") == "unsafe_blocked"
+    assert response.execution is not None
+    assert response.execution.executed_spl is None
+
+
 def test_chat_response_does_not_expose_secrets(monkeypatch) -> None:
     def fake_route_skill(query: str, trace_id: str, **kwargs: Any) -> dict[str, Any]:
         return {

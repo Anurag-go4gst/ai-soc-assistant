@@ -3802,7 +3802,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     elif path_type == "unsafe_blocked":
         from app.chat.guidance_templates import build_spl_execution_refusal_guidance, is_explicit_run_spl_query
 
-        if is_explicit_run_spl_query(request.message):
+        signals_for_review = extract_query_signals(request.message)
+        if is_explicit_run_spl_query(request.message) and not signals_for_review.get("block_or_contain"):
             from app.orchestration.human_review import human_review as build_human_review
 
             hil_review = build_human_review(
