@@ -221,6 +221,44 @@ def test_chat_stream_langgraph_emits_progress(
     assert any(event.get("type") == "final" for event in events)
 
 
+def test_rp_stream_unhandled_exception_emits_failed_event(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exception policy (item 11): stream surfaces terminal failed event on RP defects."""
+
+    from app.api import routes_chat_stream as stream_mod
+
+    def _rp_graph_defect(
+        request: ChatRequest,
+        *,
+        progress=None,
+        session_role=None,
+        entrypoint: str = "chat_stream",
+        **kwargs: object,
+    ) -> PlaceholderResponse:
+        raise RuntimeError("RP_STREAM_DEFECT_should_not_surface")
+
+    monkeypatch.setattr(
+        "app.graph.resource_planner_graph.run_chat_via_resource_planner_graph",
+        _rp_graph_defect,
+    )
+    monkeypatch.setattr(stream_mod.settings, "ai_soc_live_chat_ec_parity_enabled", False)
+    monkeypatch.setattr(stream_mod.settings, "langgraph_orchestration_enabled", True)
+
+    bridge = QueueProgressBridge()
+    stream_mod._run_chat_with_progress(
+        ChatRequest(message="hello"),
+        bridge,
+        trace_id="stream-exception-trace",
+        user={"role": "analyst"},
+    )
+    events = _bridge_events(bridge)
+    failed = [event for event in events if event.get("type") == "failed"]
+    assert len(failed) == 1
+    assert failed[0].get("code")
+    assert not any(event.get("type") == "final" for event in events)
+
+
 def test_langgraph_invoke_forwards_pipeline_progress(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

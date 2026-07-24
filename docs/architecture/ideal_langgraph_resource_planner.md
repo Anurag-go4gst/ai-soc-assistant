@@ -90,8 +90,8 @@ The hierarchy **extends** existing planner surfaces; it does not fork parallel t
 
 | Area | Status |
 |------|--------|
-| `/chat` route wiring | **Done** — toggle via `LANGGRAPH_ORCHESTRATION_ENABLED` (no new flag) |
-| Imperative default | **Preserved** — flag off → `build_live_chat_response` |
+| `/chat` route wiring | **Done** — RP graph default when `LANGGRAPH_ORCHESTRATION_ENABLED=true` (item 11); `false` + restart → imperative rollback |
+| Imperative default | **Rollback only** — flag off → `build_live_chat_response` until item **12a** facade |
 | Imperative retirement | **Out of scope** — separate explicit gate |
 | Live catalogue router swap | **Done** (north-star item 2) — `apply_live_catalogue_bind()` fill-blanks only |
 | Catalogue surface agreement | **Done** (north-star item 7c) — `test_catalogue_bind_surface_agreement.py` |
@@ -181,7 +181,7 @@ cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource
 8. **Governance** — full chain through `policy_veto` → `finalize` → `validate_final_answer`.
 9. **Decision log** — specialist records emitted in stable order at merge; synced to `control_plane_trace.decision_log`.
 
-**RP-graph-only until default cutover (item 11):** knowledge audit and bundle sync run only when `LANGGRAPH_ORCHESTRATION_ENABLED=true`. Imperative default path unchanged when flag is off.
+**Production default (item 11):** RP graph is the live `/chat` spine when `LANGGRAPH_ORCHESTRATION_ENABLED=true` (config default). Set `false` and restart workers to roll back to imperative `build_live_chat_response()` until item **12a** retires the second runner.
 
 ### 6.2 Walkthrough: OT outbound hunt
 

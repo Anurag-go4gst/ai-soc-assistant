@@ -630,20 +630,6 @@ def _apply_policy_veto(state: ResourcePlannerGraphState) -> ResourcePlannerGraph
                 "spl_validation": {**spl_validation, "execution_eligible": False},
             }
 
-    if veto.get("requires_hil") is True:
-        review = updated.get("human_review")
-        review_dict = dict(review) if isinstance(review, dict) else {}
-        updated = {
-            **updated,
-            "human_review": {
-                **review_dict,
-                "required": True,
-                "review_type": review_dict.get("review_type") or "policy_hil",
-                "safe_message_for_user": review_dict.get("safe_message_for_user")
-                or "Analyst review is required before this answer can proceed.",
-            },
-        }
-
     return updated
 
 
@@ -838,7 +824,7 @@ def run_chat_via_resource_planner_graph(
                 entrypoint="rp_fallback",
             )
         note = response.note or ""
-        suffix = "Orchestration: resource_planner_hierarchy (parity mode)."
+        suffix = "Orchestration: resource_planner_hierarchy."
         if suffix not in note:
             response = response.model_copy(update={"note": f"{note} {suffix}".strip()})
         response = patch_control_plane_trace_decision_log(response, final_state)

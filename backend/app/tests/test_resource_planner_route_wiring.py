@@ -18,9 +18,13 @@ from app.graph.resource_planner_graph import (
     run_chat_via_resource_planner_graph,
     run_resource_planner_graph,
 )
+from app.auth.session import require_auth
+from app.main import app
 from app.schemas.requests import ChatRequest
+from fastapi.testclient import TestClient
 
 REF_QUERY = "What is AML.T0043?"
+_RP_DEFECT_MARKER = "RP_UNHANDLED_DEFECT_should_not_surface"
 OT_QUERY = "How should I investigate unusual outbound traffic from an OT host overnight?"
 
 
@@ -73,7 +77,9 @@ def test_routes_chat_uses_resource_planner_graph_when_flag_on(monkeypatch: pytes
     response = chat(ChatRequest(message=REF_QUERY))
 
     assert response.selected_skill == "knowledge_recall"
-    assert "resource_planner_hierarchy (parity mode)" in (response.note or "").lower()
+    note = (response.note or "").lower()
+    assert "resource_planner_hierarchy" in note
+    assert "parity mode" not in note
     state = run_resource_planner_graph(ChatRequest(message=REF_QUERY))
     state_nodes = _decision_log_nodes({"decision_log": state.get("decision_log")})
     trace_nodes = _decision_log_nodes(response.control_plane_trace)
@@ -196,3 +202,40 @@ def test_guard_rp_imperative_fallback_allows_after_invoke_scope(
     with _rp_graph_invoke_scope():
         pass
     guard_rp_imperative_fallback("rp_fallback")
+
+
+def test_rp_default_unhandled_exception_fails_loud_without_imperative_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exception policy (item 11): RP defects fail loud; no imperative catch-and-fallback."""
+
+    imperative_calls: list[str] = []
+
+    def _imperative_must_not_run(*args: object, **kwargs: object) -> object:
+        imperative_calls.append("called")
+        raise AssertionError("imperative fallback must not run on RP exception")
+
+    def _rp_graph_defect(*args: object, **kwargs: object) -> object:
+        raise RuntimeError(_RP_DEFECT_MARKER)
+
+    monkeypatch.setattr(settings, "langgraph_orchestration_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_live_chat_ec_parity_enabled", False)
+    monkeypatch.setattr("app.chat.pipeline.build_live_chat_response", _imperative_must_not_run)
+    monkeypatch.setattr(
+        "app.graph.resource_planner_graph.run_resource_planner_graph",
+        _rp_graph_defect,
+    )
+
+    app.dependency_overrides[require_auth] = lambda: {"username": "analyst", "role": "demo_analyst"}
+    try:
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post("/chat", json={"message": REF_QUERY})
+    finally:
+        app.dependency_overrides.pop(require_auth, None)
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body.get("trace_id")
+    assert body.get("error_code") == "internal_error"
+    assert _RP_DEFECT_MARKER not in response.text
+    assert imperative_calls == []

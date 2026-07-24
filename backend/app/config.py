@@ -395,7 +395,7 @@ class Settings(BaseSettings):
     # real Splunk MCP or live Foundation-sec calls.
     ai_soc_live_chat_ec_parity_enabled: bool = False
     # P1: LangGraph orchestration parity with imperative /chat (default off).
-    langgraph_orchestration_enabled: bool = False
+    langgraph_orchestration_enabled: bool = True
     # Phase 12: planner-led fan-out/fan-in shadow graph for tests/trace only (default off).
     ai_soc_langgraph_shadow_enabled: bool = False
     # Chat control plane rollout gate. Default false until golden tests pass.

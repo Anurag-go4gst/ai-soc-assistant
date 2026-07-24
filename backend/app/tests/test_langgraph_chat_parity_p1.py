@@ -82,7 +82,9 @@ def test_langgraph_flag_on_matches_imperative_core_fields(monkeypatch: pytest.Mo
     assert _approved(graph.spl_validation) == _approved(imperative.spl_validation)
     assert graph.execution.status == imperative.execution.status
     assert graph.human_review.reason == imperative.human_review.reason
-    assert "resource_planner_hierarchy (parity mode)" in (graph.note or "").lower()
+    graph_note = (graph.note or "").lower()
+    assert "resource_planner_hierarchy" in graph_note
+    assert "parity mode" not in graph_note
 
 
 def test_langgraph_graph_compiles() -> None:

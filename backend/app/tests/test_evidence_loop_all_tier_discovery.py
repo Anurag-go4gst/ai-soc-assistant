@@ -62,6 +62,7 @@ def test_live_data_spl_query_runs_real_discovery_hops_in_mock_mode(monkeypatch) 
     turn, already covered by test_mcp_execution_gate.py::
     test_mock_execution_uses_only_normalized_spl.
     """
+    monkeypatch.setattr(settings, "langgraph_orchestration_enabled", False)
     monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "mcp_mode", "mock")
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", True)

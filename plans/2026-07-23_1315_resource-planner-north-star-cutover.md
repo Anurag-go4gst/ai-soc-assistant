@@ -286,11 +286,11 @@ cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource
 
 **Item 11 acceptance gates:** item 11 must update settings/tests/docs for the default flip, add explicit exception-policy regression coverage, drop `(parity mode)` from the RP note, run the traffic matrix slices above, run governance regression, and record dated pass/fail counts as operational sign-off. If any matrix row fails twice, stop; do not ship a mixed fallback architecture.
 
-- [ ] **11** — Make RP graph default; keep imperative rollback temporarily
+- [x] **11** — Make RP graph default; keep imperative rollback temporarily
   - **Do:** After item 10 approval, change runtime default so `/chat` and `/chat/stream` use Resource Planner graph unless explicitly rolled back. Keep `build_live_chat_response()` available only as the documented rollback path during this item; update settings/docs/tests to match the new default posture. Add regression coverage for the item-10 exception policy: `test_rp_default_unhandled_exception_fails_loud_without_imperative_fallback` proves RP raises do not call imperative fallback and `/chat` returns the sanitized 500 envelope; `test_rp_stream_unhandled_exception_emits_failed_event` proves stream emits `reporter.failed`. Keep `response=None` distinct from exceptions: during item 11 it may still complete through `rp_fallback` and `reporter.final` intentionally; item **12a** retires that behavior into a degraded facade. Drop `(parity mode)` from the RP orchestration note because RP is no longer a parity runner once default.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_planner_route_wiring.py app/tests/test_chat_progress_stream.py -k "exception_policy or unhandled_exception or rp_fallback" -q && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_planner_route_wiring.py app/tests/test_chat_progress_stream.py app/tests/test_cisco_live_chat_contract.py app/tests/test_live_chat_linear_progress.py app/tests/test_catalogue_bind_surface_agreement.py app/tests/test_spl_hil_two_turn_chat.py app/tests/test_knowledge_specialist_audit.py app/tests/test_guided_investigation_llm_firewall.py app/tests/test_105_path_honoring.py app/tests/test_in_catalogue_contract_guard.py -q && cd .. && PYTHONPATH=backend:. python3 scripts/eval_out_of_set_intent_probe.py --check && ./scripts/run_stage3_governance_regression.sh`
   - **Depends on:** 10
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-07-24 — exception-policy slice **4 passed** (`test_rp_default_unhandled_exception_fails_loud_without_imperative_fallback`, `test_rp_stream_unhandled_exception_emits_failed_event`, plus `rp_fallback` guards); traffic-matrix pytest bundle **94 passed**; intent probe **11/11 PASS**; `./scripts/run_stage3_governance_regression.sh` **PASS** (backend pytest **4208 passed**, harness 6/6, sentinel 17/17). Default flip: `langgraph_orchestration_enabled=True` in `config.py` + `.env.example`; RP note now `Orchestration: resource_planner_hierarchy.` (no `(parity mode)`). Parity fix: removed `policy_veto` `requires_hil`→`human_review.required` coercion so guided/out-of-catalog `out_of_catalog_notice` matches imperative finalize; imperative-path tests pin `langgraph_orchestration_enabled=False` where they mock legacy hooks.
 
 - [ ] **12** — Retire independent imperative and linear LangGraph runners _(highest blast-radius — decompose into 12a–12d before coding; do not implement as a single PR)_
 
@@ -320,7 +320,7 @@ cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource
 
 ## Verification Gaps
 
-No current plan-structure gaps. Items **0–10** are checked with evidence (item **8** resolved 2026-07-24 as LLM-primary deferral; item **9** delivered as the re-scoped deterministic knowledge specialist; item **10** chooses RP graph as the one production spine). Remaining: **11** default flip and **12** retirement (12a–12d). **B1/B3** fixed in code; **B2** resolved in item **10** as fail-loud/no hidden imperative fallback. The current pre-item-11 working stack (item **9** follow-ups + item **10** plan/index updates) must be committed after `/invariant-check` before item **11** code changes.
+No current plan-structure gaps. Items **0–11** are checked with evidence (item **8** LLM-primary deferral; item **9** deterministic knowledge specialist; item **10** COE-approved RP cutover proposal; item **11** RP default flip + exception-policy regressions). Remaining: **12** retirement (12a–12d). **B1/B3** fixed in code; **B2** resolved in item **10** as fail-loud/no hidden imperative fallback.
 
 ## Drift Log
 
@@ -333,7 +333,7 @@ No current plan-structure gaps. Items **0–10** are checked with evidence (item
 | 2026-07-24 | Item **9** follow-ups: `required_evidence_keys` domain map, `rp_node_prepare_rag_only` bundle sync, RAG-vs-reference consumer boundary documented, architecture §6.1 updated; 17 audit tests + item-10 readiness table in plan. |
 | 2026-07-23 | **B1/B3** code fixes: ContextVar invoke guard + validated-bundle decision_log on reject. **7h** added for `probe.unsafe.block_and_run`. Item **12a** defines degraded-response fallback semantics. |
 | 2026-07-24 | Item **10** completed as COE-approved cutover proposal: RP graph is the one production spine, B2 policy is fail-loud/no hidden imperative fallback, rollback is `LANGGRAPH_ORCHESTRATION_ENABLED=false` + process restart, and item **11** must satisfy the traffic-pattern matrix plus metrics/trace contract. |
-| 2026-07-24 | Review points before item **11** folded in: stale repo-hygiene text fixed, B2 marked resolved, dedicated exception-policy tests named, RP note must drop `(parity mode)`, `response=None` stream fallback documented as intentional, and item **11** evidence must record dated regression counts as operational sign-off. |
+| 2026-07-24 | Item **11** shipped: `langgraph_orchestration_enabled` default **true**; RP orchestration note drops `(parity mode)`; exception-policy tests `test_rp_default_unhandled_exception_fails_loud_without_imperative_fallback` + `test_rp_stream_unhandled_exception_emits_failed_event`; `policy_veto` no longer forces `human_review.required` from `requires_hil` (guided notice parity); governance regression PASS 4208 pytest + 11/11 intent + 94 matrix slice. |
 
 ## Residual Risk To Watch
 
