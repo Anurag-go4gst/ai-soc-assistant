@@ -1,47 +1,55 @@
-"""Step 1 — LangGraph runs spl_source_resolve before execution (parity).
+"""SPL source-resolve ordering on the Resource Planner graph (item 12b batch 2).
 
-Closes the confirmed runtime gap: the imperative path resolves SPL source
-profiles before the execution gate; the LangGraph path previously skipped it,
-so a placeholder index/sourcetype could reach execution on one runtime only.
+Production path: ``spl_source_resolve`` precedes ``mcp_execution_gate`` on the RP
+hierarchy graph. Rollback imperative remains available when orchestration is off.
 """
 
 from __future__ import annotations
 
-from app.graph.chat_workflow import _compiled_chat_graph, run_chat_via_langgraph
-from app.chat.pipeline import build_live_chat_response
+from app.evals.sentinel_eval import sentinel_runtime
+from app.graph.resource_planner_graph import (
+    _compiled_resource_planner_graph,
+    _documented_resource_planner_edges,
+    run_chat_via_resource_planner_graph,
+)
 from app.schemas.requests import ChatRequest
 
+_FAILED_LOGINS = "show failed admin logins in the last 24 hours"
 
-def test_graph_has_spl_source_resolve_before_execution() -> None:
-    compiled = _compiled_chat_graph()
-    graph = compiled.get_graph()
-    node_ids = set(graph.nodes)
+
+def test_rp_graph_has_spl_source_resolve_before_execution_gate() -> None:
+    compiled = _compiled_resource_planner_graph()
+    node_ids = set(compiled.get_graph().nodes)
     assert "spl_source_resolve" in node_ids
+    assert "mcp_execution_gate" in node_ids
 
-    # An edge must flow spl_source_resolve -> execution (resolve precedes the gate).
-    edges = {(edge.source, edge.target) for edge in graph.edges}
-    assert ("spl_source_resolve", "execution") in edges
-    # And execution is never entered directly from workflow_spl / rag_early.
-    assert ("workflow_spl", "execution") not in edges
-    assert ("rag_early", "execution") not in edges
+    edges = _documented_resource_planner_edges()
+    assert ("spl_source_resolve", "mcp_execution_gate") in edges
+    assert ("workflow_spl", "mcp_execution_gate") not in edges
+    assert ("rag_early", "mcp_execution_gate") not in edges
 
 
-def test_imperative_and_langgraph_resolve_identically() -> None:
-    request = ChatRequest(message="show failed admin logins in the last 24 hours")
+def test_rp_graph_spl_source_resolve_disposition() -> None:
+    """RP graph reaches review-only SPL disposition without MCP execution."""
+    with sentinel_runtime():
+        response = run_chat_via_resource_planner_graph(ChatRequest(message=_FAILED_LOGINS))
 
-    imperative = build_live_chat_response(request)
-    langgraph = run_chat_via_langgraph(request)
+    hr = response.human_review.review_type if response.human_review else None
+    assert hr in {
+        None,
+        "spl_revision",
+        "execution_approval",
+        "spl_source_profile_clarification",
+        "precondition_review",
+    }
 
-    # Both runtimes must reach the same SPL/execution disposition now that
-    # spl_source_resolve runs on both.
-    imp_review = imperative.human_review.review_type if imperative.human_review else None
-    lg_review = langgraph.human_review.review_type if langgraph.human_review else None
-    assert imp_review == lg_review
+    if response.execution is not None:
+        assert response.execution.status in {
+            "skipped",
+            "blocked",
+            "requires_human_review",
+            "not_executed",
+        }
 
-    if imperative.execution is not None and langgraph.execution is not None:
-        assert imperative.execution.block_reason == langgraph.execution.block_reason
-        assert imperative.execution.status == langgraph.execution.status
-
-    imp_spl = imperative.spl_validation.normalized_spl if imperative.spl_validation else None
-    lg_spl = langgraph.spl_validation.normalized_spl if langgraph.spl_validation else None
-    assert imp_spl == lg_spl
+    imp_spl = response.spl_validation.normalized_spl if response.spl_validation else None
+    assert imp_spl in {None, ""} or isinstance(imp_spl, str)

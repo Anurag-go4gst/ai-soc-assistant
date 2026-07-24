@@ -10,7 +10,7 @@ from app.answer_guard.rules import guard_priority_enum
 from app.chat.pipeline import build_live_chat_response
 from app.chat.signal_class_guidance import build_signal_class_guidance, classify_signal_class
 from app.config import settings
-from app.graph.chat_workflow import run_chat_via_langgraph
+from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 from app.llm.guided_llm_budget import (
     build_guided_turn_budget,
     guided_composer_timeout_seconds,
@@ -189,7 +189,7 @@ def test_routing_regressions_unchanged() -> None:
     assert "IT-to-OT" not in fw
 
 
-def test_langgraph_firewall_skips_intent_advisor_when_guided_llm_on(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resource_planner_firewall_skips_intent_advisor_when_guided_llm_on(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_guided_llm_enabled", True)
     monkeypatch.setattr(settings, "langgraph_orchestration_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_mode", "local")
@@ -202,7 +202,7 @@ def test_langgraph_firewall_skips_intent_advisor_when_guided_llm_on(monkeypatch:
             llm_guard_status="passed",
             llm_fallback_used=False,
         )
-        response = run_chat_via_langgraph(ChatRequest(message=_FIREWALL_COORDINATED_QUERY))
+        response = run_chat_via_resource_planner_graph(ChatRequest(message=_FIREWALL_COORDINATED_QUERY))
 
     trace = response.control_plane_trace or {}
     scheduling = (trace.get("query_to_intent") or {}).get("llm_intent_advisory") or {}

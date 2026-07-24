@@ -1,4 +1,4 @@
-"""Stream + LangGraph trace lifecycle parity with /chat."""
+"""Stream + Resource Planner trace lifecycle parity with /chat."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from app.api import routes_chat_stream as stream_mod
 from app.chat.pipeline import persist_chat_admission
 from app.chat.progress_events import QueueProgressBridge, _STREAM_CLOSED
 from app.connectors.telemetry.base import TraceHandle
-from app.graph.chat_workflow import run_chat_via_langgraph
+from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import PlaceholderResponse
 
@@ -83,7 +83,7 @@ def test_stream_creates_trace_admission_row(
     capturing: CapturingTelemetry,
 ) -> None:
     monkeypatch.setattr(
-        "app.graph.chat_workflow.run_chat_via_langgraph",
+        "app.graph.resource_planner_graph.run_chat_via_resource_planner_graph",
         lambda *a, **k: PlaceholderResponse(trace_id="stream-t1", message="ok", note="n"),
     )
     monkeypatch.setattr(stream_mod, "_finalize_stream_response", lambda request, response: response)
@@ -105,12 +105,15 @@ def test_stream_trace_id_matches_response(
     monkeypatch: pytest.MonkeyPatch,
     capturing: CapturingTelemetry,
 ) -> None:
-    def fake_langgraph(request: ChatRequest, **kwargs: Any) -> PlaceholderResponse:
+    def fake_rp_graph(request: ChatRequest, **kwargs: Any) -> PlaceholderResponse:
         from app.connectors.telemetry.log_context import current_trace_id
 
         return PlaceholderResponse(trace_id=current_trace_id(), message="ok", note="n")
 
-    monkeypatch.setattr("app.graph.chat_workflow.run_chat_via_langgraph", fake_langgraph)
+    monkeypatch.setattr(
+        "app.graph.resource_planner_graph.run_chat_via_resource_planner_graph",
+        fake_rp_graph,
+    )
     monkeypatch.setattr(stream_mod, "_finalize_stream_response", lambda request, response: response)
     monkeypatch.setattr(stream_mod.settings, "ai_soc_live_chat_ec_parity_enabled", False)
     monkeypatch.setattr(stream_mod.settings, "langgraph_orchestration_enabled", True)
@@ -137,14 +140,16 @@ def test_stream_trace_id_matches_response(
     assert final["response"]["trace_id"] == "stream-match-id"
 
 
-def test_langgraph_chat_path_calls_end_trace(
+def test_resource_planner_chat_path_calls_end_trace(
     monkeypatch: pytest.MonkeyPatch,
     capturing: CapturingTelemetry,
 ) -> None:
+    from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
+
     monkeypatch.setattr(stream_mod.settings, "control_plane_enabled", False)
     monkeypatch.setattr(stream_mod.settings, "langgraph_orchestration_enabled", True)
 
-    response = run_chat_via_langgraph(
+    response = run_chat_via_resource_planner_graph(
         ChatRequest(message="Show SOP for brute-force investigation", session_id="lg-end"),
     )
     assert response.trace_id

@@ -12,7 +12,7 @@ from app.chat.pipeline_state_v2 import (
     resolve_planning_or_analytic_skill,
 )
 from app.chat.pipeline_visibility import build_pipeline_node_trace
-from app.graph.chat_workflow import run_chat_via_langgraph
+from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 from app.schemas.requests import ChatRequest
 
 
@@ -118,37 +118,28 @@ def test_live_chat_response_includes_node_trace_and_v2_fields(monkeypatch: pytes
     assert response.spl_template_status == "active"
 
 
-def test_langgraph_wrapper_emits_same_node_trace_stages(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resource_planner_graph_emits_node_trace_stages(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.config.settings.mcp_global_execution_enabled", False)
     monkeypatch.setattr("app.config.settings.langgraph_orchestration_enabled", True)
-    imperative = chat(
-        ChatRequest(
-            message=(
-                "For alert ALT-2024-0891 (failed logins followed by a successful login from the same user "
-                "in the last hour), what's the severity, MITRE mapping with status, and a governed SPL "
-                "I can review—but not execute"
-            )
-        )
+    message = (
+        "For alert ALT-2024-0891 (failed logins followed by a successful login from the same user "
+        "in the last hour), what's the severity, MITRE mapping with status, and a governed SPL "
+        "I can review—but not execute"
     )
-    langgraph = run_chat_via_langgraph(
-        ChatRequest(
-            message=(
-                "For alert ALT-2024-0891 (failed logins followed by a successful login from the same user "
-                "in the last hour), what's the severity, MITRE mapping with status, and a governed SPL "
-                "I can review—but not execute"
-            )
-        )
-    )
-    imperative_names = {row.get("node_name") for row in (imperative.node_trace or [])}
-    langgraph_names = {row.get("node_name") for row in (langgraph.node_trace or [])}
-    for expected in (
-        "spl_template_status",
-        "spl_validation",
-        "execution_hil_decision",
-        "mitre_evidence_status",
-        "answer_guard",
-        "final_answer_validation",
-    ):
-        assert expected in imperative_names
-        assert expected in langgraph_names
-    assert imperative.selected_skill == langgraph.selected_skill
+    via_routes = chat(ChatRequest(message=message))
+    via_rp = run_chat_via_resource_planner_graph(ChatRequest(message=message))
+
+    for label, response in (("routes_chat", via_routes), ("rp_graph", via_rp)):
+        names = {row.get("node_name") for row in (response.node_trace or [])}
+        for expected in (
+            "spl_template_status",
+            "spl_validation",
+            "execution_hil_decision",
+            "mitre_evidence_status",
+            "answer_guard",
+            "final_answer_validation",
+        ):
+            assert expected in names, label
+        assert response.selected_skill, label
+
+    assert via_routes.selected_skill == via_rp.selected_skill

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
 
 from app.api.routes_chat import chat
 from app.config import settings
-from app.evals.sentinel_eval import load_sentinel_rows, sentinel_runtime
-from app.graph.chat_workflow import run_chat_via_langgraph
+from app.evals.sentinel_eval import BASELINE_PATH, load_sentinel_rows, sentinel_runtime
 from app.graph.resource_planner_graph import (
     GOVERNANCE_NODE_NAMES,
     _rp_graph_invoke_scope,
@@ -101,21 +101,26 @@ def test_policy_veto_blocks_mcp_before_finalize(monkeypatch: pytest.MonkeyPatch)
     assert trace_nodes.index("finalize") < trace_nodes.index("validate_final_answer")
 
 
+def _sentinel_baseline_rows() -> dict[str, dict[str, Any]]:
+    return json.loads(BASELINE_PATH.read_text(encoding="utf-8"))["rows"]
+
+
 @pytest.mark.parametrize("row", load_sentinel_rows()[:3], ids=lambda row: row["key"])
-def test_resource_planner_graph_matches_linear_langgraph_core_fields(
+def test_resource_planner_graph_sentinel_core_fields(
     monkeypatch: pytest.MonkeyPatch,
     row: dict[str, Any],
 ) -> None:
+    """Item 12b batch-1: RP graph regression against frozen sentinel baseline (no linear LangGraph oracle)."""
     monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
     message = row["question"]
+    expected = _sentinel_baseline_rows()[row["key"]]
     with sentinel_runtime():
-        linear = run_chat_via_langgraph(ChatRequest(message=message))
         rp = run_chat_via_resource_planner_graph(ChatRequest(message=message))
 
-    assert rp.selected_skill == linear.selected_skill
-    assert rp.tool_plan == linear.tool_plan
-    assert rp.execution.status == linear.execution.status
+    assert rp.selected_skill == expected["selected_skill"]
+    assert rp.execution is not None
+    assert rp.execution.status == expected["execution_status"]
 
 
 def test_rp_none_response_uses_degraded_facade_without_imperative_pipeline(

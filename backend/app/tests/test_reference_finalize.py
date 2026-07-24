@@ -6,7 +6,7 @@ import pytest
 
 from app.chat.pipeline import _resolve_reference_knowledge, build_live_chat_response
 from app.config import settings
-from app.graph.chat_workflow import run_chat_via_langgraph
+from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 from app.schemas.requests import ChatRequest
 
 
@@ -76,8 +76,8 @@ def test_reference_finalize_reports_cve_snapshot_gap_without_exposure_claim() ->
     assert (payload.get("human_review") or {}).get("required") is False
 
 
-def test_langgraph_reference_finalize_uses_same_reference_path() -> None:
-    payload = _payload(run_chat_via_langgraph(ChatRequest(message=P1_ATLAS)))
+def test_resource_planner_reference_finalize_uses_reference_path() -> None:
+    payload = _payload(run_chat_via_resource_planner_graph(ChatRequest(message=P1_ATLAS)))
     trace = ((payload.get("control_plane_trace") or {}).get("plan_dispatch") or {})
 
     assert trace.get("dispatch_schedule") == ["prepare_rag_only", "rag_early", "reference_finalize"]

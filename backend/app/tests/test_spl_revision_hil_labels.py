@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from app.config import settings
 from app.chat.pipeline import build_live_chat_response
-from app.graph.chat_workflow import run_chat_via_langgraph
+from app.evals.sentinel_eval import sentinel_runtime
+from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 from app.orchestration.mcp_execution_gate import _gate_review
 from app.orchestration.spl_revision_hil import resolve_spl_revision_hil_reason
 from app.schemas.requests import ChatRequest
@@ -89,7 +90,7 @@ def test_q046_live_path_hil_reason_is_template_review(monkeypatch) -> None:
     assert rc.get("mcp_allowed") is False
 
 
-def test_q046_langgraph_matches_imperative_hil_reason(monkeypatch) -> None:
+def test_q046_resource_planner_hil_reason(monkeypatch) -> None:
     monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "legacy_selected_skill_authority_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
@@ -98,19 +99,18 @@ def test_q046_langgraph_matches_imperative_hil_reason(monkeypatch) -> None:
     monkeypatch.setattr(settings, "langgraph_orchestration_enabled", True)
 
     request = ChatRequest(message=_Q046)
-    imperative = build_live_chat_response(request)
-    langgraph = run_chat_via_langgraph(request)
+    with sentinel_runtime():
+        response = run_chat_via_resource_planner_graph(request)
 
-    for label, response in [("imperative", imperative), ("langgraph", langgraph)]:
-        hr = response.human_review
-        assert hr is not None, label
-        assert hr.review_type == "spl_revision", label
-        assert hr.reason == "template_review_required", label
-        assert response.candidate_spl is not None
-        assert response.candidate_spl.template_id == "auth_failed_login_spike", label
-        assert len(str(response.candidate_spl.candidate_spl or "")) > 80, label
-        rc = response.run_contract or {}
-        assert rc.get("execution_authorized") is False, label
-        assert rc.get("mcp_allowed") is False, label
-        assert response.spl_validation is not None
-        assert response.spl_validation.reject_reasons, label
+    hr = response.human_review
+    assert hr is not None
+    assert hr.review_type == "spl_revision"
+    assert hr.reason == "template_review_required"
+    assert response.candidate_spl is not None
+    assert response.candidate_spl.template_id == "auth_failed_login_spike"
+    assert len(str(response.candidate_spl.candidate_spl or "")) > 80
+    rc = response.run_contract or {}
+    assert rc.get("execution_authorized") is False
+    assert rc.get("mcp_allowed") is False
+    assert response.spl_validation is not None
+    assert response.spl_validation.reject_reasons
