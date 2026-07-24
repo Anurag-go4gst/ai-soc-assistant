@@ -248,23 +248,22 @@ def test_control_plane_trace_includes_decision_log() -> None:
     assert records[0]["decision_reason"] == "fan_in_complete"
 
 
-def test_langgraph_wrap_emits_decision_log_to_control_plane_trace(monkeypatch) -> None:
+def test_resource_planner_wrap_emits_decision_log_to_control_plane_trace(monkeypatch) -> None:
     monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
-    from app.graph.chat_workflow import run_chat_via_langgraph
+    from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 
-    response = run_chat_via_langgraph(ChatRequest(message="What is AML.T0043?"))
+    response = run_chat_via_resource_planner_graph(ChatRequest(message="What is AML.T0043?"))
     trace = response.control_plane_trace
     assert trace is not None
     records = trace.get("decision_log")
     assert isinstance(records, list) and records
-    assert any(item.get("node") == "init_routing" for item in records if isinstance(item, dict))
+    assert any(item.get("node") == "bootstrap" for item in records if isinstance(item, dict))
 
 
-    """Same behavior on the LangGraph dispatch path — required separately because
-    LangGraph silently drops any state channel not declared in the TypedDict
-    (grounding_block was declared in ChatPipelineState for exactly this reason)."""
+def test_linear_cp_graph_state_retains_grounding_block_channel(monkeypatch) -> None:
+    """Legacy linear CP graph only — retired in item 12c; grounding_block channel contract."""
     monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
-    from app.graph.chat_workflow import _compiled_chat_graph_cp
+    from app.chat.linear_graph_legacy import _compiled_chat_graph_cp
 
     final_state = _compiled_chat_graph_cp().invoke(
         {"request": ChatRequest(message="Find failed-login users in the last 24 hours"), "session_role": None},

@@ -5,18 +5,25 @@ Callable from tests always; wired to ``/chat`` when ``LANGGRAPH_ORCHESTRATION_EN
 
 from __future__ import annotations
 
+import logging
+import operator
+from contextlib import contextmanager
+from contextvars import ContextVar, Token
 from datetime import UTC, datetime
 from functools import lru_cache
-from typing import Any, Literal
+from typing import Annotated, Any, Iterator, Literal
 
 from langgraph.graph import END, StateGraph
+from langgraph.types import Send
+
+from app.catalogue.match_tiers import match_catalogue_tier
 
 from app.chat.control_plane_trace import patch_control_plane_trace_decision_log
 from app.chat.decision_record import emit_decision_record
 from app.chat.final_answer_validator import validate_final_answer
 from app.chat.pipeline import (
     ChatPipelineState,
-    build_live_chat_response,
+    build_rp_degraded_placeholder_response,
     finalize_chat_trace_from_state,
     graph_node_composed_dispatch,
     graph_node_context_finalize,
@@ -35,16 +42,26 @@ from app.chat.progress_events import ProgressReporter
 from app.planner.executor import annotate_step_statuses, has_composed_plan
 from app.planner.planner_hierarchy import (
     DecisionRecord,
+    KnowledgeSpecialistReport,
+    McpSpecialistReport,
     SkillSpecialistReport,
+    SpecialistDelegation,
+    SpecialistReport,
     SplSpecialistReport,
+    WorkBundle,
     build_planner_iteration,
+    materialize_resource_plan_from_bundle,
     new_decision_record_id,
-    work_bundle_from_resource_plan,
 )
+from app.planner.knowledge_specialist import build_knowledge_audit_report
 from app.planner.resource_plan import ResourcePlan
 from app.planner.specialist_registry import load_specialist_registry
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import PlaceholderResponse
+
+logger = logging.getLogger(__name__)
+
+_rp_graph_invoke_depth: ContextVar[int] = ContextVar("_rp_graph_invoke_depth", default=0)
 
 GOVERNANCE_NODE_NAMES: tuple[str, ...] = (
     "spl_validate",
@@ -62,12 +79,66 @@ DispatchRoute = Literal["rag_only", "composed_dispatch", "workflow_spl"]
 AfterWorkflowSpl = Literal["rag_early", "spl_source_resolve"]
 AfterRagEarly = Literal["governance_entry", "spl_source_resolve"]
 
+_SPECIALIST_NODE_NAMES: tuple[str, ...] = (
+    "specialist_skill",
+    "specialist_knowledge",
+    "specialist_mcp",
+    "specialist_spl",
+)
+
+
+_MERGE_DECISION_VALIDATED = "specialist_reports_merged"
+
+
+def rp_graph_invoke_active() -> bool:
+    """True while this logical context is inside ``run_resource_planner_graph``."""
+    return _rp_graph_invoke_depth.get() > 0
+
+
+@contextmanager
+def _rp_graph_invoke_scope() -> Iterator[None]:
+    token: Token = _rp_graph_invoke_depth.set(_rp_graph_invoke_depth.get() + 1)
+    try:
+        yield
+    finally:
+        _rp_graph_invoke_depth.reset(token)
+
+
+def guard_rp_imperative_fallback(entrypoint: str) -> None:
+    """Block imperative fallback from nesting inside an active RP graph invoke."""
+    from app.config import settings
+
+    if not entrypoint.startswith("rp_"):
+        return
+    if settings.langgraph_orchestration_enabled and rp_graph_invoke_active():
+        raise RuntimeError(
+            "resource planner graph fallback must not recurse into RP orchestration"
+        )
+
+
+def _reject_validated_work_bundle(
+    state: ResourcePlannerGraphState,
+    *,
+    reason: str,
+    detail: str,
+) -> ResourcePlannerGraphState:
+    logger.warning("validated_work_bundle rejected: %s (%s)", reason, detail)
+    return _record(
+        state,
+        node="work_bundle.apply",
+        reason=reason,
+        inputs_ref=["validated_work_bundle"],
+        outputs_ref=["evidence_plan"],
+        authority="resource_planner",
+    )
+
 
 class ResourcePlannerGraphState(ChatPipelineState, total=False):
     rp_graph_trace: dict[str, Any]
     planner_iteration: dict[str, Any]
     work_bundle: dict[str, Any]
-    specialist_reports: list[dict[str, Any]]
+    validated_work_bundle: dict[str, Any] | None
+    specialist_reports: Annotated[list[dict[str, Any]], operator.add]
     specialist_delegations: list[dict[str, Any]]
     policy_veto: dict[str, Any]
 
@@ -110,6 +181,124 @@ def _record(
             outputs_ref=outputs_ref,
         ),
     )
+
+
+def _coerce_specialist_reports(raw_reports: list[Any]) -> list[SpecialistReport]:
+    ordered = sorted(
+        [item for item in raw_reports if isinstance(item, dict)],
+        key=lambda item: str(item.get("specialist_id") or ""),
+    )
+    reports: list[SpecialistReport] = []
+    for raw in ordered:
+        specialist_id = raw.get("specialist_id")
+        if specialist_id == "skill":
+            reports.append(SkillSpecialistReport.model_validate(raw))
+        elif specialist_id == "knowledge":
+            reports.append(KnowledgeSpecialistReport.model_validate(raw))
+        elif specialist_id == "mcp":
+            reports.append(McpSpecialistReport.model_validate(raw))
+        elif specialist_id == "spl":
+            reports.append(SplSpecialistReport.model_validate(raw))
+    return reports
+
+
+def _fan_out_specialists(state: ResourcePlannerGraphState) -> list[Send]:
+    return [Send(node, state) for node in _SPECIALIST_NODE_NAMES]
+
+
+def _append_specialist_traces(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
+    trace = dict(state.get("rp_graph_trace") or {})
+    visited = list(trace.get("visited_nodes") or [])
+    for node in _SPECIALIST_NODE_NAMES:
+        if node not in visited:
+            visited.append(node)
+    trace["visited_nodes"] = visited
+    return {**state, "rp_graph_trace": trace}
+
+
+def _record_parallel_specialist_decisions(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
+    """Emit specialist audit records in stable order after parallel fan-in."""
+    routed = state.get("routed") if isinstance(state.get("routed"), dict) else {}
+    skill_id = str(routed.get("skill") or "")
+    knowledge_reason = next(
+        (
+            str(report.get("decision_reason") or "")
+            for report in state.get("specialist_reports") or []
+            if isinstance(report, dict) and report.get("specialist_id") == "knowledge"
+        ),
+        "knowledge_lane_idle",
+    )
+    decisions = [
+        (
+            "specialist.skill",
+            "skill_lane_advisory",
+            "specialist:skill",
+            ["routed"],
+            ["specialist_reports"],
+        ),
+        (
+            "specialist.knowledge",
+            knowledge_reason,
+            "specialist:knowledge",
+            ["evidence_plan"],
+            ["specialist_reports"],
+        ),
+        (
+            "specialist.mcp",
+            "mcp_lane_advisory",
+            "specialist:mcp",
+            ["evidence_plan"],
+            ["specialist_reports"],
+        ),
+        (
+            "specialist.spl",
+            "spl_lane_advisory",
+            "specialist:spl",
+            ["evidence_plan"],
+            ["specialist_reports"],
+        ),
+    ]
+    for node, reason, authority, inputs_ref, outputs_ref in decisions:
+        state = emit_decision_record(
+            state,
+            DecisionRecord(
+                record_id=new_decision_record_id(),
+                node=node,
+                authority=authority,
+                decision_reason=reason if node != "specialist.skill" else f"{reason}:{skill_id or 'unknown'}",
+                inputs_ref=inputs_ref,
+                outputs_ref=outputs_ref,
+            ),
+        )
+    return state
+
+
+def _apply_work_bundle_to_workers(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
+    """Sync policy-validated bundle enrichments into evidence_plan for downstream workers."""
+    wb_raw = state.get("validated_work_bundle")
+    if not isinstance(wb_raw, dict) or not wb_raw.get("tasks"):
+        return state
+    try:
+        bundle = WorkBundle.model_validate(wb_raw)
+    except Exception as exc:
+        return _reject_validated_work_bundle(
+            state,
+            reason=f"validated_work_bundle_model_invalid:{type(exc).__name__}",
+            detail=str(exc),
+        )
+    if bundle.merge_decision_reason != _MERGE_DECISION_VALIDATED:
+        return state
+    try:
+        plan = materialize_resource_plan_from_bundle(bundle)
+    except Exception as exc:
+        return _reject_validated_work_bundle(
+            state,
+            reason=f"validated_work_bundle_policy_rejected:{type(exc).__name__}",
+            detail=str(exc),
+        )
+    evidence_plan = dict(_evidence_plan(state))
+    evidence_plan["resource_plan"] = plan.model_dump()
+    return {**state, "evidence_plan": evidence_plan}
 
 
 def rp_node_bootstrap(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
@@ -164,86 +353,82 @@ def rp_node_resource_planner_delegate(state: ResourcePlannerGraphState) -> Resou
 
 def rp_node_specialist_skill(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
     routed = state.get("routed") if isinstance(state.get("routed"), dict) else {}
+    query = state.get("effective_query") or state["request"].message
+    tier = match_catalogue_tier(query, understanding=state.get("query_understanding"))
     report = SkillSpecialistReport(
         delegation_id="del:skill",
         decision_reason="route_lane",
         skill_id=str(routed.get("skill") or ""),
-        catalogue_tier="adapter",
-    )
-    reports = list(state.get("specialist_reports") or [])
-    reports.append(report.model_dump())
-    state = _with_trace(state, "specialist_skill")
-    return _record(
-        {**state, "specialist_reports": reports},
-        node="specialist.skill",
-        reason="skill_lane_advisory",
-        inputs_ref=["routed"],
-        outputs_ref=["specialist_reports"],
-        authority="specialist:skill",
-    )
+        catalogue_tier=tier.tier,
+    ).model_dump()
+    return {"specialist_reports": [report]}
 
 
 def rp_node_specialist_knowledge(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
-    state = _with_trace(state, "specialist_knowledge")
-    return _record(
-        state,
-        node="specialist.knowledge",
-        reason="knowledge_lane_idle_or_rag",
-        inputs_ref=["evidence_plan"],
-        outputs_ref=["specialist_reports"],
-        authority="specialist:knowledge",
-    )
+    intent = state.get("intent_classification")
+    report = build_knowledge_audit_report(
+        intent_classification=intent if isinstance(intent, dict) else None,
+        evidence_plan=_evidence_plan(state),
+    ).model_dump()
+    return {"specialist_reports": [report]}
 
 
 def rp_node_specialist_mcp(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
-    state = _with_trace(state, "specialist_mcp")
-    return _record(
-        state,
-        node="specialist.mcp",
-        reason="mcp_lane_advisory",
-        inputs_ref=["evidence_plan"],
-        outputs_ref=["specialist_reports"],
-        authority="specialist:mcp",
-    )
+    report = McpSpecialistReport(
+        delegation_id="del:mcp",
+        decision_reason="mcp_lane_advisory",
+        hop_count=0,
+    ).model_dump()
+    return {"specialist_reports": [report]}
 
 
 def rp_node_specialist_spl(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
-    reports = list(state.get("specialist_reports") or [])
-    reports.append(
-        SplSpecialistReport(
-            delegation_id="del:spl",
-            decision_reason="spl_lane_advisory",
-            spl_source="template_or_fallback",
-        ).model_dump()
-    )
-    state = _with_trace(state, "specialist_spl")
-    return _record(
-        {**state, "specialist_reports": reports},
-        node="specialist.spl",
-        reason="spl_lane_advisory",
-        inputs_ref=["evidence_plan"],
-        outputs_ref=["specialist_reports"],
-        authority="specialist:spl",
-    )
+    report = SplSpecialistReport(
+        delegation_id="del:spl",
+        decision_reason="spl_lane_advisory",
+        spl_source="template_or_fallback",
+    ).model_dump()
+    return {"specialist_reports": [report]}
 
 
 def rp_node_resource_planner_merge(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
+    state = _append_specialist_traces(state)
+    state = _record_parallel_specialist_decisions(state)
     evidence_plan = _evidence_plan(state)
     resource_plan_raw = evidence_plan.get("resource_plan")
+    delegations_raw = state.get("specialist_delegations") or []
+    reports = _coerce_specialist_reports(list(state.get("specialist_reports") or []))
     if isinstance(resource_plan_raw, dict):
         plan = ResourcePlan.model_validate(resource_plan_raw)
-        bundle = work_bundle_from_resource_plan(plan, bundle_id="bundle:rp")
+        delegations = [
+            SpecialistDelegation.model_validate(item)
+            for item in delegations_raw
+            if isinstance(item, dict)
+        ]
         iteration = build_planner_iteration(
             iteration=0,
             resource_plan=plan,
-            delegations=[],
+            delegations=delegations,
+            reports=reports,
             bundle_id="bundle:rp",
         )
-        state = {
-            **state,
-            "work_bundle": bundle.model_dump(),
-            "planner_iteration": iteration.model_dump(),
-        }
+        bundle = iteration.bundle
+        if bundle is not None:
+            evidence_plan_out = dict(evidence_plan)
+            evidence_plan_out["resource_plan"] = iteration.resource_plan.model_dump()
+            bundle_payload = bundle.model_dump()
+            validated_payload = (
+                bundle_payload
+                if bundle.merge_decision_reason == _MERGE_DECISION_VALIDATED
+                else None
+            )
+            state = {
+                **state,
+                "work_bundle": bundle_payload,
+                "validated_work_bundle": validated_payload,
+                "planner_iteration": iteration.model_dump(),
+                "evidence_plan": evidence_plan_out,
+            }
     state = _with_trace(state, "resource_planner_merge")
     return _record(
         state,
@@ -277,6 +462,7 @@ def _rp_after_rag_early(state: ResourcePlannerGraphState) -> AfterRagEarly:
 
 
 def rp_node_prepare_rag_only(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
+    state = _apply_work_bundle_to_workers(state)
     state = graph_node_prepare_rag_only(state)
     state = _with_trace(state, "prepare_rag_only")
     return _record(
@@ -303,26 +489,28 @@ def rp_node_rag_early(state: ResourcePlannerGraphState) -> ResourcePlannerGraphS
 
 
 def rp_node_composed_dispatch(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
+    state = _apply_work_bundle_to_workers(state)
     state = graph_node_composed_dispatch(state)
     state = _with_trace(state, "composed_dispatch")
     return _record(
         state,
         node="composed_dispatch",
         reason="resource_plan_step_walk",
-        inputs_ref=["work_bundle", "evidence_plan.resource_plan"],
+        inputs_ref=["validated_work_bundle", "evidence_plan.resource_plan"],
         outputs_ref=["candidate_spl", "spl_validation", "execution"],
         authority="deterministic",
     )
 
 
 def rp_node_workflow_spl(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
+    state = _apply_work_bundle_to_workers(state)
     state = graph_node_workflow_spl(state)
     state = _with_trace(state, "workflow_spl")
     return _record(
         state,
         node="workflow_spl",
         reason="spl_worker",
-        inputs_ref=["work_bundle"],
+        inputs_ref=["validated_work_bundle"],
         outputs_ref=["candidate_spl", "spl_validation"],
         authority="deterministic",
     )
@@ -441,20 +629,6 @@ def _apply_policy_veto(state: ResourcePlannerGraphState) -> ResourcePlannerGraph
                 **updated,
                 "spl_validation": {**spl_validation, "execution_eligible": False},
             }
-
-    if veto.get("requires_hil") is True:
-        review = updated.get("human_review")
-        review_dict = dict(review) if isinstance(review, dict) else {}
-        updated = {
-            **updated,
-            "human_review": {
-                **review_dict,
-                "required": True,
-                "review_type": review_dict.get("review_type") or "policy_hil",
-                "safe_message_for_user": review_dict.get("safe_message_for_user")
-                or "Analyst review is required before this answer can proceed.",
-            },
-        }
 
     return updated
 
@@ -587,11 +761,9 @@ def _compiled_resource_planner_graph() -> Any:
     graph.set_entry_point("bootstrap")
     graph.add_edge("bootstrap", "route_setup")
     graph.add_edge("route_setup", "resource_planner_delegate")
-    graph.add_edge("resource_planner_delegate", "specialist_skill")
-    graph.add_edge("specialist_skill", "specialist_knowledge")
-    graph.add_edge("specialist_knowledge", "specialist_mcp")
-    graph.add_edge("specialist_mcp", "specialist_spl")
-    graph.add_edge("specialist_spl", "resource_planner_merge")
+    graph.add_conditional_edges("resource_planner_delegate", _fan_out_specialists)
+    for specialist_node in _SPECIALIST_NODE_NAMES:
+        graph.add_edge(specialist_node, "resource_planner_merge")
     graph.add_conditional_edges(
         "resource_planner_merge",
         _rp_dispatch_route,
@@ -624,9 +796,10 @@ def run_resource_planner_graph(
     session_role: str | None = None,
 ) -> ResourcePlannerGraphState:
     """Execute the RP hierarchy graph."""
-    return _compiled_resource_planner_graph().invoke(
-        {"request": request, "session_role": session_role},
-    )
+    with _rp_graph_invoke_scope():
+        return _compiled_resource_planner_graph().invoke(
+            {"request": request, "session_role": session_role},
+        )
 
 
 def run_chat_via_resource_planner_graph(
@@ -644,14 +817,23 @@ def run_chat_via_resource_planner_graph(
         final_state = run_resource_planner_graph(request, session_role=session_role)
         response = final_state.get("response")
         if response is None:
-            return build_live_chat_response(
+            degraded = build_rp_degraded_placeholder_response(
                 request,
-                progress=progress,
+                state=final_state,
+                session_role=session_role,
+                entrypoint="rp_fallback",
+                reason="graph_response_missing",
+            )
+            finalize_chat_trace_from_state(
+                final_state,
+                degraded,
+                started_at=started_at,
                 session_role=session_role,
                 entrypoint=entrypoint,
             )
+            return degraded
         note = response.note or ""
-        suffix = "Orchestration: resource_planner_hierarchy (parity mode)."
+        suffix = "Orchestration: resource_planner_hierarchy."
         if suffix not in note:
             response = response.model_copy(update={"note": f"{note} {suffix}".strip()})
         response = patch_control_plane_trace_decision_log(response, final_state)
@@ -683,10 +865,43 @@ def resource_planner_graph_node_names() -> list[str]:
     return []
 
 
+def _documented_resource_planner_edges() -> set[tuple[str, str]]:
+    """Static edges LangGraph ``Send`` fan-out does not surface via ``get_graph()``."""
+    edges: set[tuple[str, str]] = {
+        ("bootstrap", "route_setup"),
+        ("route_setup", "resource_planner_delegate"),
+    }
+    for node in _SPECIALIST_NODE_NAMES:
+        edges.add((node, "resource_planner_merge"))
+    for target in ("prepare_rag_only", "composed_dispatch", "workflow_spl"):
+        edges.add(("resource_planner_merge", target))
+    edges.update(
+        {
+            ("prepare_rag_only", "rag_early"),
+            ("composed_dispatch", "spl_validate"),
+            ("workflow_spl", "rag_early"),
+            ("workflow_spl", "spl_source_resolve"),
+            ("rag_early", "spl_validate"),
+            ("rag_early", "spl_source_resolve"),
+            ("spl_source_resolve", "mcp_execution_gate"),
+            ("spl_validate", "mcp_execution_gate"),
+            ("mcp_execution_gate", "context_sufficiency"),
+            ("context_sufficiency", "decide_facts"),
+            ("decide_facts", "answer_guard"),
+            ("answer_guard", "human_review"),
+            ("human_review", "policy_veto"),
+            ("policy_veto", "finalize"),
+            ("finalize", "validate_final_answer"),
+        }
+    )
+    return edges
+
+
 def resource_planner_graph_edges() -> set[tuple[str, str]]:
     compiled = _compiled_resource_planner_graph()
     graph = compiled.get_graph()
-    return {(edge.source, edge.target) for edge in graph.edges}
+    introspected = {(edge.source, edge.target) for edge in graph.edges}
+    return introspected | _documented_resource_planner_edges()
 
 
 def resource_planner_governance_inbound_targets() -> dict[str, set[str]]:

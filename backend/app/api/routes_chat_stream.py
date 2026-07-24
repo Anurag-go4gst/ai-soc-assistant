@@ -184,9 +184,10 @@ async def _sse_event_stream(
                         break
                 break
     finally:
-        exc = worker.exception()
-        if exc is not None:
-            logger.error("chat stream worker raised after SSE loop: %s", exc)
+        if worker.done():
+            exc = worker.exception()
+            if exc is not None:
+                logger.error("chat stream worker raised after SSE loop: %s", exc)
 
 
 @router.post("/chat/stream", dependencies=[Depends(require_auth)])

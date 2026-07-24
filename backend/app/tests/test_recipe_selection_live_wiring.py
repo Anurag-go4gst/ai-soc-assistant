@@ -32,7 +32,7 @@ def _mock_execution_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_in_catalogue_query_never_recipe_routed(_mock_execution_enabled, monkeypatch: pytest.MonkeyPatch) -> None:
     """The exact query test_evidence_loop_graph.py's chronology-path tests pin
     — proves the scoping fix holds, not just that it once worked."""
-    from app.graph.chat_workflow import _compiled_chat_graph_cp
+    from app.chat.linear_graph_legacy import _compiled_chat_graph_cp
     from app.schemas.requests import ChatRequest
 
     final_state = _compiled_chat_graph_cp().invoke(
@@ -124,7 +124,7 @@ def test_natural_hunt_query_recipe_routes_without_matchpath_monkeypatch(
     live turn. This drives the REAL compiled langgraph with a natural hunt query
     and no match-path monkeypatch — the match path must come from the composed
     plan's own provenance."""
-    from app.graph.chat_workflow import _compiled_chat_graph_cp
+    from app.chat.linear_graph_legacy import _compiled_chat_graph_cp
     from app.schemas.requests import ChatRequest
 
     final_state = _compiled_chat_graph_cp().invoke(

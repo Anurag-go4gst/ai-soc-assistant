@@ -1,9 +1,8 @@
-from app.graph.chat_workflow import run_chat_via_langgraph
 from app.graph.state import InvestigationState
 
 
 def build_workflow() -> None:
-    """Live /chat LangGraph is built in ``chat_workflow`` (P1 parity)."""
+    """Investigation placeholder workflow; live /chat uses the RP hierarchy graph."""
     return None
 
 
@@ -12,4 +11,4 @@ def run_placeholder_workflow(state: InvestigationState) -> InvestigationState:
     return state
 
 
-__all__ = ["build_workflow", "run_placeholder_workflow", "run_chat_via_langgraph"]
+__all__ = ["build_workflow", "run_placeholder_workflow"]

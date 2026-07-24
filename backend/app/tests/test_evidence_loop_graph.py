@@ -1,7 +1,7 @@
-"""Stage 4B — the governed evidence-collection loop wired into LangGraph.
+"""Stage 4B — governed evidence-collection loop (legacy linear CP graph).
 
-CP off: linear parity graph, no loop. CP on: evidence_planning HUB drives
-read-only mcp_call discovery hops (bounded) before the linear chain.
+Topology and hub-routing regression on ``linear_graph_legacy`` (test harness only).
+Production ``/chat`` uses the RP hierarchy graph.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ import pytest
 
 from app.config import settings
 from app.chat.evidence_loop import MAX_MCP_HOPS
-from app.graph.chat_workflow import (
+from app.chat.linear_graph_legacy import (
     _compiled_chat_graph,
     _compiled_chat_graph_cp,
     run_chat_via_langgraph,
@@ -40,7 +40,7 @@ def test_cp_on_graph_has_bounded_loop_topology() -> None:
 
 def test_hub_route_consumes_execution_verdict() -> None:
     from app.chat.evidence_loop import ROUTE_BROADEN, ROUTE_DISCOVERY_HOP
-    from app.graph.chat_workflow import _hub_route
+    from app.chat.linear_graph_legacy import _hub_route
 
     # Execution re-entry: the stored assessor verdict drives the edge.
     assert _hub_route({"execution": {}, "mcp_loop": {"route": ROUTE_BROADEN}}) == "context_finalize"

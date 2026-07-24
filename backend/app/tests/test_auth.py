@@ -107,6 +107,7 @@ def test_chat_rejects_unauthenticated_request(monkeypatch, tmp_path) -> None:
 def test_chat_allows_authenticated_request(monkeypatch, tmp_path) -> None:
     _configure_auth(monkeypatch, tmp_path)
     user = require_auth({"username": "analyst", "role": "demo_analyst"})
+    monkeypatch.setattr("app.config.settings.langgraph_orchestration_enabled", False)
     monkeypatch.setattr("app.api.routes_chat.route_skill", _fake_route_skill)
     monkeypatch.setattr("app.api.routes_chat.plan_workflow", _fake_plan_workflow)
     monkeypatch.setattr("app.api.routes_chat.get_telemetry_connector", lambda: _FakeTelemetry())

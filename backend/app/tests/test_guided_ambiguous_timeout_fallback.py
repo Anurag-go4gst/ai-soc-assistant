@@ -9,7 +9,7 @@ import pytest
 
 from app.chat.pipeline import build_live_chat_response
 from app.config import settings
-from app.graph.chat_workflow import run_chat_via_langgraph
+from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 from app.query_understanding.parser import understand_query
 from app.query_understanding.soc_investigation_shape import (
     detect_broad_hunt_guidance_request,
@@ -46,7 +46,7 @@ def test_ambiguous_supply_chain_routes_guided_investigation() -> None:
     assert route["skill"] == "guided_investigation"
 
 
-def test_ambiguous_guided_langgraph_returns_fast_without_spl_llm(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ambiguous_guided_resource_planner_returns_fast_without_spl_llm(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_llm_mode", "local")
 
     def _hang(**_kwargs):  # noqa: ANN003
@@ -55,7 +55,7 @@ def test_ambiguous_guided_langgraph_returns_fast_without_spl_llm(monkeypatch: py
 
     with patch("app.spl.llm_plan_compiler.generate_llm_spl_via_plan", side_effect=_hang):
         started = time.monotonic()
-        response = run_chat_via_langgraph(ChatRequest(message=_AMBIGUOUS))
+        response = run_chat_via_resource_planner_graph(ChatRequest(message=_AMBIGUOUS))
         elapsed = time.monotonic() - started
 
     assert elapsed < 30.0

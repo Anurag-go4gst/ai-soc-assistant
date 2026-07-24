@@ -15,7 +15,7 @@ from app.chat.pipeline import (
     graph_node_query_to_intent,
 )
 from app.config import settings
-from app.graph.chat_workflow import run_chat_via_langgraph
+from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 from app.llm.sidecar_governance import run_sidecar_llm_with_timeout
 from app.llm.t2_advisory_latency_policy import t2_intent_advisor_bound_seconds
 from app.query_understanding.parser import understand_query
@@ -137,7 +137,7 @@ def test_guided_investigation_stays_fast_under_slow_spl_llm(monkeypatch: pytest.
 
     with patch("app.spl.llm_plan_compiler.generate_llm_spl_via_plan", side_effect=_hang):
         started = time.monotonic()
-        response = run_chat_via_langgraph(ChatRequest(message=_GUIDED))
+        response = run_chat_via_resource_planner_graph(ChatRequest(message=_GUIDED))
         elapsed = time.monotonic() - started
 
     assert elapsed < 30.0

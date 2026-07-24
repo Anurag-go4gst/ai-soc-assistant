@@ -9,12 +9,8 @@ Audit table (ChatPipelineState channels required for spine / gate / dispatch):
 | intent_dispatch       | graph_node_query_to_intent (Phase 1A)          | Already declared          |
 
 LangGraph ``StateGraph(ChatPipelineState)`` silently drops keys not on the TypedDict.
-Regression: imperative ``build_live_chat_response`` vs ``run_chat_via_langgraph`` must
-yield identical CanonicalFacts on the same query after normalizing volatile ids.
-
-Known dispatch divergence (pre-existing, not 5.2): imperative ``plan_dispatch`` populates
-``mcp_evidence`` while the linear LangGraph graph uses ``composed_dispatch``; parity
-tests exclude ``executed_evidence`` facts harvested from ``mcp_execution`` only.
+Item 12b: regression uses the Resource Planner graph as production authority (not
+linear ``chat_workflow`` imperative-vs-langgraph parity).
 """
 
 from __future__ import annotations
@@ -27,9 +23,12 @@ from typing import Any
 import pytest
 
 from app.chat.contracts.canonical_facts import CanonicalFacts
-from app.chat.pipeline import ChatPipelineState, build_live_chat_response
+from app.chat.pipeline import ChatPipelineState
 from app.evals.sentinel_eval import load_sentinel_rows, sentinel_runtime
-from app.graph.chat_workflow import run_chat_via_langgraph
+from app.graph.resource_planner_graph import (
+    _compiled_resource_planner_graph,
+    run_chat_via_resource_planner_graph,
+)
 from app.schemas.requests import ChatRequest
 
 _PIPELINE_PATH = Path(__file__).resolve().parents[1] / "chat" / "pipeline.py"
@@ -43,7 +42,6 @@ def _stable_canonical_facts_signature(raw: dict[str, Any] | None) -> tuple[Any, 
     facts = CanonicalFacts.model_validate(raw)
     rows: list[tuple[str, str, str, str]] = []
     for fact in facts.facts:
-        # Imperative plan_dispatch may harvest mcp_evidence the linear graph path lacks.
         if fact.kind == "executed_evidence" and fact.provenance.node == "mcp_execution":
             continue
         payload = {key: value for key, value in fact.payload.items() if key not in _VOLATILE_PAYLOAD_KEYS}
@@ -85,26 +83,21 @@ def test_pipeline_state_writes_are_declared_channels() -> None:
 
 
 @pytest.mark.parametrize("row", load_sentinel_rows()[:5], ids=lambda row: row["key"])
-def test_canonical_facts_parity_imperative_vs_langgraph(row) -> None:
-    message = row["question"]
+def test_canonical_facts_present_on_resource_planner_graph(row) -> None:
+    """Item 12b batch-1: CanonicalFacts spine is attached on RP graph responses."""
     with sentinel_runtime():
-        imperative = build_live_chat_response(ChatRequest(message=message))
-        graph = run_chat_via_langgraph(ChatRequest(message=message))
+        response = run_chat_via_resource_planner_graph(ChatRequest(message=row["question"]))
 
-    imp_sig = _stable_canonical_facts_signature(imperative.canonical_facts)
-    graph_sig = _stable_canonical_facts_signature(graph.canonical_facts)
-    assert imp_sig == graph_sig, row["key"]
-    assert imp_sig[0] != "missing", row["key"]
+    assert _stable_canonical_facts_signature(response.canonical_facts)[0] != "missing", row["key"]
 
 
-def test_langgraph_final_state_retains_decision_log_channel() -> None:
+def test_resource_planner_final_state_retains_decision_log_channel() -> None:
     from app.chat.decision_record import emit_decision_record
-    from app.graph.chat_workflow import _compiled_chat_graph
     from app.planner.planner_hierarchy import DecisionRecord
 
     row = load_sentinel_rows()[0]
     with sentinel_runtime():
-        graph = _compiled_chat_graph()
+        graph = _compiled_resource_planner_graph()
         seeded = emit_decision_record(
             {"request": ChatRequest(message=row["question"])},
             DecisionRecord(
@@ -123,12 +116,12 @@ def test_langgraph_final_state_retains_decision_log_channel() -> None:
     assert log[0]["record_id"] == "dr:parity"
 
 
-def test_langgraph_final_state_retains_canonical_facts_channel() -> None:
-    from app.graph.chat_workflow import _compiled_chat_graph
-
+def test_resource_planner_final_state_retains_canonical_facts_channel() -> None:
     row = load_sentinel_rows()[0]
     with sentinel_runtime():
-        final_state = _compiled_chat_graph().invoke({"request": ChatRequest(message=row["question"])})
+        final_state = _compiled_resource_planner_graph().invoke(
+            {"request": ChatRequest(message=row["question"])},
+        )
 
     assert isinstance(final_state.get("canonical_facts"), dict)
     response = final_state.get("response")

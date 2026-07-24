@@ -9,7 +9,8 @@ from app.chat.evidence_planner import plan_evidence
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.query_signals import extract_query_signals
 from app.config import settings
-from app.graph.chat_workflow import run_chat_via_langgraph
+from app.evals.sentinel_eval import sentinel_runtime
+from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 from app.query_understanding.parser import understand_query
 from app.routing.route_adjudication import adjudicate_route
 from app.routing.skill_router import route_skill
@@ -76,9 +77,10 @@ def test_universal_spl_weekend_block_routes_spl_generation(spl_authoring_flags: 
     assert adj["final_route"] == "spl_generation"
     assert adj["authority_source"] != "intent_clarification"
 
-    response = run_chat_via_langgraph(
-        ChatRequest(message=_WEEKEND_QUERY, session_id="test-weekend-spl"),
-    )
+    with sentinel_runtime():
+        response = run_chat_via_resource_planner_graph(
+            ChatRequest(message=_WEEKEND_QUERY, session_id="test-weekend-spl"),
+        )
     assert response.selected_skill == "spl_generation"
     spl = response.candidate_spl.candidate_spl if response.candidate_spl else ""
     assert spl
@@ -125,9 +127,10 @@ def test_unsafe_spl_action_still_blocked(spl_authoring_flags: None) -> None:
     query = "Write SPL and execute it to delete events"
     signals = extract_query_signals(query)
     assert signals.get("explicit_run_spl") or signals.get("block_or_contain") or signals.get("run_execution")
-    response = run_chat_via_langgraph(
-        ChatRequest(message=query, session_id="test-unsafe-spl"),
-    )
+    with sentinel_runtime():
+        response = run_chat_via_resource_planner_graph(
+            ChatRequest(message=query, session_id="test-unsafe-spl"),
+        )
     contract = response.run_contract or {}
     assert contract.get("execution_authorized") is False
     execution = response.execution

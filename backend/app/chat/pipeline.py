@@ -251,6 +251,7 @@ from app.chat.spl_authoring_intent import (
     is_universal_utility_spl_authoring,
     should_skip_intent_for_universal_utility_spl,
 )
+from app.catalogue.live_router_bind import apply_live_catalogue_bind
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.llm_intent_advisor import generate_llm_intent_advisory, intent_advisor_consumable
 from app.llm.t2_advisory_latency_policy import (
@@ -442,6 +443,62 @@ class ChatPipelineState(TypedDict, total=False):
     response: PlaceholderResponse
 
 
+_RP_DEGRADED_MESSAGE = (
+    "The Resource Planner graph stopped before a response could be finalized. "
+    "No SPL, MCP execution, or synthesis was performed."
+)
+_RP_DEGRADED_NOTE = (
+    "Resource Planner graph did not produce a finalized answer; degraded facade only. "
+    "Orchestration: resource_planner_hierarchy."
+)
+
+
+def build_rp_degraded_placeholder_response(
+    request: ChatRequest,
+    *,
+    state: ChatPipelineState | None = None,
+    session_role: str | None = None,
+    entrypoint: str = "rp_fallback",
+    reason: str = "response_missing",
+) -> PlaceholderResponse:
+    """Honest degraded card when RP graph completes without a finalized response.
+
+    Item 12a: must not re-enter RP graph or run the legacy imperative pipeline.
+    """
+    trace_id = str((state or {}).get("trace_id") or current_trace_id() or uuid4())
+    selected_skill = None
+    routed = (state or {}).get("routed") if isinstance(state, dict) else None
+    if isinstance(routed, dict):
+        selected_skill = routed.get("skill")
+    response = PlaceholderResponse(
+        trace_id=trace_id,
+        turn_id=str(uuid4()),
+        message=_RP_DEGRADED_MESSAGE,
+        note=_RP_DEGRADED_NOTE,
+        user_query=request.message,
+        selected_skill=selected_skill,
+        response_mode="insufficient_evidence",
+        answer_readiness="blocked",
+        response_packaging_status="blocked_review_required",
+        fallback_active=True,
+        execution=None,
+        candidate_spl=None,
+        spl_validation=None,
+        planning_decision={
+            "path_type": "rp_degraded_facade",
+            "execution_enabled": False,
+            "hil_required": True,
+            "degraded_reason": reason,
+            "entrypoint": entrypoint,
+        },
+    )
+    if isinstance(state, dict):
+        from app.chat.control_plane_trace import patch_control_plane_trace_decision_log
+
+        response = patch_control_plane_trace_decision_log(response, state)
+    return response
+
+
 def build_live_chat_response(
     request: ChatRequest,
     *,
@@ -449,6 +506,11 @@ def build_live_chat_response(
     session_role: str | None = None,
     entrypoint: str = "chat",
 ) -> PlaceholderResponse:
+    """Rollback orchestration when ``LANGGRAPH_ORCHESTRATION_ENABLED=false``.
+
+    ``entrypoint=rp_fallback`` is the item-12a degraded facade only (no imperative
+    re-run). Production ``/chat`` uses ``run_chat_via_resource_planner_graph``.
+    """
     token = bind_progress_reporter(progress) if progress is not None else None
     try:
         return _build_live_chat_response_inner(request, session_role=session_role, entrypoint=entrypoint)
@@ -464,6 +526,20 @@ def _build_live_chat_response_inner(
     session_role: str | None = None,
     entrypoint: str = "chat",
 ) -> PlaceholderResponse:
+    if entrypoint.startswith("rp_"):
+        # ``routes_chat`` is the sole orchestration selector. RP graph fallbacks
+        # must stay on the degraded facade and never re-enter RP orchestration or
+        # the legacy imperative pipeline (item 12a).
+        from app.graph.resource_planner_graph import guard_rp_imperative_fallback
+
+        guard_rp_imperative_fallback(entrypoint)
+        if entrypoint == "rp_fallback":
+            return build_rp_degraded_placeholder_response(
+                request,
+                session_role=session_role,
+                entrypoint=entrypoint,
+                reason="rp_fallback_facade",
+            )
     started_at = datetime.now(UTC)
     state: ChatPipelineState | None = None
     try:
@@ -1203,6 +1279,15 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
             }
             routed_skill = "knowledge_recall"
 
+    if isinstance(routed, dict):
+        _pre_use_case, routed, candidate_mappings = apply_live_catalogue_bind(
+            query=query_text,
+            query_understanding=query_understanding,
+            selected_use_case=None,
+            routed=routed,
+            candidate_mappings=candidate_mappings,
+        )
+
     result = build_query_to_intent(
         query=query_text,
         query_understanding=query_understanding,
@@ -1219,6 +1304,20 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case = None
     else:
         selected_use_case = _selected_use_case(query_text, query_signals=signals)
+    selected_use_case, routed, candidate_mappings = apply_live_catalogue_bind(
+        query=query_text,
+        query_understanding=query_understanding,
+        selected_use_case=selected_use_case,
+        routed=routed if isinstance(routed, dict) else {},
+        candidate_mappings=candidate_mappings,
+    )
+    payload = {
+        **payload,
+        "candidate_mappings": {
+            **(payload.get("candidate_mappings") if isinstance(payload.get("candidate_mappings"), dict) else {}),
+            **candidate_mappings,
+        },
+    }
     return {
         **state,
         "query_to_intent": payload,
@@ -3771,7 +3870,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     elif path_type == "unsafe_blocked":
         from app.chat.guidance_templates import build_spl_execution_refusal_guidance, is_explicit_run_spl_query
 
-        if is_explicit_run_spl_query(request.message):
+        signals_for_review = extract_query_signals(request.message)
+        if is_explicit_run_spl_query(request.message) and not signals_for_review.get("block_or_contain"):
             from app.orchestration.human_review import human_review as build_human_review
 
             hil_review = build_human_review(
@@ -9206,7 +9306,52 @@ def _reference_resolution_needed(evidence_plan: dict | None) -> bool:
     return "reference_taxonomy_lookup" in {str(item) for item in evidence_plan.get("reasons") or []}
 
 
-def _resolve_reference_knowledge(query: str, *, limit: int = 10) -> dict[str, Any]:
+# Reference dataset → knowledge-lane domain, for scoping keyword search when the
+# validated bundle carries specialist ``reference_domains`` enrichments.
+# RAG collection selection (``retrieve_soc_kb`` / ``select_rag_collections``) is
+# intentionally unchanged — lane ``reference_domains`` do not narrow SOC-KB retrieval.
+_REFERENCE_DATASET_DOMAINS: dict[str, str] = {
+    "mitre_attack_enterprise": "mitre",
+    "mitre_atlas": "atlas",
+    "cve": "cve",
+}
+
+
+def _reference_dataset_allowed(dataset_id: str, reference_domains: list[str] | None) -> bool:
+    """Keyword-search scope: unrestricted unless specific domains were merged."""
+    if not reference_domains or "reference_lookup" in reference_domains:
+        return True
+    domain = _REFERENCE_DATASET_DOMAINS.get(dataset_id)
+    return domain is None or domain in reference_domains
+
+
+def _knowledge_reference_domains(evidence_plan: dict | None) -> list[str]:
+    """Specialist ``reference_domains`` enrichments synced from the validated bundle."""
+    if not isinstance(evidence_plan, dict):
+        return []
+    plan = evidence_plan.get("resource_plan")
+    steps = plan.get("steps") if isinstance(plan, dict) else None
+    domains: list[str] = []
+    for step in steps or []:
+        if not isinstance(step, dict):
+            continue
+        if str(step.get("purpose") or "") not in {"knowledge_retrieval", "cve_lookup", "mitre_mapping"}:
+            continue
+        args = step.get("args_template")
+        raw = args.get("reference_domains") if isinstance(args, dict) else None
+        for item in raw or []:
+            domain = str(item)
+            if domain and domain not in domains:
+                domains.append(domain)
+    return domains
+
+
+def _resolve_reference_knowledge(
+    query: str,
+    *,
+    limit: int = 10,
+    reference_domains: list[str] | None = None,
+) -> dict[str, Any]:
     from app.planner.reference_registry import ReferenceFact, load_reference_registry
 
     registry = load_reference_registry()
@@ -9232,7 +9377,9 @@ def _resolve_reference_knowledge(query: str, *, limit: int = 10) -> dict[str, An
                     raw={"status": "not_found"},
                 )
             )
-    for dataset_facts in registry.search_keywords(query, limit=limit).values():
+    for dataset_id, dataset_facts in registry.search_keywords(query, limit=limit).items():
+        if not _reference_dataset_allowed(dataset_id, reference_domains):
+            continue
         facts.extend(dataset_facts)
 
     deduped: list[ReferenceFact] = []
@@ -9262,7 +9409,14 @@ def _append_reference_source_evidence(
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     if not _reference_resolution_needed(evidence_plan):
         return source_evidence, reference_resolution
-    resolution = reference_resolution if isinstance(reference_resolution, dict) else _resolve_reference_knowledge(query)
+    resolution = (
+        reference_resolution
+        if isinstance(reference_resolution, dict)
+        else _resolve_reference_knowledge(
+            query,
+            reference_domains=_knowledge_reference_domains(evidence_plan),
+        )
+    )
     rows = [dict(item) for item in resolution.get("facts") or [] if isinstance(item, dict)]
     item = build_provider_source_evidence(
         trace_id=trace_id,
@@ -9309,7 +9463,10 @@ def _reference_lookup_summary(
 
 def graph_node_reference_finalize(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("reference_finalize")
-    resolution = _resolve_reference_knowledge(str(state.get("effective_query") or state["request"].message))
+    resolution = _resolve_reference_knowledge(
+        str(state.get("effective_query") or state["request"].message),
+        reference_domains=_knowledge_reference_domains(state.get("evidence_plan")),
+    )
     updated = {**state, "reference_resolution": resolution}
     return advance_dispatch_cursor(updated, PipelineStage.reference_finalize)
 

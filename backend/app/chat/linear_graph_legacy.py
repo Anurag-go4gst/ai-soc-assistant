@@ -1,9 +1,11 @@
-"""Stage P1/4B: LangGraph wrapper around the live /chat pipeline.
+"""Legacy linear LangGraph harness — TEST AND SHADOW ONLY.
 
-Default (CONTROL_PLANE_ENABLED off): the linear parity graph — behavior must
-match the imperative pipeline. With the control plane on, the graph gains the
-Stage 4B governed evidence-collection loop: `evidence_planning` is the HUB and a
-read-only `mcp_call` discovery hop loops back to it, bounded by a single counter.
+Not a production ``/chat`` runner. Production orchestration is
+``app.graph.resource_planner_graph`` (RP hierarchy); rollback is imperative
+``build_live_chat_response`` when ``LANGGRAPH_ORCHESTRATION_ENABLED=false``.
+
+Retained for evidence-loop topology tests and CP hub-routing regression until
+those cases are ported to the RP graph or retired.
 """
 
 from __future__ import annotations
