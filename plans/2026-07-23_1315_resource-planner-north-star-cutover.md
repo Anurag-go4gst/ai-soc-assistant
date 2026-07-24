@@ -91,13 +91,13 @@ External review confirmed the following repo truths; hardening items **7c–7g**
 | ID | Issue | Fix |
 |----|-------|-----|
 | **B1** | `_RP_GRAPH_INVOKE_ACTIVE` module global not thread-safe; `assert` stripped under `python -O` | **Fixed** — `contextvars.ContextVar` depth + `guard_rp_imperative_fallback()` raises `RuntimeError` |
-| **B2** | `/chat` RP path: exception → 500 (only `response is None` falls back); stream catches errors | **Documented in item 10** — cutover must choose fail-loud vs catch-and-fallback |
+| **B2** | `/chat` RP path: exception → 500 (only `response is None` falls back); stream catches errors | **Resolved in item 10** — fail-loud/no exception-time imperative fallback; item 11 must add explicit regression coverage |
 | **B3** | `_apply_work_bundle_to_workers` silent `except Exception: return state` | **Fixed** — log warning + `decision_log` record `work_bundle.apply` |
 
 ## Repo hygiene (pre-commit)
 
-- Items **2–7g** (+ B1/B3 fixes) remain **uncommitted** on working tree — commit in item-batches after `/invariant-check` skill; do not proceed to item **8** on a dirty uncommitted stack.
-- Eval drift: restore `docs/evals/langgraph_dual_parity_*` before any commit (item 1 covered `soc_clean_answer_*` only; dual-parity timestamp drift is separate).
+- Items **9** follow-ups plus item **10** plan/index updates are currently the pre-item-11 working stack. Commit them after `/invariant-check` before starting item **11** code changes.
+- Eval drift remains a pre-commit blocker: do not commit `soc_clean_answer_eval_*`, `langgraph_dual_parity_*`, or other eval baseline churn unless the task explicitly refreshes baselines.
 
 ## Checklist
 
@@ -213,20 +213,82 @@ If COE approves item **9** before cutover, scope it to **Knowledge specialist on
 **Approval choices for COE/user:** approve the limited Knowledge-specialist LLM proposal path for item **9**, or explicitly defer **9** and proceed to the non-LLM cutover gate (**10**).
 
 - [x] **9** — Deterministic knowledge synthesis specialist _(re-scoped 2026-07-24; LLM path deferred to a future north-star item)_
-  - **Do:** Implement a deterministic (no-LLM) knowledge specialist that audits plan vs intent vs required evidence: compare intent-demanded knowledge domains (`intent_family`, `answer_goal`, `needs_rag`/`needs_mitre`) against knowledge-owned `ResourcePlan` steps (`knowledge_retrieval`, `cve_lookup`, `mitre_mapping`). Emit `reference_domains`, gap warnings (`knowledge_gap:<domain>:no_plan_step`, surplus-step warnings), and fill-blank `SpecialistProposal`s on owned steps that lack `reference_domains` args (never override existing args; merge validation stays authoritative). Thin consumer: reference dispatch (`_resolve_reference_knowledge`) scopes keyword search to merged `reference_domains` when the validated bundle carries them; explicit-ID lookups stay unscoped; imperative path unchanged when no args exist.
+  - **Do:** Implement a deterministic (no-LLM) knowledge specialist that audits plan vs intent vs required evidence: compare intent-demanded knowledge domains (`intent_family`, `answer_goal`, `needs_rag`/`needs_mitre`, `required_evidence_keys`) against knowledge-owned `ResourcePlan` steps (`knowledge_retrieval`, `cve_lookup`, `mitre_mapping`). Emit `reference_domains`, gap warnings (`knowledge_gap:<domain>:no_plan_step`, surplus-step warnings), and fill-blank `SpecialistProposal`s on owned steps that lack `reference_domains` args (never override existing args; merge validation stays authoritative). Thin consumer: reference dispatch (`_resolve_reference_knowledge`) scopes keyword search to merged `reference_domains` when the validated bundle carries them; explicit-ID lookups stay unscoped; SOC-KB RAG unchanged; imperative path unchanged when no args exist. Sync validated bundle in `rp_node_prepare_rag_only` before `rag_early`.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_knowledge_specialist_audit.py app/tests/test_hybrid_role_graph.py app/tests/test_guided_investigation_llm_firewall.py app/tests/test_planner_hierarchy_contracts.py app/tests/test_resource_planner_dry_runs.py -q`; matrix tests cover "intent says X, plan has Y → report Z" including merge integration and dispatch scoping
   - **Depends on:** 8
-  - **Evidence:** Added `backend/app/planner/knowledge_specialist.py` (`build_knowledge_audit_report`); `rp_node_specialist_knowledge` now emits the audit report; merge decision record reflects actual knowledge reason. Thin consumer: `_knowledge_reference_domains` + `_reference_dataset_allowed` scope `_resolve_reference_knowledge` keyword search (both call sites). `test_knowledge_specialist_audit.py` → 14 passed (matrix + merge + dispatch scoping). Regression: RP/planner/reference suites → 78 passed; parity + contract guards → 76 passed, 6 xfailed.
+  - **Evidence:** Added `backend/app/planner/knowledge_specialist.py` (`build_knowledge_audit_report`); `rp_node_specialist_knowledge` emits audit report; merge decision record reflects actual knowledge reason. Thin consumer: `_knowledge_reference_domains` + `_reference_dataset_allowed` scope reference-registry keyword search only (SOC-KB RAG collection selection unchanged — documented in `pipeline.py` + architecture §6.1). Follow-ups (2026-07-24): `required_evidence_keys` → domain map (`reference_dataset`→`reference_lookup`, `vulnerability_source`→`cve`); `rp_node_prepare_rag_only` syncs `validated_work_bundle` before `rag_early`; architecture doc updated; intent-map alignment comment in module. `test_knowledge_specialist_audit.py` → 17 passed. Item-9 verify slice → 51 passed.
 
-- [ ] **10** — Decision gate to make RP graph the default runtime
+#### Item 10 readiness (pre-proposal audit, 2026-07-24)
+
+| Gate | Status |
+|------|--------|
+| Items 0–9 complete with evidence | **Yes** |
+| Item 8 LLM deferral recorded | **Yes** |
+| Intent probe 11/11 | **Yes** (item 7h) |
+| Governance regression (last full run) | **Pending** — re-run before item 11; targeted slices green post-9 |
+| RP graph parity (dry runs, route wiring, SPL HIL) | **Green** on targeted tests |
+| Knowledge audit active | **RP graph only** until item 11 — document in parity matrix |
+| B2 exception policy chosen | **Yes** — fail-loud on escaped `/chat` RP defects; `/chat/stream` emits terminal failed event; no catch-and-imperative fallback |
+| COE/user approval for default flip | **Yes for planning gate** — user 2026-07-24: "assume that you have all approval from COE"; code flip still executes in item 11 with regression evidence |
+
+**Conclusion:** Ready to execute item **11** after committing the item-9 stack and re-running governance regression. Item **10** approval + B2 decision are recorded below.
+
+- [x] **10** — Decision gate to make RP graph the default runtime
   - **Do:** Produce a cutover proposal with item 7 results, **item 8 resolution** (LLM-primary approved or explicit deferral recorded in item 8 Evidence), item 9 status if implemented (optional — deferral is valid), production rollback instructions, expected metric/trace changes, and a traffic-pattern parity matrix. **Rollback:** `LANGGRAPH_ORCHESTRATION_ENABLED=false` **plus process restart** (`settings` is a module singleton — flag flip alone does not affect already-running uvicorn workers). **Exception policy (B2):** document chosen posture for `/chat` when RP graph raises (today: fail-loud 500; stream already surfaces `reporter.failed`). Options: deliberate fail-loud vs catch-and-fallback-to-imperative — pick one before item 11. Stop for explicit user/COE approval before changing the default runtime.
   - **Verify:** User/COE approval recorded in this plan; proposal includes rollback flag + restart steps; documents B2 exception policy; item 8 Evidence shows approve-or-defer decision
   - **Depends on:** 7g, 8
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** User/COE approval recorded 2026-07-24 from prompt: "assume that you have all approval from COE." Proposal below chooses one production path: RP graph default, no exception-time fallback to the old imperative runner, rollback only by `LANGGRAPH_ORCHESTRATION_ENABLED=false` + process restart. Plan audit after item-10 update: `Summary: 18 checked, 6 unchecked, 0 gap(s)`.
+
+#### Item 10 Cutover Proposal — One Production Spine
+
+**Architectural decision:** make the Resource Planner graph the single production orchestration spine for `/chat` and `/chat/stream` in item **11**. The old imperative path remains only as a temporary rollback implementation behind `LANGGRAPH_ORCHESTRATION_ENABLED=false` until item **12a** turns it into a compatibility/degraded-response facade. Do not add a second runtime selector or a new cutover flag.
+
+**Exception policy (B2):** keep escaped RP exceptions fail-loud for `/chat` and terminal-failed for `/chat/stream`; do **not** catch RP defects and silently fall back to the old imperative runner. Rationale: fallback-on-exception creates two production paths, can hide validated-bundle or specialist bugs, and can produce different analyst-visible routing after the same request. Ordinary producer/LLM/tool degradation still happens inside governed pipeline nodes and returns controlled deterministic responses; only unhandled defects escape.
+
+**Rollback runbook:** set `LANGGRAPH_ORCHESTRATION_ENABLED=false`, restart every backend process/uvicorn worker, then run the rollback smoke set. Restart is mandatory because `settings` is a module singleton and an env flip alone does not change already-loaded workers. Rollback is operational, not automatic per request.
+
+**Minimum rollback smoke set:**
+
+```bash
+cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_planner_route_wiring.py app/tests/test_current_chat_runtime_baseline.py -q
+./scripts/run_stage3_governance_regression.sh
+```
+
+**Traffic-pattern parity matrix for item 11 implementation:**
+
+| Pattern | Expected RP default behavior | Must prove before done |
+|---------|------------------------------|------------------------|
+| In-catalogue SPL hunt, clean query | Catalogue `use_case_id`, `spl_template_id`, evidence plan, candidate mapping, and route adjudication agree; candidate SPL remains non-executable until HIL/gate approval | Surface-agreement test + `test_105_path_honoring.py` / in-catalogue guard |
+| In-catalogue SPL hunt, typo query (`lgon`) | Catalogue alias fills blanks only; COE/manual slots and non-SOC guards still win | Live catalogue typo probe + route wiring test |
+| SPL two-turn execution | Turn 1 produces `spl_execution_confirmation`; turn 2 confirm/update executes only validated `normalized_spl`; raw `candidate_spl` never reaches MCP | `test_spl_hil_two_turn_chat.py` |
+| Knowledge recall / SOP / playbook | Routes to `knowledge_recall`; no SPL draft, no MCP execution; reference-domain scoping can enrich RP graph path | `test_knowledge_specialist_audit.py` + SOP/playbook probe |
+| MITRE without alert context | Human-review clarification, no SPL and no fabricated facts | Out-of-set intent probe |
+| Guided out-of-registry SOC investigation | Guided investigation remains review-only with hypotheses/evidence guidance; no execution eligibility | Guided/firewall tests |
+| Non-SOC HR/policy query | Early out-of-scope/non-SOC exit before explicit-search/SPL machinery | Out-of-set intent probe |
+| EC/demo parity scenario | Demo path remains deterministic `coe_synthetic_fixture`; RP cutover must not call live LLM/MCP in EC | Existing EC/live contract tests |
+| `/chat/stream` progress path | Same RP graph result as `/chat`; failures surface as `reporter.failed`, not hidden fallback | `test_chat_progress_stream.py` / live progress test |
+| RP graph returns `response=None` | Temporary item-11 behavior may use documented `rp_fallback`; item **12a** replaces this with explicit degraded facade and no second full runner | Route wiring fallback tests; item 12a retirement gate |
+| RP graph raises unhandled exception | `/chat` logs `chat_pipeline_failed` with trace id and returns sanitized HTTP 500; stream sends failed event; no imperative fallback | Add item-11 regressions `test_rp_default_unhandled_exception_fails_loud_without_imperative_fallback` and `test_rp_stream_unhandled_exception_emits_failed_event` |
+| Rollback flag false + restart | `/chat` and `/chat/stream` use temporary imperative rollback path only while item 11 is active | Route selector tests |
+
+**Metrics / trace contract after item 11:**
+
+| Signal | Expected change |
+|--------|-----------------|
+| `response.note` | Includes `Orchestration: resource_planner_hierarchy` for live RP turns; item **11** drops the old `(parity mode)` wording when RP becomes default and updates assertions accordingly |
+| `control_plane_trace.decision_log` | Includes RP decision records patched from graph state, including specialist merge / validated-bundle decisions where applicable |
+| `control_plane_trace.routing_provenance` | Catalogue tier fields agree with selected use case and evidence plan for in-catalogue paths |
+| `rp_graph_trace` / planner iteration | Records bootstrap, specialist fan-out/fan-in, merge reason, and worker handoff in stable order |
+| Trace admission | `/chat` and `/chat/stream` persist admission before work and preserve `X-Trace-ID` correlation |
+| Failure telemetry | Escaped `/chat` failure logs `chat_pipeline_failed trace_id=<id> exc_type=<type>`; stream emits failed SSE payload with stable code/message |
+| Governance counters | No increase in MCP execution unless explicit execution flags + HIL/gate approval are present; LLM direct tool-calling remains false |
+| Analyst-visible execution fields | `candidate_spl` may be present; `executed_spl` only appears from validated execution envelope; `execution_enabled` remains false unless already approved by existing gates |
+
+**Item 11 acceptance gates:** item 11 must update settings/tests/docs for the default flip, add explicit exception-policy regression coverage, drop `(parity mode)` from the RP note, run the traffic matrix slices above, run governance regression, and record dated pass/fail counts as operational sign-off. If any matrix row fails twice, stop; do not ship a mixed fallback architecture.
 
 - [ ] **11** — Make RP graph default; keep imperative rollback temporarily
-  - **Do:** After item 10 approval, change runtime default so `/chat` and `/chat/stream` use Resource Planner graph unless explicitly rolled back. Keep `build_live_chat_response()` available only as the documented rollback path during this item; update settings/docs/tests to match the new default posture.
-  - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_planner_route_wiring.py app/tests/test_chat_progress_stream.py app/tests/test_cisco_live_chat_contract.py app/tests/test_live_chat_linear_progress.py -q && ./scripts/run_stage3_governance_regression.sh`
+  - **Do:** After item 10 approval, change runtime default so `/chat` and `/chat/stream` use Resource Planner graph unless explicitly rolled back. Keep `build_live_chat_response()` available only as the documented rollback path during this item; update settings/docs/tests to match the new default posture. Add regression coverage for the item-10 exception policy: `test_rp_default_unhandled_exception_fails_loud_without_imperative_fallback` proves RP raises do not call imperative fallback and `/chat` returns the sanitized 500 envelope; `test_rp_stream_unhandled_exception_emits_failed_event` proves stream emits `reporter.failed`. Keep `response=None` distinct from exceptions: during item 11 it may still complete through `rp_fallback` and `reporter.final` intentionally; item **12a** retires that behavior into a degraded facade. Drop `(parity mode)` from the RP orchestration note because RP is no longer a parity runner once default.
+  - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_planner_route_wiring.py app/tests/test_chat_progress_stream.py -k "exception_policy or unhandled_exception or rp_fallback" -q && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_planner_route_wiring.py app/tests/test_chat_progress_stream.py app/tests/test_cisco_live_chat_contract.py app/tests/test_live_chat_linear_progress.py app/tests/test_catalogue_bind_surface_agreement.py app/tests/test_spl_hil_two_turn_chat.py app/tests/test_knowledge_specialist_audit.py app/tests/test_guided_investigation_llm_firewall.py app/tests/test_105_path_honoring.py app/tests/test_in_catalogue_contract_guard.py -q && cd .. && PYTHONPATH=backend:. python3 scripts/eval_out_of_set_intent_probe.py --check && ./scripts/run_stage3_governance_regression.sh`
   - **Depends on:** 10
   - **Evidence:** _(fill when done)_
 
@@ -258,7 +320,7 @@ If COE approves item **9** before cutover, scope it to **Knowledge specialist on
 
 ## Verification Gaps
 
-No current verification gaps. Items **0–9** are checked with evidence (item **8** resolved 2026-07-24 as LLM-primary deferral; item **9** delivered as the re-scoped deterministic knowledge specialist). Remaining: **10** (cutover decision gate — now unblocked), **11**, and **12** (12a–12d). **B1/B3** fixed in code; **B2** decision deferred to item **10** proposal. Item-9 working-tree changes must be committed (invariant-check first) before starting item **10**.
+No current plan-structure gaps. Items **0–10** are checked with evidence (item **8** resolved 2026-07-24 as LLM-primary deferral; item **9** delivered as the re-scoped deterministic knowledge specialist; item **10** chooses RP graph as the one production spine). Remaining: **11** default flip and **12** retirement (12a–12d). **B1/B3** fixed in code; **B2** resolved in item **10** as fail-loud/no hidden imperative fallback. The current pre-item-11 working stack (item **9** follow-ups + item **10** plan/index updates) must be committed after `/invariant-check` before item **11** code changes.
 
 ## Drift Log
 
@@ -268,8 +330,10 @@ No current verification gaps. Items **0–9** are checked with evidence (item **
 | 2026-07-23 | Items 2–7 implemented on `feat/resource-planner-north-star`: `live_router_bind.py`, parallel `Send` specialists, `apply_specialist_reports` at merge, worker bundle sync. Pre-existing `probe.unsafe.block_and_run` intent baseline drift noted (not catalogue-related). |
 | 2026-07-23 | Item **7b**: SPL two-turn HIL E2E contract locked in `test_spl_hil_two_turn_chat.py`. |
 | 2026-07-23 | Review hardening **7c–7g**: `validated_work_bundle` worker channel, Option A specialist boundary doc, catalogue surface-agreement test, fan-in reducer assertions, `rp_fallback` single-runner invariant. |
-| 2026-07-24 | Item **8** resolved: LLM-primary deferred by user; item **9** re-scoped and delivered as deterministic knowledge synthesis specialist (`knowledge_specialist.py`, audit report node, reference-dispatch domain scoping, 14-test matrix). |
-| 2026-07-23 | **B1/B3** code fixes: ContextVar invoke guard + validated-bundle decision_log on reject. **7h** added for `probe.unsafe.block_and_run`. Item **10** documents rollback restart + B2 exception policy. Item **12a** defines degraded-response fallback semantics. |
+| 2026-07-24 | Item **9** follow-ups: `required_evidence_keys` domain map, `rp_node_prepare_rag_only` bundle sync, RAG-vs-reference consumer boundary documented, architecture §6.1 updated; 17 audit tests + item-10 readiness table in plan. |
+| 2026-07-23 | **B1/B3** code fixes: ContextVar invoke guard + validated-bundle decision_log on reject. **7h** added for `probe.unsafe.block_and_run`. Item **12a** defines degraded-response fallback semantics. |
+| 2026-07-24 | Item **10** completed as COE-approved cutover proposal: RP graph is the one production spine, B2 policy is fail-loud/no hidden imperative fallback, rollback is `LANGGRAPH_ORCHESTRATION_ENABLED=false` + process restart, and item **11** must satisfy the traffic-pattern matrix plus metrics/trace contract. |
+| 2026-07-24 | Review points before item **11** folded in: stale repo-hygiene text fixed, B2 marked resolved, dedicated exception-policy tests named, RP note must drop `(parity mode)`, `response=None` stream fallback documented as intentional, and item **11** evidence must record dated regression counts as operational sign-off. |
 
 ## Residual Risk To Watch
 
@@ -279,3 +343,4 @@ No current verification gaps. Items **0–9** are checked with evidence (item **
 - Imperative retirement (**12a–12d**) is highest blast-radius — do not start until **7g** is green; execute as phased sub-items, not one PR.
 - Turn-2 SPL confirmation must use `execution_review_action` on the same session/query; free-text "confirm" messages can reroute away from SPL execution.
 - Response `spl_validation` on an `update_spl` turn may reflect template regeneration while `execution.executed_spl` reflects the gate-validated analyst SPL — tests and UI should treat execution envelope as authoritative for what ran.
+- Item **11** must not add a catch-and-fallback-to-imperative handler around RP graph exceptions; that would reintroduce two production paths and invalidate item **10**.

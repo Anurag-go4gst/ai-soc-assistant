@@ -9240,6 +9240,8 @@ def _reference_resolution_needed(evidence_plan: dict | None) -> bool:
 
 # Reference dataset → knowledge-lane domain, for scoping keyword search when the
 # validated bundle carries specialist ``reference_domains`` enrichments.
+# RAG collection selection (``retrieve_soc_kb`` / ``select_rag_collections``) is
+# intentionally unchanged — lane ``reference_domains`` do not narrow SOC-KB retrieval.
 _REFERENCE_DATASET_DOMAINS: dict[str, str] = {
     "mitre_attack_enterprise": "mitre",
     "mitre_atlas": "atlas",

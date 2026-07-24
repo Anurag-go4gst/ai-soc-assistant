@@ -52,6 +52,15 @@ _EVIDENCE_BOOLEAN_DOMAINS: dict[str, str] = {
     "needs_mitre": "mitre",
 }
 
+# EvidencePlan.required_evidence_keys → knowledge lane domain (non-knowledge keys ignored).
+_REQUIRED_EVIDENCE_KEY_DOMAINS: dict[str, str] = {
+    "reference_dataset": "reference_lookup",
+    "vulnerability_source": "cve",
+}
+
+# Keep aligned with knowledge-routing intent_family values in intent_classifier.py.
+# Unknown families simply contribute no domains (audit stays idle/gap-honest).
+
 # Knowledge-owned plan-step purpose → domains that step covers.
 _STEP_PURPOSE_DOMAINS: dict[str, frozenset[str]] = {
     "knowledge_retrieval": frozenset({"rag", "reference_lookup", "atlas"}),
@@ -78,6 +87,10 @@ def expected_knowledge_domains(
     if isinstance(evidence_plan, dict):
         for boolean, domain in _EVIDENCE_BOOLEAN_DOMAINS.items():
             if evidence_plan.get(boolean) is True:
+                expected.add(domain)
+        for key in evidence_plan.get("required_evidence_keys") or []:
+            domain = _REQUIRED_EVIDENCE_KEY_DOMAINS.get(str(key))
+            if domain:
                 expected.add(domain)
     return expected
 

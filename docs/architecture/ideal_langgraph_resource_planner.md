@@ -97,6 +97,7 @@ The hierarchy **extends** existing planner surfaces; it does not fork parallel t
 | Catalogue surface agreement | **Done** (north-star item 7c) — `test_catalogue_bind_surface_agreement.py` |
 | Validated WorkBundle workers | **Done** (north-star item 7c) — workers read `validated_work_bundle` only |
 | Single-runner invariant | **Done** (north-star item 7g) — RP fallback uses `entrypoint=rp_fallback` |
+| Deterministic knowledge specialist | **Done** (north-star item 9) — `knowledge_specialist.py` audits plan vs intent; merge fill-blanks; reference keyword scoping only |
 | New env flags | **Not added** — `AI_SOC_RESOURCE_PLANNER_GRAPH_ENABLED` rejected by design |
 
 Shadow enrichment still uses `AI_SOC_LANGGRAPH_SHADOW_ENABLED` for planner-led shadow runs.
@@ -173,17 +174,19 @@ cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource
 1. **Bootstrap** — query understanding, intent → `knowledge_recall`.
 2. **Resource Planner** — composer emits RAG-only `ResourcePlan` (no SPL/MCP steps).
 3. **Skill specialist** — logs advisory route with live `catalogue_tier` from `match_catalogue_tier()`.
-4. **Knowledge specialist** — trace-only in v1 (RAG driven by composer + `graph_node_rag_early`).
+4. **Knowledge specialist** — deterministic audit (`build_knowledge_audit_report`): compares intent / `required_evidence_keys` / `needs_rag`/`needs_mitre` to knowledge plan steps; emits gap warnings and fill-blank `reference_domains` proposals. **Consumer:** reference-registry keyword search scoped via `_knowledge_reference_domains`; SOC-KB RAG collection selection unchanged.
 5. **MCP / SPL specialists** — SPL logs `template_or_fallback`; MCP trace-only when idle.
-6. **RP merge** — `build_planner_iteration()` calls `apply_specialist_reports()`; merged plan synced to `evidence_plan.resource_plan` and `work_bundle`.
-7. **Code workers** — `prepare_rag_only` → `rag_early`; composed/SPL workers call `_apply_work_bundle_to_workers()` before dispatch.
+6. **RP merge** — `build_planner_iteration()` calls `apply_specialist_reports()`; merged plan synced to `validated_work_bundle` then `evidence_plan.resource_plan` before workers.
+7. **Code workers** — `prepare_rag_only` applies validated bundle then `rag_early`; composed/SPL workers call `_apply_work_bundle_to_workers()` before dispatch.
 8. **Governance** — full chain through `policy_veto` → `finalize` → `validate_final_answer`.
 9. **Decision log** — specialist records emitted in stable order at merge; synced to `control_plane_trace.decision_log`.
+
+**RP-graph-only until default cutover (item 11):** knowledge audit and bundle sync run only when `LANGGRAPH_ORCHESTRATION_ENABLED=true`. Imperative default path unchanged when flag is off.
 
 ### 6.2 Walkthrough: OT outbound hunt
 
 1. **Skill specialist** — `guided_investigation`, hybrid evidence plan.
-2. **Knowledge specialist** — grounding / evidence-summary floor proposals.
+2. **Knowledge specialist** — deterministic domain audit + gap warnings (no LLM); reference dispatch scoping when bundle args exist.
 3. **MCP specialist** — idle (discovery allowed but execution off by policy).
 4. **SPL specialist** — idle or review-only SPL inputs only.
 5. **Parity** — RAG step status matches imperative vs shadow (`test_imperative_shadow_rag_step_status_parity_for_ot_probe`).

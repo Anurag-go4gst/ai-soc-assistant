@@ -462,6 +462,7 @@ def _rp_after_rag_early(state: ResourcePlannerGraphState) -> AfterRagEarly:
 
 
 def rp_node_prepare_rag_only(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
+    state = _apply_work_bundle_to_workers(state)
     state = graph_node_prepare_rag_only(state)
     state = _with_trace(state, "prepare_rag_only")
     return _record(

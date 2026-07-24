@@ -16,7 +16,7 @@ from app.chat.pipeline import (
     _reference_dataset_allowed,
     _resolve_reference_knowledge,
 )
-from app.graph.resource_planner_graph import rp_node_specialist_knowledge
+from app.graph.resource_planner_graph import rp_node_prepare_rag_only, rp_node_specialist_knowledge
 from app.planner.knowledge_specialist import (
     KNOWLEDGE_ALIGNED,
     KNOWLEDGE_GAP,
@@ -30,6 +30,7 @@ from app.planner.planner_hierarchy import (
     work_bundle_from_resource_plan,
 )
 from app.planner.resource_plan import PlanStep, ResourcePlan
+from app.schemas.requests import ChatRequest
 
 
 def _evidence_plan_with_steps(steps: list[dict[str, Any]], **booleans: bool) -> dict[str, Any]:
@@ -120,6 +121,32 @@ def test_evidence_plan_booleans_count_as_required_evidence() -> None:
     assert {"knowledge_gap:mitre:no_plan_step", "knowledge_gap:rag:no_plan_step"} <= set(report.warnings)
 
 
+def test_required_evidence_keys_map_to_knowledge_domains() -> None:
+    report = build_knowledge_audit_report(
+        intent_classification={"intent_family": "live_investigation", "answer_goal": []},
+        evidence_plan={
+            "resource_plan": {"steps": [_step("knowledge_retrieval")]},
+            "required_evidence_keys": ["reference_dataset", "user"],
+        },
+    )
+    assert report.decision_reason == KNOWLEDGE_ALIGNED
+    assert "reference_lookup" in report.reference_domains
+    assert "user" not in report.reference_domains
+    assert report.proposals[0].args_template == {"reference_domains": ["reference_lookup"]}
+
+
+def test_vulnerability_source_required_evidence_expects_cve_domain() -> None:
+    report = build_knowledge_audit_report(
+        intent_classification=None,
+        evidence_plan={
+            "resource_plan": {"steps": [_step("cve_lookup")]},
+            "required_evidence_keys": ["vulnerability_source"],
+        },
+    )
+    assert report.decision_reason == KNOWLEDGE_ALIGNED
+    assert report.reference_domains == ["cve"]
+
+
 def test_missing_intent_and_plan_degrade_to_idle() -> None:
     report = build_knowledge_audit_report(intent_classification=None, evidence_plan=None)
     assert report.decision_reason == KNOWLEDGE_IDLE
@@ -162,6 +189,30 @@ def test_graph_node_emits_audit_report_from_state() -> None:
     assert reports[0]["specialist_id"] == "knowledge"
     assert reports[0]["decision_reason"] == KNOWLEDGE_ALIGNED
     assert reports[0]["proposals"][0]["args_template"] == {"reference_domains": ["cve"]}
+
+
+def test_prepare_rag_only_syncs_validated_bundle_before_rag(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.graph.resource_planner_graph as resource_planner_graph
+
+    plan = ResourcePlan(
+        steps=[PlanStep(step_id="rag", resource_id="rag_corpus:soc_kb", purpose="knowledge_retrieval")]
+    )
+    bundle = work_bundle_from_resource_plan(plan, bundle_id="bundle:rag-only")
+    report = build_knowledge_audit_report(
+        intent_classification={"intent_family": "policy_knowledge", "answer_goal": []},
+        evidence_plan={"resource_plan": plan.model_dump()},
+    )
+    merged = apply_specialist_reports(bundle, [report])
+    monkeypatch.setattr(resource_planner_graph, "graph_node_prepare_rag_only", lambda state: state)
+
+    state: dict[str, Any] = {
+        "request": ChatRequest(message="policy question"),
+        "evidence_plan": {"resource_plan": plan.model_dump(), "answer_mode": "rag_only"},
+        "validated_work_bundle": merged.model_dump(),
+    }
+    result = rp_node_prepare_rag_only(state)  # type: ignore[arg-type]
+    rag_step = result["evidence_plan"]["resource_plan"]["steps"][0]
+    assert rag_step["args_template"]["reference_domains"] == ["rag"]
 
 
 # --- thin consumer: reference dispatch scoping ------------------------------
