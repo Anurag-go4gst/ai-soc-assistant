@@ -191,11 +191,11 @@ External review confirmed the following repo truths; hardening items **7c–7g**
   - **Depends on:** 7g
   - **Evidence:** Fixed intent precedence so `block_or_contain` + explicit SPL execution signals route to `clarification_required` / `human_review`; final chat unsafe response keeps `unsafe_action_blocked` over explicit-run labeling. `PYTHONPATH=backend:. python3 scripts/eval_out_of_set_intent_probe.py --check` → PASS (11/11). `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_chat_routing.py -q` → 6 passed. Adjacent regression slice `test_query_to_intent.py test_route_policy_smoke_fix.py test_explicit_run_spl_routing.py test_explicit_run_spl_hil.py -q` → 56 passed. Baseline refresh not required.
 
-- [ ] **8** — Decision gate for LLM-primary specialist planning
+- [x] **8** — Decision gate for LLM-primary specialist planning
   - **Do:** Write a short proposal in this plan describing which specialist(s) may call the governed LLM adapter, the exact existing flag/mode to use, fallback behavior, disagreement handling, and why deterministic policy still wins. Stop for user/COE approval before coding this item.
   - **Verify:** User/COE approval recorded in this plan; no code changes for LLM-primary planning before that approval
   - **Depends on:** 7h
-  - **Evidence:** Proposal below written 2026-07-23; approval pending. No item-8 code changes made.
+  - **Evidence:** Proposal written 2026-07-23. **User decision 2026-07-24: LLM-primary deferred** ("we may add LLM later"); item **9** re-scoped to a deterministic knowledge synthesis specialist (no LLM adapter calls). Cutover gate **10** unblocked (approve-or-defer recorded). No LLM-primary code written.
 
 #### Item 8 Proposal — LLM-Primary Specialist Planning
 
@@ -212,11 +212,11 @@ If COE approves item **9** before cutover, scope it to **Knowledge specialist on
 
 **Approval choices for COE/user:** approve the limited Knowledge-specialist LLM proposal path for item **9**, or explicitly defer **9** and proceed to the non-LLM cutover gate (**10**).
 
-- [ ] **9** — Implement approved LLM-primary specialist proposal path
-  - **Do:** If item 8 is approved, let selected specialists emit real proposals through the governed LLM adapter. Proposals remain advisory until Resource Planner merge validation accepts owned enrichments; conflicts produce warnings/disagreements and deterministic outputs win. Add RP-specialist-specific LLM proposal tests if the existing broader LLM suites do not fail meaningfully on this new path. If item 8 is not approved, explicitly mark this item deferred with evidence and continue only to non-LLM cutover gates.
-  - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_hybrid_role_graph.py app/tests/test_guided_investigation_llm_firewall.py app/tests/test_planner_hierarchy_contracts.py app/tests/test_resource_planner_dry_runs.py -q`; RP-specialist LLM proposal tests exist and fail if specialist LLM output bypasses merge validation or deterministic authority
+- [x] **9** — Deterministic knowledge synthesis specialist _(re-scoped 2026-07-24; LLM path deferred to a future north-star item)_
+  - **Do:** Implement a deterministic (no-LLM) knowledge specialist that audits plan vs intent vs required evidence: compare intent-demanded knowledge domains (`intent_family`, `answer_goal`, `needs_rag`/`needs_mitre`) against knowledge-owned `ResourcePlan` steps (`knowledge_retrieval`, `cve_lookup`, `mitre_mapping`). Emit `reference_domains`, gap warnings (`knowledge_gap:<domain>:no_plan_step`, surplus-step warnings), and fill-blank `SpecialistProposal`s on owned steps that lack `reference_domains` args (never override existing args; merge validation stays authoritative). Thin consumer: reference dispatch (`_resolve_reference_knowledge`) scopes keyword search to merged `reference_domains` when the validated bundle carries them; explicit-ID lookups stay unscoped; imperative path unchanged when no args exist.
+  - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_knowledge_specialist_audit.py app/tests/test_hybrid_role_graph.py app/tests/test_guided_investigation_llm_firewall.py app/tests/test_planner_hierarchy_contracts.py app/tests/test_resource_planner_dry_runs.py -q`; matrix tests cover "intent says X, plan has Y → report Z" including merge integration and dispatch scoping
   - **Depends on:** 8
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Added `backend/app/planner/knowledge_specialist.py` (`build_knowledge_audit_report`); `rp_node_specialist_knowledge` now emits the audit report; merge decision record reflects actual knowledge reason. Thin consumer: `_knowledge_reference_domains` + `_reference_dataset_allowed` scope `_resolve_reference_knowledge` keyword search (both call sites). `test_knowledge_specialist_audit.py` → 14 passed (matrix + merge + dispatch scoping). Regression: RP/planner/reference suites → 78 passed; parity + contract guards → 76 passed, 6 xfailed.
 
 - [ ] **10** — Decision gate to make RP graph the default runtime
   - **Do:** Produce a cutover proposal with item 7 results, **item 8 resolution** (LLM-primary approved or explicit deferral recorded in item 8 Evidence), item 9 status if implemented (optional — deferral is valid), production rollback instructions, expected metric/trace changes, and a traffic-pattern parity matrix. **Rollback:** `LANGGRAPH_ORCHESTRATION_ENABLED=false` **plus process restart** (`settings` is a module singleton — flag flip alone does not affect already-running uvicorn workers). **Exception policy (B2):** document chosen posture for `/chat` when RP graph raises (today: fail-loud 500; stream already surfaces `reporter.failed`). Options: deliberate fail-loud vs catch-and-fallback-to-imperative — pick one before item 11. Stop for explicit user/COE approval before changing the default runtime.
@@ -258,7 +258,7 @@ If COE approves item **9** before cutover, scope it to **Knowledge specialist on
 
 ## Verification Gaps
 
-No current verification gaps. Items **0–7g** are checked with evidence. Items **7h**, **8**, **10**, and **12** (12a–12d) remain open. Items **2**, **4**, and **6** were completed with approval evidence recorded. Item **9** is optional after **8** resolves. **B1/B3** fixed in code; **B2** decision deferred to item **10** proposal. Uncommitted working-tree work must be batched and committed before item **8**.
+No current verification gaps. Items **0–9** are checked with evidence (item **8** resolved 2026-07-24 as LLM-primary deferral; item **9** delivered as the re-scoped deterministic knowledge specialist). Remaining: **10** (cutover decision gate — now unblocked), **11**, and **12** (12a–12d). **B1/B3** fixed in code; **B2** decision deferred to item **10** proposal. Item-9 working-tree changes must be committed (invariant-check first) before starting item **10**.
 
 ## Drift Log
 
@@ -268,6 +268,7 @@ No current verification gaps. Items **0–7g** are checked with evidence. Items 
 | 2026-07-23 | Items 2–7 implemented on `feat/resource-planner-north-star`: `live_router_bind.py`, parallel `Send` specialists, `apply_specialist_reports` at merge, worker bundle sync. Pre-existing `probe.unsafe.block_and_run` intent baseline drift noted (not catalogue-related). |
 | 2026-07-23 | Item **7b**: SPL two-turn HIL E2E contract locked in `test_spl_hil_two_turn_chat.py`. |
 | 2026-07-23 | Review hardening **7c–7g**: `validated_work_bundle` worker channel, Option A specialist boundary doc, catalogue surface-agreement test, fan-in reducer assertions, `rp_fallback` single-runner invariant. |
+| 2026-07-24 | Item **8** resolved: LLM-primary deferred by user; item **9** re-scoped and delivered as deterministic knowledge synthesis specialist (`knowledge_specialist.py`, audit report node, reference-dispatch domain scoping, 14-test matrix). |
 | 2026-07-23 | **B1/B3** code fixes: ContextVar invoke guard + validated-bundle decision_log on reject. **7h** added for `probe.unsafe.block_and_run`. Item **10** documents rollback restart + B2 exception policy. Item **12a** defines degraded-response fallback semantics. |
 
 ## Residual Risk To Watch

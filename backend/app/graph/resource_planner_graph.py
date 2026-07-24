@@ -53,6 +53,7 @@ from app.planner.planner_hierarchy import (
     materialize_resource_plan_from_bundle,
     new_decision_record_id,
 )
+from app.planner.knowledge_specialist import build_knowledge_audit_report
 from app.planner.resource_plan import ResourcePlan
 from app.planner.specialist_registry import load_specialist_registry
 from app.schemas.requests import ChatRequest
@@ -219,6 +220,14 @@ def _record_parallel_specialist_decisions(state: ResourcePlannerGraphState) -> R
     """Emit specialist audit records in stable order after parallel fan-in."""
     routed = state.get("routed") if isinstance(state.get("routed"), dict) else {}
     skill_id = str(routed.get("skill") or "")
+    knowledge_reason = next(
+        (
+            str(report.get("decision_reason") or "")
+            for report in state.get("specialist_reports") or []
+            if isinstance(report, dict) and report.get("specialist_id") == "knowledge"
+        ),
+        "knowledge_lane_idle",
+    )
     decisions = [
         (
             "specialist.skill",
@@ -229,7 +238,7 @@ def _record_parallel_specialist_decisions(state: ResourcePlannerGraphState) -> R
         ),
         (
             "specialist.knowledge",
-            "knowledge_lane_idle_or_rag",
+            knowledge_reason,
             "specialist:knowledge",
             ["evidence_plan"],
             ["specialist_reports"],
@@ -356,10 +365,10 @@ def rp_node_specialist_skill(state: ResourcePlannerGraphState) -> ResourcePlanne
 
 
 def rp_node_specialist_knowledge(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
-    report = KnowledgeSpecialistReport(
-        delegation_id="del:knowledge",
-        decision_reason="knowledge_lane_idle_or_rag",
-        reference_domains=[],
+    intent = state.get("intent_classification")
+    report = build_knowledge_audit_report(
+        intent_classification=intent if isinstance(intent, dict) else None,
+        evidence_plan=_evidence_plan(state),
     ).model_dump()
     return {"specialist_reports": [report]}
 

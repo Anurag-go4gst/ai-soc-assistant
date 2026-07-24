@@ -9238,7 +9238,50 @@ def _reference_resolution_needed(evidence_plan: dict | None) -> bool:
     return "reference_taxonomy_lookup" in {str(item) for item in evidence_plan.get("reasons") or []}
 
 
-def _resolve_reference_knowledge(query: str, *, limit: int = 10) -> dict[str, Any]:
+# Reference dataset → knowledge-lane domain, for scoping keyword search when the
+# validated bundle carries specialist ``reference_domains`` enrichments.
+_REFERENCE_DATASET_DOMAINS: dict[str, str] = {
+    "mitre_attack_enterprise": "mitre",
+    "mitre_atlas": "atlas",
+    "cve": "cve",
+}
+
+
+def _reference_dataset_allowed(dataset_id: str, reference_domains: list[str] | None) -> bool:
+    """Keyword-search scope: unrestricted unless specific domains were merged."""
+    if not reference_domains or "reference_lookup" in reference_domains:
+        return True
+    domain = _REFERENCE_DATASET_DOMAINS.get(dataset_id)
+    return domain is None or domain in reference_domains
+
+
+def _knowledge_reference_domains(evidence_plan: dict | None) -> list[str]:
+    """Specialist ``reference_domains`` enrichments synced from the validated bundle."""
+    if not isinstance(evidence_plan, dict):
+        return []
+    plan = evidence_plan.get("resource_plan")
+    steps = plan.get("steps") if isinstance(plan, dict) else None
+    domains: list[str] = []
+    for step in steps or []:
+        if not isinstance(step, dict):
+            continue
+        if str(step.get("purpose") or "") not in {"knowledge_retrieval", "cve_lookup", "mitre_mapping"}:
+            continue
+        args = step.get("args_template")
+        raw = args.get("reference_domains") if isinstance(args, dict) else None
+        for item in raw or []:
+            domain = str(item)
+            if domain and domain not in domains:
+                domains.append(domain)
+    return domains
+
+
+def _resolve_reference_knowledge(
+    query: str,
+    *,
+    limit: int = 10,
+    reference_domains: list[str] | None = None,
+) -> dict[str, Any]:
     from app.planner.reference_registry import ReferenceFact, load_reference_registry
 
     registry = load_reference_registry()
@@ -9264,7 +9307,9 @@ def _resolve_reference_knowledge(query: str, *, limit: int = 10) -> dict[str, An
                     raw={"status": "not_found"},
                 )
             )
-    for dataset_facts in registry.search_keywords(query, limit=limit).values():
+    for dataset_id, dataset_facts in registry.search_keywords(query, limit=limit).items():
+        if not _reference_dataset_allowed(dataset_id, reference_domains):
+            continue
         facts.extend(dataset_facts)
 
     deduped: list[ReferenceFact] = []
@@ -9294,7 +9339,14 @@ def _append_reference_source_evidence(
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     if not _reference_resolution_needed(evidence_plan):
         return source_evidence, reference_resolution
-    resolution = reference_resolution if isinstance(reference_resolution, dict) else _resolve_reference_knowledge(query)
+    resolution = (
+        reference_resolution
+        if isinstance(reference_resolution, dict)
+        else _resolve_reference_knowledge(
+            query,
+            reference_domains=_knowledge_reference_domains(evidence_plan),
+        )
+    )
     rows = [dict(item) for item in resolution.get("facts") or [] if isinstance(item, dict)]
     item = build_provider_source_evidence(
         trace_id=trace_id,
@@ -9341,7 +9393,10 @@ def _reference_lookup_summary(
 
 def graph_node_reference_finalize(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("reference_finalize")
-    resolution = _resolve_reference_knowledge(str(state.get("effective_query") or state["request"].message))
+    resolution = _resolve_reference_knowledge(
+        str(state.get("effective_query") or state["request"].message),
+        reference_domains=_knowledge_reference_domains(state.get("evidence_plan")),
+    )
     updated = {**state, "reference_resolution": resolution}
     return advance_dispatch_cursor(updated, PipelineStage.reference_finalize)
 
