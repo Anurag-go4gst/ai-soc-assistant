@@ -87,8 +87,8 @@ def test_langgraph_flag_on_matches_imperative_core_fields(monkeypatch: pytest.Mo
     assert "parity mode" not in graph_note
 
 
-def test_langgraph_graph_compiles() -> None:
-    from app.graph.chat_workflow import _compiled_chat_graph
+def test_resource_planner_graph_compiles() -> None:
+    from app.graph.resource_planner_graph import _compiled_resource_planner_graph
 
-    graph = _compiled_chat_graph()
+    graph = _compiled_resource_planner_graph()
     assert graph is not None
