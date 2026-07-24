@@ -294,11 +294,11 @@ cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource
 
 - [ ] **12** — Retire independent imperative and linear LangGraph runners _(highest blast-radius — decompose into 12a–12d before coding; do not implement as a single PR)_
 
-- [ ] **12a** — Imperative compatibility facade
+- [x] **12a** — Imperative compatibility facade
   - **Do:** Make `build_live_chat_response()` a thin RP-graph wrapper or documented compatibility facade. Preserve `entrypoint=rp_fallback` one-level semantics and the **7g** re-entry guard (`guard_rp_imperative_fallback`). No second orchestration implementation in the facade body. **Post-retirement fallback semantics:** when RP graph returns `response=None` or pre-finalize failure, facade emits an explicit **degraded** `PlaceholderResponse` (honest note, no SPL/MCP execution) — it must **not** re-invoke RP graph or recurse through `rp_fallback` into a second full pipeline. Transitional period (items 11–12b): documented imperative shim may still exist for rollback only.
   - **Verify:** `rg -n "def build_live_chat_response|_run_live_chat_pipeline" backend/app/chat/pipeline.py backend/app/graph/resource_planner_graph.py`; targeted pytest on route wiring + RP fallback tests green
   - **Depends on:** 11, 7g
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-07-24 — `build_rp_degraded_placeholder_response()` added; `run_chat_via_resource_planner_graph` + `entrypoint=rp_fallback` return degraded facade (no `_run_live_chat_pipeline`); `rg` anchors present; `pytest app/tests/test_resource_planner_route_wiring.py -k "rp_fallback or invoke or degraded or unhandled_exception" -q` → **6 passed** (`test_rp_none_response_uses_degraded_facade_without_imperative_pipeline`, `test_rp_fallback_entrypoint_returns_degraded_facade_without_imperative_pipeline`).
 
 - [ ] **12b** — Migrate tests off imperative-vs-linear parity (batched)
   - **Do:** Migrate tests in batches from `build_live_chat_response` / `run_chat_via_langgraph` imperative-vs-linear parity to RP-graph regression. One batch per PR; record batch list and remaining imports in Drift Log after each batch.
@@ -333,7 +333,7 @@ No current plan-structure gaps. Items **0–11** are checked with evidence (item
 | 2026-07-24 | Item **9** follow-ups: `required_evidence_keys` domain map, `rp_node_prepare_rag_only` bundle sync, RAG-vs-reference consumer boundary documented, architecture §6.1 updated; 17 audit tests + item-10 readiness table in plan. |
 | 2026-07-23 | **B1/B3** code fixes: ContextVar invoke guard + validated-bundle decision_log on reject. **7h** added for `probe.unsafe.block_and_run`. Item **12a** defines degraded-response fallback semantics. |
 | 2026-07-24 | Item **10** completed as COE-approved cutover proposal: RP graph is the one production spine, B2 policy is fail-loud/no hidden imperative fallback, rollback is `LANGGRAPH_ORCHESTRATION_ENABLED=false` + process restart, and item **11** must satisfy the traffic-pattern matrix plus metrics/trace contract. |
-| 2026-07-24 | Item **11** shipped: `langgraph_orchestration_enabled` default **true**; RP orchestration note drops `(parity mode)`; exception-policy tests `test_rp_default_unhandled_exception_fails_loud_without_imperative_fallback` + `test_rp_stream_unhandled_exception_emits_failed_event`; `policy_veto` no longer forces `human_review.required` from `requires_hil` (guided notice parity); governance regression PASS 4208 pytest + 11/11 intent + 94 matrix slice. |
+| 2026-07-24 | Item **12a** shipped: `build_rp_degraded_placeholder_response()` replaces imperative `rp_fallback` re-run; `response=None` → honest degraded card (`path_type=rp_degraded_facade`, no SPL/MCP); rollback imperative unchanged when `LANGGRAPH_ORCHESTRATION_ENABLED=false`. |
 
 ## Residual Risk To Watch
 

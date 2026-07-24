@@ -23,7 +23,7 @@ from app.chat.decision_record import emit_decision_record
 from app.chat.final_answer_validator import validate_final_answer
 from app.chat.pipeline import (
     ChatPipelineState,
-    build_live_chat_response,
+    build_rp_degraded_placeholder_response,
     finalize_chat_trace_from_state,
     graph_node_composed_dispatch,
     graph_node_context_finalize,
@@ -817,12 +817,21 @@ def run_chat_via_resource_planner_graph(
         final_state = run_resource_planner_graph(request, session_role=session_role)
         response = final_state.get("response")
         if response is None:
-            return build_live_chat_response(
+            degraded = build_rp_degraded_placeholder_response(
                 request,
-                progress=progress,
+                state=final_state,
                 session_role=session_role,
                 entrypoint="rp_fallback",
+                reason="graph_response_missing",
             )
+            finalize_chat_trace_from_state(
+                final_state,
+                degraded,
+                started_at=started_at,
+                session_role=session_role,
+                entrypoint=entrypoint,
+            )
+            return degraded
         note = response.note or ""
         suffix = "Orchestration: resource_planner_hierarchy."
         if suffix not in note:

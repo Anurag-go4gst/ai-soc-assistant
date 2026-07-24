@@ -443,6 +443,62 @@ class ChatPipelineState(TypedDict, total=False):
     response: PlaceholderResponse
 
 
+_RP_DEGRADED_MESSAGE = (
+    "The Resource Planner graph stopped before a response could be finalized. "
+    "No SPL, MCP execution, or synthesis was performed."
+)
+_RP_DEGRADED_NOTE = (
+    "Resource Planner graph did not produce a finalized answer; degraded facade only. "
+    "Orchestration: resource_planner_hierarchy."
+)
+
+
+def build_rp_degraded_placeholder_response(
+    request: ChatRequest,
+    *,
+    state: ChatPipelineState | None = None,
+    session_role: str | None = None,
+    entrypoint: str = "rp_fallback",
+    reason: str = "response_missing",
+) -> PlaceholderResponse:
+    """Honest degraded card when RP graph completes without a finalized response.
+
+    Item 12a: must not re-enter RP graph or run the legacy imperative pipeline.
+    """
+    trace_id = str((state or {}).get("trace_id") or current_trace_id() or uuid4())
+    selected_skill = None
+    routed = (state or {}).get("routed") if isinstance(state, dict) else None
+    if isinstance(routed, dict):
+        selected_skill = routed.get("skill")
+    response = PlaceholderResponse(
+        trace_id=trace_id,
+        turn_id=str(uuid4()),
+        message=_RP_DEGRADED_MESSAGE,
+        note=_RP_DEGRADED_NOTE,
+        user_query=request.message,
+        selected_skill=selected_skill,
+        response_mode="insufficient_evidence",
+        answer_readiness="blocked",
+        response_packaging_status="blocked_review_required",
+        fallback_active=True,
+        execution=None,
+        candidate_spl=None,
+        spl_validation=None,
+        planning_decision={
+            "path_type": "rp_degraded_facade",
+            "execution_enabled": False,
+            "hil_required": True,
+            "degraded_reason": reason,
+            "entrypoint": entrypoint,
+        },
+    )
+    if isinstance(state, dict):
+        from app.chat.control_plane_trace import patch_control_plane_trace_decision_log
+
+        response = patch_control_plane_trace_decision_log(response, state)
+    return response
+
+
 def build_live_chat_response(
     request: ChatRequest,
     *,
@@ -450,6 +506,11 @@ def build_live_chat_response(
     session_role: str | None = None,
     entrypoint: str = "chat",
 ) -> PlaceholderResponse:
+    """Rollback orchestration when ``LANGGRAPH_ORCHESTRATION_ENABLED=false``.
+
+    ``entrypoint=rp_fallback`` is the item-12a degraded facade only (no imperative
+    re-run). Production ``/chat`` uses ``run_chat_via_resource_planner_graph``.
+    """
     token = bind_progress_reporter(progress) if progress is not None else None
     try:
         return _build_live_chat_response_inner(request, session_role=session_role, entrypoint=entrypoint)
@@ -467,11 +528,18 @@ def _build_live_chat_response_inner(
 ) -> PlaceholderResponse:
     if entrypoint.startswith("rp_"):
         # ``routes_chat`` is the sole orchestration selector. RP graph fallbacks
-        # must stay on the imperative pipeline and never re-enter
-        # ``run_chat_via_resource_planner_graph`` (recursion when flag is on).
+        # must stay on the degraded facade and never re-enter RP orchestration or
+        # the legacy imperative pipeline (item 12a).
         from app.graph.resource_planner_graph import guard_rp_imperative_fallback
 
         guard_rp_imperative_fallback(entrypoint)
+        if entrypoint == "rp_fallback":
+            return build_rp_degraded_placeholder_response(
+                request,
+                session_role=session_role,
+                entrypoint=entrypoint,
+                reason="rp_fallback_facade",
+            )
     started_at = datetime.now(UTC)
     state: ChatPipelineState | None = None
     try:

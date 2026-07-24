@@ -118,57 +118,47 @@ def test_resource_planner_graph_matches_linear_langgraph_core_fields(
     assert rp.execution.status == linear.execution.status
 
 
-def test_rp_fallback_uses_imperative_entrypoint_without_recursion(
+def test_rp_none_response_uses_degraded_facade_without_imperative_pipeline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    captured: dict[str, str] = {}
+    imperative_calls: list[str] = []
 
-    def _fake_build(request: ChatRequest, **kwargs: object) -> object:
-        captured["entrypoint"] = str(kwargs.get("entrypoint") or "")
-        from app.schemas.responses import PlaceholderResponse
-
-        return PlaceholderResponse(
-            trace_id="trace-rp-fallback",
-            message="fallback",
-            note="imperative fallback",
-            user_query=request.message,
-        )
+    def _imperative_must_not_run(*args: object, **kwargs: object) -> object:
+        imperative_calls.append("called")
+        raise AssertionError("legacy imperative pipeline must not run on RP response=None")
 
     monkeypatch.setattr(
-        "app.graph.resource_planner_graph.build_live_chat_response",
-        _fake_build,
+        "app.chat.pipeline._run_live_chat_pipeline",
+        _imperative_must_not_run,
     )
     monkeypatch.setattr(
         "app.graph.resource_planner_graph.run_resource_planner_graph",
-        lambda *args, **kwargs: {"response": None},
+        lambda *args, **kwargs: {"response": None, "trace_id": "trace-rp-none"},
     )
 
-    run_chat_via_resource_planner_graph(ChatRequest(message=REF_QUERY))
+    response = run_chat_via_resource_planner_graph(ChatRequest(message=REF_QUERY))
 
-    assert captured.get("entrypoint") == "rp_fallback"
+    assert imperative_calls == []
+    assert response.planning_decision.get("path_type") == "rp_degraded_facade"
+    assert response.execution is None
+    assert response.candidate_spl is None
+    assert "degraded facade" in (response.note or "").lower()
 
 
-def test_imperative_rp_fallback_entrypoint_does_not_reenter_rp_graph(
+def test_rp_fallback_entrypoint_returns_degraded_facade_without_imperative_pipeline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(settings, "langgraph_orchestration_enabled", True)
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
-    monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
-    monkeypatch.setattr(
-        "app.chat.pipeline.retrieve_soc_kb",
-        lambda **kwargs: {
-            "retrieval_status": "collected",
-            "chunks": [{"doc_id": "atlas-aml-t0043", "title": "AML.T0043"}],
-            "required_sources": kwargs.get("required_sources") or [],
-        },
-    )
 
     def _boom(*args: object, **kwargs: object) -> object:
-        raise AssertionError("RP graph must not run during rp_fallback imperative path")
+        raise AssertionError("legacy imperative pipeline must not run for rp_fallback entrypoint")
 
+    monkeypatch.setattr("app.chat.pipeline._run_live_chat_pipeline", _boom)
     monkeypatch.setattr(
         "app.graph.resource_planner_graph.run_chat_via_resource_planner_graph",
-        _boom,
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("RP graph must not run during rp_fallback facade")
+        ),
     )
 
     from app.chat.pipeline import build_live_chat_response
@@ -176,6 +166,7 @@ def test_imperative_rp_fallback_entrypoint_does_not_reenter_rp_graph(
     with sentinel_runtime():
         response = build_live_chat_response(ChatRequest(message=REF_QUERY), entrypoint="rp_fallback")
 
+    assert response.planning_decision.get("path_type") == "rp_degraded_facade"
     assert response.message
 
 
