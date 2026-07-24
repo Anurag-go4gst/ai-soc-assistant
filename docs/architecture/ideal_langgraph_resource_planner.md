@@ -4,8 +4,10 @@ Canonical plan: `plans/2026-07-23_1305_ideal-langgraph-resource-planner.md`.
 
 This document is the architecture narrative for the hierarchical LangGraph under the
 **Resource Planner** apex. Specialists propose; code workers execute; governance nodes
-veto unsafe actions. `/chat` can run this topology when `LANGGRAPH_ORCHESTRATION_ENABLED=true`
-(item 13); the imperative path remains default when the flag is false.
+veto unsafe actions. **Production default (2026-07-24):** `/chat` and `/chat/stream` run this
+topology when `LANGGRAPH_ORCHESTRATION_ENABLED=true` (config default). Rollback requires
+`false` **plus process restart**. Linear LangGraph is retired from production entrypoints
+(`chat/linear_graph_legacy.py` harness only).
 
 ---
 
@@ -86,18 +88,19 @@ The hierarchy **extends** existing planner surfaces; it does not fork parallel t
 | Hierarchy contracts | `backend/app/planner/planner_hierarchy.py` | Specialist / bundle / iteration models |
 | Catalogue adapter | `backend/app/catalogue/match_tiers.py` + `live_router_bind.py` | T0–T4 tiers; live router fill-blanks bind in `graph_node_query_to_intent` |
 
-**Cutover status (items 9–15, 2026-07-23):**
+**Cutover status (north-star complete, 2026-07-24):**
 
 | Area | Status |
 |------|--------|
-| `/chat` route wiring | **Done** — RP graph default when `LANGGRAPH_ORCHESTRATION_ENABLED=true` (item 11); `false` + restart → imperative rollback |
-| Imperative default | **Rollback only** — flag off → `build_live_chat_response` until item **12a** facade |
-| Imperative retirement | **Out of scope** — separate explicit gate |
-| Live catalogue router swap | **Done** (north-star item 2) — `apply_live_catalogue_bind()` fill-blanks only |
-| Catalogue surface agreement | **Done** (north-star item 7c) — `test_catalogue_bind_surface_agreement.py` |
-| Validated WorkBundle workers | **Done** (north-star item 7c) — workers read `validated_work_bundle` only |
-| Single-runner invariant | **Done** (north-star item 7g) — RP fallback uses `entrypoint=rp_fallback` |
-| Deterministic knowledge specialist | **Done** (north-star item 9) — `knowledge_specialist.py` audits plan vs intent; merge fill-blanks; reference keyword scoping only |
+| `/chat` route wiring | **Done** — RP graph default (`LANGGRAPH_ORCHESTRATION_ENABLED=true`); `false` + restart → temporary rollback facade |
+| Imperative runner | **Retired from production spine** — `build_live_chat_response` is rollback/compat only; degraded facade on `response=None` |
+| Linear LangGraph | **Retired** from `api`/`graph` `/chat` entry — `chat/linear_graph_legacy.py` test harness only |
+| Live catalogue router swap | **Done** — `apply_live_catalogue_bind()` fill-blanks only |
+| Catalogue surface agreement | **Done** — `test_catalogue_bind_surface_agreement.py` |
+| Validated WorkBundle workers | **Done** — workers read `validated_work_bundle` only |
+| Single-runner invariant | **Done** — `entrypoint=rp_fallback` + ContextVar re-entry guard |
+| Deterministic knowledge specialist | **Done** — `knowledge_specialist.py` audits plan vs intent; reference keyword scoping only |
+| LLM-primary specialist planning | **Deferred** — no specialist LLM adapter calls |
 | New env flags | **Not added** — `AI_SOC_RESOURCE_PLANNER_GRAPH_ENABLED` rejected by design |
 
 Shadow enrichment still uses `AI_SOC_LANGGRAPH_SHADOW_ENABLED` for planner-led shadow runs.
@@ -181,7 +184,10 @@ cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource
 8. **Governance** — full chain through `policy_veto` → `finalize` → `validate_final_answer`.
 9. **Decision log** — specialist records emitted in stable order at merge; synced to `control_plane_trace.decision_log`.
 
-**Production default (item 11):** RP graph is the live `/chat` spine when `LANGGRAPH_ORCHESTRATION_ENABLED=true` (config default). Set `false` and restart workers to roll back to imperative `build_live_chat_response()` until item **12a** retires the second runner.
+**Production default (north-star complete):** RP graph is the live `/chat` spine when
+`LANGGRAPH_ORCHESTRATION_ENABLED=true` (config default). Set `false` and restart workers to
+roll back to the temporary imperative facade. Linear LangGraph is not a production `/chat`
+entry.
 
 ### 6.2 Walkthrough: OT outbound hunt
 

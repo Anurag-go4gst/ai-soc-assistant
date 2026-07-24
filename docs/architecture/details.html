@@ -1121,6 +1121,7 @@
       <a href="#script">Meeting script ★</a>
       <a href="#s1">1 · Traversal</a>
       <a href="#s2">2 · Diagram</a>
+      <a href="#s2a">2a · Resource Planner ★</a>
       <a href="#s2b">2b · RunContract ✦</a>
       <a href="#s2c">2c · Dispatch V2 ✦</a>
       <a href="#s8c">Sidecar pipeline ✦</a>
@@ -1141,9 +1142,10 @@
         <div class="eyebrow">AI SOC Assistant · Query Flow Explainer</div>
         <h1>How a SOC question travels through the governed assistant</h1>
         <p class="subtitle">
-          Implementation-accurate walkthrough of the live <code>/chat</code> pipeline: Query Understanding, 105 taxonomy, use-case catalog,
-          five route skills (including guided investigation rescue), resource planning, the Stage&nbsp;4B evidence-collection loop,
-          safety gates, Knowledge-page detection coverage, and analyst answer cards.
+          Implementation-accurate walkthrough of the live <code>/chat</code> pipeline under the <strong>Resource Planner</strong> graph spine:
+          Query Understanding, 105 taxonomy, use-case catalog, five route skills (including guided investigation rescue),
+          parallel specialist fan-out, the Stage&nbsp;4B evidence-collection loop, safety gates, Knowledge-page detection coverage,
+          and analyst answer cards. Updated 2026-07-24 after the north-star cutover.
         </p>
       </div>
       <div class="hero-card">
@@ -1157,6 +1159,7 @@
           <span class="pill">SPL review-only</span>
           <span class="pill">MCP gated</span>
           <span class="pill">MITRE governed</span>
+          <span class="pill">RP graph default</span>
           <span class="pill">RunContract canonical</span>
           <span class="pill">Dispatch V2 (flag-off)</span>
           <span class="pill">4B evidence loop</span>
@@ -1177,7 +1180,7 @@
       <div class="card">
         <div class="script-step">
           <span class="n">1</span>
-          <p>“Every SOC question travels the <strong>same governed pipeline</strong> — ten <code>pipeline.py</code> nodes (§1, §2). It is not a free-form agent: deterministic policy owns routing, SPL approval, MCP execution, MITRE status, and severity. The LLM only advises and narrates.”</p>
+          <p>“Every SOC question travels the <strong>same governed Resource Planner spine</strong> — <code>resource_planner_graph.py</code> orchestrates the ten <code>graph_node_*</code> workers (§1, §2, §2a). It is not a free-form agent: deterministic policy owns routing, SPL approval, MCP execution, MITRE status, and severity. The LLM only advises and narrates. Response notes show <code>Orchestration: resource_planner_hierarchy</code>.”</p>
         </div>
         <div class="script-step">
           <span class="n">2</span>
@@ -1266,7 +1269,7 @@
         <div>
           <h2 id="s2">2. Architecture diagram with decision branches <span class="badge-new">rebuilt</span></h2>
           <p>
-            The real live <code>/chat</code> traversal — ten <code>pipeline.py</code> nodes with their actual branches: the five query-understanding match paths, the five live route skills, the three dispatch paths, SPL source-resolve, gated multi-call MCP, and the governed LLM sidecar lane. Each box names its node and marks where authority is <span class="tag det" style="margin:0 2px">deterministic</span> vs where the <span class="tag llm" style="margin:0 2px">LLM</span> only advises or narrates.
+            The real live <code>/chat</code> traversal under the Resource Planner graph — the same ten <code>graph_node_*</code> workers with their actual branches: the five query-understanding match paths, the five live route skills, the three dispatch paths, SPL source-resolve, gated multi-call MCP, and the governed LLM sidecar lane. Each box names its node and marks where authority is <span class="tag det" style="margin:0 2px">deterministic</span> vs where the <span class="tag llm" style="margin:0 2px">LLM</span> only advises or narrates. Orchestration topology is in <a href="#s2a">§2a</a>.
           </p>
         </div>
       </div>
@@ -1417,7 +1420,7 @@
         </div>
 
         <div class="diagram-legend">
-          <span class="legend-item"><span class="dot"></span> 1–10 = live <code>pipeline.py</code> node order</span>
+          <span class="legend-item"><span class="dot"></span> 1–10 = live worker node order (RP graph schedules these)</span>
           <span class="legend-item"><span class="dot" style="background:#0891b2"></span> 5B = Stage 4B discovery hops (when loop on)</span>
           <span class="legend-item"><span class="dot" style="background:#16a34a"></span> M1–M5 = query-understanding match paths</span>
           <span class="legend-item"><span class="dot" style="background:#475569"></span> S1–S5 = the five live route skills</span>
@@ -1427,8 +1430,79 @@
         <div class="note warn-note" style="margin-top: 18px;">
           <strong>Authority is deterministic at every node.</strong> The LLM only suggests routes (shadow), proposes SPL / plan candidates (validated), and rewrites prose (guarded). It never selects the final route, sets severity / MITRE status / SPL approval / <code>execution_eligible</code>, or runs an MCP tool. <strong>Exception (guided hybrid flag on):</strong> inside <code>guided_hybrid_dispatch</code> an optional LLM proposal can enrich the InvestigationPlan — still not route authority; Validator A + Resource Planner + Validator B enforce capability gates before any collection. Safe-catalog evidence is surfaced on dedicated AnswerContract fields (<code>guided_collection_posture</code>, <code>safe_catalog_evidence_summary</code>) — not generic <code>spl_execution_eligible</code>. Guided rescue uses <code>primary_intent=investigation_guidance</code> and keeps the out-of-catalog notice (no turn-blocking HIL). Every LLM failure falls back to the deterministic answer.
         </div>
-        <div class="note" style="margin-top: 12px;">
-          <strong>Live runner:</strong> default <code>/chat</code> uses the <strong>imperative</strong> node sequence in <code>pipeline.py</code> (<code>LANGGRAPH_ORCHESTRATION_ENABLED=false</code>) for session-context parity. The same <code>graph_node_*</code> functions also wire into a cyclic LangGraph topology when orchestration is explicitly enabled — see <a href="#s4b">§4B</a>.
+        <div class="note success-note" style="margin-top: 12px;">
+          <strong>Live runner (2026-07-24):</strong> default <code>/chat</code> and <code>/chat/stream</code> use the <strong>Resource Planner LangGraph</strong>
+          (<code>run_chat_via_resource_planner_graph</code> (<code>LANGGRAPH_ORCHESTRATION_ENABLED=true</code>, config default).
+          The same <code>graph_node_*</code> workers execute under RP schedule. Rollback: set the flag <code>false</code> <em>and restart</em> backend workers
+          (settings are a module singleton). Linear LangGraph is retired from production (<code>chat/linear_graph_legacy.py</code> harness only). See <a href="#s2a">§2a</a> and <a href="#s4b">§4B</a>.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s2a">2a. Resource Planner hierarchy — production spine <span class="badge-new">cutover</span></h2>
+          <p>
+            North-star cutover (<code>plans/2026-07-23_1315_resource-planner-north-star-cutover.md</code>, Done).
+            One production orchestration spine; specialists propose; code workers execute; governance vetoes unsafe actions.
+            Narrative companion: <code>docs/architecture/ideal_langgraph_resource_planner.md</code>.
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="grid-3">
+          <div class="mini-card blue">
+            <h3>RP graph default</h3>
+            <p><code>routes_chat</code> / <code>routes_chat_stream</code> call <code>run_chat_via_resource_planner_graph</code> when
+            <code>LANGGRAPH_ORCHESTRATION_ENABLED=true</code>. Analyst-visible note:
+            <code>Orchestration: resource_planner_hierarchy.</code> (no “parity mode”).</p>
+          </div>
+          <div class="mini-card green">
+            <h3>Parallel specialists</h3>
+            <p>LangGraph <code>Send</code> fan-out: Skill · Knowledge · MCP · SPL. Merge sorts reports, runs
+            <code>apply_specialist_reports()</code>, then writes <code>validated_work_bundle</code> only after
+            <code>validate_bundle_policy_parity()</code>.</p>
+          </div>
+          <div class="mini-card purple">
+            <h3>Catalogue live bind</h3>
+            <p><code>match_catalogue_tier()</code> + <code>live_router_bind.py</code> fill blanks in
+            <code>graph_node_query_to_intent</code> (e.g. typo <code>lgon</code> → <code>auth_failed_login_spike</code>).
+            COE/manual slots and non-SOC guards still win.</p>
+          </div>
+        </div>
+
+        <div class="note" style="margin-top:18px;">
+          <strong>Topology (v1 Option A):</strong>
+          bootstrap → Resource Planner delegate → parallel specialists → RP merge → code workers
+          (<code>graph_node_*</code> → governance (SPL validate, MCP gate, HIL, policy veto) → finalize →
+          <code>validate_final_answer</code>. Specialists enrich owned <code>args_template</code> fields only;
+          they do not revise route, intent, or evidence-plan authority. LLM-primary specialist planning is deferred.
+        </div>
+
+        <div class="grid-2" style="margin-top:18px;">
+          <div class="mini-card">
+            <h3>Fail-loud policy (B2)</h3>
+            <p>Unhandled RP defects on <code>/chat</code> return a sanitized HTTP 500 with <code>chat_pipeline_failed</code> telemetry.
+            Stream emits <code>reporter.failed</code>. There is <strong>no</strong> silent catch-and-fallback to a second full runner.
+            <code>response=None</code> uses the degraded facade (<code>build_rp_degraded_placeholder_response</code>), not a recursive pipeline.</p>
+          </div>
+          <div class="mini-card">
+            <h3>Rollback + retirement</h3>
+            <p>Operational rollback: <code>LANGGRAPH_ORCHESTRATION_ENABLED=false</code> + process restart → temporary
+            <code>build_live_chat_response</code> path. Linear LangGraph removed from <code>api</code>/<code>graph</code>
+            (<code>/chat</code> entrypoints; legacy harness only. Debug traces list RP <code>decision_log</code> nodes
+            (<code>resource_planner.delegate</code> → <code>specialist.*</code> → <code>resource_planner.merge</code> on live turns.</p>
+          </div>
+        </div>
+
+        <div class="note success-note" style="margin-top:18px;">
+          <strong>Dry-run matrix (ask_chat, 2026-07-24):</strong>
+          typo failed-login → <code>spl_generation</code> / <code>auth_failed_login_spike</code> (candidate only, HIL);
+          ransomware playbook → <code>knowledge_recall</code> (no SPL);
+          OT overnight hunt → <code>guided_investigation</code> (no MCP exec);
+          MITRE without alert → <code>intent_clarification</code>. All four showed RP orchestration note on
+          <code>POST /chat</code>.
         </div>
       </div>
     </section>
@@ -1542,7 +1616,9 @@
         </table>
 
         <div class="note warn-note" style="margin-top:18px;">
-          <strong>Posture:</strong> all 12 phases are implemented and governance-green, but <code>AI_SOC_PIPELINE_DISPATCH_V2_ENABLED</code> stays <code>false</code> — the imperative <code>pipeline.py</code> sequence (§2) remains the live path and MCP execution flags are unchanged. V2 is a shadow/preview lane until COE approves promotion. Nothing in this section changes today’s answers.
+          <strong>Posture:</strong> all 12 phases are implemented and governance-green, but <code>AI_SOC_PIPELINE_DISPATCH_V2_ENABLED</code> stays <code>false</code> —
+          Dispatch V2 remains a shadow/preview lane until COE approves promotion. Live orchestration is the Resource Planner graph (§2a);
+          V2 does not replace that spine and MCP execution flags are unchanged. Nothing in this section changes today’s answers.
         </div>
       </div>
     </section>
