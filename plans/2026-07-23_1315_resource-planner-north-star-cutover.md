@@ -1,7 +1,7 @@
 ---
 name: resource-planner-north-star-cutover
 overview: "Close the residual Resource Planner gaps: live catalogue routing, merged specialist proposals, parallel specialist fan-out, optional LLM-primary planning, and eventual single-runner cutover."
-status: in_progress
+status: done
 date: 2026-07-23
 canonical_plan: plans/2026-07-23_1315_resource-planner-north-star-cutover.md
 ---
@@ -14,17 +14,24 @@ Complete the work intentionally deferred by `plans/2026-07-23_1305_ideal-langgra
 
 Items 2-7 deliver the main analyst-visible behavior. The full objective is only complete after item 12 retires the independent imperative and linear LangGraph runners.
 
-## Current Baseline
+## Current Baseline (post-cutover, 2026-07-24)
 
-| Area | Current state to preserve or change |
-|------|-------------------------------------|
-| Default runtime | `LANGGRAPH_ORCHESTRATION_ENABLED=false` still uses imperative `build_live_chat_response()` |
-| Opt-in RP graph | `LANGGRAPH_ORCHESTRATION_ENABLED=true` routes `/chat` and `/chat/stream` through `resource_planner_graph.py` |
-| Linear LangGraph | `chat_workflow.py` still exists for parity/shadow comparisons |
+| Area | Current state |
+|------|---------------|
+| Default runtime | `LANGGRAPH_ORCHESTRATION_ENABLED=true` (config default); `/chat` and `/chat/stream` use `resource_planner_graph.py` |
+| Rollback | `LANGGRAPH_ORCHESTRATION_ENABLED=false` **plus process restart** → imperative `build_live_chat_response()` only |
+| Linear LangGraph | Retired from production: `graph/chat_workflow.py` removed; test harness at `chat/linear_graph_legacy.py` (not an `/chat` entry) |
+| Orchestration selector | `routes_chat` / `routes_chat_stream` only — no independent linear or imperative runner in production paths |
 | Catalogue adapter | `match_catalogue_tier()` + `live_router_bind.py` wired into `graph_node_query_to_intent` (fill-blanks) |
 | Specialist merge | `rp_node_resource_planner_merge()` calls `build_planner_iteration()` → `apply_specialist_reports()` |
 | Specialist dispatch | Parallel LangGraph `Send` fan-out; stable-order merge |
 | LLM planning | Existing LLM surfaces remain advisory; deterministic authority still wins |
+
+### Code defaults vs COE/dev container posture
+
+**Code/repo defaults** (what ships in `config.py` / `.env.example`): RP graph on; `CONTROL_PLANE_ENABLED=false`; MCP global execution **false**; live Splunk URL/token blank; LLM final synthesis/answer guard **false**.
+
+**COE/dev runtime** may override via `.env` (e.g. `CONTROL_PLANE_ENABLED=true`, mock MCP execution flags on, live LLM synthesis on). That is operator configuration, not a plan invariant change. Mitigations that remain in dev: `MCP_MODE=mock`, SPL confirmation/HIL on, `catalogue_auto_execute=false`, no live Splunk credentials unless explicitly set.
 
 ## Governance Invariants
 
@@ -292,7 +299,7 @@ cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource
   - **Depends on:** 10
   - **Evidence:** 2026-07-24 — exception-policy slice **4 passed** (`test_rp_default_unhandled_exception_fails_loud_without_imperative_fallback`, `test_rp_stream_unhandled_exception_emits_failed_event`, plus `rp_fallback` guards); traffic-matrix pytest bundle **94 passed**; intent probe **11/11 PASS**; `./scripts/run_stage3_governance_regression.sh` **PASS** (backend pytest **4208 passed**, harness 6/6, sentinel 17/17). Default flip: `langgraph_orchestration_enabled=True` in `config.py` + `.env.example`; RP note now `Orchestration: resource_planner_hierarchy.` (no `(parity mode)`). Parity fix: removed `policy_veto` `requires_hil`→`human_review.required` coercion so guided/out-of-catalog `out_of_catalog_notice` matches imperative finalize; imperative-path tests pin `langgraph_orchestration_enabled=False` where they mock legacy hooks.
 
-- [ ] **12** — Retire independent imperative and linear LangGraph runners _(highest blast-radius — decompose into 12a–12d before coding; do not implement as a single PR)_
+- [x] **12** — Retire independent imperative and linear LangGraph runners _(highest blast-radius — decompose into 12a–12d before coding; do not implement as a single PR)_
 
 - [x] **12a** — Imperative compatibility facade
   - **Do:** Make `build_live_chat_response()` a thin RP-graph wrapper or documented compatibility facade. Preserve `entrypoint=rp_fallback` one-level semantics and the **7g** re-entry guard (`guard_rp_imperative_fallback`). No second orchestration implementation in the facade body. **Post-retirement fallback semantics:** when RP graph returns `response=None` or pre-finalize failure, facade emits an explicit **degraded** `PlaceholderResponse` (honest note, no SPL/MCP execution) — it must **not** re-invoke RP graph or recurse through `rp_fallback` into a second full pipeline. Transitional period (items 11–12b): documented imperative shim may still exist for rollback only.
@@ -300,27 +307,27 @@ cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource
   - **Depends on:** 11, 7g
   - **Evidence:** 2026-07-24 — `build_rp_degraded_placeholder_response()` added; `run_chat_via_resource_planner_graph` + `entrypoint=rp_fallback` return degraded facade (no `_run_live_chat_pipeline`); `rg` anchors present; `pytest app/tests/test_resource_planner_route_wiring.py -k "rp_fallback or invoke or degraded or unhandled_exception" -q` → **6 passed** (`test_rp_none_response_uses_degraded_facade_without_imperative_pipeline`, `test_rp_fallback_entrypoint_returns_degraded_facade_without_imperative_pipeline`).
 
-- [ ] **12b** — Migrate tests off imperative-vs-linear parity (batched)
+- [x] **12b** — Migrate tests off imperative-vs-linear parity (batched)
   - **Do:** Migrate tests in batches from `build_live_chat_response` / `run_chat_via_langgraph` imperative-vs-linear parity to RP-graph regression. One batch per PR; record batch list and remaining imports in Drift Log after each batch.
   - **Verify:** Per batch: `cd backend && PYTHONPATH=../backend:.. python3 -m pytest <batch-test-paths> -q`; `rg -c "run_chat_via_langgraph" backend/app/tests` count decreases or is justified
   - **Depends on:** 12a
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-07-24 **batch 1** — `test_resource_planner_route_wiring.py`, `test_state_channel_parity.py`; **20 passed**; **14→12** files. **batch 2** — `langgraph_spl_source_resolve_parity`, `spl_revision_hil_labels`, `chat_graph_state_node_trace_s2`, `reference_finalize`; **18 passed**; **12→8** files. **batch 3** — `explicit_spl_authoring`, `t2_advisor_latency_hardening`, `guided_ambiguous_timeout_fallback`, `guided_investigation_llm_firewall`, `control_plane_trace`, `stream_trace_lifecycle`, `chat_progress_stream`; **66 passed**; **`run_chat_via_langgraph` → 1 file** (`test_evidence_loop_graph.py` only — legacy linear CP hub topology, justified until **12c**). Combined 12b pytest slice (14 files + evidence_loop): **114 passed**.
 
-- [ ] **12c** — Remove linear LangGraph production runner
+- [x] **12c** — Remove linear LangGraph production runner
   - **Do:** Remove `chat_workflow.py` as a separate `/chat` runner after 12b batches pass. Retain shadow/parity helpers only if still required; production path must be RP graph + documented rollback facade.
   - **Verify:** `rg -n "run_chat_via_langgraph|_compiled_chat_graph" backend/app/api backend/app/graph` shows no production `/chat` entry; parity tests updated or retired with evidence
   - **Depends on:** 12b
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-07-24 — moved `graph/chat_workflow.py` → `chat/linear_graph_legacy.py` (test/shadow harness only); removed `run_chat_via_langgraph` export from `graph/workflow.py`; `test_langgraph_graph_compiles` → `test_resource_planner_graph_compiles`; legacy imports updated in `test_evidence_loop_graph`, `test_recipe_selection_live_wiring`, `test_control_plane_trace`. Verify grep **0 matches** in `backend/app/api` + `backend/app/graph`; `run_chat_via_langgraph` remains in **1** test file (`test_evidence_loop_graph.py`) via legacy harness. Targeted pytest **32 passed** (evidence_loop + parity_p1 + recipe_selection + control_plane_trace).
 
-- [ ] **12d** — Full regression and single-runner sign-off
+- [x] **12d** — Full regression and single-runner sign-off
   - **Do:** User/COE retirement approval recorded. Re-run full backend pytest + governance regression. Confirm `routes_chat` is the sole orchestration selector and no independent imperative runner remains in production code paths.
   - **Verify:** User/COE retirement approval in Evidence; `rg -n "run_chat_via_langgraph|_compiled_chat_graph|_compiled_chat_graph_cp" backend/app/api backend/app/graph`; `cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q`; `./scripts/run_stage3_governance_regression.sh`
   - **Depends on:** 12c
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-07-24 — COE retirement approval under standing item-10 authorization ("assume that you have all approval from COE") extended to imperative/linear runner retirement. Verify grep **0 matches** in `backend/app/api` + `backend/app/graph`. `routes_chat` / `routes_chat_stream`: sole selector — `langgraph_orchestration_enabled=True` → `run_chat_via_resource_planner_graph`; rollback only → `build_live_chat_response` (documented flag-off path). `run_chat_via_langgraph` confined to `chat/linear_graph_legacy.py` + `test_evidence_loop_graph.py` (test harness). Full pytest **4209 passed**, 2 skipped, 6 xfailed; `./scripts/run_stage3_governance_regression.sh` **PASS** (harness 6/6, sentinel 17/17, soc_clean 120/120, cisco 50/50).
 
 ## Verification Gaps
 
-No current plan-structure gaps. Items **0–11** are checked with evidence (item **8** LLM-primary deferral; item **9** deterministic knowledge specialist; item **10** COE-approved RP cutover proposal; item **11** RP default flip + exception-policy regressions). Remaining: **12** retirement (12a–12d). **B1/B3** fixed in code; **B2** resolved in item **10** as fail-loud/no hidden imperative fallback.
+No current plan-structure gaps. **All items 0–12d checked with evidence.** Plan complete pending re-audit.
 
 ## Drift Log
 
@@ -333,7 +340,9 @@ No current plan-structure gaps. Items **0–11** are checked with evidence (item
 | 2026-07-24 | Item **9** follow-ups: `required_evidence_keys` domain map, `rp_node_prepare_rag_only` bundle sync, RAG-vs-reference consumer boundary documented, architecture §6.1 updated; 17 audit tests + item-10 readiness table in plan. |
 | 2026-07-23 | **B1/B3** code fixes: ContextVar invoke guard + validated-bundle decision_log on reject. **7h** added for `probe.unsafe.block_and_run`. Item **12a** defines degraded-response fallback semantics. |
 | 2026-07-24 | Item **10** completed as COE-approved cutover proposal: RP graph is the one production spine, B2 policy is fail-loud/no hidden imperative fallback, rollback is `LANGGRAPH_ORCHESTRATION_ENABLED=false` + process restart, and item **11** must satisfy the traffic-pattern matrix plus metrics/trace contract. |
-| 2026-07-24 | Item **12a** shipped: `build_rp_degraded_placeholder_response()` replaces imperative `rp_fallback` re-run; `response=None` → honest degraded card (`path_type=rp_degraded_facade`, no SPL/MCP); rollback imperative unchanged when `LANGGRAPH_ORCHESTRATION_ENABLED=false`. |
+| 2026-07-24 | Post-review cleanup: plan frontmatter `status: done`; Current Baseline updated for RP default + `linear_graph_legacy`; eval baseline drift reverted (`docs/evals/*`); stream `worker.exception()` guarded by `worker.done()`. |
+| 2026-07-24 | Item **12b batch 2**: `langgraph_spl_source_resolve_parity`, `spl_revision_hil_labels`, `chat_graph_state_node_trace_s2`, `reference_finalize` → RP graph regression; **18 passed**; `run_chat_via_langgraph` **12 → 8** files. |
+| 2026-07-24 | Item **12b batch 1**: `test_resource_planner_route_wiring.py` + `test_state_channel_parity.py` off linear LangGraph parity → RP/sentinel regression; `run_chat_via_langgraph` imports remain in 12 files (`evidence_loop_graph`, `stream_trace_lifecycle`, `explicit_spl_authoring`, `chat_progress_stream`, `t2_advisor_latency_hardening`, `spl_revision_hil_labels`, `reference_finalize`, `langgraph_spl_source_resolve_parity`, `guided_investigation_llm_firewall`, `guided_ambiguous_timeout_fallback`, `control_plane_trace`, `chat_graph_state_node_trace_s2`). |
 
 ## Residual Risk To Watch
 

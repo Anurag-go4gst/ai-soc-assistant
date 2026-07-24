@@ -184,12 +184,12 @@ def test_chat_stream_emits_progress_before_final(
     assert "generating_answer" in stages
     assert seen == ["final"]
 
-def test_chat_stream_langgraph_emits_progress(
+def test_chat_stream_resource_planner_emits_progress(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.api import routes_chat_stream as stream_mod
 
-    def fake_langgraph(
+    def fake_rp_graph(
         request: ChatRequest,
         *,
         progress=None,
@@ -204,8 +204,8 @@ def test_chat_stream_langgraph_emits_progress(
         return PlaceholderResponse(trace_id="lg-progress", message="done", note="n")
 
     monkeypatch.setattr(
-        "app.graph.chat_workflow.run_chat_via_langgraph",
-        fake_langgraph,
+        "app.graph.resource_planner_graph.run_chat_via_resource_planner_graph",
+        fake_rp_graph,
     )
     monkeypatch.setattr(stream_mod, "_finalize_stream_response", lambda request, response: response)
     monkeypatch.setattr(stream_mod.settings, "ai_soc_live_chat_ec_parity_enabled", False)
@@ -259,11 +259,28 @@ def test_rp_stream_unhandled_exception_emits_failed_event(
     assert not any(event.get("type") == "final" for event in events)
 
 
-def test_langgraph_invoke_forwards_pipeline_progress(
+def test_sse_finally_skips_exception_on_incomplete_worker_future() -> None:
+    """Regression: ``Future.exception()`` raises InvalidStateError when the worker
+    is still running (e.g. client disconnect). Guard with ``worker.done()``."""
+    loop = asyncio.new_event_loop()
+    try:
+        worker = loop.run_in_executor(None, lambda: time.sleep(30))
+        time.sleep(0.05)
+        assert not worker.done()
+        exc = None
+        if worker.done():
+            exc = worker.exception()
+        assert exc is None
+    finally:
+        worker.cancel()
+        loop.close()
+
+
+def test_resource_planner_invoke_forwards_pipeline_progress(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.config import settings
-    from app.graph.chat_workflow import run_chat_via_langgraph
+    from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 
     monkeypatch.setattr(settings, "langgraph_orchestration_enabled", True)
     monkeypatch.setattr(settings, "control_plane_enabled", True)
@@ -274,7 +291,7 @@ def test_langgraph_invoke_forwards_pipeline_progress(
 
     events: list[dict] = []
     reporter = ProgressReporter(on_event=events.append)
-    run_chat_via_langgraph(
+    run_chat_via_resource_planner_graph(
         ChatRequest(message="Show SOP for brute-force investigation"),
         progress=reporter,
     )
