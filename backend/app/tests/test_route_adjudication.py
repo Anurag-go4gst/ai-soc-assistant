@@ -77,6 +77,10 @@ def test_hybrid_failed_login_action_preserves_live_investigation_skill() -> None
         "evidence_plan_live_or_hybrid",
         "exact_105_registry",
         "deterministic_route_default",
+        # A use_case_catalog match now reaches the registry-skill-preserving branch
+        # instead of falling through to a skill re-derived from intent_family. The
+        # asserted route is unchanged — only the provenance label is more specific.
+        "catalogue_registry_skill",
     }
 
 

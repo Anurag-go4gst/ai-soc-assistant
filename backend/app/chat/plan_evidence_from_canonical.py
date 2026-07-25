@@ -16,7 +16,16 @@ from app.chat.planning_telemetry import (
 )
 
 
-def _answer_mode_from_canonical(canonical: CanonicalPlanningInput) -> str:
+def _answer_mode_from_canonical(canonical: CanonicalPlanningInput) -> str | None:
+    """Canonical answer-mode override, or None to keep the evidence planner's own choice.
+
+    Returning a catch-all ``"live_investigation"`` here meant canonical routing silently
+    overrode ``plan_evidence`` for every family it had no rule for — knowledge families
+    such as ``mitre_explanation`` and ``sop_or_playbook`` were rewritten from ``rag_only``
+    to ``live_investigation``, which attached a lab SPL draft and a MITRE assertion to
+    what should be a policy/procedure answer. Only override where canonical routing
+    genuinely knows better than the planner.
+    """
     lane = canonical.routing.processing_lane
     goal = canonical.routing.answer_goal
     family = canonical.routing.intent_family
@@ -30,7 +39,7 @@ def _answer_mode_from_canonical(canonical: CanonicalPlanningInput) -> str:
         return "guided_investigation"
     if family == "alert_summary":
         return "rag_only"
-    return "live_investigation"
+    return None
 
 
 def _evidence_plan_from_committed(committed_evidence: dict[str, Any]) -> EvidencePlan:
@@ -112,7 +121,7 @@ def plan_evidence_from_canonical(
     )
 
     target_mode = _answer_mode_from_canonical(canonical)
-    if plan.answer_mode != target_mode:
+    if target_mode is not None and plan.answer_mode != target_mode:
         plan = plan.model_copy(update={"answer_mode": target_mode})  # type: ignore[arg-type]
 
     resource_plan_id = f"rp:{uuid.uuid4().hex[:12]}"

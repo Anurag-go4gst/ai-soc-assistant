@@ -33,6 +33,13 @@ from app.evals.sentinel_eval import (  # noqa: E402
 )
 
 
+def baseline_row_keys() -> set[str]:
+    """Row keys in the frozen baseline, for attributing diffs to rows."""
+    if not BASELINE_PATH.exists():
+        return set()
+    return set(json.loads(BASELINE_PATH.read_text(encoding="utf-8")).get("rows", {}))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
@@ -63,7 +70,17 @@ def main() -> int:
 
     diffs = check_against_baseline(captures)
     if diffs:
-        failed_keys = {diff.split(".")[0].split(":")[0] for diff in diffs}
+        # Row keys are themselves dotted ("q0.q045", "pg.dns.001"), so splitting a diff
+        # string on "." collapsed every row into its prefix ("q0", "pg") and the summary
+        # reported a constant "15/17" no matter how many rows actually differed. Match
+        # the diff against the real row keys instead.
+        row_keys = sorted(set(captures) | set(baseline_row_keys()), key=len, reverse=True)
+        failed_keys = set()
+        for diff in diffs:
+            for key in row_keys:
+                if diff.startswith(f"{key}.") or diff.startswith(f"{key}:"):
+                    failed_keys.add(key)
+                    break
         print(f"DIFFS ({len(diffs)}):")
         for diff in diffs:
             print(f"  - {diff}")

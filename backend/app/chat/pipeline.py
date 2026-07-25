@@ -4150,6 +4150,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             match_path=_candidate_match_path(state),
             spl_draft_preview=spl_draft_preview if isinstance(spl_draft_preview, dict) else None,
             run_contract=run_contract,
+            canonical_status=(
+                (state.get("canonical_planning_outcome") or {}).get("status")
+                if isinstance(state.get("canonical_planning_outcome"), dict)
+                else None
+            ),
         )
         if path_type == "guided_investigation" and _rag_no_match(state.get("soc_kb_retrieval")):
             limitations = list(answer_contract.limitations)

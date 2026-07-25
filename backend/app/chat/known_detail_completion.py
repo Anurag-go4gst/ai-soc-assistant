@@ -49,6 +49,29 @@ class KnownCompletenessResult(BaseModel):
     limitations: list[str] = Field(default_factory=list)
 
 
+#: Entity fields that count as the analyst narrowing the question to a specific target.
+_SCOPING_ENTITY_FIELDS: tuple[str, ...] = ("host", "user", "asset", "source_ip", "alert_id")
+
+#: Quantifiers the parser records as entity values; they express breadth, not a scope.
+_GENERIC_ENTITY_VALUES = frozenset({"multiple", "all", "any", "several", "various", "unknown"})
+
+
+def _analyst_scoped(query_understanding: Any) -> bool:
+    """True when the question names a concrete host/user/asset/IP/alert to scope to."""
+    entities = getattr(query_understanding, "entities", None)
+    if entities is None:
+        return False
+    for field in _SCOPING_ENTITY_FIELDS:
+        values = getattr(entities, field, None)
+        if isinstance(values, str):
+            values = [values]
+        for value in values or []:
+            text = str(value).strip().lower()
+            if text and text not in _GENERIC_ENTITY_VALUES:
+                return True
+    return False
+
+
 def classify_missing_field(key: str) -> MissingFieldCategory:
     if key in _USER_ONLY:
         return "user_only"
@@ -78,18 +101,45 @@ def evaluate_known_detail_completion(
     relevance_universe = set(required) | set(optional)
     relevant_present = bool(present & relevance_universe)
 
-    divert = bool(missing) and not relevant_present
     user_only_missing = [k for k in missing if categories.get(k) == "user_only"]
     tool_missing = [k for k in missing if categories.get(k) == "tool_discoverable"]
     planner_missing = [k for k in missing if categories.get(k) == "planner_required"]
 
-    clarification = bool(user_only_missing) or (
-        bool(planner_missing) and not tool_missing and not divert
-    )
+    # ``required`` is the use case's ``evidence_requirements`` — the fields the *answer*
+    # presents (fail_count, first_failure, command_line, host, user, ...). Those are
+    # produced by the governed SPL; they are not analyst inputs, and an absent one means
+    # "the search has not run yet", not "the analyst owes us a value". Feeding them into
+    # an input-completeness gate diverted governed catalogue questions into guided
+    # resolution, which dropped their approved template SPL for an ungoverned lab draft
+    # and moved the route off its catalogue skill.
+    #
+    # So on a mapped catalogue use case these are advisory: they surface as limitations
+    # and telemetry, and never divert or clarify. Genuine input gaps on this lane are
+    # unbound *template slots*, which the SPL slot-resolution path already owns
+    # (``graph_node_spl_source_resolve`` + source-profile binding), and unmapped asks
+    # still fall through to the guided lane via the lane router.
+    # ...but only when the analyst supplied no concrete scope. Two different questions
+    # reach this gate:
+    #   * "Which hosts ran suspicious PowerShell?" — nothing scoped, so it is the
+    #     catalogue question as written; the governed template answers it and the
+    #     evidence requirements are simply what the search will return.
+    #   * "Investigate failed login spike for host:WRONG-99" — the analyst *did* scope it,
+    #     so a still-missing user-only field is a real gap worth clarifying.
+    # The signal is a concrete scoping entity in the question, not ``relevant_present``:
+    # that set also counts keys inferred from intent/telemetry, so it reports True for
+    # unscoped catalogue questions too. Generic quantifiers ("multiple", "all") are
+    # explicitly not a scope.
+    advisory_only = bool(use_case_id) and not _analyst_scoped(query_understanding)
+    blocking_missing = [] if advisory_only else [*user_only_missing, *tool_missing]
+    divert = bool(blocking_missing) and not relevant_present
+
+    clarification = bool(user_only_missing) and not advisory_only
 
     status: Literal["complete", "incomplete", "clarification_required"] = "complete"
     divert_reason: str | None = None
-    if not missing:
+    if not blocking_missing:
+        # Planner-supplied fields alone leave the path complete: the plan can proceed and
+        # the governed SPL renders. They surface as limitations, not as a gate.
         status = "complete"
     elif divert:
         status = "incomplete"
@@ -113,7 +163,7 @@ def evaluate_known_detail_completion(
         optional_fields=optional,
         relevant_telemetry_present=relevant_present,
         completeness_status=status,
-        divert_to_guided=divert or bool(tool_missing),
+        divert_to_guided=divert or (bool(tool_missing) and not advisory_only),
         divert_reason=divert_reason,
         clarification_required=clarification and not divert,
         limitations=limitations,

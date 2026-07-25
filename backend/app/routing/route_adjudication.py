@@ -50,6 +50,23 @@ _OUT_OF_REGISTRY_MATCH_PATHS = frozenset(
     }
 )
 
+#: Match paths whose registry skill outranks a skill re-derived from intent_family.
+#: ``use_case_catalog``/``fuzzy_alias_catalog`` were in neither this nor the exact-105
+#: set, so a catalogue-matched question fell through to
+#: ``_skill_for_intent_family``. That was masked while the known lane fed a
+#: skill-derived intent stub; once the deterministic classifier supplied the real family,
+#: catalogue questions silently re-routed (attack_discovery -> spl_generation). A
+#: catalogue match is a stronger signal than the near-105 case immediately below it, and
+#: the same rule applies: an SPL artifact must not downgrade the canonical route.
+_REGISTRY_SKILL_PRESERVING_MATCH_PATHS = frozenset(
+    {
+        "near_105_question",
+        "semantic_105_question",
+        "use_case_catalog",
+        "fuzzy_alias_catalog",
+    }
+)
+
 
 
 def _query_signals(query_to_intent: dict[str, Any] | None) -> dict[str, Any]:
@@ -294,7 +311,7 @@ def adjudicate_route(
             reason="Exact 105 mapping with compatible intent and allowlisted registry authority.",
         )
 
-    if match_path in _OUT_OF_REGISTRY_MATCH_PATHS and match_path != "out_of_registry":
+    if match_path in _REGISTRY_SKILL_PRESERVING_MATCH_PATHS:
         skill = _registry_skill_for_exact_105(mappings, query_understanding, deterministic_route)
         if skill in {"attack_discovery", "alert_summary", "knowledge_recall"}:
             stale_knowledge_hint = bool(
@@ -304,13 +321,25 @@ def adjudicate_route(
                 and plan.answer_mode in {"hybrid", "live_investigation"}
             )
             if not stale_knowledge_hint:
+                catalogue_match = match_path in {"use_case_catalog", "fuzzy_alias_catalog"}
                 return finish(
                     final_route=skill,
                     final_use_case_id=_first_use_case_id(mappings),
-                    authority_source="near_105_registry_skill",
+                    # Distinct provenance per match class — a catalogue match is not a
+                    # near-105 match, and the audit surface should not claim it is.
+                    authority_source=(
+                        "catalogue_registry_skill" if catalogue_match else "near_105_registry_skill"
+                    ),
                     reason=(
-                        "Near-105 registry match preserves the 105/domain skill; SPL artifacts "
-                        "must not downgrade the canonical route."
+                        (
+                            "Use-case catalogue match preserves the registry skill; SPL artifacts "
+                            "must not downgrade the canonical route."
+                        )
+                        if catalogue_match
+                        else (
+                            "Near-105 registry match preserves the 105/domain skill; SPL artifacts "
+                            "must not downgrade the canonical route."
+                        )
                     ),
                 )
 

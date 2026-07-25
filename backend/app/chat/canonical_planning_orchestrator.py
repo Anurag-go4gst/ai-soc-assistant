@@ -54,6 +54,15 @@ _FIELD_QUESTIONS: dict[str, str] = {
 }
 
 
+def _primary_goal(intent: dict[str, Any]) -> str | None:
+    """First declared answer goal — downstream reads ``answer_goal_primary``."""
+    existing = intent.get("answer_goal_primary")
+    if existing:
+        return str(existing)
+    goals = intent.get("answer_goal") or []
+    return str(goals[0]) if goals else None
+
+
 def build_clarification_question(unresolved_fields: list[str]) -> str:
     """Deterministic question text for the first unresolved field."""
     for field in unresolved_fields:
@@ -169,6 +178,7 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     query_to_intent: dict[str, Any] | None = state.get("query_to_intent")
     processing_lane = lane
     resolved_tier = resolved
+    known_query_to_intent_built = False
     route_reason = "handoff_resume" if resumed_record else ""
 
     use_case_id = None
@@ -239,7 +249,24 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         else:
             route_reason = "resume_complete"
     elif is_known_catalogue_match(match_path):
-        query_to_intent = {"query_signals": signals}
+        # The known lane skips the intent *classifier* hop for routing (the canonical
+        # stub below is the authority), but ``query_to_intent`` is also the response and
+        # telemetry surface: ``candidate_mappings`` carries match_path/question_ref and
+        # downstream consumers read intent_classification from it. Emitting a
+        # ``{"query_signals": ...}`` stub dropped both, which is why every sentinel row
+        # reported match_path/mapped_question_ref/intent_family/requires_clarification
+        # as None. ``build_query_to_intent`` is deterministic — the LLM advisory is an
+        # injected argument, never called here — so building it costs no model hop.
+        known_q2i = build_query_to_intent(
+            query=query,
+            query_understanding=qu,
+            routed_skill=str(routed.get("skill") or None),
+            routing_provenance=routed.get("routing_provenance")
+            if isinstance(routed.get("routing_provenance"), dict)
+            else None,
+        )
+        query_to_intent = known_q2i.model_dump()
+        known_query_to_intent_built = True
         completeness = evaluate_known_detail_completion(
             use_case_id=use_case_id,
             query_to_intent=query_to_intent,
@@ -248,6 +275,25 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         state = emit_known_completeness_evaluated(state, completeness.model_dump()) or state
 
         skill = str(routed.get("skill") or "knowledge_recall")
+        # Intent family comes from the deterministic classifier, not from the routed
+        # skill. ``build_known_path_intent_stub`` maps skill -> family through a small
+        # lookup table, which is a lossy proxy: SPL-authoring questions routed to
+        # alert_summary/attack_discovery were relabelled hybrid_alert_review and lost
+        # their spl_generation_only family (and with it the governed SPL artifact).
+        # The classifier is already computed above and costs no model hop.
+        known_intent = dict(query_to_intent.get("intent_classification") or {})
+        if known_intent:
+            # The deterministic classifier ran; the *LLM* intent hop deliberately did not.
+            # The known lane's contract is "no model hop", which this records honestly.
+            known_intent.setdefault("answer_goal_primary", _primary_goal(known_intent))
+            known_intent["llm_intent_status"] = "skipped"
+            # Deterministic routing stays the authority for *which skill runs*; the
+            # classifier only supplies the intent family and answer goals that shape the
+            # answer. Letting the classifier's primary_intent through would override the
+            # selected skill on the known lane, which routing owns.
+            known_intent["primary_intent"] = skill
+        else:
+            known_intent = build_known_path_intent_stub(skill=skill, use_case_id=use_case_id)
         if completeness.clarification_required and not completeness.divert_to_guided:
             intent_classification = {
                 "intent_family": "clarification_required",
@@ -266,7 +312,7 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
             state = emit_guided_resolution_started(
                 state, handoff_id, handoff_version=handoff_version
             ) or state
-            intent_classification = build_known_path_intent_stub(skill=skill, use_case_id=use_case_id)
+            intent_classification = known_intent
             gap = run_guided_detail_resolution(
                 query=query,
                 handoff_id=handoff_id,
@@ -281,7 +327,7 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
             )
             route_reason = completeness.divert_reason or "known_divert_guided"
         else:
-            intent_classification = build_known_path_intent_stub(skill=skill, use_case_id=use_case_id)
+            intent_classification = known_intent
             route_reason = "known_complete"
     else:
         q2i = build_query_to_intent(
@@ -387,6 +433,14 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
             }
 
     assert intent_classification is not None
+    # Mirror canonical intent onto the query_to_intent this node built for the known
+    # lane, so the response surface and the planner cannot disagree there. The T4/T0
+    # branch is left alone: it deliberately reclassifies a qualified reference question
+    # to ``reference_knowledge`` for planning while ``query_to_intent`` keeps the
+    # classifier's own read, and that split is pinned by existing golden tests.
+    if known_query_to_intent_built and isinstance(query_to_intent, dict):
+        query_to_intent = {**query_to_intent, "intent_classification": intent_classification}
+
     canonical = build_canonical_planning_input(
         query=query,
         query_understanding=qu,
@@ -501,6 +555,12 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     )
 
     evidence_payload = evidence_plan.model_dump()
+    # Audit projection of the MCP authorisation decision. The legacy planning node set
+    # this on its own payload; the canonical planner must too, or the parity checklist
+    # sees a plan with no recorded decision.
+    from app.chat.pipeline import _mcp_allowed_decision_from_plan  # circular: pipeline state
+
+    evidence_payload["mcp_allowed_normalized"] = _mcp_allowed_decision_from_plan(evidence_payload)
     committed_resource_plan = evidence_payload.get("resource_plan")
     outcome = planned_outcome(
         canonical_input=canonical.model_dump(),
