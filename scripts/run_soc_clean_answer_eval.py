@@ -16,6 +16,7 @@ for _path in (REPO_ROOT / "backend", REPO_ROOT):
         sys.path.insert(0, _text)
 
 from app.evals.langgraph_dual_parity import build_parity_index, run_dual_parity_eval  # noqa: E402
+from app.evals.artifact_safe_writer import ArtifactWriteRefused, is_committed_eval_path  # noqa: E402
 from app.evals.soc_clean_answer_eval import (  # noqa: E402
     DEFAULT_TIMEOUT_SECONDS,
     run_clean_answer_eval,
@@ -79,6 +80,16 @@ def main(argv: list[str] | None = None) -> int:
     include_105 = not args.skip_105
     include_demo = not args.skip_demo
     include_manual = not args.skip_manual
+    partial = args.limit is not None or not include_105 or not include_demo or not include_manual
+    committed = is_committed_eval_path(args.json_out) or is_committed_eval_path(args.md_out)
+    if committed and partial:
+        print(
+            "refusing partial run targeting committed eval artifacts",
+            file=sys.stderr,
+        )
+        return 2
+
+    command = " ".join(["python3", "scripts/run_soc_clean_answer_eval.py", *sys.argv[1:]])
 
     parity_index: dict[str, dict[str, object]] = {}
     if args.emit_answers and not args.skip_parity:
@@ -110,14 +121,19 @@ def main(argv: list[str] | None = None) -> int:
         emit_answers=args.emit_answers,
         on_row_complete=on_row_complete,
     )
-    write_clean_answer_outputs(
-        result,
-        json_path=args.json_out,
-        markdown_path=args.md_out,
-        csv_path=None if args.no_csv else args.csv_out,
-        answers_json_path=args.output_json if args.emit_answers else None,
-        answers_markdown_path=args.output_md if args.emit_answers else None,
-    )
+    try:
+        write_clean_answer_outputs(
+            result,
+            json_path=args.json_out,
+            markdown_path=args.md_out,
+            csv_path=None if args.no_csv else args.csv_out,
+            answers_json_path=args.output_json if args.emit_answers else None,
+            answers_markdown_path=args.output_md if args.emit_answers else None,
+            command=command,
+        )
+    except ArtifactWriteRefused as exc:
+        print(f"ARTIFACT_WRITE_REFUSED: {exc}", file=sys.stderr)
+        return 3
     summary = result.report.get("summary") or {}
     print(
         "soc_clean_answer_eval:",

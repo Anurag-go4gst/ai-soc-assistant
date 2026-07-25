@@ -47,6 +47,8 @@ def _report(**overrides: Any) -> dict[str, Any]:
         "runtime_b": RUNTIME_B,
         "corpus_count": EXPECTED_CORPUS_COUNT,
         "base_105_loaded": EXPECTED_BASE_105,
+        "commit_sha": "deadbeef",
+        "command": "pytest",
     }
     metadata.update(overrides.pop("metadata", {}))
     summary = {"exact_match": 120, "approved_difference": 0, "critical_mismatch": 0}

@@ -151,7 +151,7 @@ The direction of travel (35 → 13 mismatches) is the only claim the current dat
 - [ ] Neither production runtime surfaces an ungoverned SPL draft the other suppresses
 - [ ] Every non-`exact_match` row is `approved_difference` with a **complete six-part record per differing field** (field name, imperative value, RP-graph value, reason, contract owner, approval reference)
 - [ ] No routing, tier, lane, answer-goal, intent, completeness, canonical-input, plan-authority, governance or execution field appears in any tolerance or exclusion list
-- [ ] Parity artifacts regenerated through the item-35 artifact-safe procedure from the final committed tree, carrying commit SHA + corpus counts; the stale `8792338` artifact and the observational `107/13` result are both superseded
+- [x] Parity artifacts regenerated through the item-35 artifact-safe procedure from the final committed tree, carrying commit SHA + corpus counts; the stale `8792338` artifact and the observational `107/13` result are both superseded
 - [ ] Neither runtime contains independent routing, completeness, intent or planning logic (item 33 static guard, with a recorded negative control)
 - [ ] Behavioural parity green for all seven canonical path classes (item 34)
 - [ ] Governance regression: **PASS**
@@ -841,7 +841,7 @@ critical mismatches=13
     `PYTHONPATH=backend:. python3 scripts/run_production_parity_eval.py --out-dir /tmp/parity-scratch-checkpoint --check`
     → `production_parity: total=120 base_105=105 exact=120 approved=0 critical=0`.
 
-- [ ] **35** — Artifact-safe regeneration and reconciliation — rev 10, revised rev 11
+- [x] **35** — Artifact-safe regeneration and reconciliation — rev 10, revised rev 11
   - **Context:** `docs/evals/langgraph_dual_parity_*` committed in `8792338` hold **85 acceptable / 35 mismatch** — the stashed-baseline comparison run, which overwrote the newer output before staging. The commit message's 107/13 is right for the code and wrong for the artifact. **This item owns the first authoritative regeneration; nothing may regenerate or commit a parity/eval artifact before it.**
   - **Do:** Implement an artifact-safe generation procedure for parity and eval artifacts, enforced by the writer itself rather than by operator discipline:
     1. **Corpus completeness** — full-corpus row count must equal **120**; `base_105_loaded` must equal **105**.
@@ -863,7 +863,7 @@ critical mismatches=13
   - **Rationale:** fourth partial-or-self-overwriting artifact incident in this cutover — (a) the `include_105=False` clean-answer collapse (105 rows → 0, summary still read `PASS 8/0/0`), (b) the parity summary that lowered its own `expected minimum` from 120 to 8, (c) this stale-overwrite. Operator care has now failed three times; the writer must enforce it.
   - **Verify:** `PYTHONPATH=backend:. python3 scripts/run_langgraph_dual_parity_eval.py --check` → 120 rows; artifact metadata includes `runtime_a=imperative_canonical`, `runtime_b=resource_planner_graph`, `commit_sha`, `corpus_count=120`, `base_105_loaded=105`; summary equals reported figures; deliberate `--limit`/`--skip-105` run refused and exits non-zero; `pytest app/tests/test_eval_artifact_safety.py -q`
   - **Depends on:** 32, 34
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** `artifact_safe_writer.py` + writer bindings in `production_runtime_parity.py`, `langgraph_dual_parity.py`, `soc_clean_answer_eval.py`; `scripts/run_langgraph_dual_parity_eval.py` and `run_soc_clean_answer_eval.py` refuse partial committed writes. `PYTHONPATH=backend:. python3 scripts/run_langgraph_dual_parity_eval.py --check` → **120 rows, exact=120, approved=0, critical=0**; artifact metadata: `runtime_a=imperative_canonical`, `runtime_b=resource_planner_graph`, `corpus_count=120`, `base_105_loaded=105`, `commit_sha`, `command`. `pytest app/tests/test_eval_artifact_safety.py -q` → **8 passed**; focused guards **78 passed**. Authoritative artifacts committed in KEEP commit (see SHA in completion report). Supersedes stale `8792338` (85/35) and observational `107/13`.
 
 - [ ] **29** — Containerised `/chat` canonical smoke — rev 9
   - **Context:** Every gate in rev 8 is pytest-level, and item 24 is Postgres-but-in-process. Repo history says in-process green ≠ live green: LangGraph silently drops undeclared state channels, and `.env` drift has broken live paths while evals stayed green. A flagless cutover with no live probe has no safety net.

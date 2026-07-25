@@ -666,7 +666,36 @@ def write_dual_parity_outputs(
     markdown_path: Path,
     csv_path: Path | None = None,
     details_markdown_path: Path | None = None,
+    command: str = "write_dual_parity_outputs",
 ) -> None:
+    from app.evals.artifact_safe_writer import is_committed_eval_path, write_artifact_safe
+
+    def _validate(metadata: dict[str, Any]) -> list[str]:
+        return validate_check_report(metadata["report"])
+
+    target_paths = {"json": json_path, "md": markdown_path}
+    if csv_path is not None:
+        target_paths["csv"] = csv_path
+    if details_markdown_path is not None:
+        target_paths["details"] = details_markdown_path
+
+    if any(is_committed_eval_path(path) for path in target_paths.values()):
+        summary = result.report.get("summary") or {}
+        write_artifact_safe(
+            target_paths=target_paths,
+            write_fn=lambda temp_dir: _write_committed_dual_parity_files(
+                temp_dir, result, csv_path is not None, details_markdown_path is not None
+            ),
+            validate_fn=_validate,
+            command=command,
+            include_105=True,
+            corpus_count=int(summary.get("total") or 0),
+            base_105_loaded=len(
+                [row for row in result.report.get("rows") or [] if row.get("source") == "105_map"]
+            ),
+        )
+        return
+
     json_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(result.report, indent=2, sort_keys=True), encoding="utf-8")
     markdown_path.write_text(result.markdown, encoding="utf-8")
@@ -674,6 +703,31 @@ def write_dual_parity_outputs(
         _write_csv(result.report.get("rows") or [], csv_path)
     if details_markdown_path is not None and result.details_markdown:
         details_markdown_path.write_text(result.details_markdown, encoding="utf-8")
+
+
+def _write_committed_dual_parity_files(
+    temp_dir: Path,
+    result: DualParityEvalResult,
+    include_csv: bool,
+    include_details: bool,
+) -> dict[str, Any]:
+    temp_json = temp_dir / "json"
+    temp_md = temp_dir / "md"
+    temp_json.write_text(json.dumps(result.report, indent=2, sort_keys=True), encoding="utf-8")
+    temp_md.write_text(result.markdown, encoding="utf-8")
+    if include_csv:
+        _write_csv(result.report.get("rows") or [], temp_dir / "csv")
+    if include_details and result.details_markdown:
+        (temp_dir / "details").write_text(result.details_markdown, encoding="utf-8")
+    summary = result.report.get("summary") or {}
+    return {
+        "report": result.report,
+        "corpus_count": int(summary.get("total") or 0),
+        "base_105_loaded": len(
+            [row for row in result.report.get("rows") or [] if row.get("source") == "105_map"]
+        ),
+        "include_105": True,
+    }
 
 
 def _write_csv(rows: list[dict[str, Any]], path: Path) -> None:

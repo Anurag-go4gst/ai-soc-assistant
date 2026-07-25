@@ -24,6 +24,7 @@ may delete.
 
 from __future__ import annotations
 
+import csv
 import json
 import subprocess
 import time
@@ -39,6 +40,8 @@ from app.schemas.requests import ChatRequest
 
 RUNTIME_A = "imperative_canonical"
 RUNTIME_B = "resource_planner_graph"
+
+SCHEMA_VERSION = "2026-07-25-production-dual-runtime-v1"
 
 EXPECTED_CORPUS_COUNT = 120
 EXPECTED_BASE_105 = 105
@@ -390,10 +393,136 @@ def validate_report(report: dict[str, Any]) -> list[str]:
         failures.append(f"corpus_count={meta.get('corpus_count')} (expected {EXPECTED_CORPUS_COUNT})")
     if int(meta.get("base_105_loaded") or 0) != EXPECTED_BASE_105:
         failures.append(f"base_105_loaded={meta.get('base_105_loaded')} (expected {EXPECTED_BASE_105})")
+    if not meta.get("commit_sha"):
+        failures.append("commit_sha missing from provenance metadata")
+    if not meta.get("command"):
+        failures.append("command missing from provenance metadata")
     critical = int((report.get("summary") or {}).get("critical_mismatch") or 0)
     if critical:
         failures.append(f"critical_mismatch={critical} (target 0)")
     return failures
+
+
+def render_summary_markdown(report: dict[str, Any]) -> str:
+    meta = report.get("metadata") or {}
+    summary = report.get("summary") or {}
+    lines = [
+        "# Production dual-runtime parity summary",
+        "",
+        "Authoritative measurement — imperative canonical vs Resource Planner graph.",
+        "",
+        f"- Generated: `{meta.get('generated_at')}`",
+        f"- Schema: `{report.get('schema_version', SCHEMA_VERSION)}`",
+        f"- Commit: `{meta.get('commit_sha')}`",
+        f"- Command: `{meta.get('command')}`",
+        f"- Runtime A: `{meta.get('runtime_a')}`",
+        f"- Runtime B: `{meta.get('runtime_b')}`",
+        f"- Corpus count: **{meta.get('corpus_count')}** (expected **{EXPECTED_CORPUS_COUNT}**)",
+        f"- Base 105 loaded: **{meta.get('base_105_loaded')}** (expected **{EXPECTED_BASE_105}**)",
+        f"- Exact match: **{summary.get('exact_match')}**",
+        f"- Approved difference: **{summary.get('approved_difference')}**",
+        f"- Critical mismatch: **{summary.get('critical_mismatch')}**",
+        "",
+    ]
+    divergent = [
+        row for row in report.get("rows") or []
+        if row.get("classification") != "exact_match"
+    ]
+    if divergent:
+        lines.extend(["## Non-exact rows", ""])
+        for row in divergent[:20]:
+            lines.append(
+                f"- `{row.get('row_id')}` — {row.get('classification')}: {row.get('first_divergence')}"
+            )
+    return "\n".join(lines) + "\n"
+
+
+def _write_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    fieldnames = [
+        "row_id",
+        "source",
+        "query",
+        "classification",
+        "first_divergence",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {
+                    "row_id": row.get("row_id"),
+                    "source": row.get("source"),
+                    "query": row.get("query"),
+                    "classification": row.get("classification"),
+                    "first_divergence": row.get("first_divergence"),
+                }
+            )
+
+
+def prepare_committed_report(report: dict[str, Any], *, command: str) -> dict[str, Any]:
+    payload = dict(report)
+    payload["schema_version"] = SCHEMA_VERSION
+    metadata = dict(payload.get("metadata") or {})
+    metadata["command"] = command
+    metadata["commit_sha"] = _commit_sha()
+    metadata.setdefault("runtime_a", RUNTIME_A)
+    metadata.setdefault("runtime_b", RUNTIME_B)
+    payload["metadata"] = metadata
+    return payload
+
+
+def write_committed_artifact_files(
+    report: dict[str, Any],
+    *,
+    json_path: Path,
+    markdown_path: Path,
+    csv_path: Path | None = None,
+) -> None:
+    """Write parity artifacts to the given paths (caller handles atomic replace)."""
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    json_path.write_text(json.dumps(report, indent=2, sort_keys=True, default=str), encoding="utf-8")
+    markdown_path.write_text(render_summary_markdown(report), encoding="utf-8")
+    if csv_path is not None:
+        _write_csv(report.get("rows") or [], csv_path)
+
+
+def write_production_parity_committed_artifacts(
+    report: dict[str, Any],
+    *,
+    json_path: Path,
+    markdown_path: Path,
+    csv_path: Path | None = None,
+    command: str,
+) -> dict[str, Any]:
+    """Artifact-safe write of authoritative production parity to committed eval paths."""
+    from app.evals.artifact_safe_writer import write_artifact_safe
+
+    prepared = prepare_committed_report(report, command=command)
+    target_paths = {"json": json_path, "md": markdown_path}
+    if csv_path is not None:
+        target_paths["csv"] = csv_path
+    meta = prepared.get("metadata") or {}
+
+    def _write(temp_dir: Path) -> dict[str, Any]:
+        write_committed_artifact_files(
+            prepared,
+            json_path=temp_dir / "json",
+            markdown_path=temp_dir / "md",
+            csv_path=temp_dir / "csv" if csv_path is not None else None,
+        )
+        return {"report": prepared, **meta}
+
+    return write_artifact_safe(
+        target_paths=target_paths,
+        write_fn=_write,
+        validate_fn=lambda metadata: validate_report(metadata["report"]),
+        command=command,
+        include_105=True,
+        corpus_count=int(meta.get("corpus_count") or 0),
+        base_105_loaded=int(meta.get("base_105_loaded") or 0),
+    )
 
 
 def write_report(report: dict[str, Any], out_dir: Path) -> Path:

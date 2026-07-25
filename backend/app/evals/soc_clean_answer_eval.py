@@ -736,6 +736,12 @@ def _attach_parity_rows(rows: list[dict[str, Any]], parity_index: dict[str, dict
 def validate_check_report(report: dict[str, Any]) -> list[str]:
     failures: list[str] = []
     summary = report.get("summary") or {}
+    total = int(summary.get("total_evaluated") or 0)
+    include_105 = bool(summary.get("include_105", True))
+    from app.evals.artifact_safe_writer import EXPECTED_CORPUS_COUNT
+
+    if include_105 and total != EXPECTED_CORPUS_COUNT:
+        failures.append(f"total_evaluated_not_full_corpus:{total}!={EXPECTED_CORPUS_COUNT}")
     if summary.get("include_105") and int(summary.get("base_105_loaded") or 0) < EXPECTED_105_COUNT:
         failures.append(f"base_105_below_minimum:{summary.get('base_105_loaded')}<{EXPECTED_105_COUNT}")
     if summary.get("unsafe_execution_flags_enforced") is False:
@@ -1140,7 +1146,44 @@ def write_clean_answer_outputs(
     csv_path: Path | None = None,
     answers_json_path: Path | None = None,
     answers_markdown_path: Path | None = None,
+    command: str = "write_clean_answer_outputs",
 ) -> None:
+    from app.evals.artifact_safe_writer import is_committed_eval_path, write_artifact_safe
+
+    def _validate(metadata: dict[str, Any]) -> list[str]:
+        return validate_check_report(metadata["report"])
+
+    target_paths = {"json": json_path, "md": markdown_path}
+    if csv_path is not None:
+        target_paths["csv"] = csv_path
+    if answers_json_path is not None:
+        target_paths["answers_json"] = answers_json_path
+    if answers_markdown_path is not None:
+        target_paths["answers_md"] = answers_markdown_path
+
+    summary = result.report.get("summary") or {}
+    include_105 = bool(summary.get("include_105", True))
+    corpus_count = int(summary.get("total_evaluated") or 0)
+    base_105_loaded = int(summary.get("base_105_loaded") or 0)
+
+    if any(is_committed_eval_path(path) for path in target_paths.values()):
+        write_artifact_safe(
+            target_paths=target_paths,
+            write_fn=lambda temp_dir: _write_committed_clean_answer_files(
+                temp_dir,
+                result,
+                csv_path is not None,
+                answers_json_path is not None,
+                answers_markdown_path is not None,
+            ),
+            validate_fn=_validate,
+            command=command,
+            include_105=include_105,
+            corpus_count=corpus_count,
+            base_105_loaded=base_105_loaded,
+        )
+        return
+
     json_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(result.report, indent=2, sort_keys=True), encoding="utf-8")
     markdown_path.write_text(result.markdown, encoding="utf-8")
@@ -1153,6 +1196,33 @@ def write_clean_answer_outputs(
         )
     if result.answers_markdown and answers_markdown_path is not None:
         answers_markdown_path.write_text(result.answers_markdown, encoding="utf-8")
+
+
+def _write_committed_clean_answer_files(
+    temp_dir: Path,
+    result: CleanAnswerEvalResult,
+    include_csv: bool,
+    include_answers_json: bool,
+    include_answers_md: bool,
+) -> dict[str, Any]:
+    (temp_dir / "json").write_text(json.dumps(result.report, indent=2, sort_keys=True), encoding="utf-8")
+    (temp_dir / "md").write_text(result.markdown, encoding="utf-8")
+    if include_csv:
+        _write_csv(result.report.get("rows") or [], temp_dir / "csv")
+    if include_answers_json and result.answers_report is not None:
+        (temp_dir / "answers_json").write_text(
+            json.dumps(result.answers_report, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+    if include_answers_md and result.answers_markdown:
+        (temp_dir / "answers_md").write_text(result.answers_markdown, encoding="utf-8")
+    summary = result.report.get("summary") or {}
+    return {
+        "report": result.report,
+        "corpus_count": int(summary.get("total_evaluated") or 0),
+        "base_105_loaded": int(summary.get("base_105_loaded") or 0),
+        "include_105": bool(summary.get("include_105", True)),
+    }
 
 
 def _write_csv(rows: list[dict[str, Any]], path: Path) -> None:

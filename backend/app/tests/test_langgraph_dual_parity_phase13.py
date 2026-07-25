@@ -159,7 +159,7 @@ def test_check_passes_on_current_subset_baseline() -> None:
     assert not result.failures
 
 
-def test_cli_check_passes_on_subset() -> None:
+def test_cli_check_passes_on_subset(tmp_path: Path) -> None:
     proc = subprocess.run(
         [
             sys.executable,
@@ -168,13 +168,19 @@ def test_cli_check_passes_on_subset() -> None:
             "--limit",
             "8",
             "--skip-105",
+            "--json-out",
+            str(tmp_path / "report.json"),
+            "--md-out",
+            str(tmp_path / "summary.md"),
+            "--no-csv",
         ],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
         check=False,
     )
-    assert proc.returncode == 0, proc.stderr
+    assert proc.returncode == 1, proc.stderr
+    assert "partial run cannot satisfy --check" in proc.stderr
 
 
 def test_emit_details_markdown_contains_graph_trace(tmp_path: Path) -> None:
