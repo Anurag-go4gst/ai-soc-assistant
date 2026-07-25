@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 
 from app.chat import durable_planning_telemetry as telemetry
+from app.chat.planning_telemetry_policy import DiagnosticTelemetryPersistenceDegraded
 from app.connectors.telemetry.redaction import minimize
 
 
@@ -78,15 +79,14 @@ def test_persist_failure_does_not_populate_fixture_store(monkeypatch: pytest.Mon
     """A live write failure logs; it must not fall back into the fixture store."""
     telemetry.clear_persisted_events_for_tests()
     telemetry.use_test_event_store(False)
-    monkeypatch.setattr(telemetry, "_disabled", lambda: False)
+    monkeypatch.setattr(telemetry, "canonical_db_disabled", lambda: False)
 
-    def _boom(coro: Any = None, *_args: Any, **_kwargs: Any) -> None:
-        if hasattr(coro, "close"):
-            coro.close()  # avoid "coroutine was never awaited" noise
+    def _boom(fn, **_kwargs):
         raise RuntimeError("database unavailable")
 
-    monkeypatch.setattr(telemetry.asyncio, "run", _boom)
+    monkeypatch.setattr(telemetry, "run_in_canonical_unit_of_work", _boom)
 
-    telemetry.persist_planning_event({"event": "response.validated", "session_id": "sess-3"})
+    with pytest.raises(DiagnosticTelemetryPersistenceDegraded):
+        telemetry.persist_planning_event({"event": "response.validated", "session_id": "sess-3"})
 
     assert telemetry.persisted_events() == []

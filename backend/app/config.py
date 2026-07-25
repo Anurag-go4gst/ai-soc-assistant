@@ -510,6 +510,9 @@ def _validate(s: Settings) -> Settings:
         except ValueError as exc:
             raise ConfigError(str(exc)) from exc
     parse_cors_allowed_origins(s.ai_soc_cors_allowed_origins)
+    from app.chat.planning_telemetry_policy import validate_canonical_planning_telemetry_config
+
+    validate_canonical_planning_telemetry_config(s)
     retired_flow_check = (
         s.ai_soc_flow_check_mode.strip()
         or os.environ.get("AI_SOC_FLOW_CHECK_MODE", "").strip()

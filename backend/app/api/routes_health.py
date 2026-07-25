@@ -14,13 +14,11 @@ def health() -> dict:
     safe to expose unauthenticated alongside service status.
     """
     counters = metrics.snapshot()
-    migration_readiness = build_migration_readiness()
-    status = "ok" if migration_readiness.get("ready", True) else "degraded"
     return {
-        "status": status,
+        "status": "ok",
         "service": "ai-soc-assistant-backend",
         "readiness": {
-            "database_migrations": migration_readiness,
+            "database_migrations": build_migration_readiness(),
         },
         # Integer-only counters (no payload content); flat so each value stays an int.
         "telemetry": {

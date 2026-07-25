@@ -7,7 +7,6 @@ from typing import Any
 from app.chat.canonical_handoff_builder import build_canonical_planning_input, new_handoff_id
 from app.chat.canonical_handoff_store import (
     CanonicalHandoffRecord,
-    get_handoff,
     save_clarification_handoff,
     save_handoff,
 )
@@ -75,28 +74,6 @@ def build_clarification_question(unresolved_fields: list[str]) -> str:
     return "I need more detail before planning this investigation. What should I scope it to?"
 
 
-def _merge_user_clarification(
-    record: CanonicalHandoffRecord,
-    user_answer: str,
-) -> dict[str, Any]:
-    """Merge clarification answer into known field values without re-classifying."""
-    canonical = dict(record.canonical_planning_input or {})
-    detail = dict(canonical.get("detail_state") or {})
-    field_values = dict(detail.get("field_values") or {})
-    field_sources = dict(detail.get("field_sources") or {})
-    unresolved = list(record.unresolved_fields or [])
-    if unresolved:
-        target = unresolved[0]
-        field_values[target] = user_answer.strip()
-        field_sources[target] = "user"
-    detail["field_values"] = field_values
-    detail["field_sources"] = field_sources
-    detail["present_fields"] = list(dict.fromkeys([*detail.get("present_fields", []), *field_values.keys()]))
-    detail["missing_fields"] = [k for k in detail.get("missing_fields", []) if k not in field_values]
-    canonical["detail_state"] = detail
-    return canonical
-
-
 def run_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:
     """Single shared canonical planning seam for imperative and RP entry points.
 
@@ -104,17 +81,27 @@ def run_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:
     route resolution, and planning_decision projection. Both production runtimes
     must call this callable — not a duplicated node sequence.
     """
-    state = graph_node_lane_and_canonical_planning(state)
+    from app.chat.canonical_handoff_repository import HandoffPersistenceError
+    from app.chat.canonical_mode import build_persistence_failed_state
     from app.chat.pipeline import (  # circular: pipeline state nodes
         _graph_node_planning_decision_from_canonical,
         graph_node_route_contract,
         graph_node_route_resolution,
     )
 
-    state = graph_node_route_resolution(state)
-    state = graph_node_route_contract(state)
-    state = _graph_node_planning_decision_from_canonical(state)
-    return state
+    try:
+        state = graph_node_lane_and_canonical_planning(state)
+        state = graph_node_route_resolution(state)
+        state = graph_node_route_contract(state)
+        state = _graph_node_planning_decision_from_canonical(state)
+        return state
+    except HandoffPersistenceError as exc:
+        return build_persistence_failed_state(
+            state,
+            reason=exc.reason,
+            detail=exc.detail,
+            category="database",
+        )
 
 
 def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:
@@ -144,37 +131,34 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     handoff_version = 1
     resumed_record: CanonicalHandoffRecord | None = None
     if isinstance(resume, dict) and resume.get("handoff_id"):
-        resumed_record = get_handoff(str(resume["handoff_id"]), int(resume.get("handoff_version") or 1))
-        # ``save_clarification_handoff`` persists status ``awaiting_clarification`` while
-        # the raw literal ``clarification_required`` only ever exists pre-normalisation.
-        # Comparing the raw status here meant a resume never matched and the analyst's
-        # answer was silently dropped. Compare the normalised status.
-        if resumed_record is not None and resumed_record.normalized_status() == "awaiting_clarification":
-            handoff_id = resumed_record.handoff_id
-            handoff_version = resumed_record.handoff_version + 1
-            user_answer = str(resume.get("user_answer") or query)
-            merged_canonical = _merge_user_clarification(resumed_record, user_answer)
-            save_handoff(
-                CanonicalHandoffRecord(
-                    handoff_id=handoff_id,
-                    handoff_version=handoff_version,
-                    status="in_progress",
-                    trace_id=str(trace_id) if trace_id else resumed_record.trace_id,
-                    session_id=session_id or resumed_record.session_id,
-                    original_query=resumed_record.original_query,
-                    original_skill=resumed_record.original_skill,
-                    original_use_case_id=resumed_record.original_use_case_id,
-                    original_answer_goal=resumed_record.original_answer_goal,
-                    initial_tier=resumed_record.initial_tier,
-                    resolved_tier=resumed_record.resolved_tier,
-                    canonical_planning_input=merged_canonical,
-                    gap_resolution=resumed_record.gap_resolution,
-                )
+        from app.chat.canonical_handoff_resumption import (
+            ClarificationResumeError,
+            resume_clarification_handoff,
+        )
+        from app.chat.canonical_mode import build_canonical_failure_state
+
+        try:
+            resume_result = resume_clarification_handoff(
+                handoff_id=str(resume["handoff_id"]),
+                handoff_version=int(resume.get("handoff_version") or 1),
+                user_answer=str(resume.get("user_answer") or query),
+                session_id=str(session_id) if session_id else None,
+                trace_id=str(trace_id) if trace_id else None,
             )
-            query = str(resumed_record.original_query or query)
-            match_path = str(
-                (merged_canonical.get("routing") or {}).get("match_path") or match_path
+        except ClarificationResumeError as exc:
+            return build_canonical_failure_state(
+                state,
+                outcome="resolution_failed",
+                reason=exc.reason,
+                detail=exc.detail,
             )
+        resumed_record = resume_result.record
+        handoff_id = resumed_record.handoff_id
+        handoff_version = resumed_record.handoff_version
+        query = str(resumed_record.original_query or query)
+        match_path = str(
+            (resume_result.merged_canonical.get("routing") or {}).get("match_path") or match_path
+        )
 
     initial, resolved, lane = lane_for_match_path(match_path)
     if resumed_record is not None:

@@ -160,6 +160,8 @@ def test_check_passes_on_current_subset_baseline() -> None:
 
 
 def test_cli_check_passes_on_subset(tmp_path: Path) -> None:
+    import os
+
     proc = subprocess.run(
         [
             sys.executable,
@@ -178,6 +180,7 @@ def test_cli_check_passes_on_subset(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
         check=False,
+        env={**os.environ, "AI_SOC_DISABLE_DOTENV": "1"},
     )
     assert proc.returncode == 1, proc.stderr
     assert "partial run cannot satisfy --check" in proc.stderr

@@ -120,7 +120,7 @@ def resolve_session_context(request: ChatRequest) -> SessionContextResolution:
         from app.chat.canonical_handoff_store import get_handoff
 
         record = get_handoff(pins.pending_handoff_id, int(pins.pending_handoff_version or 1))
-        if record is not None and record.status == "clarification_required":
+        if record is not None and record.normalized_status() == "awaiting_clarification":
             handoff_resume = {
                 "handoff_id": pins.pending_handoff_id,
                 "handoff_version": int(pins.pending_handoff_version or 1),

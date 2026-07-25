@@ -321,7 +321,7 @@ def test_auth_failed_login_spike_spl_preamble_appears_once() -> None:
     assert response.execution.status != "executed"
 
 
-def test_cli_check_passes_on_subset() -> None:
+def test_cli_check_passes_on_subset(tmp_path: Path) -> None:
     # The subprocess escapes config.py's "pytest in sys.modules" dotenv guard,
     # and with cwd=REPO_ROOT it would load the operator's live .env and flip
     # default-off flags. Use the config layer's own escape hatch so the check
@@ -337,6 +337,11 @@ def test_cli_check_passes_on_subset() -> None:
             "--limit",
             "8",
             "--skip-105",
+            "--json-out",
+            str(tmp_path / "report.json"),
+            "--md-out",
+            str(tmp_path / "summary.md"),
+            "--no-csv",
         ],
         cwd=REPO_ROOT,
         capture_output=True,

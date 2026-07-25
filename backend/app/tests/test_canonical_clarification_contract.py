@@ -139,12 +139,14 @@ def test_clarification_answer_resumes_and_plans(_memory_handoffs: Any) -> None:
     """The resume comparison used the raw status, so an answer never resumed."""
     from app.chat.canonical_handoff_store import get_handoff
 
-    first = _run_canonical("What happened with that alert?")
+    session_id = "sess-clarify-contract"
+    first = _run_canonical("What happened with that alert?", session_id=session_id)
     clarification = outcome_from_state(first).clarification  # type: ignore[union-attr]
     assert clarification is not None
 
     resumed = _run_canonical(
         "ALT-2024-0891",
+        session_id=session_id,
         handoff_resume={
             "handoff_id": clarification.handoff_id,
             "handoff_version": clarification.handoff_version,

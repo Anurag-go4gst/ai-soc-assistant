@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
+import threading
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Iterator
 
 import asyncpg
 
+from app.chat.canonical_db import canonical_db_disabled, run_in_canonical_unit_of_work, run_on_canonical_loop
 from app.chat.canonical_handoff_models import CanonicalHandoffRecord
 from app.config import settings
 from app.connectors.telemetry.redaction import minimize
@@ -18,6 +20,24 @@ _LOGGER = logging.getLogger("ai_soc.canonical_handoff")
 
 _TEST_STORE: dict[str, dict[str, Any]] = {}
 _USE_TEST_STORE = False
+_HANDOFF_LOCKS: dict[str, threading.Lock] = {}
+_LOCK_GUARD = threading.Lock()
+
+
+class HandoffPersistenceError(Exception):
+    """Canonical handoff could not be durably persisted or loaded."""
+
+    def __init__(
+        self,
+        reason: str,
+        *,
+        detail: str | None = None,
+        operation: str = "handoff_persist",
+    ) -> None:
+        self.reason = reason
+        self.detail = detail or reason
+        self.operation = operation
+        super().__init__(self.reason)
 
 
 def use_in_memory_store_for_tests(enabled: bool = True) -> None:
@@ -29,6 +49,36 @@ def use_in_memory_store_for_tests(enabled: bool = True) -> None:
 
 def clear_in_memory_store_for_tests() -> None:
     _TEST_STORE.clear()
+
+
+def in_memory_handoff_store_enabled() -> bool:
+    return _USE_TEST_STORE
+
+
+@contextmanager
+def memory_handoff_lock(handoff_id: str) -> Iterator[None]:
+    lock = _handoff_lock(handoff_id)
+    lock.acquire()
+    try:
+        yield
+    finally:
+        lock.release()
+
+
+def test_store_write(handoff_id: str, handoff_version: int, record: CanonicalHandoffRecord) -> None:
+    _TEST_STORE[_key(handoff_id, handoff_version)] = record.model_dump(mode="json")
+
+
+def test_store_read(handoff_id: str, handoff_version: int) -> CanonicalHandoffRecord | None:
+    raw = _TEST_STORE.get(_key(handoff_id, handoff_version))
+    return CanonicalHandoffRecord.model_validate(raw) if raw else None
+
+
+def _handoff_lock(handoff_id: str) -> threading.Lock:
+    with _LOCK_GUARD:
+        if handoff_id not in _HANDOFF_LOCKS:
+            _HANDOFF_LOCKS[handoff_id] = threading.Lock()
+        return _HANDOFF_LOCKS[handoff_id]
 
 
 def _key(handoff_id: str, handoff_version: int) -> str:
@@ -45,26 +95,142 @@ def _sanitize_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
     return minimize(payload) if isinstance(payload, dict) else {}
 
 
-def _disabled() -> bool:
-    url = (settings.database_url or "").strip()
-    return not url or "change-me@postgres" in url
+def _raise_persistence_error(operation: str, exc: Exception | None = None) -> None:
+    reason = "canonical_handoff_db_unavailable"
+    detail = reason
+    if exc is not None:
+        reason = f"{operation}_failed"
+        detail = str(exc)
+    raise HandoffPersistenceError(reason, detail=detail, operation=operation)
 
 
-def _run(coro_factory):
-    return asyncio.run(coro_factory())
+def handoff_record_from_row(row: dict[str, Any]) -> CanonicalHandoffRecord:
+    return CanonicalHandoffRecord.model_validate(_to_record_dict(row))
 
 
-async def _with_conn(fn):
-    if _disabled():
+async def load_pending_for_update(
+    conn: asyncpg.Connection,
+    handoff_id: str,
+    handoff_version: int,
+) -> CanonicalHandoffRecord | None:
+    row = await conn.fetchrow(
+        """
+        SELECT * FROM canonical_handoffs
+        WHERE handoff_id = $1 AND handoff_version = $2 AND expires_at > now()
+        FOR UPDATE
+        """,
+        handoff_id,
+        handoff_version,
+    )
+    if not row:
         return None
-    conn = await asyncpg.connect(settings.database_url, timeout=2.0)
-    try:
-        return await fn(conn)
-    finally:
-        await conn.close()
+    return handoff_record_from_row(dict(row))
 
 
-def save_handoff_record(record: CanonicalHandoffRecord, *, refresh_ttl: bool = True) -> CanonicalHandoffRecord:
+async def supersede_version(
+    conn: asyncpg.Connection,
+    record: CanonicalHandoffRecord,
+    *,
+    new_status: str = "resumed",
+) -> CanonicalHandoffRecord:
+    updated = record.model_copy(
+        update={
+            "status": new_status,
+            "updated_at": datetime.now(UTC),
+        }
+    )
+    await persist_handoff_record(conn, updated)
+    return updated
+
+
+async def persist_handoff_record(
+    conn: asyncpg.Connection,
+    record: CanonicalHandoffRecord,
+) -> None:
+    await conn.execute(
+        """
+        INSERT INTO canonical_handoffs (
+            handoff_id, handoff_version, session_id, turn_id, trace_id, status,
+            original_query, original_skill, original_use_case_id, original_answer_goal,
+            initial_tier, resolved_tier, canonical_planning_input, gap_resolution,
+            unresolved_fields, clarification_reason, committed_resource_plan_id,
+            committed_resource_plan, committed_evidence_plan, duplicate_call_hashes,
+            retry_count, created_at, updated_at, expires_at
+        ) VALUES (
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16,$17,$18::jsonb,$19::jsonb,$20::jsonb,$21,$22,$23,$24
+        )
+        ON CONFLICT (handoff_id, handoff_version) DO UPDATE SET
+            session_id = EXCLUDED.session_id,
+            turn_id = EXCLUDED.turn_id,
+            trace_id = EXCLUDED.trace_id,
+            status = EXCLUDED.status,
+            original_query = EXCLUDED.original_query,
+            original_skill = EXCLUDED.original_skill,
+            original_use_case_id = EXCLUDED.original_use_case_id,
+            original_answer_goal = EXCLUDED.original_answer_goal,
+            initial_tier = EXCLUDED.initial_tier,
+            resolved_tier = EXCLUDED.resolved_tier,
+            canonical_planning_input = EXCLUDED.canonical_planning_input,
+            gap_resolution = EXCLUDED.gap_resolution,
+            unresolved_fields = EXCLUDED.unresolved_fields,
+            clarification_reason = EXCLUDED.clarification_reason,
+            committed_resource_plan_id = EXCLUDED.committed_resource_plan_id,
+            committed_resource_plan = EXCLUDED.committed_resource_plan,
+            committed_evidence_plan = EXCLUDED.committed_evidence_plan,
+            duplicate_call_hashes = EXCLUDED.duplicate_call_hashes,
+            retry_count = EXCLUDED.retry_count,
+            updated_at = EXCLUDED.updated_at,
+            expires_at = EXCLUDED.expires_at
+        """,
+        record.handoff_id,
+        record.handoff_version,
+        record.session_id,
+        record.turn_id,
+        record.trace_id,
+        record.status,
+        record.original_query,
+        record.original_skill,
+        record.original_use_case_id,
+        record.original_answer_goal,
+        record.initial_tier,
+        record.resolved_tier,
+        json.dumps(_sanitize_payload(record.canonical_planning_input)),
+        json.dumps(_sanitize_payload(record.gap_resolution)),
+        json.dumps(list(record.unresolved_fields)),
+        record.clarification_reason,
+        record.committed_resource_plan_id,
+        json.dumps(_sanitize_payload(record.committed_resource_plan)),
+        json.dumps(_sanitize_payload(record.committed_evidence_plan)),
+        json.dumps(list(record.duplicate_call_hashes)),
+        record.retry_count,
+        record.created_at,
+        record.updated_at,
+        record.expires_at,
+    )
+
+
+async def fetch_handoff_record(
+    conn: asyncpg.Connection,
+    handoff_id: str,
+    handoff_version: int,
+) -> dict[str, Any] | None:
+    row = await conn.fetchrow(
+        """
+        SELECT * FROM canonical_handoffs
+        WHERE handoff_id = $1 AND handoff_version = $2 AND expires_at > now()
+        """,
+        handoff_id,
+        handoff_version,
+    )
+    return dict(row) if row else None
+
+
+def save_handoff_record(
+    record: CanonicalHandoffRecord,
+    *,
+    refresh_ttl: bool = True,
+    conn: asyncpg.Connection | None = None,
+) -> CanonicalHandoffRecord:
     now = datetime.now(UTC)
     updated = record.model_copy(
         update={
@@ -72,111 +238,65 @@ def save_handoff_record(record: CanonicalHandoffRecord, *, refresh_ttl: bool = T
             "expires_at": now + timedelta(minutes=_ttl_minutes()) if refresh_ttl else record.expires_at,
         }
     )
-    payload = updated.model_dump(mode="json")
 
-    if _USE_TEST_STORE or _disabled():
-        _TEST_STORE[_key(updated.handoff_id, updated.handoff_version)] = payload
+    if _USE_TEST_STORE:
+        _TEST_STORE[_key(updated.handoff_id, updated.handoff_version)] = updated.model_dump(mode="json")
         return updated
 
-    async def _write(conn: asyncpg.Connection) -> None:
-        await conn.execute(
-            """
-            INSERT INTO canonical_handoffs (
-                handoff_id, handoff_version, session_id, turn_id, trace_id, status,
-                original_query, original_skill, original_use_case_id, original_answer_goal,
-                initial_tier, resolved_tier, canonical_planning_input, gap_resolution,
-                unresolved_fields, clarification_reason, committed_resource_plan_id,
-                committed_resource_plan, committed_evidence_plan, duplicate_call_hashes,
-                retry_count, created_at, updated_at, expires_at
-            ) VALUES (
-                $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16,$17,$18::jsonb,$19::jsonb,$20::jsonb,$21,$22,$23,$24
-            )
-            ON CONFLICT (handoff_id, handoff_version) DO UPDATE SET
-                session_id = EXCLUDED.session_id,
-                turn_id = EXCLUDED.turn_id,
-                trace_id = EXCLUDED.trace_id,
-                status = EXCLUDED.status,
-                original_query = EXCLUDED.original_query,
-                original_skill = EXCLUDED.original_skill,
-                original_use_case_id = EXCLUDED.original_use_case_id,
-                original_answer_goal = EXCLUDED.original_answer_goal,
-                initial_tier = EXCLUDED.initial_tier,
-                resolved_tier = EXCLUDED.resolved_tier,
-                canonical_planning_input = EXCLUDED.canonical_planning_input,
-                gap_resolution = EXCLUDED.gap_resolution,
-                unresolved_fields = EXCLUDED.unresolved_fields,
-                clarification_reason = EXCLUDED.clarification_reason,
-                committed_resource_plan_id = EXCLUDED.committed_resource_plan_id,
-                committed_resource_plan = EXCLUDED.committed_resource_plan,
-                committed_evidence_plan = EXCLUDED.committed_evidence_plan,
-                duplicate_call_hashes = EXCLUDED.duplicate_call_hashes,
-                retry_count = EXCLUDED.retry_count,
-                updated_at = EXCLUDED.updated_at,
-                expires_at = EXCLUDED.expires_at
-            """,
-            updated.handoff_id,
-            updated.handoff_version,
-            updated.session_id,
-            updated.turn_id,
-            updated.trace_id,
-            updated.status,
-            updated.original_query,
-            updated.original_skill,
-            updated.original_use_case_id,
-            updated.original_answer_goal,
-            updated.initial_tier,
-            updated.resolved_tier,
-            json.dumps(_sanitize_payload(updated.canonical_planning_input)),
-            json.dumps(_sanitize_payload(updated.gap_resolution)),
-            json.dumps(list(updated.unresolved_fields)),
-            updated.clarification_reason,
-            updated.committed_resource_plan_id,
-            json.dumps(_sanitize_payload(updated.committed_resource_plan)),
-            json.dumps(_sanitize_payload(updated.committed_evidence_plan)),
-            json.dumps(list(updated.duplicate_call_hashes)),
-            updated.retry_count,
-            updated.created_at,
-            updated.updated_at,
-            updated.expires_at,
-        )
+    if canonical_db_disabled():
+        _raise_persistence_error("handoff_persist")
+
+    async def _write(active_conn: asyncpg.Connection | None) -> None:
+        target = conn or active_conn
+        if target is None:
+            _raise_persistence_error("handoff_persist")
+        await persist_handoff_record(target, updated)
 
     try:
-        _run(lambda: _with_conn(_write))
-    except Exception:
+        if conn is not None:
+            run_on_canonical_loop(persist_handoff_record(conn, updated))
+        else:
+            run_in_canonical_unit_of_work(_write)
+    except HandoffPersistenceError:
+        raise
+    except Exception as exc:
         _LOGGER.warning("canonical_handoff_save_failed", exc_info=True)
-        _TEST_STORE[_key(updated.handoff_id, updated.handoff_version)] = payload
+        _raise_persistence_error("handoff_persist", exc)
     return updated
 
 
-def load_handoff_record(handoff_id: str, handoff_version: int) -> CanonicalHandoffRecord | None:
-    key = _key(handoff_id, handoff_version)
+def load_handoff_record(
+    handoff_id: str,
+    handoff_version: int,
+    *,
+    conn: asyncpg.Connection | None = None,
+) -> CanonicalHandoffRecord | None:
     if _USE_TEST_STORE:
-        raw = _TEST_STORE.get(key)
-        return CanonicalHandoffRecord.model_validate(raw) if raw else None
+        return test_store_read(handoff_id, handoff_version)
 
-    async def _read(conn: asyncpg.Connection) -> dict[str, Any] | None:
-        row = await conn.fetchrow(
-            """
-            SELECT * FROM canonical_handoffs
-            WHERE handoff_id = $1 AND handoff_version = $2 AND expires_at > now()
-            """,
-            handoff_id,
-            handoff_version,
-        )
-        return dict(row) if row else None
+    if canonical_db_disabled():
+        _raise_persistence_error("handoff_load")
 
-    raw: dict[str, Any] | None
-    if _disabled():
-        raw = _TEST_STORE.get(key)
-    else:
-        try:
-            raw = _run(lambda: _with_conn(_read))
-        except Exception:
-            _LOGGER.warning("canonical_handoff_load_failed", exc_info=True)
-            raw = _TEST_STORE.get(key)
+    async def _read(active_conn: asyncpg.Connection | None) -> dict[str, Any] | None:
+        target = conn or active_conn
+        if target is None:
+            _raise_persistence_error("handoff_load")
+        return await fetch_handoff_record(target, handoff_id, handoff_version)
+
+    try:
+        if conn is not None:
+            raw = run_on_canonical_loop(fetch_handoff_record(conn, handoff_id, handoff_version))
+        else:
+            raw = run_in_canonical_unit_of_work(_read)
+    except HandoffPersistenceError:
+        raise
+    except Exception as exc:
+        _LOGGER.warning("canonical_handoff_load_failed", exc_info=True)
+        _raise_persistence_error("handoff_load", exc)
+
     if not raw:
         return None
-    return CanonicalHandoffRecord.model_validate(_to_record_dict(raw))
+    return handoff_record_from_row(raw)
 
 
 def _to_record_dict(row: dict[str, Any]) -> dict[str, Any]:

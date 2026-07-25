@@ -67,7 +67,7 @@ AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC
 - Do not add Splunk telemetry writes, SAIA/Splunk AI Assistant SPL generation, or direct LLM-to-MCP tool calling unless explicitly scoped. Do not route live synthesis through the Experience Center path.
 - Do not execute raw `candidate_spl`; never pass prompts, reasoning, credentials, RAG chunks, or raw workflow internals to MCP.
 - Chat control plane (query-to-intent, evidence planning, route adjudication, SPL slot binding, MITRE decision, `control_plane_trace`) is implemented, gated by `CONTROL_PLANE_ENABLED` (default `false`). See `plans/2026-06-02_chat-control-plane-master.md`.
-- COE observability: durable trace spine on live `/chat` (`ai_trace_runs`), read-only `/debug` API gated by `AI_SOC_DEBUG_API_ENABLED` + per-user `debug_access`, telemetry sink `db|file|none`. Redacted, best-effort, never breaks chat; EC path emits no traces. See `docs/observability/debugging.md`.
+- COE observability: durable trace spine on live `/chat` (`ai_trace_runs`), read-only `/debug` API gated by `AI_SOC_DEBUG_API_ENABLED` + per-user `debug_access`, telemetry sink `db|file|none`. Redacted, best-effort; **diagnostic** planning telemetry never breaks chat (audit-critical events fail closed before side-effecting execution — see `docs/architecture/canonical_telemetry_coverage.md`). EC path emits no traces. See `docs/observability/debugging.md`.
 
 ## Run / Build
 

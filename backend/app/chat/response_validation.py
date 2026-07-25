@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Literal
 
 from app.chat.contracts.canonical_planning_outcome import (
@@ -9,8 +10,11 @@ from app.chat.contracts.canonical_planning_outcome import (
     outcome_from_state,
 )
 from app.chat.durable_planning_telemetry import persist_planning_event
+from app.chat.planning_telemetry_policy import AuditCriticalTelemetryPersistenceError
 from app.chat.planning_telemetry import emit_planning_event
 from app.planner.resource_plan import ResourcePlan
+
+_LOGGER = logging.getLogger("ai_soc.response_validation")
 
 ValidationOutcome = Literal["ok", "failed"]
 
@@ -121,11 +125,18 @@ def emit_request_failed(state: dict[str, Any], *, reason: str, error_category: s
         "error_category": error_category,
         "node_name": "request_terminal",
     }
-    persist_planning_event({**payload, "event": "request.failed"})
+    try:
+        persist_planning_event({**payload, "event": "request.failed"}, immediate=True)
+    except AuditCriticalTelemetryPersistenceError:
+        _LOGGER.warning(
+            "request_failed_not_durably_persisted",
+            extra={"reason": reason, "error_category": error_category},
+        )
     return emit_planning_event(
         state,
         event="request.failed",
         node_name="request_terminal",
         decision_reason=reason,
         payload=payload,
+        durable=False,
     ) or state

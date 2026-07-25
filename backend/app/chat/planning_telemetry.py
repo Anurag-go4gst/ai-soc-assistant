@@ -24,6 +24,28 @@ def planning_events() -> list[dict[str, Any]]:
     return list(_EVENT_LOG)
 
 
+def _append_telemetry_degradation(
+    state: dict[str, Any] | None,
+    *,
+    event: str,
+    reason: str,
+    detail: str,
+) -> None:
+    if state is None:
+        return
+    existing = state.get("planning_telemetry_degradation")
+    entries = list(existing) if isinstance(existing, list) else []
+    entries.append(
+        {
+            "event": event,
+            "reason": reason,
+            "error_category": "telemetry_persistence",
+            "detail": detail,
+        }
+    )
+    state["planning_telemetry_degradation"] = entries
+
+
 def last_decision_id() -> str | None:
     return _LAST_DECISION_ID
 
@@ -74,6 +96,7 @@ def emit_planning_event(
     authority: str = "deterministic",
     duration_ms: int | None = None,
     parent_decision_id: str | None = None,
+    durable: bool = True,
 ) -> dict[str, Any] | None:
     """Emit durable planning telemetry through DecisionRecord.payload."""
     global _LAST_DECISION_ID
@@ -96,9 +119,33 @@ def emit_planning_event(
     }
     _EVENT_LOG.append(full_payload)
     from app.chat.durable_planning_telemetry import persist_planning_event
+    from app.chat.planning_telemetry_policy import (
+        AuditCriticalTelemetryPersistenceError,
+        DiagnosticTelemetryPersistenceDegraded,
+        is_audit_critical_planning_event,
+    )
 
     persist_payload = {**full_payload, "decision_id": record_id, "node_name": node_name}
-    persist_planning_event(persist_payload)
+    if durable:
+        try:
+            persist_planning_event(persist_payload)
+        except AuditCriticalTelemetryPersistenceError as exc:
+            if state is None:
+                raise
+            from app.chat.canonical_mode import build_persistence_failed_state
+
+            return build_persistence_failed_state(
+                state,
+                reason=exc.reason,
+                detail=exc.detail,
+            )
+        except DiagnosticTelemetryPersistenceDegraded as exc:
+            _append_telemetry_degradation(
+                state,
+                event=str(exc.event or event),
+                reason=exc.reason,
+                detail=exc.detail,
+            )
     if state is None:
         return None
     return emit_decision_record(

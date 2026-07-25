@@ -70,6 +70,44 @@ def build_canonical_failure_state(
     return next_state
 
 
+def build_persistence_failed_state(
+    state: dict[str, Any],
+    *,
+    reason: str,
+    detail: str | None = None,
+    category: str = "database",
+) -> dict[str, Any]:
+    """Fail closed when canonical handoff persistence is unavailable."""
+    from app.chat.contracts.canonical_planning_outcome import failure_outcome
+    from app.chat.response_validation import emit_request_failed
+
+    outcome = failure_outcome(
+        "persistence_failed",
+        category=category,
+        reason=reason,
+        detail=detail,
+    )
+    failure = {
+        "outcome": "persistence_failed",
+        "reason": reason,
+        "detail": detail or reason,
+        "category": category,
+        "canonical_mode": True,
+    }
+    next_state = {
+        **state,
+        "canonical_planning_outcome": outcome.model_dump(),
+        "canonical_planning_failure": failure,
+        "plan_dispatch_trace": {
+            "dispatch_source": "canonical_failure",
+            "dispatch_schedule": [],
+            "failure": failure,
+        },
+    }
+    next_state.pop("evidence_plan", None)
+    return emit_request_failed(next_state, reason=reason, error_category=category)
+
+
 def build_non_planned_dispatch_state(state: dict[str, Any], *, status: str) -> dict[str, Any]:
     """Record that dispatch was correctly skipped for a non-planned canonical outcome.
 

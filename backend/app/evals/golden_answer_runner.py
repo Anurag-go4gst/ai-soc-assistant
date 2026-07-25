@@ -468,6 +468,10 @@ def assert_case(case: GoldenCase, response: Any) -> CaseResult:
 
 @contextmanager
 def safe_runtime(case: GoldenCase | None = None):
+    from app.chat import canonical_execution_idempotency
+    from app.chat import canonical_handoff_store
+    from app.chat import durable_planning_telemetry
+
     env_overrides = dict(SAFE_ENV_DEFAULTS)
     if case is not None:
         env_overrides.update(case.required_env)
@@ -482,8 +486,20 @@ def safe_runtime(case: GoldenCase | None = None):
         for key, value in SAFE_SETTING_DEFAULTS.items():
             if hasattr(settings, key):
                 setattr(settings, key, value)
+        canonical_handoff_store.use_in_memory_store_for_tests(True)
+        canonical_handoff_store.clear_all_handoffs_for_tests()
+        canonical_execution_idempotency.use_in_memory_store_for_tests(True)
+        canonical_execution_idempotency.clear_in_memory_store_for_tests()
+        durable_planning_telemetry.use_test_event_store(True)
+        durable_planning_telemetry.clear_persisted_events_for_tests()
         yield
     finally:
+        canonical_handoff_store.clear_all_handoffs_for_tests()
+        canonical_handoff_store.use_in_memory_store_for_tests(False)
+        canonical_execution_idempotency.clear_in_memory_store_for_tests()
+        canonical_execution_idempotency.use_in_memory_store_for_tests(False)
+        durable_planning_telemetry.clear_persisted_events_for_tests()
+        durable_planning_telemetry.use_test_event_store(False)
         for key, value in old_env.items():
             if value is None:
                 os.environ.pop(key, None)

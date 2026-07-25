@@ -406,12 +406,28 @@ def _fake_retrieve_soc_kb(**kwargs: Any) -> dict[str, Any]:
 
 @contextmanager
 def dual_parity_profile() -> Iterator[None]:
+    from app.chat import canonical_execution_idempotency
+    from app.chat import canonical_handoff_store
+    from app.chat import durable_planning_telemetry
+
     saved = {name: getattr(settings, name) for name in _PROFILE_FLAGS}
     try:
         for name, value in _PROFILE_FLAGS.items():
             setattr(settings, name, value)
+        canonical_handoff_store.use_in_memory_store_for_tests(True)
+        canonical_handoff_store.clear_all_handoffs_for_tests()
+        canonical_execution_idempotency.use_in_memory_store_for_tests(True)
+        canonical_execution_idempotency.clear_in_memory_store_for_tests()
+        durable_planning_telemetry.use_test_event_store(True)
+        durable_planning_telemetry.clear_persisted_events_for_tests()
         yield
     finally:
+        canonical_handoff_store.clear_all_handoffs_for_tests()
+        canonical_handoff_store.use_in_memory_store_for_tests(False)
+        canonical_execution_idempotency.clear_in_memory_store_for_tests()
+        canonical_execution_idempotency.use_in_memory_store_for_tests(False)
+        durable_planning_telemetry.clear_persisted_events_for_tests()
+        durable_planning_telemetry.use_test_event_store(False)
         for name, value in saved.items():
             setattr(settings, name, value)
 

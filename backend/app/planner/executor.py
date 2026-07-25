@@ -373,6 +373,15 @@ def execute_plan_dispatch(state: State, hooks: DispatchHooks) -> State:
             handoff_id=str(provenance.get("handoff_id") or state.get("handoff_id") or ""),
             handoff_version=provenance.get("handoff_version") or state.get("handoff_version"),
         )
+        failure = state.get("canonical_planning_failure") if isinstance(state, dict) else None
+        if isinstance(failure, dict) and failure.get("outcome") == "persistence_failed":
+            return state
+
+    from app.chat.canonical_execution_idempotency import guard_plan_dispatch_idempotency
+
+    blocked = guard_plan_dispatch_idempotency(state)
+    if blocked is not None:
+        return blocked
 
     walk = walk_plan_steps(state)
     blocked_steps = walk.blocked_step_ids if walk is not None else _dispatch_blocked_step_ids(state)

@@ -24,6 +24,33 @@ LIVE_LLM_OPT_IN_ENV = "AI_SOC_TESTS_ALLOW_LIVE_LLM"
 
 
 @pytest.fixture(autouse=True)
+def canonical_execution_idempotency_in_memory_for_tests() -> Iterator[None]:
+    from app.chat.canonical_execution_idempotency import (
+        clear_in_memory_store_for_tests,
+        use_in_memory_store_for_tests,
+    )
+
+    use_in_memory_store_for_tests(True)
+    yield
+    clear_in_memory_store_for_tests()
+    use_in_memory_store_for_tests(False)
+
+
+@pytest.fixture(autouse=True)
+def canonical_handoff_in_memory_for_tests() -> Iterator[None]:
+    """Handoff persistence is fail-closed without DB; tests opt into in-memory store."""
+    from app.chat.canonical_handoff_repository import (
+        clear_in_memory_store_for_tests,
+        use_in_memory_store_for_tests,
+    )
+
+    use_in_memory_store_for_tests(True)
+    yield
+    clear_in_memory_store_for_tests()
+    use_in_memory_store_for_tests(False)
+
+
+@pytest.fixture(autouse=True)
 def resource_plan_test_authority() -> Iterator[None]:
     from app.planner.resource_plan_authority import (
         TEST_AUTHORITY,

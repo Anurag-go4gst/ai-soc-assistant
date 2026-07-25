@@ -23,6 +23,7 @@ for _path in (REPO_ROOT / "backend", REPO_ROOT):
 
 from app.evals.production_runtime_parity import (  # noqa: E402
     RuntimeFallbackError,
+    prepare_committed_report,
     run_production_parity,
     validate_report,
     write_report,
@@ -58,6 +59,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.limit is not None:
         report["metadata"]["partial_run"] = True
 
+    command = " ".join(["python3", "scripts/run_production_parity_eval.py", *sys.argv[1:]])
+    report = prepare_committed_report(report, command=command)
     path = write_report(report, out_dir)
     summary = report["summary"]
     meta = report["metadata"]

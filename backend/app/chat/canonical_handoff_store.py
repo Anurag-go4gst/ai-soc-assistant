@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from app.chat.canonical_handoff_models import CanonicalHandoffRecord, HandoffStatus
 from app.chat.canonical_handoff_repository import (
+    HandoffPersistenceError,
     clear_in_memory_store_for_tests,
     load_handoff_record,
     save_handoff_record,
@@ -161,6 +162,7 @@ def contract_version() -> str:
 
 __all__ = [
     "CanonicalHandoffRecord",
+    "HandoffPersistenceError",
     "HandoffStatus",
     "clear_all_handoffs_for_tests",
     "commit_resource_plan",

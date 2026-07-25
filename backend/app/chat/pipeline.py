@@ -279,6 +279,7 @@ from app.chat.hil_resolution import resolve_effective_hil_required
 from app.chat.planning_decision import plan_path_and_tools
 from app.chat.control_plane_trace import build_control_plane_trace
 from app.chat.canonical_facts_spine import harvest_canonical_facts_from_state
+from app.chat.canonical_db import planning_turn_scope
 from app.chat.debug_summary import build_debug_summary
 from app.chat.guided_discovery_promotion import build_guided_discovery_promotion_offer
 from app.chat.guided_answer_contract import enhance_answer_contract_for_guided_hybrid
@@ -363,6 +364,7 @@ class ChatPipelineState(TypedDict, total=False):
     spl_source_resolve: dict[str, Any] | None
     llm_derived_spl_artifact: dict[str, Any] | None
     execution: dict[str, Any]
+    execution_reconciliation: dict[str, Any] | None
     human_review: dict[str, Any]
     source_evidence: list[dict[str, Any]]
     structured_context: dict[str, Any]
@@ -531,8 +533,10 @@ def build_live_chat_response(
     re-run). Production ``/chat`` uses ``run_chat_via_resource_planner_graph``.
     """
     token = bind_progress_reporter(progress) if progress is not None else None
+
     try:
-        return _build_live_chat_response_inner(request, session_role=session_role, entrypoint=entrypoint)
+        with planning_turn_scope():
+            return _build_live_chat_response_inner(request, session_role=session_role, entrypoint=entrypoint)
     finally:
         if token is not None:
             reset_progress_reporter(token)
@@ -4218,11 +4222,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         if isinstance(intent_classification, dict):
             _intent_family = str(intent_classification.get("intent_family") or "")
         _registry_warnings, _catalog_row = _composer_skip_registry_context(state)
+        _query_signals = _query_signals_from_state(state) or {}
         _skip_comp, _skip_comp_reason = _skip_composer_fn(
             query=request.message,
             path_type=path_type,
             intent_family=_intent_family or None,
-            use_case_review_guidance=bool(_query_signals_from_state(state).get("use_case_review_guidance")),
+            use_case_review_guidance=bool(_query_signals.get("use_case_review_guidance")),
             match_path=_match_path_from_state(state),
             promotion_lifecycle_summary=_promotion_lifecycle_for_composer_skip(state),
             registry_warnings=_registry_warnings,
@@ -4527,11 +4532,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     if isinstance(state.get("intent_classification"), dict):
         intent_family = str(state["intent_classification"].get("intent_family") or "")
     _registry_warnings, _catalog_row = _composer_skip_registry_context(state)
+    query_signals = _query_signals_from_state(state) or {}
     skip_composer, skip_reason = should_skip_llm_composer(
         query=request.message,
         path_type=path_type,
         intent_family=intent_family or None,
-        use_case_review_guidance=bool(_query_signals_from_state(state).get("use_case_review_guidance")),
+        use_case_review_guidance=bool(query_signals.get("use_case_review_guidance")),
         match_path=_match_path_from_state(state),
         promotion_lifecycle_summary=_promotion_lifecycle_for_composer_skip(state),
         registry_warnings=_registry_warnings,
@@ -5328,12 +5334,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         tool_plan=list(routed["tool_plan"]),
         confidence=float(routed["confidence"]),
         routing_mode=settings.routing_mode,
-        disagreement=state["disagreement"],
-        disagreement_reason=_disagreement_reason(comparison) if state["disagreement"] else None,
-        query_understanding=state["query_understanding"],
+        disagreement=bool(state.get("disagreement")),
+        disagreement_reason=_disagreement_reason(comparison) if state.get("disagreement") else None,
+        query_understanding=state.get("query_understanding"),
         selected_use_case=response_use_case,
-        selected_skill_chain=state["selected_skill_chain"],
-        skill_selection=state["skill_selection"],
+        selected_skill_chain=state.get("selected_skill_chain"),
+        skill_selection=state.get("skill_selection"),
         skill_contribution=skill_contribution_record,
         message=message,
         note=note,
