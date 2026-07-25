@@ -13,6 +13,9 @@ todos:
     status: pending
   - id: outcome-sentinel
     content: "Items 12–14: CanonicalPlanningOutcome + orchestrator refactor + sentinel pass"
+    status: completed
+  - id: dual-runtime-parity
+    content: "Items 30–35: parity root-cause (30 ✅), projection, runtime unification, static guard, behavioural parity, artifact regeneration"
     status: pending
   - id: pytest-migration
     content: "Items 15–17: failure inventory, canonical test helper, 0 pytest failures"
@@ -41,7 +44,7 @@ todos:
 isProject: false
 ---
 
-# Guided detail tools — canonical planning architecture (rev 9)
+# Guided detail tools — canonical planning architecture (rev 12)
 
 ## Architecture objective
 
@@ -57,6 +60,77 @@ One consistent agentic flow — **always on**, no feature flags or legacy fallba
 - **Persistence** — PostgreSQL for handoffs, planning events, execution idempotency (`0004_canonical_handoffs.sql`)
 - **Non-planned outcomes** — clarification, policy block, planning failure via typed `CanonicalPlanningOutcome`; downstream branches on `status`, not on partial `EvidencePlan` dicts
 
+## Status ledger (verified 2026-07-25, rev 12)
+
+Six distinct classes — do not merge them when reporting progress.
+
+### 1. Completed work
+
+| Item | Status | Evidence |
+|------|--------|----------|
+| Phase 1 (items 1–9) | **Done** | commit `ceb7b19` |
+| Item 12 — `CanonicalPlanningOutcome` | **Done** | 19 tests, one per status |
+| Item 13 — non-planned exit paths | **Done** | 4 partial-`EvidencePlan` sources removed |
+| Item 14 — **Gate 1** | **Done** | sentinel 17/17 PASS; clean-answer 120/120 PASS; `base_105_loaded=105`; clarification uses typed outcomes with no partial `EvidencePlan`; clarification creates no `ResourcePlan` (verified on a live turn) |
+| Item 30 — parity root-cause analysis | **Done** | In-memory `total=120 exact=0 non-critical=107 critical=13`; harness compares imperative vs `planner_led_shadow_graph` (not `rp_node_bootstrap`); universal `path_type`/`branches` divergence documented; RC-1–RC-4 root-caused. Observational only — not final artifact evidence |
+| Item 21a (partial) | Landed early | correlation columns bound from raw event |
+| MCP least-privilege re-gate | **Done** | `test_t2_never_execution_eligible_or_mcp_allowed` passes untouched |
+
+### 2. Verified bugs fixed (production defects, not test churn)
+
+| # | Defect | Impact before fix |
+|---|--------|-------------------|
+| 1 | Known-path `query_to_intent` was a `{"query_signals": …}` stub | Dropped `candidate_mappings` + `intent_classification`; every sentinel row reported `match_path`, `mapped_question_ref`, `intent_family`, `requires_clarification` as `None` |
+| 2 | Intent family derived from the **routed skill** via `build_known_path_intent_stub`'s lookup table | SPL-authoring questions routed to `alert_summary`/`attack_discovery` were relabelled `hybrid_alert_review` and **lost their governed SPL** |
+| 3 | Completeness gate required **answer-output** fields (`fail_count`, `first_failure`, `command_line`, …) as analyst inputs | Governed catalogue questions diverted into guided resolution; approved template SPL replaced by an ungoverned lab draft; route moved off its catalogue skill |
+| 4 | `_answer_mode_from_canonical` catch-all returned `live_investigation` | Overrode `plan_evidence`, rewriting policy/knowledge families (`mitre_explanation`, `sop_or_playbook`) off `rag_only` and attaching a lab SPL draft + MITRE assertion to policy answers |
+| 5 | `use_case_catalog` absent from every route-adjudication match-path set | Catalogue questions re-derived their skill from `intent_family`; masked until the real classifier landed, then silently re-routed `attack_discovery` → `spl_generation` |
+| 6 | Clarification lost `answer_contract.answer_mode` | Analyst card rendered a clarification turn as an ordinary low-evidence answer |
+| 7 | `scripts/eval_sentinel.py` computed `failed_keys` as `diff.split(".")[0]` | Row keys are themselves dotted (`q0.q045` → `q0`), so all rows collapsed into ~2 prefixes and the gate printed a near-constant "15/17". **True starting state was 2/17.** A governance gate that could not count its own failures hid the size of the regression |
+
+Also fixed earlier in the cutover: the live safety regression where a missing `planning_decision` downgraded blocked containment requests from `unsafe_action_blocked` to `policy_checks_passed`.
+
+### 3. Deliberate baseline changes (exhaustive)
+
+**Three fields, one file** — `backend/app/evals/fixtures/sentinel_baseline.json`, a 3-line diff:
+
+| Row | Field | Old | New |
+|-----|-------|-----|-----|
+| `pg.clar.001` | `answer_mode` | `"clarification"` | `null` |
+| `pg.unsafe.001` | `answer_mode` | `"clarification"` | `null` |
+| `q0.q045` | `answer_mode` | `"clarification"` | `null` |
+
+Justified: clarification carries no `EvidencePlan` by the item-12 contract, so `evidence_plan.answer_mode` is legitimately absent. **Not a weakened assertion** — `contract_answer_mode="clarification"` and `requires_clarification=true` remain pinned on all three rows, and `contract_answer_mode` is the analyst-facing surface. Every other sentinel value was restored by fixing code, not by re-freezing.
+
+Also re-pinned (tests, disclosed, each with in-file reasoning): `test_evidence_planner_all_tier_grants` (renamed + new catalogue counterpart), `test_run_contract_bundle` (one assertion; all execution-safety assertions untouched), `test_pipeline_dispatch_phase2a` (had asserted the presence of the partial `EvidencePlan`), `test_route_adjudication` (accepts new `catalogue_registry_skill` provenance; route assertion unchanged).
+
+### 4. Remaining test migration (items 15–17)
+
+Full pytest **4177 passed / 112 failed / 2 skipped / 6 xfailed**, versus the batch baseline **4051 passed / 203 failed**. **91 baseline failures fixed, 0 new** (set-diffed against a stashed baseline, not counted). The 112 are unclassified — item 15 owns the A–G inventory.
+
+### 5. Genuine runtime regressions
+
+None outstanding from this cutover. Every regression found (state channels, unsafe-path downgrade, governed-SPL loss, policy answers upgraded to live investigation, catalogue re-routing) has been fixed and pinned. The 112 remaining failures are presumed legacy assumptions until item 15 proves otherwise — category **G** exists precisely to catch any that are not.
+
+### 6. Dual-runtime architecture work (items 30–35)
+
+**Parity artifact authority — no parity number below is final evidence.**
+
+| Source | total | exact | acceptable | mismatch | Authority |
+|--------|-------|-------|-----------|----------|-----------|
+| Committed artifacts in `8792338` | 120 | 0 | 85 | 35 | **STALE — NON-AUTHORITATIVE.** Produced by the before/after comparison run with the fixes stashed; that run overwrote the newer output, and the stale files were staged afterwards |
+| Observational run on the fixed tree (Item 30, in-memory) | 120 | 0 | 107 | 13 | **Observational only** (`non-critical differences=107`, `critical mismatches=13`). Harness: imperative vs `planner_led_shadow_graph` — **not** `rp_node_bootstrap`. Must not be cited as final evidence; superseded by item 35 |
+| Pre-fix comparison run | 120 | 0 | 85 | 35 | Reference point for "did this work improve parity" only |
+
+**Standing rule until item 35 completes:**
+- The committed `docs/evals/langgraph_dual_parity_*` files are **stale and non-authoritative**. Do not quote them.
+- `107 acceptable / 13 mismatch` is an **observational result**, not evidence. Do not quote it as a final figure, in the completion report or anywhere else.
+- **No parity or eval artifact may be regenerated or committed before item 35.** Item 35 owns the first authoritative regeneration, from the final committed tree, through the artifact-safe procedure it defines.
+
+The direction of travel (35 → 13 mismatches) is the only claim the current data supports, and even that is provisional. Exact match was already 0 before this work: the imperative pipeline and the Resource Planner graph have drifted apart since the Phase 1 rewire.
+
+---
+
 ## Completion criteria (all must be true before marking Done)
 
 - [ ] Canonical planning is always active; no flags or shadow paths remain
@@ -68,6 +142,15 @@ One consistent agentic flow — **always on**, no feature flags or legacy fallba
 - [ ] Experience Center path emits zero canonical planning events, handoff rows, and plan commits
 - [ ] Handoff + planning-event retention/purge is enforced (no unbounded SOC-content growth)
 - [ ] Containerised live `/chat` smoke passes for all six canonical paths
+- [ ] **Full pytest: 0 failed** (from 112 at rev 10; category **G** must be empty)
+- [ ] **Dual-runtime parity: 0 `critical_mismatch`** across all 120 rows
+- [ ] Every non-`exact_match` row is `approved_difference` with a **complete six-part record per differing field** (field name, imperative value, RP-graph value, reason, contract owner, approval reference)
+- [ ] No routing, tier, lane, answer-goal, intent, completeness, canonical-input, plan-authority, governance or execution field appears in any tolerance or exclusion list
+- [ ] Parity artifacts regenerated through the item-35 artifact-safe procedure from the final committed tree, carrying commit SHA + corpus counts; the stale `8792338` artifact and the observational `107/13` result are both superseded
+- [ ] Neither runtime contains independent routing, completeness, intent or planning logic (item 33 static guard, with a recorded negative control)
+- [ ] Behavioural parity green for all seven canonical path classes (item 34)
+- [ ] Governance regression: **PASS**
+- [ ] **No baseline or tolerance change may hide a behavioural defect** — every baseline edit and every approved difference in the completion report names the contract that makes the old value wrong
 - [ ] Response and terminal request events are complete (`response.validated`, `response.generated`, `request.completed` / `request.failed`)
 - [ ] Guided dispatch cannot create or modify `ResourcePlan`
 - [ ] Plan and execution idempotency are transactionally enforced
@@ -78,19 +161,29 @@ One consistent agentic flow — **always on**, no feature flags or legacy fallba
 ## Stop conditions
 
 - All checklist items checked with evidence, **or**
-- Same Verify fails twice on one item, **or**
-- Decision needed — stop and ask
+- **Item 17** — full pytest gate fails twice on the same item without inventory progress (item 15), **or**
+- **Item 24** — PostgreSQL integration suite unavailable or skipped in completion CI, **or**
+- **Item 29** — containerised `/chat` smoke fails twice on the same probe, **or**
+- **Architecture or governance decision** requiring explicit approval (e.g. MCP grant-surface widening per item 15 category G)
 
 ## Dependency order
 
 Phase 1: `1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9`
 
-Phase 2 (execution order — rev 9; item numbers unchanged, new items suffixed):
+Phase 2 (execution order — rev 12; item numbers unchanged, new items suffixed):
 
-`12 → 13 → 14 → 15 → 16 → 17 → 18a → 19a → 10 → 21a → 18 → 19 → 21b → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 26a → 28 → 11 → 29 → 27`
+`12 ✅ → 13 ✅ → 14 ✅ → 30 ✅ → 15 → 16 → 31 → 32 → 33 → 34 → 17 → 35 → 18a → 19a → 10 → 21a → 18 → 19 → 21b → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 26a → 28 → 11 → 29 → 27`
+
+**Current batch is 15–17 plus 30–35 (dual-runtime parity first).** Nothing in persistence, migration, execution idempotency, telemetry catalog or documentation starts in this batch.
+
+Why parity leads: item 30 is pure analysis and blocks nothing, and its findings decide whether a given pytest failure in item 15 is a legacy assumption (**A–F**) or a real dual-runtime regression (**G**). Classifying the 112 before knowing which runtime is wrong would produce an inventory that has to be redone.
 
 **Gate rules:**
-- Do not start item 15 until item 14 (sentinel) passes.
+- ~~Do not start item 15 until item 14 (sentinel) passes.~~ **Item 14 passed 2026-07-25** (sentinel 17/17, clean-answer 120/120).
+- **30 precedes 15** — parity root cause decides A–F vs G for the 112.
+- **31 precedes 32** — define what "equal" means before changing code to achieve it.
+- **33 follows 32** — the static guard locks in the unification, so it cannot be written against the forked state.
+- **35 follows 32 and 34** — regenerate artifacts only once the runtimes agree and harness metadata is locked (`runtime_a`/`runtime_b`).
 - **18a blocks 18, 19a, 24** — no fail-closed persistence before migrations have a deploy path.
 - **19a blocks 19, 20, 24** — no multi-statement transaction work before the unit-of-work exists.
 - **10 + 21a precede 18** — items 18/19/20 emit durable telemetry, so the telemetry foundation and typed correlation columns are prerequisites, not successors.
@@ -223,26 +316,26 @@ flowchart TD
 
 ---
 
-## Phase 2 — Always-on cutover (items 10–27)
+## Phase 2 — Always-on cutover (items 10–35)
 
-Maps 1:1 to user spec §1–§14, plus rev 9 architecture-review items (18a, 19a, 21a, 21b, 26a, 28, 29).
+Maps 1:1 to user spec §1–§14, plus rev 9 architecture-review items (18a, 19a, 21a, 21b, 26a, 28, 29), plus dual-runtime parity items 30–35 (rev 11–12).
 
-**Implementation status (rev 9, verified):** Phase 2 is not started **except** a partial item 10 — `durable_planning_telemetry.py`, `planning_telemetry.py`, and `response_validation.py` exist, and `validate_final_response` is already called on the live path at `pipeline.py:4253`. Rev 8's "nothing implemented" claim was wrong. Item 10 must be finished (unit-of-work, correlation, policy), not started from zero.
+**Implementation status (rev 12):** Items **12**, **13**, **14** (Gate 1) and **30** (parity root-cause analysis) are **complete**. Remaining Phase 2 work spans items 10–11, 15–29, and 31–35. Partial early landings: item 10 (`durable_planning_telemetry.py`, `planning_telemetry.py`, `response_validation.py`; `validate_final_response` at `pipeline.py:4253`), item 21a (correlation columns). Item 10 must still be finished (unit-of-work, correlation policy per 21b), not treated as done.
 
-### Root cause — sentinel / clarification (Gate 1 blocker) — spec §1
+### Root cause — sentinel / clarification (resolved — Gate 1 closed, item 14)
 
 ```mermaid
 flowchart LR
-  orch[canonical_planning_orchestrator] -->|clarification| partial["evidence_plan dict forced into state"]
-  partial --> downstream["EvidencePlan.model_validate"]
-  downstream --> fail[ValidationError in sentinel /chat]
+  orch[canonical_planning_orchestrator] -->|clarification| outcome["CanonicalPlanningOutcome status=clarification_required"]
+  outcome --> downstream["branch on status — no EvidencePlan validate"]
+  downstream --> pass[Sentinel / clean-answer PASS]
 ```
 
-**Confirmed bugs (not fixed):**
-- `canonical_planning_orchestrator.py` ~396–402 inserts partial `evidence_plan` dict on clarification
-- `response_validation.py` always requires `resource_plan` — fails clarification paths
-- Resume checks `status == "clarification_required"` but store saves `awaiting_clarification`
-- `canonical_handoff_repository.py` falls back to `_TEST_STORE` when DB disabled or write fails
+**Resolved by items 12–13 (evidence in checklist):**
+- Partial `evidence_plan` dict on clarification — removed; `canonical_planning_outcome` is authoritative
+- `response_validation.py` requiring `resource_plan` on clarification — outcome-aware branching (item 22)
+- Resume status mismatch (`clarification_required` vs `awaiting_clarification`) — fixed; transactional resume verified live
+- Live memory `_TEST_STORE` fallback — removal scoped to items 18–19 (not Gate 1)
 
 **Outcome rules (items 12–13) — branch on `CanonicalPlanningOutcome.status`, not on `EvidencePlan` presence:**
 
@@ -290,15 +383,13 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
     ```
   - **Depends on:** 13
   - **Stop:** Sentinel fails twice → stop and report
-  - **Evidence (partial — clarification criteria met, sentinel blocked on a pre-existing baseline):**
-    - **Clean-answer eval: PASS.** `total=120 pass=118 review=2 fail=0 critical=0`, `base_105_loaded=105`. All **12** rows listed in item 15 return to pass. The 2 REVIEW rows (`demo.sop-only_query`, `manual.brute_force_sop`, both `sop_incident_narrative`) are **not** from this batch — reproduced on the Phase 1 commit with this batch stashed.
-    - **Clarification invariants: verified on a live turn.** No `evidence_plan` in state, `outcome.resource_plan is None`, `get_committed_resource_plan(...) is None`, question and `unresolved_fields` present, handoff persisted at `awaiting_clarification`.
-    - **Full pytest: no regressions.** `190 failed, 4096 passed` vs the batch baseline `203 failed, 4051 passed` — **13 baseline failures fixed, 0 new** (set-diffed, not counted).
-    - **Sentinel: PASS 17/17** (resolved in rev 9c — see below). At the time this batch landed it was FAIL, with drift inherited from the Phase 1 routing rewire rather than from clarification.
-    - **Clean-answer eval: 120/120 PASS, 0 REVIEW, 0 FAIL, `base_105_loaded=105`** after rev 9c. The 2 `sop_incident_narrative` REVIEW rows were fixed by the same routing corrections.
+  - **Evidence:** Gate 1 closed (rev 9c). Sentinel **PASS 17/17**; clean-answer **120/120 PASS**, `base_105_loaded=105`, 0 REVIEW, 0 FAIL. Clarification invariants verified on live turn (no `evidence_plan`, no committed `ResourcePlan`, handoff at `awaiting_clarification`). Full pytest at batch land: 190 failed → later 112 failed at `8792338` after further fixes.
 
 - [ ] **15** — Pytest failure inventory — spec §2
+  - **Scope (rev 10):** exactly **112** failures, measured at commit `8792338` (`4177 passed / 112 failed / 2 skipped / 6 xfailed`). Every one must land in a category; an unclassified failure is not "assumed A".
   - **Do:** Run full pytest once; capture to `docs/evals/canonical_phase2_failure_inventory.md` with columns: test file, test name, failure category, old assumption, new canonical expectation, code fix or test fix.
+  - **Do:** Count the rows and assert the total equals the pytest failure count — a short inventory is the failure mode this item exists to prevent.
+  - **Do:** Report the per-category totals in the completion report. **Category G is the one that matters**: any G is a live regression and blocks the plan regardless of the other counts.
   - **Do:** Categorize using **exact** spec labels:
     - **A** — tests assuming canonical planning can be disabled
     - **B** — tests expecting legacy `query_to_intent` or `evidence_planning`
@@ -507,6 +598,131 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Depends on:** 14, 17
   - **Evidence:** _(filled at check-off)_
 
+### Dual-runtime parity (items 30–35) — rev 12
+
+**Item 30 complete (analysis only, 2026-07-25).** Observational baseline (in-memory, `base_105_loaded=105`; **not** committed artifact evidence):
+
+```text
+total=120
+exact=0
+non-critical differences=107
+critical mismatches=13
+```
+
+**Recorded findings (authoritative for items 31–34):**
+
+1. **Harness mismatch.** The 120-row parity eval compares **imperative** `_run_live_chat_pipeline` (`build_live_chat_response`) vs **second side** `run_planner_led_shadow_graph` (`planner_led_shadow_graph.py`). It does **not** compare the actual `resource_planner_graph.rp_node_bootstrap`. The 3-row `test_dual_runtime_lane_parity.py` (canonical vs RP bootstrap) passes independently.
+
+2. **First universal divergence.** Imperative calls `graph_node_lane_and_canonical_planning` (`pipeline.py:601`) → `_graph_node_planning_decision_from_canonical` (`pipeline.py:604`). Shadow `shadow_node_planning` calls forbidden legacy `graph_node_evidence_planning` (`planner_led_shadow_graph.py:117` → `pipeline.py:1720-1725`). Canonical authority blocks it (`canonical_forbids_legacy_evidence_planning`); shadow receives no `planning_decision`; therefore `path_type=None` and `branches=[]` on **all 120** rows.
+
+3. **Shadow continuation after planning failure.** Shadow incorrectly proceeds into workflow SPL / investigation / execution branches after canonical planning failure, causing: candidate SPL on clarification paths (`spl_generation_mismatch`, 2 rows); unsafe/HIL downgrades (`unsafe_hil_mismatch`, 1 row); missing execution and governance state (`execution_status` diff on 60 rows; `hil_required` on 7).
+
+**Standing rule until item 35:** no parity or eval artifact regeneration or commit.
+
+- [x] **30** — Root-cause the parity result — rev 12 (analysis complete)
+  - **Do:** Explain why exact match is 0; classify provenance vs behavioural; root-cause all 13 critical mismatches; document harness vs RP-graph distinction.
+  - **Verify:** analysis covers 120/120 rows; 13 critical mismatches name field, both runtime values, and first-divergence node
+  - **Depends on:** none
+  - **Evidence:** In-memory run `total=120 base_105_loaded=105 exact=0 non-critical=107 critical=13`. Universal diff: `path_type` + `branches` all 120 rows (RC-1). Critical: 12× `path_type_runtime_active`, 2× `spl_generation_mismatch`, 1× `unsafe_hil_mismatch`. First divergence: imperative `pipeline.py:601` vs shadow `planner_led_shadow_graph.py:117` → `pipeline.py:1720-1725`. Harness compares shadow graph, not `rp_node_bootstrap` (`resource_planner_graph.py:309-314`). No code, tests, baselines, approvals, tolerance lists or parity artifacts modified.
+
+- [ ] **31** — Parity projection and classification — rev 11
+  - **Do:** Replace existing labels (`match` / `acceptable_diff` / `mismatch`) with exactly three:
+    - `exact_match` — all contract comparison fields equal
+    - `approved_difference` — every differing field has a complete six-part approval record; one incomplete field → `critical_mismatch`
+    - `critical_mismatch` — any unapproved difference in a governance or behavioural field
+  - **Do:** **Delete** `_ACCEPTABLE_DIFF_FIELDS` in `langgraph_dual_parity.py` unless replaced by a real field-level approval registry that enforces the six-part record (no third option — dead tolerance lists are prohibited).
+  - **Do:** Governance and behavioural fields are **never approval-eligible** (any difference → `critical_mismatch`):
+    - tier; match path; processing lane; intent family; answer goal; completeness; canonical input; path type; branches; execution status; HIL; safety; SPL; MITRE visibility; ResourcePlan authority; execution behaviour
+  - **Do:** Exclude **only** documented runtime metadata: trace IDs, timings, node-visit order, graph trace envelope keys. Each exclusion carries inline justification in code and in `docs/architecture/dual_runtime_parity_projection.md`.
+  - **Do:** Every `approved_difference` requires per differing field all six of: (1) field name, (2) imperative value, (3) second-runtime value, (4) reason the two runtimes cannot produce the same value, (5) contract owner, (6) explicit approval reference.
+  - **Do not:** widen tolerances, hide fields from comparison, or re-baseline to make mismatches disappear.
+  - **Verify:** `pytest app/tests/test_dual_runtime_parity_projection.py -q` — three classifications exhaustive and mutually exclusive; exclusion list equals documented set; incomplete six-part record → `critical_mismatch`; adding any non-approval-eligible field to a tolerance list fails the test; `_ACCEPTABLE_DIFF_FIELDS` absent or wired to real registry
+  - **Depends on:** 30
+  - **Acceptance:** projection module exists; dead `_ACCEPTABLE_DIFF_FIELDS` removed or functional; zero governance fields in exclusion/tolerance lists
+  - **Evidence:** _(filled at check-off)_
+
+- [ ] **32** — Unify runtime entry points — rev 12
+  - **Do:** Extract or designate **one shared callable** — e.g. `run_canonical_planning(state) -> state` — that owns lane routing, completeness, intent classification, canonical planning, route resolution, and `_graph_node_planning_decision_from_canonical`. Do **not** define the shared service only as a sequence of node names; two entry points copying the same nodes is prohibited.
+  - **Do:** **`_run_live_chat_pipeline`** and **`rp_node_bootstrap`** must both call `run_canonical_planning` (or the chosen single callable). Shadow graph, if retained, must call the same callable — not a parallel copy.
+  - **Do:** Neither entry point may hold independent routing, completeness, intent-classification or final-planning logic beyond invoking the shared callable and dispatching on its returned state.
+  - **Do:** **Rewire or retire** `planner_led_shadow_graph`. If retained for trace/tests, it must call `run_canonical_planning` — **must not** call `graph_node_evidence_planning` on an initial request (`pipeline.py:1720-1725` path).
+  - **Do:** Shadow/RP graphs **must not** continue to workflow SPL, investigation or execution when canonical outcome is non-`planned` (clarification, policy block, failure). Block at orchestration boundary before `graph_node_workflow_spl`, `shadow_node_investigation_spl`, `graph_node_execution`.
+  - **Do:** Update the **120-row parity harness** (`run_dual_parity_eval` / `langgraph_dual_parity.py`) to compare:
+    - imperative canonical entry point (`_run_live_chat_pipeline` / `build_live_chat_response`), and
+    - actual Resource Planner graph entry point (`run_chat_via_resource_planner_graph` or `rp_node_bootstrap` chain).
+    Stop comparing against `planner_led_shadow_graph` unless shadow is rewired to be a thin wrapper of `run_canonical_planning`.
+  - **Do:** Parity harness output and committed artifacts must record fixed runtime identifiers (writer-enforced; `--check` fails if absent or wrong):
+    - `runtime_a=imperative_canonical`
+    - `runtime_b=resource_planner_graph`
+    - `commit_sha`
+    - `corpus_count=120`
+    - `base_105_loaded=105`
+    This prevents silent regression to `planner_led_shadow_graph` or a reduced corpus.
+  - **Do:** Remove duplicated routing, completeness, intent, planning and dispatch logic from entry-point graphs. Remove dead unconditional `if True:` branches in `resource_planner_graph.py` (`rp_node_bootstrap`, `rp_node_route_resolution`) **only after** caller and behaviour review — do not delete without confirming no live caller depends on the dead branch.
+  - **Verify:** `pytest app/tests/test_dual_runtime_lane_parity.py -q`; in-memory 120-row eval (do **not** write committed artifacts) shows `exact_match` count strictly greater than item-30 baseline `0`, and `critical_mismatch` count strictly less than `13`; harness metadata carries `runtime_a`/`runtime_b` as above
+  - **Depends on:** 31
+  - **Acceptance:** `_run_live_chat_pipeline` and `rp_node_bootstrap` both invoke `run_canonical_planning` (single callable, not duplicated node sequence); shadow does not call legacy `graph_node_evidence_planning` on initial path; non-planned outcomes cannot reach SPL/execution nodes; 120-row harness compares imperative vs RP with enforced runtime metadata
+  - **Evidence:** _(filled at check-off)_
+
+- [ ] **33** — Static architecture guard — rev 12
+  - **Do:** Add `backend/app/tests/test_dual_runtime_single_orchestration.py`, **AST-based** (not substring matching), proving:
+    - `_run_live_chat_pipeline` calls `run_canonical_planning` (the single shared callable)
+    - `rp_node_bootstrap` calls the **same** `run_canonical_planning` callable
+    - shadow graph, **if retained**, calls `run_canonical_planning` (not `graph_node_evidence_planning` on initial path)
+    - no entry point contains independent lane routing, completeness, or final-planning logic
+    - no initial path calls `graph_node_evidence_planning` (except documented loop-re-entry paths per `loop_initialized`)
+  - **Do:** Add a **graph-transition test** (same module or `test_dual_runtime_non_planned_graph_guards.py`) proving every non-`planned` canonical status cannot reach SPL or execution nodes. Cover at minimum:
+    - `clarification_required`
+    - `policy_blocked`
+    - `planning_failed`
+    - `resolution_failed`
+    - `persistence_failed`
+    AST alone is insufficient — transitions must be exercised or statically proved on the actual graph edge set.
+  - **Do:** Negative control: temporarily reintroducing a duplicate planning fork, an initial `graph_node_evidence_planning` call, or an SPL/execution edge from a non-planned status must fail the test (record evidence once).
+  - **Verify:** `pytest app/tests/test_dual_runtime_single_orchestration.py -q` (AST + graph-transition cases)
+  - **Depends on:** 32
+  - **Acceptance:** guard fails on fork or edge reintroduction; imperative, RP, and shadow-if-kept all reference `run_canonical_planning`; all five non-planned statuses blocked from SPL/execution
+  - **Evidence:** _(filled at check-off)_
+
+- [ ] **34** — Behavioural parity — rev 11
+  - **Do:** Add `backend/app/tests/test_dual_runtime_behavioural_parity.py` running the **same query through both real entry points** (imperative + RP graph per item 32) and asserting item-31 projection `exact_match` for all non-metadata fields, across seven path classes:
+    1. T1–T3 known complete
+    2. T1–T3 gap and guided resolution
+    3. T4 resolving to T0
+    4. T4 investigation
+    5. Composite knowledge plus live evidence
+    6. Clarification and resumption
+    7. Policy or unsafe block
+  - **Do:** Use item-16 canonical flow helper where applicable — not hand-built state dicts.
+  - **Do:** Focused regressions (named tests), all asserting `exact_match` on behavioural projection after item 32:
+    - no candidate SPL after clarification (`demo.successful_login_after_failures`, `manual.alt0891_hybrid` class)
+    - unsafe/HIL flags preserved (`demo.unsafe_containment/execution_request`)
+    - execution status parity (HIL `requires_human_review` vs `skipped` class)
+    - selected `use_case_id` preserved (`manual.mitre_no_context`)
+    - MITRE visibility parity
+  - **Verify:** `pytest app/tests/test_dual_runtime_behavioural_parity.py -q` → 7 path classes green; focused regression tests green on both entry points
+  - **Depends on:** 16, 32, 33
+  - **Acceptance:** `exact_match` for all non-runtime-metadata behavioural fields after item 32; item-30 failure modes (RC-1–RC-4) covered by named regressions
+  - **Evidence:** _(filled at check-off)_
+
+- [ ] **35** — Artifact-safe regeneration and reconciliation — rev 10, revised rev 11
+  - **Context:** `docs/evals/langgraph_dual_parity_*` committed in `8792338` hold **85 acceptable / 35 mismatch** — the stashed-baseline comparison run, which overwrote the newer output before staging. The commit message's 107/13 is right for the code and wrong for the artifact. **This item owns the first authoritative regeneration; nothing may regenerate or commit a parity/eval artifact before it.**
+  - **Do:** Implement an artifact-safe generation procedure for parity and eval artifacts, enforced by the writer itself rather than by operator discipline:
+    1. **Corpus completeness** — full-corpus row count must equal **120**; `base_105_loaded` must equal **105**.
+    2. **Temp-first** — generate into a temporary directory; never write directly over committed artifacts.
+    3. **Validate before replace** — check corpus counts and acceptance gates against the temp output first.
+    4. **Atomic replacement** — replace committed artifacts atomically once validation passes; no partially written artifact can ever be observed.
+    5. **Refuse shrinkage** — refuse to overwrite a larger valid committed corpus with a smaller run.
+    6. **`include_105=false` cannot overwrite full-corpus artifacts** — a reduced run writes only to the temp location, or is refused outright.
+    7. **Fail, don't warn** — the generation command exits non-zero when corpus counts are incomplete. A partial run must not produce a green-looking artifact.
+    8. **Provenance metadata** — every parity artifact records (writer-enforced; `--check` fails if absent or wrong): `runtime_a=imperative_canonical`, `runtime_b=resource_planner_graph`, `commit_sha`, `corpus_count=120`, `base_105_loaded=105`, plus exact command and timestamp. Prevents silent harness regression to `planner_led_shadow_graph` or a reduced corpus.
+  - **Do:** Regenerate from the **final committed tree**; confirm the summary matches the figures quoted in the completion report; supersede both the stale `85/35` artifact and the observational `107/13` result with the authoritative measurement.
+  - **Do:** Apply the same writer protections to `run_soc_clean_answer_eval.py` and `eval_sentinel.py`, which have the identical failure mode — the `EXPECTED_105_COUNT` guard is conditional on `include_105`, so a reduced run bypasses it entirely.
+  - **Rationale:** third self-lowering or partial artifact incident in this cutover — (a) the `include_105=False` clean-answer collapse (105 rows → 0, summary still read `PASS 8/0/0`), (b) the parity summary that lowered its own `expected minimum` from 120 to 8, (c) this stale-overwrite. Operator care has now failed three times; the writer must enforce it.
+  - **Verify:** `PYTHONPATH=backend:. python3 scripts/run_langgraph_dual_parity_eval.py --check` → 120 rows; artifact metadata includes `runtime_a=imperative_canonical`, `runtime_b=resource_planner_graph`, `commit_sha`, `corpus_count=120`, `base_105_loaded=105`; summary equals reported figures; deliberate `--limit`/`--skip-105` run refused and exits non-zero; `pytest app/tests/test_eval_artifact_safety.py -q`
+  - **Depends on:** 32, 34
+  - **Evidence:** _(filled at check-off)_
+
 - [ ] **29** — Containerised `/chat` canonical smoke — rev 9
   - **Context:** Every gate in rev 8 is pytest-level, and item 24 is Postgres-but-in-process. Repo history says in-process green ≠ live green: LangGraph silently drops undeclared state channels, and `.env` drift has broken live paths while evals stayed green. A flagless cutover with no live probe has no safety net.
   - **Do:** Run through the running stack (`docker compose up -d`, real Postgres, real Nginx-fronted backend), one probe per canonical path: (1) T1 known-complete → plan committed + executed; (2) T1 with gap → clarification → answer → transactional resume → plan committed; (3) T3 near/semantic match; (4) T4 guided resolution; (5) T0 reference/knowledge-only; (6) policy-blocked outcome.
@@ -540,16 +756,20 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
     19. **(rev 9)** Experience Center purity result + fixture keys migrated
     20. **(rev 9)** Retention/purge policy and measured table growth per turn
     21. **(rev 9)** Rollback posture: revert target commits, confirmation that `0004`/`0005` need no down-migration
+    22. **(rev 10)** Pytest inventory: per-category A–G totals, row count equal to the pytest failure count, category G empty
+    23. **(rev 10)** Dual-runtime parity: final 120-row result, the approved projection with each exclusion's justification, and the 13 mismatch root causes with their fixes
+    24. **(rev 10)** Every baseline/fixture value changed across the whole cutover, each with the contract that makes the old value wrong
   - **Verify:**
     1. **Gate 1:** item 14 commands (clarification tests + `eval_sentinel.py --check`)
     2. **Gate 2:** `pytest app/tests/test_canonical_* app/tests/test_resource_plan_authority.py app/tests/test_dual_runtime_lane_parity.py -q`
     3. **Gate 3:** `pytest app/tests/integration/ app/tests/test_execution_idempotency.py app/tests/test_canonical_telemetry_coverage.py -q` — **PostgreSQL required; 0 skipped**
-    4. **Gate 3.5 (rev 9):** `scripts/smoke_canonical_paths.sh` against the running container stack → 6/6, DB assertions included
+    4. **Gate 3.4 (rev 10, revised rev 12):** `PYTHONPATH=backend:. python3 scripts/run_langgraph_dual_parity_eval.py --check` → 120 rows, **0 `critical_mismatch`**, every non-`exact_match` row an `approved_difference` with complete per-field records (behavioural fields must be `exact_match`; only documented runtime metadata may be `approved_difference`; no tolerance-list shortcuts); artifact metadata: `runtime_a=imperative_canonical`, `runtime_b=resource_planner_graph`, `commit_sha`, `corpus_count=120`, `base_105_loaded=105`; plus `pytest app/tests/test_dual_runtime_single_orchestration.py app/tests/test_dual_runtime_behavioural_parity.py app/tests/test_dual_runtime_parity_projection.py app/tests/test_eval_artifact_safety.py -q`
+    5. **Gate 3.5 (rev 9):** `scripts/smoke_canonical_paths.sh` against the running container stack → 6/6, DB assertions included
     5. **Gate 4:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q` → 0 failed
     6. **Gate 5:** `./scripts/run_stage3_governance_regression.sh` → PASS
     7. **Gate 6:** repo search — no runtime-relevant removed variables or legacy planner/fallback terms
     8. **Gate 7 (rev 9):** `rg -n '\.sql' backend/app --glob '!**/migrations/**'` → no runtime DDL; EC purity + retention suites green
-  - **Depends on:** 11, 14–26, 26a, 28, 29
+  - **Depends on:** 10, 11, 15, 16, 17, 18a, 18, 19a, 19, 20, 21a, 21b, 21, 22, 23, 24, 25, 26, 26a, 28, 29, 31, 32, 33, 34, 35
   - **Evidence:** _(filled at check-off)_
 
 ---
@@ -575,6 +795,14 @@ Do **not**:
 - **(rev 9)** Fail closed on diagnostic telemetry, or silently drop any telemetry class
 - **(rev 9)** Delete a trace field without migrating the EC captures and golden fixtures that assert it
 - **(rev 9)** Mark the plan Done on in-process green alone — Gate 3.5 live smoke is mandatory
+- **(rev 10)** Add a field to the parity exclusion list to make a mismatch disappear
+- **(rev 10)** Align two copies of routing/planning logic instead of removing one
+- **(rev 10)** Leave a pytest failure unclassified, or let the inventory be shorter than the failure count
+- **(rev 10)** Cite an eval artifact as evidence without confirming it was generated from the committed code
+- **(rev 11)** Quote the committed `8792338` parity artifact, or the observational `107/13` figure, as final evidence
+- **(rev 11)** Regenerate or commit any parity/eval artifact before item 35
+- **(rev 11)** Record an `approved_difference` with an incomplete six-part field record
+- **(rev 11)** Approve a difference in routing, tier, lane, answer goal, intent, completeness, canonical input, plan authority, governance or execution behaviour — these are `critical_mismatch` by definition
 
 ---
 
@@ -631,6 +859,16 @@ Do **not**:
   - **Clarification lost its analyst-facing label.** With no `EvidencePlan`, `answer_contract.answer_mode` went `None` and the card rendered as an ordinary low-evidence answer. `build_answer_contract` now takes `canonical_status` and injects `answer_mode="clarification"` into its local `plan` — at the source, because the function builds the contract on several branches that each read `plan` directly.
   - **Re-frozen: 3 values, all `answer_mode: "clarification"` → `null`** on `pg.clar.001`, `pg.unsafe.001`, `q0.q045`. Correct by the Gate 1 contract (clarification carries no `EvidencePlan`) and **not** a weakened assertion: `contract_answer_mode="clarification"` and `requires_clarification=True` still pin those turns, and `contract_answer_mode` is the analyst-facing surface. The baseline diff is exactly 3 lines — everything else was restored by fixing code.
   - **Full pytest: `112 failed / 4177 passed` vs the batch baseline `203 / 4051` — 91 baseline failures fixed, 0 new** (set-diffed). One test re-pinned, disclosed: `test_route_adjudication::test_hybrid_failed_login_action_preserves_live_investigation_skill` accepts the new `catalogue_registry_skill` provenance; its asserted route is unchanged.
+- **2026-07-25 rev 11 (plan-only correction; no code, tests, baselines or artifacts touched):** Parity evidence authority, classification semantics, and artifact-safe regeneration.
+  - **Stale parity artifact incident.** The `docs/evals/langgraph_dual_parity_*` files committed in `8792338` are **stale and non-authoritative**: they hold `85 acceptable / 35 mismatch` because the before/after comparison run (fixes stashed) overwrote the newer output, and the stale files were staged afterwards. The commit message's `107/13` is right for the committed *code* and wrong for the committed *artifact*. Both figures are now demoted — the artifact to non-authoritative, the `107/13` to **observational only** — and no parity or eval artifact may be regenerated or committed before item 35 produces the first authoritative measurement from the final committed tree.
+  - **`_ACCEPTABLE_DIFF_FIELDS` is dead configuration.** Both the `hard_diffs` and `soft_diffs` branches of `classify_parity_row` return `"acceptable_diff"`, so membership in the list changes no outcome. It reads as governance while enforcing nothing. Item 31 must either give it real field-level approval semantics or delete it; there is no third option.
+  - **"Acceptable" never meant "approved."** It meant only "differs, but not in one of the five critical categories" — an unreviewed difference and a deliberately sanctioned one were recorded identically. That is why 85 and later 107 rows could look tolerable while nobody had approved a single field. Item 31 replaces the vocabulary with `exact_match` / `approved_difference` / `critical_mismatch`, where `approved_difference` demands a six-part per-field record and the routing/tier/lane/goal/intent/completeness/canonical-input/plan-authority/governance/execution fields cannot be approved at all.
+  - **Third partial-or-self-lowering artifact incident in this cutover** — (a) the `include_105=False` clean-answer collapse (105 rows → 0, summary still reading `PASS 8/0/0`), (b) the parity summary lowering its own `expected minimum` from 120 to 8, (c) this stale overwrite. Three failures of operator discipline in one cutover is a tooling defect, not an attention problem: item 35 moves the guarantee into the writer (temp-first, validate, atomic replace, refuse shrinkage, fail non-zero on incomplete corpus, provenance metadata) and extends it to the clean-answer and sentinel writers, whose `EXPECTED_105_COUNT` guard is bypassed whenever `include_105` is false.
+  - Dependency order and acceptance criteria unchanged from rev 10 apart from adopting the new classification vocabulary.
+- **2026-07-25 rev 12 (bookkeeping):** Frontmatter synced — `outcome-sentinel` completed; `dual-runtime-parity` todo (items 30–35); title/ledger unified at rev 12; item 30 in completed ledger; clarification "not fixed" section replaced with Gate 1 resolved status; Phase 2 status acknowledges items 12–14 and 30 complete; item 27 depends on 10, 11, 15–26, 18a, 19a, 21a, 21b, 26a, 28, 29, 31–35; stop conditions refreshed (item 14 gate removed; active stops: 17, 24, 29, governance decisions).
+- **2026-07-25 rev 12 (plan-only):** Item **32** — require single callable `run_canonical_planning(state)` (not a duplicated node sequence); `_run_live_chat_pipeline` and `rp_node_bootstrap` must both call it. Item **33** — AST guard plus graph-transition test for five non-planned statuses blocked from SPL/execution. Parity metadata enforced: `runtime_a=imperative_canonical`, `runtime_b=resource_planner_graph`, `commit_sha`, `corpus_count=120`, `base_105_loaded=105` (items 32, 35, Gate 3.4). Execution order unchanged: `30 ✅ → 31 → 32 → 33 → 34 → 35`.
+  - **Artifact discrepancy found while writing this rev:** the `langgraph_dual_parity_*` files committed in `8792338` contain **85 acceptable / 35 mismatch**, not the 107/13 stated in that commit message. Cause: the before/after comparison run (fixes stashed) overwrote the good artifact, and the stale files were staged afterwards. The commit's *code* claims are unaffected — sentinel, clean-answer eval and pytest figures were all measured on the committed tree — but the parity artifact must be regenerated (item 35) and must not be cited until it is. Third self-lowering eval artifact in this cutover, hence the guard in item 35.
+  - **Verified baselines carried into the next batch:** full pytest `4177 passed / 112 failed` (previous `4051 / 203`, 91 fixed, 0 new); parity `total=120 exact=0 acceptable=107 mismatch=13` (previous `acceptable=85 mismatch=35`).
   - **Known-good but still open:** `langgraph_dual_parity` reports `total=120 match=0 acceptable=107 mismatch=13`. Measured at the pre-rev-9c commit it was `match=0 acceptable=85 mismatch=35`, so this work **improved** it (35 → 13 mismatches) but did not create it — the imperative path and the planner-led shadow graph have diverged since the Phase 1 rewire, and 0 exact matches predates this session. Belongs with items 15/17.
 
 ## Key files
