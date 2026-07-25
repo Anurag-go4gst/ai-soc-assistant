@@ -446,6 +446,7 @@ class ChatPipelineState(TypedDict, total=False):
     # inherits this TypedDict, so an undeclared key here is dropped on the live RP graph
     # edge even though the imperative pipeline and node-level tests still see it.
     canonical_planning_input: dict[str, Any] | None
+    canonical_planning_outcome: dict[str, Any] | None
     canonical_planning_failure: dict[str, Any] | None
     gap_resolution: dict[str, Any] | None
     known_completeness: dict[str, Any] | None
@@ -609,17 +610,32 @@ def _run_live_chat_pipeline(
     elif has_composed_plan(state) and not _session_spl_refine_active(state):
         state = _timed_node(state, "plan_dispatch", lambda s: execute_plan_dispatch(s, _dispatch_hooks()))
     elif not _session_spl_refine_active(state):
-        from app.chat.canonical_mode import build_canonical_failure_state
-
-        state = _timed_node(
-            state,
-            "plan_dispatch_canonical_failure",
-            lambda s: build_canonical_failure_state(
-                s,
-                outcome="planning_failed",
-                reason="canonical_missing_resource_plan_at_dispatch",
-            ),
+        from app.chat.canonical_mode import (
+            build_canonical_failure_state,
+            build_non_planned_dispatch_state,
         )
+        from app.chat.contracts.canonical_planning_outcome import outcome_from_state
+
+        canonical_outcome = outcome_from_state(state)
+        if canonical_outcome is not None and canonical_outcome.status != "planned":
+            # Clarification / policy block / typed failure: there is nothing to
+            # dispatch and nothing has gone wrong. Branch on status before treating a
+            # missing ResourcePlan as a planning failure.
+            state = _timed_node(
+                state,
+                "plan_dispatch_skipped_non_planned",
+                lambda s: build_non_planned_dispatch_state(s, status=canonical_outcome.status),
+            )
+        else:
+            state = _timed_node(
+                state,
+                "plan_dispatch_canonical_failure",
+                lambda s: build_canonical_failure_state(
+                    s,
+                    outcome="planning_failed",
+                    reason="canonical_missing_resource_plan_at_dispatch",
+                ),
+            )
     if loop_initialized(state):
         state = _timed_node(state, "evidence_planning_loop", graph_node_evidence_planning)
     state = _timed_node(state, "context_finalize", graph_node_context_finalize)
@@ -1626,8 +1642,28 @@ def _graph_node_planning_decision_from_canonical(state: ChatPipelineState) -> Ch
     """Attach planning_decision when evidence_plan was produced by canonical final planner."""
     from app.chat.canonical_mode import build_canonical_failure_state, is_canonical_authoritative
 
+    from app.chat.contracts.canonical_planning_outcome import outcome_from_state
+
     intent = state.get("intent_classification")
     evidence_payload = state.get("evidence_plan")
+
+    canonical_outcome = outcome_from_state(state)
+    if canonical_outcome is not None and canonical_outcome.status != "planned" and isinstance(intent, dict):
+        # A non-planned outcome has no EvidencePlan by contract, but the planning
+        # decision must still be computed: ``path_type`` is what drives the unsafe /
+        # clarification branches downstream. Treating a missing EvidencePlan as a
+        # planning failure here silently downgraded blocked containment requests from
+        # "unsafe_action_blocked" to "policy_checks_passed".
+        planning = plan_path_and_tools(
+            intent_classification=intent,
+            evidence_plan=None,
+            routed=state.get("routed"),
+            query_understanding=state.get("query_understanding"),
+            selected_use_case=state.get("selected_use_case"),
+            llm_intent_advisory=state.get("llm_intent_advisory"),
+        )
+        return {**state, "planning_decision": planning.model_dump()}
+
     if not isinstance(intent, dict) or not isinstance(evidence_payload, dict):
         return build_canonical_failure_state(
             state,

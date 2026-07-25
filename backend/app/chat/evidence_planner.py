@@ -492,24 +492,36 @@ def plan_evidence(
                 )
             )
         live_data_request = is_live_data_request(signals if isinstance(signals, dict) else {})
-        # MCP eligibility on all tiers (2026-07 directive), gated on control_plane_enabled
-        # so legacy/flag-off behavior stays byte-identical (matches every other
-        # control-plane-gated branch in this module). When on: a live-data ask is
-        # architecturally eligible for search the same way spl_generation_and_run/
-        # live_investigation already are — real gating (validated normalized_spl,
-        # tool selection, per-call HIL confirmation) happens downstream at
-        # evaluate_mcp_execution. This flag never marks the search validated/executed.
-        mcp_eligible = live_data_request and True
+        # Least privilege for out-of-catalogue work. The 2026-07 all-tier MCP grant was
+        # written as `live_data_request and settings.control_plane_enabled`; when that flag
+        # was removed at the canonical cutover the conjunct collapsed to `and True`,
+        # silently widening the grant so every out-of-catalogue live-data ask reported
+        # mcp_allowed=true. Catalogue-matched asks (T1-T3) keep the grant they already had;
+        # out-of-catalogue asks do not get authorisation from a routing default.
+        # ``mcp_available`` still discloses that the system *could* search live data, so
+        # capability stays visible while authorisation stays with the final planner and
+        # governance for a specific committed ResourcePlan. Downstream gating (validated
+        # normalized_spl, tool selection, per-call HIL confirmation at
+        # evaluate_mcp_execution) is unchanged and still applies on top.
+        from app.chat.lane_router import is_known_catalogue_match
+
+        catalogue_matched = is_known_catalogue_match(
+            str(getattr(query_understanding, "deterministic_match_path", "") or "")
+        )
+        mcp_authorised = live_data_request and catalogue_matched
         return with_enrichment(
             EvidencePlan(
                 answer_mode="live_investigation",
                 rag_phase="post_mcp",
                 needs_rag=False,
                 needs_spl=True,
+                # ``needs_mcp`` stays descriptive (the answer wants live data);
+                # ``mcp_allowed`` is the authorisation and the only execution gate.
                 needs_mcp=live_data_request,
                 needs_mitre=False,
                 spl_allowed=True,
-                mcp_allowed=mcp_eligible,
+                mcp_allowed=mcp_authorised,
+                mcp_available=live_data_request,
                 policy_context_required=False,
                 policy_context_recommended=False,
                 discovery_allowed=True if True else None,
@@ -517,8 +529,8 @@ def plan_evidence(
                     "spl_artifact_requested",
                     *(
                         ["live_data_request_mcp_search_eligible_pending_validation"]
-                        if mcp_eligible
-                        else ["live_data_request_mcp_needed_but_not_allowed"]
+                        if mcp_authorised
+                        else ["live_data_available_mcp_not_authorised_for_out_of_catalogue"]
                         if live_data_request
                         else []
                     ),

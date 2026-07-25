@@ -69,10 +69,14 @@ def test_bundle_a_substation_live_data() -> None:
     assert contract.get("collected_evidence_count") == 0
     assert contract.get("effective_hil_required") is True
     assert (payload.get("evidence_plan") or {}).get("needs_mcp") is True
-    # MCP eligibility on all tiers (2026-07 directive, item 2.1): a live-data ask
-    # bypasses execution gating — execution_authorized/effective_hil_required
-    # above remain the real invariants; mcp_allowed is plan-time eligibility only.
-    assert (payload.get("evidence_plan") or {}).get("mcp_allowed") is True
+    # Least privilege restored (2026-07-25): the all-tier plan-time grant (2026-07
+    # directive, item 2.1) is withheld for out-of-catalogue asks such as this one.
+    # ``needs_mcp``/``mcp_available`` still describe the need and the capability;
+    # authorisation belongs to the final planner plus governance for a specific
+    # committed ResourcePlan. execution_authorized/effective_hil_required above are
+    # unchanged and remain the real execution invariants.
+    assert (payload.get("evidence_plan") or {}).get("mcp_available") is True
+    assert (payload.get("evidence_plan") or {}).get("mcp_allowed") is False
 
     action_cap = payload.get("action_capability") or {}
     assert action_cap.get("hil_required") is True

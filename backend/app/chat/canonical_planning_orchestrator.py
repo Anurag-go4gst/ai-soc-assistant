@@ -11,6 +11,10 @@ from app.chat.canonical_handoff_store import (
     save_clarification_handoff,
     save_handoff,
 )
+from app.chat.contracts.canonical_planning_outcome import (
+    clarification_outcome,
+    planned_outcome,
+)
 from app.chat.contracts.gap_resolution import FieldProvenance
 from app.chat.guided_detail_resolution import run_guided_detail_resolution
 from app.chat.intent_classifier import build_query_to_intent
@@ -32,6 +36,34 @@ from app.chat.query_signals import extract_query_signals
 from app.chat.reference_qualification import extract_reference_ids, qualify_reference_query
 
 ChatPipelineState = dict[str, Any]
+
+#: Deterministic clarification phrasing per unresolved field. The outcome contract
+#: requires a non-empty question, so a missing entry falls back to the generic form
+#: rather than emitting an empty prompt.
+_FIELD_QUESTIONS: dict[str, str] = {
+    "host": "Which host should I scope this investigation to?",
+    "hostname": "Which host should I scope this investigation to?",
+    "user": "Which user account should I scope this investigation to?",
+    "username": "Which user account should I scope this investigation to?",
+    "alert_id": "Which alert ID should I investigate?",
+    "time_range": "What time range should I use for this investigation?",
+    "index": "Which index should I search?",
+    "sourcetype": "Which sourcetype should I search?",
+    "ip": "Which IP address should I scope this investigation to?",
+    "source_ip": "Which source IP address should I scope this investigation to?",
+}
+
+
+def build_clarification_question(unresolved_fields: list[str]) -> str:
+    """Deterministic question text for the first unresolved field."""
+    for field in unresolved_fields:
+        question = _FIELD_QUESTIONS.get(str(field).strip().lower())
+        if question:
+            return question
+    if unresolved_fields:
+        joined = ", ".join(str(field) for field in unresolved_fields)
+        return f"I need more detail before planning this investigation. Please provide: {joined}."
+    return "I need more detail before planning this investigation. What should I scope it to?"
 
 
 def _merge_user_clarification(
@@ -84,7 +116,11 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     resumed_record: CanonicalHandoffRecord | None = None
     if isinstance(resume, dict) and resume.get("handoff_id"):
         resumed_record = get_handoff(str(resume["handoff_id"]), int(resume.get("handoff_version") or 1))
-        if resumed_record is not None and resumed_record.status == "clarification_required":
+        # ``save_clarification_handoff`` persists status ``awaiting_clarification`` while
+        # the raw literal ``clarification_required`` only ever exists pre-normalisation.
+        # Comparing the raw status here meant a resume never matched and the analyst's
+        # answer was silently dropped. Compare the normalised status.
+        if resumed_record is not None and resumed_record.normalized_status() == "awaiting_clarification":
             handoff_id = resumed_record.handoff_id
             handoff_version = resumed_record.handoff_version + 1
             user_answer = str(resume.get("user_answer") or query)
@@ -152,11 +188,17 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     if resumed_record is not None:
         canonical_dict = dict(resumed_record.canonical_planning_input or {})
         routing = dict(canonical_dict.get("routing") or {})
+        # Must satisfy IntentClassification in full — plan_evidence validates this
+        # payload. The resume branch was unreachable while the status comparison was
+        # wrong, so these three required fields were never supplied.
         intent_classification = {
             "intent_family": routing.get("intent_family"),
             "primary_intent": routing.get("primary_skill"),
             "answer_goal_primary": routing.get("answer_goal"),
             "answer_goal": [routing.get("answer_goal")],
+            "query_type": "investigation_with_guidance",
+            "confidence": 0.8,
+            "confidence_band": "high",
             "llm_intent_status": routing.get("intent_source", "diversion"),
             "requires_clarification": False,
             "requires_hil": False,
@@ -368,12 +410,19 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     )
 
     if clarification_required:
+        unresolved_fields = list(
+            gap.unresolved_details if gap else completeness.missing_fields if completeness else []
+        )
+        if not unresolved_fields:
+            # The outcome contract requires at least one unresolved field; without this
+            # the clarification would be unanswerable and the handoff unresumable.
+            unresolved_fields = ["investigation_scope"]
         save_clarification_handoff(
             handoff_id=handoff_id,
             handoff_version=handoff_version,
             canonical_planning_input=canonical.model_dump(),
             gap_resolution=gap.model_dump() if gap else None,
-            unresolved_fields=list(gap.unresolved_details if gap else completeness.missing_fields if completeness else []),
+            unresolved_fields=unresolved_fields,
             clarification_reason=route_reason or "clarification_required",
             trace_id=str(trace_id) if trace_id else None,
             session_id=str(session_id) if session_id else None,
@@ -390,31 +439,37 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
                 "handoff_id": handoff_id,
                 "handoff_version": handoff_version,
                 "clarification_reason": route_reason,
-                "unresolved_fields": list(gap.unresolved_details if gap else []),
+                "unresolved_fields": unresolved_fields,
             },
         ) or state
-        evidence_plan_payload = {
-            "answer_mode": "clarification",
-            "requires_hil": True,
-            "needs_clarification": True,
-            "reasons": ["canonical_clarification_required"],
-            "resource_plan": None,
-        }
-        return {
+        # No EvidencePlan on this path. A partial dict here is what produced nine
+        # missing-field ValidationErrors in every downstream consumer that reached
+        # ``EvidencePlan.model_validate``. Downstream branches on outcome status.
+        outcome = clarification_outcome(
+            canonical_input=canonical.model_dump(),
+            question=build_clarification_question(unresolved_fields),
+            unresolved_fields=unresolved_fields,
+            handoff_id=handoff_id,
+            handoff_version=handoff_version,
+            reason=route_reason or "clarification_required",
+        )
+        clarification_state = {
             **state,
             "routed": routed,
             "intent_classification": intent_classification,
             "query_to_intent": query_to_intent,
             "canonical_planning_input": canonical.model_dump(),
+            "canonical_planning_outcome": outcome.model_dump(),
             "gap_resolution": gap.model_dump() if gap else None,
             "known_completeness": completeness.model_dump() if completeness else None,
-            "evidence_plan": evidence_plan_payload,
             "processing_lane": processing_lane,
             "resolved_tier": resolved_tier,
             "initial_tier": initial,
             "pending_handoff_id": handoff_id,
             "pending_handoff_version": handoff_version,
         }
+        clarification_state.pop("evidence_plan", None)
+        return clarification_state
 
     save_handoff(
         CanonicalHandoffRecord(
@@ -445,15 +500,24 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         user_query=query,
     )
 
+    evidence_payload = evidence_plan.model_dump()
+    committed_resource_plan = evidence_payload.get("resource_plan")
+    outcome = planned_outcome(
+        canonical_input=canonical.model_dump(),
+        evidence_plan=evidence_payload,
+        resource_plan=committed_resource_plan,
+    )
+
     return {
         **state,
         "routed": routed,
         "intent_classification": intent_classification,
         "query_to_intent": query_to_intent,
         "canonical_planning_input": canonical.model_dump(),
+        "canonical_planning_outcome": outcome.model_dump(),
         "gap_resolution": gap.model_dump() if gap else None,
         "known_completeness": completeness.model_dump() if completeness else None,
-        "evidence_plan": evidence_plan.model_dump(),
+        "evidence_plan": evidence_payload,
         "planner_consumed_fields": consumed,
         "planner_ignored_fields": ignored,
         "processing_lane": processing_lane,

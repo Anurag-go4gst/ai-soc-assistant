@@ -38,20 +38,50 @@ def build_canonical_failure_state(
         "detail": detail or reason,
         "canonical_mode": True,
     }
-    evidence = dict(state.get("evidence_plan") or {})
-    evidence.setdefault("reasons", [])
-    if isinstance(evidence["reasons"], list):
-        evidence["reasons"] = list(dict.fromkeys([*evidence["reasons"], reason]))
-    evidence["canonical_failure"] = failure
-    if outcome in {"clarification_required", "policy_blocked"}:
-        evidence["answer_mode"] = outcome
-    return {
+    next_state = {
         **state,
-        "evidence_plan": evidence,
         "canonical_planning_failure": failure,
         "plan_dispatch_trace": {
             "dispatch_source": "canonical_failure",
             "dispatch_schedule": [],
             "failure": failure,
+        },
+    }
+    existing = state.get("evidence_plan")
+    if not isinstance(existing, dict) or not existing:
+        # Never synthesise an EvidencePlan here. A dict carrying only ``reasons`` and
+        # ``canonical_failure`` fails ``EvidencePlan.model_validate`` with ten missing
+        # required fields — the same defect class as the old clarification payload.
+        next_state.pop("evidence_plan", None)
+        return next_state
+
+    evidence = dict(existing)
+    evidence.setdefault("reasons", [])
+    if isinstance(evidence["reasons"], list):
+        evidence["reasons"] = list(dict.fromkeys([*evidence["reasons"], reason]))
+    evidence["canonical_failure"] = failure
+    # ``answer_mode`` is a closed literal on EvidencePlan; only "clarification" exists.
+    # Writing the outcome name verbatim produced answer_mode="policy_blocked" /
+    # "clarification_required", which fails EvidencePlan validation on the next consumer.
+    # A policy block is recorded in ``canonical_failure`` and leaves answer_mode alone.
+    if outcome == "clarification_required":
+        evidence["answer_mode"] = "clarification"
+    next_state["evidence_plan"] = evidence
+    return next_state
+
+
+def build_non_planned_dispatch_state(state: dict[str, Any], *, status: str) -> dict[str, Any]:
+    """Record that dispatch was correctly skipped for a non-planned canonical outcome.
+
+    Clarification and policy blocks are legitimate terminal outcomes, not planning
+    failures — labelling them ``planning_failed`` misreports them to every downstream
+    surface and to telemetry.
+    """
+    return {
+        **state,
+        "plan_dispatch_trace": {
+            "dispatch_source": "canonical_non_planned",
+            "dispatch_schedule": [],
+            "canonical_status": status,
         },
     }

@@ -79,4 +79,9 @@ def test_pipeline_dispatch_not_attached_when_v2_flag_off(
     state = graph_node_evidence_planning(_planning_state())
 
     assert "pipeline_dispatch" not in state
-    assert state.get("evidence_plan") is not None
+    # The legacy evidence-planning node is forbidden under canonical planning, so it
+    # returns a typed failure. It used to also emit a stub ``evidence_plan`` carrying
+    # only ``reasons`` + ``canonical_failure``; that dict failed
+    # ``EvidencePlan.model_validate`` in every consumer, so it is no longer produced.
+    assert state.get("evidence_plan") is None
+    assert state["canonical_planning_failure"]["reason"] == "canonical_forbids_legacy_evidence_planning"

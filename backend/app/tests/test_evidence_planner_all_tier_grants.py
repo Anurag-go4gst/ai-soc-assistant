@@ -47,14 +47,41 @@ def test_control_plane_off_stays_byte_identical(monkeypatch: pytest.MonkeyPatch)
     assert "live_data_request_mcp_needed_but_not_allowed" in plan.reasons
 
 
-def test_control_plane_on_grants_search_eligibility(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_out_of_catalogue_live_data_ask_is_not_granted_mcp(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Least privilege restored (2026-07-25) — policy change, not a relaxed assertion.
+
+    This test previously asserted ``mcp_allowed is True`` for an out-of-catalogue
+    live-data ask. That grant was written as ``live_data_request and
+    settings.control_plane_enabled``; removing the flag at the canonical cutover
+    collapsed the conjunct to ``and True`` and silently widened authorisation to every
+    tier, which is what ``test_t2_spl_native_live::test_t2_never_execution_eligible_or_mcp_allowed``
+    caught. Authorisation is now withheld here and belongs to the final planner plus
+    governance for a specific committed ResourcePlan. Catalogue-matched asks are
+    unaffected — see ``test_catalogue_matched_live_data_ask_keeps_search_eligibility``.
+    """
     plan = _plan(_LIVE_DATA_QUERY)
+    # The need is still described honestly...
     assert plan.needs_mcp is True
+    assert plan.mcp_available is True
+    # ...but authorisation is withheld.
+    assert plan.mcp_allowed is False
+    assert "live_data_available_mcp_not_authorised_for_out_of_catalogue" in plan.reasons
+    assert "live_data_request_mcp_search_eligible_pending_validation" not in plan.reasons
+
+
+def test_catalogue_matched_live_data_ask_keeps_search_eligibility() -> None:
+    """The re-gate is scoped to out-of-catalogue work; T1-T3 keep their grant."""
+    from app.chat.lane_router import is_known_catalogue_match
+
+    query = "Which users have excessive failed logins?"
+    understanding = understand_query(query)
+    if not is_known_catalogue_match(str(getattr(understanding, "deterministic_match_path", "") or "")):
+        pytest.skip("query no longer resolves to a catalogue match")
+
+    plan = _plan(query)
+    if plan.answer_mode != "live_investigation" or not plan.needs_spl:
+        pytest.skip("catalogue query does not route to the spl_artifact branch under test")
     assert plan.mcp_allowed is True
-    assert plan.discovery_allowed is True
-    assert "live_data_request_mcp_search_eligible_pending_validation" in plan.reasons
-    # eligibility is architectural only — no validated SPL exists yet
-    assert "live_data_request_mcp_needed_but_not_allowed" not in plan.reasons
 
 
 def test_no_live_data_request_gets_no_search_grant(monkeypatch: pytest.MonkeyPatch) -> None:
