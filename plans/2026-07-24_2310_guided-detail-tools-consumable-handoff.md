@@ -1,6 +1,6 @@
 ---
 name: Guided detail tools — canonical planning architecture
-overview: "T0–T4 canonical planning is the sole runtime architecture. Phase 1 delivered contracts, lane routing, DetailTools, and always-on pipeline wiring. Phase 2 closes cutover gaps: typed planning outcomes, DB-only handoffs, execution idempotency, durable telemetry, outcome-aware response validation, full pytest/governance green, and config/doc cleanup — no feature flags, legacy fallbacks, or live memory/file handoff stores."
+overview: "T0–T4 canonical planning is the sole runtime architecture. Phase 1 delivered contracts, lane routing, DetailTools, and always-on pipeline wiring. Phase 2 closes cutover gaps: typed planning outcomes, a deployed migration path, a canonical DB unit-of-work, DB-only handoffs, execution idempotency, durable telemetry with typed correlation and an audit-critical/diagnostic split, outcome-aware response validation, Experience Center purity, retention/purge, containerised live smoke, and full pytest/governance green — no feature flags, legacy fallbacks, runtime DDL, or live memory/file handoff stores."
 status: active
 date: 2026-07-25
 canonical_plan: plans/2026-07-24_2310_guided-detail-tools-consumable-handoff.md
@@ -17,25 +17,31 @@ todos:
   - id: pytest-migration
     content: "Items 15–17: failure inventory, canonical test helper, 0 pytest failures"
     status: pending
+  - id: db-foundation
+    content: "Items 18a–19a: migration deployment/readiness + canonical DB unit-of-work and pool"
+    status: pending
   - id: durable-handoff
     content: "Items 18–19: DB-only handoffs + transactional clarification resumption"
     status: pending
   - id: execution-idempotency
-    content: "Item 20: execution idempotency in executor + guided hybrid"
+    content: "Items 21b, 20: persistence policy split + execution idempotency in executor and guided hybrid"
     status: pending
   - id: telemetry-validation
-    content: "Items 21–22: complete telemetry catalog + outcome-aware response validation"
+    content: "Items 10, 21a, 21–22: telemetry foundation, typed correlation, full catalog, outcome-aware response validation"
     status: pending
   - id: authority-integration
     content: "Items 23–24: ResourcePlan authority audit + Postgres integration suite"
     status: pending
   - id: cleanup-gates
-    content: "Items 25–27: config/doc cleanup, remove compatibility code, all 6 verification gates"
+    content: "Items 25, 26, 26a, 28: config/doc cleanup, compatibility code removal, EC purity, retention/purge"
+    status: pending
+  - id: live-smoke-gates
+    content: "Items 29, 27: containerised /chat canonical smoke + all verification gates"
     status: pending
 isProject: false
 ---
 
-# Guided detail tools — canonical planning architecture (rev 8)
+# Guided detail tools — canonical planning architecture (rev 9)
 
 ## Architecture objective
 
@@ -56,7 +62,12 @@ One consistent agentic flow — **always on**, no feature flags or legacy fallba
 - [ ] Canonical planning is always active; no flags or shadow paths remain
 - [ ] No legacy planning path can execute on live `/chat`
 - [ ] Runtime handoffs use PostgreSQL only (no live memory or file fallback)
-- [ ] All persisted planning events contain required correlation fields (`decision_id`, `handoff_id`, etc.)
+- [ ] Migrations are applied by a deploy step (not by runtime DDL) and verified in `schema_migrations`
+- [ ] Handoff/idempotency writes run inside one transaction on one connection (unit-of-work)
+- [ ] All persisted planning events contain required correlation fields (`session_id`, `decision_id`, `handoff_id`, etc.) as typed columns — verified non-null
+- [ ] Experience Center path emits zero canonical planning events, handoff rows, and plan commits
+- [ ] Handoff + planning-event retention/purge is enforced (no unbounded SOC-content growth)
+- [ ] Containerised live `/chat` smoke passes for all six canonical paths
 - [ ] Response and terminal request events are complete (`response.validated`, `response.generated`, `request.completed` / `request.failed`)
 - [ ] Guided dispatch cannot create or modify `ResourcePlan`
 - [ ] Plan and execution idempotency are transactionally enforced
@@ -74,14 +85,19 @@ One consistent agentic flow — **always on**, no feature flags or legacy fallba
 
 Phase 1: `1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9`
 
-Phase 2 (execution order — item numbers unchanged):
+Phase 2 (execution order — rev 9; item numbers unchanged, new items suffixed):
 
-`12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 10 → 21 → 22 → 23 → 24 → 25 → 26 → 11 → 27`
+`12 → 13 → 14 → 15 → 16 → 17 → 18a → 19a → 10 → 21a → 18 → 19 → 21b → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 26a → 28 → 11 → 29 → 27`
 
 **Gate rules:**
 - Do not start item 15 until item 14 (sentinel) passes.
+- **18a blocks 18, 19a, 24** — no fail-closed persistence before migrations have a deploy path.
+- **19a blocks 19, 20, 24** — no multi-statement transaction work before the unit-of-work exists.
+- **10 + 21a precede 18** — items 18/19/20 emit durable telemetry, so the telemetry foundation and typed correlation columns are prerequisites, not successors.
+- **21b blocks 20 and final telemetry acceptance (21, 22)** — the audit-critical vs diagnostic split decides where execution fails closed.
 - Item 20 uses repository/unit tests first; item 24 validates concurrency with real PostgreSQL.
 - Item 11 is an intermediate regression gate (not an early implementation step).
+- **29 runs after 24, 21, 22, 26a** — live smoke is the last functional gate before item 27.
 
 ## Target flow
 
@@ -134,11 +150,17 @@ flowchart TD
 9. **No feature flags** for canonical planning — `is_canonical_authoritative()` always true.
 10. **No live memory/file handoff fallback** — DB unavailable → `persistence_failed` outcome.
 11. **Non-planned outcomes:** downstream pipeline branches on `CanonicalPlanningOutcome.status` — never on a partially constructed `EvidencePlan`. Clarification and failure paths do **not** require `EvidencePlan`.
-12. **Telemetry failure policy:**
-    - Handoff, `ResourcePlan`, or execution-idempotency persistence failure → **fail closed**
-    - Telemetry persistence failure **before side-effecting execution** → **fail closed**
-    - Telemetry persistence failure for a read-only response → controlled degraded outcome per policy (document in `canonical_telemetry_coverage.md`)
+12. **Telemetry failure policy (refined rev 9 — see item 21b):** persistence classes are not uniform.
+    - **State persistence** (handoff, `ResourcePlan` commit, execution idempotency) failure → **fail closed**, always.
+    - **Audit-critical telemetry** (`handoff.persisted`, `resource_plan.created`, `execution.started`, `execution_step.started`, `execution_step.completed`, `request.failed`) failure **before side-effecting execution** → **fail closed**.
+    - **Diagnostic telemetry** (the remaining events) failure → controlled degraded outcome: logged at WARNING with `error_category`, surfaced in the trace, **never silently dropped**, **never** blocking a read-only response.
+    - This preserves the shipped COE invariant that diagnostic observability is best-effort and never breaks chat, while making the audit spine non-optional. Document the exact per-event class in `canonical_telemetry_coverage.md`.
 13. **Migration policy:** If `0004_canonical_handoffs.sql` is already applied in any environment, **do not edit it**. Add `0005_canonical_planning_cutover_constraints.sql` for any missing: unique ResourcePlan commit constraint, event deduplication key, execution-idempotency uniqueness, lease fields/indexes, clarification-resumption indexes.
+14. **Migrations are a deploy step, never runtime DDL.** Runtime code must not execute `.sql` files. Schema readiness is verified by reading `schema_migrations`, and a missing migration is a startup/readiness failure, not a lazy `CREATE TABLE IF NOT EXISTS` on the request path.
+15. **One canonical data layer.** Canonical persistence uses a single pooled connection source and a unit-of-work; repository methods accept a connection/transaction handle rather than opening their own. No new third data-access pattern beyond SQLAlchemy (`app/db/session.py`) and the telemetry asyncpg connector.
+16. **Correlation fields are typed columns, not payload keys.** `minimize()` deletes any key containing `session_id` (it is in `_SECRET_KEY_PARTS`). Correlation values are read from the unminimized source and bound to columns; `minimize()` applies only to the free-form payload.
+17. **Experience Center purity.** The EC fixture path (`routes_scenarios.py`) creates no handoff rows, commits no `ResourcePlan`, and emits no canonical planning events. Removing runtime trace fields must not silently invalidate `app/demo/captures/*.json` or golden fixtures — fixture migration is explicit work, not a side effect.
+18. **Rollback posture.** No flags by design, so the only runtime mitigation is `git revert` of the cutover commit(s). Migrations `0004`/`0005` are additive and forward-compatible; a revert requires no down-migration. State this in the completion report.
 
 ---
 
@@ -202,7 +224,9 @@ flowchart TD
 
 ## Phase 2 — Always-on cutover (items 10–27)
 
-Maps 1:1 to user spec §1–§14. **Nothing in Phase 2 is implemented yet** (rev 8).
+Maps 1:1 to user spec §1–§14, plus rev 9 architecture-review items (18a, 19a, 21a, 21b, 26a, 28, 29).
+
+**Implementation status (rev 9, verified):** Phase 2 is not started **except** a partial item 10 — `durable_planning_telemetry.py`, `planning_telemetry.py`, and `response_validation.py` exist, and `validate_final_response` is already called on the live path at `pipeline.py:4253`. Rev 8's "nothing implemented" claim was wrong. Item 10 must be finished (unit-of-work, correlation, policy), not started from zero.
 
 ### Root cause — sentinel / clarification (Gate 1 blocker) — spec §1
 
@@ -292,20 +316,72 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Depends on:** 15, 16
   - **Evidence:** _(filled at check-off)_
 
+- [ ] **18a** — Migration deployment and readiness — rev 9 (blocks 18, 19a, 24)
+  - **Context:** `canonical_handoff_repository.py::_ensure_schema` executes `0004_canonical_handoffs.sql` from the live request path on first use, and `backend/scripts/migrate_ai_soc_db.py` currently has **zero callers** (not in `docker-compose.yml`, no entrypoint, not in CI). Schema exists today only as a side effect of runtime DDL. Fail-closed persistence (item 18) on top of that = live `/chat` hard-failure in any environment whose migrations were never run, and `0005` constraints (item 18) would never be applied because the runtime path is hardcoded to `0004`.
+  - **Do:** Delete `_ensure_schema` / `_SCHEMA_READY` / `_MIGRATION_PATH` from `canonical_handoff_repository.py`. No runtime module may read or execute a `.sql` file (locked decision 14).
+  - **Do:** Wire `backend/scripts/migrate_ai_soc_db.py` into the deploy path (backend container entrypoint or an explicit documented ops step in `docs/`), idempotent and safe to re-run. Preserve `schema_migrations` bookkeeping; the runner currently applies every file unconditionally — make it skip versions already recorded.
+  - **Do:** Add a readiness check (startup log + `/health` detail or `readiness` field) asserting `schema_migrations` contains `0001`–`0005`. Missing migration = loud readiness failure with the exact remediation command, not a silent lazy create.
+  - **Do:** Record in the completion report which environments (dev container, VPS prod) had migrations applied and when.
+  - **Verify:** `rg -n '\.sql' backend/app --glob '!**/migrations/**'` → no runtime reads; `docker compose exec backend python scripts/migrate_ai_soc_db.py` twice → second run is a no-op; `pytest app/tests/test_migration_readiness.py -q`
+  - **Depends on:** none
+  - **Evidence:** _(filled at check-off)_
+
+- [ ] **19a** — Canonical DB unit-of-work and pool — rev 9 (blocks 19, 20, 24)
+  - **Context:** `canonical_handoff_repository.py` opens a fresh `asyncpg.connect()` inside its own `asyncio.run()` per method (`_run`, `_with_conn`), and `durable_planning_telemetry.py` does the same per event. Two consequences: (a) item 19's `load … FOR UPDATE` → merge → create version → supersede → commit **cannot** be one transaction, because each repository call is a different connection and the row lock is released before the merge; (b) ~35 fresh TCP+auth connections per turn, serially, inside the SSE executor thread (`routes_chat_stream.py::_sse_event_stream` runs the pipeline via `run_in_executor`, so `asyncio.run` is legal but each call pays full connect cost).
+  - **Do:** Add `backend/app/chat/canonical_db.py`: a single lazily-created `asyncpg` pool + `canonical_unit_of_work()` context manager yielding one connection inside `async with conn.transaction()`. Bridge sync callers through one `asyncio.run` per unit-of-work, not per statement.
+  - **Do:** Refactor repository + idempotency + telemetry writers to accept an injected connection/transaction handle. A caller composing several operations gets one transaction; a standalone call opens its own.
+  - **Do:** Do not introduce a fourth data-access pattern (locked decision 15). Document the boundary vs SQLAlchemy `app/db/session.py` and `app/connectors/telemetry/db.py` in the completion report.
+  - **Do:** Bound connection churn: per-turn planning events buffer and flush in one transaction (audit-critical events flush immediately per item 21b). Record measured connections-per-turn and added p50 latency.
+  - **Verify:** `pytest app/tests/test_canonical_db_unit_of_work.py -q` (rollback discards all writes in the unit; two operations in one unit share one connection; pool reused across turns); connections-per-turn ≤ 5 measured on a live smoke turn
+  - **Depends on:** 18a
+  - **Evidence:** _(filled at check-off)_
+
+- [ ] **10** — Durable telemetry foundation — *(moved ahead of 18/19/20 in rev 9)*
+  - **Do:** `durable_planning_telemetry.py` persists to `canonical_planning_events` through the item-19a unit-of-work; `planning_telemetry.py` delegates; wire interim events until item 21 completes the full catalog. Apply the refined telemetry failure policy (locked decision 12 / item 21b).
+  - **Do:** Remove the live-path memory leak: the `except` branch of `persist_planning_event` currently appends to the global `_TEST_EVENTS` list on production paths — unbounded growth plus prod code writing a test store. Test capture is fixture-injected only (`use_test_event_store()`), same rule as item 18 applies to handoffs.
+  - **Do:** Reconcile with the existing sink config. `durable_planning_telemetry` ignores `ai_soc_telemetry_sink` / `telemetry_mode` and keys only off `database_url`. Define and implement the interaction explicitly: diagnostic events honour the sink; audit-critical events are not sink-optional (a configuration that would drop them is rejected at startup).
+  - **Verify:** `pytest app/tests/test_canonical_planning_architecture.py -k t4_resolves -q`; `rg -n '_TEST_EVENTS' backend/app/chat/durable_planning_telemetry.py` → no writes outside fixture-injected capture
+  - **Depends on:** 17, 19a
+  - **Evidence:** _(foundation partial; full catalog = item 21)_
+
+- [ ] **21a** — Typed telemetry correlation outside `minimize` — rev 9 (part of telemetry foundation)
+  - **Context (verified):** `minimize()` **deletes** any key containing `session_id` — it is in `_SECRET_KEY_PARTS` in `app/connectors/telemetry/redaction.py`. Proven:
+    ```text
+    minimize({'session_id':'abc','trace_id':'t1','handoff_id':'h','user_query':'…'})
+    → {'trace_id': 't1', 'handoff_id': 'h', 'user_query': '…'}
+    ```
+    `persist_planning_event` minimizes **first**, then reads `sanitized.get("session_id")` for the column — so `canonical_planning_events.session_id` is always NULL. That breaks the completion criterion "all persisted planning events contain required correlation fields" and item 21's multi-worker correlation. `_sanitize_payload` in `canonical_handoff_repository.py` has the same shape.
+  - **Do:** Bind correlation columns (`trace_id`, `session_id`, `turn_id`, `decision_id`, `parent_decision_id`, `handoff_id`, `handoff_version`, `resource_plan_id`, `node_name`, `status`, `duration_ms`, `error_category`) from the **unminimized** source, mirroring the existing `app/connectors/telemetry/db.py` pattern. Apply `minimize()` only to the free-form `payload` jsonb.
+  - **Do:** Confirm SOC content policy for the jsonb payload — `user_query` / `original_query` survive `minimize()` by design. Either keep them (documented, covered by item 28 retention) or truncate/hash; state the decision.
+  - **Verify:** `pytest app/tests/test_canonical_telemetry_correlation.py -q` — asserts non-null `session_id` and `handoff_id` on a persisted event, and that a secret-bearing payload is still redacted
+  - **Depends on:** 10
+  - **Evidence:** _(filled at check-off)_
+
 - [ ] **18** — Remove live memory handoff fallback — spec §4
   - **Do:** Refactor `canonical_handoff_repository.py`: `_TEST_STORE` only via `use_in_memory_store_for_tests()` fixture injection; **never** on live path (including `_disabled()` and write-failure catch). On DB unavailable: `PersistenceError` → `persistence_failed` outcome → `request.failed` telemetry → no in-memory continuation.
   - **Do:** If `0004_canonical_handoffs.sql` already applied, add `backend/app/db/migrations/0005_canonical_planning_cutover_constraints.sql` (do **not** edit `0004`) for missing handoff/commit unique constraints and clarification-resumption indexes.
   - **Do:** Add `backend/app/tests/test_canonical_handoff_persistence_failclosed.py` covering: DB unavailable during clarification persistence; DB unavailable during handoff resumption; DB unavailable during ResourcePlan commit → no execution. (Process restart and second-worker cases validated in item 24.)
   - **Verify:** `pytest app/tests/test_canonical_handoff_persistence_failclosed.py -q`
-  - **Depends on:** 12
+  - **Depends on:** 12, 18a, 19a, 10, 21a
   - **Evidence:** _(filled at check-off)_
 
 - [ ] **19** — Transactional clarification resumption — spec §5
   - **Do:** On clarification response: `load pending handoff WITH LOCK` → validate session ownership → validate handoff status → validate `handoff_version` → merge answer → create next version → mark prior superseded/resumed → commit transaction → continue from saved stage.
   - **Do:** Repository methods: `load_pending_for_update`, `supersede_version`, `merge_clarification_answer` (`SELECT … FOR UPDATE`, unique `(handoff_id, handoff_version)`). Controls: one answer advances version once; duplicate answers return existing next version; two workers cannot create two versions; completed/failed/expired cannot resume; wrong pending handoff rejected; multiple pending handoffs disambiguated deterministically; material goal change supersedes with linked new handoff.
   - **Do:** Preserve across versions: `original_skill`, `original_use_case_id`, `original_answer_goal`, `initial_tier`, `resolved_tier`, prior tool results, field provenance, conflicts, unresolved fields.
+  - **Do:** All five steps run inside **one** `canonical_unit_of_work()` from item 19a — a lock acquired on one connection and released before the merge is not a control.
   - **Verify:** `pytest app/tests/test_canonical_handoff_clarification_integration.py -q` (Postgres — item 24)
-  - **Depends on:** 18
+  - **Depends on:** 18, 19a
+  - **Evidence:** _(filled at check-off)_
+
+- [ ] **21b** — Audit-critical vs diagnostic persistence policy — rev 9 (blocks 20 and final telemetry acceptance)
+  - **Context:** Locked decision 12 (rev 8) said "telemetry persistence failure before side-effecting execution → fail closed" for **all** telemetry. That contradicts the shipped COE invariant recorded in `CLAUDE.md` — trace telemetry is "redacted, best-effort, **never breaks chat**" — and contradicts supported configurations `AI_SOC_TELEMETRY_SINK=db|file|none` and `TELEMETRY_MODE=none` (the governance regression harness runs with `TELEMETRY_MODE=none`). Left unresolved, item 21 would either break the regression harness or quietly abandon fail-closed.
+  - **Do:** Classify all 28 events in `docs/architecture/canonical_telemetry_coverage.md` as **audit-critical** or **diagnostic**. Audit-critical (proposed, confirm at execution): `handoff.persisted`, `handoff.resumed`, `resource_plan.created`, `execution.started`, `execution_step.started`, `execution_step.completed`, `execution_step.failed`, `request.failed`. Everything else diagnostic.
+  - **Do:** Implement the split: audit-critical write failure before a side-effecting step → `persistence_failed` outcome, no execution; diagnostic write failure → WARNING log with `error_category`, surfaced in the trace, chat proceeds. Never a silent drop in either class.
+  - **Do:** Define sink interaction: diagnostic events honour `ai_soc_telemetry_sink`; a configuration that would discard audit-critical events (`sink=none` with execution enabled) is rejected at startup with an explicit message. Confirm the governance regression harness path stays green under `TELEMETRY_MODE=none`.
+  - **Do:** Update the `CLAUDE.md` COE observability bullet so the "never breaks chat" statement is scoped to diagnostic telemetry.
+  - **Verify:** `pytest app/tests/test_telemetry_persistence_policy.py -q` (audit-critical failure blocks execution; diagnostic failure does not block a read-only response; neither is silently dropped); `TELEMETRY_MODE=none PYTHONPATH=backend:. python3 -m test_harness.harness.runner --json` → 6/6
+  - **Depends on:** 10, 21a
   - **Evidence:** _(filled at check-off)_
 
 - [ ] **20** — Execution idempotency implementation — spec §3
@@ -314,15 +390,10 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Do:** Per-step transaction flow: (1) start txn, (2) acquire/create record, (3) if `completed` return stored result, (4) if `running` under valid lease do not execute concurrently, (5) recover stale lease per documented policy, (6) mark `running` before tool invoke, (7) persist result + terminal status atomically. Separate read-only (retryable) vs side-effecting (no replay unless tool contract + stable key supports idempotency).
   - **Do:** Invariant: **a committed ResourcePlan step can produce at most one side effect.**
   - **Do:** Add `backend/app/tests/test_execution_idempotency.py` with **repository/unit tests first** (named tests): duplicate dispatch; concurrent dispatch two workers; worker crash after `running`; replay after completion; retryable read-only failure; side-effecting step timeout; same plan different step IDs; mismatched handoff version.
+  - **Do:** Per-step transactions use `canonical_unit_of_work()` (item 19a) — acquire/lease/mark-running/persist-result must not span separate connections.
   - **Verify:** `pytest app/tests/test_execution_idempotency.py -q`
-  - **Depends on:** 18
+  - **Depends on:** 18, 19a, 21b
   - **Evidence:** _(filled at check-off)_
-
-- [ ] **10** — Durable telemetry foundation
-  - **Do:** `durable_planning_telemetry.py` persists to `canonical_planning_events`; `planning_telemetry.py` delegates; wire interim events until item 21 completes full catalog. Apply telemetry failure policy (locked decision 12).
-  - **Verify:** `pytest app/tests/test_canonical_planning_architecture.py -k t4_resolves -q`
-  - **Depends on:** 17, 18, 19, 20
-  - **Evidence:** _(foundation partial; full catalog = item 21)_
 
 - [ ] **21** — Complete durable telemetry catalog — spec §6
   - **Do:** Wire **all 28 events** from real emitting nodes (not merely helpers):
@@ -340,9 +411,10 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Do:** Add `docs/architecture/canonical_telemetry_coverage.md`: per event — emitting node, success condition, failure condition, required payload, persistence confirmation.
   - **Do:** Persisted events carry where applicable: `trace_id`, `session_id`, `turn_id`, `decision_id`, `parent_decision_id`, `handoff_id`, `handoff_version`, `resource_plan_id`, `node_name`, `node_version`, `contract_version`, `initial_tier`, `resolved_tier`, `processing_lane`, `answer_goal`, `primary_skill`, `original_skill`, `status`, `duration_ms`, `error_category`. Redact secrets/raw SOC content.
   - **Do:** Terminal consistency: success → exactly one `request.completed`; terminal failure → exactly one `request.failed`; clarification → `clarification.requested` without false `request.completed`. Events survive restart; multi-worker correlation; ordering reconstructable; duplicate events have stable IDs or dedup keys.
-  - **Do:** Telemetry failure policy (locked decision 12): fail closed before side-effecting execution when audit record cannot be persisted; log and surface all telemetry write failures — never silently drop.
+  - **Do:** Correlation fields are bound as typed columns per item 21a — do **not** read them back out of a `minimize()`d dict.
+  - **Do:** Telemetry failure policy per item 21b classification: audit-critical failure fails closed before side-effecting execution; diagnostic failure degrades loudly. Never silently drop either class.
   - **Verify:** `pytest app/tests/test_canonical_telemetry_coverage.py -q` (one test per canonical functional path)
-  - **Depends on:** 10, 13, 20
+  - **Depends on:** 10, 21a, 21b, 13, 20
   - **Evidence:** _(filled at check-off)_
 
 - [ ] **22** — Response validation semantics — spec §7
@@ -371,6 +443,9 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Evidence:** _(filled at check-off)_
 
 - [ ] **25** — Remove obsolete configuration — spec §8
+  - **Scope split (rev 9):** this item removes the **environment/config keys only**. The runtime *trace field* `control_plane_enabled` (`pipeline.py:4190`, `synthesis/governed_answer_composer.py:189`, four eval harnesses, 11 `app/demo/captures/*.json`) is a response-contract change and is handled in items 26 + 26a. Removing the env var and removing the trace field are not the same change; do not conflate them.
+  - **Do:** Rewrite the `CLAUDE.md` statement "Chat control plane … is implemented, gated by `CONTROL_PLANE_ENABLED` (default `false`)" — canonical planning is unconditional, so that sentence becomes false at cutover. Also reconcile `plans/2026-06-02_chat-control-plane-master.md` (runtime references only; do not rewrite its history).
+  - **Do:** Note that `AI_SOC_CANONICAL_PLANNING_ENABLED`, `AI_SOC_HANDOFF_STORE_BACKEND`, `AI_SOC_HANDOFF_STORE_FILE_DIR` are already retired-with-warning at `config.py:522-531`; this item removes the warning shim, not just the keys.
   - **Do:** Remove `CONTROL_PLANE_ENABLED`, `AI_SOC_CANONICAL_PLANNING_ENABLED`, `AI_SOC_HANDOFF_STORE_BACKEND`, `AI_SOC_HANDOFF_STORE_FILE_DIR` from: `.env`, `.env.example`, `.env.*.example`, `env/profiles/*`, `docker-compose.yml`, K8s manifests (if any), CI configuration, `CLAUDE.md`, architecture docs, plan docs (runtime refs), README files, test fixtures, deployment scripts, startup output, eval harness defaults.
   - **Do:** After cleanup: remove retired-env warnings from `config.py`; remove tests expecting warnings; update `test_coe_rollout_config_sanity.py`. Do **not** rely on `extra="ignore"` as final solution for these four keys.
   - **Do:** If hook blocks `.env.example`, follow repo-approved edit workflow — do not leave stale.
@@ -381,14 +456,43 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
 - [ ] **26** — Remove obsolete live-path compatibility code — spec §9
   - **Do:** Remove: `True` literals pretending to be `control_plane_enabled`; legacy trace fields implying optional canonical mode; test-only live composition branches in production modules; canonical-off route labels; unused `plan_dispatch_fallback` helpers; obsolete comments/dead branches. Update eval harnesses (`soc_clean_answer_eval`, `golden_answer_runner`, `langgraph_dual_parity`, etc.).
   - **Do:** `_attach_resource_plan` must be isolated test utility outside production runtime or removed entirely (search all callers first).
+  - **Do:** Trace-field removal is a response-contract change — pair every removal with the fixture migration in item 26a. Do not delete a field that a capture or golden fixture still asserts without migrating it in the same commit.
   - **Verify:** `rg 'canonical.off|plan_dispatch_fallback|control_plane_enabled' backend/app/` → no runtime branches; only test fixtures or historical comments
   - **Depends on:** 17, 25
+  - **Evidence:** _(filled at check-off)_
+
+- [ ] **26a** — Experience Center purity and fixture migration — rev 9
+  - **Context:** The plan (rev 8) never mentions the Experience Center. EC purity is a standing repo invariant — the EC path is deterministic fixture playback, emits no traces, and never runs live planning. Two exposures: (a) canonical nodes are now unconditional in the pipeline, so EC must be proven not to touch canonical persistence; (b) item 26 removes the `control_plane_enabled` trace field, which appears in 11 `backend/app/demo/captures/*.json` and in eval-harness expectations — a blind removal breaks EC replay and golden comparisons.
+  - **Do:** Add `backend/app/tests/test_experience_center_canonical_purity.py`: running every scenario through `routes_scenarios.py::run_demo_scenario_fixture` produces **zero** `canonical_handoffs` rows, **zero** `canonical_planning_events`, **zero** `ResourcePlan` commits, and no `request.completed` / `request.failed` canonical terminal events. Assert against the injected test stores, not by mocking the assertion away.
+  - **Do:** Migrate `app/demo/captures/*.json` and eval fixtures for any trace field removed in item 26. Decide and record one policy: field dropped from captures, or retained as a frozen historical key excluded from live-vs-capture diffing. EC governance panels (LLM sidecar, lineage, `live_llm_called=false`) must render unchanged after migration.
+  - **Do:** Confirm EC answers stay byte-identical where no field was intentionally removed.
+  - **Verify:** `pytest app/tests/test_experience_center_canonical_purity.py -q`; EC scenario replay diff shows only intentionally-removed keys
+  - **Depends on:** 26
+  - **Evidence:** _(filled at check-off)_
+
+- [ ] **28** — Retention and purge — rev 9
+  - **Context:** `canonical_handoffs.original_query` stores the raw analyst query (SOC content) and `canonical_planning_events.payload` retains `user_query` — `minimize()` masks secrets but does not remove query text. `canonical_handoffs` has `expires_at` with **no purge job**; `canonical_planning_events` has **no TTL at all** and grows unbounded per turn. Privacy/data-protection applies to SOC content the same way it applies to CRM records.
+  - **Do:** Define retention windows for `canonical_handoffs` (expired + terminal rows) and `canonical_planning_events`. Align with whatever `ai_trace_runs` already does rather than inventing a second policy — reuse its purge mechanism if one exists.
+  - **Do:** Implement purge (scheduled job or startup sweep), idempotent, bounded batch size, logged counts. Add the retention indexes to `0005` if not already present.
+  - **Do:** Document retention + what SOC content each table holds in `docs/architecture/canonical_telemetry_coverage.md`.
+  - **Verify:** `pytest app/tests/test_canonical_retention_purge.py -q` (expired rows removed; live rows untouched; purge is idempotent and bounded)
+  - **Depends on:** 18a, 21a
   - **Evidence:** _(filled at check-off)_
 
 - [ ] **11** — Intermediate canonical regression gate
   - **Do:** Re-run canonical architecture + invariant suites and sentinel after pytest migration (items 14–17) and before final cleanup gates. This is a **verification gate**, not an early implementation step.
   - **Verify:** `pytest app/tests/test_canonical_handoff_invariants.py app/tests/test_dual_runtime_lane_parity.py app/tests/test_canonical_planning_architecture.py -q`; `PYTHONPATH=backend:. python3 scripts/eval_sentinel.py --check`
   - **Depends on:** 14, 17
+  - **Evidence:** _(filled at check-off)_
+
+- [ ] **29** — Containerised `/chat` canonical smoke — rev 9
+  - **Context:** Every gate in rev 8 is pytest-level, and item 24 is Postgres-but-in-process. Repo history says in-process green ≠ live green: LangGraph silently drops undeclared state channels, and `.env` drift has broken live paths while evals stayed green. A flagless cutover with no live probe has no safety net.
+  - **Do:** Run through the running stack (`docker compose up -d`, real Postgres, real Nginx-fronted backend), one probe per canonical path: (1) T1 known-complete → plan committed + executed; (2) T1 with gap → clarification → answer → transactional resume → plan committed; (3) T3 near/semantic match; (4) T4 guided resolution; (5) T0 reference/knowledge-only; (6) policy-blocked outcome.
+  - **Do:** For each probe assert from the **database**, not just the HTTP body: expected `canonical_planning_events` rows present with non-null `session_id` (item 21a), one terminal `request.completed`/`request.failed`, handoff row at the expected status/version, at most one side effect per committed step.
+  - **Do:** Confirm migrations were applied by the deploy step (item 18a) in this environment — not by runtime DDL.
+  - **Do:** Record per-probe latency and connections-per-turn; compare against the item-19a budget.
+  - **Verify:** `scripts/smoke_canonical_paths.sh` (new) → 6/6 probes pass; DB assertions captured in the evidence
+  - **Depends on:** 24, 21, 22, 26a
   - **Evidence:** _(filled at check-off)_
 
 - [ ] **27** — Final verification gates + completion report — spec §12, §14
@@ -408,14 +512,22 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
     13. Dead legacy/compatibility code removed
     14. Final runtime diagram
     15. Any remaining gap
+    16. **(rev 9)** Migration deployment: which environments were migrated, by which step, verified in `schema_migrations`
+    17. **(rev 9)** Data-layer boundary: canonical unit-of-work vs SQLAlchemy vs telemetry connector; measured connections-per-turn
+    18. **(rev 9)** Audit-critical vs diagnostic telemetry classification table + sink-config interaction
+    19. **(rev 9)** Experience Center purity result + fixture keys migrated
+    20. **(rev 9)** Retention/purge policy and measured table growth per turn
+    21. **(rev 9)** Rollback posture: revert target commits, confirmation that `0004`/`0005` need no down-migration
   - **Verify:**
     1. **Gate 1:** item 14 commands (clarification tests + `eval_sentinel.py --check`)
     2. **Gate 2:** `pytest app/tests/test_canonical_* app/tests/test_resource_plan_authority.py app/tests/test_dual_runtime_lane_parity.py -q`
     3. **Gate 3:** `pytest app/tests/integration/ app/tests/test_execution_idempotency.py app/tests/test_canonical_telemetry_coverage.py -q` — **PostgreSQL required; 0 skipped**
-    4. **Gate 4:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q` → 0 failed
-    5. **Gate 5:** `./scripts/run_stage3_governance_regression.sh` → PASS
-    6. **Gate 6:** repo search — no runtime-relevant removed variables or legacy planner/fallback terms
-  - **Depends on:** 11, 14–26
+    4. **Gate 3.5 (rev 9):** `scripts/smoke_canonical_paths.sh` against the running container stack → 6/6, DB assertions included
+    5. **Gate 4:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q` → 0 failed
+    6. **Gate 5:** `./scripts/run_stage3_governance_regression.sh` → PASS
+    7. **Gate 6:** repo search — no runtime-relevant removed variables or legacy planner/fallback terms
+    8. **Gate 7 (rev 9):** `rg -n '\.sql' backend/app --glob '!**/migrations/**'` → no runtime DDL; EC purity + retention suites green
+  - **Depends on:** 11, 14–26, 26a, 28, 29
   - **Evidence:** _(filled at check-off)_
 
 ---
@@ -434,6 +546,13 @@ Do **not**:
 - Weaken governance sentinel assertions
 - Create another compatibility planner
 - Claim completion while full pytest or governance regression fails
+- **(rev 9)** Execute `.sql` files from runtime code, or rely on lazy `CREATE TABLE IF NOT EXISTS` instead of a deploy step
+- **(rev 9)** Open a fresh connection per repository call and call it a transaction
+- **(rev 9)** Read correlation fields back out of a `minimize()`d payload
+- **(rev 9)** Append to a test store from a production code path on write failure
+- **(rev 9)** Fail closed on diagnostic telemetry, or silently drop any telemetry class
+- **(rev 9)** Delete a trace field without migrating the EC captures and golden fixtures that assert it
+- **(rev 9)** Mark the plan Done on in-process green alone — Gate 3.5 live smoke is mandatory
 
 ---
 
@@ -452,7 +571,18 @@ Do **not**:
 - 2026-07-24–25: Original plan (parser T0, dual handoffs, answer_mode lane lock).
 - 2026-07-25 rev 5: Partial cutover — DB migration, authority guard, always-on `is_canonical_authoritative()`, legacy fallback removed from live pipeline. Drift log claimed governance PASS; **re-audited false** — sentinel + ~211 pytest failures remain.
 - 2026-07-25 rev 7: Full alignment with user 14-section cutover spec.
-- **2026-07-25 rev 8:** Fixed item 20↔24 dependency cycle; moved item 11 to intermediate gate (depends 14+17); clarification outcomes **without** `EvidencePlan`; corrected resume diagram; T0 knowledge execution rule; telemetry fail-closed policy; mandatory CI Postgres for item 24; positive completion criteria; dual-runtime single orchestration service; `0005` migration policy (do not edit `0004`). **Implementation status: Phase 2 not started.**
+- **2026-07-25 rev 8:** Fixed item 20↔24 dependency cycle; moved item 11 to intermediate gate (depends 14+17); clarification outcomes **without** `EvidencePlan`; corrected resume diagram; T0 knowledge execution rule; telemetry fail-closed policy; mandatory CI Postgres for item 24; positive completion criteria; dual-runtime single orchestration service; `0005` migration policy (do not edit `0004`).
+- **2026-07-25 rev 9 (architecture review):** Seven items added after a repo-verified review. Corrections to rev 8:
+  - **Status claim corrected.** Rev 8 said "Nothing in Phase 2 is implemented yet" — **false**. `durable_planning_telemetry.py`, `planning_telemetry.py`, and `response_validation.py` exist, and `validate_final_response` is already wired on the live path at `pipeline.py:4253`. Item 10 is partially built, not unstarted. (Rev 5 was already corrected once for a false PASS claim; do not repeat the pattern.)
+  - **Item 19 was not implementable as written** — per-call `asyncpg.connect()` inside per-method `asyncio.run()` cannot hold `SELECT … FOR UPDATE` across a merge. → item **19a** (unit-of-work + pool), blocks 19, 20, 24.
+  - **Migrations had no deploy path** — `_ensure_schema` executes `0004` from the live request path, and `scripts/migrate_ai_soc_db.py` has zero callers, so item 18's fail-closed posture would hard-fail unmigrated environments and `0005` would never be applied. → item **18a**, blocks 18, 19a, 24.
+  - **Telemetry correlation was broken at the source** — `minimize()` deletes any key containing `session_id` (it is in `_SECRET_KEY_PARTS`), and `persist_planning_event` minimizes before reading the column value, so `canonical_planning_events.session_id` is always NULL. → item **21a**.
+  - **Blanket fail-closed telemetry contradicted the shipped COE invariant** ("best-effort, never breaks chat") and the supported `TELEMETRY_MODE=none` harness path. → item **21b** splits audit-critical from diagnostic; locked decision 12 rewritten.
+  - **Experience Center was absent from the plan** while item 26 would delete a trace field asserted by 11 `app/demo/captures/*.json`. → item **26a**.
+  - **No retention** for handoff/event tables holding raw SOC query text. → item **28**.
+  - **All gates were in-process.** → item **29** containerised live smoke, Gate 3.5.
+  - Item 10 moved ahead of 18/19/20 (telemetry is a prerequisite of the items that emit it). Item 25 scope split: env keys here, trace-field contract change in 26/26a. Locked decisions 14–18 added.
+  - **Implementation status: Phase 2 not started, except a partial item 10 (durable telemetry + response validation) already on the live path.**
 
 ## Key files
 
@@ -462,6 +592,9 @@ Do **not**:
 | Orchestration | `canonical_planning_orchestrator.py`, `plan_evidence_from_canonical.py`, `pipeline.py` |
 | Authority | `backend/app/planner/resource_plan_authority.py`, `composer.py` |
 | Handoff DB | `canonical_handoff_repository.py`, `canonical_handoff_store.py`, `canonical_handoff_models.py`, `db/migrations/0004_canonical_handoffs.sql`, `db/migrations/0005_canonical_planning_cutover_constraints.sql` (item 18) |
+| Data layer (rev 9) | `backend/app/chat/canonical_db.py` (item 19a), `backend/scripts/migrate_ai_soc_db.py` (item 18a), `app/db/session.py`, `app/connectors/telemetry/db.py` |
 | Execution | `guided_hybrid_executor.py`, `planner/executor.py`, `canonical_execution_idempotency.py` (item 20) |
-| Telemetry | `planning_telemetry.py`, `durable_planning_telemetry.py`, `response_validation.py` |
-| Tests | `test_canonical_planning_architecture.py`, `test_canonical_handoff_invariants.py`, `tests/support/canonical_flow.py`, `tests/integration/*` |
+| Telemetry | `planning_telemetry.py`, `durable_planning_telemetry.py`, `response_validation.py`, `app/connectors/telemetry/redaction.py` (item 21a) |
+| EC purity (rev 9) | `app/api/routes_scenarios.py`, `app/demo/captures/*.json`, `app/demo/scenarios.py` (item 26a) |
+| Docs to update | `CLAUDE.md` (control-plane gating sentence, COE telemetry invariant), `docs/architecture/canonical_telemetry_coverage.md`, `plans/2026-06-02_chat-control-plane-master.md` (runtime refs) |
+| Tests | `test_canonical_planning_architecture.py`, `test_canonical_handoff_invariants.py`, `tests/support/canonical_flow.py`, `tests/integration/*`, `test_migration_readiness.py`, `test_canonical_db_unit_of_work.py`, `test_canonical_telemetry_correlation.py`, `test_telemetry_persistence_policy.py`, `test_experience_center_canonical_purity.py`, `test_canonical_retention_purge.py`, `scripts/smoke_canonical_paths.sh` |
