@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.connectors.telemetry import metrics
+from app.db.migration_readiness import build_migration_readiness
 
 router = APIRouter()
 
@@ -13,9 +14,14 @@ def health() -> dict:
     safe to expose unauthenticated alongside service status.
     """
     counters = metrics.snapshot()
+    migration_readiness = build_migration_readiness()
+    status = "ok" if migration_readiness.get("ready", True) else "degraded"
     return {
-        "status": "ok",
+        "status": status,
         "service": "ai-soc-assistant-backend",
+        "readiness": {
+            "database_migrations": migration_readiness,
+        },
         # Integer-only counters (no payload content); flat so each value stays an int.
         "telemetry": {
             "write_failures": counters.get("telemetry_write_failures", 0),

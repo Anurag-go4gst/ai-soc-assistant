@@ -6,23 +6,18 @@ import asyncio
 import json
 import logging
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 import asyncpg
-
-from datetime import UTC, datetime, timedelta
 
 from app.chat.canonical_handoff_models import CanonicalHandoffRecord
 from app.config import settings
 from app.connectors.telemetry.redaction import minimize
 
 _LOGGER = logging.getLogger("ai_soc.canonical_handoff")
-_MIGRATION_PATH = Path(__file__).resolve().parents[1] / "db" / "migrations" / "0004_canonical_handoffs.sql"
 
 _TEST_STORE: dict[str, dict[str, Any]] = {}
 _USE_TEST_STORE = False
-_SCHEMA_READY = False
 
 
 def use_in_memory_store_for_tests(enabled: bool = True) -> None:
@@ -59,20 +54,11 @@ def _run(coro_factory):
     return asyncio.run(coro_factory())
 
 
-async def _ensure_schema(conn: asyncpg.Connection) -> None:
-    global _SCHEMA_READY
-    if _SCHEMA_READY:
-        return
-    await conn.execute(_MIGRATION_PATH.read_text(encoding="utf-8"))
-    _SCHEMA_READY = True
-
-
 async def _with_conn(fn):
     if _disabled():
         return None
     conn = await asyncpg.connect(settings.database_url, timeout=2.0)
     try:
-        await _ensure_schema(conn)
         return await fn(conn)
     finally:
         await conn.close()

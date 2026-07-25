@@ -34,6 +34,7 @@ from app.api.routes_quality import router as quality_router
 from app.api.routes_scenarios import demo_router, router as scenarios_router
 from app.api.routes_settings import router as settings_router
 from app.auth.routes_auth import router as auth_router
+from app.db.migration_readiness import log_startup_migration_readiness
 
 
 app = FastAPI(title="AI SOC Assistant")
@@ -53,6 +54,8 @@ try:
     _apply_mcp_connection_override()
 except Exception:  # noqa: BLE001 - never block startup on an optional override
     logging.getLogger("ai_soc.mcp").warning("mcp_connection_override_apply_failed", exc_info=True)
+
+log_startup_migration_readiness()
 
 _telemetry_logger = logging.getLogger("ai_soc.telemetry")
 

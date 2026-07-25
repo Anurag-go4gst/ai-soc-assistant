@@ -24,6 +24,7 @@ services:
       # The backend gets NO host systemd/docker-socket access. Set
       # AI_SOC_LLM_CONTROL_DIR=/var/lib/ai-soc/llm-control in .env to enable.
       - ./.llm-control:/var/lib/ai-soc/llm-control
+    entrypoint: ["/bin/sh", "/app/entrypoint.sh"]
     command: uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 
   frontend:
