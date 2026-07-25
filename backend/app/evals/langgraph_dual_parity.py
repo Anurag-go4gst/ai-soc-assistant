@@ -79,7 +79,6 @@ MANUAL_PARITY_SCENARIOS: list[dict[str, str]] = [
 ]
 
 _PROFILE_FLAGS: dict[str, bool] = {
-    "control_plane_enabled": True,
     "ai_soc_planner_path_selection_enabled": True,
     "ai_soc_llm_intent_advisor_enabled": True,
     "ai_soc_curated_enrichment_activation_enabled": True,

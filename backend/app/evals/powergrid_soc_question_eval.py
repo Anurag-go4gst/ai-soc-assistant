@@ -54,7 +54,6 @@ VALID_CATEGORIES = frozenset(
 )
 
 _PROFILE_FLAG_NAMES = (
-    "control_plane_enabled",
     "ai_soc_planner_path_selection_enabled",
     "ai_soc_curated_enrichment_activation_enabled",
     "ai_soc_planner_mitre_branch_enabled",

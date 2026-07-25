@@ -37,10 +37,52 @@ def _disabled() -> bool:
     return not url or "change-me@postgres" in url
 
 
+#: Correlation values bound to typed columns. These must be read from the raw event,
+#: never from the ``minimize()``d copy: ``minimize`` drops any key containing a
+#: ``_SECRET_KEY_PARTS`` fragment, and ``session_id`` is one of them — reading the
+#: column value back out of ``sanitized`` persisted NULL for every event and made
+#: multi-worker correlation impossible. ``minimize`` still guards the free-form payload.
+_CORRELATION_COLUMNS: tuple[str, ...] = (
+    "trace_id",
+    "turn_id",
+    "session_id",
+    "decision_id",
+    "parent_decision_id",
+    "handoff_id",
+    "handoff_version",
+    "resource_plan_id",
+    "event",
+    "node_name",
+    "node_version",
+    "contract_version",
+    "status",
+    "duration_ms",
+    "error_category",
+)
+
+
+#: ``session_id`` is the client-supplied chat conversation id from ``ChatRequest`` — it is
+#: NOT the auth credential (that is the signed cookie in ``app/auth/session.py``).
+#: ``minimize()`` classifies it as a secret by keyword, grouping it with ``session_secret``;
+#: that heuristic over-matches for this field, so correlation deliberately keeps it. Being
+#: client-supplied, it is length-bounded before it reaches a column.
+_MAX_CORRELATION_STR = 200
+
+
+def _correlation(payload: dict[str, Any]) -> dict[str, Any]:
+    correlation: dict[str, Any] = {}
+    for key in _CORRELATION_COLUMNS:
+        value = payload.get(key)
+        correlation[key] = value[:_MAX_CORRELATION_STR] if isinstance(value, str) else value
+    return correlation
+
+
 def persist_planning_event(payload: dict[str, Any]) -> None:
-    sanitized = minimize(payload) if isinstance(payload, dict) else {}
+    raw = payload if isinstance(payload, dict) else {}
+    sanitized = minimize(raw) if raw else {}
+    correlation = _correlation(raw)
     if _USE_TEST_EVENTS or _disabled():
-        _TEST_EVENTS.append(dict(sanitized))
+        _TEST_EVENTS.append({**sanitized, **correlation})
         return
 
     async def _write() -> None:
@@ -56,21 +98,21 @@ def persist_planning_event(payload: dict[str, Any]) -> None:
                     $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb
                 )
                 """,
-                sanitized.get("trace_id"),
-                sanitized.get("turn_id"),
-                sanitized.get("session_id"),
-                sanitized.get("decision_id"),
-                sanitized.get("parent_decision_id"),
-                sanitized.get("handoff_id"),
-                sanitized.get("handoff_version"),
-                sanitized.get("resource_plan_id"),
-                sanitized.get("event"),
-                sanitized.get("node_name"),
-                sanitized.get("node_version"),
-                sanitized.get("contract_version"),
-                sanitized.get("status"),
-                sanitized.get("duration_ms"),
-                sanitized.get("error_category"),
+                correlation["trace_id"],
+                correlation["turn_id"],
+                correlation["session_id"],
+                correlation["decision_id"],
+                correlation["parent_decision_id"],
+                correlation["handoff_id"],
+                correlation["handoff_version"],
+                correlation["resource_plan_id"],
+                correlation["event"],
+                correlation["node_name"],
+                correlation["node_version"],
+                correlation["contract_version"],
+                correlation["status"],
+                correlation["duration_ms"],
+                correlation["error_category"],
                 json.dumps(sanitized),
             )
         finally:
@@ -79,5 +121,12 @@ def persist_planning_event(payload: dict[str, Any]) -> None:
     try:
         asyncio.run(_write())
     except Exception:
-        _LOGGER.warning("planning_event_persist_failed", exc_info=True)
-        _TEST_EVENTS.append(dict(sanitized))
+        # Surface loudly, never silently. The live path must not fall back into the
+        # fixture store: it grows without bound across a long-running process and lets
+        # production writes pollute test capture. Fail-closed classification for
+        # audit-critical events is item 21b of the canonical cutover plan.
+        _LOGGER.warning(
+            "planning_event_persist_failed",
+            exc_info=True,
+            extra={"event": correlation.get("event"), "trace_id": correlation.get("trace_id")},
+        )

@@ -22,7 +22,6 @@ DEFAULT_REPORT_JSON = REPO_ROOT / "docs" / "evals" / "out" / "golden_answer_eval
 DEFAULT_REPORT_MD = REPO_ROOT / "docs" / "evals" / "out" / "golden_answer_eval.md"
 
 SAFE_ENV_DEFAULTS: dict[str, str] = {
-    "CONTROL_PLANE_ENABLED": "true",
     "MCP_GLOBAL_EXECUTION_ENABLED": "false",
     "MCP_SERVER_MOCK_EXECUTION_ENABLED": "false",
     "AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED": "false",
@@ -30,7 +29,6 @@ SAFE_ENV_DEFAULTS: dict[str, str] = {
 }
 
 SAFE_SETTING_DEFAULTS: dict[str, Any] = {
-    "control_plane_enabled": True,
     "mcp_global_execution_enabled": False,
     "mcp_server_mock_execution_enabled": False,
     "ai_soc_llm_final_synthesis_enabled": False,
@@ -99,8 +97,7 @@ class RunnerSummary:
             "by_category": self.by_category,
             "case_files": self.case_files,
             "constraints": {
-                "control_plane_enabled": True,
-                "mcp_global_execution_enabled": False,
+                            "mcp_global_execution_enabled": False,
                 "mcp_server_mock_execution_enabled": False,
                 "final_synthesis_enabled": False,
                 "answer_guard_enabled": False,

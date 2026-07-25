@@ -36,7 +36,6 @@ _PROFILE_FLAGS_ON: dict[str, bool] = {
     "ai_soc_llm_spl_fallback_enabled": False,
     "mcp_global_execution_enabled": False,
     "mcp_server_mock_execution_enabled": False,
-    "control_plane_enabled": False,
 }
 
 _PROFILE_FLAGS_OFF: dict[str, bool] = {
@@ -46,7 +45,6 @@ _PROFILE_FLAGS_OFF: dict[str, bool] = {
     "ai_soc_llm_spl_fallback_enabled": False,
     "mcp_global_execution_enabled": False,
     "mcp_server_mock_execution_enabled": False,
-    "control_plane_enabled": False,
 }
 
 _RESULTS_FOUND = re.compile(r"\b(results?\s+(?:were\s+)?found|found\s+\d+\s+(?:events?|results?))\b", re.IGNORECASE)

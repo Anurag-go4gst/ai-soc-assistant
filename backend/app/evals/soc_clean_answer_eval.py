@@ -32,7 +32,6 @@ DEFAULT_TIMEOUT_SECONDS = 0.0
 LIVE_COMPOSER_DEFAULT_TIMEOUT_SECONDS = 120.0
 
 _PROFILE_FLAGS: dict[str, bool] = {
-    "control_plane_enabled": True,
     "ai_soc_planner_path_selection_enabled": True,
     "ai_soc_curated_enrichment_activation_enabled": True,
     "ai_soc_planner_mitre_branch_enabled": True,
