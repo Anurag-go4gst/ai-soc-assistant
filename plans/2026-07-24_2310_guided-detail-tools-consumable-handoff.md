@@ -143,7 +143,10 @@ The direction of travel (35 → 13 mismatches) is the only claim the current dat
 - [ ] Handoff + planning-event retention/purge is enforced (no unbounded SOC-content growth)
 - [ ] Containerised live `/chat` smoke passes for all six canonical paths
 - [ ] **Full pytest: 0 failed** (from 112 at rev 10; category **G** must be empty)
-- [ ] **Dual-runtime parity: 0 `critical_mismatch`** across all 120 rows
+- [ ] **Production dual-runtime parity: `120 exact_match / 0 approved_difference / 0 critical_mismatch`** — `runtime_a=imperative_canonical` vs `runtime_b=resource_planner_graph`, `base_105_loaded=105`. From the rev-13 baseline of `113 / 0 / 7`
+- [ ] All seven baselined Category G rows resolved by shared-seam unification, **not** by approval, exclusion, tolerance or baseline change
+- [ ] HIL state (`hil_required`, `human_review_required`) identical across both production entry points
+- [ ] Neither production runtime surfaces an ungoverned SPL draft the other suppresses
 - [ ] Every non-`exact_match` row is `approved_difference` with a **complete six-part record per differing field** (field name, imperative value, RP-graph value, reason, contract owner, approval reference)
 - [ ] No routing, tier, lane, answer-goal, intent, completeness, canonical-input, plan-authority, governance or execution field appears in any tolerance or exclusion list
 - [ ] Parity artifacts regenerated through the item-35 artifact-safe procedure from the final committed tree, carrying commit SHA + corpus counts; the stale `8792338` artifact and the observational `107/13` result are both superseded
@@ -173,6 +176,13 @@ Phase 1: `1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9`
 Phase 2 (execution order — rev 12; item numbers unchanged, new items suffixed):
 
 `12 ✅ → 13 ✅ → 14 ✅ → 30 ✅ → 15 → 16 → 31 → 32 → 33 → 34 → 17 → 35 → 18a → 19a → 10 → 21a → 18 → 19 → 21b → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 26a → 28 → 11 → 29 → 27`
+
+**Item 30a runs in parallel (rev 13)** — it does not block 31–34, but must complete **before item 17** full-pytest sign-off, since deleting or rewiring the legacy shadow changes which tests exist:
+
+```text
+30 ✅ ──┬─→ 31 → 32 → 33 → 34 ──┬─→ 17 → 35
+        └─→ 30a ────────────────┘
+```
 
 **Current batch is 15–17 plus 30–35 (dual-runtime parity first).** Nothing in persistence, migration, execution idempotency, telemetry catalog or documentation starts in this batch.
 
@@ -598,7 +608,38 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Depends on:** 14, 17
   - **Evidence:** _(filled at check-off)_
 
-### Dual-runtime parity (items 30–35) — rev 12
+### Dual-runtime parity (items 30–35) — rev 12, baselined rev 13
+
+#### Authoritative pre-unification production baseline (rev 13)
+
+Measured 2026-07-25 at commit **`c692145`** via `scripts/run_production_parity_eval.py` (scratch output only):
+
+```text
+runtime_a            = imperative_canonical      (build_live_chat_response / _run_live_chat_pipeline)
+runtime_b            = resource_planner_graph    (run_chat_via_resource_planner_graph / rp_node_bootstrap)
+total                = 120
+base_105_loaded      = 105
+exact_match          = 113
+approved_difference  = 0
+critical_mismatch    = 7
+```
+
+**This supersedes the legacy shadow-graph measurement for all production-parity work.** The
+`langgraph_dual_parity` result (`0 exact / 107 non-critical / 13 mismatch` against
+`run_planner_led_shadow_graph`) remains **historical, evaluation-only evidence**: it measured a
+runtime with no production caller and materially overstated the divergence between the two real
+entry points. Do not cite it for item 32.
+
+`approved_difference = 0` is by construction — the approval registry starts empty, so any differing
+field is a `critical_mismatch` until someone writes its six-part record. **None of the seven may be
+resolved that way** (see item 32).
+
+Harness properties verified at baseline: shadow-graph tripwire fires and restores; `--check` fails on
+partial corpus, wrong runtime identifiers, or `critical_mismatch > 0`; per-row session isolation
+(uuid session + `clear_all_session_pins_for_tests`) makes the run order-independent; the script
+refuses any `--out-dir` under `docs/evals/`.
+
+#### Legacy shadow-graph analysis (item 30, historical)
 
 **Item 30 complete (analysis only, 2026-07-25).** Observational baseline (in-memory, `base_105_loaded=105`; **not** committed artifact evidence):
 
@@ -625,6 +666,32 @@ critical mismatches=13
   - **Depends on:** none
   - **Evidence:** In-memory run `total=120 base_105_loaded=105 exact=0 non-critical=107 critical=13`. Universal diff: `path_type` + `branches` all 120 rows (RC-1). Critical: 12× `path_type_runtime_active`, 2× `spl_generation_mismatch`, 1× `unsafe_hil_mismatch`. First divergence: imperative `pipeline.py:601` vs shadow `planner_led_shadow_graph.py:117` → `pipeline.py:1720-1725`. Harness compares shadow graph, not `rp_node_bootstrap` (`resource_planner_graph.py:309-314`). No code, tests, baselines, approvals, tolerance lists or parity artifacts modified.
 
+- [ ] **30a** — `planner_led_shadow_graph` caller audit and deletion decision — rev 12
+  - **Context:** the 120-row harness has been comparing against this runtime, which the item-30 audit found has **no production caller** (`rg` hits only `app/evals/langgraph_dual_parity.py` and `app/tests/test_langgraph_shadow_phase12.py`; production `/chat` uses `run_chat_via_resource_planner_graph` per `api/routes_chat.py:120`, `api/routes_chat_stream.py:85`, `pipeline.py:528`). Its 13 mismatches are **legacy-shadow divergence**, not live-runtime regressions.
+  - **Do (1):** Relocate `governance_snapshot_from_response` out of `planner_led_shadow_graph.py` into a **neutral eval helper** (e.g. `app/evals/response_snapshot.py`). It is a pure response projection with no shadow-graph dependency, and it is the single reason the module cannot be deleted today.
+  - **Do (2):** Migrate its **two active eval consumers** — `app/evals/soc_clean_answer_eval.py` (the 120/120 clean-answer gate) and `app/evals/powergrid_soc_question_eval.py` — plus the legacy `langgraph_dual_parity.py` and the two test importers. Clean-answer must stay **120/120 PASS** across the move; it is a pure import relocation, so any behaviour change is a defect.
+  - **Do (3):** Review **all 13 tests** in `test_langgraph_shadow_phase12.py` individually for unique contract coverage — decide per test, not per file. Record for each whether the behaviour is covered elsewhere (e.g. by `test_dual_runtime_behavioural_parity.py` from item 34).
+  - **Do (4):** **Delete** `planner_led_shadow_graph.py` and the obsolete tests if no unique production contract remains after step 3.
+  - **Do (5):** If retained, it must be a **thin wrapper around `run_canonical_planning(state)`** and may not define independent planning behaviour, nor call `graph_node_evidence_planning` on an initial request.
+  - **Do not:** optimise this module to improve the primary parity score. It is not the item-32 subject.
+  - **Scheduling (rev 13):** item 30a **does not block items 31–34** — they target the two production runtimes and are independent of the legacy shadow. It **must complete before item 17 full-pytest sign-off**, because deleting or rewiring the module changes which tests exist and therefore changes the failure inventory item 17 has to drive to zero.
+  - **Verify:** caller-audit table in the completion report; if deleted, `rg 'planner_led_shadow_graph' backend/app` returns only historical comments; if retained, `pytest app/tests/test_dual_runtime_single_orchestration.py -q` proves it holds no independent planning path
+  - **Depends on:** 30
+  - **Acceptance:** explicit deletion-or-wrapper decision recorded with rationale; no third state (kept as-is with its own planning path) is permitted
+  - **Evidence (audit complete 2026-07-25; decision still open):**
+
+    | Consumer | Imports | Class |
+    |----------|---------|-------|
+    | `app/evals/langgraph_dual_parity.py` | `run_planner_led_shadow_graph`, `governance_snapshot_from_response` | legacy eval harness |
+    | `app/tests/test_langgraph_shadow_phase12.py` | both (13 tests) | test-only |
+    | `app/tests/test_resource_planner_dry_runs.py` | `run_planner_led_shadow_graph` | test-only |
+    | `app/tests/test_langgraph_dual_parity_phase13.py` | `governance_snapshot_from_response` | test-only |
+    | `app/evals/soc_clean_answer_eval.py` | `governance_snapshot_from_response` | **active gate** (the 120/120 clean-answer eval) |
+    | `app/evals/powergrid_soc_question_eval.py` | `governance_snapshot_from_response` | active eval |
+    | **production** | — | **none** |
+
+    **No production caller** — confirms the item-30 finding. **But the module cannot simply be deleted:** the pure helper `governance_snapshot_from_response` lives in it and is imported by two active evals, including the clean-answer gate. Deletion therefore requires first relocating that helper to a neutral module (e.g. `app/evals/response_snapshot.py`), which is a prerequisite sub-step, not a side effect. The 13 tests in `test_langgraph_shadow_phase12.py` still need per-test review for unique coverage before the delete-or-wrapper decision is taken.
+
 - [ ] **31** — Parity projection and classification — rev 11
   - **Do:** Replace existing labels (`match` / `acceptable_diff` / `mismatch`) with exactly three:
     - `exact_match` — all contract comparison fields equal
@@ -641,7 +708,44 @@ critical mismatches=13
   - **Acceptance:** projection module exists; dead `_ACCEPTABLE_DIFF_FIELDS` removed or functional; zero governance fields in exclusion/tolerance lists
   - **Evidence:** _(filled at check-off)_
 
-- [ ] **32** — Unify runtime entry points — rev 12
+- [ ] **32** — Unify runtime entry points — rev 12, scoped rev 13
+  - **Verified Category G production regressions (baseline `c692145`, 7 rows).** These are live
+    divergences between two production entry points, not legacy-shadow artifacts. Each reproduces in
+    isolation, individually and as a subset.
+
+    **G-1 — HIL state loss (5 rows).** `hil_required` A=`true`, B=`false`.
+    `q0.q045`, `demo.successful_login_after_failures`, `demo.suspicious_powershell`,
+    `demo.enrichment-only_pilot`, `manual.alt0891_hybrid`.
+    Two rows additionally lose `human_review_required` (A=`true`, B=`false`):
+    `manual.alt0891_hybrid`, `manual.dns_beaconing`.
+    **Most serious group — the RP graph is the production runtime.**
+
+    **G-2 — Ungoverned SPL draft visibility (3 rows).** Runtime B surfaces
+    `draft_spl_present=true` with `draft_status="draft_preview_not_governed"`, adding a
+    `draft_spl_preview` section to the analyst card; Runtime A correctly suppresses it.
+    `demo.successful_login_after_failures`, `demo.mitre-only_without_alert_context`,
+    `manual.alt0891_hybrid`.
+    Same defect class as the governed-SPL loss fixed in rev 9c, mirrored on the graph side.
+
+    **G-3 — Terminal response-mode disagreement (3 rows).** A=`human_review_required`;
+    B=`clarification_required` / `deterministic_knowledge_or_routing` / `insufficient_evidence`.
+    `human_review_reason` also differs (A `session_context_stale_or_missing` vs B's own reason).
+    `demo.mitre-only_without_alert_context`, `manual.alt0891_hybrid`, `manual.dns_beaconing`.
+
+    **Affected rows (7 distinct):** `q0.q045`, `demo.successful_login_after_failures`,
+    `demo.suspicious_powershell`, `demo.mitre-only_without_alert_context`,
+    `demo.enrichment-only_pilot`, `manual.alt0891_hybrid`, `manual.dns_beaconing`.
+
+    All three groups are consistent with **one structural cause**: Runtime B does not traverse the
+    same post-planning session-context / human-review stage as Runtime A.
+
+  - **Do (rev 13):** Unify that post-planning **session-context and human-review stage** through the
+    shared `run_canonical_planning(state)` seam, so both entry points derive HIL, human-review
+    reason, terminal response mode and analyst sections from one implementation.
+  - **Do not (rev 13):** resolve any of the seven through approvals, exclusions, tolerance lists,
+    projection changes or baseline edits. They are behavioural defects in a production runtime and
+    the only valid fix is shared-seam unification. Every one of the affected fields is
+    **approval-ineligible** under item 31.
   - **Do:** Extract or designate **one shared callable** — e.g. `run_canonical_planning(state) -> state` — that owns lane routing, completeness, intent classification, canonical planning, route resolution, and `_graph_node_planning_decision_from_canonical`. Do **not** define the shared service only as a sequence of node names; two entry points copying the same nodes is prohibited.
   - **Do:** **`_run_live_chat_pipeline`** and **`rp_node_bootstrap`** must both call `run_canonical_planning` (or the chosen single callable). Shadow graph, if retained, must call the same callable — not a parallel copy.
   - **Do:** Neither entry point may hold independent routing, completeness, intent-classification or final-planning logic beyond invoking the shared callable and dispatching on its returned state.
@@ -661,7 +765,24 @@ critical mismatches=13
   - **Do:** Remove duplicated routing, completeness, intent, planning and dispatch logic from entry-point graphs. Remove dead unconditional `if True:` branches in `resource_planner_graph.py` (`rp_node_bootstrap`, `rp_node_route_resolution`) **only after** caller and behaviour review — do not delete without confirming no live caller depends on the dead branch.
   - **Verify:** `pytest app/tests/test_dual_runtime_lane_parity.py -q`; in-memory 120-row eval (do **not** write committed artifacts) shows `exact_match` count strictly greater than item-30 baseline `0`, and `critical_mismatch` count strictly less than `13`; harness metadata carries `runtime_a`/`runtime_b` as above
   - **Depends on:** 31
-  - **Acceptance:** `_run_live_chat_pipeline` and `rp_node_bootstrap` both invoke `run_canonical_planning` (single callable, not duplicated node sequence); shadow does not call legacy `graph_node_evidence_planning` on initial path; non-planned outcomes cannot reach SPL/execution nodes; 120-row harness compares imperative vs RP with enforced runtime metadata
+  - **Acceptance (rev 13 — supersedes the "strictly better than 0/13" wording above, which referenced the legacy shadow baseline):**
+    1. All **seven** current `critical_mismatch` rows become `exact_match`.
+    2. **HIL state identical** across both production entry points — `hil_required` and
+       `human_review_required` equal on every row.
+    3. **No ungoverned SPL draft surfaced by either runtime** — `draft_spl_present` /
+       `draft_status` equal, and neither runtime emits `draft_preview_not_governed` where the other
+       suppresses it.
+    4. Terminal `response_mode`, `human_review_required`, `human_review_reason`,
+       `enabled_sections` and `analyst_enabled_sections` match.
+    5. Production parity reaches **`120 exact_match / 0 critical_mismatch`** — *unless* a newly
+       discovered difference requires a **separate stop-and-plan decision**, which is recorded as a
+       new plan item rather than approved inline.
+    6. `_run_live_chat_pipeline` and `rp_node_bootstrap` both invoke `run_canonical_planning`
+       (single callable, not a duplicated node sequence); shadow, if retained, does not call legacy
+       `graph_node_evidence_planning` on the initial path; non-planned outcomes cannot reach
+       SPL/execution nodes; the 120-row harness compares imperative vs RP with enforced runtime
+       metadata.
+  - **Verify (rev 13):** `PYTHONPATH=backend:. python3 scripts/run_production_parity_eval.py --out-dir <scratch> --check` → `exact=120 approved=0 critical=0`, metadata `runtime_a=imperative_canonical`, `runtime_b=resource_planner_graph`, `corpus_count=120`, `base_105_loaded=105`. **Scratch output only until item 35.**
   - **Evidence:** _(filled at check-off)_
 
 - [ ] **33** — Static architecture guard — rev 12
@@ -818,6 +939,33 @@ Do **not**:
 
 ## Drift log
 
+- **2026-07-25 rev 13 (plan-only; production parity baselined, no runtime behaviour changed):**
+  - **Authoritative pre-unification production baseline recorded** at commit `c692145`:
+    `runtime_a=imperative_canonical` vs `runtime_b=resource_planner_graph`, `total=120`,
+    `base_105_loaded=105`, `exact_match=113`, `approved_difference=0`, `critical_mismatch=7`.
+    **Supersedes the legacy shadow-graph measurement** for production-parity work; the shadow result
+    (`0 exact / 13 mismatch`) is retained as historical, evaluation-only evidence.
+  - **The real divergence is far smaller than the legacy number implied** — 113/120 of the two
+    production entry points already agree exactly. Measuring the wrong runtime had inflated the
+    apparent gap by an order of magnitude and would have sent item 32 after the wrong target.
+  - **Seven verified Category G production regressions** attached to item 32 in three groups:
+    HIL state loss (5 rows, 2 also losing `human_review_required`), ungoverned SPL draft visibility
+    (3 rows, `draft_preview_not_governed` surfaced only by Runtime B), and terminal response-mode
+    disagreement (3 rows). All consistent with one structural cause: Runtime B does not traverse the
+    same post-planning session-context / human-review stage. **None may be resolved by approval,
+    exclusion, tolerance list or baseline change** — every affected field is approval-ineligible.
+  - **Item 30a expanded to a five-step retirement** and scheduled in parallel: relocate
+    `governance_snapshot_from_response` to a neutral eval helper, migrate its two active eval
+    consumers (including the 120/120 clean-answer gate), review all 13 shadow tests individually,
+    then delete or reduce to a thin wrapper. Does not block 31–34; must complete before item 17.
+  - **Method correction worth keeping:** an early single-row "isolation" check appeared to show the
+    divergences were harness contamination. That check was invalid — it used the *truncated* query
+    string from the report display (88 chars) instead of the real row text (131 chars). Re-run with
+    real inputs, all seven reproduce individually and as a subset. Per-row session isolation
+    (uuid session + `clear_all_session_pins_for_tests`, matching `sentinel_eval`) was added anyway
+    so the harness is order-independent.
+  - Evaluator output remains **scratch-only until item 35**; no committed eval artifact or fixture
+    was written at any point (`git status docs/evals backend/app/evals/fixtures` → 0).
 - 2026-07-24–25: Original plan (parser T0, dual handoffs, answer_mode lane lock).
 - 2026-07-25 rev 5: Partial cutover — DB migration, authority guard, always-on `is_canonical_authoritative()`, legacy fallback removed from live pipeline. Drift log claimed governance PASS; **re-audited false** — sentinel + ~211 pytest failures remain.
 - 2026-07-25 rev 7: Full alignment with user 14-section cutover spec.
