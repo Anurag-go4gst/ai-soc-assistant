@@ -839,7 +839,13 @@ critical mismatches=13
     8. **Provenance metadata** — every parity artifact records (writer-enforced; `--check` fails if absent or wrong): `runtime_a=imperative_canonical`, `runtime_b=resource_planner_graph`, `commit_sha`, `corpus_count=120`, `base_105_loaded=105`, plus exact command and timestamp. Prevents silent harness regression to `planner_led_shadow_graph` or a reduced corpus.
   - **Do:** Regenerate from the **final committed tree**; confirm the summary matches the figures quoted in the completion report; supersede both the stale `85/35` artifact and the observational `107/13` result with the authoritative measurement.
   - **Do:** Apply the same writer protections to `run_soc_clean_answer_eval.py` and `eval_sentinel.py`, which have the identical failure mode — the `EXPECTED_105_COUNT` guard is conditional on `include_105`, so a reduced run bypasses it entirely.
-  - **Rationale:** third self-lowering or partial artifact incident in this cutover — (a) the `include_105=False` clean-answer collapse (105 rows → 0, summary still read `PASS 8/0/0`), (b) the parity summary that lowered its own `expected minimum` from 120 to 8, (c) this stale-overwrite. Operator care has now failed three times; the writer must enforce it.
+  - **Do (rev 13 finding):** **`pytest` itself regenerates committed eval artifacts.** A full-suite
+    run dirties six files under `docs/evals/` (`langgraph_dual_parity_*`, `soc_clean_answer_eval_*`)
+    because several tests invoke the eval writers at their default output paths. Any writer
+    protection must therefore bind at the **writer**, not at the CLI — a `--out-dir` guard on the
+    scripts does not stop a test from overwriting a committed baseline. Until item 35 lands,
+    `git checkout -- docs/evals/` is required after any full-suite run.
+  - **Rationale:** fourth partial-or-self-overwriting artifact incident in this cutover — (a) the `include_105=False` clean-answer collapse (105 rows → 0, summary still read `PASS 8/0/0`), (b) the parity summary that lowered its own `expected minimum` from 120 to 8, (c) this stale-overwrite. Operator care has now failed three times; the writer must enforce it.
   - **Verify:** `PYTHONPATH=backend:. python3 scripts/run_langgraph_dual_parity_eval.py --check` → 120 rows; artifact metadata includes `runtime_a=imperative_canonical`, `runtime_b=resource_planner_graph`, `commit_sha`, `corpus_count=120`, `base_105_loaded=105`; summary equals reported figures; deliberate `--limit`/`--skip-105` run refused and exits non-zero; `pytest app/tests/test_eval_artifact_safety.py -q`
   - **Depends on:** 32, 34
   - **Evidence:** _(filled at check-off)_

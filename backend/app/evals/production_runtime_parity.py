@@ -99,8 +99,58 @@ EXCLUDED_FIELDS: dict[str, str] = {
     "resource_plan_id": "random per-plan UUID; presence and committed flag are compared instead",
 }
 
+#: Fields that may **never** be resolved by approval. A difference here is always a
+#: ``critical_mismatch``, however complete its record. These are the routing, tier, lane, intent,
+#: answer-goal, completeness, canonical-input, plan-authority, governance and execution surfaces:
+#: two production runtimes disagreeing on any of them is a defect, not a documented divergence.
+APPROVAL_INELIGIBLE_FIELDS: frozenset[str] = frozenset(
+    {
+        # routing / tier / lane
+        "match_path",
+        "mapped_question_ref",
+        "selected_skill",
+        "route_final",
+        "use_case_id",
+        # intent / completeness
+        "intent_family",
+        "requires_clarification",
+        "path_type",
+        "branches",
+        # answer shape
+        "answer_mode",
+        "contract_answer_mode",
+        "response_mode",
+        "enabled_sections",
+        "analyst_enabled_sections",
+        # SPL / plan authority
+        "candidate_spl_present",
+        "spl_approved",
+        "normalized_spl_present",
+        "execution_eligible",
+        "spl_template_status",
+        "draft_spl_present",
+        "draft_status",
+        "resource_plan_present",
+        "resource_plan_committed",
+        # governance / safety
+        "human_review_required",
+        "human_review_reason",
+        "hil_required",
+        "unsafe_blocked",
+        "action_mode",
+        "execution_status",
+        "execution_intent",
+        "executed_spl_present",
+        # MITRE / severity
+        "mitre_answer_visible",
+        "mitre_technique_ids",
+        "severity_label",
+    }
+)
+
 #: Six-part approval records, keyed by field name. Empty by design — see module docstring.
 #: Required keys: field, runtime_a_value, runtime_b_value, reason, contract_owner, approval_ref.
+#: A record for an ``APPROVAL_INELIGIBLE_FIELDS`` entry is rejected outright.
 APPROVED_DIFFERENCES: dict[str, dict[str, str]] = {}
 
 _APPROVAL_KEYS = frozenset({"field", "runtime_a_value", "runtime_b_value", "reason", "contract_owner", "approval_ref"})
@@ -226,13 +276,17 @@ def classify_row(a: dict[str, Any], b: dict[str, Any]) -> tuple[str, list[dict[s
     for field in COMPARISON_FIELDS:
         if a.get(field) == b.get(field):
             continue
+        # Ineligible fields can never be approved, no matter how complete the record.
+        # Checked before the record so a governance difference cannot be waved through.
+        eligible = field not in APPROVAL_INELIGIBLE_FIELDS
         record = APPROVED_DIFFERENCES.get(field)
         diffs.append(
             {
                 "field": field,
                 "runtime_a": a.get(field),
                 "runtime_b": b.get(field),
-                "approved": approval_is_complete(record),
+                "approval_eligible": eligible,
+                "approved": eligible and approval_is_complete(record),
             }
         )
     if not diffs:

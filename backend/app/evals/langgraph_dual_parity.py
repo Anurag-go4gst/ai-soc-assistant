@@ -94,16 +94,12 @@ _PROFILE_FLAGS: dict[str, bool] = {
     "ai_soc_llm_live_synthesis_enabled": False,
 }
 
-_ACCEPTABLE_DIFF_FIELDS = frozenset(
-    {
-        "severity_label",
-        "answer_profile",
-        "hil_review_type",
-        "mitre_candidate_techniques",
-        "missing_evidence_count",
-        "spl_template_status",
-    }
-)
+# ``_ACCEPTABLE_DIFF_FIELDS`` was removed (plan item 31). It was dead configuration twice
+# over: the branch that consulted it appended to the same list either way and both outcomes
+# returned "acceptable_diff", and none of its six field names appeared in ``compare_keys``
+# at all. It read as governance while enforcing nothing. Field-level approval now lives in
+# ``app/evals/production_runtime_parity.py``, which compares the two real production entry
+# points and rejects approval for every governance field.
 
 
 def _normalize_query(text: str) -> str:
@@ -339,18 +335,9 @@ def classify_parity_row(
         "mitre_answer_visible",
         "spl_generation_status",
     ]
-    soft_diffs: list[str] = []
-    for key in compare_keys:
-        if imperative.get(key) != shadow.get(key):
-            if key in _ACCEPTABLE_DIFF_FIELDS:
-                soft_diffs.append(key)
-            else:
-                soft_diffs.append(key)
-    hard_diffs = [key for key in soft_diffs if key not in _ACCEPTABLE_DIFF_FIELDS]
-    if hard_diffs:
-        return "acceptable_diff", hard_diffs, []
-    if soft_diffs:
-        return "acceptable_diff", soft_diffs, []
+    diffs = [key for key in compare_keys if imperative.get(key) != shadow.get(key)]
+    if diffs:
+        return "acceptable_diff", diffs, []
     return "match", [], []
 
 
