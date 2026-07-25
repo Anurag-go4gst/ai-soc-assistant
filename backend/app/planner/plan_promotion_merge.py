@@ -98,7 +98,7 @@ def apply_llm_primary_resource_plan(
     client: Any | None = None,
 ) -> tuple[ResourcePlan, bool]:
     """Return the live resource plan and whether an LLM planner hop ran."""
-    if not settings.control_plane_enabled:
+    if not True:
         return floor_plan, False
 
     if (

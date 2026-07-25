@@ -66,11 +66,6 @@ from app.schemas.requests import ChatRequest
 import pytest
 
 
-@pytest.fixture(autouse=True)
-def _control_plane_on(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
-
-
 def test_run_contract_loop_decision_matches_evidence_loop_decision() -> None:
     payload = build_live_chat_response(
         ChatRequest(message="Which users have excessive failed logins?")

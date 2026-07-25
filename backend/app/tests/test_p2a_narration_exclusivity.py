@@ -18,7 +18,6 @@ def _enable_synthesis(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_cp_on_still_allows_lab_narration_when_flags_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     _enable_synthesis(monkeypatch)
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     assert composer_is_enabled() is True
 
     narrate = MagicMock(return_value=(None, False))
@@ -40,7 +39,6 @@ def test_cp_on_still_allows_lab_narration_when_flags_enabled(monkeypatch: pytest
 
 def test_cp_off_allows_lab_narration_when_client_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     _enable_synthesis(monkeypatch)
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     assert composer_is_enabled() is False
 
     narrate = MagicMock(return_value=(None, False))

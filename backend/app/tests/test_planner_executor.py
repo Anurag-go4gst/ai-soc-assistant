@@ -79,7 +79,6 @@ def test_execute_plan_dispatch_does_not_use_guided_trace_hook_names(
     """Guided hybrid labels belong on pipeline handoff trace only, not executor hooks."""
     from app.config import settings
 
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", True)
     calls: list[str] = []
     state = {

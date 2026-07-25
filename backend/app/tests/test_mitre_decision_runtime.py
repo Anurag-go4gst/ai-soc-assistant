@@ -72,7 +72,6 @@ def test_explicit_mitre_mapping_without_context_requires_clarification() -> None
 
 
 def test_flag_off_finalize_keeps_legacy_use_case_mapping(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", False)
     mappings, decision = _mitre_outputs_for_finalize(
         question_ref="q0.q046",
         use_case_id="auth_failed_login_spike",
@@ -86,7 +85,6 @@ def test_flag_off_finalize_keeps_legacy_use_case_mapping(monkeypatch) -> None:
 
 
 def test_flag_on_finalize_hides_policy_mitre(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     mappings, decision = _mitre_outputs_for_finalize(
         question_ref="q0.q046",
         use_case_id="auth_failed_login_spike",

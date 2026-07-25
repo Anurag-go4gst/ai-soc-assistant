@@ -101,7 +101,6 @@ def test_spl_plan_compiler_hop_when_fallback_enabled(monkeypatch: pytest.MonkeyP
 def test_cp_off_synthetic_evidence_plan_builds_dispatch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", True)
     query = "Generate SPL for index=scada_perf by rtu_id over last 24h"
     qu = understand_query(query)

@@ -260,7 +260,7 @@ def run_chat_via_langgraph(
     started_at = datetime.now(UTC)
     try:
         emit_stage("queued")
-        if settings.control_plane_enabled:
+        if True:
             compiled = _compiled_chat_graph_cp()
             config = {"recursion_limit": _CP_RECURSION_LIMIT}
         else:

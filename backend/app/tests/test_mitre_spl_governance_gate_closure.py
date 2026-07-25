@@ -17,7 +17,6 @@ def _planning(*branches: str) -> dict:
 
 
 def test_mitre_branch_on_planner_omits_mitre_suppresses_evidence_supported(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_planner_mitre_branch_enabled", True)
 
     mappings, decision = _mitre_outputs_for_finalize(
@@ -40,7 +39,6 @@ def test_mitre_branch_on_planner_omits_mitre_suppresses_evidence_supported(monke
 
 
 def test_finalize_fallback_receives_planning_decision(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_planner_mitre_branch_enabled", True)
 
     seen: dict[str, object] = {}
@@ -69,7 +67,6 @@ def test_finalize_fallback_receives_planning_decision(monkeypatch) -> None:
 def test_phase6_on_activation_off_blocks_stub_spl(monkeypatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_spl_template_governance_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", False)
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_llm_spl_fallback_enabled", False)
 
     candidate, validation = chat_pipeline._candidate_spl_stage(
@@ -123,7 +120,6 @@ def test_finalize_spl_governance_uses_runtime_wrapper(monkeypatch) -> None:
 def test_legacy_paths_remain_when_new_flags_off(monkeypatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_planner_mitre_branch_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_spl_template_governance_enabled", False)
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
 
     mappings, decision = _mitre_outputs_for_finalize(
         query="policy",

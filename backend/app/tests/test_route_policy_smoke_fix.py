@@ -107,7 +107,6 @@ def test_exact_105_smb_still_uses_registry_analytics_intent() -> None:
 
 
 def test_spl_artifact_does_not_override_near_105_primary_route(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
 
     response = chat(ChatRequest(message=NEAR_105_SMB))
@@ -144,7 +143,6 @@ def test_containment_term_variants_detected(label: str, query: str) -> None:
 
 @pytest.mark.parametrize("query", _UNSAFE_MIXED_PROMPTS[:2])
 def test_unsafe_mixed_spl_live_path_shows_policy(query: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
 
     response = chat(ChatRequest(message=query))

@@ -22,6 +22,51 @@ SOURCETYPE_RE = re.compile(r"\bsourcetype=([^\s|]+)", re.IGNORECASE)
 ALERT_RE = re.compile(r"\b(?:alert_id|alert|notable|event_id|eventid)[:=]\s*([A-Za-z0-9_.:-]+)", re.IGNORECASE)
 HOST_RE = re.compile(r"\b(?:host|asset)[:=]\s*([A-Za-z0-9_.:-]+)", re.IGNORECASE)
 USER_RE = re.compile(r"\buser[:=]\s*([A-Za-z0-9_.@-]+)", re.IGNORECASE)
+_HOST_BARE_RE = re.compile(r"\b(?:on|from)\s+([A-Za-z0-9][A-Za-z0-9_.-]{2,})\b", re.IGNORECASE)
+_HOST_BARE_STOPWORDS = frozenset({"host", "user", "from", "on", "the", "a", "an", "our", "this", "that"})
+_USER_BARE_RE = re.compile(r"\buser\s+([A-Za-z0-9][A-Za-z0-9_.@-]{1,})\b", re.IGNORECASE)
+_USER_BARE_STOPWORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "our",
+        "this",
+        "that",
+        "suspicious",
+        "review",
+        "endpoint",
+        "me",
+        "you",
+        "any",
+        "all",
+    }
+)
+_LEADING_USER_RE = re.compile(r"^([A-Za-z][A-Za-z0-9_.@-]{1,})\s+(?:failed|login|logged)", re.IGNORECASE)
+_LEADING_USER_STOPWORDS = frozenset(
+    {
+        "investigate",
+        "check",
+        "analyze",
+        "review",
+        "show",
+        "summarize",
+        "explain",
+        "hunt",
+        "find",
+        "look",
+        "help",
+        "please",
+        "what",
+        "how",
+        "why",
+        "when",
+        "where",
+        "report",
+        "detect",
+        "monitor",
+    }
+)
 CVE_RE = re.compile(r"\bCVE-\d{4}-\d{4,}\b", re.IGNORECASE)
 MITRE_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b", re.IGNORECASE)
 PORT_RE = re.compile(r"\b(?:port|on port)\s+(\d{1,5})\b", re.IGNORECASE)
@@ -167,8 +212,25 @@ def _requested_output(normalized: str, use_case_template: str | None) -> tuple[R
 
 def _entities(query: str) -> QueryEntities:
     ips = IP_RE.findall(query)
-    hosts = HOST_RE.findall(query)
-    users = USER_RE.findall(query)
+    hosts = list(HOST_RE.findall(query))
+    users = list(USER_RE.findall(query))
+    for match in _HOST_BARE_RE.findall(query):
+        token = match.strip()
+        if token.lower() in _HOST_BARE_STOPWORDS:
+            continue
+        if token in ips:
+            continue
+        if match.upper() not in {h.upper() for h in hosts}:
+            hosts.append(match)
+    for match in _USER_BARE_RE.findall(query):
+        token = match.lower()
+        if token in _USER_BARE_STOPWORDS:
+            continue
+        if match not in users:
+            users.append(match)
+    lead_user = _LEADING_USER_RE.match(query.strip())
+    if lead_user and lead_user.group(1).lower() not in _LEADING_USER_STOPWORDS and lead_user.group(1) not in users:
+        users.append(lead_user.group(1))
     return QueryEntities(
         asset=hosts,
         host=hosts,

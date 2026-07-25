@@ -45,7 +45,6 @@ def test_code_defaults_keep_execution_and_split_routing_off(monkeypatch) -> None
     assert settings.ai_soc_pipeline_split_routing_nodes_enabled is False
     assert settings.ai_soc_runtime_enrichment_enabled is False
     assert settings.ai_soc_answer_guard_lab_enabled is False
-    assert settings.control_plane_enabled is False
     assert settings.ai_soc_guided_hybrid_investigation_enabled is False
     assert settings.ai_soc_session_store_backend == "memory"
 

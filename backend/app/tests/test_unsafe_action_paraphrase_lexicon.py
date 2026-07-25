@@ -59,7 +59,6 @@ def test_detection_and_knowledge_queries_are_not_containment_shaped(query: str) 
 
 @pytest.fixture()
 def _flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "legacy_selected_skill_authority_enabled", False)
 
 

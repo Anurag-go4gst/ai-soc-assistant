@@ -69,6 +69,7 @@ class SessionContextResolution(BaseModel):
     apply_use_case_id: str | None = None
     spl_refine_from_session: bool = False
     session_alert_context: bool = False
+    handoff_resume: dict[str, Any] | None = None
 
 
 def resolve_session_context(request: ChatRequest) -> SessionContextResolution:
@@ -113,6 +114,31 @@ def resolve_session_context(request: ChatRequest) -> SessionContextResolution:
             effective_query=effective_query,
             status=status,
         )
+
+    handoff_resume: dict[str, Any] | None = None
+    if pins.pending_handoff_id:
+        from app.chat.canonical_handoff_store import get_handoff
+
+        record = get_handoff(pins.pending_handoff_id, int(pins.pending_handoff_version or 1))
+        if record is not None and record.status == "clarification_required":
+            handoff_resume = {
+                "handoff_id": pins.pending_handoff_id,
+                "handoff_version": int(pins.pending_handoff_version or 1),
+                "user_answer": message,
+            }
+            effective_query = str(record.original_query or message)
+            status.used_previous_context = True
+            status.staleness = "fresh"
+            status.context_source_trace_id = pins.last_trace_id
+            used_fields.append("pending_handoff")
+            status.used_fields = sorted(set(used_fields))
+            return SessionContextResolution(
+                session_id=session_id,
+                pins=pins,
+                effective_query=effective_query,
+                status=status,
+                handoff_resume=handoff_resume,
+            )
 
     status.staleness = "fresh"
     status.context_source_trace_id = pins.last_trace_id
@@ -247,6 +273,14 @@ def pins_from_pipeline_state(
     if human_review and isinstance(human_review, dict) and human_review.get("reason") == "analyst_rejected_execution":
         pending_execution_confirmation = None
 
+    pending_handoff_id = state.get("pending_handoff_id") if isinstance(state.get("pending_handoff_id"), str) else None
+    pending_handoff_version = state.get("pending_handoff_version")
+    evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
+    resource_plan = evidence_plan.get("resource_plan")
+    if isinstance(resource_plan, dict) and (resource_plan.get("provenance") or {}).get("committed"):
+        pending_handoff_id = None
+        pending_handoff_version = None
+
     return SessionPins(
         session_id=session_id,
         last_trace_id=trace_id,
@@ -265,6 +299,11 @@ def pins_from_pipeline_state(
         last_execution_status=execution.status if execution else None,
         last_human_review_status=_human_review_status(human_review),
         pending_execution_confirmation=pending_execution_confirmation,
+        pending_handoff_id=pending_handoff_id,
+        pending_handoff_version=pending_handoff_version,
+        original_query=query_text if pending_handoff_id else (
+            prior_pins.original_query if isinstance(prior_pins, SessionPins) else None
+        ),
         updated_at=datetime.now(UTC),
         expires_at=datetime.now(UTC),
     )

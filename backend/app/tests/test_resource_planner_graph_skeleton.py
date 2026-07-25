@@ -62,7 +62,6 @@ def test_resource_planner_validate_final_answer_node_invokes_validator(
         return real_validate(**kwargs)
 
     monkeypatch.setattr("app.graph.resource_planner_graph.validate_final_answer", _capture)
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
     monkeypatch.setattr("app.chat.pipeline.retrieve_soc_kb", _fake_retrieve)
@@ -75,7 +74,6 @@ def test_resource_planner_validate_final_answer_node_invokes_validator(
 def test_resource_planner_graph_invoke_visits_governance_chain(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
     monkeypatch.setattr("app.chat.pipeline.retrieve_soc_kb", _fake_retrieve)
@@ -96,7 +94,6 @@ def test_resource_planner_graph_requires_no_new_env_flag() -> None:
 
 
 def test_resource_planner_specialists_fan_out_in_parallel(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
     monkeypatch.setattr("app.chat.pipeline.retrieve_soc_kb", _fake_retrieve)

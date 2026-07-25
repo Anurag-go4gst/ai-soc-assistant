@@ -52,7 +52,6 @@ def _run_contract(payload: dict) -> dict:
 
 @pytest.fixture(autouse=True)
 def _enable_control_plane_and_draft_preview(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
 
 
@@ -71,7 +70,6 @@ def test_bundle_a_substation_live_data() -> None:
     assert contract.get("effective_hil_required") is True
     assert (payload.get("evidence_plan") or {}).get("needs_mcp") is True
     # MCP eligibility on all tiers (2026-07 directive, item 2.1): a live-data ask
-    # is now architecturally eligible under control_plane_enabled. This never
     # bypasses execution gating — execution_authorized/effective_hil_required
     # above remain the real invariants; mcp_allowed is plan-time eligibility only.
     assert (payload.get("evidence_plan") or {}).get("mcp_allowed") is True

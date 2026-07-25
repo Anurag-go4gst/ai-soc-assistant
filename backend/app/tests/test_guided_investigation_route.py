@@ -204,7 +204,6 @@ def test_optional_spl_signal_cannot_hijack_guided_path() -> None:
 
 
 def test_guided_live_trace_does_not_claim_disabled_llm_advisory(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.config.settings.ai_soc_llm_intent_advisor_enabled", True)
     monkeypatch.setattr("app.config.settings.ai_soc_llm_enabled", False)
     response = chat(ChatRequest(message=POSITIVE_QUERIES[0]))
@@ -219,7 +218,6 @@ def test_guided_live_trace_does_not_claim_disabled_llm_advisory(monkeypatch) -> 
 
 
 def test_guided_existing_draft_family_is_review_only(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
     with sentinel_runtime():
         response = chat(
@@ -240,7 +238,6 @@ def test_guided_existing_draft_family_is_review_only(monkeypatch) -> None:
 
 
 def test_guided_rag_no_match_surfaces_general_guidance_limitation(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr(
         "app.chat.pipeline.retrieve_soc_kb",
         lambda **_: {
@@ -266,7 +263,6 @@ def test_guided_rag_no_match_surfaces_general_guidance_limitation(monkeypatch) -
 
 
 def test_control_plane_off_keeps_guided_summary_notice_and_validation(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", False)
     response = chat(ChatRequest(message=POSITIVE_QUERIES[0]))
     assert response.selected_skill == "guided_investigation"
     assert response.evidence_plan is None

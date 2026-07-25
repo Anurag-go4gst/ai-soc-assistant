@@ -10,7 +10,6 @@ from app.use_cases.content_enrichment import get_runtime_curated_enrichment
 
 
 def _enable_phase7(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_planner_path_selection_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_planner_mitre_branch_enabled", True)
@@ -350,7 +349,6 @@ def test_dns_answer_shows_required_evidence_and_checklist(monkeypatch) -> None:
 
 def test_dns_docker_env_surfaces_guidance_when_enrichment_load_blocked(monkeypatch) -> None:
     """Match production Docker: CP on, enrichment activation on, runtime load gate off."""
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", True)
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
 
@@ -394,7 +392,6 @@ def test_dns_docker_env_surfaces_guidance_when_enrichment_load_blocked(monkeypat
 
 
 def test_dns_legacy_path_surfaces_guidance_when_control_plane_off(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
 
     response = chat(

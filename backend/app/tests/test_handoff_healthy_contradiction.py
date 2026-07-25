@@ -297,7 +297,6 @@ def test_real_bug_mcp_step_never_omitted_when_needs_mcp() -> None:
 
 
 def test_ws4_mcp_parity_checklist_across_layers(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     payload = build_live_chat_response(ChatRequest(message=_Q046)).model_dump(mode="json")
     plan = payload.get("evidence_plan") or {}
     contract = payload.get("run_contract") or {}

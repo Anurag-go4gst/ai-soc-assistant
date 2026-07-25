@@ -49,7 +49,6 @@ _FORBIDDEN_CONFIRMED_MITRE = re.compile(
 
 @pytest.fixture(autouse=True)
 def _control_plane_on(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "legacy_selected_skill_authority_enabled", False)
 
 

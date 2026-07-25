@@ -266,7 +266,6 @@ def test_scada_catalogue_first_live_chat_when_dispatch_v2_on(monkeypatch: pytest
     from app.config import settings
     from app.schemas.requests import ChatRequest
 
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", True)
 
     query = (

@@ -58,7 +58,6 @@ def _decision_log_nodes(payload: dict[str, Any] | None) -> list[str]:
 
 
 def _enable_cp_stack(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
     monkeypatch.setattr("app.chat.pipeline.retrieve_soc_kb", lambda **kwargs: {
@@ -70,7 +69,6 @@ def _enable_cp_stack(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_routes_chat_uses_resource_planner_graph_when_flag_on(monkeypatch: pytest.MonkeyPatch) -> None:
     _install_chat_mocks(monkeypatch)
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
     monkeypatch.setattr(settings, "langgraph_orchestration_enabled", True)
 
@@ -111,7 +109,6 @@ def test_resource_planner_graph_sentinel_core_fields(
     row: dict[str, Any],
 ) -> None:
     """Item 12b batch-1: RP graph regression against frozen sentinel baseline (no linear LangGraph oracle)."""
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
     message = row["question"]
     expected = _sentinel_baseline_rows()[row["key"]]

@@ -25,7 +25,6 @@ GUIDED_OT = "How should I investigate unusual outbound traffic from an OT host o
 
 
 def _enable_cp_stack(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
     monkeypatch.setattr(settings, "mcp_server_mock_execution_enabled", False)

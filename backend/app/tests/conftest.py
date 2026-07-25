@@ -24,6 +24,14 @@ LIVE_LLM_OPT_IN_ENV = "AI_SOC_TESTS_ALLOW_LIVE_LLM"
 
 
 @pytest.fixture(autouse=True)
+def resource_plan_test_authority() -> Iterator[None]:
+    from app.planner.resource_plan_authority import TEST_AUTHORITY, resource_plan_authority
+
+    with resource_plan_authority(TEST_AUTHORITY):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def reset_model_slot_guard() -> Iterator[None]:
     """Give each test a fresh model-slot semaphore.
 

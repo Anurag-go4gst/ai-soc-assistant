@@ -12,13 +12,13 @@ from app.connectors.mcp.mcp_tool_planner import plan_tool_chronology
 
 def mcp_tool_plan_shadow_enabled() -> bool:
     """Emit tool-plan shadow when control plane or MCP evidence is in play."""
-    return bool(settings.control_plane_enabled)
+    return bool(True)
 
 
 def mcp_tool_plan_llm_advisory_enabled() -> bool:
     """Optional LLM proposal for shadow only — never alters live dispatch."""
     return bool(
-        settings.control_plane_enabled
+        True
         and settings.ai_soc_llm_final_synthesis_enabled
         and settings.ai_soc_llm_live_synthesis_enabled
     )

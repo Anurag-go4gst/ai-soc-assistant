@@ -73,7 +73,6 @@ def test_llm_advisory_trace_records_policy_override_without_new_calls() -> None:
 
 
 def test_chat_control_plane_trace_attaches_when_flag_on(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     response = chat(ChatRequest(message="What is the escalation policy for repeated failed login alerts?"))
     assert response.control_plane_trace is not None
     assert response.control_plane_trace["query_to_intent"] is not None
@@ -219,7 +218,6 @@ def test_grounding_block_wired_end_to_end_on_live_chat(monkeypatch) -> None:
     """Item 5.4: the assembler actually runs on the imperative live path and its
     output reaches the control-plane trace — proves it isn't dead-ended on
     internal pipeline state."""
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     response = chat(ChatRequest(message="Find failed-login users in the last 24 hours"))
     assert response.control_plane_trace is not None
     grounding = response.control_plane_trace.get("grounding_block")
@@ -249,7 +247,6 @@ def test_control_plane_trace_includes_decision_log() -> None:
 
 
 def test_resource_planner_wrap_emits_decision_log_to_control_plane_trace(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 
     response = run_chat_via_resource_planner_graph(ChatRequest(message="What is AML.T0043?"))
@@ -262,7 +259,6 @@ def test_resource_planner_wrap_emits_decision_log_to_control_plane_trace(monkeyp
 
 def test_linear_cp_graph_state_retains_grounding_block_channel(monkeypatch) -> None:
     """Legacy linear CP graph only — retired in item 12c; grounding_block channel contract."""
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     from app.chat.linear_graph_legacy import _compiled_chat_graph_cp
 
     final_state = _compiled_chat_graph_cp().invoke(

@@ -286,7 +286,7 @@ def build_hybrid_role_plan(
         None if risk_enabled else "no_severity_context"
     )
 
-    shadow_enabled = bool(settings.control_plane_enabled and not draft_preview_active)
+    shadow_enabled = bool(True and not draft_preview_active)
     shadow_skip = "draft_spl_preview_active" if draft_preview_active else (
         None if shadow_enabled else "control_plane_disabled"
     )
@@ -305,7 +305,7 @@ def build_hybrid_role_plan(
     if skip_composer:
         composer_enabled = False
 
-    tool_plan_enabled = bool(settings.control_plane_enabled and not draft_preview_active)
+    tool_plan_enabled = bool(True and not draft_preview_active)
     tool_plan_skip = shadow_skip if not tool_plan_enabled else None
 
     roles = [

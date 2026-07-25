@@ -211,7 +211,6 @@ def test_live_data_invariants_without_collected_evidence(monkeypatch: pytest.Mon
     from app.config import settings
     from app.schemas.requests import ChatRequest
 
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
 
     query = "Show me privileged VPN sessions from last night"
@@ -263,7 +262,6 @@ def test_substation_live_data_prefers_family_draft_over_llm_failover(monkeypatch
     from app.schemas.requests import ChatRequest
 
     query = _OUT_OF_REGISTRY_LIVE_DATA[-1]
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_spl_fallback_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_t2_answer_shape_enabled", True)

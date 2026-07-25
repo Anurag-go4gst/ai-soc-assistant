@@ -78,7 +78,6 @@ _SCADA_DRIFT_QUERY = (
 
 
 def test_chat_path_records_slot_handoff_summary(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     payload = build_live_chat_response(ChatRequest(message=_SCADA_DRIFT_QUERY)).model_dump(mode="json")
     plan = payload.get("evidence_plan") or {}
     assert plan.get("slot_constraint_projection_summary") is not None
@@ -90,7 +89,6 @@ def test_chat_path_records_slot_handoff_summary(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_ws2_drift_e2e_merge_preserves_route_authority(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     payload = build_live_chat_response(ChatRequest(message=_SCADA_DRIFT_QUERY)).model_dump(mode="json")
     plan = payload.get("evidence_plan") or {}
     routing = (payload.get("run_contract") or {}).get("routing") or {}

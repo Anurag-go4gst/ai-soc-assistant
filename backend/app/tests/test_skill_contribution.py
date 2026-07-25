@@ -178,7 +178,6 @@ def test_evidence_summary_floor_wired_end_to_end_on_live_chat(monkeypatch) -> No
     from app.chat import pipeline as pl
     from app.schemas.requests import ChatRequest
 
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr(pl, "_candidate_match_path", lambda state: "out_of_registry")
     response = chat(ChatRequest(message="Find failed-login users in the last 24 hours"))
     assert response.control_plane_trace is not None

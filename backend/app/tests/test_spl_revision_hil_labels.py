@@ -71,7 +71,6 @@ def test_gate_review_uses_template_review_reason() -> None:
 
 
 def test_q046_live_path_hil_reason_is_template_review(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "legacy_selected_skill_authority_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_template_governance_enabled", True)
@@ -91,7 +90,6 @@ def test_q046_live_path_hil_reason_is_template_review(monkeypatch) -> None:
 
 
 def test_q046_resource_planner_hil_reason(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "legacy_selected_skill_authority_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_template_governance_enabled", True)

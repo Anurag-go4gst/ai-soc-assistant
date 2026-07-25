@@ -94,7 +94,6 @@ def test_live_catalog_turn_records_no_consumer_skip(monkeypatch: pytest.MonkeyPa
     """P3-class turn (CVE/MITRE, lands on the use-case catalog): the advisory
     hop must be skipped with the no-consumer reason instead of spending the
     T2 advisory bound producing unusable output."""
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     response = build_live_chat_response(
         ChatRequest(
             message=(

@@ -126,7 +126,6 @@ def test_aggregates_real_pipeline_trace_shape(monkeypatch) -> None:
     from app.schemas.requests import ChatRequest
     from app.chat.pipeline import build_live_chat_response
 
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     response = build_live_chat_response(
         ChatRequest(message="show failed login spike last hour", session_id="scorecard-it")
     )

@@ -24,7 +24,6 @@ if _env.exists():
 
 @pytest.fixture(autouse=True)
 def _enable_track_a_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_t2_answer_shape_enabled", True)
 
 

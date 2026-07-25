@@ -398,15 +398,14 @@ class Settings(BaseSettings):
     langgraph_orchestration_enabled: bool = True
     # Phase 12: planner-led fan-out/fan-in shadow graph for tests/trace only (default off).
     ai_soc_langgraph_shadow_enabled: bool = False
-    # Chat control plane rollout gate. Default false until golden tests pass.
-    control_plane_enabled: bool = False
     # Two-stage pipeline dispatch authority (intent_dispatch + pipeline_dispatch).
     # Default false until Phase 8 green; operator .env may set true for on-host probes.
     ai_soc_pipeline_dispatch_v2_enabled: bool = False
-    # Guided hybrid investigation orchestrator (REV4). Moves ResourcePlan composition
-    # behind validated InvestigationPlan inside guided_hybrid_dispatch. Requires
-    # control_plane_enabled; default false preserves flag-off byte-identical behavior.
+    # Guided hybrid investigation execution rail (committed ResourcePlan only).
     ai_soc_guided_hybrid_investigation_enabled: bool = False
+    # Canonical handoff durable store TTL (PostgreSQL).
+    ai_soc_handoff_store_ttl_minutes: int = 60
+    ai_soc_guided_max_duplicate_tool_calls: int = 1
     # Guided read-only MCP discovery lane (metadata tools only; no run_query/SPL execution).
     # Default false — flag-off preserves legacy guided_investigation byte-identical behavior.
     ai_soc_guided_mcp_discovery_enabled: bool = False
@@ -455,7 +454,7 @@ class Settings(BaseSettings):
     app_auth_password: str = ""
     app_auth_session_secret: str = ""
 
-    model_config = SettingsConfigDict(env_file=_ENV_FILE, env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore")
 
 
 def _validate(s: Settings) -> Settings:
@@ -520,6 +519,17 @@ def _validate(s: Settings) -> Settings:
             "retired_env_key_ignored",
             extra={"key": "AI_SOC_FLOW_CHECK_MODE", "value": retired_flow_check},
         )
+    for retired_key in (
+        "CONTROL_PLANE_ENABLED",
+        "AI_SOC_CANONICAL_PLANNING_ENABLED",
+        "AI_SOC_HANDOFF_STORE_BACKEND",
+        "AI_SOC_HANDOFF_STORE_FILE_DIR",
+    ):
+        if os.environ.get(retired_key):
+            logging.getLogger("ai_soc.config").warning(
+                "retired_env_key_ignored",
+                extra={"key": retired_key, "value": os.environ.get(retired_key)},
+            )
     return s
 
 

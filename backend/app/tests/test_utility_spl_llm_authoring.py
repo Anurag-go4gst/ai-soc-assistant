@@ -35,7 +35,6 @@ _Q046 = "Which users have excessive failed logins?"
 
 @pytest.fixture
 def spl_authoring_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
     monkeypatch.setattr(settings, "langgraph_orchestration_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_enabled", True)

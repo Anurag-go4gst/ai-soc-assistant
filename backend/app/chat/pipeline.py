@@ -440,6 +440,21 @@ class ChatPipelineState(TypedDict, total=False):
     decision_log: list[dict[str, Any]]
     # Item 5.4 — advisory grounding block assembled from the CanonicalFacts spine.
     grounding_block: dict[str, Any] | None
+    # Canonical planning channels (T0–T4 cutover, plan 2026-07-24_2310). Written by
+    # graph_node_lane_and_canonical_planning and read by later nodes — guided hybrid
+    # dispatch/executor, planner/executor.py, session_context. ResourcePlannerGraphState
+    # inherits this TypedDict, so an undeclared key here is dropped on the live RP graph
+    # edge even though the imperative pipeline and node-level tests still see it.
+    canonical_planning_input: dict[str, Any] | None
+    canonical_planning_failure: dict[str, Any] | None
+    gap_resolution: dict[str, Any] | None
+    known_completeness: dict[str, Any] | None
+    processing_lane: str | None
+    initial_tier: str | None
+    resolved_tier: str | None
+    handoff_resume: dict[str, Any] | None
+    pending_handoff_id: str | None
+    pending_handoff_version: int | None
     response: PlaceholderResponse
 
 
@@ -573,47 +588,39 @@ def _run_live_chat_pipeline(
         "session_context_resolution": session_resolution,
         "session_role": session_role,
         "effective_query": session_resolution.effective_query,
+        "handoff_resume": session_resolution.handoff_resume,
     }
     state = _timed_node(state, "init_routing", graph_node_init_routing)
     if settings.ai_soc_pipeline_split_routing_nodes_enabled:
         state = _timed_node(state, "route_live_skill", graph_node_route_live_skill)
         state = _timed_node(state, "resolve_planning_skill", graph_node_resolve_planning_skill)
         state = _timed_node(state, "load_skill_enrichment", graph_node_load_skill_enrichment)
-    state = _timed_node(state, "query_to_intent", graph_node_query_to_intent)
+    from app.chat.canonical_planning_orchestrator import graph_node_lane_and_canonical_planning
+
+    state = _timed_node(state, "lane_and_canonical_planning", graph_node_lane_and_canonical_planning)
     state = _timed_node(state, "route_resolution", graph_node_route_resolution)
     state = _timed_node(state, "route_contract", graph_node_route_contract)
-    state = _timed_node(state, "evidence_planning", graph_node_evidence_planning)
+    state = _timed_node(state, "planning_decision_from_canonical", _graph_node_planning_decision_from_canonical)
     if not _uses_guided_hybrid_dispatch(state):
         state = _timed_node(state, "discovery_loop", _run_discovery_loop_imperative)
     state = _timed_node(state, "shadow_tail", graph_node_shadow_tail)
     if _uses_guided_hybrid_dispatch(state) and not _session_spl_refine_active(state):
         state = _timed_node(state, "guided_hybrid_dispatch", _run_guided_hybrid_dispatch)
     elif has_composed_plan(state) and not _session_spl_refine_active(state):
-        # WS0 T0.4 / Batch C: ResourcePlan step-walk dispatch with parity trace.
         state = _timed_node(state, "plan_dispatch", lambda s: execute_plan_dispatch(s, _dispatch_hooks()))
-    elif settings.control_plane_enabled and not _session_spl_refine_active(state):
+    elif not _session_spl_refine_active(state):
+        from app.chat.canonical_mode import build_canonical_failure_state
+
         state = _timed_node(
             state,
-            "plan_dispatch_fallback",
-            lambda s: _run_legacy_dispatch_fallback(
+            "plan_dispatch_canonical_failure",
+            lambda s: build_canonical_failure_state(
                 s,
-                dispatch_source="cp_on_composed_plan_missing",
-                composed_plan_missing_reason=_composed_plan_missing_reason(s),
+                outcome="planning_failed",
+                reason="canonical_missing_resource_plan_at_dispatch",
             ),
         )
-    elif _uses_rag_only_path(state) and not _session_spl_refine_active(state):
-        state = _timed_node(
-            state,
-            "plan_dispatch_fallback",
-            lambda s: _run_legacy_dispatch_fallback(s, dispatch_source="cp_off_legacy"),
-        )
-    else:
-        state = _timed_node(
-            state,
-            "plan_dispatch_fallback",
-            lambda s: _run_legacy_dispatch_fallback(s, dispatch_source="cp_off_legacy"),
-        )
-    if settings.control_plane_enabled and loop_initialized(state):
+    if loop_initialized(state):
         state = _timed_node(state, "evidence_planning_loop", graph_node_evidence_planning)
     state = _timed_node(state, "context_finalize", graph_node_context_finalize)
     return state
@@ -1615,11 +1622,75 @@ def _attach_evidence_observer(state: ChatPipelineState, *, rows: list[dict[str, 
     )
 
 
+def _graph_node_planning_decision_from_canonical(state: ChatPipelineState) -> ChatPipelineState:
+    """Attach planning_decision when evidence_plan was produced by canonical final planner."""
+    from app.chat.canonical_mode import build_canonical_failure_state, is_canonical_authoritative
+
+    intent = state.get("intent_classification")
+    evidence_payload = state.get("evidence_plan")
+    if not isinstance(intent, dict) or not isinstance(evidence_payload, dict):
+        return build_canonical_failure_state(
+            state,
+            outcome="planning_failed",
+            reason="canonical_missing_planning_artifacts",
+        )
+    if is_canonical_authoritative() and not evidence_payload.get("resource_plan"):
+        if evidence_payload.get("answer_mode") == "clarification":
+            planning = plan_path_and_tools(
+                intent_classification=intent,
+                evidence_plan=evidence_payload,
+                routed=state.get("routed"),
+                query_understanding=state.get("query_understanding"),
+                selected_use_case=state.get("selected_use_case"),
+                llm_intent_advisory=state.get("llm_intent_advisory"),
+            )
+            return {
+                **state,
+                "planning_decision": planning.model_dump(),
+            }
+        return build_canonical_failure_state(
+            state,
+            outcome="planning_failed",
+            reason="canonical_missing_resource_plan",
+        )
+    planning = plan_path_and_tools(
+        intent_classification=intent,
+        evidence_plan=evidence_payload,
+        routed=state.get("routed"),
+        query_understanding=state.get("query_understanding"),
+        selected_use_case=state.get("selected_use_case"),
+        llm_intent_advisory=state.get("llm_intent_advisory"),
+    )
+    planning_payload = planning.model_dump()
+    route_adjudication_payload = _route_adjudication_with_final_plan_drift(
+        state.get("route_adjudication"),
+        evidence_payload,
+    )
+    next_state = {
+        **state,
+        "planning_decision": planning_payload,
+        "route_adjudication": route_adjudication_payload,
+    }
+    return _attach_pipeline_dispatch_if_enabled(
+        next_state,
+        evidence_plan=evidence_payload,
+        planning_decision=planning_payload,
+    )
+
+
 def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
+    from app.chat.canonical_mode import build_canonical_failure_state, is_canonical_authoritative
+
+    if is_canonical_authoritative() and not loop_initialized(state):
+        return build_canonical_failure_state(
+            state,
+            outcome="planning_failed",
+            reason="canonical_forbids_legacy_evidence_planning",
+        )
     # Stage 4B: on loop re-entry (after an mcp_call discovery hop or the gated
     # execution hop) the HUB only re-assesses + routes — it must NOT re-emit
     # progress, re-route, or re-compose the plan (idempotency, plan bug #2).
-    if settings.control_plane_enabled and loop_initialized(state):
+    if True and loop_initialized(state):
         execution = state.get("execution") if "execution" in state else None
         recipe = _active_recipe(state)
         if recipe is not None:
@@ -1658,7 +1729,7 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
             next_state["data_silence_advisory"] = build_data_silence_advisory(state)
         return next_state
     emit_stage("planning_evidence")
-    if not settings.control_plane_enabled:
+    if not True:
         planning = plan_path_and_tools(
             intent_classification=state.get("intent_classification"),
             evidence_plan=None,
@@ -1701,7 +1772,7 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         user_query=getattr(_req_for_evidence, "message", None) if _req_for_evidence is not None else None,
     )
     evidence_payload = plan.model_dump()
-    if settings.control_plane_enabled and isinstance(evidence_payload.get("resource_plan"), dict):
+    if True and isinstance(evidence_payload.get("resource_plan"), dict):
         floor_plan = ResourcePlan.model_validate(evidence_payload["resource_plan"])
         _match_path = getattr(state.get("query_understanding"), "deterministic_match_path", None)
         _budget = state.get("llm_turn_budget")
@@ -1968,7 +2039,7 @@ def _resolve_vulnerability_source_status(state: ChatPipelineState) -> dict[str, 
 
 
 def _mcp_evidence_loop_enabled(state: ChatPipelineState, evidence_payload: dict[str, Any]) -> bool:
-    if not settings.control_plane_enabled:
+    if not True:
         return False
     mcp_allowed = _mcp_allowed_decision_from_plan(evidence_payload)["allowed"] is True
     discovery_allowed = evidence_payload.get("discovery_allowed") is True
@@ -1993,7 +2064,7 @@ def _mcp_evidence_loop_enabled(state: ChatPipelineState, evidence_payload: dict[
 
 def _mcp_allowed_decision_from_plan(evidence_plan: dict[str, Any] | None) -> dict[str, Any]:
     plan = evidence_plan if isinstance(evidence_plan, dict) else {}
-    if not settings.control_plane_enabled:
+    if not True:
         return {
             "allowed": True,
             "source": "control_plane_disabled",
@@ -2200,7 +2271,7 @@ def graph_node_route_resolution(state: ChatPipelineState) -> ChatPipelineState:
     apply_analyst_summary_shadow(route_plan_shadow)
     comparison = routed.get("comparison", {})
     route_adjudication_payload: dict[str, Any] | None = None
-    if settings.control_plane_enabled and isinstance(state.get("intent_classification"), dict):
+    if True and isinstance(state.get("intent_classification"), dict):
         llm_advisory = comparison.get("llm_shadow") if isinstance(comparison, dict) else None
         adjudication = adjudicate_control_plane_route(
             deterministic_route=str(routed.get("skill") or "knowledge_recall"),
@@ -2675,7 +2746,7 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
                 if state.get("selected_use_case") is not None
                 else None
             ),
-            slot_binding_enabled=settings.control_plane_enabled,
+            slot_binding_enabled=True,
             mapped_pattern_type=candidate_mapped_pattern,
             llm_intent_advisory=state.get("llm_intent_advisory"),
             query_understanding=query_understanding,
@@ -4025,7 +4096,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     contract_evidence_plan = evidence_plan_for_analyst
     # Contract is a read-model that drives the section-ordered analyst card; build it
     # for every classified answer so no path falls back to a one-paragraph bubble.
-    if intent_classification or settings.control_plane_enabled or contract_evidence_plan:
+    if intent_classification or True or contract_evidence_plan:
         answer_contract = build_answer_contract(
             intent_classification=intent_classification,
             evidence_plan=contract_evidence_plan,
@@ -4131,7 +4202,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             skip_composer_reason=_skip_comp_reason,
             intent_advisory_skipped=_intent_skipped,
             intent_skip_reason=_intent_skip,
-            control_plane_enabled=bool(settings.control_plane_enabled),
+            control_plane_enabled=bool(True),
             soc_investigation_shaped=bool(
                 getattr(state.get("query_understanding"), "soc_investigation_shaped", False)
             ),
@@ -4187,6 +4258,17 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         missing_evidence_reasoning_trace = None
         llm_turn_budget_trace = None
     answer_contract_payload = answer_contract.model_dump() if answer_contract is not None else None
+    from app.chat.response_validation import (
+        emit_request_failed,
+        emit_response_generated,
+        emit_response_validated,
+        validate_final_response,
+    )
+
+    validation_outcome, validation_reasons = validate_final_response(state)
+    state = emit_response_validated(state, ok=validation_outcome == "ok", reasons=validation_reasons)
+    if validation_outcome != "ok":
+        state = emit_request_failed(state, reason="response_validation_failed")
     analyst_response = build_analyst_response_for_live(
         user_query=request.message,
         message=message,
@@ -4738,7 +4820,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         candidate_spl if isinstance(candidate_spl, dict) else None,
         spl_validation if isinstance(spl_validation, dict) else None,
     )
-    if settings.control_plane_enabled or guided_without_control_plane or utility_without_control_plane:
+    if True or guided_without_control_plane or utility_without_control_plane:
         validation = validate_final_answer(
             analyst_response=analyst_response,
             answer_contract=answer_contract_payload,
@@ -4906,7 +4988,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
 
     visibility: dict[str, Any] = {}
     control_plane_trace = None
-    if settings.control_plane_enabled:
+    if True:
         use_case_id_for_visibility = (
             response_use_case.use_case_id if response_use_case is not None else use_case_id
         )
@@ -4935,7 +5017,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 use_case_id=use_case_id_for_visibility,
             ),
         }
-    if settings.control_plane_enabled or guided_without_control_plane or utility_without_control_plane:
+    if True or guided_without_control_plane or utility_without_control_plane:
         trace_state = {
             **state,
             "mitre_decision": mitre_decision,
@@ -5287,6 +5369,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     except Exception:
         # Scorecard is reporting only; it must never break an answer.
         pass
+    state = emit_response_generated({**state, "response": response})
     return {
         **state,
         "context_sufficiency": response.context_sufficiency,
@@ -5670,7 +5753,9 @@ def _uses_guided_hybrid_dispatch(state: ChatPipelineState) -> bool:
 
 
 def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
-    """Guided hybrid rail: InvestigationPlan → Validator A → compose → Validator B → RAG."""
+    """Guided hybrid rail: execute only steps from the committed ResourcePlan."""
+    from app.chat.guided_hybrid_executor import load_committed_guided_resource_plan
+
     from app.chat.contracts.evidence_plan import EvidencePlan
 
     request = state["request"]
@@ -5678,9 +5763,12 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
     query = state.get("effective_query") or request.message
     evidence_payload = dict(_evidence_plan(state))
     evidence = EvidencePlan.model_validate(evidence_payload)
-    match_path = getattr(state.get("query_understanding"), "deterministic_match_path", None)
+    validated_resource, failure_state = load_committed_guided_resource_plan(state, evidence_payload)
+    if failure_state is not None:
+        return failure_state
+    assert validated_resource is not None
 
-    dispatch_steps = ["guided_baseline"]
+    dispatch_steps = ["committed_resource_plan"]
     refinement_rounds: list[int] = []
     collection_state: ChatPipelineState = dict(state)
     validated_plan: InvestigationPlan | None = None
@@ -5729,8 +5817,8 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
                     "validator_b",
                 ]
             )
-        pre_plan = compose_guided_resource_plan(evidence, validated_plan, match_path=match_path)
-        validation = validate_guided_resource_plan(evidence, pre_plan)
+        pre_plan = validated_resource
+        validation = validate_guided_resource_plan(evidence, validated_resource)
         validated_resource = validation.validated_resource_plan
         rc = _routes_chat()
         workflow_plan = rc.plan_workflow(
@@ -5781,6 +5869,7 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
         refinement_round += 1
         if refinement_round >= MAX_GUIDED_INVESTIGATION_ROUNDS:
             break
+        break
 
     dispatch_steps.append("rag_early")
     collected_count = count_collected_guided_hops(
@@ -5803,10 +5892,6 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
         refinement_rounds=refinement_rounds,
     )
 
-    evidence_payload["resource_plan"] = validated_resource.model_dump()
-    # Replace generic evidence_planner checklist with signal-class-specific items from
-    # the InvestigationPlan so AnswerContract.analyst_checklist_safe / investigation_steps
-    # carry specific hypotheses and evidence to synthesis instead of the generic fallback.
     if validated_plan.hypotheses:
         evidence_payload["checklist"] = list(validated_plan.hypotheses)
     if validated_plan.evidence_needed:
@@ -5867,14 +5952,14 @@ def _uses_rag_only_path(state: ChatPipelineState) -> bool:
     path_type = planning.get("path_type") if isinstance(planning, dict) else None
     if path_type == "guided_investigation":
         return True
-    if not settings.control_plane_enabled:
+    if not True:
         return False
     answer_mode = _evidence_plan(state).get("answer_mode")
     return answer_mode in {"rag_only", "guided_investigation"} or path_type == "generic_soc_guidance"
 
 
 def _uses_pre_mcp_rag(state: ChatPipelineState) -> bool:
-    if not settings.control_plane_enabled:
+    if not True:
         return False
     plan = _evidence_plan(state)
     return bool(plan.get("needs_rag")) and plan.get("rag_phase") == "pre_mcp"
@@ -5970,7 +6055,7 @@ def _generic_soc_guidance_path(planning_decision: dict[str, Any] | None) -> bool
 
 
 def _spl_allowed(state: ChatPipelineState) -> bool:
-    if not settings.control_plane_enabled:
+    if not True:
         return True
     resolution = state.get("session_context_resolution")
     if (
@@ -5985,14 +6070,14 @@ def _spl_allowed(state: ChatPipelineState) -> bool:
 
 
 def _mcp_allowed(state: ChatPipelineState) -> bool:
-    if not settings.control_plane_enabled:
+    if not True:
         return True
     return _mcp_allowed_decision_from_plan(_evidence_plan(state))["allowed"] is True
 
 
 def _context_selected_skill(state: ChatPipelineState) -> str:
     workflow_plan = state.get("workflow_plan")
-    if settings.control_plane_enabled and isinstance(workflow_plan, dict):
+    if True and isinstance(workflow_plan, dict):
         skill = workflow_plan.get("skill")
         if isinstance(skill, str) and skill.strip():
             return skill.strip()
@@ -6053,7 +6138,7 @@ def _mitre_outputs_for_finalize(
     canonical_facts: dict[str, Any] | None = None,
 ) -> tuple[list[Any], dict[str, Any] | None]:
     """Legacy mapping by default; Phase 7 decision only when control plane is on."""
-    if not settings.control_plane_enabled:
+    if not True:
         return map_mitre_for_use_case(use_case_id, source_refs), None
     effective_use_case_id = _mitre_use_case_for_query(query or "", use_case_id, intent_classification)
     branch_mappings, branch_decision, branch = run_mitre_evidence_branch(
@@ -6420,7 +6505,7 @@ def _route_plan_shadow_stage(
         return shadow
 
     deterministic_candidate = None
-    if settings.control_plane_enabled:
+    if True:
         deterministic_candidate = build_deterministic_route_plan_candidate(
             query=query,
             selected_use_case=selected_use_case,
@@ -6631,7 +6716,7 @@ def _apply_ood_llm_lab_metadata(route_plan_shadow: dict[str, Any], query: str) -
 
 
 def _effective_routing_skill(state: ChatPipelineState) -> str:
-    if settings.control_plane_enabled:
+    if True:
         adjudication = state.get("route_adjudication")
         if isinstance(adjudication, dict):
             final_route = adjudication.get("final_route")
@@ -6730,7 +6815,7 @@ def _session_spl_refine_stage(
         "spl_template_status": resolution.pins.last_spl_template_status,
         "template_production_executable": False,
     }
-    if settings.control_plane_enabled:
+    if True:
         template_id = (
             state["selected_use_case"].default_spl_template
             if state.get("selected_use_case") is not None
@@ -7295,7 +7380,7 @@ def _candidate_spl_stage(
     if fallback_candidate is not None:
         return fallback_candidate
 
-    if settings.control_plane_enabled or settings.ai_soc_spl_template_governance_enabled:
+    if True or settings.ai_soc_spl_template_governance_enabled:
         block_reason = _spl_governance_block_reason(template_id, template, spl_governance)
         if block_reason is None and spl_governance and not spl_governance.get("runtime_spl_governance_allowed", True):
             block_reason = str(

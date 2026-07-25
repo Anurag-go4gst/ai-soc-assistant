@@ -54,7 +54,6 @@ def test_hub_route_consumes_execution_verdict() -> None:
 
 
 def test_cp_on_run_terminates_and_surfaces_loop_trace(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     # Must not raise GraphRecursionError — the single bound guarantees termination.
     response = run_chat_via_langgraph(ChatRequest(message=QUERY))
     assert response is not None
@@ -67,7 +66,6 @@ def test_cp_on_run_terminates_and_surfaces_loop_trace(monkeypatch: pytest.Monkey
 
 
 def test_cp_on_loop_state_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     final_state = _compiled_chat_graph_cp().invoke(
         {"request": ChatRequest(message=QUERY), "session_role": None},
         {"recursion_limit": MAX_MCP_HOPS * 2 + 30},
@@ -81,7 +79,6 @@ def test_cp_on_loop_state_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_cp_on_merges_loop_hops_into_source_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     response = run_chat_via_langgraph(ChatRequest(message=QUERY))
     assert response is not None
     discovery = [item for item in response.source_evidence if item.source_type == "mcp_discovery"]
@@ -94,7 +91,6 @@ def test_cp_on_merges_loop_hops_into_source_evidence(monkeypatch: pytest.MonkeyP
 def test_cp_on_chronology_is_deterministic_without_advisory_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     # Live blocking path must NOT call the slow LLM planner unless the advisory
     # flag is on (PowerGrid latency incident regression guard).
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     import app.chat.pipeline as pipeline
 
     def _boom(*args, **kwargs):
@@ -112,7 +108,6 @@ def test_cp_on_chronology_is_deterministic_without_advisory_flag(monkeypatch: py
 
 
 def test_cp_off_parity_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     response = run_chat_via_langgraph(ChatRequest(message=QUERY))
     assert response is not None
     # No loop state leaks onto the linear path.
@@ -127,7 +122,6 @@ def test_cp_on_recipe_driven_turn_runs_through_real_langgraph_path(monkeypatch: 
     path uses — discovery hop runs, records a call, advances to the search
     call, and the turn ends safely (mock execution globally gated in this
     test env, so it correctly stops at analyst hand-off rather than looping)."""
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     final_state = _compiled_chat_graph_cp().invoke(
         {
             "request": ChatRequest(message=QUERY),
@@ -149,7 +143,6 @@ def test_debug_trace_surfaces_mcp_calls_for_recipe_driven_turn(monkeypatch: pyte
     lineage the graph produced — not just consumed internally."""
     from app.chat.control_plane_trace import build_control_plane_trace
 
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     final_state = _compiled_chat_graph_cp().invoke(
         {
             "request": ChatRequest(message=QUERY),

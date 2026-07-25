@@ -19,7 +19,6 @@ BANK_PATH = REPO_ROOT / "docs" / "evals" / "powergrid_soc_question_bank.json"
 
 @pytest.fixture(autouse=True)
 def _enable_control_plane(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.config.settings.spl_allowed_sourcetypes", "pgcil:auth,aws:cloudtrail")
 
 

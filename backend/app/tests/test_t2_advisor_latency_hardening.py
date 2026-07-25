@@ -32,7 +32,6 @@ _BLOCK_IP = "Block IP 10.0.0.5 immediately"
 
 @pytest.fixture(autouse=True)
 def _flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "legacy_selected_skill_authority_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_llm_intent_advisor_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_enabled", True)

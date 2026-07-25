@@ -34,7 +34,6 @@ def _planning_state(query: str = _SPL_QUERY) -> dict:
 def test_pipeline_dispatch_attached_after_cp_on_evidence_planning(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", True)
 
     state = graph_node_evidence_planning(_planning_state())
@@ -44,7 +43,6 @@ def test_pipeline_dispatch_attached_after_cp_on_evidence_planning(
     assert dispatch["decision"]["request_mode"] == "spl_authoring"
     # MCP eligibility on all tiers (2026-07 directive, item 2.1): this live-data
     # SPL-authoring query is now architecturally eligible for mcp_execution under
-    # control_plane_enabled — real gating (HIL, validated SPL) is unchanged and
     # lives downstream at evaluate_mcp_execution, not in the stage schedule.
     assert dispatch["decision"]["stage_schedule"] == [
         "workflow_spl",
@@ -61,7 +59,6 @@ def test_pipeline_dispatch_attached_after_cp_on_evidence_planning(
 def test_pipeline_dispatch_cp_off_stub_attached_when_v2_enabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", True)
 
     state = graph_node_evidence_planning(_planning_state())
@@ -77,7 +74,6 @@ def test_pipeline_dispatch_cp_off_stub_attached_when_v2_enabled(
 def test_pipeline_dispatch_not_attached_when_v2_flag_off(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)
 
     state = graph_node_evidence_planning(_planning_state())

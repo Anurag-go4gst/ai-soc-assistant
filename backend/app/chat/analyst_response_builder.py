@@ -277,7 +277,7 @@ def build_analyst_response_for_live(
         or plan.get("required_evidence_keys")
         or plan.get("limitations")
     )
-    if contract is None and (settings.control_plane_enabled or has_display_plan):
+    if contract is None and (True or has_display_plan):
         contract = build_answer_contract(
             intent_classification=intent_classification,
             evidence_plan=evidence_plan,

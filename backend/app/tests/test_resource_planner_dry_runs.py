@@ -49,7 +49,6 @@ def _rag_step_status(steps: list[dict[str, Any]]) -> str | None:
 
 
 def _enable_cp_stack(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
     monkeypatch.setattr(settings, "mcp_server_mock_execution_enabled", False)

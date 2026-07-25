@@ -43,7 +43,6 @@ def _proposal(steps: list[dict[str, Any]]) -> str:
 
 @pytest.fixture(autouse=True)
 def _enable_primary_planning(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_llm_intent_advisor_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", True)

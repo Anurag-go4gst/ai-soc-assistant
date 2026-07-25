@@ -21,7 +21,6 @@ _KNOWLEDGE_QUERY = "What is the escalation policy for repeated failed login aler
 
 
 def _guided_evidence_plan(monkeypatch: pytest.MonkeyPatch, *, hybrid_flag: bool) -> EvidencePlan:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", hybrid_flag)
     understanding = understand_query(SAMPLE_QUERY)
     base, provenance = select_route_from_understanding(understanding, SAMPLE_QUERY)

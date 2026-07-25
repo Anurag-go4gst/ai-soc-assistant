@@ -38,7 +38,6 @@ _EXPLICIT_SPL_NO_UNIVERSAL = "Write me a SPL query for failed logins"
 
 @pytest.fixture(autouse=True)
 def _flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_intent_advisor_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_mode", "local")

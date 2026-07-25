@@ -14,7 +14,6 @@ TYPO_FAILED_LOGIN = "failed lgon spike top users last hour"
 
 
 def _enable_cp_stack(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
     monkeypatch.setattr(

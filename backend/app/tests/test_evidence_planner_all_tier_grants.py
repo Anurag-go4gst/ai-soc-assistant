@@ -40,7 +40,6 @@ def _plan(query: str):
 
 
 def test_control_plane_off_stays_byte_identical(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     plan = _plan(_LIVE_DATA_QUERY)
     assert plan.needs_mcp is True
     assert plan.mcp_allowed is False
@@ -49,7 +48,6 @@ def test_control_plane_off_stays_byte_identical(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_control_plane_on_grants_search_eligibility(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     plan = _plan(_LIVE_DATA_QUERY)
     assert plan.needs_mcp is True
     assert plan.mcp_allowed is True
@@ -65,7 +63,6 @@ def test_no_live_data_request_gets_no_search_grant(monkeypatch: pytest.MonkeyPat
     (SPL-authoring phrasings tend to also set live_data_request=True), so this
     exercises the evidence_planner branch logic directly rather than depending
     on intent-classification heuristics that are out of this item's scope."""
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     intent = IntentClassification(
         intent_family="spl_generation_only",
         primary_intent="ask_for_query_generation",
@@ -88,7 +85,6 @@ def test_no_live_data_request_gets_no_search_grant(monkeypatch: pytest.MonkeyPat
 
 
 def test_non_spl_families_unaffected(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     plan = _plan("What is the escalation policy for repeated failed login alerts?")
     assert plan.answer_mode == "rag_only"
     assert plan.mcp_allowed is False
@@ -111,7 +107,6 @@ def test_eligibility_does_not_bypass_execution_gate() -> None:
 def test_guided_investigation_discovery_stays_flag_gated(monkeypatch: pytest.MonkeyPatch) -> None:
     """2.1 deliberately does not touch guided_investigation's rollout gate —
     confirms the existing flag-off behavior is unchanged by this item."""
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_guided_mcp_discovery_enabled", False)
     plan = _plan("How should I investigate unusual outbound traffic from an OT host overnight?")

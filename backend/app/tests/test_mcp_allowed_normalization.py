@@ -6,7 +6,6 @@ from app.config import settings
 
 
 def test_mcp_allowed_none_normalizes_to_blocked_gate_without_route_replace(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
 
     assert _mcp_allowed({"evidence_plan": {"needs_mcp": True, "mcp_allowed": None}}) is False
     assert _mcp_allowed({"evidence_plan": {"needs_mcp": True}}) is False
@@ -15,7 +14,6 @@ def test_mcp_allowed_none_normalizes_to_blocked_gate_without_route_replace(monke
 
 
 def test_mcp_allowed_none_blocks_evidence_loop(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
 
     assert _mcp_evidence_loop_enabled({}, {"answer_mode": "live_investigation", "mcp_allowed": None}) is False
     assert _mcp_evidence_loop_enabled({}, {"answer_mode": "live_investigation"}) is False
@@ -23,7 +21,6 @@ def test_mcp_allowed_none_blocks_evidence_loop(monkeypatch) -> None:
 
 
 def test_mcp_allowed_normalized_trace_records_source(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
 
     assert _mcp_allowed_decision_from_plan({"mcp_allowed": None}) == {
         "allowed": False,
@@ -43,7 +40,6 @@ def test_mcp_allowed_normalized_trace_records_source(monkeypatch) -> None:
 
 
 def test_run_contract_mcp_allowed_projection_fails_closed_for_none(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
 
     assert _resolve_mcp_allowed({}, {"needs_mcp": True, "mcp_allowed": None}) is False
     assert _resolve_mcp_allowed({}, {"needs_mcp": True}) is False
@@ -52,7 +48,6 @@ def test_run_contract_mcp_allowed_projection_fails_closed_for_none(monkeypatch) 
 
 
 def test_run_contract_mcp_allowed_false_when_spl_validation_not_approved(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
 
     assert (
         _resolve_mcp_allowed(
@@ -64,7 +59,6 @@ def test_run_contract_mcp_allowed_false_when_spl_validation_not_approved(monkeyp
 
 
 def test_cp_off_run_contract_projection_only_reports_authorized_execution(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
 
     assert _resolve_mcp_allowed({}, {}, execution_authorized=False) is False
     assert _resolve_mcp_allowed({}, {}, execution_authorized=True) is True

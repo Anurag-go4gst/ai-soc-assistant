@@ -19,7 +19,6 @@ _GUIDED_QUERY = (
 
 
 def _guided_plan(monkeypatch: pytest.MonkeyPatch) -> object:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", False)
     understanding = understand_query(_GUIDED_QUERY)
     q2i = build_query_to_intent(query=_GUIDED_QUERY, query_understanding=understanding)
@@ -68,7 +67,6 @@ def test_other_families_keep_discovery_allowed_false(monkeypatch: pytest.MonkeyP
 
 
 def test_mcp_evidence_loop_enabled_for_guided_discovery_only(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     evidence = {
         "answer_mode": "guided_investigation",
         "mcp_allowed": False,
@@ -81,7 +79,6 @@ def test_mcp_evidence_loop_enabled_for_guided_discovery_only(monkeypatch: pytest
 
 
 def test_mcp_evidence_loop_disabled_when_discovery_flag_off(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     evidence = {
         "answer_mode": "guided_investigation",
         "mcp_allowed": False,

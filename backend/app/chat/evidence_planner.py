@@ -4,6 +4,27 @@ from typing import Any
 
 from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.contracts.intent_classification import IntentClassification
+
+_VALID_FAMILIES: frozenset[str] = frozenset(
+    {
+        "policy_knowledge",
+        "live_investigation",
+        "spl_generation_only",
+        "spl_generation_and_run",
+        "hybrid_investigation_plus_policy",
+        "hybrid_alert_review",
+        "mitre_mapping",
+        "mitre_explanation",
+        "knowledge_only",
+        "clarification_required",
+        "sop_or_playbook",
+        "guided_investigation",
+        "alert_summary",
+        "github_investigation",
+        "cve_investigation",
+        "reference_knowledge",
+    }
+)
 from app.chat.query_signals import is_live_data_request
 from app.chat.spl_authoring_intent import is_universal_utility_spl_authoring
 from app.config import settings
@@ -58,10 +79,32 @@ def plan_evidence(
     `user_query` is accepted solely for guided_investigation signal-class resolution
     so the checklist/investigation_workflow carry query-specific items.
     """
+    intent_raw = (
+        intent_classification
+        if isinstance(intent_classification, dict)
+        else intent_classification.model_dump()
+    )
+    family_raw = str(intent_raw.get("intent_family") or "")
+    if family_raw not in _VALID_FAMILIES:
+        return EvidencePlan(
+            answer_mode="clarification",
+            rag_phase="rag_only",
+            needs_rag=False,
+            needs_spl=False,
+            needs_mcp=False,
+            needs_mitre=False,
+            spl_allowed=False,
+            mcp_allowed=False,
+            policy_context_required=False,
+            policy_context_recommended=False,
+            requires_hil=True,
+            action_mode="hil_required",
+            reasons=["unknown_intent_family_fail_closed"],
+        )
     intent = (
         intent_classification
         if isinstance(intent_classification, IntentClassification)
-        else IntentClassification.model_validate(intent_classification)
+        else IntentClassification.model_validate(intent_raw)
     )
     family = intent.intent_family
     selected_use_case_id = _use_case_id(selected_use_case, query_understanding, query_to_intent, routed)
@@ -265,7 +308,7 @@ def plan_evidence(
 
     if family == "guided_investigation":
         hybrid_enabled = bool(
-            settings.control_plane_enabled
+            True
             and settings.ai_soc_guided_hybrid_investigation_enabled
         )
         # Resolve signal-class-specific hypotheses and evidence items from the query.
@@ -456,7 +499,7 @@ def plan_evidence(
         # live_investigation already are — real gating (validated normalized_spl,
         # tool selection, per-call HIL confirmation) happens downstream at
         # evaluate_mcp_execution. This flag never marks the search validated/executed.
-        mcp_eligible = live_data_request and settings.control_plane_enabled
+        mcp_eligible = live_data_request and True
         return with_enrichment(
             EvidencePlan(
                 answer_mode="live_investigation",
@@ -469,7 +512,7 @@ def plan_evidence(
                 mcp_allowed=mcp_eligible,
                 policy_context_required=False,
                 policy_context_recommended=False,
-                discovery_allowed=True if settings.control_plane_enabled else None,
+                discovery_allowed=True if True else None,
                 reasons=[
                     "spl_artifact_requested",
                     *(
@@ -577,21 +620,40 @@ def plan_evidence(
             )
         )
 
+    if family == "live_investigation":
+        return with_enrichment(
+            EvidencePlan(
+                answer_mode="live_investigation",
+                rag_phase="post_mcp",
+                needs_rag=False,
+                needs_spl=True,
+                needs_mcp=True,
+                needs_mitre=False,
+                spl_allowed=True,
+                mcp_allowed=True,
+                policy_context_required=False,
+                policy_context_recommended=False,
+                requires_hil=intent.requires_hil,
+                action_mode=intent.action_mode or "recommend_only",
+                reasons=["live_investigation"],
+            )
+        )
+
     return with_enrichment(
         EvidencePlan(
-            answer_mode="live_investigation",
-            rag_phase="post_mcp",
+            answer_mode="clarification",
+            rag_phase="rag_only",
             needs_rag=False,
-            needs_spl=True,
-            needs_mcp=True,
+            needs_spl=False,
+            needs_mcp=False,
             needs_mitre=False,
-            spl_allowed=True,
-            mcp_allowed=True,
+            spl_allowed=False,
+            mcp_allowed=False,
             policy_context_required=False,
             policy_context_recommended=False,
-            requires_hil=intent.requires_hil,
-            action_mode=intent.action_mode or "recommend_only",
-            reasons=["live_investigation"],
+            requires_hil=True,
+            action_mode="hil_required",
+            reasons=["unknown_intent_family_fail_closed"],
         )
     )
 
@@ -780,14 +842,15 @@ def _attach_resource_plan(
     query_understanding: Any,
     routed_skill: str | None = None,
 ) -> EvidencePlan:
-    """Attach the composed step plan (WS0 T0.3). Booleans stay authoritative;
-    composition failure must never break evidence planning."""
-    from app.config import settings
+    """Production ResourcePlan attachment is owned by plan_evidence_from_canonical only."""
     from app.planner.composer import compose_resource_plan
+    from app.planner.resource_plan_authority import is_test_compose_allowed
+
+    if not is_test_compose_allowed():
+        return plan
 
     if (
         plan.answer_mode == "guided_investigation"
-        and settings.control_plane_enabled
         and settings.ai_soc_guided_hybrid_investigation_enabled
     ):
         return plan

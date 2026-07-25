@@ -146,7 +146,6 @@ def test_enrichment_spl_governance_remains_backward_compatible() -> None:
 
 def test_flag_off_preserves_current_chat_behavior(monkeypatch) -> None:
     monkeypatch.setattr("app.config.settings.langgraph_orchestration_enabled", False)
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", False)
     monkeypatch.setattr("app.config.settings.ai_soc_planner_path_selection_enabled", False)
     monkeypatch.setattr("app.config.settings.ai_soc_llm_intent_advisor_enabled", False)
 

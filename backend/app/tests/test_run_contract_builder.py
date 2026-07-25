@@ -85,7 +85,6 @@ def _with_draft_preview(state: dict, query: str, *, live_data_request: bool) -> 
 
 @pytest.fixture(params=[True, False], ids=["cp_on", "cp_off"])
 def control_plane_flag(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(settings, "control_plane_enabled", request.param)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
     return request.param
 
@@ -181,7 +180,6 @@ def test_collected_evidence_count_from_rag_retrieval() -> None:
 
 
 def test_cp_off_uses_routing_resolution_not_adjudication(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     state = _base_pipeline_state(_SUBSTATION_QUERY)
     state["route_adjudication"] = {
         **state["route_adjudication"],
@@ -198,7 +196,6 @@ def test_cp_off_uses_routing_resolution_not_adjudication(monkeypatch: pytest.Mon
 
 
 def test_cp_on_prefers_adjudication_final_route(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     state = _base_pipeline_state(_SUBSTATION_QUERY)
     state["route_adjudication"] = {
         **state["route_adjudication"],

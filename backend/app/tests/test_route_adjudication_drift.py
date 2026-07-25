@@ -34,7 +34,6 @@ def test_provisional_adjudication_plan_carries_q046_weak_known_status() -> None:
 
 
 def test_final_plan_drift_narrows_mcp_without_route_replacement(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
 
     adjudication = {
         "final_route": "spl_generation",
@@ -64,7 +63,6 @@ def test_final_plan_drift_narrows_mcp_without_route_replacement(monkeypatch) -> 
 
 
 def test_final_evidence_plan_route_drift_is_recorded(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     adjudication = {
         "final_route": "attack_discovery",
         "authority_source": "evidence_plan_live_or_hybrid",

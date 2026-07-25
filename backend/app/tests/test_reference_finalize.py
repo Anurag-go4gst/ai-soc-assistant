@@ -17,7 +17,6 @@ P4_CVE = "Explain CVE-2024-3400. Are we affected?"
 @pytest.fixture(autouse=True)
 def _offline_reference_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TELEMETRY_MODE", "none")
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "legacy_selected_skill_authority_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_enabled", False)

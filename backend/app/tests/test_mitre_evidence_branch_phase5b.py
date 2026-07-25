@@ -125,7 +125,6 @@ def test_mitre_branch_missing_context_requires_context_not_claim(monkeypatch) ->
 
 
 def test_finalize_uses_branch_output_when_branch_enabled(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_planner_mitre_branch_enabled", True)
 
     mappings, decision = _mitre_outputs_for_finalize(
@@ -147,7 +146,6 @@ def test_finalize_uses_branch_output_when_branch_enabled(monkeypatch) -> None:
 
 
 def test_cp_off_legacy_path_remains_compatible(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_planner_mitre_branch_enabled", True)
 
     mappings, decision = _mitre_outputs_for_finalize(

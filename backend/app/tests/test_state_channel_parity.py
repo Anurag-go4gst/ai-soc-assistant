@@ -68,6 +68,37 @@ def _state_write_keys_from_pipeline() -> set[str]:
     return keys
 
 
+_CANONICAL_PLANNING_PATHS = (
+    Path(__file__).resolve().parents[1] / "chat" / "canonical_planning_orchestrator.py",
+    Path(__file__).resolve().parents[1] / "chat" / "canonical_mode.py",
+    Path(__file__).resolve().parents[1] / "chat" / "plan_evidence_from_canonical.py",
+)
+_CANONICAL_CHANNELS = (
+    "canonical_planning_input",
+    "gap_resolution",
+    "known_completeness",
+    "processing_lane",
+    "initial_tier",
+    "resolved_tier",
+    "pending_handoff_id",
+    "pending_handoff_version",
+)
+
+
+def _canonical_state_write_keys() -> set[str]:
+    """Top-level ``{**state, "key": ...}`` writes in the canonical planning modules.
+
+    ``test_pipeline_state_writes_are_declared_channels`` only scans ``pipeline.py``,
+    so writes performed by the canonical orchestrator were invisible to it.
+    """
+    keys: set[str] = set()
+    for path in _CANONICAL_PLANNING_PATHS:
+        if not path.exists():
+            continue
+        keys.update(re.findall(r'\{\*\*state,\s*"([a-z_][a-z0-9_]*)"\s*:', path.read_text(encoding="utf-8")))
+    return keys
+
+
 def test_phase52_spine_channels_declared_on_chat_pipeline_state() -> None:
     annotations = ChatPipelineState.__annotations__
     for channel in _PHASE52_CHANNELS:
@@ -80,6 +111,33 @@ def test_pipeline_state_writes_are_declared_channels() -> None:
     annotations = set(ChatPipelineState.__annotations__)
     undeclared = sorted(write_keys - annotations)
     assert not undeclared, f"undeclared pipeline state writes: {undeclared}"
+
+
+def test_canonical_planning_channels_declared_on_chat_pipeline_state() -> None:
+    """Canonical planning channels must survive the RP graph edge.
+
+    ``ResourcePlannerGraphState`` inherits ``ChatPipelineState``; an undeclared key is
+    dropped between ``rp_node_bootstrap`` and every later consumer (guided hybrid
+    dispatch/executor, ``planner/executor.py``, ``session_context``).
+    """
+    annotations = set(ChatPipelineState.__annotations__)
+    for channel in _CANONICAL_CHANNELS:
+        assert channel in annotations, f"missing canonical planning channel: {channel}"
+
+    undeclared = sorted(_canonical_state_write_keys() - annotations)
+    assert not undeclared, f"undeclared canonical planning state writes: {undeclared}"
+
+
+def test_resource_planner_final_state_retains_canonical_planning_input() -> None:
+    """Graph-level proof, not a node-level call — the drop only happens on the edge."""
+    row = load_sentinel_rows()[0]
+    with sentinel_runtime():
+        final_state = _compiled_resource_planner_graph().invoke(
+            {"request": ChatRequest(message=row["question"])},
+        )
+
+    assert isinstance(final_state.get("canonical_planning_input"), dict)
+    assert final_state.get("processing_lane")
 
 
 @pytest.mark.parametrize("row", load_sentinel_rows()[:5], ids=lambda row: row["key"])

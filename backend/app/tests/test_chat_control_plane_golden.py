@@ -24,7 +24,6 @@ _CLARIFICATION_GOVERNANCE_REASONS = frozenset(
 
 @pytest.fixture(autouse=True)
 def _enable_control_plane(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.config.settings.spl_allowed_sourcetypes", "pgcil:auth,aws:cloudtrail")
 
 
@@ -198,7 +197,6 @@ def test_generate_spl_top_failed_login_users_rejects_missing_slot_binding(
     response = _chat("Generate SPL for the top failed-login users in the last 24 hours")
     assert response.evidence_plan["needs_spl"] is True
     # MCP eligibility on all tiers (2026-07 directive, item 2.1): a live-data ask
-    # is architecturally eligible under control_plane_enabled. This test's real
     # invariant is the missing-slot-binding clarification path below, which is
     # unaffected — eligibility never substitutes for a valid, resolved SPL artifact.
     assert response.evidence_plan["mcp_allowed"] is True
@@ -399,7 +397,6 @@ def test_aws_security_group_modifications_returns_raw_cloudtrail_spl_answer() ->
     assert response.execution is not None
     # MCP eligibility on all tiers (2026-07 directive, item 2.1): this fully
     # validated, approved template SPL is now architecturally eligible for
-    # execution under control_plane_enabled, so the gate is actually reached
     # (requires_human_review) instead of skipped outright. execution_eligible
     # stays false on the candidate; nothing here executes without HIL approval.
     assert response.execution.status == "requires_human_review"

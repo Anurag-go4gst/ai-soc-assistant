@@ -19,7 +19,6 @@ from app.schemas.requests import ChatRequest
 
 
 def _enable_control_plane_stack(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_planner_path_selection_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_intent_advisor_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", True)

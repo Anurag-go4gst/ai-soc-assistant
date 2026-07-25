@@ -23,6 +23,7 @@ from app.chat.decision_record import emit_decision_record
 from app.chat.final_answer_validator import validate_final_answer
 from app.chat.pipeline import (
     ChatPipelineState,
+    _graph_node_planning_decision_from_canonical,
     build_rp_degraded_placeholder_response,
     finalize_chat_trace_from_state,
     graph_node_composed_dispatch,
@@ -33,10 +34,14 @@ from app.chat.pipeline import (
     graph_node_prepare_rag_only,
     graph_node_query_to_intent,
     graph_node_rag_early,
+    graph_node_route_contract,
+    graph_node_route_resolution,
     graph_node_shadow_enrichment,
+    graph_node_shadow_tail,
     graph_node_spl_source_resolve,
     graph_node_workflow_spl,
 )
+from app.config import settings
 from app.chat.progress_context import bind_progress_reporter, emit_stage, reset_progress_reporter
 from app.chat.progress_events import ProgressReporter
 from app.planner.executor import annotate_step_statuses, has_composed_plan
@@ -303,15 +308,37 @@ def _apply_work_bundle_to_workers(state: ResourcePlannerGraphState) -> ResourceP
 
 def rp_node_bootstrap(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
     state = graph_node_init_routing(state)
-    state = graph_node_query_to_intent(state)
-    state = graph_node_evidence_planning(state)
+    if True:
+        from app.chat.canonical_planning_orchestrator import graph_node_lane_and_canonical_planning
+
+        state = graph_node_lane_and_canonical_planning(state)
+    else:
+        state = graph_node_query_to_intent(state)
+        state = graph_node_evidence_planning(state)
     state = _with_trace(state, "bootstrap")
     return _record(
         state,
         node="bootstrap",
         reason="query_and_evidence_plan_ready",
         inputs_ref=["request"],
-        outputs_ref=["evidence_plan", "query_to_intent"],
+        outputs_ref=["evidence_plan", "query_to_intent", "canonical_planning_input"],
+        authority="deterministic",
+    )
+
+
+def rp_node_route_resolution(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
+    state = graph_node_route_resolution(state)
+    state = graph_node_route_contract(state)
+    state = graph_node_shadow_tail(state)
+    if True:
+        state = _graph_node_planning_decision_from_canonical(state)
+    state = _with_trace(state, "route_resolution")
+    return _record(
+        state,
+        node="route_resolution",
+        reason="route_contract_and_planning_decision_ready",
+        inputs_ref=["routed", "evidence_plan"],
+        outputs_ref=["route_contract", "planning_decision"],
         authority="deterministic",
     )
 
@@ -743,6 +770,7 @@ def _add_governance_chain(graph: StateGraph) -> None:
 def _compiled_resource_planner_graph() -> Any:
     graph: StateGraph = StateGraph(ResourcePlannerGraphState)
     graph.add_node("bootstrap", rp_node_bootstrap)
+    graph.add_node("route_resolution", rp_node_route_resolution)
     graph.add_node("route_setup", rp_node_route_setup)
     graph.add_node("resource_planner_delegate", rp_node_resource_planner_delegate)
     graph.add_node("specialist_skill", rp_node_specialist_skill)
@@ -759,8 +787,8 @@ def _compiled_resource_planner_graph() -> Any:
         graph.add_node(node_name, globals()[f"rp_node_{node_name}"])
 
     graph.set_entry_point("bootstrap")
-    graph.add_edge("bootstrap", "route_setup")
-    graph.add_edge("route_setup", "resource_planner_delegate")
+    graph.add_edge("bootstrap", "route_resolution")
+    graph.add_edge("route_resolution", "resource_planner_delegate")
     graph.add_conditional_edges("resource_planner_delegate", _fan_out_specialists)
     for specialist_node in _SPECIALIST_NODE_NAMES:
         graph.add_edge(specialist_node, "resource_planner_merge")

@@ -169,7 +169,7 @@ def derive_dispatch_booleans_from_plan(state: State) -> dict[str, Any]:
     "rag_only",
     "guided_investigation",
   } or path_type == "generic_soc_guidance"
-  if not settings.control_plane_enabled:
+  if not True:
     uses_rag_only_path = False
     uses_pre_mcp_rag = False
 
@@ -342,6 +342,38 @@ def _dispatch_blocked_step_ids(state: State) -> set[str]:
 
 def execute_plan_dispatch(state: State, hooks: DispatchHooks) -> State:
     """Dispatch via ResourcePlan step-walk; predicates remain parity-checked."""
+    from app.chat.canonical_mode import build_canonical_failure_state, is_canonical_authoritative
+    from app.chat.planning_telemetry import emit_execution_event
+
+    plan = _resource_plan(state)
+    if is_canonical_authoritative():
+        if plan is None:
+            return build_canonical_failure_state(
+                state,
+                outcome="execution_failed",
+                reason="execution_missing_resource_plan",
+            )
+        provenance = dict(plan.get("provenance") or {})
+        if not provenance.get("committed"):
+            return build_canonical_failure_state(
+                state,
+                outcome="execution_failed",
+                reason="execution_uncommitted_resource_plan",
+            )
+        if state.get("gap_resolution") and not state.get("evidence_plan"):
+            return build_canonical_failure_state(
+                state,
+                outcome="execution_failed",
+                reason="execution_gap_result_without_resource_plan",
+            )
+        state = emit_execution_event(
+            state,
+            event="execution.started",
+            resource_plan_id=str(provenance.get("resource_plan_id") or ""),
+            handoff_id=str(provenance.get("handoff_id") or state.get("handoff_id") or ""),
+            handoff_version=provenance.get("handoff_version") or state.get("handoff_version"),
+        )
+
     walk = walk_plan_steps(state)
     blocked_steps = walk.blocked_step_ids if walk is not None else _dispatch_blocked_step_ids(state)
     if walk is not None:
@@ -359,7 +391,17 @@ def execute_plan_dispatch(state: State, hooks: DispatchHooks) -> State:
     )
     state = {**state, "plan_dispatch_trace": trace}
     state = _run_dispatch_schedule(state, hooks, schedule)
-    return _annotate_blocked(state, blocked_steps)
+    result = _annotate_blocked(state, blocked_steps)
+    if is_canonical_authoritative() and plan is not None:
+        provenance = dict(plan.get("provenance") or {})
+        result = emit_execution_event(
+            result,
+            event="execution.completed",
+            resource_plan_id=str(provenance.get("resource_plan_id") or ""),
+            handoff_id=str(provenance.get("handoff_id") or result.get("handoff_id") or ""),
+            handoff_version=provenance.get("handoff_version") or result.get("handoff_version"),
+        )
+    return result
 
 
 def _annotate_blocked(state: State, blocked_steps: set[str]) -> State:

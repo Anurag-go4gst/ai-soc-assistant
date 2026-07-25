@@ -37,7 +37,6 @@ def _fake_retrieve_no_match(**kwargs: Any) -> dict[str, Any]:
 
 
 def _enable_phase7(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_planner_path_selection_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_planner_mitre_branch_enabled", True)

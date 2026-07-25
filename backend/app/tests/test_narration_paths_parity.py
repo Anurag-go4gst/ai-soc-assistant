@@ -20,7 +20,6 @@ def _envelope() -> AnalystResponseEnvelope:
 
 
 def _enable_synthesis(monkeypatch: pytest.MonkeyPatch, *, cp: bool) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", cp)
     monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", True)
 
@@ -28,13 +27,11 @@ def _enable_synthesis(monkeypatch: pytest.MonkeyPatch, *, cp: bool) -> None:
 def test_composer_enabled_requires_cp_and_both_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     _enable_synthesis(monkeypatch, cp=True)
     assert composer_is_enabled() is True
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     # CP off → composer is NOT the narration path (lab_runner owns it instead).
     assert composer_is_enabled() is False
 
 
 def test_disabled_composer_returns_deterministic_envelope(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", False)
     envelope = _envelope()

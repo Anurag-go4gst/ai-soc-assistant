@@ -16,8 +16,6 @@ CROSSWALK_PATH = REPO_ROOT / "docs" / "evals" / "soc_capability_crosswalk.json"
 
 
 def _plan(query: str, *, routed_skill: str, tool_plan: list[str] | None = None, monkeypatch=None):
-    if monkeypatch is not None:
-        monkeypatch.setattr(settings, "control_plane_enabled", True)
     qu = understand_query(query)
     q2i = build_query_to_intent(query=query, query_understanding=qu, routed_skill=routed_skill)
     intent = q2i.intent_classification.model_dump()
