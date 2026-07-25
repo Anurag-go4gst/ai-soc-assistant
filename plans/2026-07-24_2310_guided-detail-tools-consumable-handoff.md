@@ -104,13 +104,15 @@ Justified: clarification carries no `EvidencePlan` by the item-12 contract, so `
 
 Also re-pinned (tests, disclosed, each with in-file reasoning): `test_evidence_planner_all_tier_grants` (renamed + new catalogue counterpart), `test_run_contract_bundle` (one assertion; all execution-safety assertions untouched), `test_pipeline_dispatch_phase2a` (had asserted the presence of the partial `EvidencePlan`), `test_route_adjudication` (accepts new `catalogue_registry_skill` provenance; route assertion unchanged).
 
-### 4. Remaining test migration (items 15–17)
+### 4. Test migration (items 15–17) — operationally closed
 
-Full pytest **4177 passed / 112 failed / 2 skipped / 6 xfailed**, versus the batch baseline **4051 passed / 203 failed**. **91 baseline failures fixed, 0 new** (set-diffed against a stashed baseline, not counted). The 112 are unclassified — item 15 owns the A–G inventory.
+Rev-10 scope at `8792338`: **4177 passed / 112 failed / 2 skipped / 6 xfailed**. Item 15 capture at `2fce033`: **100 failed**. Item 17 closure at HEAD `dcd5a3e`: **4358 passed / 0 failed / 2 skipped / 6 xfailed**.
+
+**112 reconciliation (derived inventory, 2026-07-25):** 100 captured identities (`/tmp/pytest-failures-item15.txt`) + 1 stale sentinel identity + 11 historical identities not preserved. See [`docs/evals/canonical_phase2_failure_inventory.md`](docs/evals/canonical_phase2_failure_inventory.md). This is **not** a claim that all 112 were individually classified.
 
 ### 5. Genuine runtime regressions
 
-None outstanding from this cutover. Every regression found (state channels, unsafe-path downgrade, governed-SPL loss, policy answers upgraded to live investigation, catalogue re-routing) has been fixed and pinned. The 112 remaining failures are presumed legacy assumptions until item 15 proves otherwise — category **G** exists precisely to catch any that are not.
+None outstanding from this cutover. Every regression found (state channels, unsafe-path downgrade, governed-SPL loss, policy answers upgraded to live investigation, catalogue re-routing) has been fixed and pinned. Population A Category **G** (25 unit/integration rows) was triaged; production parity Category G was cleared by item 32 (`48a217d`).
 
 ### 6. Dual-runtime architecture work (items 30–35)
 
@@ -420,7 +422,7 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
 
   - **Verify:** Inventory row count matches pytest failure summary
   - **Depends on:** 14
-  - **Evidence:** Full pytest at `2fce033`: **100 failed** (`4256 passed / 2 skipped / 6 xfailed`). `docs/evals/canonical_phase2_failure_inventory.md` — **100 rows** (verified: table rows == declared count). Category totals: A=12, B=25, C=2, D=21, E=1, F=14, G=25. Production parity Category G empty (item 32); remaining G = unit/integration drift only.
+  - **Evidence (corrected 2026-07-25):** The interim evidence incorrectly claimed `docs/evals/canonical_phase2_failure_inventory.md` already existed in git — **it was never committed.** Only `/tmp/pytest-failures-item15.txt` survived as the authoritative enumeration (100 identities at `2fce033`, `4256 passed / 2 skipped / 6 xfailed`). Derived inventory committed in the evidence-only KEEP commit; populations: **A=100** individually classified (A=12, B=25, C=2, D=21, E=1, F=14, G=25), **B=1** stale sentinel (`test_eval_sentinel_runner.py::test_repo_baseline_matches_current_pipeline`, `7a0c87c`), **C=11** group-attributed to `48a217d` (identities not preserved). Reconciliation: 100+1+11=112 at `8792338`. Explicit decision: accept historical evidence limitation; do not claim all 112 individually recovered. Production parity Category G empty after item 32; Population A G = unit/integration drift only. Operationally closed with disclosed limitation.
 
 - [x] **16** — Canonical test helper — spec §2
   - **Do:** Add `backend/app/tests/support/canonical_flow.py`: `run_canonical_flow(query, *, handoff_resume=None, session_id=...)` through production flow:
@@ -437,7 +439,7 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Do:** Fix per inventory order: **F** → **E** → **A/B/C/D** → **G**. Remove `_attach_resource_plan` from production runtime; isolate test composition in `backend/app/tests/support/compose_resource_plan_testutil.py` under explicit `TEST_AUTHORITY` only. Search all callers before removal. Do not make `_attach_resource_plan` silently restore old live behaviour.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q` → **0 failed**
   - **Depends on:** 15, 16
-  - **Evidence:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q` → **4358 passed, 0 failed** (2026-07-25). Removed `_attach_resource_plan` from `evidence_planner.py`; test compose via `compose_resource_plan_testutil.py` + `register_test_resource_plan_compose_hook` in conftest. Production fixes: session SPL-refine dispatch branch (`plan_dispatch_session_spl_refine`), guided hybrid refinement loop cap, durable telemetry log `extra` keys (`planning_trace_id`).
+  - **Evidence:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q` → **4358 passed, 2 skipped, 6 xfailed, 0 failed** at HEAD `dcd5a3e` (2026-07-25). Removed `_attach_resource_plan` from `evidence_planner.py`; test compose via `compose_resource_plan_testutil.py` + `register_test_resource_plan_compose_hook` in conftest. Production fixes: session SPL-refine dispatch branch (`plan_dispatch_session_spl_refine`), guided hybrid refinement loop cap, durable telemetry log `extra` keys (`planning_trace_id`). Production parity: **120 exact / 0 approved / 0 critical**. Focused architecture guards green. Operationally closed with Item 15 derived inventory (disclosed historical limitation).
 
 - [ ] **18a** — Migration deployment and readiness — rev 9 (blocks 18, 19a, 24)
   - **Context:** `canonical_handoff_repository.py::_ensure_schema` executes `0004_canonical_handoffs.sql` from the live request path on first use, and `backend/scripts/migrate_ai_soc_db.py` currently has **zero callers** (not in `docker-compose.yml`, no entrypoint, not in CI). Schema exists today only as a side effect of runtime DDL. Fail-closed persistence (item 18) on top of that = live `/chat` hard-failure in any environment whose migrations were never run, and `0005` constraints (item 18) would never be applied because the runtime path is hardcoded to `0004`.
