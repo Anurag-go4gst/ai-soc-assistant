@@ -28,6 +28,7 @@ _VALID_FAMILIES: frozenset[str] = frozenset(
 from app.chat.query_signals import is_live_data_request
 from app.chat.spl_authoring_intent import is_universal_utility_spl_authoring
 from app.config import settings
+from app.planner.resource_plan_authority import apply_test_resource_plan_shadow_if_allowed
 from app.chat.planning_decision import _apply_completeness_floor
 from app.chat.multi_leg_evidence import compose_multi_leg_evidence
 from app.chat.t2_review_checklist import query_resolves_t2_source_profile
@@ -137,7 +138,7 @@ def plan_evidence(
             query_to_intent=query_to_intent,
             query_understanding=query_understanding,
         )
-        return _attach_resource_plan(
+        return apply_test_resource_plan_shadow_if_allowed(
             enriched,
             intent=intent,
             use_case_id=selected_use_case_id,
@@ -844,51 +845,6 @@ def _merge_pack_list_field(
         return
     current = [str(item) for item in getattr(plan, plan_field, []) or [] if str(item).strip()]
     updates[plan_field] = list(dict.fromkeys([*current, *incoming]))
-
-
-def _attach_resource_plan(
-    plan: EvidencePlan,
-    *,
-    intent: IntentClassification,
-    use_case_id: str | None,
-    query_understanding: Any,
-    routed_skill: str | None = None,
-) -> EvidencePlan:
-    """Production ResourcePlan attachment is owned by plan_evidence_from_canonical only."""
-    from app.planner.composer import compose_resource_plan
-    from app.planner.resource_plan_authority import is_test_compose_allowed
-
-    if not is_test_compose_allowed():
-        return plan
-
-    if (
-        plan.answer_mode == "guided_investigation"
-        and settings.ai_soc_guided_hybrid_investigation_enabled
-    ):
-        return plan
-
-    match_path = getattr(query_understanding, "deterministic_match_path", None)
-    try:
-        composed = compose_resource_plan(
-            plan,
-            intent_family=intent.intent_family,
-            use_case_id=use_case_id or plan.use_case_id,
-            match_path=match_path,
-            skill_id=routed_skill,
-        )
-    except Exception:
-        return plan
-    composed_payload = composed.model_dump()
-    if plan.evidence_legs:
-        provenance = dict(composed_payload.get("provenance") or {})
-        provenance.update(
-            {
-                "evidence_legs": list(plan.evidence_legs),
-                "correlation": dict(plan.correlation or {}),
-            }
-        )
-        composed_payload["provenance"] = provenance
-    return plan.model_copy(update={"resource_plan": composed_payload})
 
 
 def _apply_curated_enrichment(

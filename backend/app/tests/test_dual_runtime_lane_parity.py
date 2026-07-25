@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.chat.canonical_planning_orchestrator import graph_node_lane_and_canonical_planning
+from app.tests.support.canonical_flow import run_canonical_flow
 from app.config import settings
 from app.graph.resource_planner_graph import rp_node_bootstrap
 from app.query_understanding.parser import understand_query
@@ -57,7 +57,6 @@ def _parity_keys(out: dict) -> dict:
     ],
 )
 def test_imperative_vs_rp_bootstrap_parity(query: str, use_case_id: str | None) -> None:
-    state = _base_state(query, use_case_id=use_case_id)
-    direct = graph_node_lane_and_canonical_planning(dict(state))
-    via_rp = rp_node_bootstrap(dict(state))
+    direct = run_canonical_flow(query, use_case_id=use_case_id).state
+    via_rp = rp_node_bootstrap(dict(_base_state(query, use_case_id=use_case_id)))
     assert _parity_keys(direct) == _parity_keys(via_rp)

@@ -117,7 +117,7 @@ def test_finalize_spl_governance_uses_runtime_wrapper(monkeypatch) -> None:
     assert governance.get("allowed_spl_templates") == ["auth_failed_login_spike"]
 
 
-def test_legacy_paths_remain_when_new_flags_off(monkeypatch) -> None:
+def test_canonical_finalize_still_surfaces_spl_governance_when_branch_disabled(monkeypatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_planner_mitre_branch_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_spl_template_governance_enabled", False)
 
@@ -130,6 +130,7 @@ def test_legacy_paths_remain_when_new_flags_off(monkeypatch) -> None:
         evidence_plan={"answer_mode": "rag_only"},
     )
 
-    assert decision is None
-    assert mappings
+    assert mappings == []
+    assert decision is not None
+    assert decision["answer_visible"] is False
     assert chat_pipeline._runtime_spl_governance("auth_failed_login_spike") is not None

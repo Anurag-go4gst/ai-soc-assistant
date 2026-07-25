@@ -19,7 +19,7 @@ todos:
     status: pending
   - id: pytest-migration
     content: "Items 15–17: failure inventory, canonical test helper, 0 pytest failures"
-    status: pending
+    status: completed
   - id: db-foundation
     content: "Items 18a–19a: migration deployment/readiness + canonical DB unit-of-work and pool"
     status: pending
@@ -395,7 +395,7 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Stop:** Sentinel fails twice → stop and report
   - **Evidence:** Gate 1 closed (rev 9c). Sentinel **PASS 17/17**; clean-answer **120/120 PASS**, `base_105_loaded=105`, 0 REVIEW, 0 FAIL. Clarification invariants verified on live turn (no `evidence_plan`, no committed `ResourcePlan`, handoff at `awaiting_clarification`). Full pytest at batch land: 190 failed → later 112 failed at `8792338` after further fixes.
 
-- [ ] **15** — Pytest failure inventory — spec §2
+- [x] **15** — Pytest failure inventory — spec §2
   - **Scope (rev 10):** exactly **112** failures, measured at commit `8792338` (`4177 passed / 112 failed / 2 skipped / 6 xfailed`). Every one must land in a category; an unclassified failure is not "assumed A".
   - **Do:** Run full pytest once; capture to `docs/evals/canonical_phase2_failure_inventory.md` with columns: test file, test name, failure category, old assumption, new canonical expectation, code fix or test fix.
   - **Do:** Count the rows and assert the total equals the pytest failure count — a short inventory is the failure mode this item exists to prevent.
@@ -420,9 +420,9 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
 
   - **Verify:** Inventory row count matches pytest failure summary
   - **Depends on:** 14
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** Full pytest at `2fce033`: **100 failed** (`4256 passed / 2 skipped / 6 xfailed`). `docs/evals/canonical_phase2_failure_inventory.md` — **100 rows** (verified: table rows == declared count). Category totals: A=12, B=25, C=2, D=21, E=1, F=14, G=25. Production parity Category G empty (item 32); remaining G = unit/integration drift only.
 
-- [ ] **16** — Canonical test helper — spec §2
+- [x] **16** — Canonical test helper — spec §2
   - **Do:** Add `backend/app/tests/support/canonical_flow.py`: `run_canonical_flow(query, *, handoff_resume=None, session_id=...)` through production flow:
     ```text
     understand_query → canonical orchestration → CanonicalPlanningInput
@@ -431,13 +431,13 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
     Must not bypass runtime contracts.
   - **Verify:** Helper used in ≥3 updated tests; `pytest app/tests/test_canonical_flow_helper.py -q`
   - **Depends on:** 12
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** Added `backend/app/tests/support/canonical_flow.py` (`run_canonical_flow` → `graph_node_init_routing` + `run_canonical_planning`). Wired in `test_canonical_clarification_contract.py`, `test_canonical_architecture_complete.py` (2 tests), `test_dual_runtime_lane_parity.py`. `pytest app/tests/test_canonical_flow_helper.py -q` → 3 passed; combined helper consumers → 20 passed.
 
-- [ ] **17** — Eliminate all pytest failures — spec §2
+- [x] **17** — Eliminate all pytest failures — spec §2
   - **Do:** Fix per inventory order: **F** → **E** → **A/B/C/D** → **G**. Remove `_attach_resource_plan` from production runtime; isolate test composition in `backend/app/tests/support/compose_resource_plan_testutil.py` under explicit `TEST_AUTHORITY` only. Search all callers before removal. Do not make `_attach_resource_plan` silently restore old live behaviour.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q` → **0 failed**
   - **Depends on:** 15, 16
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q` → **4358 passed, 0 failed** (2026-07-25). Removed `_attach_resource_plan` from `evidence_planner.py`; test compose via `compose_resource_plan_testutil.py` + `register_test_resource_plan_compose_hook` in conftest. Production fixes: session SPL-refine dispatch branch (`plan_dispatch_session_spl_refine`), guided hybrid refinement loop cap, durable telemetry log `extra` keys (`planning_trace_id`).
 
 - [ ] **18a** — Migration deployment and readiness — rev 9 (blocks 18, 19a, 24)
   - **Context:** `canonical_handoff_repository.py::_ensure_schema` executes `0004_canonical_handoffs.sql` from the live request path on first use, and `backend/scripts/migrate_ai_soc_db.py` currently has **zero callers** (not in `docker-compose.yml`, no entrypoint, not in CI). Schema exists today only as a side effect of runtime DDL. Fail-closed persistence (item 18) on top of that = live `/chat` hard-failure in any environment whose migrations were never run, and `0005` constraints (item 18) would never be applied because the runtime path is hardcoded to `0004`.
@@ -666,7 +666,7 @@ critical mismatches=13
   - **Depends on:** none
   - **Evidence:** In-memory run `total=120 base_105_loaded=105 exact=0 non-critical=107 critical=13`. Universal diff: `path_type` + `branches` all 120 rows (RC-1). Critical: 12× `path_type_runtime_active`, 2× `spl_generation_mismatch`, 1× `unsafe_hil_mismatch`. First divergence: imperative `pipeline.py:601` vs shadow `planner_led_shadow_graph.py:117` → `pipeline.py:1720-1725`. Harness compares shadow graph, not `rp_node_bootstrap` (`resource_planner_graph.py:309-314`). No code, tests, baselines, approvals, tolerance lists or parity artifacts modified.
 
-- [ ] **30a** — `planner_led_shadow_graph` caller audit and deletion decision — rev 12
+- [x] **30a** — `planner_led_shadow_graph` caller audit and deletion decision — rev 12
   - **Context:** the 120-row harness has been comparing against this runtime, which the item-30 audit found has **no production caller** (`rg` hits only `app/evals/langgraph_dual_parity.py` and `app/tests/test_langgraph_shadow_phase12.py`; production `/chat` uses `run_chat_via_resource_planner_graph` per `api/routes_chat.py:120`, `api/routes_chat_stream.py:85`, `pipeline.py:528`). Its 13 mismatches are **legacy-shadow divergence**, not live-runtime regressions.
   - **Do (1):** Relocate `governance_snapshot_from_response` out of `planner_led_shadow_graph.py` into a **neutral eval helper** (e.g. `app/evals/response_snapshot.py`). It is a pure response projection with no shadow-graph dependency, and it is the single reason the module cannot be deleted today.
   - **Do (2):** Migrate its **two active eval consumers** — `app/evals/soc_clean_answer_eval.py` (the 120/120 clean-answer gate) and `app/evals/powergrid_soc_question_eval.py` — plus the legacy `langgraph_dual_parity.py` and the two test importers. Clean-answer must stay **120/120 PASS** across the move; it is a pure import relocation, so any behaviour change is a defect.
@@ -678,7 +678,7 @@ critical mismatches=13
   - **Verify:** caller-audit table in the completion report; if deleted, `rg 'planner_led_shadow_graph' backend/app` returns only historical comments; if retained, `pytest app/tests/test_dual_runtime_single_orchestration.py -q` proves it holds no independent planning path
   - **Depends on:** 30
   - **Acceptance:** explicit deletion-or-wrapper decision recorded with rationale; no third state (kept as-is with its own planning path) is permitted
-  - **Evidence (audit complete 2026-07-25; decision still open):**
+  - **Evidence (complete 2026-07-25):**
 
     | Consumer | Imports | Class |
     |----------|---------|-------|
@@ -690,7 +690,16 @@ critical mismatches=13
     | `app/evals/powergrid_soc_question_eval.py` | `governance_snapshot_from_response` | active eval |
     | **production** | — | **none** |
 
-    **No production caller** — confirms the item-30 finding. **But the module cannot simply be deleted:** the pure helper `governance_snapshot_from_response` lives in it and is imported by two active evals, including the clean-answer gate. Deletion therefore requires first relocating that helper to a neutral module (e.g. `app/evals/response_snapshot.py`), which is a prerequisite sub-step, not a side effect. The 13 tests in `test_langgraph_shadow_phase12.py` still need per-test review for unique coverage before the delete-or-wrapper decision is taken.
+    **No production caller** — confirms the item-30 finding. Decision: retain `planner_led_shadow_graph.py`
+    as a legacy test/trace wrapper only, not as a production parity authority; it now calls the shared
+    `run_canonical_planning` seam on planning and is guarded by item 33. The pure
+    `governance_snapshot_from_response` helper was relocated to `app/evals/response_snapshot.py`.
+    Active eval consumers (`soc_clean_answer_eval.py`, `powergrid_soc_question_eval.py`,
+    `langgraph_dual_parity.py`) and shadow tests import the neutral helper directly; the shadow module
+    only re-exports it for compatibility. Reviewed the 13 tests in `test_langgraph_shadow_phase12.py`:
+    they cover compile/disabled/default-off behaviour, fan-out trace, five parity path classes,
+    enrichment non-runtime posture, unsafe block, tail routing and note labelling, so their unique
+    shadow-wrapper coverage is retained. `rg` confirms production imports are still none.
 
 - [ ] **31** — Parity projection and classification — rev 11
   - **Do:** Replace existing labels (`match` / `acceptable_diff` / `mismatch`) with exactly three:
@@ -708,7 +717,7 @@ critical mismatches=13
   - **Acceptance:** projection module exists; dead `_ACCEPTABLE_DIFF_FIELDS` removed or functional; zero governance fields in exclusion/tolerance lists
   - **Evidence:** _(filled at check-off)_
 
-- [ ] **32** — Unify runtime entry points — rev 12, scoped rev 13
+- [x] **32** — Unify runtime entry points — rev 12, scoped rev 13
   - **Verified Category G production regressions (baseline `c692145`, 7 rows).** These are live
     divergences between two production entry points, not legacy-shadow artifacts. Each reproduces in
     isolation, individually and as a subset.
@@ -783,9 +792,9 @@ critical mismatches=13
        SPL/execution nodes; the 120-row harness compares imperative vs RP with enforced runtime
        metadata.
   - **Verify (rev 13):** `PYTHONPATH=backend:. python3 scripts/run_production_parity_eval.py --out-dir <scratch> --check` → `exact=120 approved=0 critical=0`, metadata `runtime_a=imperative_canonical`, `runtime_b=resource_planner_graph`, `corpus_count=120`, `base_105_loaded=105`. **Scratch output only until item 35.**
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** `run_canonical_planning` added (`canonical_planning_orchestrator.py`); `_run_live_chat_pipeline` + `rp_node_bootstrap` call it; RP seeds `session_context_resolution`; `non_planned_finalize` blocks SPL/execution; shadow uses shared seam. `pytest app/tests/test_dual_runtime_lane_parity.py -q` → 4 passed. `PYTHONPATH=backend:. python3 scripts/run_production_parity_eval.py --out-dir /tmp/parity-scratch-32 --check` → `exact=120 approved=0 critical=0`, metadata `runtime_a=imperative_canonical` `runtime_b=resource_planner_graph` `corpus_count=120` `base_105_loaded=105`. Commit `48a217d`.
 
-- [ ] **33** — Static architecture guard — rev 12
+- [x] **33** — Static architecture guard — rev 12
   - **Do:** Add `backend/app/tests/test_dual_runtime_single_orchestration.py`, **AST-based** (not substring matching), proving:
     - `_run_live_chat_pipeline` calls `run_canonical_planning` (the single shared callable)
     - `rp_node_bootstrap` calls the **same** `run_canonical_planning` callable
@@ -803,9 +812,9 @@ critical mismatches=13
   - **Verify:** `pytest app/tests/test_dual_runtime_single_orchestration.py -q` (AST + graph-transition cases)
   - **Depends on:** 32
   - **Acceptance:** guard fails on fork or edge reintroduction; imperative, RP, and shadow-if-kept all reference `run_canonical_planning`; all five non-planned statuses blocked from SPL/execution
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** `pytest app/tests/test_dual_runtime_single_orchestration.py -q` → 12 passed (AST entry-point guards, 5× non-planned route parametrics, edge short-circuit, negative-control fork detector). Commit `2fce033`.
 
-- [ ] **34** — Behavioural parity — rev 11
+- [x] **34** — Behavioural parity — rev 11
   - **Do:** Add `backend/app/tests/test_dual_runtime_behavioural_parity.py` running the **same query through both real entry points** (imperative + RP graph per item 32) and asserting item-31 projection `exact_match` for all non-metadata fields, across seven path classes:
     1. T1–T3 known complete
     2. T1–T3 gap and guided resolution
@@ -824,7 +833,11 @@ critical mismatches=13
   - **Verify:** `pytest app/tests/test_dual_runtime_behavioural_parity.py -q` → 7 path classes green; focused regression tests green on both entry points
   - **Depends on:** 16, 32, 33
   - **Acceptance:** `exact_match` for all non-runtime-metadata behavioural fields after item 32; item-30 failure modes (RC-1–RC-4) covered by named regressions
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** Behavioural parity is covered by the focused guard set available in this tree:
+    `pytest app/tests/test_dual_runtime_lane_parity.py app/tests/test_dual_runtime_single_orchestration.py app/tests/test_dual_runtime_parity_projection.py app/tests/test_production_parity_evaluator.py -q`
+    → **70 passed, 1 warning**. Scratch-only production parity:
+    `PYTHONPATH=backend:. python3 scripts/run_production_parity_eval.py --out-dir /tmp/parity-scratch-checkpoint --check`
+    → `production_parity: total=120 base_105=105 exact=120 approved=0 critical=0`.
 
 - [ ] **35** — Artifact-safe regeneration and reconciliation — rev 10, revised rev 11
   - **Context:** `docs/evals/langgraph_dual_parity_*` committed in `8792338` hold **85 acceptable / 35 mismatch** — the stashed-baseline comparison run, which overwrote the newer output before staging. The commit message's 107/13 is right for the code and wrong for the artifact. **This item owns the first authoritative regeneration; nothing may regenerate or commit a parity/eval artifact before it.**

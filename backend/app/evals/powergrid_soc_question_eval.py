@@ -17,7 +17,7 @@ import httpx
 
 from app.config import settings
 from app.evals.soc_clean_answer_eval import response_record_from_chat
-from app.graph.planner_led_shadow_graph import governance_snapshot_from_response
+from app.evals.response_snapshot import governance_snapshot_from_response
 from app.schemas.responses import PlaceholderResponse
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

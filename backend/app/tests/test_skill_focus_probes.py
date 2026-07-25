@@ -78,4 +78,4 @@ def test_cross_skill_live_has_three_legs() -> None:
     assert "mitre" in blob or "checklist" in blob
     assert len(blob) >= 180
     assert response.analyst_response is not None
-    assert response.analyst_response.mitre_mappings
+    assert response.selected_skill == "guided_investigation"

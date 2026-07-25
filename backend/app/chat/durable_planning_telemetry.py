@@ -128,5 +128,8 @@ def persist_planning_event(payload: dict[str, Any]) -> None:
         _LOGGER.warning(
             "planning_event_persist_failed",
             exc_info=True,
-            extra={"event": correlation.get("event"), "trace_id": correlation.get("trace_id")},
+            extra={
+                "planning_event": correlation.get("event"),
+                "planning_trace_id": correlation.get("trace_id"),
+            },
         )

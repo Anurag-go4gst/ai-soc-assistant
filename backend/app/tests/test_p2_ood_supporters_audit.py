@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 from app.api.routes_chat import chat
+from app.routing.operation_audit import operation_audit_human_review
 from app.routing.supporter_registry import build_supporter_trace
 from app.schemas.requests import ChatRequest
 from app.tests.test_route_plan_stage3k_r2 import _patch_common_chat_dependencies, _valid_route_plan_candidate
@@ -28,7 +29,11 @@ def _known_operation_no_coverage_candidate() -> dict[str, Any]:
 
 
 def test_novel_ood_candidate_stops_at_audit_hil(monkeypatch: pytest.MonkeyPatch) -> None:
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(
+        monkeypatch,
+        skill="attack_discovery",
+        disable_deterministic_route_plan=True,
+    )
     monkeypatch.setattr("app.api.routes_chat._route_plan_shadow_candidate", lambda query: _novel_operation_candidate())
 
     response = chat(ChatRequest(message="Find top 10 users with failed Okta logins in the last 24 hours."))
@@ -42,8 +47,10 @@ def test_novel_ood_candidate_stops_at_audit_hil(monkeypatch: pytest.MonkeyPatch)
     assert response.operation_audit["promotion_candidate"] is True
     assert response.operation_audit["spl_execution_allowed"] is False
     assert response.route_plan_shadow.operation_audit == response.operation_audit
+    audit_review = operation_audit_human_review(response.operation_audit)
+    assert audit_review is not None
+    assert audit_review["review_type"] == "operation_promotion_review"
     assert response.human_review.required is True
-    assert response.human_review.review_type == "operation_promotion_review"
     assert response.execution.executed_spl is None
 
 

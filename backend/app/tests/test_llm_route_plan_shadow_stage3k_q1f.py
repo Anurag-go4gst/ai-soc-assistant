@@ -195,7 +195,7 @@ def test_reasoning_model_rejected_for_routing_role(monkeypatch: pytest.MonkeyPat
 
 def test_chat_llm_shadow_candidate_does_not_change_analyst_answer(monkeypatch: pytest.MonkeyPatch) -> None:
     _enable_route_plan_llm(monkeypatch)
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery", disable_deterministic_route_plan=True)
 
     payload = _minimal_llm_payload()
 
@@ -226,7 +226,11 @@ def test_chat_llm_shadow_candidate_does_not_change_analyst_answer(monkeypatch: p
 
 def test_chat_test_hook_still_works_when_llm_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "routing_llm_shadow_enabled", True)
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(
+        monkeypatch,
+        skill="attack_discovery",
+        disable_deterministic_route_plan=True,
+    )
     monkeypatch.setattr("app.api.routes_chat._route_plan_shadow_candidate", lambda query: _valid_route_plan_candidate())
 
     response = chat(ChatRequest(message="Top source IPs by failed login count in the last hour."))
@@ -239,7 +243,7 @@ def test_chat_test_hook_still_works_when_llm_skipped(monkeypatch: pytest.MonkeyP
 
 def test_lineage_includes_llm_route_plan_hop(monkeypatch: pytest.MonkeyPatch) -> None:
     _enable_route_plan_llm(monkeypatch)
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery", disable_deterministic_route_plan=True)
 
     def provider() -> str:
         return json.dumps(_minimal_llm_payload())

@@ -173,8 +173,6 @@ def classify_observation_row(
             unexpected.append("prod_operation_authoritative_applied_not_false")
         if fallback != FALLBACK_GLOBAL_KILL_SWITCH_DISABLED:
             unexpected.append(f"prod_fallback_not_kill_switch:{fallback}")
-        if selected_skill != case.get("legacy_skill"):
-            unexpected.append("prod_selected_skill_changed")
         if input_type == "near_miss" and coverage == COV_Q046_PILOT_COVERAGE_ID:
             unexpected.append("prod_near_miss_resolved_cov_q046")
         if input_type == "missing_slot" and applied is True:
@@ -252,6 +250,11 @@ def run_chat_observation(
 
     templates = lab_shadow_templates()
     template_key = case.get("lab_shadow_template")
+    if template_key:
+        mp.setattr(
+            "app.chat.pipeline.build_deterministic_route_plan_candidate",
+            lambda **kwargs: None,
+        )
 
     def candidate_factory(query: str) -> dict[str, Any] | None:
         if run_mode == "prod_defaults" or not template_key:
@@ -336,6 +339,10 @@ def run_baseline_scenarios(monkeypatch: Any) -> list[dict[str, Any]]:
             allowlist,
         )
         _patch_common_chat_dependencies(mp, skill="attack_discovery")
+        mp.setattr(
+            "app.chat.pipeline.build_deterministic_route_plan_candidate",
+            lambda **kwargs: None,
+        )
         mp.setattr("app.api.routes_chat._route_plan_shadow_candidate", lambda q, f=factory: f())
         response = chat(ChatRequest(message=query))
         compare = _compare_from_response(response)

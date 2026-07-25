@@ -99,17 +99,9 @@ def test_non_planned_dispatch_is_not_labelled_a_planning_failure() -> None:
 
 
 def _run_canonical(message: str, **extra: Any) -> dict[str, Any]:
-    from app.chat.canonical_planning_orchestrator import graph_node_lane_and_canonical_planning
-    from app.chat.pipeline import graph_node_init_routing
-    from app.schemas.requests import ChatRequest
+    from app.tests.support.canonical_flow import run_canonical_flow
 
-    state: dict[str, Any] = {
-        "request": ChatRequest(message=message),
-        "trace_id": "t-clarify",
-        "session_id": "s-clarify",
-        **extra,
-    }
-    return graph_node_lane_and_canonical_planning(graph_node_init_routing(state))
+    return run_canonical_flow(message, **extra).state
 
 
 @pytest.fixture()

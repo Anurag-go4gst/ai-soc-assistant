@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import contextvars
 from contextlib import contextmanager
-from typing import Iterator
+from collections.abc import Iterator
+from typing import Any, Callable
 
 APPROVED_AUTHORITY = "plan_evidence_from_canonical"
 TEST_AUTHORITY = "test"
@@ -38,3 +39,21 @@ def assert_resource_plan_authority(*, operation: str) -> None:
 
 def is_test_compose_allowed() -> bool:
     return _authority.get() == TEST_AUTHORITY
+
+
+_TestResourcePlanComposeHook = Callable[..., Any]
+_test_resource_plan_compose_hook: _TestResourcePlanComposeHook | None = None
+
+
+def register_test_resource_plan_compose_hook(
+    hook: _TestResourcePlanComposeHook | None,
+) -> None:
+    """Tests only: attach composed ResourcePlan shadows to legacy ``plan_evidence``."""
+    global _test_resource_plan_compose_hook
+    _test_resource_plan_compose_hook = hook
+
+
+def apply_test_resource_plan_shadow_if_allowed(plan: Any, **kwargs: Any) -> Any:
+    if not is_test_compose_allowed() or _test_resource_plan_compose_hook is None:
+        return plan
+    return _test_resource_plan_compose_hook(plan, **kwargs)

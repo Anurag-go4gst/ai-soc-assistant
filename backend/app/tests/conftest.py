@@ -25,10 +25,17 @@ LIVE_LLM_OPT_IN_ENV = "AI_SOC_TESTS_ALLOW_LIVE_LLM"
 
 @pytest.fixture(autouse=True)
 def resource_plan_test_authority() -> Iterator[None]:
-    from app.planner.resource_plan_authority import TEST_AUTHORITY, resource_plan_authority
+    from app.planner.resource_plan_authority import (
+        TEST_AUTHORITY,
+        register_test_resource_plan_compose_hook,
+        resource_plan_authority,
+    )
+    from app.tests.support.compose_resource_plan_testutil import attach_resource_plan_for_tests
 
+    register_test_resource_plan_compose_hook(attach_resource_plan_for_tests)
     with resource_plan_authority(TEST_AUTHORITY):
         yield
+    register_test_resource_plan_compose_hook(None)
 
 
 @pytest.fixture(autouse=True)

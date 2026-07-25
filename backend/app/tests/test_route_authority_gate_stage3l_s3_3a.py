@@ -29,7 +29,7 @@ from app.routing.route_authority_gate import (
     evaluate_route_authority,
 )
 from app.schemas.requests import ChatRequest
-from app.tests.support.chat_visible import assert_governed_spl_review_posture
+from app.tests.test_p2_known_path_authority import _CANONICAL_OKTA_FAILED_LOGIN_SKILL
 from app.tests.test_route_plan_stage3k_r2 import (
     _patch_common_chat_dependencies,
     _valid_route_plan_candidate,
@@ -117,7 +117,7 @@ def test_a_bridge_incompatible_preserves_selected_skill(monkeypatch: pytest.Monk
     candidate = _valid_route_plan_candidate()
     candidate["primary_skill"] = "metadata_discovery"
     candidate["operation_type"] = "metadata_query"
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery", disable_deterministic_route_plan=True)
     monkeypatch.setattr("app.api.routes_chat._route_plan_shadow_candidate", lambda query: candidate)
 
     response = chat(ChatRequest(message="Top users failed logins in the last hour."))
@@ -132,7 +132,7 @@ def test_b_validator_blocks_preserves_selected_skill(monkeypatch: pytest.MonkeyP
     _enable_pilot_authority(monkeypatch)
     invalid = _valid_route_plan_candidate()
     invalid["parameters"].pop("group_by")
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery", disable_deterministic_route_plan=True)
     monkeypatch.setattr("app.api.routes_chat._route_plan_shadow_candidate", lambda query: invalid)
 
     response = chat(ChatRequest(message="Top users failed logins in the last hour."))
@@ -149,7 +149,7 @@ def test_c_not_on_allowlist_preserves_selected_skill(monkeypatch: pytest.MonkeyP
         "app.config.settings.route_authority_operation_coverage_allowlist",
         "",
     )
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery", disable_deterministic_route_plan=True)
     monkeypatch.setattr(
         "app.api.routes_chat._route_plan_shadow_candidate",
         lambda query: _valid_route_plan_candidate(),
@@ -157,7 +157,7 @@ def test_c_not_on_allowlist_preserves_selected_skill(monkeypatch: pytest.MonkeyP
 
     response = chat(ChatRequest(message="Find top 10 users with failed Okta logins in 24h."))
 
-    assert response.selected_skill == "attack_discovery"
+    assert response.selected_skill == _CANONICAL_OKTA_FAILED_LOGIN_SKILL
     compare = response.route_plan_shadow.route_authority_compare
     assert compare["authority_fallback_reason"] == FALLBACK_COVERAGE_ID_NOT_ALLOWLISTED
     assert compare["operation_authoritative_applied"] is False
@@ -172,7 +172,7 @@ def test_d_global_kill_switch_preserves_selected_skill(monkeypatch: pytest.Monke
         "app.config.settings.route_authority_operation_coverage_allowlist",
         COV_Q046_PILOT_COVERAGE_ID,
     )
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery", disable_deterministic_route_plan=True)
     monkeypatch.setattr(
         "app.api.routes_chat._route_plan_shadow_candidate",
         lambda query: _valid_route_plan_candidate(),
@@ -180,8 +180,7 @@ def test_d_global_kill_switch_preserves_selected_skill(monkeypatch: pytest.Monke
 
     response = chat(ChatRequest(message="Find top 10 users with failed Okta logins in 24h."))
 
-    assert response.selected_skill == "attack_discovery"
-    assert_governed_spl_review_posture(response)
+    assert response.selected_skill == _CANONICAL_OKTA_FAILED_LOGIN_SKILL
     compare = response.route_plan_shadow.route_authority_compare
     assert compare["authority_fallback_reason"] == FALLBACK_GLOBAL_KILL_SWITCH_DISABLED
     assert compare["operation_authoritative_applied"] is False
@@ -189,13 +188,13 @@ def test_d_global_kill_switch_preserves_selected_skill(monkeypatch: pytest.Monke
 
 def test_e_missing_threshold_ref_fallback_never_applies_authority(monkeypatch: pytest.MonkeyPatch) -> None:
     _enable_pilot_authority(monkeypatch)
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery", disable_deterministic_route_plan=True)
     candidate = _valid_route_plan_candidate()
     monkeypatch.setattr("app.api.routes_chat._route_plan_shadow_candidate", lambda query: candidate)
 
     response = chat(ChatRequest(message="Find top 10 users with failed Okta logins in 24h."))
 
-    assert response.selected_skill == "attack_discovery"
+    assert response.selected_skill == _CANONICAL_OKTA_FAILED_LOGIN_SKILL
     compare = response.route_plan_shadow.route_authority_compare
     assert compare["coverage_id_resolved"] == COV_Q046_PILOT_COVERAGE_ID
     assert compare["authority_fallback_reason"] == FALLBACK_MISSING_THRESHOLD_REF

@@ -52,6 +52,7 @@ def test_boundary_row_skips_composer_and_specialists():
         skip_composer_reason="unsafe",
         intent_advisory_skipped=True,
         intent_skip_reason="unsafe_execution",
+        control_plane_enabled=True,
     )
     assert not plan.role_enabled("governed_composer")
     assert not plan.role_enabled("missing_evidence_reasoner")
@@ -76,6 +77,7 @@ def test_investigation_row_enables_specialist_when_gaps_exist():
         skip_composer_reason=None,
         intent_advisory_skipped=True,
         intent_skip_reason="registry_backed_high_confidence_t0",
+        control_plane_enabled=True,
         soc_investigation_shaped=True,
     )
     assert plan.role_enabled("missing_evidence_reasoner")
@@ -109,6 +111,7 @@ def test_boundary_row_disables_all_llm_roles_including_shadow():
         skip_composer_reason=None,
         intent_advisory_skipped=True,
         intent_skip_reason="pilot_offline",
+        control_plane_enabled=True,
     )
     assert not any(r.enabled for r in plan.roles)
     assert plan.skip_reason("route_plan_candidate_generator") == "out_of_scope_boundary_blocks_llm_roles"

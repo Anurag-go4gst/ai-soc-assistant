@@ -204,10 +204,17 @@ def test_resource_planner_firewall_skips_intent_advisor_when_guided_llm_on(monke
         response = run_chat_via_resource_planner_graph(ChatRequest(message=_FIREWALL_COORDINATED_QUERY))
 
     trace = response.control_plane_trace or {}
+    advisory_trace = trace.get("llm_advisory_trace") or {}
     scheduling = (trace.get("query_to_intent") or {}).get("llm_intent_advisory") or {}
     if isinstance(scheduling, dict):
         sched_trace = scheduling.get("scheduling_trace") or {}
-        assert sched_trace.get("intent_advisor_skip_policy") in {
+        skip_policy = sched_trace.get("intent_advisor_skip_policy")
+    else:
+        skip_policy = advisory_trace.get("intent_advisor_skip_policy")
+    if skip_policy is not None:
+        assert skip_policy in {
             "guided_route_locked_skip_intent_advisor",
             "guided_hunt_deterministic_routing",
         }
+    else:
+        assert advisory_trace.get("llm_called") is False

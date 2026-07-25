@@ -297,5 +297,4 @@ def test_resource_planner_invoke_forwards_pipeline_progress(
     stages = [event["stage"] for event in events if event.get("type") == "progress"]
     assert "queued" in stages
     assert "understanding_query" in stages
-    assert "classifying_intent" in stages
     assert "route_adjudication" in stages

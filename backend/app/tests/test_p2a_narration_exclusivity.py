@@ -37,9 +37,9 @@ def test_cp_on_still_allows_lab_narration_when_flags_enabled(monkeypatch: pytest
     narrate.assert_called_once()
 
 
-def test_cp_off_allows_lab_narration_when_client_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_lab_runner_and_composer_can_both_be_enabled_under_canonical(monkeypatch: pytest.MonkeyPatch) -> None:
     _enable_synthesis(monkeypatch)
-    assert composer_is_enabled() is False
+    assert composer_is_enabled() is True
 
     narrate = MagicMock(return_value=(None, False))
     monkeypatch.setattr("app.synthesis.lab_runner._narrate_with_progress_and_timeout", narrate)

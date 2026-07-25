@@ -179,7 +179,7 @@ def test_collected_evidence_count_from_rag_retrieval() -> None:
     assert contract.source_evidence_available is True
 
 
-def test_cp_off_uses_routing_resolution_not_adjudication(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_canonical_route_contract_prefers_adjudication_final_route(monkeypatch: pytest.MonkeyPatch) -> None:
     state = _base_pipeline_state(_SUBSTATION_QUERY)
     state["route_adjudication"] = {
         **state["route_adjudication"],
@@ -192,7 +192,8 @@ def test_cp_off_uses_routing_resolution_not_adjudication(monkeypatch: pytest.Mon
         "skill_resolution": "legacy_selected_skill",
     }
     route = build_route_contract(state)
-    assert route.canonical_skill == "spl_generation"
+    assert route.canonical_skill == "knowledge_recall"
+    assert route.adjudication_authority_source == "intent_clarification"
 
 
 def test_cp_on_prefers_adjudication_final_route(monkeypatch: pytest.MonkeyPatch) -> None:

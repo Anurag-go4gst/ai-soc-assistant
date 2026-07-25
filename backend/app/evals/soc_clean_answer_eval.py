@@ -17,7 +17,7 @@ from app.chat.final_answer_validator import validate_final_answer
 from app.chat.pipeline import build_live_chat_response
 from app.config import settings
 from app.coverage.question_runtime_map import list_question_runtime_entries
-from app.graph.planner_led_shadow_graph import governance_snapshot_from_response
+from app.evals.response_snapshot import governance_snapshot_from_response
 from app.schemas.requests import ChatRequest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

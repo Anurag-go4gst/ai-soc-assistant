@@ -20,6 +20,7 @@ from app.chat.canonical_handoff_store import (
 from app.chat.canonical_handoff_builder import build_canonical_planning_input
 from app.chat.canonical_mode import is_canonical_authoritative
 from app.chat.canonical_planning_orchestrator import graph_node_lane_and_canonical_planning
+from app.tests.support.canonical_flow import run_canonical_flow
 from app.chat.contracts.knowledge_recall import KnowledgeRecallResult
 from app.chat.decision_record import decision_log_for_trace
 from app.chat.guided_detail_resolution import run_guided_detail_resolution
@@ -62,8 +63,13 @@ def _state(query: str, *, use_case_id: str | None = None, handoff_resume: dict |
 
 
 def test_t1_t3_complete_no_classifier_no_guided() -> None:
-    query = "Investigate failed login spike for user:alice host:APP-01 from 10.0.0.8 in the last 24 hours"
-    out = graph_node_lane_and_canonical_planning(_state(query, use_case_id="auth_failed_login_spike"))
+    result = run_canonical_flow(
+        "Investigate failed login spike for user:alice host:APP-01 from 10.0.0.8 in the last 24 hours",
+        use_case_id="auth_failed_login_spike",
+        trace_id="trace-canonical-e2e",
+    )
+    out = result.state
+    assert result.outcome is not None and result.outcome.status == "planned"
     assert out["processing_lane"] == "known"
     assert out["intent_classification"]["llm_intent_status"] == "skipped"
     assert out.get("gap_resolution") is None
@@ -85,7 +91,9 @@ def test_t1_t3_incomplete_preserves_original_skill() -> None:
 
 
 def test_t4_to_t0_knowledge_plan() -> None:
-    out = graph_node_lane_and_canonical_planning(_state("What is CVE-2026-12345?"))
+    result = run_canonical_flow("What is CVE-2026-12345?", trace_id="trace-canonical-e2e")
+    out = result.state
+    assert result.outcome is not None and result.outcome.status == "planned"
     assert out["initial_tier"] == "T4"
     assert out["resolved_tier"] == "T0"
     assert out["processing_lane"] == "knowledge_short_circuit"

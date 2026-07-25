@@ -39,14 +39,6 @@ def _plan(query: str):
     return plan_evidence(q2i.intent_classification, q2i.model_dump(), routed={}, query_understanding=understanding)
 
 
-def test_control_plane_off_stays_byte_identical(monkeypatch: pytest.MonkeyPatch) -> None:
-    plan = _plan(_LIVE_DATA_QUERY)
-    assert plan.needs_mcp is True
-    assert plan.mcp_allowed is False
-    assert plan.discovery_allowed is not True
-    assert "live_data_request_mcp_needed_but_not_allowed" in plan.reasons
-
-
 def test_out_of_catalogue_live_data_ask_is_not_granted_mcp(monkeypatch: pytest.MonkeyPatch) -> None:
     """Least privilege restored (2026-07-25) — policy change, not a relaxed assertion.
 

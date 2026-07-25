@@ -47,7 +47,7 @@ def test_resource_planner_governance_nodes_are_reachable() -> None:
     for name in GOVERNANCE_NODE_NAMES:
         assert inbound[name], f"{name} has no inbound edges"
     assert inbound["validate_final_answer"] == {"finalize"}
-    assert inbound["finalize"] == {"policy_veto"}
+    assert inbound["finalize"] == {"policy_veto", "non_planned_finalize"}
 
 
 def test_resource_planner_validate_final_answer_node_invokes_validator(

@@ -456,6 +456,9 @@ class ChatPipelineState(TypedDict, total=False):
     handoff_resume: dict[str, Any] | None
     pending_handoff_id: str | None
     pending_handoff_version: int | None
+    # Test harness only — allows legacy graph_node_evidence_planning on first entry
+    # when canonical mode is authoritative (see graph_node_evidence_planning guard).
+    legacy_langgraph_harness: bool
     response: PlaceholderResponse
 
 
@@ -602,11 +605,17 @@ def _run_live_chat_pipeline(
     if not _uses_guided_hybrid_dispatch(state):
         state = _timed_node(state, "discovery_loop", _run_discovery_loop_imperative)
     state = _timed_node(state, "shadow_tail", graph_node_shadow_tail)
-    if _uses_guided_hybrid_dispatch(state) and not _session_spl_refine_active(state):
+    if _session_spl_refine_active(state):
+        state = _timed_node(
+            state,
+            "plan_dispatch_session_spl_refine",
+            lambda s: _run_legacy_dispatch_fallback(s, dispatch_source="session_spl_refine"),
+        )
+    elif _uses_guided_hybrid_dispatch(state):
         state = _timed_node(state, "guided_hybrid_dispatch", _run_guided_hybrid_dispatch)
-    elif has_composed_plan(state) and not _session_spl_refine_active(state):
+    elif has_composed_plan(state):
         state = _timed_node(state, "plan_dispatch", lambda s: execute_plan_dispatch(s, _dispatch_hooks()))
-    elif not _session_spl_refine_active(state):
+    else:
         from app.chat.canonical_mode import (
             build_canonical_failure_state,
             build_non_planned_dispatch_state,
@@ -1714,7 +1723,11 @@ def _graph_node_planning_decision_from_canonical(state: ChatPipelineState) -> Ch
 def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
     from app.chat.canonical_mode import build_canonical_failure_state, is_canonical_authoritative
 
-    if is_canonical_authoritative() and not loop_initialized(state):
+    if (
+        is_canonical_authoritative()
+        and not loop_initialized(state)
+        and not state.get("legacy_langgraph_harness")
+    ):
         return build_canonical_failure_state(
             state,
             outcome="planning_failed",
@@ -5801,10 +5814,10 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
     query = state.get("effective_query") or request.message
     evidence_payload = dict(_evidence_plan(state))
     evidence = EvidencePlan.model_validate(evidence_payload)
-    validated_resource, failure_state = load_committed_guided_resource_plan(state, evidence_payload)
+    committed_resource, failure_state = load_committed_guided_resource_plan(state, evidence_payload)
     if failure_state is not None:
         return failure_state
-    assert validated_resource is not None
+    assert committed_resource is not None
 
     dispatch_steps = ["committed_resource_plan"]
     refinement_rounds: list[int] = []
@@ -5812,7 +5825,7 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
     validated_plan: InvestigationPlan | None = None
     pre_plan = None
     validation = None
-    validated_resource = None
+    validated_resource: ResourcePlan | None = committed_resource
     llm_result = None
     refinement_round = 0
 
@@ -5907,7 +5920,6 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
         refinement_round += 1
         if refinement_round >= MAX_GUIDED_INVESTIGATION_ROUNDS:
             break
-        break
 
     dispatch_steps.append("rag_early")
     collected_count = count_collected_guided_hops(

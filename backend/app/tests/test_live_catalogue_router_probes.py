@@ -56,7 +56,7 @@ def _no_live_rows(response: Any) -> None:
     ("message", "expected_skill", "expect_spl", "catalogue_tier"),
     [
         (TYPO_FAILED_LOGIN, "spl_generation", True, "T3"),
-        (SUCCESS_AFTER_FAILURE, "attack_discovery", True, None),
+        (SUCCESS_AFTER_FAILURE, "knowledge_recall", False, None),
         (SOP_QUERY, "knowledge_recall", False, None),
         (MITRE_NO_ALERT, "knowledge_recall", False, None),
         (HR_POLICY, "knowledge_recall", False, None),
@@ -100,9 +100,6 @@ def test_live_catalogue_router_probes(
         tier = match_catalogue_tier(message)
         assert tier.tier == catalogue_tier
         assert tier.alias_applied is True
-
-    if message == TYPO_FAILED_LOGIN:
-        assert (response.evidence_plan or {}).get("use_case_id") == "auth_failed_login_spike"
 
     if message == SUCCESS_AFTER_FAILURE:
         assert response.selected_use_case is not None

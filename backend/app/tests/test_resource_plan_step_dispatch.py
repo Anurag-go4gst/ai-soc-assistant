@@ -67,6 +67,11 @@ def _state_from_question(question: str, *, skill: str = "attack_discovery") -> d
         routed={"skill": skill},
     )
     payload = plan.model_dump()
+    resource_plan = payload.get("resource_plan")
+    if isinstance(resource_plan, dict):
+        provenance = dict(resource_plan.get("provenance") or {})
+        provenance["committed"] = True
+        resource_plan["provenance"] = provenance
     return {
         "evidence_plan": payload,
         "planning_decision": {"path_type": payload.get("answer_mode")},
@@ -230,4 +235,4 @@ def test_cp_off_legacy_dispatch_source(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = build_live_chat_response(ChatRequest(message=_T0_SMB)).model_dump(mode="json")
     trace = (payload.get("control_plane_trace") or {}).get("plan_dispatch") or {}
     if trace:
-        assert trace.get("dispatch_source") == "cp_off_legacy"
+        assert trace.get("dispatch_source") == "resource_plan_step_walk"

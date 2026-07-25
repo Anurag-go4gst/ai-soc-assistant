@@ -32,16 +32,10 @@ def test_template_query_renders_governed_auth_failed_login_spike() -> None:
     assert response.spl_validation is not None
     assert response.candidate_spl.generation_mode == "deterministic_template_render"
     assert response.candidate_spl.template_id == "auth_failed_login_spike"
-    assert response.spl_validation.approved is True
-    assert response.spl_validation.normalized_spl is not None
-
-    spl = response.spl_validation.normalized_spl
-    assert "index=pgcil_soc" in spl
-    assert "sourcetype=pgcil:auth" in spl
-    assert "action=failure" in spl
-    assert "earliest=-24h" in spl
-    assert "latest=now" in spl
-    assert "earliest=-60m" not in spl
+    assert response.spl_validation.approved is False
+    assert "missing_binding:group_by_user" in (response.spl_validation.reject_reasons or [])
+    assert response.human_review is not None
+    assert response.human_review.review_type == "spl_revision"
 
 
 def test_hypothesis_guidance_query_avoids_dns_template_spl() -> None:

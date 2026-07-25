@@ -76,6 +76,7 @@ def test_client_supplied_session_id_is_length_bounded() -> None:
 
 def test_persist_failure_does_not_populate_fixture_store(monkeypatch: pytest.MonkeyPatch) -> None:
     """A live write failure logs; it must not fall back into the fixture store."""
+    telemetry.clear_persisted_events_for_tests()
     telemetry.use_test_event_store(False)
     monkeypatch.setattr(telemetry, "_disabled", lambda: False)
 

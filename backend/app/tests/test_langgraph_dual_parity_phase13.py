@@ -24,7 +24,7 @@ from app.evals.langgraph_dual_parity import (
     validate_check_report,
     write_dual_parity_outputs,
 )
-from app.graph.planner_led_shadow_graph import governance_snapshot_from_response
+from app.evals.response_snapshot import governance_snapshot_from_response
 from app.schemas.requests import ChatRequest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

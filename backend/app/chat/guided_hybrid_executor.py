@@ -13,7 +13,7 @@ from app.chat.guided_hybrid_dispatch import (
     investigation_plan_from_committed_resource_plan,
     validate_committed_plan_handoff,
 )
-from app.chat.guided_resource_plan_validator import validate_guided_resource_plan
+from app.chat.guided_capability_validator import validate_guided_resource_plan
 from app.planner.resource_plan import ResourcePlan
 
 

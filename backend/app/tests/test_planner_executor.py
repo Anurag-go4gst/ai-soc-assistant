@@ -20,7 +20,11 @@ def _state_with_plan(steps: list[dict[str, Any]], **extra: Any) -> dict[str, Any
     return {
         "evidence_plan": {
             "answer_mode": "live_investigation",
-            "resource_plan": {"plan_source": "deterministic", "steps": steps, "provenance": {}},
+            "resource_plan": {
+                "plan_source": "deterministic",
+                "steps": steps,
+                "provenance": {"committed": True},
+            },
         },
         **extra,
     }
@@ -81,15 +85,14 @@ def test_execute_plan_dispatch_does_not_use_guided_trace_hook_names(
 
     monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", True)
     calls: list[str] = []
-    state = {
-        "planning_decision": {"path_type": "guided_investigation"},
-        "evidence_plan": {
-            "answer_mode": "guided_investigation",
-            "investigation_planning_enabled": True,
-            "needs_rag": True,
-            "rag_phase": "rag_only",
-        },
-    }
+    state = _state_with_plan(
+        [{"step_id": "rag", "resource_id": "rag_corpus:soc_kb", "purpose": "knowledge_retrieval"}],
+        planning_decision={"path_type": "guided_investigation"},
+    )
+    state["evidence_plan"]["answer_mode"] = "guided_investigation"
+    state["evidence_plan"]["investigation_planning_enabled"] = True
+    state["evidence_plan"]["needs_rag"] = True
+    state["evidence_plan"]["rag_phase"] = "rag_only"
     result = execute_plan_dispatch(state, _hooks(calls, rag_only=True))
     schedule = (result.get("plan_dispatch_trace") or {}).get("dispatch_schedule") or []
     assert "guided_baseline" not in schedule

@@ -67,7 +67,11 @@ def test_cp_on_run_terminates_and_surfaces_loop_trace(monkeypatch: pytest.Monkey
 
 def test_cp_on_loop_state_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
     final_state = _compiled_chat_graph_cp().invoke(
-        {"request": ChatRequest(message=QUERY), "session_role": None},
+        {
+            "request": ChatRequest(message=QUERY),
+            "session_role": None,
+            "legacy_langgraph_harness": True,
+        },
         {"recursion_limit": MAX_MCP_HOPS * 2 + 30},
     )
     assert int(final_state.get("mcp_hops_done", 0)) <= MAX_MCP_HOPS
@@ -127,6 +131,7 @@ def test_cp_on_recipe_driven_turn_runs_through_real_langgraph_path(monkeypatch: 
             "request": ChatRequest(message=QUERY),
             "session_role": None,
             "mcp_recipe_id": "hunt_baseline",
+            "legacy_langgraph_harness": True,
         },
         {"recursion_limit": MAX_MCP_HOPS * 2 + 30},
     )
@@ -148,6 +153,7 @@ def test_debug_trace_surfaces_mcp_calls_for_recipe_driven_turn(monkeypatch: pyte
             "request": ChatRequest(message=QUERY),
             "session_role": None,
             "mcp_recipe_id": "hunt_baseline",
+            "legacy_langgraph_harness": True,
         },
         {"recursion_limit": MAX_MCP_HOPS * 2 + 30},
     )
