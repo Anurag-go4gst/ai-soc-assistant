@@ -97,6 +97,26 @@ def _merge_user_clarification(
     return canonical
 
 
+def run_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:
+    """Single shared canonical planning seam for imperative and RP entry points.
+
+    Owns lane routing, completeness, intent classification, canonical planning,
+    route resolution, and planning_decision projection. Both production runtimes
+    must call this callable — not a duplicated node sequence.
+    """
+    state = graph_node_lane_and_canonical_planning(state)
+    from app.chat.pipeline import (  # circular: pipeline state nodes
+        _graph_node_planning_decision_from_canonical,
+        graph_node_route_contract,
+        graph_node_route_resolution,
+    )
+
+    state = graph_node_route_resolution(state)
+    state = graph_node_route_contract(state)
+    state = _graph_node_planning_decision_from_canonical(state)
+    return state
+
+
 def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:
     """Lane router → completeness/guided resolution → canonical handoff → final planner."""
     request = state["request"]

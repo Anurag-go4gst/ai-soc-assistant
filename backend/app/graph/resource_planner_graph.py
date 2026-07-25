@@ -23,24 +23,20 @@ from app.chat.decision_record import emit_decision_record
 from app.chat.final_answer_validator import validate_final_answer
 from app.chat.pipeline import (
     ChatPipelineState,
-    _graph_node_planning_decision_from_canonical,
     build_rp_degraded_placeholder_response,
     finalize_chat_trace_from_state,
     graph_node_composed_dispatch,
     graph_node_context_finalize,
-    graph_node_evidence_planning,
     graph_node_execution,
     graph_node_init_routing,
     graph_node_prepare_rag_only,
-    graph_node_query_to_intent,
     graph_node_rag_early,
-    graph_node_route_contract,
-    graph_node_route_resolution,
     graph_node_shadow_enrichment,
     graph_node_shadow_tail,
     graph_node_spl_source_resolve,
     graph_node_workflow_spl,
 )
+from app.chat.session_context import resolve_session_context
 from app.config import settings
 from app.chat.progress_context import bind_progress_reporter, emit_stage, reset_progress_reporter
 from app.chat.progress_events import ProgressReporter
@@ -80,7 +76,7 @@ GOVERNANCE_NODE_NAMES: tuple[str, ...] = (
     "finalize",
 )
 
-DispatchRoute = Literal["rag_only", "composed_dispatch", "workflow_spl"]
+DispatchRoute = Literal["rag_only", "composed_dispatch", "workflow_spl", "non_planned_finalize"]
 AfterWorkflowSpl = Literal["rag_early", "spl_source_resolve"]
 AfterRagEarly = Literal["governance_entry", "spl_source_resolve"]
 
@@ -308,13 +304,9 @@ def _apply_work_bundle_to_workers(state: ResourcePlannerGraphState) -> ResourceP
 
 def rp_node_bootstrap(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
     state = graph_node_init_routing(state)
-    if True:
-        from app.chat.canonical_planning_orchestrator import graph_node_lane_and_canonical_planning
+    from app.chat.canonical_planning_orchestrator import run_canonical_planning
 
-        state = graph_node_lane_and_canonical_planning(state)
-    else:
-        state = graph_node_query_to_intent(state)
-        state = graph_node_evidence_planning(state)
+    state = run_canonical_planning(state)
     state = _with_trace(state, "bootstrap")
     return _record(
         state,
@@ -327,11 +319,7 @@ def rp_node_bootstrap(state: ResourcePlannerGraphState) -> ResourcePlannerGraphS
 
 
 def rp_node_route_resolution(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
-    state = graph_node_route_resolution(state)
-    state = graph_node_route_contract(state)
     state = graph_node_shadow_tail(state)
-    if True:
-        state = _graph_node_planning_decision_from_canonical(state)
     state = _with_trace(state, "route_resolution")
     return _record(
         state,
@@ -467,12 +455,35 @@ def rp_node_resource_planner_merge(state: ResourcePlannerGraphState) -> Resource
 
 
 def _rp_dispatch_route(state: ResourcePlannerGraphState) -> DispatchRoute:
+    from app.chat.contracts.canonical_planning_outcome import outcome_from_state
+
+    canonical_outcome = outcome_from_state(state)
+    if canonical_outcome is not None and canonical_outcome.status != "planned":
+        return "non_planned_finalize"
     plan = _evidence_plan(state)
     if plan.get("answer_mode") == "rag_only":
         return "rag_only"
     if has_composed_plan(state):
         return "composed_dispatch"
     return "workflow_spl"
+
+
+def rp_node_non_planned_finalize(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
+    from app.chat.canonical_mode import build_non_planned_dispatch_state
+    from app.chat.contracts.canonical_planning_outcome import outcome_from_state
+
+    canonical_outcome = outcome_from_state(state)
+    if canonical_outcome is not None and canonical_outcome.status != "planned":
+        state = build_non_planned_dispatch_state(state, status=canonical_outcome.status)
+    state = _with_trace(state, "non_planned_finalize")
+    return _record(
+        state,
+        node="non_planned_finalize",
+        reason="canonical_non_planned_short_circuit",
+        inputs_ref=["canonical_planning_outcome"],
+        outputs_ref=["plan_dispatch_trace"],
+        authority="deterministic",
+    )
 
 
 def _rp_after_workflow_spl(state: ResourcePlannerGraphState) -> AfterWorkflowSpl:
@@ -782,6 +793,7 @@ def _compiled_resource_planner_graph() -> Any:
     graph.add_node("rag_early", rp_node_rag_early)
     graph.add_node("composed_dispatch", rp_node_composed_dispatch)
     graph.add_node("workflow_spl", rp_node_workflow_spl)
+    graph.add_node("non_planned_finalize", rp_node_non_planned_finalize)
     graph.add_node("spl_source_resolve", rp_node_spl_source_resolve)
     for node_name in GOVERNANCE_NODE_NAMES:
         graph.add_node(node_name, globals()[f"rp_node_{node_name}"])
@@ -799,8 +811,10 @@ def _compiled_resource_planner_graph() -> Any:
             "rag_only": "prepare_rag_only",
             "composed_dispatch": "composed_dispatch",
             "workflow_spl": "workflow_spl",
+            "non_planned_finalize": "non_planned_finalize",
         },
     )
+    graph.add_edge("non_planned_finalize", "finalize")
     graph.add_edge("prepare_rag_only", "rag_early")
     graph.add_conditional_edges(
         "rag_early",
@@ -824,10 +838,18 @@ def run_resource_planner_graph(
     session_role: str | None = None,
 ) -> ResourcePlannerGraphState:
     """Execute the RP hierarchy graph."""
+    session_resolution = resolve_session_context(request)
+    initial_state: ResourcePlannerGraphState = {
+        "request": request,
+        "session_role": session_role,
+        "session_id": session_resolution.session_id,
+        "session_pins": session_resolution.pins,
+        "session_context_resolution": session_resolution,
+        "effective_query": session_resolution.effective_query,
+        "handoff_resume": session_resolution.handoff_resume,
+    }
     with _rp_graph_invoke_scope():
-        return _compiled_resource_planner_graph().invoke(
-            {"request": request, "session_role": session_role},
-        )
+        return _compiled_resource_planner_graph().invoke(initial_state)
 
 
 def run_chat_via_resource_planner_graph(

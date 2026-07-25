@@ -596,12 +596,9 @@ def _run_live_chat_pipeline(
         state = _timed_node(state, "route_live_skill", graph_node_route_live_skill)
         state = _timed_node(state, "resolve_planning_skill", graph_node_resolve_planning_skill)
         state = _timed_node(state, "load_skill_enrichment", graph_node_load_skill_enrichment)
-    from app.chat.canonical_planning_orchestrator import graph_node_lane_and_canonical_planning
+    from app.chat.canonical_planning_orchestrator import run_canonical_planning
 
-    state = _timed_node(state, "lane_and_canonical_planning", graph_node_lane_and_canonical_planning)
-    state = _timed_node(state, "route_resolution", graph_node_route_resolution)
-    state = _timed_node(state, "route_contract", graph_node_route_contract)
-    state = _timed_node(state, "planning_decision_from_canonical", _graph_node_planning_decision_from_canonical)
+    state = _timed_node(state, "canonical_planning", run_canonical_planning)
     if not _uses_guided_hybrid_dispatch(state):
         state = _timed_node(state, "discovery_loop", _run_discovery_loop_imperative)
     state = _timed_node(state, "shadow_tail", graph_node_shadow_tail)

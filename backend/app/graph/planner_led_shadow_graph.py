@@ -19,7 +19,6 @@ from app.chat.mitre_branch import run_mitre_evidence_branch
 from app.chat.pipeline import (
     ChatPipelineState,
     graph_node_context_finalize,
-    graph_node_evidence_planning,
     graph_node_execution,
     graph_node_init_routing,
     graph_node_prepare_rag_only,
@@ -114,7 +113,9 @@ def shadow_node_query_understanding(state: PlannerLedShadowState) -> PlannerLedS
 
 
 def shadow_node_planning(state: PlannerLedShadowState) -> PlannerLedShadowState:
-    state = graph_node_evidence_planning(state)
+    from app.chat.canonical_planning_orchestrator import run_canonical_planning
+
+    state = run_canonical_planning(state)
     trace = _trace_append(state, "planning")
     planning = _planning(state)
     trace["path_type"] = planning.get("path_type")
@@ -384,7 +385,18 @@ def run_planner_led_shadow_graph(request: ChatRequest) -> PlannerLedShadowState:
     """Execute the Phase 12 shadow topology (tests/trace only by default)."""
     if not settings.ai_soc_langgraph_shadow_enabled:
         raise RuntimeError("planner_led_shadow_graph_disabled")
-    return _compiled_planner_led_shadow_graph().invoke({"request": request})
+    from app.chat.session_context import resolve_session_context
+
+    session_resolution = resolve_session_context(request)
+    initial_state: PlannerLedShadowState = {
+        "request": request,
+        "session_id": session_resolution.session_id,
+        "session_pins": session_resolution.pins,
+        "session_context_resolution": session_resolution,
+        "effective_query": session_resolution.effective_query,
+        "handoff_resume": session_resolution.handoff_resume,
+    }
+    return _compiled_planner_led_shadow_graph().invoke(initial_state)
 
 
 def shadow_graph_response(state: PlannerLedShadowState) -> PlaceholderResponse:
