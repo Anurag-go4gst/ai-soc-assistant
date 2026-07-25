@@ -923,10 +923,11 @@ def _documented_resource_planner_edges() -> set[tuple[str, str]]:
     }
     for node in _SPECIALIST_NODE_NAMES:
         edges.add((node, "resource_planner_merge"))
-    for target in ("prepare_rag_only", "composed_dispatch", "workflow_spl"):
+    for target in ("prepare_rag_only", "composed_dispatch", "workflow_spl", "non_planned_finalize"):
         edges.add(("resource_planner_merge", target))
     edges.update(
         {
+            ("non_planned_finalize", "finalize"),
             ("prepare_rag_only", "rag_early"),
             ("composed_dispatch", "spl_validate"),
             ("workflow_spl", "rag_early"),
