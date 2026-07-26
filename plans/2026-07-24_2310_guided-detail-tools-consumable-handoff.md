@@ -1,8 +1,8 @@
 ---
-name: Guided detail tools — canonical planning architecture
-overview: "T0–T4 canonical planning is the sole runtime architecture. Phase 1 delivered contracts, lane routing, DetailTools, and always-on pipeline wiring. Phase 2 closes cutover gaps: typed planning outcomes, a deployed migration path, a canonical DB unit-of-work, DB-only handoffs, execution idempotency, durable telemetry with typed correlation and an audit-critical/diagnostic split, outcome-aware response validation, Experience Center purity, retention/purge, containerised live smoke, and full pytest/governance green — no feature flags, legacy fallbacks, runtime DDL, or live memory/file handoff stores."
-status: active
-date: 2026-07-26
+name: Guided detail tools — canonical planning architecture (Done)
+overview: "T0–T4 canonical planning is the sole runtime architecture. Phase 1 delivered contracts, lane routing, DetailTools, and always-on pipeline wiring. Phase 2 closed cutover gaps: typed planning outcomes, deployed migrations, canonical DB unit-of-work, DB-only handoffs, execution idempotency, durable telemetry with typed correlation and audit-critical/diagnostic split, outcome-aware response validation, Experience Center purity, retention/purge, containerised live smoke (6/6), and full pytest/governance green — no feature flags, legacy fallbacks, runtime DDL, or live memory/file handoff stores. Checklist 41/41 complete."
+status: done
+date: 2026-07-27
 canonical_plan: plans/2026-07-24_2310_guided-detail-tools-consumable-handoff.md
 todos:
   - id: phase1-complete
@@ -40,11 +40,11 @@ todos:
     status: completed
   - id: live-smoke-gates
     content: "Items 29, 27: containerised /chat smoke + final verification gates"
-    status: pending
+    status: completed
 isProject: false
 ---
 
-# Guided detail tools — canonical planning architecture (rev 16)
+# Guided detail tools — canonical planning architecture (Done, rev 17)
 
 ## Architecture objective
 
@@ -60,7 +60,7 @@ One consistent agentic flow — **always on**, no feature flags or legacy fallba
 - **Persistence** — PostgreSQL for handoffs, planning events, execution idempotency (`0004_canonical_handoffs.sql`)
 - **Non-planned outcomes** — clarification, policy block, planning failure via typed `CanonicalPlanningOutcome`; downstream branches on `status`, not on partial `EvidencePlan` dicts
 
-## Status ledger (verified 2026-07-26, rev 16)
+## Status ledger (verified 2026-07-27, rev 17)
 
 Six distinct classes — do not merge them when reporting progress.
 
@@ -69,9 +69,9 @@ Six distinct classes — do not merge them when reporting progress.
 | Bucket | Checklist items | Status |
 |--------|-----------------|--------|
 | **Done** | 1–17, 18a, 19a, 10, 11, 18–22, 23–26, 26a, 28–29, 30–35, **27** | **41 / 41** checklist items checked |
-| **Pending** | — | Plan **Done** pending operator commit of item 29 + resume fix |
+| **Pending** | — | **None** — plan **Done** |
 
-**HEAD:** `40ea3bb` + uncommitted item **29** smoke + resume fix. Plan checklist **41/41**; operator KEEP commit recommended.
+**HEAD (item 29 KEEP):** `0ec5322` (smoke harness 6/6). Resume correctives: `a32b1d2`, `6cfe769`. Policy boundary: `9fa2798`. Checklist **41/41**. Completion report: `docs/evals/canonical_cutover_completion_report.md` (may still be uncommitted on working tree).
 
 ### 1. Completed work
 
@@ -109,11 +109,9 @@ Six distinct classes — do not merge them when reporting progress.
 | Item 11 — intermediate canonical regression gate | **Done** | evidence commit after `ed83452`; see item 11 checklist |
 | MCP least-privilege re-gate | **Done** | `test_t2_never_execution_eligible_or_mcp_allowed` passes untouched |
 
-### 1b. Pending work (only these block plan Done)
+### 1b. Pending work
 
-| Item | What remains | Verify |
-|------|----------------|--------|
-| **27** — Final verification + completion report | All gates in order; 15+ section completion report | Gate 1–7 per item 27 checklist; `./scripts/run_stage3_governance_regression.sh` → PASS |
+None. Items **29** (Nginx smoke 6/6 @ `0ec5322`) and **27** (final gates + completion report) are checked with evidence.
 
 ### 2. Verified bugs fixed (production defects, not test churn)
 
@@ -215,10 +213,10 @@ Phase 2 (execution order — rev 12; item numbers unchanged, new items suffixed)
 
 **Item 30a runs in parallel (rev 13)** — complete (`30a ✅`); did not block 31–34.
 
-**Current batch (rev 16): final gates only** — items **29** (containerised live smoke), **27** (governance + completion report). Item **11** closed at this session. Implementation through item **28** committed (`ed83452`).
+**Current batch (rev 17): complete** — items **29** (`0ec5322`) and **27** closed. Full cutover sequence finished:
 
 ```text
-… → 28 ✅ → 11 ✅ → 29 ✅ → 27 ✅
+… → 28 ✅ → 11 ✅ → 29 ✅ → 27 ✅  → plan Done
 ```
 
 Why parity led (historical): item 30 analysis decided A–F vs G for the 112. That batch is now complete; do not re-open unless a new Category G row appears.
@@ -365,7 +363,7 @@ flowchart TD
 
 Maps 1:1 to user spec §1–§14, plus rev 9 architecture-review items (18a, 19a, 21a, 21b, 26a, 28, 29), plus dual-runtime parity items 30–35 (rev 11–12).
 
-**Implementation status (rev 16):** Phase 2 implementation **complete through item 28**; item **11** intermediate gate **passed** (verification only, no code changes). **Remaining:** items **29** and **27** only.
+**Implementation status (rev 17):** Phase 2 **complete** — all checklist items **41/41** checked, including item **29** live smoke (`0ec5322`, 6/6) and item **27** final gates + completion report. Plan status **Done**.
 
 ### Loop-asap session summary (2026-07-26, turns 1–5)
 
@@ -969,7 +967,7 @@ critical mismatches=13
     7. **Gate 6:** repo search — no runtime-relevant removed variables or legacy planner/fallback terms
     8. **Gate 7 (rev 9):** `rg -n '\.sql' backend/app --glob '!**/migrations/**'` → no runtime DDL; EC purity + retention suites green
   - **Depends on:** 10, 11, 15, 16, 17, 18a, 18, 19a, 19, 20, 21a, 21b, 21, 22, 23, 24, 25, 26, 26a, 28, 29, 31, 32, 33, 34, 35
-  - **Evidence:** All gates **PASS** (2026-07-26). **Gate 1:** 27 pytest + sentinel **17/17**. **Gate 2:** **68 passed**. **Gate 3:** integration **68 passed / 0 skipped** (`DATABASE_URL=@127.0.0.1:5434`). **Gate 3.4:** parity `--check` **120 exact / 0 approved / 0 critical** + projection/EC/eval-safety **78 passed**. **Gate 3.5:** smoke **6/6**. **Gate 4:** **4508 passed**. **Gate 5:** `stage3_governance_regression: PASS`. **Gate 6:** `rg plan_dispatch_fallback|canonical.off` → 0. **Gate 7:** runtime DDL rg clean; retention **14 passed**. **Completion report:** `docs/evals/canonical_cutover_completion_report.md` (24 sections). **Uncommitted:** item 29 smoke scripts + clarification-resume fix (orchestrator + pipeline + test).
+  - **Evidence:** All gates **PASS** (2026-07-26). **Gate 1:** 27 pytest + sentinel **17/17**. **Gate 2:** **68 passed**. **Gate 3:** integration **68 passed / 0 skipped** (`DATABASE_URL=@127.0.0.1:5434`). **Gate 3.4:** parity `--check` **120 exact / 0 approved / 0 critical** + projection/EC/eval-safety **78 passed**. **Gate 3.5:** smoke **6/6** (KEEP `0ec5322`). **Gate 4:** **4508 passed**. **Gate 5:** `stage3_governance_regression: PASS`. **Gate 6:** `rg plan_dispatch_fallback|canonical.off` → 0. **Gate 7:** runtime DDL rg clean; retention **14 passed**. **Completion report:** `docs/evals/canonical_cutover_completion_report.md` (24 sections).
 
 ---
 
@@ -1017,8 +1015,11 @@ Do **not**:
 
 ## Drift log
 
+- **2026-07-27 rev 17 (bookkeeping — plan Done):**
+  - Item **29** KEEP landed at **`0ec5322`** (Nginx smoke harness 6/6). Resume correctives already at `a32b1d2` / `6cfe769`; policy boundary at `9fa2798`.
+  - Frontmatter `status: done`; name → **Guided detail tools — canonical planning architecture (Done)**; todos `live-smoke-gates` → completed; ledger/README/CLAUDE synced. Checklist **41/41**. No further cutover items.
 - **2026-07-26 (item 27 — final gates + completion report):**
-  - All item **27** gates **PASS** on working tree (`40ea3bb` + uncommitted item 29/resume fix). Full pytest **4508 passed**; integration **68/0 skipped**; governance regression **PASS**; parity **120/0/0**; smoke **6/6**. Completion report: `docs/evals/canonical_cutover_completion_report.md`. Checklist **41/41**. Operator: KEEP commit for smoke harness + resume fix recommended before VPS deploy.
+  - All item **27** gates **PASS**. Full pytest **4508 passed**; integration **68/0 skipped**; governance regression **PASS**; parity **120/0/0**; smoke **6/6**. Completion report: `docs/evals/canonical_cutover_completion_report.md`. Checklist **41/41**. (Item 29 KEEP later landed as `0ec5322` — see rev 17.)
 - **2026-07-26 (item 11 — intermediate regression gate, verification only):**
   - Re-ran plan-required architecture + sentinel gates at **`ed83452`** with **no code, test, fixture or baseline edits**. **23 passed** + sentinel **17/17** + committed guard bundle **91 passed** + production parity **120/0/0** (`base_105_loaded=105`). Item **11** checked off.
 - **2026-07-26 rev 16 (bookkeeping — post item 28):**
