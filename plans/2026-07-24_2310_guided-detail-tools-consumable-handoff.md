@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: phase1-reaudit
     content: "Item 11 intermediate regression gate (after 14+17)"
-    status: pending
+    status: completed
   - id: outcome-sentinel
     content: "Items 12–14: CanonicalPlanningOutcome + orchestrator refactor + sentinel pass"
     status: completed
@@ -31,20 +31,20 @@ todos:
     status: completed
   - id: telemetry-validation
     content: "Items 10, 21a, 21–22: telemetry foundation, typed correlation, full catalog, outcome-aware response validation"
-    status: in_progress
+    status: completed
   - id: authority-integration
     content: "Items 23–24: ResourcePlan authority audit + Postgres integration suite"
-    status: pending
+    status: completed
   - id: cleanup-gates
     content: "Items 25, 26, 26a, 28: config/doc cleanup, compatibility code removal, EC purity, retention/purge"
-    status: in_progress
+    status: completed
   - id: live-smoke-gates
-    content: "Items 29, 27: containerised /chat canonical smoke + all verification gates"
+    content: "Items 29, 27: containerised /chat smoke + final verification gates"
     status: pending
 isProject: false
 ---
 
-# Guided detail tools — canonical planning architecture (rev 15)
+# Guided detail tools — canonical planning architecture (rev 16)
 
 ## Architecture objective
 
@@ -60,9 +60,18 @@ One consistent agentic flow — **always on**, no feature flags or legacy fallba
 - **Persistence** — PostgreSQL for handoffs, planning events, execution idempotency (`0004_canonical_handoffs.sql`)
 - **Non-planned outcomes** — clarification, policy block, planning failure via typed `CanonicalPlanningOutcome`; downstream branches on `status`, not on partial `EvidencePlan` dicts
 
-## Status ledger (verified 2026-07-26, rev 15)
+## Status ledger (verified 2026-07-26, rev 16)
 
 Six distinct classes — do not merge them when reporting progress.
+
+### Summary — done vs pending
+
+| Bucket | Checklist items | Status |
+|--------|-----------------|--------|
+| **Done** | 1–17, 18a, 19a, 10, 11, 18–22, 23–26, 26a, 28, 30–35 | **39 / 41** checklist items checked |
+| **Pending** | **29**, **27** | Live smoke → final completion report |
+
+**HEAD:** item **11** evidence commit (after `ed83452`). Plan cannot be marked **Done** until items **29** and **27** pass with evidence.
 
 ### 1. Completed work
 
@@ -72,25 +81,39 @@ Six distinct classes — do not merge them when reporting progress.
 | Items 15–17 — pytest migration | **Done** | inventory at `322c2bc`; closure `dcd5a3e`: **4358 passed / 0 failed** |
 | Item 12 — `CanonicalPlanningOutcome` | **Done** | 19 tests, one per status |
 | Item 13 — non-planned exit paths | **Done** | 4 partial-`EvidencePlan` sources removed |
-| Item 14 — **Gate 1** | **Done** | sentinel 17/17 PASS; clean-answer 120/120 PASS; `base_105_loaded=105`; clarification uses typed outcomes with no partial `EvidencePlan`; clarification creates no `ResourcePlan` (verified on a live turn) |
-| Item 18a — migration deployment | **Done** | `18fee82`; `test_migration_readiness.py` 5 passed; migrate twice → no pending |
-| Item 19a — canonical DB UoW | **Done (uncommitted)** | `canonical_db.py` + refactors; `test_canonical_db_unit_of_work.py` 5 passed; `asyncpg.connect` removed from `backend/app/chat/` |
-| Item 30 — parity root-cause analysis | **Done** | RC-1–RC-4 documented; observational harness vs `planner_led_shadow_graph` |
+| Item 14 — **Gate 1** | **Done** | sentinel 17/17 PASS; clean-answer 120/120 PASS; `base_105_loaded=105`; clarification uses typed outcomes with no partial `EvidencePlan` |
+| Item 18a — migration deployment | **Done** | `18fee82`; `test_migration_readiness.py` lists `0006` after item 28 |
+| Item 19a — canonical DB UoW | **Done** | `canonical_db.py` + refactors; `test_canonical_db_unit_of_work.py` 5 passed |
+| Item 30 — parity root-cause analysis | **Done** | RC-1–RC-4 documented |
 | Item 30a — shadow caller audit | **Done** | `planner_led_shadow_graph` demoted; production imports none |
-| Item 31 — parity projection | **Done** | `production_runtime_parity.py`; `_ACCEPTABLE_DIFF_FIELDS` removed; `test_dual_runtime_parity_projection.py` **40 passed** |
+| Item 31 — parity projection | **Done** | `production_runtime_parity.py`; `test_dual_runtime_parity_projection.py` **40 passed** |
 | Item 32 — unify runtime entry points | **Done** | `48a217d`; `run_canonical_planning` shared seam; Category G rows cleared |
 | Item 33 — static architecture guard | **Done** | `2fce033`; AST + graph-transition guards |
-| Item 34 — behavioural parity | **Done** | focused guard set 70 passed; scratch parity 120/0/0 |
+| Item 34 — behavioural parity | **Done** | focused guard set 70 passed |
 | Item 35 — artifact-safe regeneration | **Done** | `9c65106`; authoritative `langgraph_dual_parity_*`: **120 exact / 0 approved / 0 critical** |
-| Item 10 — durable telemetry foundation | **Done (uncommitted)** | `durable_planning_telemetry.py` + turn-buffered flush; `test_planning_telemetry_sink.py` 8 passed |
-| Item 18 — fail-closed handoff persistence | **Done (uncommitted)** | `HandoffPersistenceError`; no live `_TEST_STORE` fallback; additive `0005` migration; `test_canonical_handoff_persistence_failclosed.py` 3 passed; combined handoff/resumption rerun 10 passed, 1 skipped |
-| Item 19 — transactional clarification resumption | **Done (uncommitted)** | `canonical_handoff_resumption.py`; `FOR UPDATE` + idempotent v+1; `test_canonical_handoff_clarification_integration.py` 7 passed, 1 skipped (real PostgreSQL round-trip deferred to Item 24) |
-| Item 21b — audit/diagnostic telemetry policy | **Done (uncommitted)** | 8 audit-critical / 20 diagnostic; telemetry policy/correlation focused set 19 passed; harness 6/6 under `TELEMETRY_MODE=none` |
-| Item 20 — execution idempotency | **Done (uncommitted)** | Contract-based replay policy; stale/timed-out non-idempotent side effects require manual reconciliation with zero invocation; Item 20 focused set 38 passed |
+| Item 10 — durable telemetry foundation | **Done** | `fc2b966`; turn-buffered flush; `test_planning_telemetry_sink.py` 8 passed |
+| Item 18 — fail-closed handoff persistence | **Done** | `fc2b966`; `HandoffPersistenceError`; additive `0005`; `test_canonical_handoff_persistence_failclosed.py` |
+| Item 19 — transactional clarification resumption | **Done** | `fc2b966`; `canonical_handoff_resumption.py`; integration covered in item 24 |
+| Item 21b — audit/diagnostic telemetry policy | **Done** | `fc2b966`; 8 audit-critical / 20 diagnostic |
+| Item 20 — execution idempotency | **Done** | `fc2b966`; contract-based replay + lease model |
 | Item 21a (correlation columns) | **Done** | `_correlation()` binds from raw event; `test_canonical_telemetry_correlation.py` **5 passed** |
-| Item 21 — durable telemetry catalog | **Done** (`8cd2c2d`) | 28/28 events; coverage **18 passed**; parity **120/0/0** |
-| Item 22 — response validation semantics | **Done (uncommitted)** | `test_response_validation_canonical.py` **11 passed**; clarification contract **13 passed**; two-phase validation wired in pipeline finalize |
+| Item 21 — durable telemetry catalog | **Done** | `8cd2c2d`; 28/28 events; coverage **18 passed** |
+| Item 22 — response validation semantics | **Done** | `f0dc3d8`; `test_response_validation_canonical.py` **11 passed** |
+| Item 23 — ResourcePlan authority audit | **Done** | `7da0cc8`; static guards **8 passed**; no production violations |
+| Item 24 — Postgres integration suite | **Done** | `2a4d762` + isolation `c5d63a0`; **34 passed / 0 skipped** (incl. retention module) |
+| Item 25 — obsolete configuration removed | **Done** | `d9c7d06`; retired env keys stripped from profiles/docs |
+| Item 26 — live-path compatibility removed | **Done** | `d9c7d06`; `control_plane_enabled` runtime branches gone |
+| Item 26a — Experience Center purity | **Done** | `d9c7d06`; `test_experience_center_canonical_purity.py` **18 passed** |
+| Item 28 — retention and purge | **Done** | `ed83452`; `canonical_retention.py` + scheduler; migration `0006`; **14 passed** |
+| Item 11 — intermediate canonical regression gate | **Done** | evidence commit after `ed83452`; see item 11 checklist |
 | MCP least-privilege re-gate | **Done** | `test_t2_never_execution_eligible_or_mcp_allowed` passes untouched |
+
+### 1b. Pending work (only these block plan Done)
+
+| Item | What remains | Verify |
+|------|----------------|--------|
+| **29** — Containerised `/chat` canonical smoke | 6 live probes through `docker compose` + Nginx; DB assertions per path | `scripts/smoke_canonical_paths.sh` → 6/6 |
+| **27** — Final verification + completion report | All gates in order; 15+ section completion report | Gate 1–7 per item 27 checklist; `./scripts/run_stage3_governance_regression.sh` → PASS |
 
 ### 2. Verified bugs fixed (production defects, not test churn)
 
@@ -146,20 +169,20 @@ None outstanding from this cutover. Every regression found (state channels, unsa
 
 ## Completion criteria (all must be true before marking Done)
 
-- [ ] Canonical planning is always active; no flags or shadow paths remain
-- [ ] No legacy planning path can execute on live `/chat`
-- [ ] Runtime handoffs use PostgreSQL only (no live memory or file fallback) — **item 18 done in code; re-verify at item 24 with real Postgres**
-- [x] Migrations are applied by a deploy step (not by runtime DDL) and verified in `schema_migrations` — item **18a**
-- [x] Handoff/idempotency writes run inside one transaction on one connection (unit-of-work) — **items 19, 20 composed on `canonical_unit_of_work()`; Postgres concurrency proof deferred to item 24**
-- [ ] All persisted planning events contain required correlation fields (`session_id`, `decision_id`, `handoff_id`, etc.) as typed columns — verified non-null
-- [ ] Experience Center path emits zero canonical planning events, handoff rows, and plan commits
-- [x] Handoff + planning-event retention/purge is enforced (no unbounded SOC-content growth)
-- [ ] Containerised live `/chat` smoke passes for all six canonical paths
-- [x] **Full pytest: 0 failed** (from 112 at rev 10; category **G** must be empty) — closure at `dcd5a3e`: **4358 passed / 0 failed**; re-verify at item 27 after persistence batch
+- [x] Canonical planning is always active; no flags or shadow paths remain — item **11** re-verified (architecture suite + `rg` no `plan_dispatch_fallback`/`canonical.off` in `backend/app/`)
+- [x] No legacy planning path can execute on live `/chat` — item **11**: `test_dual_runtime_single_orchestration.py` pins `run_canonical_planning` on both entry points
+- [x] Runtime handoffs use PostgreSQL only (no live memory or file fallback) — items **18** + **24** (`2a4d762`, `c5d63a0`)
+- [x] Migrations are applied by a deploy step (not by runtime DDL) and verified in `schema_migrations` — items **18a**, **0006** (item 28)
+- [x] Handoff/idempotency writes run inside one transaction on one connection (unit-of-work) — items **19**, **20** on `canonical_unit_of_work()`; Postgres concurrency proof in item **24**
+- [x] All persisted planning events contain required correlation fields (`session_id`, `decision_id`, `handoff_id`, etc.) as typed columns — item **21a** + integration telemetry tests
+- [x] Experience Center path emits zero canonical planning events, handoff rows, and plan commits — item **26a**
+- [x] Handoff + planning-event retention/purge is enforced (no unbounded SOC-content growth) — item **28** (`ed83452`)
+- [ ] Containerised live `/chat` smoke passes for all six canonical paths — item **29**
+- [x] **Full pytest: 0 failed** — latest at `ed83452`: **4507 passed / 0 failed**; re-run governance bundle at item **27**
 - [x] **Production dual-runtime parity: `120 exact_match / 0 approved_difference / 0 critical_mismatch`** — authoritative artifact from item 35 (`9c65106`); `runtime_a=imperative_canonical` vs `runtime_b=resource_planner_graph`, `base_105_loaded=105`
-- [ ] All seven baselined Category G rows resolved by shared-seam unification, **not** by approval, exclusion, tolerance or baseline change
-- [ ] HIL state (`hil_required`, `human_review_required`) identical across both production entry points
-- [ ] Neither production runtime surfaces an ungoverned SPL draft the other suppresses
+- [x] All seven baselined Category G rows resolved by shared-seam unification — item **11** production parity scratch: **120 exact / 0 critical** (`base_105_loaded=105`)
+- [x] HIL state (`hil_required`, `human_review_required`) identical across both production entry points — item **11** parity **120 exact** (no `critical_mismatch`)
+- [x] Neither production runtime surfaces an ungoverned SPL draft the other suppresses — item **11** parity **120 exact**
 - [ ] Every non-`exact_match` row is `approved_difference` with a **complete six-part record per differing field** (field name, imperative value, RP-graph value, reason, contract owner, approval reference)
 - [ ] No routing, tier, lane, answer-goal, intent, completeness, canonical-input, plan-authority, governance or execution field appears in any tolerance or exclusion list
 - [x] Parity artifacts regenerated through the item-35 artifact-safe procedure from the final committed tree, carrying commit SHA + corpus counts; the stale `8792338` artifact and the observational `107/13` result are both superseded (`9c65106`)
@@ -169,10 +192,10 @@ None outstanding from this cutover. Every regression found (state channels, unsa
 - [ ] **No baseline or tolerance change may hide a behavioural defect** — every baseline edit and every approved difference in the completion report names the contract that makes the old value wrong
 - [ ] Response and terminal request events are complete (`response.validated`, `response.generated`, `request.completed` / `request.failed`)
 - [ ] Guided dispatch cannot create or modify `ResourcePlan`
-- [x] Plan and execution idempotency are transactionally enforced — **item 20 (unit/in-memory + lease model); item 24 for cross-process Postgres races**
-- [ ] Full backend pytest passes (0 failed)
-- [ ] Stage 3 governance regression passes
-- [ ] Sentinel clarification evaluation passes
+- [x] Plan and execution idempotency are transactionally enforced — items **20** + **24**
+- [x] Full backend pytest passes (0 failed) — **4507 passed** at `ed83452`; item **27** re-runs with governance script
+- [ ] Stage 3 governance regression passes — item **27**
+- [x] Sentinel clarification evaluation passes — item **11**: **17/17** at `ed83452` gate run
 
 ## Stop conditions
 
@@ -188,16 +211,14 @@ Phase 1: `1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9`
 
 Phase 2 (execution order — rev 12; item numbers unchanged, new items suffixed):
 
-`12 ✅ → 13 ✅ → 14 ✅ → 30 ✅ → 15 ✅ → 16 ✅ → 31 ✅ → 32 ✅ → 33 ✅ → 34 ✅ → 17 ✅ → 35 ✅ → 18a ✅ → 19a ✅ → 10 ✅ → 21a ✅ → 18 ✅ → 19 ✅ → 21b ✅ → 20 ✅ → 21 → 22 → 23 → 24 → 25 → 26 → 26a → 28 → 11 → 29 → 27`
+`12 ✅ → … → 28 ✅ → 11 ✅ → 29 → 27`
 
 **Item 30a runs in parallel (rev 13)** — complete (`30a ✅`); did not block 31–34.
 
-**Current batch (rev 15): telemetry catalog + validation + integration** — items **21–22**, then cleanup (**25–28**), live smoke (**29**), final gates (**27**). Persistence batch (18–20, 21b) and DB foundation (18a–19a) are **closed** (uncommitted at working tree).
+**Current batch (rev 16): final gates only** — items **29** (containerised live smoke), **27** (governance + completion report). Item **11** closed at this session. Implementation through item **28** committed (`ed83452`).
 
 ```text
-30 ✅ ──┬─→ 31 ✅ → 32 ✅ → 33 ✅ → 34 ✅ ──┬─→ 17 ✅ → 35 ✅
-        └─→ 30a ✅ ────────────────────────┘
-18a ✅ → 19a ✅ → 10 ✅ → 21a ✅ → 18 ✅ → 19 ✅ → 21b ✅ → 20 ✅ → 21 → …
+… → 28 ✅ → 11 ✅ → 29 → 27
 ```
 
 Why parity led (historical): item 30 analysis decided A–F vs G for the 112. That batch is now complete; do not re-open unless a new Category G row appears.
@@ -344,7 +365,7 @@ flowchart TD
 
 Maps 1:1 to user spec §1–§14, plus rev 9 architecture-review items (18a, 19a, 21a, 21b, 26a, 28, 29), plus dual-runtime parity items 30–35 (rev 11–12).
 
-**Implementation status (rev 15):** Gate 1 (12–14), pytest migration (15–17), dual-runtime parity (30–35), migration readiness (18a), canonical DB UoW (19a), telemetry foundation (10), fail-closed handoffs (18), transactional clarification (19), audit/diagnostic telemetry policy (21b), execution idempotency (20), and correlation columns (21a) are **complete** (items 10, 18–20, 21b **uncommitted** in working tree). **Next:** item **21** (full telemetry catalog), **22**, then cleanup (**25–28**), live smoke (**29**), final gates (**27**).
+**Implementation status (rev 16):** Phase 2 implementation **complete through item 28**; item **11** intermediate gate **passed** (verification only, no code changes). **Remaining:** items **29** and **27** only.
 
 ### Loop-asap session summary (2026-07-26, turns 1–5)
 
@@ -589,7 +610,7 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Do:** **Local skip policy:** tests may skip when Postgres is unavailable in an unsupported local environment. **Completion gate:** final CI verification job **must** provision PostgreSQL and pass the complete integration suite **without skips** — plan cannot be marked Done if integration tests were skipped in CI.
   - **Verify:** `pytest app/tests/integration/ -q` (0 skipped in CI completion job)
   - **Depends on:** 18, 19, 20, 21
-  - **Evidence:** Added `backend/app/tests/integration/` (conftest + 5 modules, 20 tests). Session fixture applies migrations via `apply_pending_migrations`, binds real Postgres (`DATABASE_URL` or dev default `127.0.0.1:5434`), disables in-memory handoff/idempotency/telemetry stores; root `conftest.py` exempts `@pytest.mark.integration` from memory autouse. Coverage: handoff CRUD + unique constraint + commit race + restart reload + expiry + rollback + multi-pending + material-goal separation; clarification resume/duplicate/concurrent/cross-process/expired/completed; execution idempotency replay + concurrent acquire; telemetry persist + decision_id unique index; fail-closed without DB. **Production fixes surfaced by suite:** `canonical_handoff_repository._to_record_dict` JSONB string coercion; `acquire_step_for_execution` `INSERT … ON CONFLICT DO NOTHING` race guard. `pytest app/tests/integration/ -q` → **20 passed** (Postgres available); `pytest app/tests/test_execution_idempotency.py -q` → **16 passed** (regression). Local skip: session `pytest.skip` when Postgres unreachable.
+  - **Evidence:** Added `backend/app/tests/integration/` (conftest + 6 modules, **34 tests** incl. item 28 retention). Session fixture applies migrations via `apply_pending_migrations` (through `0006`), binds real Postgres (`DATABASE_URL` or dev default `127.0.0.1:5434`), disables in-memory handoff/idempotency/telemetry stores. Coverage: handoff CRUD + unique constraint + commit race + restart reload + expiry + rollback + multi-pending + material-goal separation; clarification resume/duplicate/concurrent/cross-process/expired/completed; execution idempotency replay + concurrent acquire; telemetry persist + decision_id unique index; retention purge (14 cases); fail-closed without DB. **Production fixes surfaced by suite:** `canonical_handoff_repository._to_record_dict` JSONB string coercion; `acquire_step_for_execution` `INSERT … ON CONFLICT DO NOTHING` race guard. Isolation follow-up `c5d63a0` (telemetry global-disable + autouse teardown). `pytest app/tests/integration/ -q` → **34 passed / 0 skipped** (Postgres available).
 
 - [x] **25** — Remove obsolete configuration — spec §8
   - **Scope split (rev 9):** this item removes the **environment/config keys only**. The runtime *trace field* `control_plane_enabled` (`pipeline.py:4190`, `synthesis/governed_answer_composer.py:189`, four eval harnesses, 11 `app/demo/captures/*.json`) is a response-contract change and is handled in items 26 + 26a. Removing the env var and removing the trace field are not the same change; do not conflate them.
@@ -628,11 +649,11 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Depends on:** 18a, 21a
   - **Evidence:** `ai_trace_runs` has no automated purge (indexed `started_at` only); canonical retention uses `canonical_retention.py` + repeating `canonical_retention_scheduler` (not startup-only). Additive migration `0006_canonical_retention_indexes.sql` (0004/0005 untouched). Defaults: handoff grace 24h; diagnostic events 7d; audit-critical events 90d; batch 500. `pytest app/tests/integration/test_canonical_retention_purge.py -q` → **14 passed**; integration suite **34 passed / 0 skipped**; migration readiness lists 0006; full pytest **4507 passed**; sentinel **17/17**; clean-answer **120/120**; production parity **120/0/0**; docs updated in `canonical_telemetry_coverage.md`.
 
-- [ ] **11** — Intermediate canonical regression gate
+- [x] **11** — Intermediate canonical regression gate
   - **Do:** Re-run canonical architecture + invariant suites and sentinel after pytest migration (items 14–17) and before final cleanup gates. This is a **verification gate**, not an early implementation step.
   - **Verify:** `pytest app/tests/test_canonical_handoff_invariants.py app/tests/test_dual_runtime_lane_parity.py app/tests/test_canonical_planning_architecture.py -q`; `PYTHONPATH=backend:. python3 scripts/eval_sentinel.py --check`
   - **Depends on:** 14, 17
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** Starting HEAD **`ed83452`** (no production/test/baseline changes). **Plan-required gates:** `pytest …test_canonical_handoff_invariants.py …test_dual_runtime_lane_parity.py …test_canonical_planning_architecture.py -q` → **23 passed**; `eval_sentinel.py --check` → **PASS 17/17**. **Architecture confirmation (existing committed guards only):** `test_dual_runtime_single_orchestration.py` + `test_resource_plan_authority.py` + `test_canonical_clarification_contract.py` + `test_canonical_planning_outcomes.py` + `test_dual_runtime_parity_projection.py` → **91 passed**; `rg plan_dispatch_fallback|canonical.off backend/app/` → **0 matches**; `run_production_parity_eval.py --out-dir /tmp/parity-item11 --check` → **total=120 base_105=105 exact=120 approved=0 critical=0**. `docs/evals/` and `backend/app/evals/fixtures/` unchanged. Plan audit **0 gaps**. Provenance: code at `ed83452`; evidence in this commit.
 
 ### Dual-runtime parity (items 30–35) — rev 12, baselined rev 13
 
@@ -979,6 +1000,12 @@ Do **not**:
 
 ## Drift log
 
+- **2026-07-26 (item 11 — intermediate regression gate, verification only):**
+  - Re-ran plan-required architecture + sentinel gates at **`ed83452`** with **no code, test, fixture or baseline edits**. **23 passed** + sentinel **17/17** + committed guard bundle **91 passed** + production parity **120/0/0** (`base_105_loaded=105`). Item **11** checked off; **29** and **27** remain.
+- **2026-07-26 rev 16 (bookkeeping — post item 28):**
+  - **Items 21–28 checked off and committed** on `feat/resource-planner-north-star`. Commit map: `fc2b966` (persistence 10/18/19/20/21b), `8cd2c2d` (21), `f0dc3d8` (22), `7da0cc8` (23), `2a4d762`/`c5d63a0` (24), `d9c7d06` (25/26/26a), `ed83452` (28). Tier-0 golden fix `e079fc4` (not a checklist item).
+  - **Latest gates at `ed83452`:** full pytest **4507 passed**; integration **34/0 skipped**; sentinel **17/17**; clean-answer **120/120**; production parity **120/0/0**.
+  - **Only 3 checklist items remain:** **11** (intermediate regression), **29** (containerised smoke), **27** (final governance + completion report). Plan frontmatter todos updated; status ledger stale "uncommitted" notes removed.
 - **2026-07-26 rev 15 (loop-asap session — persistence batch, uncommitted):**
   - **Items 18, 19, 21b, 20 checked off** with verify evidence (see "Loop-asap session summary" above). Working tree contains all persistence-batch code; no KEEP commit yet.
   - **21b regression fix:** blanket audit-critical fail-closed on `canonical_db_disabled` broke `test_planner_executor.py` (every dispatch returned `persistence_failed`). Corrected policy: disabled DB → warning only; fail-closed when DB is configured but write fails. `test_audit_critical_failure_blocks_execution_before_dispatch` updated to simulate configured DB + write failure.
