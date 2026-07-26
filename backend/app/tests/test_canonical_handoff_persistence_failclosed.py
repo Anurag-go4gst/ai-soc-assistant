@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -9,6 +10,7 @@ import pytest
 from app.chat import canonical_handoff_repository as handoff_repo
 from app.chat.canonical_handoff_store import get_committed_resource_plan
 from app.chat.contracts.canonical_planning_outcome import outcome_from_state
+from app.chat.canonical_db import reset_canonical_db_for_tests
 from app.chat.planning_telemetry import planning_events, reset_planning_telemetry_for_tests
 from app.config import settings
 from app.planner.executor import execute_plan_dispatch
@@ -25,10 +27,23 @@ def fail_closed_handoff_store() -> Any:
 
 
 @pytest.fixture(autouse=True)
-def _canonical_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def _canonical_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_session_context_enabled", True)
     reset_planning_telemetry_for_tests()
+    prior_in_memory = handoff_repo.in_memory_handoff_store_enabled()
+    reset_canonical_db_for_tests()
+    handoff_repo.clear_in_memory_store_for_tests()
+    handoff_repo.use_in_memory_store_for_tests(True)
+    monkeypatch.setattr(
+        settings,
+        "database_url",
+        "postgresql://ai_soc:change-me@postgres:5432/ai_soc_assistant",
+    )
+    yield
+    handoff_repo.clear_in_memory_store_for_tests()
+    handoff_repo.use_in_memory_store_for_tests(prior_in_memory)
+    reset_canonical_db_for_tests()
 
 
 def _request_failed_emitted() -> bool:
