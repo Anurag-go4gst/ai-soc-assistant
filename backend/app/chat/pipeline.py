@@ -4293,6 +4293,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         emit_request_failed,
         emit_response_generated,
         emit_response_validated,
+        validate_assembled_response,
         validate_final_response,
     )
 
@@ -5401,8 +5402,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     except Exception:
         # Scorecard is reporting only; it must never break an answer.
         pass
-    state = emit_response_generated({**state, "response": response})
-    state = emit_request_completed(state)
+    assembly_outcome, assembly_reasons = validate_assembled_response(
+        state,
+        analyst_response=analyst_response,
+        answer_contract=answer_contract_payload,
+    )
+    if assembly_outcome != "ok":
+        state = emit_request_failed(state, reason="response_assembly_failed")
+    else:
+        state = emit_response_generated({**state, "response": response})
+        state = emit_request_completed(state)
     return {
         **state,
         "context_sufficiency": response.context_sufficiency,
