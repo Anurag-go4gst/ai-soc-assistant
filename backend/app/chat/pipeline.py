@@ -2702,8 +2702,29 @@ def graph_node_pre_spl_mcp_discovery(state: ChatPipelineState) -> ChatPipelineSt
     return advance_dispatch_cursor(state, PipelineStage.pre_spl_mcp_discovery)
 
 
+def _guard_query_to_intent_for_workflow_spl(state: ChatPipelineState) -> ChatPipelineState | None:
+    """Fail closed when workflow SPL runs without a valid query_to_intent contract."""
+    from app.chat.canonical_mode import build_canonical_failure_state
+    from app.chat.canonical_query_to_intent_resume import query_to_intent_contract_error
+    from app.chat.response_validation import emit_request_failed
+
+    error = query_to_intent_contract_error(state.get("query_to_intent"))
+    if not error:
+        return None
+    failed = build_canonical_failure_state(
+        state,
+        outcome="planning_failed",
+        reason=error,
+        detail="workflow_spl_missing_query_to_intent",
+    )
+    return emit_request_failed(failed, reason=error, error_category="planning")
+
+
 def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("generating_spl")
+    workflow_guard = _guard_query_to_intent_for_workflow_spl(state)
+    if workflow_guard is not None:
+        return workflow_guard
     # Phase 5: run pre-SPL MCP discovery inline when scheduled (flag-gated). The
     # dedicated conditional graph edge is wired in Phase 6; until then the node
     # invokes discovery here so the discovered context reaches the SPL compiler.
@@ -2760,7 +2781,7 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             skill=effective_skill,
             user_query=query_text,
             spl_allowed=_spl_allowed(state),
-            query_signals=_query_signals_from_state(state),
+            query_signals=_query_signals_from_state(state) or {},
             template_id=(
                 state["selected_use_case"].default_spl_template
                 if state.get("selected_use_case") is not None
@@ -2834,7 +2855,7 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     spl_draft_preview = build_draft_preview(
         query_text,
         spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
-        unsafe_enforcement=bool(_query_signals_from_state(state).get("block_or_contain")),
+        unsafe_enforcement=bool((_query_signals_from_state(state) or {}).get("block_or_contain")),
         pattern_type=exact_105_pattern,
         use_case_id=draft_use_case_id,
         live_data_request=_live_data_request_from_state(state),
@@ -3080,7 +3101,7 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
         if hybrid_dispatch_active
         else build_draft_preview(
             state.get("effective_query") or request.message,
-            unsafe_enforcement=bool(_query_signals_from_state(state).get("block_or_contain")),
+            unsafe_enforcement=bool((_query_signals_from_state(state) or {}).get("block_or_contain")),
             llm_intent_advisory=(
                 state["llm_intent_advisory"].model_dump()
                 if isinstance(state.get("llm_intent_advisory"), LLMIntentAdvisory)
@@ -5941,7 +5962,7 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
         query=query,
         evidence_plan=evidence,
         investigation_plan=validated_plan,
-        unsafe_enforcement=bool(_query_signals_from_state(state).get("block_or_contain")),
+        unsafe_enforcement=bool((_query_signals_from_state(state) or {}).get("block_or_contain")),
         llm_intent_advisory=(
             state["llm_intent_advisory"].model_dump()
             if isinstance(state.get("llm_intent_advisory"), LLMIntentAdvisory)

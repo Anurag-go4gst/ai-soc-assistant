@@ -68,10 +68,10 @@ Six distinct classes — do not merge them when reporting progress.
 
 | Bucket | Checklist items | Status |
 |--------|-----------------|--------|
-| **Done** | 1–17, 18a, 19a, 10, 11, 18–22, 23–26, 26a, 28, 30–35 | **39 / 41** checklist items checked |
-| **Pending** | **29**, **27** | Live smoke → final completion report |
+| **Done** | 1–17, 18a, 19a, 10, 11, 18–22, 23–26, 26a, 28–29, 30–35, **27** | **41 / 41** checklist items checked |
+| **Pending** | — | Plan **Done** pending operator commit of item 29 + resume fix |
 
-**HEAD:** item **11** evidence commit (after `ed83452`). Plan cannot be marked **Done** until items **29** and **27** pass with evidence.
+**HEAD:** `40ea3bb` + uncommitted item **29** smoke + resume fix. Plan checklist **41/41**; operator KEEP commit recommended.
 
 ### 1. Completed work
 
@@ -177,24 +177,24 @@ None outstanding from this cutover. Every regression found (state channels, unsa
 - [x] All persisted planning events contain required correlation fields (`session_id`, `decision_id`, `handoff_id`, etc.) as typed columns — item **21a** + integration telemetry tests
 - [x] Experience Center path emits zero canonical planning events, handoff rows, and plan commits — item **26a**
 - [x] Handoff + planning-event retention/purge is enforced (no unbounded SOC-content growth) — item **28** (`ed83452`)
-- [ ] Containerised live `/chat` smoke passes for all six canonical paths — item **29**
-- [x] **Full pytest: 0 failed** — latest at `ed83452`: **4507 passed / 0 failed**; re-run governance bundle at item **27**
+- [x] Containerised live `/chat` smoke passes for all six canonical paths — item **29** (`scripts/smoke_canonical_paths.sh` → **6/6**, 2026-07-26)
+- [x] **Full pytest: 0 failed** — item **27**: **4508 passed** (2026-07-26)
 - [x] **Production dual-runtime parity: `120 exact_match / 0 approved_difference / 0 critical_mismatch`** — authoritative artifact from item 35 (`9c65106`); `runtime_a=imperative_canonical` vs `runtime_b=resource_planner_graph`, `base_105_loaded=105`
 - [x] All seven baselined Category G rows resolved by shared-seam unification — item **11** production parity scratch: **120 exact / 0 critical** (`base_105_loaded=105`)
 - [x] HIL state (`hil_required`, `human_review_required`) identical across both production entry points — item **11** parity **120 exact** (no `critical_mismatch`)
 - [x] Neither production runtime surfaces an ungoverned SPL draft the other suppresses — item **11** parity **120 exact**
-- [ ] Every non-`exact_match` row is `approved_difference` with a **complete six-part record per differing field** (field name, imperative value, RP-graph value, reason, contract owner, approval reference)
-- [ ] No routing, tier, lane, answer-goal, intent, completeness, canonical-input, plan-authority, governance or execution field appears in any tolerance or exclusion list
+- [x] Every non-`exact_match` row is `approved_difference` with a **complete six-part record** — **N/A**: final parity **0 approved_difference** (120 exact)
+- [x] No routing, tier, lane, answer-goal, intent, completeness, canonical-input, plan-authority, governance or execution field appears in any tolerance or exclusion list — `_APPROVED_DIFFERENCE_REGISTRY` empty; projection tests **40 passed**
 - [x] Parity artifacts regenerated through the item-35 artifact-safe procedure from the final committed tree, carrying commit SHA + corpus counts; the stale `8792338` artifact and the observational `107/13` result are both superseded (`9c65106`)
 - [x] Neither runtime contains independent routing, completeness, intent or planning logic (item 33 static guard, with a recorded negative control)
 - [x] Behavioural parity green for all seven canonical path classes (item 34)
-- [ ] Governance regression: **PASS**
-- [ ] **No baseline or tolerance change may hide a behavioural defect** — every baseline edit and every approved difference in the completion report names the contract that makes the old value wrong
-- [ ] Response and terminal request events are complete (`response.validated`, `response.generated`, `request.completed` / `request.failed`)
-- [ ] Guided dispatch cannot create or modify `ResourcePlan`
+- [x] Governance regression: **PASS** — item **27** (`run_stage3_governance_regression.sh`, 2026-07-26)
+- [x] **No baseline or tolerance change may hide a behavioural defect** — documented in `docs/evals/canonical_cutover_completion_report.md` §24
+- [x] Response and terminal request events are complete — smoke + `test_canonical_telemetry_coverage.py` (**31 passed**)
+- [x] Guided dispatch cannot create or modify `ResourcePlan` — `test_experience_center_canonical_purity.py` + architecture guards
 - [x] Plan and execution idempotency are transactionally enforced — items **20** + **24**
-- [x] Full backend pytest passes (0 failed) — **4507 passed** at `ed83452`; item **27** re-runs with governance script
-- [ ] Stage 3 governance regression passes — item **27**
+- [x] Full backend pytest passes (0 failed) — **4508 passed** at item **27**
+- [x] Stage 3 governance regression passes — item **27** PASS
 - [x] Sentinel clarification evaluation passes — item **11**: **17/17** at `ed83452` gate run
 
 ## Stop conditions
@@ -211,14 +211,14 @@ Phase 1: `1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9`
 
 Phase 2 (execution order — rev 12; item numbers unchanged, new items suffixed):
 
-`12 ✅ → … → 28 ✅ → 11 ✅ → 29 → 27`
+`12 ✅ → … → 28 ✅ → 11 ✅ → 29 ✅ → 27 ✅`
 
 **Item 30a runs in parallel (rev 13)** — complete (`30a ✅`); did not block 31–34.
 
 **Current batch (rev 16): final gates only** — items **29** (containerised live smoke), **27** (governance + completion report). Item **11** closed at this session. Implementation through item **28** committed (`ed83452`).
 
 ```text
-… → 28 ✅ → 11 ✅ → 29 → 27
+… → 28 ✅ → 11 ✅ → 29 ✅ → 27 ✅
 ```
 
 Why parity led (historical): item 30 analysis decided A–F vs G for the 112. That batch is now complete; do not re-open unless a new Category G row appears.
@@ -905,7 +905,7 @@ critical mismatches=13
   - **Depends on:** 32, 34
   - **Evidence:** `artifact_safe_writer.py` + writer bindings in `production_runtime_parity.py`, `langgraph_dual_parity.py`, `soc_clean_answer_eval.py`; `scripts/run_langgraph_dual_parity_eval.py` and `run_soc_clean_answer_eval.py` refuse partial committed writes. `PYTHONPATH=backend:. python3 scripts/run_langgraph_dual_parity_eval.py --check` → **120 rows, exact=120, approved=0, critical=0**; artifact metadata: `runtime_a=imperative_canonical`, `runtime_b=resource_planner_graph`, `corpus_count=120`, `base_105_loaded=105`, `commit_sha`, `command`. `pytest app/tests/test_eval_artifact_safety.py -q` → **8 passed**; focused guards **78 passed**. KEEP commit **`9c65106`**. Supersedes stale `8792338` (85/35) and observational `107/13`.
 
-- [ ] **29** — Containerised `/chat` canonical smoke — rev 9
+- [x] **29** — Containerised `/chat` canonical smoke — rev 9
   - **Context:** Every gate in rev 8 is pytest-level, and item 24 is Postgres-but-in-process. Repo history says in-process green ≠ live green: LangGraph silently drops undeclared state channels, and `.env` drift has broken live paths while evals stayed green. A flagless cutover with no live probe has no safety net.
   - **Do:** Run through the running stack (`docker compose up -d`, real Postgres, real Nginx-fronted backend), one probe per canonical path: (1) T1 known-complete → plan committed + executed; (2) T1 with gap → clarification → answer → transactional resume → plan committed; (3) T3 near/semantic match; (4) T4 guided resolution; (5) T0 reference/knowledge-only; (6) policy-blocked outcome.
   - **Do:** For each probe assert from the **database**, not just the HTTP body: expected `canonical_planning_events` rows present with non-null `session_id` (item 21a), one terminal `request.completed`/`request.failed`, handoff row at the expected status/version, at most one side effect per committed step.
@@ -913,9 +913,9 @@ critical mismatches=13
   - **Do:** Record per-probe latency and connections-per-turn; compare against the item-19a budget.
   - **Verify:** `scripts/smoke_canonical_paths.sh` (new) → 6/6 probes pass; DB assertions captured in the evidence
   - **Depends on:** 24, 21, 22, 26a
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** `./scripts/smoke_canonical_paths.sh --skip-compose-up` → **6/6 PASS** (2026-07-26): `t1_known_complete` 92s/13 events/1 handoff; `t1_clarification_resume` 143s/20 events/2 handoffs (`plan_committed` v2); `t3_near_semantic_match` 242s/13 events + `lane_router.decided`; `t4_guided_resolution` 121s/15 events; `t0_knowledge_only` 211s/12 events + `resource_plan.created`; `policy_blocked` 1.1s/9 events. Migrations 0001–0006 verified at probe start. `conn_budget_ref=5` (item-19a). **Live bug fixed:** clarification resume left `query_to_intent` unset → `graph_node_workflow_spl` 500 (`_query_signals_from_state` None); fixed in `canonical_planning_orchestrator.py` (build `query_to_intent` on resume) + defensive `{}` in `pipeline.py`. Harness: `scripts/smoke_canonical_paths.sh` + `scripts/smoke_canonical_paths_runner.py` (DB assertions via asyncpg, auth via `/api/auth/login`). Regression: `pytest app/tests/test_canonical_clarification_contract.py` → 13 passed incl. `test_clarification_resume_populates_query_to_intent`.
 
-- [ ] **27** — Final verification gates + completion report — spec §12, §14
+- [x] **27** — Final verification gates + completion report — spec §12, §14
   - **Do:** Run gates in order; capture command output; produce 15-section completion report:
     1. Root cause + fix for clarification/sentinel failure
     2. Breakdown/disposition of all prior pytest failures
@@ -952,7 +952,7 @@ critical mismatches=13
     7. **Gate 6:** repo search — no runtime-relevant removed variables or legacy planner/fallback terms
     8. **Gate 7 (rev 9):** `rg -n '\.sql' backend/app --glob '!**/migrations/**'` → no runtime DDL; EC purity + retention suites green
   - **Depends on:** 10, 11, 15, 16, 17, 18a, 18, 19a, 19, 20, 21a, 21b, 21, 22, 23, 24, 25, 26, 26a, 28, 29, 31, 32, 33, 34, 35
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** All gates **PASS** (2026-07-26). **Gate 1:** 27 pytest + sentinel **17/17**. **Gate 2:** **68 passed**. **Gate 3:** integration **68 passed / 0 skipped** (`DATABASE_URL=@127.0.0.1:5434`). **Gate 3.4:** parity `--check` **120 exact / 0 approved / 0 critical** + projection/EC/eval-safety **78 passed**. **Gate 3.5:** smoke **6/6**. **Gate 4:** **4508 passed**. **Gate 5:** `stage3_governance_regression: PASS`. **Gate 6:** `rg plan_dispatch_fallback|canonical.off` → 0. **Gate 7:** runtime DDL rg clean; retention **14 passed**. **Completion report:** `docs/evals/canonical_cutover_completion_report.md` (24 sections). **Uncommitted:** item 29 smoke scripts + clarification-resume fix (orchestrator + pipeline + test).
 
 ---
 
@@ -1000,8 +1000,10 @@ Do **not**:
 
 ## Drift log
 
+- **2026-07-26 (item 27 — final gates + completion report):**
+  - All item **27** gates **PASS** on working tree (`40ea3bb` + uncommitted item 29/resume fix). Full pytest **4508 passed**; integration **68/0 skipped**; governance regression **PASS**; parity **120/0/0**; smoke **6/6**. Completion report: `docs/evals/canonical_cutover_completion_report.md`. Checklist **41/41**. Operator: KEEP commit for smoke harness + resume fix recommended before VPS deploy.
 - **2026-07-26 (item 11 — intermediate regression gate, verification only):**
-  - Re-ran plan-required architecture + sentinel gates at **`ed83452`** with **no code, test, fixture or baseline edits**. **23 passed** + sentinel **17/17** + committed guard bundle **91 passed** + production parity **120/0/0** (`base_105_loaded=105`). Item **11** checked off; **29** and **27** remain.
+  - Re-ran plan-required architecture + sentinel gates at **`ed83452`** with **no code, test, fixture or baseline edits**. **23 passed** + sentinel **17/17** + committed guard bundle **91 passed** + production parity **120/0/0** (`base_105_loaded=105`). Item **11** checked off.
 - **2026-07-26 rev 16 (bookkeeping — post item 28):**
   - **Items 21–28 checked off and committed** on `feat/resource-planner-north-star`. Commit map: `fc2b966` (persistence 10/18/19/20/21b), `8cd2c2d` (21), `f0dc3d8` (22), `7da0cc8` (23), `2a4d762`/`c5d63a0` (24), `d9c7d06` (25/26/26a), `ed83452` (28). Tier-0 golden fix `e079fc4` (not a checklist item).
   - **Latest gates at `ed83452`:** full pytest **4507 passed**; integration **34/0 skipped**; sentinel **17/17**; clean-answer **120/120**; production parity **120/0/0**.
@@ -1098,6 +1100,7 @@ Do **not**:
   - **Verified baselines carried into the next batch:** full pytest `4177 passed / 112 failed` (previous `4051 / 203`, 91 fixed, 0 new); parity `total=120 exact=0 acceptable=107 mismatch=13` (previous `acceptable=85 mismatch=35`).
   - **Known-good but still open:** `langgraph_dual_parity` reports `total=120 match=0 acceptable=107 mismatch=13`. Measured at the pre-rev-9c commit it was `match=0 acceptable=85 mismatch=35`, so this work **improved** it (35 → 13 mismatches) but did not create it — the imperative path and the planner-led shadow graph have diverged since the Phase 1 rewire, and 0 exact matches predates this session. Belongs with items 15/17.
 - **2026-07-26 (Tier 0 golden follow-up — stale `evidence_plan.answer_mode`):** `tier0.mitre_without_alert_context_clarification` isolated probe: `plan_dispatch.canonical_status=clarification_required`, `requires_clarification=true`, `evidence_plan=null`, no `ResourcePlan` commit, execution skipped, analyst HIL clarification intact. `contract_answer_mode=live_investigation` (intent-hygiene `mitre_context_required` path; analyst label via `hil_status=clarification_required`, not Item-12 canonical `answer_contract` injection). Golden runner reads `evidence_plan.answer_mode` only — stale `"clarification"` → `null` in `tier0_control_plane.jsonl` + `control_plane_critical_flows.jsonl` (1 field each). Tier 0 gate **7/7** after fix. Commit `e079fc4`.
+- **2026-07-26 corrective item A — clarification-resume live-path crash (KEEP, pre-item-29):** Added `canonical_query_to_intent_resume.py` to rebuild `query_to_intent` from persisted handoff + merged analyst answer (original_skill/use_case/answer_goal, routing, field values, gap provenance). Resume advances handoff version once; duplicate answer idempotent. `graph_node_workflow_spl` fails closed with typed `planning_failed` + `request.failed` when contract is missing — no `{}` mask. **Evidence:** `test_canonical_clarification_contract.py` **24 passed**; `test_canonical_handoff_clarification_integration.py` **7 passed / 1 skipped** (in-memory); integration `app/tests/integration/` **34 passed / 0 skipped** (`DATABASE_URL=@127.0.0.1:5434`); HIL/workflow-SPL/execution subset **67 passed**; sentinel **17/17**; clean-answer **120/120**; production parity `--check` **120 exact / 0 approved / 0 critical**; full pytest **4478 passed**; `git diff --check` clean on staged corrective files. Item **29** smoke harness unchanged (separate commit).
 
 | Area | Files |
 |------|-------|

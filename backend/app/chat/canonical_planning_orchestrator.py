@@ -211,30 +211,49 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     signals = extract_query_signals(query, qu)
 
     if resumed_record is not None:
+        from app.chat.canonical_mode import build_canonical_failure_state
+        from app.chat.canonical_query_to_intent_resume import (
+            build_intent_classification_from_handoff,
+            query_to_intent_contract_error,
+            reconstruct_query_to_intent_for_resume,
+        )
+
         canonical_dict = dict(resumed_record.canonical_planning_input or {})
         routing = dict(canonical_dict.get("routing") or {})
-        # Must satisfy IntentClassification in full — plan_evidence validates this
-        # payload. The resume branch was unreachable while the status comparison was
-        # wrong, so these three required fields were never supplied.
-        intent_classification = {
-            "intent_family": routing.get("intent_family"),
-            "primary_intent": routing.get("primary_skill"),
-            "answer_goal_primary": routing.get("answer_goal"),
-            "answer_goal": [routing.get("answer_goal")],
-            "query_type": "investigation_with_guidance",
-            "confidence": 0.8,
-            "confidence_band": "high",
-            "llm_intent_status": routing.get("intent_source", "diversion"),
-            "requires_clarification": False,
-            "requires_hil": False,
-            "action_mode": "recommend_only",
-            "reason": "handoff_resume",
-        }
+        intent_classification = build_intent_classification_from_handoff(
+            resumed_record=resumed_record,
+            routing=routing,
+        )
+        if intent_classification is None:
+            return build_canonical_failure_state(
+                state,
+                outcome="resolution_failed",
+                reason="invalid_handoff_intent_contract",
+                detail="missing_original_skill_or_answer_goal",
+            )
+        query_to_intent = reconstruct_query_to_intent_for_resume(
+            resumed_record=resumed_record,
+            merged_canonical=canonical_dict,
+            query=query,
+            query_understanding=qu,
+            routed=routed,
+        )
+        contract_error = query_to_intent_contract_error(query_to_intent)
+        if contract_error:
+            return build_canonical_failure_state(
+                state,
+                outcome="resolution_failed",
+                reason=contract_error,
+                detail="invalid_handoff_query_to_intent_contract",
+            )
+        known_query_to_intent_built = True
+        if resumed_record.gap_resolution and not state.get("gap_resolution"):
+            state = {**state, "gap_resolution": resumed_record.gap_resolution}
         processing_lane = str(routing.get("processing_lane") or processing_lane)
         resolved_tier = str(routing.get("resolved_tier") or resolved_tier)
         completeness = evaluate_known_detail_completion(
             use_case_id=use_case_id,
-            query_to_intent={"query_signals": signals, "handoff_resume": True},
+            query_to_intent=query_to_intent,
             query_understanding=qu,
         )
         state = emit_known_completeness_evaluated(state, completeness.model_dump()) or state
