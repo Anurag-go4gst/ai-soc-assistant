@@ -66,7 +66,7 @@ def run_guided_detail_resolution(
             resolution_id=resolution_id,
             handoff_id=handoff_id,
             resolution_status="policy_blocked",
-            clarification_required=True,
+            clarification_required=False,
             limitations=["unsafe_request_blocked"],
         )
 

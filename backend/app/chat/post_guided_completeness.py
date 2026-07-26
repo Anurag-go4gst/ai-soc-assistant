@@ -33,6 +33,8 @@ def evaluate_post_guided_completeness(
 
     unresolved = list(gap.unresolved_details)
     required_unresolved = [f for f in unresolved if f in planner_required_fields or f in user_only_fields]
+    if gap.resolution_status == "policy_blocked":
+        return PostGuidedCompletenessResult(status="policy_blocked", limitations=list(gap.limitations))
     if gap.clarification_required or required_unresolved:
         return PostGuidedCompletenessResult(
             status="clarification_required",
@@ -40,8 +42,6 @@ def evaluate_post_guided_completeness(
             limitations=list(gap.limitations),
             clarification_required=True,
         )
-    if gap.resolution_status == "policy_blocked":
-        return PostGuidedCompletenessResult(status="policy_blocked", limitations=list(gap.limitations))
     if gap.resolution_status == "resolution_failed":
         return PostGuidedCompletenessResult(
             status="resolution_failed",

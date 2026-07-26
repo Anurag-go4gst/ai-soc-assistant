@@ -241,11 +241,32 @@ def _validate_planned_pipeline_state(state: dict[str, Any]) -> list[str]:
     return reasons
 
 
+def _validate_policy_blocked(state: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    outcome = outcome_from_state(state)
+    if outcome is None or outcome.status != "policy_blocked":
+        return reasons
+    if not outcome.policy_reason:
+        reasons.append("policy_blocked_missing_reason")
+    if outcome.resource_plan is not None:
+        reasons.append("policy_blocked_carrying_resource_plan")
+    if state.get("evidence_plan") is not None and isinstance(state.get("evidence_plan"), dict):
+        if state["evidence_plan"].get("resource_plan"):
+            reasons.append("policy_blocked_carrying_resource_plan")
+    execution = state.get("execution")
+    if isinstance(execution, dict) and str(execution.get("status") or "") in _EXECUTED_STATUSES:
+        reasons.append("policy_restriction_violated")
+    return reasons
+
+
 def validate_final_response(state: dict[str, Any]) -> tuple[ValidationOutcome, list[str]]:
     """Validate pipeline state before analyst-response assembly."""
     outcome = outcome_from_state(state)
     if outcome is not None and outcome.status == "clarification_required":
         return _finalize(_validate_clarification(state))
+
+    if outcome is not None and outcome.status == "policy_blocked":
+        return _finalize(_validate_policy_blocked(state))
 
     if outcome is not None and outcome.status != "planned":
         return _finalize(_validate_non_planned_outcome(state))

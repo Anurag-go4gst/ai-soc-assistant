@@ -17,6 +17,7 @@ from app.chat.canonical_handoff_store import (
 from app.chat.contracts.canonical_planning_outcome import (
     clarification_outcome,
     planned_outcome,
+    policy_blocked_outcome,
 )
 from app.chat.contracts.gap_resolution import FieldProvenance
 from app.chat.guided_detail_resolution import run_guided_detail_resolution
@@ -24,6 +25,7 @@ from app.chat.intent_classifier import build_query_to_intent
 from app.chat.intent_family_defaults import build_known_path_intent_stub, build_t0_knowledge_stub
 from app.chat.known_detail_completion import evaluate_known_detail_completion
 from app.chat.lane_router import is_known_catalogue_match, lane_for_match_path
+from app.chat.canonical_policy_boundary import resolve_canonical_policy_block_reason
 from app.chat.plan_evidence_from_canonical import plan_evidence_from_canonical
 from app.chat.planning_telemetry import (
     emit_clarification_requested,
@@ -440,7 +442,7 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
                 reference_ids=reference_ids,
                 original_skill=str(routed.get("skill") or ""),
                 original_answer_goal=answer_goal,
-                unsafe=bool(signals.get("block_or_contain") and signals.get("run_execution")),
+                unsafe=bool(signals.get("block_or_contain")),
                 state=state,
             )
             route_reason = "t4_guided_resolution"
@@ -511,6 +513,33 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         or (post is not None and post.clarification_required)
         or (gap is not None and gap.clarification_required)
     )
+
+    policy_reason = resolve_canonical_policy_block_reason(
+        intent_classification=intent_classification,
+        query_understanding=qu,
+        gap=gap,
+        post=post,
+    )
+    if policy_reason:
+        outcome = policy_blocked_outcome(
+            canonical_input=canonical.model_dump(),
+            policy_reason=policy_reason,
+        )
+        policy_state = {
+            **state,
+            "routed": routed,
+            "intent_classification": intent_classification,
+            "query_to_intent": query_to_intent,
+            "canonical_planning_input": canonical.model_dump(),
+            "canonical_planning_outcome": outcome.model_dump(),
+            "gap_resolution": gap.model_dump() if gap else None,
+            "known_completeness": completeness.model_dump() if completeness else None,
+            "processing_lane": processing_lane,
+            "resolved_tier": resolved_tier,
+            "initial_tier": initial,
+        }
+        policy_state.pop("evidence_plan", None)
+        return policy_state
 
     if clarification_required:
         unresolved_fields = list(
