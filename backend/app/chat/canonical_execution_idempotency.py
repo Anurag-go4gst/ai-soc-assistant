@@ -357,52 +357,44 @@ async def acquire_step_for_execution(
         else None
     )
 
-    row = await conn.fetchrow(
+    inserted = await conn.fetchrow(
         """
-        SELECT * FROM canonical_execution_idempotency
-        WHERE idempotency_key = $1
-        FOR UPDATE
+        INSERT INTO canonical_execution_idempotency (
+            resource_plan_id, step_id, idempotency_key, handoff_id, handoff_version,
+            status, result, lease_owner, lease_expires_at, operation, operation_contract,
+            downstream_idempotency_key, created_at, updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$13)
+        ON CONFLICT (idempotency_key) DO NOTHING
+        RETURNING *
         """,
+        resource_plan_id,
+        step_id,
         idempotency_key,
+        handoff_id,
+        handoff_version,
+        "pending",
+        json.dumps({}),
+        None,
+        None,
+        operation,
+        contract,
+        downstream_key,
+        now,
     )
-    if row is None:
-        await conn.execute(
-            """
-            INSERT INTO canonical_execution_idempotency (
-                resource_plan_id, step_id, idempotency_key, handoff_id, handoff_version,
-                status, result, lease_owner, lease_expires_at, operation, operation_contract,
-                downstream_idempotency_key, created_at, updated_at
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$13)
-            """,
-            resource_plan_id,
-            step_id,
-            idempotency_key,
-            handoff_id,
-            handoff_version,
-            "pending",
-            json.dumps({}),
-            None,
-            None,
-            operation,
-            contract,
-            downstream_key,
-            now,
-        )
-        record = ExecutionIdempotencyRecord(
-            resource_plan_id=resource_plan_id,
-            step_id=step_id,
-            idempotency_key=idempotency_key,
-            handoff_id=handoff_id,
-            handoff_version=handoff_version,
-            status="pending",
-            operation=operation,
-            operation_contract=contract,
-            downstream_idempotency_key=downstream_key,
-            created_at=now,
-            updated_at=now,
-        )
+    if inserted is not None:
+        record = _record_from_row(dict(inserted))
         resolved = _resolve_acquire(record, operation_contract=contract, now=now)
     else:
+        row = await conn.fetchrow(
+            """
+            SELECT * FROM canonical_execution_idempotency
+            WHERE idempotency_key = $1
+            FOR UPDATE
+            """,
+            idempotency_key,
+        )
+        if row is None:
+            raise RuntimeError(f"idempotency_row_missing_after_conflict:{idempotency_key}")
         record = _record_from_row(dict(row))
         if downstream_key and not record.downstream_idempotency_key:
             record = record.model_copy(update={"downstream_idempotency_key": downstream_key})

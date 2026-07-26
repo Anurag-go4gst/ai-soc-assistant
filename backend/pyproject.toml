@@ -22,4 +22,5 @@ pythonpath = ["."]
 testpaths = ["app/tests"]
 markers = [
     "known_parity_gap: documented analyst vs severity_decision mismatch (follow-up)",
+    "integration: PostgreSQL-backed integration tests (skip when DB unavailable locally)",
 ]

@@ -1,7 +1,7 @@
 """Suite-wide guards for backend tests.
 
 The deployed runtime (Docker container, root `.env`) enables live LLM synthesis:
-`CONTROL_PLANE_ENABLED=true` + `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED=true` +
+`AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED=true` +
 `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED=true` with a reachable llama-server at
 `host.docker.internal:8081`. Every `/api/chat` test then narrates through the
 real single-slot CPU model (~minutes per generation, 120s timeout per call),
@@ -23,8 +23,15 @@ import pytest
 LIVE_LLM_OPT_IN_ENV = "AI_SOC_TESTS_ALLOW_LIVE_LLM"
 
 
+def _is_integration_test(request: pytest.FixtureRequest) -> bool:
+    return request.node.get_closest_marker("integration") is not None
+
+
 @pytest.fixture(autouse=True)
-def canonical_execution_idempotency_in_memory_for_tests() -> Iterator[None]:
+def canonical_execution_idempotency_in_memory_for_tests(request: pytest.FixtureRequest) -> Iterator[None]:
+    if _is_integration_test(request):
+        yield
+        return
     from app.chat.canonical_execution_idempotency import (
         clear_in_memory_store_for_tests,
         use_in_memory_store_for_tests,
@@ -37,8 +44,11 @@ def canonical_execution_idempotency_in_memory_for_tests() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
-def canonical_handoff_in_memory_for_tests() -> Iterator[None]:
+def canonical_handoff_in_memory_for_tests(request: pytest.FixtureRequest) -> Iterator[None]:
     """Handoff persistence is fail-closed without DB; tests opt into in-memory store."""
+    if _is_integration_test(request):
+        yield
+        return
     from app.chat.canonical_handoff_repository import (
         clear_in_memory_store_for_tests,
         use_in_memory_store_for_tests,

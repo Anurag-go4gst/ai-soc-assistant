@@ -299,6 +299,29 @@ def load_handoff_record(
     return handoff_record_from_row(raw)
 
 
+def _coerce_json_value(value: Any) -> Any:
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    return value
+
+
+def _coerce_json_dict(value: Any) -> dict[str, Any] | None:
+    coerced = _coerce_json_value(value)
+    if coerced is None:
+        return None
+    return coerced if isinstance(coerced, dict) else None
+
+
+def _coerce_json_list(value: Any) -> list[Any]:
+    coerced = _coerce_json_value(value)
+    if coerced is None:
+        return []
+    return coerced if isinstance(coerced, list) else []
+
+
 def _to_record_dict(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "handoff_id": row["handoff_id"],
@@ -313,14 +336,14 @@ def _to_record_dict(row: dict[str, Any]) -> dict[str, Any]:
         "original_answer_goal": row.get("original_answer_goal"),
         "initial_tier": row.get("initial_tier"),
         "resolved_tier": row.get("resolved_tier"),
-        "canonical_planning_input": row.get("canonical_planning_input"),
-        "gap_resolution": row.get("gap_resolution"),
-        "unresolved_fields": row.get("unresolved_fields") or [],
+        "canonical_planning_input": _coerce_json_dict(row.get("canonical_planning_input")),
+        "gap_resolution": _coerce_json_dict(row.get("gap_resolution")),
+        "unresolved_fields": _coerce_json_list(row.get("unresolved_fields")),
         "clarification_reason": row.get("clarification_reason"),
         "committed_resource_plan_id": row.get("committed_resource_plan_id"),
-        "committed_resource_plan": row.get("committed_resource_plan"),
-        "committed_evidence_plan": row.get("committed_evidence_plan"),
-        "duplicate_call_hashes": row.get("duplicate_call_hashes") or [],
+        "committed_resource_plan": _coerce_json_dict(row.get("committed_resource_plan")),
+        "committed_evidence_plan": _coerce_json_dict(row.get("committed_evidence_plan")),
+        "duplicate_call_hashes": _coerce_json_list(row.get("duplicate_call_hashes")),
         "retry_count": row.get("retry_count") or 0,
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
