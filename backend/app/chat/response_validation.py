@@ -9,9 +9,11 @@ from app.chat.contracts.canonical_planning_outcome import (
     NON_EXECUTING_STATUSES,
     outcome_from_state,
 )
-from app.chat.durable_planning_telemetry import persist_planning_event
-from app.chat.planning_telemetry_policy import AuditCriticalTelemetryPersistenceError
-from app.chat.planning_telemetry import emit_planning_event
+from app.chat.planning_telemetry import (
+    _mark_terminal_request_event,
+    emit_planning_event,
+    terminal_request_event_emitted,
+)
 from app.planner.resource_plan import ResourcePlan
 
 _LOGGER = logging.getLogger("ai_soc.response_validation")
@@ -89,7 +91,6 @@ def emit_response_validated(state: dict[str, Any], *, ok: bool, reasons: list[st
         "validation_reasons": reasons,
         "node_name": "response_validation",
     }
-    persist_planning_event({**payload, "event": "response.validated"})
     return emit_planning_event(
         state,
         event="response.validated",
@@ -100,13 +101,14 @@ def emit_response_validated(state: dict[str, Any], *, ok: bool, reasons: list[st
 
 
 def emit_response_generated(state: dict[str, Any]) -> dict[str, Any]:
+    if terminal_request_event_emitted(state) == "request.failed":
+        return state
     payload = {
         "trace_id": state.get("trace_id"),
         "session_id": state.get("session_id"),
         "status": "completed",
         "node_name": "response_assembly",
     }
-    persist_planning_event({**payload, "event": "response.generated"})
     return emit_planning_event(
         state,
         event="response.generated",
@@ -117,6 +119,8 @@ def emit_response_generated(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def emit_request_failed(state: dict[str, Any], *, reason: str, error_category: str = "response_validation") -> dict[str, Any]:
+    if terminal_request_event_emitted(state) is not None:
+        return state
     payload = {
         "trace_id": state.get("trace_id"),
         "session_id": state.get("session_id"),
@@ -125,18 +129,12 @@ def emit_request_failed(state: dict[str, Any], *, reason: str, error_category: s
         "error_category": error_category,
         "node_name": "request_terminal",
     }
-    try:
-        persist_planning_event({**payload, "event": "request.failed"}, immediate=True)
-    except AuditCriticalTelemetryPersistenceError:
-        _LOGGER.warning(
-            "request_failed_not_durably_persisted",
-            extra={"reason": reason, "error_category": error_category},
-        )
-    return emit_planning_event(
+    result = emit_planning_event(
         state,
         event="request.failed",
         node_name="request_terminal",
         decision_reason=reason,
         payload=payload,
-        durable=False,
-    ) or state
+        durable=True,
+    )
+    return _mark_terminal_request_event(result or state, "request.failed")

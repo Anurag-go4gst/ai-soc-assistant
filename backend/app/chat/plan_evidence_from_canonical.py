@@ -10,8 +10,10 @@ from app.chat.contracts.canonical_planning_input import CanonicalPlanningInput
 from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.evidence_planner import plan_evidence
 from app.chat.planning_telemetry import (
+    emit_handoff_persisted,
     emit_planner_handoff_consumed,
     emit_planner_handoff_created,
+    emit_resource_plan_commit_reused,
     emit_resource_plan_created,
 )
 
@@ -72,6 +74,13 @@ def plan_evidence_from_canonical(
                 "routing.processing_lane",
                 "idempotent_replay",
             ]
+            if state is not None:
+                emit_resource_plan_commit_reused(
+                    state,
+                    resource_plan_id=resource_plan_id,
+                    handoff_id=handoff_id,
+                    handoff_version=handoff_version,
+                )
             return plan, consumed, ["provenance.prompt_template_id"]
 
     if state is not None:
@@ -154,6 +163,16 @@ def plan_evidence_from_canonical(
         resource_plan=composed_payload,
         evidence_plan=evidence_payload,
     )
+
+    if state is not None:
+        emit_handoff_persisted(
+            state,
+            handoff_id=handoff_id,
+            handoff_version=handoff_version,
+            handoff_status="plan_committed",
+            trace_id=canonical.trace.trace_id,
+            session_id=None,
+        )
 
     consumed_fields = [
         "routing.intent_family",

@@ -16,8 +16,8 @@ from app.chat.planning_telemetry_policy import (
     is_audit_critical_planning_event,
     is_diagnostic_planning_event,
 )
+from app.chat.response_validation import emit_request_failed
 from app.planner.executor import DispatchHooks, execute_plan_dispatch
-
 
 @pytest.fixture(autouse=True)
 def _reset() -> Any:
@@ -87,6 +87,30 @@ def test_diagnostic_persist_failure_surfaces_degradation_without_blocking(monkey
     assert outcome_from_state(result) is None or outcome_from_state(result).status != "persistence_failed"
     degradation = result.get("planning_telemetry_degradation") or []
     assert degradation and degradation[-1]["event"] == "lane_router.decided"
+
+
+def test_audit_critical_request_failed_does_not_recurse_on_persist_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(telemetry, "canonical_db_disabled", lambda: False)
+
+    def _boom(*_args: Any, **_kwargs: Any) -> None:
+        raise RuntimeError("connection refused")
+
+    monkeypatch.setattr(telemetry, "run_in_canonical_unit_of_work", _boom)
+
+    state: dict[str, Any] = {
+        "trace_id": "t-recurse",
+        "canonical_planning_failure": {
+            "outcome": "persistence_failed",
+            "reason": "execution.started",
+            "detail": "connection refused",
+        },
+    }
+    result = emit_request_failed(state, reason="audit_critical_persist_failed", error_category="database")
+    assert result.get("canonical_request_terminal_event") == "request.failed"
+    degradation = result.get("planning_telemetry_degradation") or []
+    assert degradation
 
 
 def test_audit_critical_failure_blocks_execution_before_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:

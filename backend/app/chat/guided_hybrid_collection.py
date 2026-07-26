@@ -166,6 +166,7 @@ def collect_guided_hybrid_evidence(
             operation_contract=contract,
             lease_owner=str(updated.get("trace_id") or ""),
             execute=_execute_step,
+            telemetry_state=updated,
         )
         if outcome == AcquireOutcome.REPLAY:
             updated = apply_idempotent_hop_to_state(updated, stored)

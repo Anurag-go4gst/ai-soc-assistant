@@ -88,6 +88,7 @@ Six distinct classes — do not merge them when reporting progress.
 | Item 21b — audit/diagnostic telemetry policy | **Done (uncommitted)** | 8 audit-critical / 20 diagnostic; telemetry policy/correlation focused set 19 passed; harness 6/6 under `TELEMETRY_MODE=none` |
 | Item 20 — execution idempotency | **Done (uncommitted)** | Contract-based replay policy; stale/timed-out non-idempotent side effects require manual reconciliation with zero invocation; Item 20 focused set 38 passed |
 | Item 21a (correlation columns) | **Done** | `_correlation()` binds from raw event; `test_canonical_telemetry_correlation.py` **5 passed** |
+| Item 21 — durable telemetry catalog | **Done (this commit)** | 28/28 events + `PRODUCTION_EMITTER_WIRING`; `test_canonical_telemetry_coverage.py` **18 passed**; policy+correlation **30 passed**; parity **120/0/0**; harness **6/6** |
 | MCP least-privilege re-gate | **Done** | `test_t2_never_execution_eligible_or_mcp_allowed` passes untouched |
 
 ### 2. Verified bugs fixed (production defects, not test churn)
@@ -542,7 +543,7 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Depends on:** 18, 19a, 21b
   - **Evidence:** `canonical_execution_idempotency.py` — stable internal key includes `resource_plan_id`, `handoff_id`, `handoff_version`, `step_id`, and operation identity; replay is classified by explicit operation/tool contract (`read_only_retryable`, `side_effecting_with_stable_idempotency`, `side_effecting_without_stable_idempotency`). `mcp_discovery`, `safe_catalog_query`, and known read-only MCP tools are retryable; unknown MCP execution defaults fail-closed. Stale/timed-out non-idempotent side effects return `REQUIRES_RECONCILIATION` / `execution_outcome_uncertain` with zero invocation; stable-idempotent side effects replay only when the identical downstream key is propagated. Executor + guided hybrid surface manual reconciliation without claiming success/failure. `pytest app/tests/test_execution_idempotency.py app/tests/test_guided_hybrid_collection.py app/tests/test_planner_executor.py -q` → **38 passed**.
 
-- [ ] **21** — Complete durable telemetry catalog — spec §6
+- [x] **21** — Complete durable telemetry catalog — spec §6
   - **Do:** Wire **all 28 events** from real emitting nodes (not merely helpers):
     ```text
     query_understanding.completed, lane_router.decided, known_completeness.evaluated,
@@ -562,7 +563,7 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Do:** Telemetry failure policy per item 21b classification: audit-critical failure fails closed before side-effecting execution; diagnostic failure degrades loudly. Never silently drop either class.
   - **Verify:** `pytest app/tests/test_canonical_telemetry_coverage.py -q` (one test per canonical functional path)
   - **Depends on:** 10, 21a, 21b, 13, 20
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** All 28 events in `canonical_telemetry_catalog.py` with `PRODUCTION_EMITTER_WIRING` (production source markers). Wired: `handoff.persisted`/`resumed` (orchestrator + plan commit), `resource_plan.commit_reused`, `execution_step.*` (`canonical_execution_idempotency` + `guided_hybrid_collection` telemetry_state), `request.completed` (`pipeline` → `planning_telemetry`). Terminal dedup via `canonical_request_terminal_event`; audit-critical recursion guard in `emit_planning_event`. Docs: `docs/architecture/canonical_telemetry_coverage.md`. `pytest app/tests/test_canonical_telemetry_coverage.py app/tests/test_telemetry_persistence_policy.py app/tests/test_canonical_telemetry_correlation.py -q` → **30 passed**. Full pytest **4437 passed**. Harness **6/6** (`TELEMETRY_MODE=none`). Scratch parity `/tmp/parity-item21` → **120 exact / 0 approved / 0 critical**. No migration changes.
 
 - [ ] **22** — Response validation semantics — spec §7
   - **Do:** Rewrite `response_validation.py` outcome-aware. Before `response.validated`, check: canonical outcome status; `resource_plan_id` when executable; execution terminal state; required step completion; required evidence availability; explicit limitations; tool failures surfaced; `answer_goal` satisfied; citations retained; no claim of unexecuted action; policy restrictions respected.

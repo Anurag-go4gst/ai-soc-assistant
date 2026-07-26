@@ -24,6 +24,8 @@ from app.chat.plan_evidence_from_canonical import plan_evidence_from_canonical
 from app.chat.planning_telemetry import (
     emit_clarification_requested,
     emit_guided_resolution_started,
+    emit_handoff_persisted,
+    emit_handoff_resumed,
     emit_known_completeness_evaluated,
     emit_lane_router_decided,
     emit_planning_event,
@@ -155,6 +157,15 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         resumed_record = resume_result.record
         handoff_id = resumed_record.handoff_id
         handoff_version = resumed_record.handoff_version
+        state = emit_handoff_resumed(
+            state,
+            handoff_id=handoff_id,
+            handoff_version=handoff_version,
+            prior_handoff_version=int(resume.get("handoff_version") or handoff_version - 1),
+            idempotent_replay=resume_result.idempotent_replay,
+            trace_id=str(trace_id) if trace_id else None,
+            session_id=str(session_id) if session_id else None,
+        ) or state
         query = str(resumed_record.original_query or query)
         match_path = str(
             (resume_result.merged_canonical.get("routing") or {}).get("match_path") or match_path
@@ -491,6 +502,14 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
             initial_tier=initial,
             resolved_tier=resolved_tier,
         )
+        state = emit_handoff_persisted(
+            state,
+            handoff_id=handoff_id,
+            handoff_version=handoff_version,
+            handoff_status="awaiting_clarification",
+            trace_id=str(trace_id) if trace_id else None,
+            session_id=str(session_id) if session_id else None,
+        ) or state
         state = emit_clarification_requested(
             state,
             {
@@ -546,6 +565,14 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
             gap_resolution=gap.model_dump() if gap else None,
         )
     )
+    state = emit_handoff_persisted(
+        state,
+        handoff_id=handoff_id,
+        handoff_version=handoff_version,
+        handoff_status="in_progress",
+        trace_id=str(trace_id) if trace_id else None,
+        session_id=str(session_id) if session_id else None,
+    ) or state
 
     evidence_plan, consumed, ignored = plan_evidence_from_canonical(
         canonical,

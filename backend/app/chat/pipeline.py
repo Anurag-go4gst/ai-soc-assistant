@@ -4314,6 +4314,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         missing_evidence_reasoning_trace = None
         llm_turn_budget_trace = None
     answer_contract_payload = answer_contract.model_dump() if answer_contract is not None else None
+    from app.chat.planning_telemetry import emit_request_completed
     from app.chat.response_validation import (
         emit_request_failed,
         emit_response_generated,
@@ -5427,6 +5428,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         # Scorecard is reporting only; it must never break an answer.
         pass
     state = emit_response_generated({**state, "response": response})
+    state = emit_request_completed(state)
     return {
         **state,
         "context_sufficiency": response.context_sufficiency,

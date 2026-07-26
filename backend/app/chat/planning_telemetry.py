@@ -86,6 +86,43 @@ def _base_payload(
     return payload
 
 
+def _enrich_payload(state: dict[str, Any] | None, payload: dict[str, Any]) -> dict[str, Any]:
+    enriched = dict(payload)
+    if state is not None:
+        for key in ("trace_id", "session_id", "turn_id"):
+            if enriched.get(key) is None and state.get(key) is not None:
+                enriched[key] = state.get(key)
+    return enriched
+
+
+_TERMINAL_REQUEST_EVENTS = frozenset({"request.completed", "request.failed"})
+
+
+def terminal_request_event_emitted(state: dict[str, Any] | None) -> str | None:
+    if state is None:
+        return None
+    flag = state.get("canonical_request_terminal_event")
+    return str(flag) if isinstance(flag, str) and flag in _TERMINAL_REQUEST_EVENTS else None
+
+
+def _mark_terminal_request_event(state: dict[str, Any], event: str) -> dict[str, Any]:
+    return {**state, "canonical_request_terminal_event": event}
+
+
+def should_emit_request_completed(state: dict[str, Any]) -> bool:
+    from app.chat.contracts.canonical_planning_outcome import outcome_from_state
+
+    if terminal_request_event_emitted(state) is not None:
+        return False
+    outcome = outcome_from_state(state)
+    if outcome is not None and outcome.status == "clarification_required":
+        return False
+    failure = state.get("canonical_planning_failure")
+    if isinstance(failure, dict) and failure.get("outcome") == "persistence_failed":
+        return False
+    return True
+
+
 def emit_planning_event(
     state: dict[str, Any] | None,
     *,
@@ -102,19 +139,20 @@ def emit_planning_event(
     global _LAST_DECISION_ID
     record_id = new_decision_record_id()
     _LAST_DECISION_ID = record_id
+    enriched_payload = _enrich_payload(state, payload)
     full_payload = {
         **_base_payload(
             event=event,
-            trace_id=payload.get("trace_id") or (state or {}).get("trace_id"),
-            turn_id=payload.get("turn_id"),
-            handoff_id=payload.get("handoff_id"),
-            handoff_version=payload.get("handoff_version"),
-            resource_plan_id=payload.get("resource_plan_id"),
+            trace_id=enriched_payload.get("trace_id") or (state or {}).get("trace_id"),
+            turn_id=enriched_payload.get("turn_id"),
+            handoff_id=enriched_payload.get("handoff_id"),
+            handoff_version=enriched_payload.get("handoff_version"),
+            resource_plan_id=enriched_payload.get("resource_plan_id"),
             parent_decision_id=parent_decision_id or _LAST_DECISION_ID,
-            status=str(payload.get("status") or "completed"),
+            status=str(enriched_payload.get("status") or "completed"),
             duration_ms=duration_ms,
-            error_category=payload.get("error_category"),
-            extra=payload,
+            error_category=enriched_payload.get("error_category"),
+            extra=enriched_payload,
         ),
     }
     _EVENT_LOG.append(full_payload)
@@ -125,13 +163,33 @@ def emit_planning_event(
         is_audit_critical_planning_event,
     )
 
-    persist_payload = {**full_payload, "decision_id": record_id, "node_name": node_name}
+    persist_payload = {
+        **full_payload,
+        "decision_id": record_id,
+        "node_name": node_name,
+        "session_id": enriched_payload.get("session_id") or (state or {}).get("session_id"),
+    }
     if durable:
         try:
             persist_planning_event(persist_payload)
         except AuditCriticalTelemetryPersistenceError as exc:
             if state is None:
                 raise
+            existing_failure = state.get("canonical_planning_failure")
+            already_persistence_failed = (
+                isinstance(existing_failure, dict)
+                and existing_failure.get("outcome") == "persistence_failed"
+            )
+            if event == "request.failed" or already_persistence_failed:
+                _append_telemetry_degradation(
+                    state,
+                    event=str(exc.event or event),
+                    reason=exc.reason,
+                    detail=exc.detail,
+                )
+                if event == "request.failed":
+                    return _mark_terminal_request_event(state, "request.failed")
+                return state
             from app.chat.canonical_mode import build_persistence_failed_state
 
             return build_persistence_failed_state(
@@ -399,6 +457,141 @@ def emit_execution_event(
         payload=payload,
     )
     return result or state
+
+
+def emit_handoff_persisted(
+    state: dict[str, Any] | None,
+    *,
+    handoff_id: str,
+    handoff_version: int,
+    handoff_status: str,
+    trace_id: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any] | None:
+    return emit_planning_event(
+        state,
+        event="handoff.persisted",
+        node_name="canonical_handoff_store",
+        decision_reason="handoff_persisted",
+        payload=_enrich_payload(
+            state,
+            {
+                "handoff_id": handoff_id,
+                "handoff_version": handoff_version,
+                "handoff_status": handoff_status,
+                "trace_id": trace_id,
+                "session_id": session_id,
+                "status": "completed",
+            },
+        ),
+    )
+
+
+def emit_handoff_resumed(
+    state: dict[str, Any] | None,
+    *,
+    handoff_id: str,
+    handoff_version: int,
+    prior_handoff_version: int,
+    idempotent_replay: bool = False,
+    trace_id: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any] | None:
+    return emit_planning_event(
+        state,
+        event="handoff.resumed",
+        node_name="canonical_handoff_resumption",
+        decision_reason="handoff_resumed_replay" if idempotent_replay else "handoff_resumed",
+        payload=_enrich_payload(
+            state,
+            {
+                "handoff_id": handoff_id,
+                "handoff_version": handoff_version,
+                "prior_handoff_version": prior_handoff_version,
+                "idempotent_replay": idempotent_replay,
+                "trace_id": trace_id,
+                "session_id": session_id,
+                "status": "completed",
+            },
+        ),
+    )
+
+
+def emit_resource_plan_commit_reused(
+    state: dict[str, Any] | None,
+    *,
+    resource_plan_id: str,
+    handoff_id: str,
+    handoff_version: int,
+) -> dict[str, Any] | None:
+    return emit_planning_event(
+        state,
+        event="resource_plan.commit_reused",
+        node_name="plan_evidence_from_canonical",
+        decision_reason="resource_plan_commit_reused",
+        payload=_enrich_payload(
+            state,
+            {
+                "resource_plan_id": resource_plan_id,
+                "handoff_id": handoff_id,
+                "handoff_version": handoff_version,
+                "status": "completed",
+            },
+        ),
+    )
+
+
+def emit_execution_step_event(
+    state: dict[str, Any] | None,
+    *,
+    event: str,
+    resource_plan_id: str,
+    step_id: str,
+    operation: str,
+    handoff_id: str | None = None,
+    handoff_version: int | None = None,
+    status: str = "completed",
+    error_category: str | None = None,
+    replay: bool = False,
+) -> dict[str, Any] | None:
+    payload: dict[str, Any] = {
+        "resource_plan_id": resource_plan_id,
+        "step_id": step_id,
+        "operation": operation,
+        "handoff_id": handoff_id,
+        "handoff_version": handoff_version,
+        "status": status,
+        "replay": replay,
+    }
+    if error_category:
+        payload["error_category"] = error_category
+    return emit_planning_event(
+        state,
+        event=event,
+        node_name="execution_step",
+        decision_reason=event,
+        payload=_enrich_payload(state, payload),
+    )
+
+
+def emit_request_completed(state: dict[str, Any]) -> dict[str, Any]:
+    if not should_emit_request_completed(state):
+        return state
+    payload = _enrich_payload(
+        state,
+        {
+            "status": "completed",
+            "node_name": "request_terminal",
+        },
+    )
+    result = emit_planning_event(
+        state,
+        event="request.completed",
+        node_name="request_terminal",
+        decision_reason="request_completed",
+        payload=payload,
+    )
+    return _mark_terminal_request_event(result or state, "request.completed")
 
 
 def decision_payload_from_canonical(canonical: CanonicalPlanningInput) -> dict[str, Any]:

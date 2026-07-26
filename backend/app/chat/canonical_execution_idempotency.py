@@ -807,11 +807,31 @@ def run_idempotent_execution_step(
     lease_owner: str | None,
     execute: Callable[..., dict[str, Any]],
     operation_contract: OperationReplayContract | None = None,
+    telemetry_state: dict[str, Any] | None = None,
 ) -> tuple[AcquireOutcome, dict[str, Any]]:
     """Acquire lease, run ``execute`` once, persist terminal status in one UoW."""
+    from app.chat.planning_telemetry import emit_execution_step_event
+
     contract = operation_contract or (
         "side_effecting_without_stable_idempotency" if side_effecting else "read_only_retryable"
     )
+
+    def _emit_step(event: str, *, status: str = "completed", error_category: str | None = None, replay: bool = False) -> None:
+        if telemetry_state is None:
+            return
+        emit_execution_step_event(
+            telemetry_state,
+            event=event,
+            resource_plan_id=resource_plan_id,
+            step_id=step_id,
+            operation=operation,
+            handoff_id=handoff_id,
+            handoff_version=handoff_version,
+            status=status,
+            error_category=error_category,
+            replay=replay,
+        )
+
     if _USE_TEST_STORE:
         acquired = _memory_acquire(
             resource_plan_id=resource_plan_id,
@@ -824,6 +844,7 @@ def run_idempotent_execution_step(
             operation_contract=contract,
         )
         if acquired.outcome == AcquireOutcome.REPLAY:
+            _emit_step("execution_step.completed", status="completed", replay=True)
             return acquired.outcome, dict(acquired.stored_result or {})
         if acquired.outcome == AcquireOutcome.IN_PROGRESS:
             return acquired.outcome, {"reason": "execution_step_in_progress"}
@@ -836,6 +857,7 @@ def run_idempotent_execution_step(
             step_id=step_id,
             operation=operation,
         )
+        _emit_step("execution_step.started", status="running")
         try:
             result = _execute_with_optional_downstream_key(
                 execute,
@@ -843,6 +865,7 @@ def run_idempotent_execution_step(
                 require_key_support=contract == "side_effecting_with_stable_idempotency",
             )
             _memory_complete(idempotency_key=key, result=result)
+            _emit_step("execution_step.completed", status="completed")
             return AcquireOutcome.EXECUTE, result
         except Exception as exc:
             _memory_fail(
@@ -851,6 +874,7 @@ def run_idempotent_execution_step(
                 retryable=not side_effecting,
                 uncertain=side_effecting and contract == "side_effecting_without_stable_idempotency",
             )
+            _emit_step("execution_step.failed", status="failed", error_category="execution_error")
             raise
 
     async def _run(conn: asyncpg.Connection | None) -> tuple[AcquireOutcome, dict[str, Any]]:
@@ -868,6 +892,7 @@ def run_idempotent_execution_step(
             operation_contract=contract,
         )
         if acquired.outcome == AcquireOutcome.REPLAY:
+            _emit_step("execution_step.completed", status="completed", replay=True)
             return acquired.outcome, dict(acquired.stored_result or {})
         if acquired.outcome == AcquireOutcome.IN_PROGRESS:
             return acquired.outcome, {"reason": "execution_step_in_progress"}
@@ -880,6 +905,7 @@ def run_idempotent_execution_step(
             step_id=step_id,
             operation=operation,
         )
+        _emit_step("execution_step.started", status="running")
         try:
             result = _execute_with_optional_downstream_key(
                 execute,
@@ -887,6 +913,7 @@ def run_idempotent_execution_step(
                 require_key_support=contract == "side_effecting_with_stable_idempotency",
             )
             await complete_step_execution(conn, idempotency_key=key, result=result)
+            _emit_step("execution_step.completed", status="completed")
             return AcquireOutcome.EXECUTE, result
         except Exception as exc:
             await fail_step_execution(
@@ -896,6 +923,7 @@ def run_idempotent_execution_step(
                 retryable=not side_effecting,
                 uncertain=side_effecting and contract == "side_effecting_without_stable_idempotency",
             )
+            _emit_step("execution_step.failed", status="failed", error_category="execution_error")
             raise
 
     return run_in_canonical_unit_of_work(_run)
