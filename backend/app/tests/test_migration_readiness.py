@@ -26,6 +26,7 @@ def test_required_migration_versions_lists_all_sql_files() -> None:
         "0003_ai_soc_telemetry_indexes",
         "0004_canonical_handoffs",
         "0005_canonical_planning_cutover_constraints",
+        "0006_canonical_retention_indexes",
     ]
 
 

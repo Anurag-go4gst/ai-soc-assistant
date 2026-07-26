@@ -405,6 +405,13 @@ class Settings(BaseSettings):
     ai_soc_guided_hybrid_investigation_enabled: bool = False
     # Canonical handoff durable store TTL (PostgreSQL).
     ai_soc_handoff_store_ttl_minutes: int = 60
+    # Item 28 — bounded retention purge for canonical_handoffs / canonical_planning_events.
+    ai_soc_canonical_retention_purge_enabled: bool = True
+    ai_soc_canonical_retention_purge_interval_seconds: int = 3600
+    ai_soc_canonical_retention_purge_batch_size: int = 500
+    ai_soc_canonical_handoff_retention_grace_hours: int = 24
+    ai_soc_canonical_planning_event_diagnostic_retention_days: int = 7
+    ai_soc_canonical_planning_event_audit_retention_days: int = 90
     ai_soc_guided_max_duplicate_tool_calls: int = 1
     # Guided read-only MCP discovery lane (metadata tools only; no run_query/SPL execution).
     # Default false — flag-off preserves legacy guided_investigation byte-identical behavior.

@@ -3,6 +3,8 @@ import logging
 import traceback
 from uuid import uuid4
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -37,7 +39,21 @@ from app.auth.routes_auth import router as auth_router
 from app.db.migration_readiness import log_startup_migration_readiness
 
 
-app = FastAPI(title="AI SOC Assistant")
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    from app.chat.canonical_retention_scheduler import (
+        start_canonical_retention_scheduler,
+        stop_canonical_retention_scheduler,
+    )
+
+    purge_task = start_canonical_retention_scheduler()
+    try:
+        yield
+    finally:
+        await stop_canonical_retention_scheduler(purge_task)
+
+
+app = FastAPI(title="AI SOC Assistant", lifespan=_lifespan)
 
 # Apply any UI-persisted LLM connection override onto the live settings before
 # the first request, so the endpoint resolver / sidecars / Ask LLM honor it.

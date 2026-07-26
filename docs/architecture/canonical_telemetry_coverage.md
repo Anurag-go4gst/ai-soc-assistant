@@ -63,3 +63,38 @@ Experience Center / demo (`backend/app/demo/`) does not import planning telemetr
 Machine-readable catalog: `backend/app/chat/canonical_telemetry_catalog.py`.
 
 Verification: `pytest backend/app/tests/test_canonical_telemetry_coverage.py -q`
+
+## Retention and purge (item 28)
+
+### `ai_trace_runs` authority (COE trace spine)
+
+The legacy COE trace tables (`ai_trace_runs`, `ai_trace_steps`, child event tables) have
+**no automated purge job** in this repository today. Migration `0003_ai_soc_telemetry_indexes`
+indexes `ai_trace_runs.started_at` for operator queries only. Canonical planning retention
+reuses the same **bounded-batch + typed-column** posture as the telemetry connector: idempotent
+deletes, logged counts, no raw SOC content in logs.
+
+### SOC content stored
+
+| Table | SOC-bearing columns / payloads | Notes |
+|-------|-------------------------------|--------|
+| `canonical_handoffs` | `original_query`; JSONB `canonical_planning_input`, `gap_resolution`, `committed_resource_plan`, `committed_evidence_plan` | `original_query` is the raw analyst ask; JSONB may include field values from clarification. |
+| `canonical_planning_events` | JSONB `payload` (may include `user_query`, `original_query` when emitters attach them) | Correlation fields are typed columns; `minimize()` masks secrets but **does not strip query text** by design. |
+
+### Retention windows (configurable)
+
+| Class | Default | Eligibility |
+|-------|---------|-------------|
+| Expired / terminal `canonical_handoffs` | `expires_at` older than **24h grace** (`AI_SOC_CANONICAL_HANDOFF_RETENTION_GRACE_HOURS`) | Terminal statuses (`completed`, `failed`, `expired`, `plan_committed`) or expired `awaiting_clarification`. Never while any version of the same `handoff_id` is still unexpired, or an execution lease is `running`. |
+| Diagnostic `canonical_planning_events` | **7 days** (`AI_SOC_CANONICAL_PLANNING_EVENT_DIAGNOSTIC_RETENTION_DAYS`) | Events in `DIAGNOSTIC_PLANNING_EVENTS` only. |
+| Audit-critical `canonical_planning_events` | **90 days** (`AI_SOC_CANONICAL_PLANNING_EVENT_AUDIT_RETENTION_DAYS`) | Events in `AUDIT_CRITICAL_PLANNING_EVENTS` only. |
+
+Purge runs on a **repeating background scheduler** (`canonical_retention_scheduler`) when
+`AI_SOC_CANONICAL_RETENTION_PURGE_ENABLED=true` (default). Each tick deletes at most
+`AI_SOC_CANONICAL_RETENTION_PURGE_BATCH_SIZE` rows per category (default 500). Failures log
+`error_category` and do not disable future ticks.
+
+Indexes: migration `0006_canonical_retention_indexes` (`expires_at, status` on handoffs;
+`created_at, event` on planning events).
+
+Verification: `pytest backend/app/tests/integration/test_canonical_retention_purge.py -q`
