@@ -1,0 +1,10 @@
+# Item 29 smoke overlay — Nginx front door (public /api/chat path through proxy).
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "${AI_SOC_HOST_BIND:-127.0.0.1}:${AI_SOC_NGINX_HOST_PORT:-18080}:80"
+    volumes:
+      - ./docker/nginx-smoke.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend

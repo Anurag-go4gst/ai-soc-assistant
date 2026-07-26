@@ -143,7 +143,7 @@
       ],
       "answer_mode": null,
       "candidate_spl_present": false,
-      "contract_answer_mode": "clarification",
+      "contract_answer_mode": null,
       "draft_spl_present": false,
       "draft_status": null,
       "enabled_sections": [
