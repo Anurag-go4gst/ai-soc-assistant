@@ -235,6 +235,65 @@ def test_live_chat_two_turn_clarification_via_session_pins(_memory_handoffs: Any
     next_version = get_handoff(handoff_id, 2)
     assert next_version is not None
     assert next_version.normalized_status() == "plan_committed"
+    assert second.evidence_plan is not None
+    assert second.evidence_plan.get("answer_mode") != "clarification"
+    assert not (second.evidence_plan.get("clarification_questions") or [])
+
+
+def test_clarification_resume_passes_response_validation_after_two_turn_flow(
+    _memory_handoffs: Any,
+) -> None:
+    """Corrective B: committed resume plan must not keep turn-1 clarification answer_mode."""
+    session_id = "sess-clarify-validation"
+    first = _run_canonical("What happened with that alert?", session_id=session_id)
+    clarification = outcome_from_state(first).clarification  # type: ignore[union-attr]
+    assert clarification is not None
+
+    resumed = _run_canonical(
+        "ALT-2024-0891",
+        session_id=session_id,
+        handoff_resume={
+            "handoff_id": clarification.handoff_id,
+            "handoff_version": clarification.handoff_version,
+            "user_answer": "ALT-2024-0891",
+        },
+    )
+    outcome = outcome_from_state(resumed)
+    assert outcome is not None and outcome.status == "planned"
+    evidence = resumed.get("evidence_plan") or {}
+    assert evidence.get("answer_mode") != "clarification"
+    assert (evidence.get("resource_plan") or {}).get("provenance", {}).get("committed") is True
+    status, reasons = validate_final_response(resumed)
+    assert (status, reasons) == ("ok", [])
+
+
+def test_resume_intent_restores_skill_not_clarification_stub(_memory_handoffs: Any) -> None:
+    from app.chat.canonical_handoff_models import CanonicalHandoffRecord
+    from app.chat.canonical_query_to_intent_resume import build_intent_classification_from_handoff
+
+    record = CanonicalHandoffRecord(
+        handoff_id="cpi:stub",
+        handoff_version=2,
+        status="plan_committed",
+        original_skill="alert_summary",
+        original_answer_goal=None,
+        canonical_planning_input={
+            "routing": {
+                "primary_skill": "alert_summary",
+                "intent_family": "clarification_required",
+                "answer_goal": "clarification",
+                "match_path": "out_of_registry",
+            }
+        },
+    )
+    intent = build_intent_classification_from_handoff(
+        resumed_record=record,
+        routing=dict(record.canonical_planning_input or {}).get("routing") or {},
+    )
+    assert intent is not None
+    assert intent["intent_family"] == "live_investigation"
+    assert intent["answer_goal_primary"] == "live_results"
+    assert intent["requires_clarification"] is False
 
 
 def test_malformed_handoff_routing_returns_typed_failure(_memory_handoffs: Any) -> None:

@@ -7,6 +7,67 @@ from typing import Any
 from app.chat.canonical_handoff_models import CanonicalHandoffRecord
 from app.chat.intent_classifier import _family_from_promoted_skill, build_query_to_intent
 
+_CLARIFICATION_STUB_GOALS = frozenset({"clarification"})
+
+_VALID_ANSWER_GOALS = frozenset(
+    {
+        "live_results",
+        "analyst_action_guidance",
+        "policy_citation",
+        "spl_artifact",
+        "mitre_mapping",
+        "mitre_explanation",
+        "severity_assessment",
+        "procedural_steps",
+        "reference_lookup",
+    }
+)
+
+_CANONICAL_GOAL_ALIASES = {
+    "live_investigation": "live_results",
+    "guided_investigation": "analyst_action_guidance",
+    "reference_explanation": "reference_lookup",
+}
+
+
+def normalize_resume_answer_goal(goal: str) -> str:
+    """Map routing/canonical goal strings onto IntentClassification answer goals."""
+    normalized = str(goal or "").strip()
+    if not normalized or normalized in _CLARIFICATION_STUB_GOALS:
+        return ""
+    if normalized in _CANONICAL_GOAL_ALIASES:
+        return _CANONICAL_GOAL_ALIASES[normalized]
+    if normalized in _VALID_ANSWER_GOALS:
+        return normalized
+    return ""
+
+
+def resume_answer_goal_for_skill(primary_skill: str) -> str:
+    skill = str(primary_skill or "").strip().lower()
+    if skill == "guided_investigation":
+        return "analyst_action_guidance"
+    if skill in {"knowledge_recall", "retrieve_approved_context"}:
+        return "reference_lookup"
+    if skill in {"spl_generation", "spl_search", "aggregate_and_rank", "threshold_anomaly"}:
+        return "spl_artifact"
+    return "live_results"
+
+
+def _resume_answer_goal(
+    *,
+    primary_skill: str,
+    routing: dict[str, Any],
+    original_answer_goal: str | None,
+) -> str:
+    """Restore the pre-clarification answer goal; turn-1 routing keeps clarification stubs."""
+    stored = normalize_resume_answer_goal(str(original_answer_goal or ""))
+    if stored:
+        return stored
+    routing_goal = normalize_resume_answer_goal(str(routing.get("answer_goal") or ""))
+    if routing_goal:
+        return routing_goal
+    return resume_answer_goal_for_skill(primary_skill)
+
 
 def query_to_intent_contract_error(q2i: Any) -> str | None:
     """Return a stable failure reason when the query_to_intent contract is incomplete."""
@@ -29,26 +90,22 @@ def build_intent_classification_from_handoff(
     routing: dict[str, Any],
 ) -> dict[str, Any] | None:
     primary_skill = str(
-        routing.get("primary_skill")
+        resumed_record.original_skill
         or routing.get("original_skill")
-        or resumed_record.original_skill
+        or routing.get("primary_skill")
         or ""
     ).strip()
     if not primary_skill:
         return None
-    answer_goal = str(
-        routing.get("answer_goal")
-        or resumed_record.original_answer_goal
-        or ""
-    ).strip()
-    if not answer_goal:
-        return None
-    intent_family = routing.get("intent_family")
-    if not intent_family:
-        intent_family = _family_from_promoted_skill(
-            primary_skill or None,
-            routing.get("match_path"),
-        )
+    answer_goal = _resume_answer_goal(
+        primary_skill=primary_skill,
+        routing=routing,
+        original_answer_goal=resumed_record.original_answer_goal,
+    )
+    intent_family = _family_from_promoted_skill(
+        primary_skill,
+        routing.get("match_path"),
+    )
     return {
         "intent_family": intent_family,
         "primary_intent": primary_skill,

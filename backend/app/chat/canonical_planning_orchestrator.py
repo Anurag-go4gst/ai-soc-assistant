@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from app.chat.canonical_handoff_builder import build_canonical_planning_input, new_handoff_id
+from app.chat.canonical_query_to_intent_resume import (
+    normalize_resume_answer_goal,
+    resume_answer_goal_for_skill,
+)
 from app.chat.canonical_handoff_store import (
     CanonicalHandoffRecord,
     save_clarification_handoff,
@@ -442,6 +446,9 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
             route_reason = "t4_guided_resolution"
 
     post = None
+    preserved_answer_goal = ""
+    if intent_classification is not None:
+        preserved_answer_goal = str(intent_classification.get("answer_goal_primary") or "").strip()
     if gap is not None:
         post = evaluate_post_guided_completeness(
             gap,
@@ -458,6 +465,14 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         )
         state = emit_post_guided_completeness_evaluated(state, post.model_dump()) or state
         if post.clarification_required and intent_classification is not None:
+            if preserved_answer_goal in {"", "clarification"}:
+                gap_goal = normalize_resume_answer_goal(str(gap.original_answer_goal or ""))
+                if gap_goal:
+                    preserved_answer_goal = gap_goal
+                else:
+                    preserved_answer_goal = resume_answer_goal_for_skill(
+                        str(routed.get("skill") or intent_classification.get("primary_intent") or "")
+                    )
             intent_classification = {
                 **intent_classification,
                 "requires_clarification": True,
@@ -517,7 +532,8 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
             original_query=query,
             original_skill=str(routed.get("skill") or intent_classification.get("primary_intent")),
             original_use_case_id=use_case_id,
-            original_answer_goal=str(intent_classification.get("answer_goal_primary")),
+            original_answer_goal=preserved_answer_goal
+            or str(intent_classification.get("answer_goal_primary") or ""),
             initial_tier=initial,
             resolved_tier=resolved_tier,
         )
