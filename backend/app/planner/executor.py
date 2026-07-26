@@ -169,9 +169,6 @@ def derive_dispatch_booleans_from_plan(state: State) -> dict[str, Any]:
     "rag_only",
     "guided_investigation",
   } or path_type == "generic_soc_guidance"
-  if not True:
-    uses_rag_only_path = False
-    uses_pre_mcp_rag = False
 
   return {
     "uses_rag_only_path": uses_rag_only_path,

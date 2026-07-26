@@ -1,13 +1,13 @@
-"""Item 2.1 — MCP evidence-plan grants on all tiers, gated on control_plane_enabled.
+"""Item 2.1 — MCP evidence-plan grants on all tiers under canonical planning.
 
 Scope (grounded against the actual code, not the plan's original draft text):
 `spl_generation_only` + a live-data ask is the one family in evidence_planner.py
 that self-admittedly needed MCP but never allowed it
-(``live_data_request_mcp_needed_but_not_allowed``). Under control_plane_enabled,
-this item flips that to an architectural eligibility grant — matching how
-``spl_generation_and_run``/default ``live_investigation`` already set
-``mcp_allowed=True`` before any SPL is validated. Real gating (validated
-``normalized_spl``, tool selection, per-call HIL confirmation) is unchanged and
+(``live_data_request_mcp_needed_but_not_allowed``). Catalogue-matched paths grant
+MCP eligibility architecturally — matching how ``spl_generation_and_run``/default
+``live_investigation`` already set ``mcp_allowed=True`` before any SPL is validated.
+Real gating (validated ``normalized_spl``, tool selection, per-call HIL confirmation)
+is unchanged and
 lives downstream at ``evaluate_mcp_execution`` — this test only proves the
 plan-level eligibility flag and the execution gate remain two separate things.
 
@@ -44,7 +44,7 @@ def test_out_of_catalogue_live_data_ask_is_not_granted_mcp(monkeypatch: pytest.M
 
     This test previously asserted ``mcp_allowed is True`` for an out-of-catalogue
     live-data ask. That grant was written as ``live_data_request and
-    settings.control_plane_enabled``; removing the flag at the canonical cutover
+    control_plane_enabled``; removing the flag at the canonical cutover
     collapsed the conjunct to ``and True`` and silently widened authorisation to every
     tier, which is what ``test_t2_spl_native_live::test_t2_never_execution_eligible_or_mcp_allowed``
     caught. Authorisation is now withheld here and belongs to the final planner plus

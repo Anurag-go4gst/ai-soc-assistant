@@ -914,7 +914,6 @@
         "composer_attempted": false,
         "composer_is_enabled": true,
         "composer_skipped_reason": "composer_not_eligible",
-        "control_plane_enabled": true,
         "expected_latency_hint": "On-prem single-slot model: live narration can take ~60s; the wait is expected. Facts stay deterministic and fall back if the model is slow.",
         "llm_composer_enabled": true,
         "llm_composer_used": false,

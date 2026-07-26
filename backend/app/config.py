@@ -522,17 +522,6 @@ def _validate(s: Settings) -> Settings:
             "retired_env_key_ignored",
             extra={"key": "AI_SOC_FLOW_CHECK_MODE", "value": retired_flow_check},
         )
-    for retired_key in (
-        "CONTROL_PLANE_ENABLED",
-        "AI_SOC_CANONICAL_PLANNING_ENABLED",
-        "AI_SOC_HANDOFF_STORE_BACKEND",
-        "AI_SOC_HANDOFF_STORE_FILE_DIR",
-    ):
-        if os.environ.get(retired_key):
-            logging.getLogger("ai_soc.config").warning(
-                "retired_env_key_ignored",
-                extra={"key": retired_key, "value": os.environ.get(retired_key)},
-            )
     return s
 
 

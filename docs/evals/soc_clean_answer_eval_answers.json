@@ -9,7 +9,6 @@
     "ai_soc_planner_mitre_branch_enabled": true,
     "ai_soc_planner_path_selection_enabled": true,
     "ai_soc_spl_template_governance_enabled": true,
-    "control_plane_enabled": true,
     "langgraph_orchestration_enabled": false,
     "mcp_global_execution_enabled": false,
     "mcp_server_mock_execution_enabled": false,

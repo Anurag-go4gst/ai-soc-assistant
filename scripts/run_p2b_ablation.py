@@ -99,7 +99,6 @@ def _profiles_for_row(row: dict) -> dict:
         skip_composer_reason=skip_reason,
         intent_advisory_skipped=True,
         intent_skip_reason="ablation_offline",
-        control_plane_enabled=bool(settings.control_plane_enabled),
         soc_investigation_shaped=bool(u.soc_investigation_shaped),
     )
     enabled_roles = [r.role_id for r in plan.roles if r.enabled]

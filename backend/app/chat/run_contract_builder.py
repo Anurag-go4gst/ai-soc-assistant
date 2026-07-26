@@ -309,7 +309,7 @@ def _resolve_mcp_allowed(
     authorized this turn. A review-only / blocked answer reports explicit False
     rather than the permissive gate-bypass True.
     """
-    if not True or not evidence_plan:
+    if not evidence_plan:
         return bool(execution_authorized)
     spl_validation = state.get("spl_validation") if isinstance(state, dict) else None
     if isinstance(spl_validation, dict) and spl_validation.get("approved") is not True:

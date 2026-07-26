@@ -98,9 +98,6 @@ def apply_llm_primary_resource_plan(
     client: Any | None = None,
 ) -> tuple[ResourcePlan, bool]:
     """Return the live resource plan and whether an LLM planner hop ran."""
-    if not True:
-        return floor_plan, False
-
     if (
         floor_plan.provenance.get("composer") == "guided_hybrid_v1"
         or floor_plan.provenance.get("skill_id") == "guided_investigation"

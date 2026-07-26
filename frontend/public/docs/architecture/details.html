@@ -2405,8 +2405,8 @@ output template</pre>
 
         <h3 style="margin-top:24px;">Dual narration paths (control plane)</h3>
         <ul>
-          <li><strong>CP on</strong> (<code>CONTROL_PLANE_ENABLED=true</code>): <code>governed_answer_composer</code> — requires <code>AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED</code> + <code>AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED</code>.</li>
-          <li><strong>CP off</strong>: <code>lab_runner.narrate_analyst_summary</code> — same synthesis flags, legacy path.</li>
+          <li><strong>Canonical planning on</strong> (unconditional): <code>governed_answer_composer</code> — requires <code>AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED</code> + <code>AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED</code>.</li>
+          <li><strong>Legacy synthesis off</strong>: <code>lab_runner.narrate_analyst_summary</code> — same synthesis flags, legacy path.</li>
         </ul>
         <p style="margin:12px 0 0;color:var(--muted);font-size:14px;">Experience Center fixtures never call a live provider.</p>
       </div>

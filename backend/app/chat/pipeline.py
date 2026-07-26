@@ -304,7 +304,6 @@ from app.chat.guided_investigation_planner import validate_investigation_plan
 from app.chat.guided_capability_validator import validate_guided_resource_plan
 from app.chat.guided_spl_review_gate import build_guided_spl_draft_preview_if_allowed
 from app.chat.investigation_plan_builder import build_deterministic_investigation_plan
-from app.planner.composer import compose_guided_resource_plan
 from app.chat.pipeline_visibility import build_pipeline_visibility
 from app.chat.pipeline_state_v2 import project_chat_pipeline_state_v2
 from app.chat.routing_skill_nodes import (
@@ -408,7 +407,7 @@ class ChatPipelineState(TypedDict, total=False):
     session_role: str | None
     effective_query: str | None
     llm_turn_budget: TurnLlmBudget | None
-    # Stage 4B governed evidence-collection loop (CONTROL_PLANE_ENABLED only).
+    # Stage 4B governed evidence-collection loop (canonical planning always on).
     mcp_chronology: list[str]
     mcp_cursor: int
     mcp_evidence: list[dict[str, Any]]
@@ -1740,7 +1739,7 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
     # Stage 4B: on loop re-entry (after an mcp_call discovery hop or the gated
     # execution hop) the HUB only re-assesses + routes — it must NOT re-emit
     # progress, re-route, or re-compose the plan (idempotency, plan bug #2).
-    if True and loop_initialized(state):
+    if loop_initialized(state):
         execution = state.get("execution") if "execution" in state else None
         recipe = _active_recipe(state)
         if recipe is not None:
@@ -1779,22 +1778,6 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
             next_state["data_silence_advisory"] = build_data_silence_advisory(state)
         return next_state
     emit_stage("planning_evidence")
-    if not True:
-        planning = plan_path_and_tools(
-            intent_classification=state.get("intent_classification"),
-            evidence_plan=None,
-            routed=state.get("routed"),
-            query_understanding=state.get("query_understanding"),
-            selected_use_case=state.get("selected_use_case"),
-            llm_intent_advisory=state.get("llm_intent_advisory"),
-        )
-        planning_payload = planning.model_dump()
-        next_state = {**state, "evidence_plan": None, "planning_decision": planning_payload}
-        return _attach_pipeline_dispatch_if_enabled(
-            next_state,
-            evidence_plan=None,
-            planning_decision=planning_payload,
-        )
     intent = state.get("intent_classification")
     if not isinstance(intent, dict):
         planning = plan_path_and_tools(
@@ -1822,7 +1805,7 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         user_query=getattr(_req_for_evidence, "message", None) if _req_for_evidence is not None else None,
     )
     evidence_payload = plan.model_dump()
-    if True and isinstance(evidence_payload.get("resource_plan"), dict):
+    if isinstance(evidence_payload.get("resource_plan"), dict):
         floor_plan = ResourcePlan.model_validate(evidence_payload["resource_plan"])
         _match_path = getattr(state.get("query_understanding"), "deterministic_match_path", None)
         _budget = state.get("llm_turn_budget")
@@ -2089,8 +2072,6 @@ def _resolve_vulnerability_source_status(state: ChatPipelineState) -> dict[str, 
 
 
 def _mcp_evidence_loop_enabled(state: ChatPipelineState, evidence_payload: dict[str, Any]) -> bool:
-    if not True:
-        return False
     mcp_allowed = _mcp_allowed_decision_from_plan(evidence_payload)["allowed"] is True
     discovery_allowed = evidence_payload.get("discovery_allowed") is True
     if not mcp_allowed and not discovery_allowed:
@@ -2114,12 +2095,6 @@ def _mcp_evidence_loop_enabled(state: ChatPipelineState, evidence_payload: dict[
 
 def _mcp_allowed_decision_from_plan(evidence_plan: dict[str, Any] | None) -> dict[str, Any]:
     plan = evidence_plan if isinstance(evidence_plan, dict) else {}
-    if not True:
-        return {
-            "allowed": True,
-            "source": "control_plane_disabled",
-            "reason": "legacy_gate_bypass",
-        }
     if plan.get("mcp_allowed") is True:
         return {
             "allowed": True,
@@ -2321,7 +2296,7 @@ def graph_node_route_resolution(state: ChatPipelineState) -> ChatPipelineState:
     apply_analyst_summary_shadow(route_plan_shadow)
     comparison = routed.get("comparison", {})
     route_adjudication_payload: dict[str, Any] | None = None
-    if True and isinstance(state.get("intent_classification"), dict):
+    if isinstance(state.get("intent_classification"), dict):
         llm_advisory = comparison.get("llm_shadow") if isinstance(comparison, dict) else None
         adjudication = adjudicate_control_plane_route(
             deterministic_route=str(routed.get("skill") or "knowledge_recall"),
@@ -4258,7 +4233,6 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             skip_composer_reason=_skip_comp_reason,
             intent_advisory_skipped=_intent_skipped,
             intent_skip_reason=_intent_skip,
-            control_plane_enabled=bool(True),
             soc_investigation_shaped=bool(
                 getattr(state.get("query_understanding"), "soc_investigation_shaped", False)
             ),
@@ -6010,15 +5984,11 @@ def _uses_rag_only_path(state: ChatPipelineState) -> bool:
     path_type = planning.get("path_type") if isinstance(planning, dict) else None
     if path_type == "guided_investigation":
         return True
-    if not True:
-        return False
     answer_mode = _evidence_plan(state).get("answer_mode")
     return answer_mode in {"rag_only", "guided_investigation"} or path_type == "generic_soc_guidance"
 
 
 def _uses_pre_mcp_rag(state: ChatPipelineState) -> bool:
-    if not True:
-        return False
     plan = _evidence_plan(state)
     return bool(plan.get("needs_rag")) and plan.get("rag_phase") == "pre_mcp"
 
@@ -6113,8 +6083,6 @@ def _generic_soc_guidance_path(planning_decision: dict[str, Any] | None) -> bool
 
 
 def _spl_allowed(state: ChatPipelineState) -> bool:
-    if not True:
-        return True
     resolution = state.get("session_context_resolution")
     if (
         isinstance(resolution, SessionContextResolution)
@@ -6128,14 +6096,12 @@ def _spl_allowed(state: ChatPipelineState) -> bool:
 
 
 def _mcp_allowed(state: ChatPipelineState) -> bool:
-    if not True:
-        return True
     return _mcp_allowed_decision_from_plan(_evidence_plan(state))["allowed"] is True
 
 
 def _context_selected_skill(state: ChatPipelineState) -> str:
     workflow_plan = state.get("workflow_plan")
-    if True and isinstance(workflow_plan, dict):
+    if isinstance(workflow_plan, dict):
         skill = workflow_plan.get("skill")
         if isinstance(skill, str) and skill.strip():
             return skill.strip()
@@ -6195,9 +6161,7 @@ def _mitre_outputs_for_finalize(
     execution: dict[str, Any] | None = None,
     canonical_facts: dict[str, Any] | None = None,
 ) -> tuple[list[Any], dict[str, Any] | None]:
-    """Legacy mapping by default; Phase 7 decision only when control plane is on."""
-    if not True:
-        return map_mitre_for_use_case(use_case_id, source_refs), None
+    """MITRE mappings via Phase 7 evidence branch when control plane is active."""
     effective_use_case_id = _mitre_use_case_for_query(query or "", use_case_id, intent_classification)
     branch_mappings, branch_decision, branch = run_mitre_evidence_branch(
         query=query or "",

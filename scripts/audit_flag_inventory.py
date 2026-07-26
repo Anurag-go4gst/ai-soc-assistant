@@ -48,7 +48,6 @@ STAGE_SCAFFOLD_PATTERNS = (
 
 POSTURE_PREFIXES = (
     "AI_SOC_",
-    "CONTROL_PLANE_",
     "MCP_",
     "SOC_KB_",
     "QUALITY_",
@@ -217,7 +216,6 @@ def classify(
         return ("c_operator_infra", "keep", None, "Operator-managed URL/credential/budget — keep in profile.")
 
     if env_key.startswith(POSTURE_PREFIXES) or env_key in {
-        "CONTROL_PLANE_ENABLED",
         "MCP_MODE",
         "RAG_MODE",
         "LLM_MODE",

@@ -37,7 +37,7 @@ todos:
     status: pending
   - id: cleanup-gates
     content: "Items 25, 26, 26a, 28: config/doc cleanup, compatibility code removal, EC purity, retention/purge"
-    status: pending
+    status: in_progress
   - id: live-smoke-gates
     content: "Items 29, 27: containerised /chat canonical smoke + all verification gates"
     status: pending
@@ -88,7 +88,8 @@ Six distinct classes — do not merge them when reporting progress.
 | Item 21b — audit/diagnostic telemetry policy | **Done (uncommitted)** | 8 audit-critical / 20 diagnostic; telemetry policy/correlation focused set 19 passed; harness 6/6 under `TELEMETRY_MODE=none` |
 | Item 20 — execution idempotency | **Done (uncommitted)** | Contract-based replay policy; stale/timed-out non-idempotent side effects require manual reconciliation with zero invocation; Item 20 focused set 38 passed |
 | Item 21a (correlation columns) | **Done** | `_correlation()` binds from raw event; `test_canonical_telemetry_correlation.py` **5 passed** |
-| Item 21 — durable telemetry catalog | **Done (this commit)** | 28/28 events + `PRODUCTION_EMITTER_WIRING`; `test_canonical_telemetry_coverage.py` **18 passed**; policy+correlation **30 passed**; parity **120/0/0**; harness **6/6** |
+| Item 21 — durable telemetry catalog | **Done** (`8cd2c2d`) | 28/28 events; coverage **18 passed**; parity **120/0/0** |
+| Item 22 — response validation semantics | **Done (uncommitted)** | `test_response_validation_canonical.py` **11 passed**; clarification contract **13 passed**; two-phase validation wired in pipeline finalize |
 | MCP least-privilege re-gate | **Done** | `test_t2_never_execution_eligible_or_mcp_allowed` passes untouched |
 
 ### 2. Verified bugs fixed (production defects, not test churn)
@@ -565,32 +566,32 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Depends on:** 10, 21a, 21b, 13, 20
   - **Evidence:** All 28 events in `canonical_telemetry_catalog.py` with `PRODUCTION_EMITTER_WIRING` (production source markers). Wired: `handoff.persisted`/`resumed` (orchestrator + plan commit), `resource_plan.commit_reused`, `execution_step.*` (`canonical_execution_idempotency` + `guided_hybrid_collection` telemetry_state), `request.completed` (`pipeline` → `planning_telemetry`). Terminal dedup via `canonical_request_terminal_event`; audit-critical recursion guard in `emit_planning_event`. Docs: `docs/architecture/canonical_telemetry_coverage.md`. `pytest app/tests/test_canonical_telemetry_coverage.py app/tests/test_telemetry_persistence_policy.py app/tests/test_canonical_telemetry_correlation.py -q` → **30 passed**. Full pytest **4437 passed**. Harness **6/6** (`TELEMETRY_MODE=none`). Scratch parity `/tmp/parity-item21` → **120 exact / 0 approved / 0 critical**. No migration changes.
 
-- [ ] **22** — Response validation semantics — spec §7
+- [x] **22** — Response validation semantics — spec §7
   - **Do:** Rewrite `response_validation.py` outcome-aware. Before `response.validated`, check: canonical outcome status; `resource_plan_id` when executable; execution terminal state; required step completion; required evidence availability; explicit limitations; tool failures surfaced; `answer_goal` satisfied; citations retained; no claim of unexecuted action; policy restrictions respected.
   - **Do:** Rules: no `response.generated` on assembly failure; no `request.completed` before response generation succeeds; `clarification_required` validates unresolved fields/questions from `CanonicalPlanningOutcome.clarification` (no `EvidencePlan` required); failures identify typed failure without masquerading as success; no action-performed claims without completed execution step.
   - **Do:** Add `backend/app/tests/test_response_validation_canonical.py` negative tests: missing required evidence; failed execution step; unexecuted remediation claim; missing knowledge citation; wrong `answer_goal`; `resource_plan` mismatch; response assembly failure.
   - **Verify:** `pytest app/tests/test_response_validation_canonical.py -q`
   - **Depends on:** 13, 21
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** `response_validation.py` — two-phase validation (`validate_final_response` pre-assembly on `CanonicalPlanningOutcome`; `validate_assembled_response` post-assembly before terminals). Checks: outcome branch, `resource_plan_id`, execution terminal state, step completion/failure, required evidence, tool-failure surfacing, `answer_goal`, knowledge citations, policy restrictions, unexecuted remediation claims, assembly failure. Pipeline: `graph_node_context_finalize` skips `response.generated`/`request.completed` when assembly validation fails or terminal `request.failed` already emitted. `pytest app/tests/test_response_validation_canonical.py app/tests/test_canonical_clarification_contract.py -q` → **24 passed**; sentinel baseline green.
 
-- [ ] **23** — ResourcePlan authority audit — spec §10
+- [x] **23** — ResourcePlan authority audit — spec §10
   - **Do:** Search `ResourcePlan(`, `compose_resource_plan`, `compose_guided_resource_plan`, `commit_resource_plan`, `resource_plan =`. Classify each: `approved_final_planner` | `deserialization` | `test_fixture` | `validation` | `execution_read` | `violation`.
   - **Do:** Approved runtime authority only: `plan_evidence_from_canonical` → `resource_plan_authority` → `compose_resource_plan` → `commit_resource_plan`. Guided hybrid, executor, response composer, telemetry must never create/modify committed plan.
   - **Do:** Strengthen `test_resource_plan_authority.py` as static guard against future violations.
   - **Verify:** `pytest app/tests/test_resource_plan_authority.py -q`; classification table in completion report §11
   - **Depends on:** 17
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** Audited production `app/` tree. **Compose/commit:** only `plan_evidence_from_canonical.py` calls `compose_resource_plan` / `commit_resource_plan` (definitions in `composer.py`, `canonical_handoff_store.py`). Removed dead `compose_guided_resource_plan` import from `pipeline.py` (trace string only). **ResourcePlan() construction (5 modules):** `composer.py` → `approved_final_planner`; `guided_capability_validator.py`, `planner_hierarchy.py`, `llm_plan_bridge.py`, `plan_promotion_merge.py` → `validation` (filter/legacy advisory; canonical first-entry blocks legacy re-compose). **Deserialization (`ResourcePlan.model_validate`):** `guided_hybrid_executor.py`, `executor.py`, `pipeline.py` (legacy loop re-entry), `canonical_execution_idempotency.py` → `execution_read` / `deserialization`. **No violations** in guided hybrid, executor, telemetry, response composer. Static guards added: commit caller scan, construction allowlist, execution-read mutator scan, forbidden mutator scan (8 tests). `pytest app/tests/test_resource_plan_authority.py -q` → **8 passed**. Classification table pinned in test module `_RESOURCE_PLAN_CONSTRUCTION` for completion-report §11.
 
-- [ ] **24** — Postgres integration tests — spec §11
+- [x] **24** — Postgres integration tests — spec §11
   - **Do:** Add `backend/app/tests/integration/conftest.py` using project Postgres (`DATABASE_URL`). **Do not mock** transactional behaviour under test.
   - **Do:** Cover: handoff creation; unique handoff version; concurrent version creation; ResourcePlan commit race; execution-idempotency race; clarification resume race; telemetry persistence; process restart simulation; expired handoff; transaction rollback; database unavailable. Verify unique constraints and locking under concurrency.
   - **Do:** Clarification integration (item 19): cross-process restart; cross-worker resume; duplicate answer; concurrent duplicate answer; expired handoff; completed handoff; multiple pending handoffs; material goal change. Process restart and second-worker handoff cases from item 18.
   - **Do:** **Local skip policy:** tests may skip when Postgres is unavailable in an unsupported local environment. **Completion gate:** final CI verification job **must** provision PostgreSQL and pass the complete integration suite **without skips** — plan cannot be marked Done if integration tests were skipped in CI.
   - **Verify:** `pytest app/tests/integration/ -q` (0 skipped in CI completion job)
   - **Depends on:** 18, 19, 20, 21
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** Added `backend/app/tests/integration/` (conftest + 5 modules, 20 tests). Session fixture applies migrations via `apply_pending_migrations`, binds real Postgres (`DATABASE_URL` or dev default `127.0.0.1:5434`), disables in-memory handoff/idempotency/telemetry stores; root `conftest.py` exempts `@pytest.mark.integration` from memory autouse. Coverage: handoff CRUD + unique constraint + commit race + restart reload + expiry + rollback + multi-pending + material-goal separation; clarification resume/duplicate/concurrent/cross-process/expired/completed; execution idempotency replay + concurrent acquire; telemetry persist + decision_id unique index; fail-closed without DB. **Production fixes surfaced by suite:** `canonical_handoff_repository._to_record_dict` JSONB string coercion; `acquire_step_for_execution` `INSERT … ON CONFLICT DO NOTHING` race guard. `pytest app/tests/integration/ -q` → **20 passed** (Postgres available); `pytest app/tests/test_execution_idempotency.py -q` → **16 passed** (regression). Local skip: session `pytest.skip` when Postgres unreachable.
 
-- [ ] **25** — Remove obsolete configuration — spec §8
+- [x] **25** — Remove obsolete configuration — spec §8
   - **Scope split (rev 9):** this item removes the **environment/config keys only**. The runtime *trace field* `control_plane_enabled` (`pipeline.py:4190`, `synthesis/governed_answer_composer.py:189`, four eval harnesses, 11 `app/demo/captures/*.json`) is a response-contract change and is handled in items 26 + 26a. Removing the env var and removing the trace field are not the same change; do not conflate them.
   - **Do:** Rewrite the `CLAUDE.md` statement "Chat control plane … is implemented, gated by `CONTROL_PLANE_ENABLED` (default `false`)" — canonical planning is unconditional, so that sentence becomes false at cutover. Also reconcile `plans/2026-06-02_chat-control-plane-master.md` (runtime references only; do not rewrite its history).
   - **Do:** Note that `AI_SOC_CANONICAL_PLANNING_ENABLED`, `AI_SOC_HANDOFF_STORE_BACKEND`, `AI_SOC_HANDOFF_STORE_FILE_DIR` are already retired-with-warning at `config.py:522-531`; this item removes the warning shim, not just the keys.
@@ -599,24 +600,24 @@ Do **not** insert placeholder or structurally invalid `EvidencePlan` values. Do 
   - **Do:** If hook blocks `.env.example`, follow repo-approved edit workflow — do not leave stale.
   - **Verify:** `rg 'CONTROL_PLANE_ENABLED|AI_SOC_CANONICAL_PLANNING|HANDOFF_STORE' --glob '!**/migrations/**' --glob '!docs/evals/**'` → only historical notes marked non-runtime; `pytest app/tests/test_coe_rollout_config_sanity.py -q`
   - **Depends on:** 17
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** Removed retired-env warning shim from `config.py`. Stripped four keys from `.env.example`, `.env.*.example`, and all `env/profiles/*.env.example`. Updated `CLAUDE.md`, COE rollout/live-testing docs, `env/README.md`, demo/gap_closure docs, architecture `details.html` (docs + frontend mirror), flag rightsizing audit (marked retired non-runtime). `test_coe_rollout_config_sanity.py`: added `test_retired_env_keys_absent_from_rollout_profiles`. `scripts/audit_flag_inventory.py`: dropped `CONTROL_PLANE_*` posture prefix. Verify: `rg …` → only historical/non-runtime + plan doc + absence tests; `pytest app/tests/test_coe_rollout_config_sanity.py -q` → **7 passed**; sentinel **17/17**; clean-answer **120/120**.
 
-- [ ] **26** — Remove obsolete live-path compatibility code — spec §9
+- [x] **26** — Remove obsolete live-path compatibility code — spec §9
   - **Do:** Remove: `True` literals pretending to be `control_plane_enabled`; legacy trace fields implying optional canonical mode; test-only live composition branches in production modules; canonical-off route labels; unused `plan_dispatch_fallback` helpers; obsolete comments/dead branches. Update eval harnesses (`soc_clean_answer_eval`, `golden_answer_runner`, `langgraph_dual_parity`, etc.).
   - **Do:** `_attach_resource_plan` must be isolated test utility outside production runtime or removed entirely (search all callers first).
   - **Do:** Trace-field removal is a response-contract change — pair every removal with the fixture migration in item 26a. Do not delete a field that a capture or golden fixture still asserts without migrating it in the same commit.
   - **Verify:** `rg 'canonical.off|plan_dispatch_fallback|control_plane_enabled' backend/app/` → no runtime branches; only test fixtures or historical comments
   - **Depends on:** 17, 25
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** Removed dead `if not True` / `if True and` branches from `pipeline.py`, `executor.py`, `plan_promotion_merge.py`, `run_contract_builder.py`. Dropped `control_plane_enabled` parameter from `hybrid_role_graph.build_hybrid_role_plan` and composer status (`governed_answer_composer.py`). Updated `powergrid_soc_question_eval.py`, `test_hybrid_role_graph.py`, `scripts/run_p2b_ablation.py`, `scripts/run_p2b_causal_pilot.py`. `_attach_resource_plan` isolated in `tests/support/compose_resource_plan_testutil.py` (no production callers). Verify: `rg 'canonical.off|plan_dispatch_fallback|control_plane_enabled' backend/app/` → only historical comments; `pytest app/tests/test_hybrid_role_graph.py -q` → **7 passed**; resource-plan authority **8 passed**; full pytest **4473 passed**; parity scratch **120 exact / 0 approved / 0 critical**.
 
-- [ ] **26a** — Experience Center purity and fixture migration — rev 9
+- [x] **26a** — Experience Center purity and fixture migration — rev 9
   - **Context:** The plan (rev 8) never mentions the Experience Center. EC purity is a standing repo invariant — the EC path is deterministic fixture playback, emits no traces, and never runs live planning. Two exposures: (a) canonical nodes are now unconditional in the pipeline, so EC must be proven not to touch canonical persistence; (b) item 26 removes the `control_plane_enabled` trace field, which appears in 11 `backend/app/demo/captures/*.json` and in eval-harness expectations — a blind removal breaks EC replay and golden comparisons.
   - **Do:** Add `backend/app/tests/test_experience_center_canonical_purity.py`: running every scenario through `routes_scenarios.py::run_demo_scenario_fixture` produces **zero** `canonical_handoffs` rows, **zero** `canonical_planning_events`, **zero** `ResourcePlan` commits, and no `request.completed` / `request.failed` canonical terminal events. Assert against the injected test stores, not by mocking the assertion away.
   - **Do:** Migrate `app/demo/captures/*.json` and eval fixtures for any trace field removed in item 26. Decide and record one policy: field dropped from captures, or retained as a frozen historical key excluded from live-vs-capture diffing. EC governance panels (LLM sidecar, lineage, `live_llm_called=false`) must render unchanged after migration.
   - **Do:** Confirm EC answers stay byte-identical where no field was intentionally removed.
   - **Verify:** `pytest app/tests/test_experience_center_canonical_purity.py -q`; EC scenario replay diff shows only intentionally-removed keys
   - **Depends on:** 26
-  - **Evidence:** _(filled at check-off)_
+  - **Evidence:** Policy: **drop** `control_plane_enabled` from captures (field no longer emitted live). Migrated 11 `backend/app/demo/captures/*.json` + `docs/evals/soc_clean_answer_eval_answers.json` (surgical line removal; byte-identical otherwise). Added `test_experience_center_canonical_purity.py` (18 scenarios; empty handoff/idempotency/planning-event stores; governance+lineage present; `live_llm_called=false`; canonical runtime blocked). Updated `test_live_path_untouched_by_ec.py` for item-26+26a combined batch. Verify: purity **18 passed**; EC regressions **56 passed**; sentinel **17/17**; clean-answer **120/120**; full pytest **4473 passed**.
 
 - [ ] **28** — Retention and purge — rev 9
   - **Context:** `canonical_handoffs.original_query` stores the raw analyst query (SOC content) and `canonical_planning_events.payload` retains `user_query` — `minimize()` masks secrets but does not remove query text. `canonical_handoffs` has `expires_at` with **no purge job**; `canonical_planning_events` has **no TTL at all** and grows unbounded per turn. Privacy/data-protection applies to SOC content the same way it applies to CRM records.

@@ -13,6 +13,13 @@ _COE_ROLLOUT_DOC = _REPO_ROOT / "docs" / "coe" / "COE_ROLLOUT_CONFIGURATION.md"
 _COE_LIVE_TESTING_GUIDE = _REPO_ROOT / "docs" / "coe" / "COE_LIVE_TESTING_GUIDE.md"
 _REAL_MCP_CONTRACT = _REPO_ROOT / "docs" / "architecture" / "real_splunk_mcp_safety_contract.md"
 
+_RETIRED_ENV_KEYS = (
+    "CONTROL_PLANE_ENABLED",
+    "AI_SOC_CANONICAL_PLANNING_ENABLED",
+    "AI_SOC_HANDOFF_STORE_BACKEND",
+    "AI_SOC_HANDOFF_STORE_FILE_DIR",
+)
+
 
 def _parse_env_file(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
@@ -34,7 +41,6 @@ def test_code_defaults_keep_execution_and_split_routing_off(monkeypatch) -> None
         "AI_SOC_PIPELINE_SPLIT_ROUTING_NODES_ENABLED",
         "AI_SOC_RUNTIME_ENRICHMENT_ENABLED",
         "AI_SOC_ANSWER_GUARD_LAB_ENABLED",
-        "CONTROL_PLANE_ENABLED",
         "AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED",
         "AI_SOC_SESSION_STORE_BACKEND",
     ):
@@ -49,6 +55,18 @@ def test_code_defaults_keep_execution_and_split_routing_off(monkeypatch) -> None
     assert settings.ai_soc_session_store_backend == "memory"
 
 
+def test_retired_env_keys_absent_from_rollout_profiles() -> None:
+    for path in (
+        _ENV_EXAMPLE,
+        _COE_PROFILE,
+        _REPO_ROOT / "env" / "profiles" / "development.env.example",
+        _REPO_ROOT / "env" / "profiles" / "production.env.example",
+    ):
+        env = _parse_env_file(path)
+        for key in _RETIRED_ENV_KEYS:
+            assert key not in env, f"{key} must be removed from {path.name}"
+
+
 def test_env_example_keeps_dangerous_flags_off() -> None:
     env = _parse_env_file(_ENV_EXAMPLE)
     assert env.get("MCP_GLOBAL_EXECUTION_ENABLED", "").lower() == "false"
@@ -61,7 +79,6 @@ def test_env_example_keeps_dangerous_flags_off() -> None:
 
 def test_coe_profile_enables_safe_rollout_flags() -> None:
     env = _parse_env_file(_COE_PROFILE)
-    assert env.get("CONTROL_PLANE_ENABLED", "").lower() == "true"
     assert env.get("AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED", "").lower() == "true"
     assert env.get("AI_SOC_RUNTIME_ENRICHMENT_ENABLED", "").lower() == "true"
     assert env.get("AI_SOC_ANSWER_GUARD_LAB_ENABLED", "").lower() == "true"

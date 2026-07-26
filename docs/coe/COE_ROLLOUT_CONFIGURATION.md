@@ -31,7 +31,6 @@ Apply via `env/profiles/coe.env.example` (or operator overrides in repo-root `.e
 
 | Flag | COE recommended | Rationale |
 |------|-----------------|-----------|
-| `CONTROL_PLANE_ENABLED` | `true` | Required for control-plane trace, evidence plan, guided hybrid rail |
 | `AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED` | `true` | Out-of-catalog guided hunts use `guided_hybrid_dispatch` (review-only) |
 | `AI_SOC_RUNTIME_ENRICHMENT_ENABLED` | `true` | Loads curated `content_enrichment.json` on runtime paths when use case is activation-eligible |
 | `AI_SOC_CURATED_ENRICHMENT_ACTIVATION_ENABLED` | `true` | Legacy alias; either flag OR the other may enable enrichment gate |
@@ -63,7 +62,7 @@ Run after selecting COE profile and restarting backend (`docker compose up -d --
 
 ### 3.1 Control plane trace
 
-- [ ] Send an in-catalog query with `CONTROL_PLANE_ENABLED=true`.
+- [ ] Send an in-catalog query (canonical planning is always on).
 - [ ] Response includes `control_plane_trace` (or collapsed technical trace) with routing / evidence stages.
 - [ ] `node_trace` present when visibility builder runs (additive S2 fields).
 

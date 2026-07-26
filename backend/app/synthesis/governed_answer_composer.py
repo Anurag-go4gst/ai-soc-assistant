@@ -186,7 +186,6 @@ def build_composer_runtime_status() -> dict[str, Any]:
     provider_configured = build_synthesis_client_from_settings() is not None
     enabled = composer_is_enabled()
     return {
-        "control_plane_enabled": True,
         "ai_soc_llm_final_synthesis_enabled": settings.ai_soc_llm_final_synthesis_enabled,
         "ai_soc_llm_live_synthesis_enabled": settings.ai_soc_llm_live_synthesis_enabled,
         "ai_soc_llm_mode": mode or "unset",

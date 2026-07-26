@@ -2624,10 +2624,10 @@
     "batch": "C",
     "classification": "e_permanent_on",
     "config_field": "control_plane_enabled",
-    "default_env": "true",
-    "disposition": "fold_in",
+    "default_env": "retired_non_runtime",
+    "disposition": "retired_non_runtime",
     "env_key": "CONTROL_PLANE_ENABLED",
-    "evidence": "rg: backend/app/chat/analyst_response_builder.py, backend/app/chat/evidence_planner.py, backend/app/chat/guided_hybrid_dispatch.py; git: febcc86 2026-07-01 Add guided MCP discovery lane and COE env profiles.",
+    "evidence": "historical, non-runtime: env key removed at canonical cutover (plan item 25); canonical planning unconditional",
     "git_intro": "febcc86 2026-07-01 Add guided MCP discovery lane and COE env profiles.",
     "profile_values": {
       "coe": "true",

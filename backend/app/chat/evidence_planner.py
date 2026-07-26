@@ -494,7 +494,7 @@ def plan_evidence(
             )
         live_data_request = is_live_data_request(signals if isinstance(signals, dict) else {})
         # Least privilege for out-of-catalogue work. The 2026-07 all-tier MCP grant was
-        # written as `live_data_request and settings.control_plane_enabled`; when that flag
+        # written as `live_data_request and control_plane_enabled`; canonical cutover
         # was removed at the canonical cutover the conjunct collapsed to `and True`,
         # silently widening the grant so every out-of-catalogue live-data ask reported
         # mcp_allowed=true. Catalogue-matched asks (T1-T3) keep the grant they already had;

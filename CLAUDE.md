@@ -66,7 +66,7 @@ AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC
 - Live LLM synthesis (live chat only): may narrate analyst-summary prose with a real on-prem model when `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` + `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED` are both true and an endpoint is configured. All facts (severity, MITRE, actions, SPL, `execution_eligible=false`) stay deterministic authority; model only rewrites prose; failure falls back to deterministic draft. EC fixture path never calls a live model. Model never calls MCP.
 - Do not add Splunk telemetry writes, SAIA/Splunk AI Assistant SPL generation, or direct LLM-to-MCP tool calling unless explicitly scoped. Do not route live synthesis through the Experience Center path.
 - Do not execute raw `candidate_spl`; never pass prompts, reasoning, credentials, RAG chunks, or raw workflow internals to MCP.
-- Chat control plane (query-to-intent, evidence planning, route adjudication, SPL slot binding, MITRE decision, `control_plane_trace`) is implemented, gated by `CONTROL_PLANE_ENABLED` (default `false`). See `plans/2026-06-02_chat-control-plane-master.md`.
+- Chat control plane (query-to-intent, evidence planning, route adjudication, SPL slot binding, MITRE decision, `control_plane_trace`) runs unconditionally via canonical planning on every `/chat` turn. See `plans/2026-06-02_chat-control-plane-master.md` (historical flag-gate removed in item 25 cutover).
 - COE observability: durable trace spine on live `/chat` (`ai_trace_runs`), read-only `/debug` API gated by `AI_SOC_DEBUG_API_ENABLED` + per-user `debug_access`, telemetry sink `db|file|none`. Redacted, best-effort; **diagnostic** planning telemetry never breaks chat (audit-critical events fail closed before side-effecting execution — see `docs/architecture/canonical_telemetry_coverage.md`). EC path emits no traces. See `docs/observability/debugging.md`.
 
 ## Run / Build
@@ -269,7 +269,7 @@ Most-relevant in-flight/recent plans:
 | `plans/2026-06-15_1949_coe-observability-debugging.md` | Done — trace spine, `/debug` API, file sink, log correlation |
 | `plans/2026-06-15_0821_wazuh-mcp-adoption-and-flagship-ec-scenario.md` | Done — Wazuh MCP answer-shapes, cyclic evidence loop (§5 items deferred by design) |
 | `plans/2026-06-10_0356_skills-llm-mcp-utilization-and-paraphrase-readiness.md` | In Progress (rev 3) — WS0 Resource Planner done; WS1 paraphrase intake in progress |
-| `plans/2026-06-02_chat-control-plane-master.md` | Done — phases 0–11, gated by `CONTROL_PLANE_ENABLED` (default false) |
+| `plans/2026-06-02_chat-control-plane-master.md` | Done — phases 0–11; canonical planning is now unconditional (historical, non-runtime: formerly gated by `CONTROL_PLANE_ENABLED`) |
 | `/root/.cursor/plans/spl_generation_audit_30f60bc7.plan.md` | Done — relevance-first SPL audit Phases A–H (`8f44eee`) |
 | `.cursor/plans/environment_kb_cisco_catalogue_1eddd12f.plan.md` | Done — Environment KB, Cisco 50 bank/eval, tiered SPL validator |
 | `/root/.cursor/plans/guided_investigation_5th_skill_098a0cdf.plan.md` | Done — 5th route + air-gapped Splunk MCP 7-tool binding |
