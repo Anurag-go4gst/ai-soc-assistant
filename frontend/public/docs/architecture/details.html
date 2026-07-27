@@ -1114,6 +1114,65 @@
       .card { padding: 22px; }
     }
   </style>
+
+  <!-- ============================================================
+       2026-07-27 overflow layer — wide tables scroll inside their own
+       box instead of widening the page. Loaded last so it wins the
+       cascade. Only addition to body markup is a .tablewrap div around
+       each table element; no existing class or rule is altered.
+       ============================================================ -->
+  <style>
+    /* A table wider than its card scrolls itself. Before this, the page
+       grew horizontally instead, so the whole layout shifted on narrow
+       viewports — long unbreakable identifiers in cells (node names,
+       match paths, event names) are the usual cause. */
+    .tablewrap {
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      /* the scroll box would otherwise clip the table's own box-shadow */
+      padding-bottom: 6px;
+    }
+
+    /* Fill the card when the content fits, grow and scroll when it does
+       not. Replaces the flat width:100%, which forced columns to crush
+       rather than scroll. */
+    .tablewrap > table {
+      width: auto;
+      min-width: 100%;
+    }
+
+    /* Keep vertical rhythm identical to an unwrapped table. */
+    .tablewrap + h3,
+    .tablewrap + .note,
+    .tablewrap + .grid-2,
+    .tablewrap + .grid-3 {
+      margin-top: 18px;
+    }
+
+    /* Below the phone breakpoint, a long identifier in prose (node names,
+       limitation keys) is a single unbreakable token wider than the
+       column. Let those wrap. Code inside a table keeps its own token
+       shape and scrolls with .tablewrap instead; code inside <pre> is
+       untouched, since <pre> already scrolls. */
+    @media (max-width: 620px) {
+      code {
+        overflow-wrap: anywhere;
+      }
+      .tablewrap code,
+      pre code {
+        overflow-wrap: normal;
+      }
+
+      /* Node chains in the architecture diagram are the longest tokens on
+         the page ("rp_node_bootstrap › graph_node_init_routing › …").
+         Let them wrap so the diagram boxes stay inside the viewport. */
+      .nodetag {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+    }
+  </style>
 </head>
 <body>
   <nav class="docnav">
@@ -1122,19 +1181,20 @@
       <a href="#script">Meeting script ★</a>
       <a href="#s1">1 · Traversal</a>
       <a href="#s2">2 · Diagram</a>
-      <a href="#s2a">2a · Resource Planner ★</a>
-      <a href="#s2b">2b · RunContract ✦</a>
-      <a href="#s2c">2c · Dispatch V2 ✦</a>
-      <a href="#s8c">Sidecar pipeline ✦</a>
-      <a href="#s8">8 · LLM usage</a>
-      <a href="#s8b">8b · Trace</a>
-      <a href="#s4b">4B · Evidence loop ✦</a>
-      <a href="#s14">14 · Knowledge ✦</a>
-      <a href="#s13">13 · Endpoints</a>
-      <a href="#s5">5 · Match outcomes</a>
-      <a href="#s6">6 · Skills</a>
-      <a href="#s11">11 · Examples</a>
-      <a href="#s12">12 · Answer card</a>
+      <a href="#s3">3 · Canonical seam ✦</a>
+      <a href="#s4">4 · Tiers &amp; lanes ✦</a>
+      <a href="#s5">5 · Detail tools ✦</a>
+      <a href="#s6">6 · Clarification ✦</a>
+      <a href="#s7">7 · Resource Planner</a>
+      <a href="#s8">8 · Dispatch + governance</a>
+      <a href="#s9">9 · SPL &amp; MCP gate</a>
+      <a href="#s10">10 · RunContract</a>
+      <a href="#s11">11 · Persistence ✦</a>
+      <a href="#s12">12 · Rollback path</a>
+      <a href="#s14">14 · Route skills</a>
+      <a href="#s18">18 · Knowledge</a>
+      <a href="#s21">21 · Examples</a>
+      <a href="#s23">23 · Evidence ✦</a>
     </div>
   </nav>
   <header>
@@ -1144,9 +1204,9 @@
         <h1>How a SOC question travels through the governed assistant</h1>
         <p class="subtitle">
           Implementation-accurate walkthrough of the live <code>/chat</code> pipeline under the <strong>Resource Planner</strong> graph spine:
-          Query Understanding, 105 taxonomy, use-case catalog, five route skills (including guided investigation rescue),
-          parallel specialist fan-out, the Stage&nbsp;4B evidence-collection loop, safety gates, Knowledge-page detection coverage,
-          and analyst answer cards. Updated 2026-07-24 after the north-star cutover.
+          query understanding, catalogue tiers and processing lanes, the single <strong>canonical planning seam</strong>,
+          guided detail tools, clarification handoffs, parallel specialist fan-out, the governed MCP execution gate,
+          and the analyst answer card. Rebuilt 2026-07-27 after the guided-detail-tools canonical planning cutover.
         </p>
       </div>
       <div class="hero-card">
@@ -1158,12 +1218,12 @@
         <div class="pill-row">
           <span class="pill">LLM advisory</span>
           <span class="pill">SPL review-only</span>
-          <span class="pill">MCP gated</span>
+          <span class="pill">MCP governed</span>
           <span class="pill">MITRE governed</span>
-          <span class="pill">RP graph default</span>
-          <span class="pill">RunContract canonical</span>
-          <span class="pill">Dispatch V2 (flag-off)</span>
-          <span class="pill">4B evidence loop</span>
+          <span class="pill">RP graph spine</span>
+          <span class="pill">Canonical planning unconditional</span>
+          <span class="pill">Detail tools bounded</span>
+          <span class="pill">Postgres handoffs</span>
           <span class="pill">HIL protected</span>
         </div>
       </div>
@@ -1181,30 +1241,30 @@
       <div class="card">
         <div class="script-step">
           <span class="n">1</span>
-          <p>“Start with the <strong>user query</strong>. The live hop sequence is: user query → bootstrap/query understanding → route setup → <strong>parallel specialist fan-out</strong> (Skill, Knowledge, MCP, SPL) → <strong>fan-in merge</strong> into one validated work bundle → dispatch to RAG-only, composed-plan, or SPL path → optional SPL source resolution → governance chain → final analyst response (1, 2, 2a). This is a <strong>governed agentic flow</strong>: specialists and LLM sidecars can propose routes, plans, evidence needs, SPL candidates, and narration, while policy gates approve sensitive outcomes such as SPL execution, MCP access, MITRE status, and severity. Response notes show <code>Orchestration: resource_planner_hierarchy</code>.”</p>
+          <p>“Start with the <strong>user query</strong>. The live hop sequence is: user query → <strong>bootstrap</strong> (query understanding plus the canonical planning seam) → route resolution → <strong>parallel specialist fan-out</strong> (Skill, Knowledge, MCP, SPL) → <strong>fan-in merge</strong> into one validated work bundle → exactly one dispatch path → the governance chain → the final analyst response (1, 2). This is a <strong>governed agentic flow</strong>: specialists and LLM sidecars propose; policy gates approve anything sensitive — SPL execution, MCP access, MITRE status, severity. Response notes show <code>Orchestration: resource_planner_hierarchy</code>.”</p>
         </div>
         <div class="script-step">
           <span class="n">2</span>
-          <p>“<strong>Query Understanding</strong> checks the 105 taxonomy and the use-case catalog (4). A match uses a governed route. An out-of-registry but hunt-shaped question takes the <strong>fifth skill, <code>guided_investigation</code></strong> — not weak knowledge recall (5, 6). Unsafe containment requests are blocked to human review and never enter guided mode.”</p>
+          <p>“<strong>Query Understanding</strong> matches the query against the 105 taxonomy and the use-case catalog, and that match becomes a <strong>tier and a processing lane</strong> — T1/T2/T3 go down the <em>known</em> lane, T4 goes <em>guided</em>, and a pure reference question resolves to T0 and short-circuits to governed knowledge (4). Unsafe containment requests are blocked to human review and never enter guided mode.”</p>
         </div>
         <div class="script-step">
           <span class="n">3</span>
-          <p>“One <strong>canonical <code>RunContract</code></strong> is the single source of truth for the turn — preview, HIL, source-evidence counts, and route authority all read from it, so the trace can’t contradict the answer (2b, 2c).”</p>
+          <p>“Both runtimes call <strong>one canonical planning seam</strong>, <code>run_canonical_planning</code>. There is no flag that turns it off, and no second copy of the routing/intent/planning logic to drift against — a static architecture guard fails the build if a fork reappears (3).”</p>
         </div>
         <div class="script-step">
           <span class="n">4</span>
-          <p>“When MCP is allowed, the <strong>Stage 4B evidence loop</strong> runs bounded, read-only discovery hops before adjudication and again after any gated execution (4B). Guided hunts use <code>guided_hybrid_dispatch</code> when the hybrid flag is on: InvestigationPlan → Validator A → ResourcePlan → Validator B → safe planned/collected evidence → RAG. Execution is <strong>OFF by default</strong> and fails closed without credentials.”</p>
+          <p>“When a known question is missing a detail the system can look up itself, <strong>guided detail tools</strong> resolve it instead of interrupting the analyst — bounded to three calls and two iterations, read-only, deterministic selection, no LLM in the loop. Only details that genuinely need a human become a clarification, and that clarification is now a durable handoff the next turn resumes (5, 6).”</p>
         </div>
         <div class="script-step">
           <span class="n">5</span>
-          <p>“Every LLM hop is a <strong>governed sidecar</strong> — failover chain, per-turn budget, grounding guards, and a fail-closed validator. Any failure falls back to the governed non-LLM answer path, so the analyst still gets a safe response (8c).”</p>
+          <p>“<strong>MCP is governed at a gate, not by hope.</strong> Only an approved <code>normalized_spl</code> is admitted; candidate SPL is never executable; tool selection is deterministic and read-only discovery is separated from search; every call carries analyst confirmation. Blocked or skipped steps stay in the plan as honest lineage (9).”</p>
         </div>
         <div class="script-step">
           <span class="n">6</span>
-          <p>“Finalize merges discovery into <code>source_evidence</code>, runs the sidecar lane, and produces an <strong>analyst response card</strong> — not raw LLM prose (12). The Knowledge page shows MITRE detection gaps read-only (14).”</p>
+          <p>“Finalize builds the <strong>analyst response card</strong> — not raw LLM prose (22) — and every turn leaves a durable trail: 28 catalogued planning events, PostgreSQL handoffs, and a two-phase response validation that refuses to emit a completion event for an answer that failed validation (11).”</p>
         </div>
         <div class="note" style="margin-top:20px;">
-          <strong>One-line close:</strong> “The LLM and specialists make it adaptive; governance makes it safe. Severity, MITRE, SPL execution, and MCP never leave controlled approval gates.”
+          <strong>One-line close:</strong> “The specialists and the model make it adaptive; the contracts and gates make it safe. Severity, MITRE, SPL execution, and MCP never leave controlled approval gates.”
         </div>
       </div>
     </section>
@@ -1212,51 +1272,51 @@
     <section>
       <div class="section-title">
         <div>
-          <h2 id="s1">1. The complete traversal <span class="badge-new">updated</span></h2>
-          <p>Seven reader-level stages on every live <code>/chat</code> request. Internal route, intent, adjudication, and evidence-planning workers are shown as one contract-building stage because they prepare the same handoff for Resource Planner fan-out.</p>
+          <h2 id="s1">1. The complete traversal <span class="badge-new">rebuilt</span></h2>
+          <p>Seven reader-level stages on every live <code>/chat</code> request. Routing, intent, completeness, detail resolution, and evidence planning are shown as one stage because they are literally one function — the canonical planning seam described in <a href="#s3">3</a>.</p>
         </div>
       </div>
       <div class="card">
         <div class="flow">
           <div class="flow-step">
             <div class="step-num">1</div>
-            <h3>User Query</h3>
-            <p>Analyst asks a SOC question in natural language. Session context may refine follow-ups.</p>
+            <h3>User query</h3>
+            <p>Analyst asks a SOC question in natural language. Session context can rewrite a follow-up into an effective query and carries pinned entities, use case, and any pending clarification handoff.</p>
           </div>
           <div class="flow-step">
             <div class="step-num">2</div>
-            <h3>Known Question + Catalog Check</h3>
-            <p>Produces exactly one match path M1–M5 (“did we recognize it?”). M1–M4 continue through known-path detail completion; M5 hunt-shaped questions route directly to S5 guided investigation.</p>
+            <h3>Understand + recognise</h3>
+            <p>The query is matched against the 105 taxonomy and the use-case catalog. This produces exactly one <code>deterministic_match_path</code>, which the lane router turns into a catalogue tier and a processing lane. Parse failure degrades to keyword failover — never an error.</p>
           </div>
           <div class="flow-step">
             <div class="step-num">3</div>
-            <h3>Known-Path Details or S5 Guided</h3>
-            <p>M1–M4 run a parallel detail-completion node that verifies required catalogue/source/profile details and fills blanks before ResourcePlan handoff. M5 goes straight to S5, where guided investigation builds an InvestigationPlan / ResourcePlan under review-only guardrails.</p>
+            <h3>Canonical planning</h3>
+            <p>One seam builds the whole turn contract: intent, completeness check, detail resolution where needed, route adjudication, route contract, evidence plan, and a committed resource plan. It ends in exactly one typed outcome.</p>
           </div>
           <div class="flow-step">
             <div class="step-num">4</div>
-            <h3>Parallel Specialist Fan-Out</h3>
-            <p>Resource Planner receives either the completed M1–M4 contract or the S5 guided handoff, then fans out to Skill, Knowledge, MCP, and SPL specialists in parallel.</p>
+            <h3>Specialist fan-out</h3>
+            <p>The plan already exists. Four specialists — Skill, Knowledge, MCP, SPL — report in parallel on catalogue tier, knowledge gaps, MCP posture, and SPL posture. They enrich; they do not re-plan.</p>
           </div>
           <div class="flow-step">
             <div class="step-num">5</div>
-            <h3>Fan-In Merge</h3>
-            <p>Specialist reports merge into one validated work bundle and resource plan. Blocked, unavailable, or off-policy resources are recorded instead of silently used.</p>
+            <h3>Fan-in merge</h3>
+            <p>Reports and the resource plan merge into one work bundle. Only a bundle that passes policy-parity validation becomes the <code>validated_work_bundle</code> that workers are allowed to read.</p>
           </div>
           <div class="flow-step">
             <div class="step-num">6</div>
-            <h3>Dispatch + Collection</h3>
-            <p>Dispatch goes to one path: RAG-only, composed plan, or SPL workflow. SPL paths create candidate SPL, may run pre-MCP RAG, resolve source placeholders, and enter the MCP gate only when eligible.</p>
+            <h3>Dispatch</h3>
+            <p>Exactly one path: RAG-only, composed plan, SPL workflow, or — for any non-planned outcome — straight to finalize with no route to execution at all.</p>
           </div>
           <div class="flow-step">
             <div class="step-num">7</div>
-            <h3>Governance + Final Answer</h3>
-            <p>Runs SPL validation, MCP execution gate, context sufficiency, facts/severity/MITRE handling, answer guard, HIL/policy veto, final composition, validation, trace, and analyst card.</p>
+            <h3>Governance + answer</h3>
+            <p>SPL validation, MCP execution gate, context sufficiency, facts and severity, answer guard, human review, policy veto, finalize, and a final-answer validation — then the analyst card and the durable trace.</p>
           </div>
         </div>
-        <p style="margin:16px 2px 0;color:var(--muted);font-size:13.5px;">
-          Governed LLM sidecars may appear during intent, planning, SPL candidate work, guided investigation, evidence observation, and final narration. Exact-105 / T0 matches often skip early LLM advisors; catalogue-only or uncertain matches may use them as non-authoritative help. They propose; approval gates decide sensitive outcomes. <a href="#s8c">Jump to the sidecar pipeline →</a>
-        </p>
+        <div class="note" style="margin-top:20px;">
+          <strong>Where the model appears:</strong> as an advisory route suggestion that must be registry-validated to win, as a detection-plan proposer whose JSON is compiled into SPL by deterministic code, and as an optional narrator of prose the facts do not depend on. Exact-105 turns commonly skip the advisory hops entirely.
+        </div>
       </div>
     </section>
 
@@ -1265,7 +1325,7 @@
         <div>
           <h2 id="s2">2. Architecture diagram with decision branches <span class="badge-new">rebuilt</span></h2>
           <p>
-            The real live <code>/chat</code> traversal under the Resource Planner graph: known-question/catalogue check, M1–M4 detail completion or M5 direct guided handoff, Resource Planner specialist fan-out/fan-in, one dispatch path, SPL source-resolve when needed, and the governance chain. It still reuses the underlying <code>graph_node_*</code> workers, but the live schedule is owned by <code>resource_planner_graph.py</code>. Each box names the relevant scheduling node or worker and marks where governed policy holds authority vs where the <span class="tag llm" style="margin:0 2px">LLM</span> only advises or narrates. Orchestration topology is in <a href="#s2a">2a</a>.
+            The live <code>/chat</code> traversal, read from the compiled graph rather than from intent. Each box names the scheduling node or worker and marks where governed policy holds authority versus where the <span class="tag llm" style="margin:0 2px">LLM</span> only advises or narrates. Orchestration topology detail is in <a href="#s7">7</a>.
           </p>
         </div>
       </div>
@@ -1276,139 +1336,143 @@
             <span class="arch-seq">1</span>
             <span class="nodetag">resolve_session_context</span>
             <h3>User query + session context</h3>
-            <p>Natural-language SOC question. Session context can rewrite a follow-up into an effective query and carry pinned entities / use-case from the previous turn.</p>
-            <span class="see-section">Samples → 10</span>
+            <p>Natural-language SOC question. Session context can rewrite a follow-up into an effective query, carry pinned entities and use case, and surface a <code>handoff_resume</code> when the previous turn asked a clarification question.</p>
+            <span class="see-section">Clarification lifecycle → 6</span>
           </div>
           <div class="arch-arrow">↓</div>
 
           <div class="arch-box">
             <span class="arch-seq">2</span>
-            <span class="nodetag">rp_node_bootstrap › graph_node_init_routing › understand_query</span>
-            <h3>Known-question + catalog check</h3>
-            <p>Matches the query against the 105 taxonomy <em>and</em> the use-case catalog, extracts entities, and raises shape signals. Produces <strong>exactly one</strong> <code>deterministic_match_path</code> (M1–M5 below). This is <em>not</em> a skill yet — only “did we recognize the question?” If parsing fails it degrades to keyword failover (<code>qu_unavailable</code>), never an error.</p>
-            <div class="tagrow"><span class="tag det">deterministic</span><span class="tag fb">degrades, never errors</span></div>
+            <span class="nodetag">rp_node_bootstrap › graph_node_init_routing › understand_query › route_skill</span>
+            <h3>Understanding + deterministic route</h3>
+            <p>Matches the query against the 105 taxonomy <em>and</em> the use-case catalog, extracts entities, and raises shape signals. Produces <strong>exactly one</strong> <code>deterministic_match_path</code>. The deterministic registry picks the primary route; an LLM advisory is consulted only when the registry does not retain authority, and it must be registry-validated to win. If parsing fails the turn degrades to keyword failover (<code>qu_unavailable</code>), never an error.</p>
+            <div class="tagrow"><span class="tag det">deterministic primary</span><span class="tag llm">advisory must validate</span><span class="tag fb">degrades, never errors</span></div>
           </div>
-          <div class="arch-arrow">↓ exactly one of M1–M5</div>
+          <div class="arch-arrow">↓ match path → tier → lane</div>
 
           <div class="arch-branch-row five-up">
-            <div class="arch-box branch-box green"><span class="arch-seq branch">M1</span><h3>exact_105</h3><p>Verbatim 105 question (± catalog). Strongest authority.</p></div>
-            <div class="arch-box branch-box green"><span class="arch-seq branch">M2</span><h3>use_case_catalog</h3><p>Known behaviour class / use case, not exact-105.</p></div>
-            <div class="arch-box branch-box cyan"><span class="arch-seq branch">M3</span><h3>near_105</h3><p>High token overlap with a 105 question.</p></div>
-            <div class="arch-box branch-box cyan"><span class="arch-seq branch">M4</span><h3>semantic_105</h3><p>Meaning / paraphrase match to a 105 question.</p></div>
-            <div class="arch-box branch-box amber"><span class="arch-seq branch">M5</span><h3>out_of_registry</h3><p>No 105 or catalog match — a novel question.</p></div>
+            <div class="arch-box branch-box green"><span class="arch-seq branch">T1</span><h3>exact 105</h3><p>Verbatim governed question, with or without the catalog. Strongest authority.</p></div>
+            <div class="arch-box branch-box green"><span class="arch-seq branch">T2</span><h3>use-case catalog</h3><p>Known behaviour class, not exact-105.</p></div>
+            <div class="arch-box branch-box cyan"><span class="arch-seq branch">T3</span><h3>near / semantic</h3><p>Recognised by token overlap, meaning, or catalogue alias.</p></div>
+            <div class="arch-box branch-box amber"><span class="arch-seq branch">T4</span><h3>out_of_registry</h3><p>Novel or weakly-understood question. Guided lane.</p></div>
+            <div class="arch-box branch-box purple"><span class="arch-seq branch">T0</span><h3>resolved reference</h3><p>Never from the match path — assigned after T4 qualification.</p></div>
           </div>
-          <div class="arch-arrow">↓ split by recognition path</div>
+          <div class="arch-arrow">↓ one canonical planning seam handles every lane</div>
 
-          <div class="arch-branch-row two-up">
-            <div class="arch-box branch-box amber">
-              <span class="arch-seq branch">3</span>
-              <span class="nodetag">known_detail_completion › graph_node_query_to_intent › graph_node_evidence_planning › rp_node_route_setup</span>
-              <h3>M1–M4 detail completion</h3>
-              <p>Known paths run a parallel detail-check/fill node before Step 4. It verifies required catalogue, use-case, source-profile, slot, and policy details are present; authoritative 105/use-case/COE values win, and lower-authority context may fill blanks only. If required details stay missing, the contract degrades to clarification/HIL instead of inventing data.</p>
-              <p style="margin:10px 0 0;">Outputs one primary route skill from S1–S4 plus <code>intent_classification</code>, <code>selected_use_case</code>, <code>evidence_plan</code>, nested <code>resource_plan</code>, and <code>route_contract</code>.</p>
-              <div class="tagrow"><span class="tag det">M1–M4 only</span><span class="tag gate">details checked</span><span class="tag fb">fill blanks only</span></div>
+          <div class="arch-box purple">
+            <span class="arch-seq">3</span>
+            <span class="nodetag">run_canonical_planning › lane_router › known_detail_completion › guided_detail_resolution › post_guided_completeness › plan_evidence_from_canonical</span>
+            <h3>Canonical planning seam</h3>
+            <p>Both the graph runtime and the rollback runtime call this one function, so there is no second copy of routing, intent, completeness, or planning logic to drift against. Inside it: intent classification, the completeness gate, bounded detail-tool resolution, reference qualification, route adjudication, the route contract, the evidence plan, and a committed resource plan.</p>
+            <p style="margin:10px 0 0;">It ends in <strong>exactly one</strong> typed <code>CanonicalPlanningOutcome</code>. Downstream branches on that status — never on whether an <code>evidence_plan</code> happens to be present.</p>
+            <div class="tagrow"><span class="tag det">unconditional</span><span class="tag gate">typed outcome</span><span class="tag off">no fork permitted</span></div>
+            <span class="see-section">Detail → 3, 5, 6</span>
+          </div>
+          <div class="arch-arrow">↓ one of eight outcome statuses</div>
+
+          <div class="arch-branch-row three-up">
+            <div class="arch-box branch-box green">
+              <span class="arch-seq branch">O1</span>
+              <h3><code>planned</code></h3>
+              <p>Evidence plan present, resource plan <strong>committed</strong>. The only status that can reach dispatch and execution.</p>
             </div>
-            <div class="arch-box branch-box cyan">
-              <span class="arch-seq branch">S5</span>
-              <span class="nodetag">guided_investigation › guided_hybrid_dispatch</span>
-              <h3>M5 direct to guided investigation</h3>
-              <p>Out-of-registry, SOC hunt-shaped M5 bypasses known-path detail completion and enters <code>guided_investigation</code> directly. The enhanced guided path builds a bounded InvestigationPlan, validates it, maps only approved read-only / safe-catalog requests into a ResourcePlan, records missing evidence honestly, and keeps execution in review-only posture.</p>
-              <div class="tagrow"><span class="tag gate">S5 direct</span><span class="tag llm">optional guided proposer</span><span class="tag off">no execution authority</span></div>
+            <div class="arch-box branch-box amber">
+              <span class="arch-seq branch">O2</span>
+              <h3><code>clarification_required</code></h3>
+              <p>Handoff persisted, question returned. Carries <strong>no</strong> evidence plan and no resource plan, by contract.</p>
+            </div>
+            <div class="arch-box branch-box red">
+              <span class="arch-seq branch">O3</span>
+              <h3><code>policy_blocked</code> + failures</h3>
+              <p><code>policy_blocked</code>, <code>resolution_failed</code>, <code>planning_failed</code>, <code>unsupported</code>, <code>execution_failed</code>, <code>persistence_failed</code>. Never a committed plan.</p>
             </div>
           </div>
-          <div class="arch-arrow">↓ Step 4 receives completed M1–M4 contract or S5 guided handoff</div>
+          <div class="arch-arrow">↓ planned outcomes continue; everything else routes to finalize</div>
 
           <div class="arch-box cyan">
             <span class="arch-seq">4</span>
             <span class="nodetag">rp_node_resource_planner_delegate › specialist_skill / specialist_knowledge / specialist_mcp / specialist_spl</span>
             <h3>Parallel specialist fan-out (not decomposition)</h3>
-            <p>North-star Option A: the ResourcePlan already exists, either from the M1–M4 detail-completion contract or the S5 guided handoff. Four lanes report in parallel (Skill / Knowledge / MCP / SPL) — catalogue tier, knowledge gaps, MCP posture, SPL posture. They may fill owned <code>args_template</code> blanks; they <strong>do not</strong> re-pick the primary skill, rewrite intent, or invent a new plan from scratch. Execution of tools stays in later code workers + gates.</p>
-            <div class="tagrow"><span class="tag llm">advisory enrichers</span><span class="tag gate">no approval bypass</span><span class="tag det">post-plan only</span></div>
+            <p>The resource plan already exists. Four lanes report in parallel — catalogue tier, knowledge gaps, MCP posture, SPL posture. They may fill blanks in <code>args_template</code> fields they own; they <strong>do not</strong> re-pick the primary skill, rewrite intent, or invent a new plan. Tool execution stays in later code workers and gates.</p>
+            <div class="tagrow"><span class="tag det">post-plan enrichers</span><span class="tag gate">no approval bypass</span><span class="tag off">no plan authority</span></div>
           </div>
           <div class="arch-arrow">↓</div>
 
           <div class="arch-box purple">
             <span class="arch-seq">5</span>
-            <span class="nodetag">rp_node_resource_planner_merge</span>
+            <span class="nodetag">rp_node_resource_planner_merge › validate_bundle_policy_parity</span>
             <h3>Fan-in merge → validated work bundle</h3>
-            <p>Specialist reports merge with the ResourcePlan into one <code>work_bundle</code>. Only validated bundles become <code>validated_work_bundle</code>; blocked, unavailable, or off-policy resources remain recorded as skipped/blocked lineage.</p>
-            <div class="tagrow"><span class="tag gate">validated bundle</span><span class="tag off">blocked resources recorded</span></div>
+            <p>Specialist reports merge with the resource plan into one <code>work_bundle</code>. Only a bundle that passes policy-parity validation becomes <code>validated_work_bundle</code>, and workers read that channel only. Blocked, unavailable, or off-policy resources stay recorded as skipped/blocked lineage rather than disappearing.</p>
+            <div class="tagrow"><span class="tag gate">validated bundle only</span><span class="tag off">blocked resources recorded</span></div>
           </div>
-          <div class="arch-arrow">↓ dispatch one path</div>
+          <div class="arch-arrow">↓ dispatch exactly one path</div>
 
-          <div class="arch-branch-row three-up">
+          <div class="arch-branch-row four-up">
+            <div class="arch-box branch-box">
+              <span class="arch-seq branch">D0</span>
+              <span class="nodetag">rp_node_non_planned_finalize</span>
+              <h3>Non-planned → finalize</h3>
+              <p>Any status other than <code>planned</code> short-circuits straight to finalize. Such a turn is <strong>structurally</strong> unable to reach SPL generation or execution — a topology guarantee, not a runtime check.</p>
+            </div>
             <div class="arch-box branch-box green">
               <span class="arch-seq branch">D1</span>
               <span class="nodetag">rp_node_prepare_rag_only › rp_node_rag_early</span>
               <h3>RAG-only path</h3>
-              <p>Knowledge, SOP, policy, and RAG-only guidance retrieve governed SOC-KB evidence, set execution as skipped/blocked as appropriate, then enter the governance chain.</p>
+              <p>Knowledge, SOP, policy, and resolved-reference answers draw governed SOC-KB evidence. No SPL execution lane is opened.</p>
             </div>
-            <div class="arch-box branch-box purple">
+            <div class="arch-box branch-box cyan">
               <span class="arch-seq branch">D2</span>
-              <span class="nodetag">rp_node_composed_dispatch › graph_node_composed_dispatch</span>
-              <h3>Composed ResourcePlan path</h3>
-              <p>When a ResourcePlan exists, the step-walk dispatcher runs only dispatchable, policy-allowed steps through the same governed worker hooks. Blocked steps are annotated before finalize.</p>
+              <span class="nodetag">rp_node_composed_dispatch › execute_plan_dispatch</span>
+              <h3>Composed plan path</h3>
+              <p>A step-walk dispatcher runs only dispatchable, policy-allowed steps. Blocked steps are annotated before finalize, not quietly dropped.</p>
             </div>
             <div class="arch-box branch-box amber">
               <span class="arch-seq branch">D3</span>
-              <span class="nodetag">rp_node_workflow_spl › optional rp_node_rag_early › rp_node_spl_source_resolve</span>
+              <span class="nodetag">rp_node_workflow_spl › rp_node_rag_early › rp_node_spl_source_resolve</span>
               <h3>SPL workflow path</h3>
-              <p>Fallback path for governed SPL/data workflows. Candidate SPL is generated and validated, optional pre-MCP RAG can enrich context, then source placeholders are resolved before MCP gating.</p>
+              <p>Candidate SPL is generated and validated, optional pre-MCP RAG runs, and source placeholders are resolved before anything reaches the gate.</p>
             </div>
           </div>
-          <div class="arch-arrow">↓ SPL workflow path, or composed path when it emits candidate SPL</div>
+          <div class="arch-arrow">↓</div>
 
           <div class="arch-box amber">
             <span class="arch-seq">6</span>
             <span class="nodetag">rp_node_workflow_spl › rp_node_spl_source_resolve</span>
             <h3>Candidate SPL → validation → source resolve</h3>
-            <p>Generates candidate SPL (governed template → LLM-primary failover when the flag is on → lab draft), validates it, then substitutes index / sourcetype / field placeholders from the source-profile map, SOC-KB RAG, and session pins. Fully resolved → <code>normalized_spl</code>; missing slots → HIL <code>spl_source_profile_clarification</code>. Candidate SPL is never executable.</p>
-            <div class="tagrow"><span class="tag det">deterministic validation</span><span class="tag llm">LLM SPL failover (flag)</span><span class="tag gate">HIL on missing slots</span></div>
-            <span class="see-section">Skills / SPL → 6, 7</span>
+            <p>Analyst-provided SPL → governed catalogue template → deterministic lab draft → LLM plan-compiler failover, relevance-gated. The model emits a small JSON detection plan; deterministic code compiles the SOC-STD SPL. Index, sourcetype, and field placeholders are then substituted from the source-profile map, SOC-KB retrieval, and session pins. Fully resolved becomes <code>normalized_spl</code>; unresolved slots become an analyst clarification. <strong>Candidate SPL is never executable.</strong></p>
+            <div class="tagrow"><span class="tag llm">plan proposer only</span><span class="tag det">deterministic compiler</span><span class="tag gate">slots must resolve</span></div>
+            <span class="see-section">Detail → 9</span>
           </div>
-          <div class="arch-arrow">↓ only an approved normalized_spl may enter the gate</div>
+          <div class="arch-arrow">↓</div>
 
           <div class="arch-box red">
             <span class="arch-seq">7</span>
-            <span class="nodetag">rp_node_mcp_execution_gate › graph_node_execution › splunk_mcp lifecycle</span>
+            <span class="nodetag">rp_node_mcp_execution_gate › graph_node_execution › evaluate_mcp_execution</span>
             <h3>MCP execution gate</h3>
-            <p>Only approved <code>normalized_spl</code> or already-populated composed execution results reach this gate. The Splunk MCP adapter runs <code>submit → bounded poll → fetch</code> and returns honest live / empty / timeout / denied outcomes. Only the search tool is selectable after policy. <strong>MCP execution is OFF by default</strong> and fails closed without credentials.</p>
-            <div class="tagrow"><span class="tag off">execution OFF by default</span><span class="tag gate">approval + allowlist</span><span class="tag det">tool selection deterministic</span></div>
-            <span class="see-section">MCP policy → 9 · Go-live contract</span>
+            <p>MCP is attached; the gate is what governs it. Only an approved <code>normalized_spl</code> is admitted. Tool selection is deterministic — the search tool and read-only discovery tools are selectable; write, admin, and assistant-style tools are not. Every call carries analyst confirmation, and the adapter runs submit → bounded poll → fetch with honest live, empty, timeout, or denied outcomes. An empty result is reported as empty.</p>
+            <div class="tagrow"><span class="tag gate">normalized_spl only</span><span class="tag det">deterministic tool policy</span><span class="tag off">no write/admin tools</span></div>
           </div>
-          <div class="arch-arrow">↓ all paths converge</div>
+          <div class="arch-arrow">↓</div>
 
-          <div class="arch-box green">
+          <div class="arch-box">
             <span class="arch-seq">8</span>
-            <span class="nodetag">governance chain › rp_node_finalize › rp_node_validate_final_answer</span>
-            <h3>Finalize + governed LLM sidecar lane</h3>
-            <p>Runs the governance chain: SPL validation surface, MCP gate surface, context sufficiency, facts/severity/MITRE handling, answer guard, human review, policy veto, final composition, and final-answer validation. Then it emits the analyst card + <code>control_plane_trace</code>. Governed LLM sidecars may help with missing-evidence explanation, MITRE/risk rationale, and narration, but approval gates own sensitive claims.</p>
-            <div class="tagrow"><span class="tag det">facts deterministic</span><span class="tag llm">prose via failover chain</span><span class="tag fb">fails back to deterministic</span></div>
-            <span class="see-section">Sidecar lane → 8c · Trace → 8b · Card → 12</span>
+            <span class="nodetag">spl_validate → mcp_execution_gate → context_sufficiency → decide_facts → answer_guard → human_review → policy_veto → finalize → validate_final_answer</span>
+            <h3>Governance chain + final answer</h3>
+            <p>A fixed nine-node chain. <code>policy_veto</code> re-asserts plan policy after the fact: if the plan did not allow MCP or SPL, execution is forced to blocked or skipped regardless of what happened upstream. <code>finalize</code> assembles evidence, sufficiency, grounding, the answer contract, and the analyst card, then a second validation pass runs on the assembled response before any completion event is emitted.</p>
+            <div class="tagrow"><span class="tag gate">policy re-asserted</span><span class="tag det">facts deterministic</span><span class="tag llm">prose only</span></div>
+            <span class="see-section">Answer shape → 22</span>
           </div>
+
         </div>
 
         <div class="diagram-legend">
-          <span class="legend-item"><span class="dot"></span> 1–8 = grouped live Resource Planner graph traversal</span>
-          <span class="legend-item"><span class="dot" style="background:#16a34a"></span> M1–M5 = recognition only (Step 2)</span>
-          <span class="legend-item"><span class="dot" style="background:#475569"></span> S1–S4 = known-path skills; S5 = direct guided skill</span>
-          <span class="legend-item"><span class="dot" style="background:#d97706"></span> D1–D3 = dispatch after merge (Step 6)</span>
+          <div class="legend-item"><span class="dot" style="background:var(--green)"></span> T1–T4/T0 — recognition and lane assignment only (Step&nbsp;2)</div>
+          <div class="legend-item"><span class="dot" style="background:var(--purple)"></span> O1–O3 — the typed planning outcome (Step&nbsp;3)</div>
+          <div class="legend-item"><span class="dot" style="background:var(--amber)"></span> D0–D3 — dispatch after merge (Step&nbsp;5)</div>
         </div>
 
-        <div class="note" style="margin-top: 18px;">
-          <strong>Primary skill vs hybrid work:</strong> governance picks <em>exactly one</em> of S1–S5 as the turn owner.
-          Hybrid means the Step&nbsp;3 <code>resource_plan</code> can still list many steps (RAG + SPL + MCP discovery, …)
-          and Step&nbsp;4 specialists can each contribute lane reports. It does <em>not</em> mean two primary skills
-          co-own the turn. (Future north-star Option B — a second RP reconcile that revises plan authority — is deferred.)
-        </div>
-        <div class="note warn-note" style="margin-top: 12px;">
-          <strong>Authority is governed through the graph.</strong> Specialists and LLM sidecars can propose routes, resource plans, SPL candidates, evidence observations, and prose. Sensitive outcomes — final route authority, SPL approval, MCP access, MITRE status, severity, and action posture — stay behind validation, human-review, and policy gates. A failed or skipped LLM hop falls back to the governed non-LLM path.
-        </div>
-        <div class="note success-note" style="margin-top: 12px;">
-          <strong>Live runner (2026-07-24):</strong> default <code>/chat</code> and <code>/chat/stream</code> use the <strong>Resource Planner LangGraph</strong>
-          (<code>run_chat_via_resource_planner_graph</code> (<code>LANGGRAPH_ORCHESTRATION_ENABLED=true</code>, config default).
-          RP wraps the same governed worker functions under a finer-grained schedule. Rollback: set the flag <code>false</code> <em>and restart</em> backend workers
-          (settings are a module singleton). Linear LangGraph is retired from production (<code>chat/linear_graph_legacy.py</code> harness only). See <a href="#s2a">2a</a> and <a href="#s4b">4B</a>.
+        <div class="note success-note" style="margin-top:18px;">
+          <strong>Verified against the compiled graph, not the node names.</strong> Two names mislead if read literally: the graph node called <code>route_resolution</code> actually runs <code>graph_node_shadow_tail</code> — real route adjudication already happened inside <code>bootstrap</code> — and <code>route_setup</code> is registered as a node with <strong>no inbound edge</strong>, so it never executes. Both are recorded here rather than drawn as live hops.
         </div>
       </div>
     </section>
@@ -1416,68 +1480,69 @@
     <section>
       <div class="section-title">
         <div>
-          <h2 id="s2a">2a. Resource Planner hierarchy — production spine <span class="badge-new">cutover</span></h2>
+          <h2 id="s3">3. The canonical planning seam <span class="badge-new">new</span></h2>
           <p>
-            North-star cutover (<code>plans/2026-07-23_1315_resource-planner-north-star-cutover.md</code>, Done).
-            One production orchestration spine; specialists propose; code workers execute; governance vetoes unsafe actions.
-            Narrative companion: <code>docs/architecture/ideal_langgraph_resource_planner.md</code>.
+            The single most consequential change of the cutover. Routing, intent, completeness, detail resolution, and evidence planning used to exist twice — once in the imperative pipeline and once in the graph bootstrap. They are now one callable that both runtimes must use.
           </p>
         </div>
       </div>
       <div class="card">
         <div class="grid-3">
           <div class="mini-card blue">
-            <h3>RP graph default</h3>
-            <p><code>routes_chat</code> / <code>routes_chat_stream</code> call <code>run_chat_via_resource_planner_graph</code> when
-            <code>LANGGRAPH_ORCHESTRATION_ENABLED=true</code>. Analyst-visible note:
-            <code>Orchestration: resource_planner_hierarchy.</code> (no “parity mode”).</p>
+            <h3>One entry, no flag</h3>
+            <p><code>run_canonical_planning(state)</code> in <code>canonical_planning_orchestrator.py</code>. <code>is_canonical_authoritative()</code> returns a hard-coded <code>true</code> — there is no canonical feature flag left to misconfigure.</p>
           </div>
           <div class="mini-card green">
-            <h3>Parallel specialists</h3>
-            <p>LangGraph <code>Send</code> fan-out: Skill · Knowledge · MCP · SPL. Merge sorts reports, runs
-            <code>apply_specialist_reports()</code>, then writes <code>validated_work_bundle</code> only after
-            <code>validate_bundle_policy_parity()</code>.</p>
+            <h3>Fork detection is a test</h3>
+            <p>A static architecture guard walks the AST and the graph edges to prove neither runtime holds its own routing, completeness, intent, or planning logic. It includes a negative control that must fail when a fork is deliberately reintroduced.</p>
           </div>
           <div class="mini-card purple">
-            <h3>Catalogue live bind</h3>
-            <p><code>match_catalogue_tier()</code> + <code>live_router_bind.py</code> fill blanks in
-            <code>graph_node_query_to_intent</code> (e.g. typo <code>lgon</code> → <code>auth_failed_login_spike</code>).
-            COE/manual slots and non-SOC guards still win.</p>
+            <h3>Typed exit, always</h3>
+            <p>Every path out of the seam is a <code>CanonicalPlanningOutcome</code>. A database failure becomes <code>persistence_failed</code>, not a half-planned turn that renders as a confident answer.</p>
           </div>
         </div>
+
+        <h3 style="margin-top:26px;">Four sub-stages, in order</h3>
+        <p>Node names in full: <code>graph_node_lane_and_canonical_planning</code> → <code>graph_node_route_resolution</code> → <code>graph_node_route_contract</code> → <code>_graph_node_planning_decision_from_canonical</code>.</p>
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Sub-stage</th><th>What it settles</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td>lane + canonical planning</td><td>Lane, tier, intent, completeness, detail resolution, handoff, evidence plan, committed resource plan</td></tr>
+            <tr><td>2</td><td>route resolution</td><td>Route adjudication — produces the final route and its authority source</td></tr>
+            <tr><td>3</td><td>route contract</td><td>Builds the route contract and <strong>overwrites</strong> the routed skill with the canonical skill — one final authority</td></tr>
+            <tr><td>4</td><td>planning decision</td><td>The planning decision surfaced to the trace and the analyst card</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <h3 style="margin-top:26px;">Inside sub-stage 1</h3>
+        <pre>emit query_understanding.completed
+  → clarification resume            (only when a pending handoff exists)
+  → lane router                     match_path → (initial_tier, resolved_tier, lane)
+  → reference ids + query signals
+  → ONE OF
+      resume lane   rebuild intent from handoff → re-run completeness
+      known lane    build_query_to_intent → evaluate_known_detail_completion
+                      → complete | clarification | divert_to_guided
+      T4 lane       build_query_to_intent → qualify_reference_query
+                      → resolves to T0  → knowledge_short_circuit
+                      → otherwise       → run_guided_detail_resolution
+  → evaluate_post_guided_completeness
+  → build_canonical_planning_input
+  → policy boundary?      → policy_blocked   (evidence_plan popped)
+  → clarification?        → persist handoff, emit clarification.requested
+  → otherwise persist in_progress handoff
+  → plan_evidence_from_canonical    ← the ONLY creator of a ResourcePlan</pre>
 
         <div class="note" style="margin-top:18px;">
-          <strong>Topology (v1 Option A):</strong>
-          bootstrap → route_setup → Resource Planner delegate → parallel specialists → RP merge → dispatch
-          (<code>prepare_rag_only</code> / <code>composed_dispatch</code> / <code>workflow_spl</code>) → source-resolve when needed →
-          governance (<code>spl_validate → mcp_execution_gate → context_sufficiency → decide_facts → answer_guard → human_review → policy_veto → finalize → validate_final_answer</code>).
-          Specialists enrich owned <code>args_template</code> fields only;
-          they do not revise route, intent, or evidence-plan authority. LLM-primary specialist planning is deferred.
-        </div>
-
-        <div class="grid-2" style="margin-top:18px;">
-          <div class="mini-card">
-            <h3>Fail-loud policy (B2)</h3>
-            <p>Unhandled RP defects on <code>/chat</code> return a sanitized HTTP 500 with <code>chat_pipeline_failed</code> telemetry.
-            Stream emits <code>reporter.failed</code>. There is <strong>no</strong> silent catch-and-fallback to a second full runner.
-            <code>response=None</code> uses the degraded facade (<code>build_rp_degraded_placeholder_response</code>), not a recursive pipeline.</p>
-          </div>
-          <div class="mini-card">
-            <h3>Rollback + retirement</h3>
-            <p>Operational rollback: <code>LANGGRAPH_ORCHESTRATION_ENABLED=false</code> + process restart → temporary
-            <code>build_live_chat_response</code> path. Linear LangGraph removed from <code>api</code>/<code>graph</code>
-            from <code>/chat</code> entrypoints; legacy harness only). Debug traces list RP <code>decision_log</code> nodes
-            (<code>resource_planner.delegate</code> → <code>specialist.*</code> → <code>resource_planner.merge</code>) on live turns.</p>
-          </div>
+          <strong>Plan authority is enforced, not agreed.</strong> <code>plan_evidence_from_canonical</code> is the sole creator and committer of a <code>ResourcePlan</code>. Composition happens inside an authority context manager, and guided dispatch, the executor, the response composer, and telemetry may only deserialize and read. Static guards pin it.
         </div>
 
         <div class="note success-note" style="margin-top:18px;">
-          <strong>Dry-run matrix (ask_chat, 2026-07-24):</strong>
-          typo failed-login → <code>spl_generation</code> / <code>auth_failed_login_spike</code> (candidate only, HIL);
-          ransomware playbook → <code>knowledge_recall</code> (no SPL);
-          OT overnight hunt → <code>guided_investigation</code> (no MCP exec);
-          MITRE without alert → <code>intent_clarification</code>. All four showed RP orchestration note on
-          <code>POST /chat</code>.
+          <strong>Idempotency:</strong> if a handoff version already committed a plan, the seam replays the committed plan instead of composing a second one. A retried or duplicated turn cannot produce two different plans for the same handoff.
         </div>
       </div>
     </section>
@@ -1485,9 +1550,343 @@
     <section>
       <div class="section-title">
         <div>
-          <h2 id="s2b">2b. Canonical <code>RunContract</code> — one source of truth <span class="badge-new">new</span></h2>
+          <h2 id="s4">4. Catalogue tiers and processing lanes <span class="badge-new">new</span></h2>
           <p>
-            Every live <code>/chat</code> turn (control plane <strong>on or off</strong>) now builds a single <code>RunContract</code> / <code>RouteContract</code> in graph state. It ends the “competing truths” class of bug: the analyst card, the audit trace, HIL, and evidence counts all read from the same contract instead of re-deriving state in each surface.
+            Recognition no longer feeds routing directly. The match path first becomes a <strong>tier</strong>, and the tier becomes a <strong>processing lane</strong> — which is what decides whether a turn takes the known path, the guided path, or the reference short-circuit.
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Tier</th><th><code>deterministic_match_path</code></th><th>Lane</th><th>Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>T1</code></td><td><code>exact_105_question</code>, <code>exact_105_plus_use_case_catalog</code></td><td><code>known</code></td><td>Verbatim governed question. Strongest authority.</td></tr>
+            <tr><td><code>T2</code></td><td><code>use_case_catalog</code></td><td><code>known</code></td><td>Known behaviour class from the use-case catalog.</td></tr>
+            <tr><td><code>T3</code></td><td><code>near_105_question</code>, <code>semantic_105_question</code>, <code>fuzzy_alias_catalog</code></td><td><code>known</code></td><td>Recognised by overlap, meaning, or alias.</td></tr>
+            <tr><td><code>T4</code></td><td><code>out_of_registry</code>, <code>semantic_out_of_registry</code>, <code>query_understanding_weak</code>, <code>qu_unavailable</code>, empty</td><td><code>guided</code></td><td>Novel or weakly understood. Guided resolution applies.</td></tr>
+            <tr><td><code>T0</code></td><td><strong>never</strong> from a match path</td><td><code>knowledge_short_circuit</code></td><td>Assigned only after T4 reference qualification concludes the answer lives in the governed reference registry.</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="grid-2" style="margin-top:18px;">
+          <div class="mini-card purple">
+            <h3>T0 is earned, not detected</h3>
+            <p>A bare CVE or ATT&amp;CK identifier in a query does not make it T0. <code>qualify_reference_query</code> has to conclude the question is answerable from the governed reference registry alone; only then does the lane become <code>knowledge_short_circuit</code> and the skill resolve to <code>knowledge_recall</code>.</p>
+          </div>
+          <div class="mini-card">
+            <h3>The fourth lane</h3>
+            <p><code>clarification</code> is a lane in its own right, not a failure of the others. A turn that lands there returns a question and a durable handoff, and carries no evidence plan at all.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s5">5. Guided detail tools <span class="badge-new">new</span></h2>
+          <p>
+            The subsystem this cutover is named after. It exists to close one specific failure: a known catalogue question missing a single lookup-able field used to either divert wholesale into guided rescue — losing its governed SPL template — or bounce back to the analyst asking for something the system could find itself.
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Stage 1 — the completeness gate</h3>
+        <p>Every missing field is classified before anything is attempted. The classification, not a heuristic, decides what happens next.</p>
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Category</th><th>Fields</th><th>Consequence</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>tool_discoverable</code></td><td><code>index</code>, <code>sourcetype</code>, <code>src</code>, <code>source_ip</code>, <code>host</code>, <code>domain</code>, <code>reference_dataset</code></td><td>Resolved by a detail tool. The analyst is never asked.</td></tr>
+            <tr><td><code>user_only</code></td><td><code>alert_id</code>, <code>time_window</code>, <code>user</code>, <code>approval</code>, <code>analyst_confirmation</code></td><td>Becomes a clarification. Only a human knows these.</td></tr>
+            <tr><td><code>planner_required</code></td><td>everything else</td><td>The planner must supply it, or the turn degrades honestly.</td></tr>
+            <tr><td><code>optional</code></td><td>—</td><td>Recorded; never blocks.</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="note" style="margin-top:18px;">
+          <strong>An anti-over-asking rule.</strong> On a mapped catalogue use case with no concrete scoping entity in the query, missing fields are advisory only — they never divert the turn and never raise a clarification. Asking a broad question should not trigger an interrogation.
+        </div>
+
+        <h3 style="margin-top:26px;">Stage 2 — selection</h3>
+        <p>Deterministic, driven by intent family, answer goal, and the missing categories. <strong>No LLM participates in selecting a tool.</strong> An unsafe request selects nothing at all — the tool list returns empty and the turn is blocked, not resolved.</p>
+
+        <h3 style="margin-top:26px;">Stage 3 — bounded resolution</h3>
+        <div class="grid-3">
+          <div class="mini-card blue">
+            <h3>Hard budgets</h3>
+            <p><code>MAX_TOOL_CALLS = 3</code>, <code>MAX_ITERATIONS = 2</code>. Exceeding either appends an explicit limitation rather than silently continuing.</p>
+          </div>
+          <div class="mini-card amber">
+            <h3>Typed error classes</h3>
+            <p>Retryable: <code>timeout</code>, <code>source_unavailable</code>, <code>transient</code>. Fatal: <code>policy_blocked</code>, <code>unsupported_source</code>, <code>auth_denied</code> — a fatal error returns immediately and asks the analyst.</p>
+          </div>
+          <div class="mini-card green">
+            <h3>No plan authority</h3>
+            <p>Resolution emits a <code>GapResolutionResult</code> and <strong>never</strong> a <code>ResourcePlan</code>. Filling a blank is not the same act as deciding what the turn will do.</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top:26px;">The tools themselves</h3>
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>Status in this stage</th><th>Behaviour</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>knowledge_recall</code></td><td>executes</td><td>Governed reference-registry lookup returning typed facts and citations. It makes no live-environment claim. With no resolvable reference ids it returns <code>partial</code> and states the limitation instead of inventing coverage.</td></tr>
+            <tr><td><code>spl_generation</code></td><td><code>planned_read_only</code></td><td>Recorded intent. Realised by the final planner as a resource-plan step.</td></tr>
+            <tr><td><code>attack_discovery</code></td><td><code>planned_read_only</code></td><td>Recorded intent, deferred to the final planner.</td></tr>
+            <tr><td><code>alert_summary</code></td><td><code>planned_read_only</code></td><td>Recorded intent, deferred to the final planner.</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p style="margin-top:10px;">Deferred tools carry the limitation <code>&lt;tool&gt;_execution_deferred_to_final_planner</code>, so the trace says plainly what was recorded versus what was run.</p>
+
+        <h3 style="margin-top:26px;">Stage 4 — merge with provenance</h3>
+        <p>Tool output does not overwrite what is already known. It merges under a fixed source precedence, and disagreements are recorded rather than resolved silently:</p>
+        <pre>user 5  >  live_telemetry 4  >  knowledge_recall 3  >  catalogue_default 2  =  detail_tool 2  >  model_inference 1</pre>
+        <p style="margin-top:10px;">Every conflict becomes a <code>FieldConflict</code> with an explicit <code>accepted_new</code> or <code>kept_existing</code> resolution. Duplicate tool calls are hashed and blocked against a budget of one.</p>
+
+        <h3 style="margin-top:26px;">Stage 5 — re-gate</h3>
+        <p>After resolution the gate runs again and produces the terminal status: <code>complete</code>, <code>complete_with_limitations</code>, <code>clarification_required</code>, <code>policy_blocked</code>, or <code>resolution_failed</code>.</p>
+
+        <div class="note success-note" style="margin-top:18px;">
+          <strong>What the analyst notices:</strong> fewer interruptions, because look-up-able gaps are closed without asking. Governed SPL survives on catalogue questions instead of being replaced by an ungoverned draft. Clarification is a first-class answer mode rather than a thin low-evidence answer. And a clarification answer now actually resumes the original turn.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s6">6. Clarification and the handoff lifecycle <span class="badge-new">new</span></h2>
+          <p>
+            A clarification is a durable, versioned record — not a conversational hope that the next message will be interpreted correctly.
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <pre>Turn 1   a user_only gap survives resolution
+         → outcome  clarification_required
+         → handoff persisted, version 1, status "awaiting_clarification"
+         → pending_handoff_id pinned to the session
+         → answer_contract.answer_mode = "clarification"
+         → NO evidence_plan, NO resource_plan
+
+Turn 2   session context finds the pin → handoff_resume
+         → resume_clarification_handoff  (transactional, SELECT … FOR UPDATE, replay-aware)
+         → original query and tier/lane restored
+         → analyst answer merged, intent reconstructed
+         → completeness gate re-run
+         → handoff version 2, status "plan_committed" → an ordinary planned turn</pre>
+
+        <div class="grid-3" style="margin-top:18px;">
+          <div class="mini-card green">
+            <h3>Transactional resume</h3>
+            <p>The row is locked for update, so two concurrent turns cannot both consume the same clarification and commit divergent plans.</p>
+          </div>
+          <div class="mini-card blue">
+            <h3>Versioned, not overwritten</h3>
+            <p>The handoff advances by version. The audit trail keeps what was asked, what was answered, and which plan the answer produced.</p>
+          </div>
+          <div class="mini-card purple">
+            <h3>Contract-enforced emptiness</h3>
+            <p>A <code>clarification_required</code> outcome is <strong>forbidden</strong> from carrying an evidence plan. The clarification and policy-blocked branches explicitly clear it before returning.</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top:26px;">The outcome contract in full</h3>
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Status</th><th>EvidencePlan</th><th>ResourcePlan</th><th>Also required</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>planned</code></td><td>required</td><td><strong>committed</strong></td><td><code>canonical_input</code></td></tr>
+            <tr><td><code>clarification_required</code></td><td>absent</td><td>absent</td><td><code>clarification</code> + handoff</td></tr>
+            <tr><td><code>policy_blocked</code></td><td>optional, non-executing</td><td>absent</td><td><code>policy_reason</code></td></tr>
+            <tr><td><code>resolution_failed</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
+            <tr><td><code>planning_failed</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
+            <tr><td><code>unsupported</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
+            <tr><td><code>execution_failed</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
+            <tr><td><code>persistence_failed</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="note" style="margin-top:18px;">
+          <strong>Why branch on status rather than on shape.</strong> The earlier design pushed a partial five-key dict into <code>evidence_plan</code> on clarification turns; every consumer that validated it raised on nine missing fields. Branching on a typed status removes the entire class of bug — and the topology backs it up, because a non-planned status has no edge to execution.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s7">7. Resource Planner hierarchy — the production spine</h2>
+          <p>
+            One production orchestration spine. Specialists propose; code workers execute; governance vetoes unsafe outcomes. Three runners collapsed into this one during the cutover.
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="grid-3">
+          <div class="mini-card blue">
+            <h3>One runner</h3>
+            <p><code>routes_chat</code> and <code>routes_chat_stream</code> call <code>run_chat_via_resource_planner_graph</code>. The analyst-visible note reads <code>Orchestration: resource_planner_hierarchy.</code> — there is no parity mode and no second full runner to fall into.</p>
+          </div>
+          <div class="mini-card green">
+            <h3>Parallel specialists</h3>
+            <p>LangGraph <code>Send</code> fan-out across Skill, Knowledge, MCP, and SPL. Fan-in sorts the reports, merges them into a work bundle, runs <code>validate_bundle_policy_parity()</code>, and only then publishes <code>validated_work_bundle</code>.</p>
+          </div>
+          <div class="mini-card purple">
+            <h3>Option A boundary</h3>
+            <p>The plan exists <em>before</em> specialists run. They enrich <code>args_template</code> fields they own and nothing else. Route, intent, and evidence-plan authority stay deterministic and upstream.</p>
+          </div>
+        </div>
+
+        <div class="note" style="margin-top:18px;">
+          <strong>Compiled topology:</strong>
+          <code>bootstrap</code> → <code>route_resolution</code> → <code>resource_planner_delegate</code> → parallel specialists → <code>resource_planner_merge</code> → dispatch (<code>non_planned_finalize</code> / <code>prepare_rag_only</code> / <code>composed_dispatch</code> / <code>workflow_spl</code>) → source-resolve when needed → governance chain (<code>spl_validate → mcp_execution_gate → context_sufficiency → decide_facts → answer_guard → human_review → policy_veto → finalize → validate_final_answer</code>).
+        </div>
+
+        <div class="grid-2" style="margin-top:18px;">
+          <div class="mini-card">
+            <h3>Fail loud, never silently</h3>
+            <p>An unhandled defect on <code>/chat</code> returns a sanitized HTTP 500 with <code>chat_pipeline_failed</code> telemetry; the stream emits <code>reporter.failed</code>. A missing response uses the degraded facade, which is a guarded honest blocked card — it cannot re-enter the graph or recurse into a second pipeline.</p>
+          </div>
+          <div class="mini-card">
+            <h3>What the specialists actually report</h3>
+            <p>Skill reports the catalogue tier match. Knowledge runs a deterministic knowledge audit with no model involved. MCP and SPL report posture for the plan. Debug traces show the sequence as <code>resource_planner.delegate</code> → <code>specialist.*</code> → <code>resource_planner.merge</code>.</p>
+          </div>
+        </div>
+
+        <div class="note success-note" style="margin-top:18px;">
+          <strong>Dual-runtime parity at closure:</strong> <code>total=120 exact=120 approved=0 critical=0</code> across the production corpus, up from 113 exact / 7 critical before the shared seam landed. The seven remaining differences were resolved by making both runtimes call <code>run_canonical_planning</code> rather than by widening a tolerance list — the approved-difference registry is empty.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s8">8. Dispatch and the governance chain</h2>
+          <p>Exactly one dispatch branch per turn, then a fixed chain that no turn can skip.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Branch</th><th>Condition</th><th>What runs</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>non_planned_finalize</code></td><td>outcome status is not <code>planned</code></td><td>Straight to finalize. No SPL lane, no execution lane — enforced by topology.</td></tr>
+            <tr><td><code>prepare_rag_only</code></td><td><code>answer_mode == "rag_only"</code></td><td>Governed SOC-KB retrieval; the execution stub is created already not-allowed.</td></tr>
+            <tr><td><code>composed_dispatch</code></td><td>a composed plan is present</td><td>Step-walk dispatcher runs dispatchable, policy-allowed steps; blocked steps annotated.</td></tr>
+            <tr><td><code>workflow_spl</code></td><td>otherwise</td><td>SPL generation, then source resolve, then the gate.</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <h3 style="margin-top:26px;">The nine governance nodes</h3>
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Node</th><th>Role</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>spl_validate</code></td><td>Candidate-only gate — anything not explicitly approved is forced to <code>execution_eligible = false</code>.</td></tr>
+            <tr><td><code>mcp_execution_gate</code></td><td>Runs the execution evaluation if execution has not already been settled.</td></tr>
+            <tr><td><code>context_sufficiency</code></td><td>Surfaces the sufficiency state; the substantive evaluation happens in finalize.</td></tr>
+            <tr><td><code>decide_facts</code></td><td>Audit record for severity and MITRE authority.</td></tr>
+            <tr><td><code>answer_guard</code></td><td>Audit record for the answer-safety lane.</td></tr>
+            <tr><td><code>human_review</code></td><td>Establishes the human-review verdict for the turn.</td></tr>
+            <tr><td><code>policy_veto</code></td><td><strong>Re-asserts plan policy after the fact.</strong> If the plan did not allow MCP, execution is forced to blocked or skipped; if it did not allow SPL, eligibility is forced false.</td></tr>
+            <tr><td><code>finalize</code></td><td>The real assembly — evidence, sufficiency, grounding, answer contract, analyst card, control-plane trace.</td></tr>
+            <tr><td><code>validate_final_answer</code></td><td>Final-answer validation, then the decision log is patched into the trace.</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="note" style="margin-top:18px;">
+          <strong>Two-phase response validation.</strong> The outcome is validated before assembly and the assembled response is validated again afterwards. If assembly validation fails, <code>response.generated</code> and <code>request.completed</code> are <strong>not</strong> emitted — the system will not record a success it did not produce.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s9">9. SPL generation and the MCP execution gate</h2>
+          <p>
+            MCP is attached. What follows is the governance around it — how a query becomes an approved statement, and what has to be true before that statement is allowed to run.
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <h3>The candidate ladder</h3>
+        <p>Tried in order, first success wins:</p>
+        <pre>analyst-provided SPL
+  → T2 native profile
+  → governed catalogue template          ← preferred; carries template governance
+  → deterministic lab draft
+  → LLM plan-compiler failover           ← relevance-gated, grounded
+  → clarification                        ← when nothing is defensible</pre>
+
+        <div class="grid-3" style="margin-top:18px;">
+          <div class="mini-card purple">
+            <h3>The model proposes a plan, not SPL</h3>
+            <p>On the failover rung the model emits a small JSON detection plan. Deterministic code compiles the SOC-STD SPL from it, and the result flows through the ordinary validation, quality, and adapter gates. Raw model SPL is never authority.</p>
+          </div>
+          <div class="mini-card blue">
+            <h3>Slots must resolve</h3>
+            <p>Index, sourcetype, and field placeholders are substituted from the source-profile map, SOC-KB retrieval, and session pins. Fully resolved becomes <code>normalized_spl</code>. Unresolved slots raise an analyst clarification — never a guess, and never a downgrade to an ungoverned draft.</p>
+          </div>
+          <div class="mini-card green">
+            <h3>Candidate ≠ executable</h3>
+            <p>The raw candidate envelope stays <code>approved=false</code> / <code>normalized_spl=null</code> / <code>execution_eligible=false</code>. Only a separate derived artifact can become eligible, and only after normalization, real validation, slot resolution, and risk classification.</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top:26px;">What the gate requires</h3>
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Control</th><th>Rule</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Admission</td><td>Only an approved <code>normalized_spl</code>, or already-populated composed execution results, may enter.</td></tr>
+            <tr><td>Tool policy</td><td>Deterministic selection. The search tool and read-only discovery tools are selectable for a search; write, admin, and assistant-style tools are not selectable at all.</td></tr>
+            <tr><td>User requests</td><td>A requested server or tool is a <strong>preference</strong>, never an instruction. Policy decides.</td></tr>
+            <tr><td>Analyst confirmation</td><td>Per-call handshake — <code>confirm</code>, <code>update_spl</code>, or <code>reject</code>. An updated SPL re-runs source resolution before the gate sees it.</td></tr>
+            <tr><td>Risk classification</td><td>High risk — validator rejection, injection, risky command, missing time bounds or result cap — is blocked before the gate. Medium risk keeps confirmation. Auto-eligibility can only ever relax confirmation outside live registry mode; registry mode always confirms.</td></tr>
+            <tr><td>Search lifecycle</td><td>Submit → bounded poll → fetch, within explicit poll and timeout bounds. Outcomes are reported honestly as live, empty, timeout, or denied. An empty result is reported as empty, never padded.</td></tr>
+            <tr><td>After the fact</td><td><code>policy_veto</code> re-asserts the plan's policy, so an execution the plan never authorised cannot survive to the answer.</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="note success-note" style="margin-top:18px;">
+          <strong>Two independent axes for human-in-the-loop.</strong> Relaxing confirmation requires <em>both</em> a demo/lab execution mode <em>and</em> an explicit allowance flag. A single flag cannot switch off the analyst handshake — which is the point.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s10">10. Canonical <code>RunContract</code> — one source of truth</h2>
+          <p>
+            Every live <code>/chat</code> turn builds a single <code>RunContract</code> / <code>RouteContract</code> in graph state. It ends the “competing truths” class of bug: the analyst card, the audit trace, the human-review gate, and the evidence counts all read from the same contract instead of re-deriving state per surface.
           </p>
         </div>
       </div>
@@ -1495,33 +1894,35 @@
         <div class="grid-3">
           <div class="mini-card blue">
             <h3>Single HIL truth</h3>
-            <p><code>action_capability.hil</code> = <code>governance_trace.effective_hil</code> = <code>run_contract.effective_hil</code>. One human-in-the-loop verdict, projected everywhere — never two disagreeing gates.</p>
+            <p>The capability gate, the governance trace, and the run contract project the <strong>same</strong> effective human-in-the-loop verdict. There is no second gate that can disagree with the first.</p>
           </div>
           <div class="mini-card green">
             <h3>Honest evidence counts</h3>
-            <p><code>collected_evidence_count</code> comes only from telemetry that was actually collected. Collected / review-only / candidate artifacts are kept in separate buckets so the card can’t imply data it never fetched.</p>
+            <p>The collected-evidence count comes only from telemetry that was actually collected. Collected, review-only, and candidate artifacts live in separate buckets, so the card cannot imply data it never fetched.</p>
           </div>
           <div class="mini-card purple">
             <h3>One route authority</h3>
-            <p>Shadow comparisons (<code>route_authority_compare</code>, <code>routing_skill_resolution</code>) re-project onto <code>canonical_run_contract</code>; the raw shadow lives under <code>raw_shadow_compare</code> for audit only.</p>
+            <p>Shadow comparisons are re-projected onto the canonical contract; the raw shadow is kept under a separate key for audit only, where it cannot leak into the answer as truth.</p>
           </div>
         </div>
 
         <h3 style="margin-top:26px;">What the contract fixes</h3>
+        <div class="tablewrap">
         <table>
           <thead>
-            <tr><th>Surface</th><th>Before (competing truths)</th><th>Now (reads the contract)</th></tr>
+            <tr><th>Surface</th><th>Before</th><th>Now</th></tr>
           </thead>
           <tbody>
-            <tr><td>Preview / answer card</td><td>Re-derived preview and lineage per render</td><td>Render gates read <code>run_contract</code></td></tr>
-            <tr><td>HIL gate</td><td>Capability vs governance could disagree</td><td>Single <code>effective_hil</code> everywhere</td></tr>
-            <tr><td>Source evidence</td><td>Collected mixed with review / candidate</td><td>Separated buckets; count from collected only</td></tr>
-            <tr><td>Route authority</td><td>Shadow compare could leak as truth</td><td>Re-projected; raw under <code>raw_shadow_compare</code></td></tr>
+            <tr><td>Preview / answer card</td><td>Re-derived preview and lineage per render</td><td>Render gates read the run contract</td></tr>
+            <tr><td>Human-review gate</td><td>Capability and governance could disagree</td><td>One effective verdict everywhere</td></tr>
+            <tr><td>Source evidence</td><td>Collected mixed with review and candidate</td><td>Separated buckets; count from collected only</td></tr>
+            <tr><td>Route authority</td><td>Shadow compare could leak as truth</td><td>Re-projected; raw kept for audit only</td></tr>
           </tbody>
         </table>
+        </div>
 
-        <div class="note success-note" style="margin-top:18px;">
-          <strong>Governance/honesty hardening shipped with it:</strong> MITRE tier caps to <code>requires_validation</code> when MCP is off; the analytics severity sentinel (“Not assigned from this question alone”) is preserved; and the severity gate is tightened for knowledge / guidance answers. Live suite green; Experience Center parity kept. <span style="color:var(--muted);">Merged — PR&nbsp;#32.</span>
+        <div class="note" style="margin-top:18px;">
+          <strong>Superseded framing:</strong> earlier versions of this page described the contract as building “whether the control plane is on or off.” That toggle no longer exists — the key was deleted and canonical planning is unconditional.
         </div>
       </div>
     </section>
@@ -1529,757 +1930,353 @@
     <section>
       <div class="section-title">
         <div>
-          <h2 id="s2c">2c. Pipeline Dispatch V2 — mid-pipeline dispatch authority <span class="badge-new">preview · flag-off</span></h2>
+          <h2 id="s11">11. Persistence, idempotency, and telemetry <span class="badge-new">new</span></h2>
           <p>
-            A two-stage dispatch authority that replaces scattered mid-pipeline branching with one routing surface. It is <strong>fully built but dormant</strong>: behind <code>AI_SOC_PIPELINE_DISPATCH_V2_ENABLED</code> (default <code>false</code>), and flag-off is byte-identical to today. Documented here so leadership sees where the pipeline is heading before COE flips it on.
+            The cutover moved planning state out of process memory. What a turn decided is now a durable, queryable record — which is what makes replay, resume, and audit possible at all.
           </p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="grid-3">
+          <div class="mini-card blue">
+            <h3>PostgreSQL only</h3>
+            <p><code>canonical_handoffs</code>, <code>canonical_planning_events</code>, <code>canonical_execution_idempotency</code>. There is no memory or file fallback: if the database is unavailable the turn returns a typed <code>persistence_failed</code> outcome rather than pretending to have planned.</p>
+          </div>
+          <div class="mini-card green">
+            <h3>Migrations are a deploy step</h3>
+            <p>Schema is applied by the container entrypoint, never as runtime DDL from a request path. <code>/health</code> exposes a migration readiness field so a half-migrated deployment is visible rather than mysterious.</p>
+          </div>
+          <div class="mini-card purple">
+            <h3>Execution idempotency</h3>
+            <p>A committed plan is keyed by handoff id and version. A retried turn replays the committed plan instead of composing a second, divergent one.</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top:26px;">The durable event catalog — 28 events</h3>
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Class</th><th>Count</th><th>Failure behaviour</th><th>Events</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Audit-critical</strong></td>
+              <td>8</td>
+              <td><strong>Fails closed</strong> before a side-effecting step</td>
+              <td><code>handoff.persisted</code>, <code>handoff.resumed</code>, <code>resource_plan.created</code>, <code>execution.started</code>, <code>execution_step.started</code>, <code>execution_step.completed</code>, <code>execution_step.failed</code>, <code>request.failed</code></td>
+            </tr>
+            <tr>
+              <td>Diagnostic</td>
+              <td>20</td>
+              <td>Degrades loudly; never breaks chat</td>
+              <td><code>query_understanding.completed</code>, <code>lane_router.decided</code>, <code>known_completeness.evaluated</code>, <code>guided_resolution.started</code>, <code>guided_intent.resolved</code>, <code>tier.resolved</code>, <code>detail_tool.selected</code>, <code>detail_tool.started</code>, <code>detail_tool.completed</code>, <code>detail_tool.failed</code>, <code>detail_merge.completed</code>, <code>post_guided_completeness.evaluated</code>, <code>clarification.requested</code>, <code>planner_handoff.created</code>, <code>planner_handoff.consumed</code>, <code>resource_plan.commit_reused</code>, <code>execution.completed</code>, <code>response.validated</code>, <code>response.generated</code>, <code>request.completed</code></td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="grid-2" style="margin-top:18px;">
+          <div class="mini-card">
+            <h3>Retention</h3>
+            <p>Handoff grace 24 hours; diagnostic events 7 days; audit events 90 days; purge batch 500 on an hourly scheduler, on by default. Retention is a scheduled purge, not an unbounded table.</p>
+          </div>
+          <div class="mini-card">
+            <h3>Connection discipline</h3>
+            <p>A measured budget of five database connections per turn, annotated on smoke runs — replacing the earlier pattern where every repository and telemetry call opened its own connection.</p>
+          </div>
+        </div>
+
+        <div class="note" style="margin-top:18px;">
+          <strong>Correlation fields are typed columns</strong> and are bound before minimization, so a trace stays joinable without carrying payload content it should not retain.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s12">12. Rollback path — what the imperative runner still owns</h2>
+          <p>
+            Setting the orchestration flag to <code>false</code> <strong>and restarting the workers</strong> — settings are a module singleton — returns <code>/chat</code> to the imperative pipeline. Three subsystems are scheduled by that runner and are not on the graph's schedule. They are recorded here so this page does not credit the live path with work it does not do.
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Subsystem</th><th>Scheduled by</th><th>What it does there</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Bounded evidence-collection loop</td>
+              <td><code>_run_discovery_loop_imperative</code> in the imperative pipeline</td>
+              <td>Drains read-only discovery hops before adjudication and re-enters after gated execution, capped at <code>MAX_MCP_HOPS = 6</code>. Hops are merged into source evidence with planned and collected kept distinct.</td>
+            </tr>
+            <tr>
+              <td>Guided hybrid dispatch</td>
+              <td><code>_run_guided_hybrid_dispatch</code> in the imperative pipeline</td>
+              <td>InvestigationPlan → Validator A → ResourcePlan → Validator B → safe planned or collected evidence → RAG, under review-only posture.</td>
+            </tr>
+            <tr>
+              <td>LLM intent-advisor hop</td>
+              <td><code>graph_node_query_to_intent</code>, reachable only from the legacy linear graph and the eval-only shadow graph</td>
+              <td>Builds an advisory intent under a bounded latency cap. The canonical seam classifies intent deterministically instead.</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="note warn-note" style="margin-top:18px;">
+          <strong>Also inert:</strong> <code>route_setup</code> is registered in the compiled graph with no inbound edge, so it never executes. Earlier versions of this page drew it as a live hop.
+        </div>
+
+        <div class="note" style="margin-top:18px;">
+          <strong>Read this as scheduling, not capability.</strong> These are statements about which runner owns which stage after the cutover — verified by reading the call sites and the compiled edge set. Rollback itself is an operational lever: there is no canonical feature flag, the migrations are additive and forward-only, and reverting the cutover commits is the documented path.
+        </div>
+
+        <h3 style="margin-top:26px;">Retired concepts</h3>
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Was</th><th>Now</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Control-plane on/off toggle</td><td>Key deleted. Canonical planning is unconditional.</td></tr>
+            <tr><td>Canonical planning feature flag</td><td>Removed; the authority check returns a hard-coded true.</td></tr>
+            <tr><td>Memory / file handoff store backends</td><td>Removed. PostgreSQL only.</td></tr>
+            <tr><td>Linear LangGraph production runner</td><td>Retired to a legacy harness module.</td></tr>
+            <tr><td>Imperative pipeline as the default</td><td>Rollback-only, plus a degraded facade.</td></tr>
+            <tr><td>Legacy planning fallback branches</td><td>Zero matches remaining in the backend.</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s13">13. The 105 taxonomy and the use-case catalog</h2>
+          <p>Two governed layers behind recognition. One is a question list; the other is a behaviour-class registry that carries the contract for how a question of that class must be answered.</p>
         </div>
       </div>
       <div class="card">
         <div class="grid-2">
           <div class="mini-card blue">
-            <h3>Stage 1 · <code>IntentDispatchDecision</code></h3>
-            <p>Computed <em>before</em> intent classification (pre-2C). Chooses a table-driven prompt mode for the intent LLM instead of one monolithic prompt.</p>
-          </div>
-          <div class="mini-card purple">
-            <h3>Stage 2 · <code>PipelineDispatchContract</code></h3>
-            <p>Computed after evidence planning. Emits <code>stage_schedule</code> + <code>llm_hops</code> — the <strong>sole routing surface</strong> for the rest of the turn, with a clean discovery-vs-execution split and a CP-off fallback.</p>
-          </div>
-        </div>
-
-        <h3 style="margin-top:26px;">Request modes (deterministic, table-driven)</h3>
-        <div class="pill-row" style="margin-bottom:8px;">
-          <span class="stage-chip">clarification</span>
-          <span class="stage-chip">knowledge</span>
-          <span class="stage-chip">mitre_knowledge</span>
-          <span class="stage-chip">cve_review</span>
-          <span class="stage-chip">utility_spl</span>
-          <span class="stage-chip">spl_authoring</span>
-          <span class="stage-chip">spl_and_run</span>
-          <span class="stage-chip">hybrid</span>
-          <span class="stage-chip">live_investigation</span>
-        </div>
-        <p style="color:var(--muted);font-size:14px;margin:6px 0 0;">Each mode maps deterministically to a <code>stage_schedule</code> (which nodes run) and <code>llm_hops</code> (which sidecars are allowed). No mode lets the LLM select the route.</p>
-
-        <h3 style="margin-top:26px;">What V2 adds</h3>
-        <table>
-          <thead>
-            <tr><th>Capability</th><th>What it does</th><th>Authority</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Mandatory SPL postprocessor</td>
-              <td>Runs on <strong>every</strong> SPL source (template, LLM, lab). Hash trace + byte-identity check against governed templates.</td>
-              <td><span class="tag det">deterministic · review-only</span></td>
-            </tr>
-            <tr>
-              <td>LLM SPL plan preservation</td>
-              <td>Compiler grounding inputs + the LLM <code>detection_plan</code> flow through <code>SplCandidateStageResult</code> → <code>persist_llm_spl_plan</code> → downstream <code>consumed_by</code>.</td>
-              <td><span class="tag llm">LLM plan</span> <span class="tag det">validated</span></td>
-            </tr>
-            <tr>
-              <td>Pre-SPL MCP discovery</td>
-              <td>Cursor-driven read-only discovery node scheduled before SPL when the plan needs schema context.</td>
-              <td><span class="tag det">gated · read-only</span></td>
-            </tr>
-            <tr>
-              <td>Debug <code>final_output</code> trace</td>
-              <td>Adds dispatch surfaces and a final-output span to the <code>/debug</code> trace for reproducibility.</td>
-              <td><span class="tag det">observability</span></td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="note warn-note" style="margin-top:18px;">
-          <strong>Posture:</strong> all 12 phases are implemented and governance-green, but <code>AI_SOC_PIPELINE_DISPATCH_V2_ENABLED</code> stays <code>false</code> —
-          Dispatch V2 remains a shadow/preview lane until COE approves promotion. Live orchestration is the Resource Planner graph (2a);
-          V2 does not replace that spine and MCP execution flags are unchanged. Nothing in this section changes today’s answers.
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="section-title">
-        <div>
-          <h2 id="s4b">4B. Governed evidence-collection loop (Stage 4B) <span class="badge-new">new</span></h2>
-          <p>
-            When control plane is on and <code>mcp_allowed</code>, a bounded cyclic evidence loop runs around <code>graph_node_evidence_planning</code> (the HUB). Guided hybrid turns no longer enter this generic loop first; with <code>AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED=true</code>, <code>guided_hybrid_dispatch</code> performs its own validated read-only discovery / safe-catalog collection and still never routes to <code>execute</code> / <code>splunk_run_query</code>. Pure loop logic lives in <code>evidence_loop.py</code>; discovery I/O in <code>mcp_loop_discovery.py</code>; merge into governed evidence in <code>source_evidence.py</code>.
-          </p>
-        </div>
-      </div>
-      <div class="card">
-        <div class="arch-diagram">
-          <div class="arch-box purple">
-            <span class="arch-seq">HUB</span>
-            <span class="nodetag">graph_node_evidence_planning › assess_loop</span>
-            <h3>Requirement vs deliverable assessor</h3>
-            <p>Compares declared <code>produces</code> keys (from <code>mcp_tool_playbook.json</code>) against accumulated <code>mcp_evidence</code>. Chooses the next route deterministically. LLM chronology (<code>plan_tool_chronology</code>) is advisory-only and defaults off on the blocking live path.</p>
-            <div class="tagrow"><span class="tag det">deterministic routes</span><span class="tag llm">chronology advisory (flag)</span></div>
-          </div>
-          <div class="arch-arrow">↓ one route per reassessment</div>
-          <div class="arch-branch-row three-up">
-            <div class="arch-box branch-box cyan">
-              <span class="arch-seq branch">R1</span>
-              <span class="nodetag">discovery_hop</span>
-              <h3>Read-only discovery</h3>
-              <p><code>graph_node_mcp_call</code> → <code>execute_loop_discovery_hop</code>. Tools like <code>splunk_get_indexes</code>. Never <code>splunk_run_query</code>.</p>
-            </div>
-            <div class="arch-box branch-box amber">
-              <span class="arch-seq branch">R2</span>
-              <span class="nodetag">execute</span>
-              <h3>Gated run_query</h3>
-              <p>Requirements met → <code>graph_node_execution</code> with approved <code>normalized_spl</code> only.</p>
-            </div>
-            <div class="arch-box branch-box green">
-              <span class="arch-seq branch">R3</span>
-              <span class="nodetag">finalize / broaden / HIL</span>
-              <h3>Exit paths</h3>
-              <p><code>finalize</code> when sufficient; <code>broaden</code> on empty approved search; <code>human_review</code> / <code>capability_gap</code> / <code>exhausted</code> when honest degrade is required.</p>
-            </div>
-          </div>
-          <div class="arch-arrow">↓ discovery or execution returns to HUB until route ≠ discovery_hop or budget hit</div>
-          <div class="arch-box green">
-            <span class="arch-seq">OUT</span>
-            <span class="nodetag">graph_node_context_finalize</span>
-            <h3>Merge into governed evidence package</h3>
-            <p><code>append_mcp_loop_source_evidence</code> maps hops to <code>source_type=mcp_discovery</code>. <code>collection_status=planned</code> rows are excluded from sufficiency “collected”; <code>collected</code> rows with sanitized <code>preview_rows</code> feed <code>structured_facts</code>. <code>splunk_run_query</code> evidence stays owned by the execution node (no duplicate hop rows).</p>
-          </div>
-        </div>
-
-        <h3 style="margin-top: 24px;">Imperative live path (default)</h3>
-        <pre>init_routing → query_to_intent → evidence_planning
-  → _run_discovery_loop_imperative()   # drain discovery hops before adjudication
-  → shadow_enrichment → dispatch (7A|7B|7C)
-  → [SPL chain + execution when 7C]
-  → evidence_planning (HUB re-entry after execution when loop active)
-  → context_finalize</pre>
-
-        <h3 style="margin-top: 24px;">Loop routes &amp; honest degrades</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Route</th>
-              <th>When</th>
-              <th>Analyst-visible outcome</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>discovery_hop</code></td>
-              <td>Missing read-only context (indexes, metadata, knowledge objects)</td>
-              <td>Planned checklist or collected preview rows (execution-gated)</td>
-            </tr>
-            <tr>
-              <td><code>execute</code></td>
-              <td>Discovery requirements satisfied; approved SPL exists</td>
-              <td>Gated <code>splunk_run_query</code> lifecycle</td>
-            </tr>
-            <tr>
-              <td><code>finalize</code></td>
-              <td>Evidence sufficient for the evidence plan</td>
-              <td>Proceed to context finalize / synthesis readiness</td>
-            </tr>
-            <tr>
-              <td><code>broaden</code></td>
-              <td>Approved search returned zero rows; broaden eligible</td>
-              <td>Defer to broaden-on-empty orchestration</td>
-            </tr>
-            <tr>
-              <td><code>capability_gap</code></td>
-              <td>Requirement in <code>UNSERVABLE_REQUIREMENTS</code> (CVE, asset, vuln source)</td>
-              <td>Honest degrade — no fabricated rows; EC uses <code>vulnerability_source:not_onboarded</code></td>
-            </tr>
-            <tr>
-              <td><code>exhausted</code></td>
-              <td><code>MAX_MCP_HOPS</code> (6) reached</td>
-              <td>Proceed with available evidence + limitations</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h3 style="margin-top: 24px;">Planned vs collected discovery</h3>
-        <div class="grid-2">
-          <div class="mini-card amber">
-            <h3>Execution off (default posture)</h3>
-            <p><code>MCP_GLOBAL_EXECUTION_ENABLED=false</code> (or mock/live per-server off). Discovery hops record <code>outcome=planned</code>, <code>collection_status=planned</code>, warning <code>discovery_hop_planned_only</code>. Analyst runs the checklist manually.</p>
+            <h3>105 taxonomy — 105 questions</h3>
+            <p>The governed question set. An exact match is the strongest authority the system has: it pins the route, the expected answer shape, and the evidence contract. Near and semantic matches to the same set form tier T3.</p>
           </div>
           <div class="mini-card green">
-            <h3>Execution on (mock or live)</h3>
-            <p>Global + server execution flags on. <code>execute_loop_discovery_hop</code> calls the connector; rows pass <code>evidence_sanitizer</code>; <code>collection_status=collected</code>. Facts flow into <code>structured_context</code>; narration still uses fact statements only (no raw row dump).</p>
+            <h3>Use-case catalog — 65 entries</h3>
+            <p>Behaviour classes rather than literal questions. Each entry carries intent patterns, required and optional entities, default time window, primary and secondary skills, required sources, a default SPL template, RAG collections, MITRE candidates and visibility policy, a severity policy, and an action-capability tier.</p>
           </div>
         </div>
 
-        <div class="note warn-note" style="margin-top: 18px;">
-          <strong>Loop eligibility:</strong> skipped when <code>mcp_allowed=false</code> or the turn is RAG-only (policy / knowledge paths). Composed Resource Planner dispatch does not disable the loop — discovery may still run before composed steps when MCP is allowed.
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="section-title">
-        <div>
-          <h2>3. What each major layer answers</h2>
-          <p>Map these to the diagram: Step&nbsp;2 = recognition; Step&nbsp;3 = M1–M4 detail completion or S5 guided handoff; Step&nbsp;4 = specialist enrichers.</p>
-        </div>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Layer</th>
-            <th>Diagram</th>
-            <th>Question it answers</th>
-            <th>Example output</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>Query Understanding</strong></td>
-            <td>Step 2 · M1–M5</td>
-            <td>Did we recognize this question?</td>
-            <td><code>match_path=out_of_registry</code>, <code>soc_investigation_shaped=true</code></td>
-          </tr>
-          <tr>
-            <td><strong>Route Skill</strong></td>
-            <td>Step 3 · S1–S5</td>
-            <td>Which <em>one</em> primary work mode owns the turn?</td>
-            <td><code>guided_investigation</code> (exactly one)</td>
-          </tr>
-          <tr>
-            <td><strong>Intent</strong></td>
-            <td>Step 3</td>
-            <td>What exactly does the user want done?</td>
-            <td><code>intent_family=guided_investigation</code>, answer goals</td>
-          </tr>
-          <tr>
-            <td><strong>Evidence / ResourcePlan</strong></td>
-            <td>Step 3 · detail completion / guided handoff</td>
-            <td>Which resources are needed, allowed, or skipped?</td>
-            <td><code>evidence_plan.resource_plan.steps[]</code> — RAG / SPL / MCP / MITRE with allow+skip reasons</td>
-          </tr>
-          <tr>
-            <td><strong>Specialists</strong></td>
-            <td>Step 4</td>
-            <td>What can each lane add or skip on that plan?</td>
-            <td>Skill/Knowledge/MCP/SPL reports → merge into <code>validated_work_bundle</code></td>
-          </tr>
-          <tr>
-            <td><strong>Planning Path / Dispatch</strong></td>
-            <td>Step 6 · D1–D3</td>
-            <td>Which worker branch runs the composed plan?</td>
-            <td><code>rag_only</code> / <code>composed_dispatch</code> / <code>workflow_spl</code></td>
-          </tr>
-          <tr>
-            <td><strong>Route Adjudication</strong></td>
-            <td>inside 3 → route_setup</td>
-            <td>Does deterministic policy keep the routed skill? (CP on)</td>
-            <td><code>final_route=…</code>, <code>authority_source=…</code></td>
-          </tr>
-          <tr>
-            <td><strong>Evidence Loop HUB</strong></td>
-            <td>§4B (when MCP allowed)</td>
-            <td>Do we have the MCP context the plan requires?</td>
-            <td><code>route=discovery_hop</code> or <code>finalize</code></td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-
-    <section>
-      <div class="section-title">
-        <div>
-          <h2>4. What is in the 105 and the 46 catalog?</h2>
-          <p>The 105 and catalog are different layers. They are not duplicates.</p>
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="card blue">
-          <h3>105 SOC question taxonomy</h3>
-          <p>
-            The 105 questions are the calibration and regression question bank. They help the system identify whether a user
-            question is a known SOC question pattern.
-          </p>
-          <pre>Example:
-"Which hosts are generating the most SMB traffic?"
-
-Possible result:
-match_path = exact_105_question
-question_ref = q0.q010
-pattern_type = top_n_aggregation</pre>
-        </div>
-        <div class="card green">
-          <h3>46 use-case catalog</h3>
-          <p>
-            The catalog is a governed behavior contract library. A catalog row defines what the assistant is allowed to do
-            for a class of SOC request.
-          </p>
-          <pre>Catalog row can define:
-use_case_id
-primary_skill
-SPL template
-RAG collections
-MITRE candidates
-severity policy
-action tier
-output template</pre>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="section-title">
-        <div>
-          <h2 id="s5">5. What happens when matching succeeds or fails? <span class="badge-new">updated</span></h2>
-          <p>The assistant should never hallucinate governance. Unknown investigation-shaped questions go to the fifth skill.</p>
-        </div>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Match case</th>
-            <th>Meaning</th>
-            <th>Typical route</th>
-            <th>Behavior</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>105 + catalog match</strong></td>
-            <td>Best case: known question and governed contract</td>
-            <td><code>attack_discovery</code> / other governed route</td>
-            <td>Use template, MITRE policy, severity policy, output contract</td>
-          </tr>
-          <tr>
-            <td><strong>Only 105 match</strong></td>
-            <td>Known question pattern, contract may be partial</td>
-            <td>Usually route hint from 105</td>
-            <td>Use draft/template if available, review-only, limitations if needed</td>
-          </tr>
-          <tr>
-            <td><strong>Only catalog match</strong></td>
-            <td>Known behavior class, even if not exact 105</td>
-            <td>Catalog primary skill</td>
-            <td>Use catalog contract: RAG/SPL/MITRE/severity as allowed</td>
-          </tr>
-          <tr>
-            <td><strong>Nothing maps + investigation-shaped</strong></td>
-            <td>Unknown but clearly asks for hunt/investigation guidance</td>
-            <td><code>guided_investigation</code></td>
-            <td>Safe hunt plan, evidence checklist, limitations, no fake evidence</td>
-          </tr>
-          <tr>
-            <td><strong>Nothing maps + unclear/non-SOC</strong></td>
-            <td>Not enough signal to help safely</td>
-            <td>clarification / out_of_scope</td>
-            <td>Ask clarification or state limitation</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="note" style="margin-top:18px;border-left:5px solid var(--green);background:var(--soft-green);color:#065f46;">
-        <strong>Routing rescue fix (2026-06):</strong> a catalog use-case match (not just exact-105) now classifies into its own intent family and keeps the registry route — it no longer collapses to <code>clarification_required → knowledge_recall</code>. The rescue is <em>shape-aware</em>: knowledge / MITRE / SOP use cases → <code>knowledge_only</code>; analytics → <code>spl_generation_only</code>; alert-shaped → <code>hybrid_alert_review</code>; otherwise <code>live_investigation</code>. Genuinely vague, no-detail queries still clarify, and truly out-of-registry hunts still reach <code>guided_investigation</code>.
-      </div>
-
-      <div class="card" style="margin-top: 18px;">
-        <h3 style="margin-top:0;">Canonical route mapping (implemented)</h3>
+        <h3 style="margin-top:26px;">Catalog coverage by category</h3>
+        <div class="tablewrap">
         <table>
           <thead>
-            <tr>
-              <th>Case</th>
-              <th>match_path</th>
-              <th>route_skill</th>
-              <th>path_type</th>
-            </tr>
+            <tr><th>Category</th><th>Entries</th></tr>
           </thead>
           <tbody>
-            <tr>
-              <td>105 analytics</td>
-              <td><code>exact_105_question</code></td>
-              <td><code>attack_discovery</code></td>
-              <td><code>spl_review</code></td>
-            </tr>
-            <tr>
-              <td>Catalog SOP</td>
-              <td><code>use_case_catalog</code></td>
-              <td><code>knowledge_recall</code></td>
-              <td><code>rag_only</code></td>
-            </tr>
-            <tr>
-              <td>OOD investigation</td>
-              <td><code>out_of_registry</code></td>
-              <td><code>guided_investigation</code></td>
-              <td><code>guided_investigation</code></td>
-            </tr>
-            <tr>
-              <td>Unsafe execution</td>
-              <td>any</td>
-              <td>blocked route</td>
-              <td><code>unsafe_blocked</code></td>
-            </tr>
+            <tr><td>Network / Firewall</td><td>14</td></tr>
+            <tr><td>Authentication / Identity</td><td>13</td></tr>
+            <tr><td>SOC / Knowledge / Analyst workflow</td><td>10</td></tr>
+            <tr><td>Endpoint / EDR</td><td>9</td></tr>
+            <tr><td>OT / Critical infrastructure</td><td>7</td></tr>
+            <tr><td>Compliance / Governance</td><td>4</td></tr>
+            <tr><td>Cloud / AWS</td><td>3</td></tr>
+            <tr><td>Threat Intelligence / IOC · Alert triage · Analytics / Threshold · Data Loss Prevention · Environment Knowledge</td><td>1 each</td></tr>
           </tbody>
         </table>
+        </div>
+
+        <div class="note" style="margin-top:18px;">
+          <strong>Corrected on this revision:</strong> earlier versions of this page said 46 use cases. The catalog now holds <strong>65</strong>.
+        </div>
       </div>
     </section>
 
     <section>
       <div class="section-title">
         <div>
-          <h2 id="s6">6. The five live route skills</h2>
-          <p>Route skills are broad work modes, not the full taxonomy of all possible SOC questions.</p>
+          <h2 id="s14">14. The five live route skills</h2>
+          <p>A closed enum. Exactly one of these owns a turn — governance never runs two primaries.</p>
         </div>
       </div>
-      <div class="grid-5">
-        <div class="mini-card blue">
-          <h3>attack_discovery</h3>
-          <p>Governed investigation path for known attack or detection use cases.</p>
-        </div>
-        <div class="mini-card green">
-          <h3>spl_generation</h3>
-          <p>SPL authoring and validation path. Output is review-only unless gated.</p>
-        </div>
-        <div class="mini-card amber">
-          <h3>knowledge_recall</h3>
-          <p>SOP, playbook, explain, policy, and RAG-based answers.</p>
-        </div>
-        <div class="mini-card purple">
-          <h3>alert_summary</h3>
-          <p>Summarizes existing alert evidence and highlights analyst next steps.</p>
-        </div>
-        <div class="mini-card cyan">
-          <h3>guided_investigation</h3>
-          <p>Deterministic rescue for <code>out_of_registry</code> + hunt-shaped questions. With the hybrid flag off: legacy review-only RAG guidance. With <code>AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED</code>: <code>guided_hybrid_dispatch</code> (baseline InvestigationPlan → optional bounded LLM proposal → Validator A → validated ResourcePlan → Validator B → guided collection → RAG). No free-form SPL, action tools, or remediation.</p>
-        </div>
-      </div>
-      <div class="note success-note" style="margin-top: 18px;">
-        <strong>Key rule:</strong> low confidence is not a skill. <code>guided_investigation</code> is a skill. Low confidence remains metadata.
-      </div>
-    </section>
-
-    <section>
-      <div class="section-title">
-        <div>
-          <h2>7. Internal cybersecurity skills library</h2>
-          <p>
-            The internal skills library is active mainly inside Resource Planner, but it touches multiple nodes.
-            Assume these skills are already built into the product as governed internal capabilities.
-          </p>
-        </div>
-      </div>
-
       <div class="card">
-        <div class="note success-note">
-          <strong>Simple explanation:</strong> Route Skill decides the broad mode. Resource Planner then chooses which internal skills should shape the answer, which resources should be used, and which actions must be skipped or reviewed.
+        <div class="grid-5">
+          <div class="mini-card blue">
+            <h3><code>alert_summary</code></h3>
+            <p>Summarise and triage alert context. Severity is never assigned from the question alone.</p>
+          </div>
+          <div class="mini-card green">
+            <h3><code>spl_generation</code></h3>
+            <p>Produce a governed, review-only search. Candidate SPL is never executable on its own.</p>
+          </div>
+          <div class="mini-card cyan">
+            <h3><code>attack_discovery</code></h3>
+            <p>Hunt and analytics over known behaviour classes with a governed evidence contract.</p>
+          </div>
+          <div class="mini-card purple">
+            <h3><code>knowledge_recall</code></h3>
+            <p>SOP, playbook, policy, and reference answers from governed knowledge. Also the resolved-T0 short-circuit skill.</p>
+          </div>
+          <div class="mini-card amber">
+            <h3>guided investigation</h3>
+            <p>The deterministic rescue for out-of-registry, hunt-shaped questions — review-only guidance with honest limitations rather than a weak knowledge answer. Route id <code>guided_investigation</code>.</p>
+          </div>
         </div>
 
-        <h3 style="margin-top: 24px;">Where the skills library touches the flow</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Node</th>
-              <th>How internal skills contribute</th>
-              <th>Example</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Query Understanding</strong></td>
-              <td>Detects skill-related signals such as failed-login, SOP request, SPL request, OT/network anomaly, MITRE request, or unsafe action.</td>
-              <td><code>soc_investigation_shaped=true</code> for “anything to hunt?”</td>
-            </tr>
-            <tr>
-              <td><strong>Route Skill</strong></td>
-              <td>Selects one live route skill from the controlled set. It does not execute the skill; it selects the work mode.</td>
-              <td><code>guided_investigation</code> for unmapped hunt-shaped query</td>
-            </tr>
-            <tr>
-              <td><strong>Intent</strong></td>
-              <td>Confirms the exact user goal, such as SOP retrieval, SPL-only, hybrid investigation, alert summary, or guided investigation.</td>
-              <td><code>intent_family=guided_investigation</code></td>
-            </tr>
-            <tr>
-              <td><strong>Resource Planner</strong></td>
-              <td>Selects the internal skill chain and maps RAG, SPL, MCP, MITRE, severity, HIL, and skip reasons.</td>
-              <td><code>guided_investigation → evidence_collection → context_sufficiency → synthesis → answer_guard</code></td>
-            </tr>
-            <tr>
-              <td><strong>Finalize Answer</strong></td>
-              <td>Uses selected skills to shape the final card: hypotheses, evidence checklist, SPL section, limitations, next steps, and safety notes.</td>
-              <td>Answer includes “No live query executed”, “MITRE not claimed”, “Severity not assigned”</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="note" style="margin-top:18px;">
+          <strong>Unchanged by the cutover.</strong> The route taxonomy was not consolidated. What changed is that these same names now double as detail-tool identifiers inside gap resolution (<a href="#s5">5</a>) — a skill is both a live work mode and, in one case, a callable read-only lookup.
+        </div>
+      </div>
+    </section>
 
-        <h3 style="margin-top: 24px;">How many skills are there?</h3>
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s15">15. The internal skills library</h2>
+          <p>The route enum is the visible surface. The registry underneath is larger, and most of it is pipeline machinery rather than something a query can route to.</p>
+        </div>
+      </div>
+      <div class="card">
         <div class="grid-3">
           <div class="mini-card blue">
             <h3>5 live route skills</h3>
-            <p>These are the runtime work modes: attack discovery, SPL generation, knowledge recall, alert summary, and guided investigation.</p>
+            <p>The closed enum a turn can be routed to.</p>
           </div>
           <div class="mini-card green">
             <h3>8 routable registry skills</h3>
-            <p>These are user-facing registry intents after adding guided investigation. Some are live route skills, while some collapse or are handled through policy.</p>
+            <p>The five above plus <code>mitre_mapping</code>, <code>investigation_notes</code>, and <code>out_of_scope</code>.</p>
           </div>
           <div class="mini-card purple">
             <h3>19 catalog skills</h3>
-            <p>Current <code>catalog.json</code> count: five live route skills plus pipeline-stage and support skills such as SPL validation, evidence collection, context sufficiency, synthesis, and answer guard.</p>
+            <p>The routable eight plus eleven non-routable pipeline stages.</p>
           </div>
         </div>
 
-        <h3 style="margin-top: 24px;">8 routable registry skills and where they touch nodes</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Registry skill</th>
-              <th>Live route?</th>
-              <th>Where it touches the flow</th>
-              <th>What it contributes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>attack_discovery</code></td>
-              <td>Yes</td>
-              <td>Route Skill → Resource Planner → SPL/evidence/MITRE/severity</td>
-              <td>Known investigation workflow, evidence checklist, SPL template/draft, MITRE Candidate, severity policy.</td>
-            </tr>
-            <tr>
-              <td><code>spl_generation</code></td>
-              <td>Yes</td>
-              <td>Route Skill → SPL workflow → SPL validation</td>
-              <td>Review-only SPL generation, slot validation, unsafe SPL prevention, assumptions and fields to validate.</td>
-            </tr>
-            <tr>
-              <td><code>knowledge_recall</code></td>
-              <td>Yes</td>
-              <td>Route Skill → RAG branch → Answer card</td>
-              <td>SOP/playbook retrieval, policy explanation, source-grounded procedure, no unnecessary SPL.</td>
-            </tr>
-            <tr>
-              <td><code>alert_summary</code></td>
-              <td>Yes</td>
-              <td>Route Skill → summary path → Final answer</td>
-              <td>Summarizes provided evidence, extracts key entities, lists analyst next steps and gaps.</td>
-            </tr>
-            <tr>
-              <td><code>guided_investigation</code></td>
-              <td>Yes</td>
-              <td>Route Skill for OOD investigation → <code>guided_hybrid_dispatch</code> (flag on) or legacy RAG-only → Guided answer</td>
-              <td>Safe rescue for unmapped hunt-shaped questions: hypotheses, evidence checklist, limitations; hybrid path adds validated InvestigationPlan, Validator B gates, and planned discovery / safe-catalog evidence (not generic SPL execution).</td>
-            </tr>
-            <tr>
-              <td><code>mitre_mapping</code></td>
-              <td>No / governed</td>
-              <td>Intent + MITRE decision branch inside Resource Planner / Finalize</td>
-              <td>Maps only as Candidate / Not Claimed / Blocked based on registry and evidence. Does not freely claim techniques.</td>
-            </tr>
-            <tr>
-              <td><code>investigation_notes</code></td>
-              <td>No / support skill</td>
-              <td>Resource Planner → Final answer sections</td>
-              <td>Creates structured analyst notes, investigation summary, assumptions, missing evidence, and handoff points.</td>
-            </tr>
-            <tr>
-              <td><code>out_of_scope</code></td>
-              <td>No / policy path</td>
-              <td>Query Understanding → Route/Triage → Clarification or blocked path</td>
-              <td>Prevents non-SOC or unsupported requests from receiving fabricated SOC answers.</td>
-            </tr>
-          </tbody>
-        </table>
+        <h3 style="margin-top:26px;">Non-routable pipeline skills</h3>
+        <p><code>query_understanding</code>, <code>spl_validation</code>, <code>evidence_collection</code>, <code>asset_enrichment</code>, <code>identity_enrichment</code>, <code>network_enrichment</code>, <code>context_sufficiency</code>, <code>synthesis</code>, <code>answer_guard</code>, <code>action_planning</code>, <code>ticket_drafting</code>.</p>
 
-        <h3 style="margin-top: 24px;">Examples of how skills improve answers</h3>
-        <div class="grid-3">
-          <div class="mini-card blue">
-            <h3>Example 1: Failed-login spike</h3>
-            <p><strong>Question:</strong> “Investigate failed login spike on APP-01.”</p>
-            <p><strong>Skills used:</strong> attack_discovery, spl_generation, spl_validation, evidence_collection, context_sufficiency, answer_guard.</p>
-            <p><strong>Improvement:</strong> The answer includes SPL, failed-login volume checks, success-after-failure correlation, affected users, MITRE Candidate caution, severity policy, and analyst next steps.</p>
-          </div>
-          <div class="mini-card cyan">
-            <h3>Example 2: OT chatter</h3>
-            <p><strong>Question:</strong> “Strange OT chatter to a brand new external host overnight, anything to hunt?”</p>
-            <p><strong>Skills used:</strong> guided_investigation, evidence_collection, context_sufficiency, synthesis, answer_guard.</p>
-            <p><strong>Improvement:</strong> Instead of low-confidence knowledge recall, the answer gives hunt hypotheses, data sources, baseline checks, vendor/CDN validation, and clear limitations.</p>
-          </div>
+        <p style="margin-top:14px;">Each registry entry declares a purpose, input and output contracts, allowed and blocked tools, required evidence, supported use cases, a default workflow, a human-in-the-loop policy, and the action tiers it is permitted to reach. Blocked tools are declared per skill, not inferred at call time.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s16">16. LLM usage — what the model may and may not do</h2>
+          <p>The model is a participant, never an authority. Every hop it takes is a governed sidecar with a budget, a validator, and a deterministic floor to fall back to.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="grid-2">
           <div class="mini-card green">
-            <h3>Example 3: Brute-force SOP</h3>
-            <p><strong>Question:</strong> “Show me the brute-force login SOP.”</p>
-            <p><strong>Skills used:</strong> knowledge_recall, context_sufficiency, synthesis, answer_guard.</p>
-            <p><strong>Improvement:</strong> The answer stays RAG-only and gives procedure, escalation criteria, and policy citations instead of wrongly generating SPL.</p>
+            <h3>The model may</h3>
+            <p>Suggest a route as an advisory that must be registry-validated to win. Propose a JSON detection plan that deterministic code compiles into SPL. Narrate analyst-summary prose. Assist with intent shaping on the rollback path. Every one of these is optional — a turn completes without it.</p>
+          </div>
+          <div class="mini-card red">
+            <h3>The model may not</h3>
+            <p>Call MCP directly — the backend mediates every tool call. Decide severity or MITRE status. Make SPL executable. Approve its own output. Bypass human review. Produce a final figure or a fact that deterministic code did not establish.</p>
           </div>
         </div>
 
-        <div class="warn-note note" style="margin-top: 18px;">
-          <strong>Important:</strong> Skills shape the plan and the answer. They do not execute tools by themselves.
-          MCP, SPL execution, MITRE status, severity, and actions remain under deterministic gates.
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="section-title">
-        <div>
-          <h2 id="s8">8. LLM usage <span class="badge-new">updated</span></h2>
-          <p>The LLM helps understand and narrate. It does not own policy or tool execution.</p>
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="card green">
-          <h3>LLM can help with (advisory only)</h3>
-          <ul>
-            <li>Route and intent candidate suggestions in shadow / assist modes</li>
-            <li>Clarification question wording</li>
-            <li>Review-only SPL draft suggestions on governed paths</li>
-            <li>Readable narration of deterministic analyst-summary prose</li>
-            <li><strong>Guided hybrid (flag on):</strong> bounded InvestigationPlan propose inside <code>guided_hybrid_dispatch</code> — validated by Validator A before Resource Planner mapping</li>
-          </ul>
-          <p style="margin:12px 0 0;color:var(--muted);font-size:14px;">Legacy guided (hybrid flag off) keeps deterministic hypotheses/checklist from <code>guidance_templates.py</code>. Hybrid flag on adds LLM propose as planner input only; Validator B still blocks free-form query and action tools; safe-catalog rows are not surfaced as generic SPL execution eligibility.</p>
-        </div>
-        <div class="card red">
-          <h3>LLM cannot do</h3>
-          <ul>
-            <li>Override exact 105 or catalog authority</li>
-            <li>Approve SPL or execute MCP</li>
-            <li>Call tools directly</li>
-            <li>Claim MITRE without evidence</li>
-            <li>Assign severity without policy</li>
-            <li>Invent indexes, sourcetypes, fields, or live results</li>
-            <li>Bypass human approval</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="section-title">
-        <div>
-          <h2 id="s8b">8b. Control-plane trace (live /chat, CP on) <span class="badge-new">updated</span></h2>
-          <p>When control plane is enabled, the response includes a technical trace for auditors and demo reviewers.</p>
-        </div>
-      </div>
-      <div class="card">
-        <table>
-          <thead>
-            <tr>
-              <th>Trace block</th>
-              <th>What it shows</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>routing_provenance</code></td>
-              <td>Deterministic match path, selected skill, <code>rescue_mode</code>, and why knowledge recall was not used.</td>
-            </tr>
-            <tr>
-              <td><code>route_adjudication</code></td>
-              <td>Final route after CP phase 4. Guided rescue uses authority <code>guided_investigation_rescue</code>.</td>
-            </tr>
-            <tr>
-              <td><code>evidence_plan.resource_plan.provenance.resource_decisions</code></td>
-              <td>Why RAG, SPL, MCP, MITRE, severity, and HIL were used or skipped (CP on).</td>
-            </tr>
-            <tr>
-              <td><code>planning_decision.resource_plan_summary</code></td>
-              <td>Same decision map when CP is off — guided hunts still carry resource skip reasons.</td>
-            </tr>
-            <tr>
-              <td><code>guided_handoff</code> <span class="badge-new">new</span></td>
-              <td>Hybrid dispatch handoff (flag on): validated InvestigationPlan, ResourcePlan pre/post Validator B, <code>blocked_resources</code>, <code>evidence_planned</code> / <code>evidence_collected</code> (collected = outcome <code>collected</code> only), <code>refinement_round</code>, safe-catalog template IDs, MCP discovery tool IDs. Planned hops are not counted as collected evidence on the AnswerContract.</td>
-            </tr>
-            <tr>
-              <td><code>llm_advisory_trace</code></td>
-              <td>Whether route/intent/narration advisories ran, what the LLM suggested, and whether policy overrode it. No new LLM calls are made to build this block.</td>
-            </tr>
-            <tr>
-              <td><code>llm_turn_budget</code> <span class="badge-new">new</span></td>
-              <td>Per-turn cap accounting: <code>sidecar_calls</code> / <code>narration_calls</code> with a record per call (<code>role</code>, <code>provider_label</code>, <code>outcome</code> = completed / timed_out). Enforced — max 2 sidecar + 1 narration.</td>
-            </tr>
-            <tr>
-              <td><code>missing_evidence_reasoning</code> <span class="badge-new">new</span></td>
-              <td>Advisory review-only bullets when the contract has missing evidence; skipped on T0 / clarification. Merged into Limitations; never authority.</td>
-            </tr>
-            <tr>
-              <td><code>mitre_risk_rationale</code> <span class="badge-new">new</span></td>
-              <td>Prose explaining the fixed MITRE/severity decision dump. <code>guard_status</code> blocks fall back to deterministic rationale. Never sets status or severity.</td>
-            </tr>
-            <tr>
-              <td><code>llm_composer</code> <span class="badge-new">new</span></td>
-              <td><code>llm_composer_used</code>, <code>llm_guard_status</code>, <code>llm_provider_label</code> / <code>llm_answered_label</code> (which endpoint answered), <code>composition_confidence</code>, <code>compose_hil_attached</code>, <code>expected_latency_hint</code>.</td>
-            </tr>
-            <tr>
-              <td><code>resource_plan_shadow</code> <span class="badge-new">new</span></td>
-              <td>LLM resource-plan proposal validated deterministically; <code>live_plan_source_unchanged=true</code>. Shadow only — never promoted to the live plan.</td>
-            </tr>
-            <tr>
-              <td><code>evidence_loop</code> <span class="badge-new">new</span></td>
-              <td>When Stage 4B ran: hop chronology, per-hop <code>tool</code> / <code>outcome</code> / <code>delivered</code> keys, final HUB route, and whether discovery was planned-only vs collected.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section id="s8c">
-      <div class="section-title">
-        <div>
-          <h2>8c. Governed LLM sidecar pipeline <span class="badge-new">new</span></h2>
-          <p>
-            Every LLM hop on the live <code>/chat</code> path runs as a <strong>governed sidecar</strong>: it proposes prose or candidates, is validated or dropped, and never holds authority. The chain below is the same for intent advisory, missing-evidence, rationale, and composer narration.
-          </p>
-        </div>
-      </div>
-      <div class="card">
+        <h3 style="margin-top:26px;">The governed sidecar lane</h3>
         <div class="lane">
           <div class="lane-card">
             <span class="ln">01 · RESOLVE</span>
             <h4>Failover chain</h4>
-            <p>Qwen (flag-gated) → local Foundation-Sec → Instruct fallback. Deduped by URL. Returns the endpoint that actually answered.</p>
+            <p>Role-scoped provider and model resolution with a defined fallback order. A role with no configured endpoint simply does not run.</p>
           </div>
           <div class="lane-card">
-            <span class="ln">02 · BOUND</span>
-            <h4>Wall-clock timeout</h4>
-            <p>Persistent executor, no blocking join. Socket ceiling = wrapper (120s) so a slow single-slot model is never silently capped. Hung call → abandon → fallback.</p>
+            <span class="ln">02 · BUDGET</span>
+            <h4>Per-turn ceiling</h4>
+            <p>A turn-level deadline of 75 seconds by default, 45 for T2, with a per-call timeout of 30 seconds and an advisory reserve. The budget is opened at routing and every call is recorded against it.</p>
           </div>
           <div class="lane-card">
-            <span class="ln">03 · BUDGET</span>
-            <h4>Per-turn cap</h4>
-            <p>Session-scoped <code>TurnLlmBudget</code> in graph state: max 2 sidecar + 1 narration. T0 / exact-105 / clarification skip the call entirely.</p>
+            <span class="ln">03 · GROUND</span>
+            <h4>Grounded prompt</h4>
+            <p>Prompts carry a grounding block assembled from governed facts and references. Grounding is advisory context — it never becomes authority.</p>
           </div>
           <div class="lane-card guard">
             <span class="ln">04 · GUARD</span>
             <h4>Validate or drop</h4>
-            <p>JSON/schema adapter, cite-only grounding guard (no invented IP / index / hash / SPL), out-of-catalog notice guard, fail-closed final-answer validator.</p>
+            <p>Role-specific schema validation with deterministic overrides forced on conflict. A response that fails validation is dropped, not repaired into the answer.</p>
           </div>
           <div class="lane-card fallback">
             <span class="ln">05 · MERGE / FALL BACK</span>
             <h4>Deterministic floor</h4>
-            <p>Pass → prose merged (facts untouched). Fail / timeout / unconfigured → deterministic answer (design goal: same analyst-visible facts as LLM-off; traces may still record skip reasons).</p>
+            <p>Any failure, timeout, or empty result falls back to the governed non-LLM path. The analyst still gets a safe, complete response.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s17">17. LLM endpoints, limits, and redaction</h2>
+          <p>Configuration is environment-driven and secrets never appear in status output — only booleans such as “configured”.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Setting</th><th>Default</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Active model</td><td><code>foundation-sec-1.1-8b-instruct-q8_0</code></td><td>On-prem security model, served locally</td></tr>
+            <tr><td>Per-call timeout</td><td>30s</td><td>Hard ceiling on a single hop</td></tr>
+            <tr><td>Turn deadline</td><td>75.0s</td><td>Budget for all hops in one turn</td></tr>
+            <tr><td>T2 turn deadline</td><td>45.0s</td><td>Tighter budget on the out-of-catalogue path</td></tr>
+            <tr><td>T2 advisor bound</td><td>25.0s</td><td>Cap on the advisory hop specifically</td></tr>
+            <tr><td>Advisor reserve</td><td>12.0s</td><td>Reserved headroom so an advisor cannot consume the whole turn</td></tr>
+            <tr><td>Max input / output tokens</td><td>8000 / 1024</td><td>Prompt and completion bounds</td></tr>
+            <tr><td>Temperature</td><td>0.2</td><td>Low variance for reproducible behaviour</td></tr>
+            <tr><td>Secret redaction</td><td>on</td><td>Status and trace output carry booleans, never credentials</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="note" style="margin-top:18px;">
+          <strong>Open-weight and local models are first-class.</strong> Providers are configured by type — OpenAI-compatible, Ollama, vLLM, SGLang, TGI, llama.cpp, or custom HTTP. Cisco Foundation-Sec is one family in the registry, not the framework. Air-gap enforcement overrides any cloud allowance.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s18">18. Knowledge surfaces and detection coverage</h2>
+          <p>Read-only exports for the Knowledge page. These surfaces report coverage; they make no runtime routing change.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="grid-3">
+          <div class="mini-card blue">
+            <h3>98 techniques referenced</h3>
+            <p>The MITRE crosswalk currently references 98 techniques and sub-techniques across the governed content.</p>
+          </div>
+          <div class="mini-card green">
+            <h3>12 covered</h3>
+            <p>Techniques with at least one mapped governed detection — for example credential access and valid-accounts coverage from the authentication use cases, ransomware impact from the endpoint set, and phishing from the email set.</p>
+          </div>
+          <div class="mini-card amber">
+            <h3>86 gaps</h3>
+            <p>Referenced but not yet backed by a governed detection. Shown as a gap, deliberately — an honest coverage map is the point of the surface.</p>
           </div>
         </div>
 
-        <div class="grid-2" style="margin-top:18px;">
-          <div class="mini-card green">
-            <h3>Weak-case &amp; out-of-catalog composition</h3>
-            <p style="margin-bottom:10px;">For out-of-catalog / weak / failover questions the composer narrates a body from skills + RAG + governed facts — the on-the-fly advantage over fixed SOAR. Threshold HIL: below <code>AI_SOC_LLM_COMPOSE_HIL_THRESHOLD</code> the body still renders but carries an analyst-review gate; any proposed MCP action always gates.</p>
-            <div class="chip-row">
-              <span class="chip ok">out-of-catalog notice kept</span>
-              <span class="chip ok">cite-only-retrieved</span>
-              <span class="chip off">execution_eligible = false</span>
-              <span class="chip off">severity / MITRE deterministic</span>
-            </div>
-          </div>
-          <div class="mini-card blue">
-            <h3>Context package &amp; promotion gate</h3>
-            <p style="margin-bottom:10px;"><code>GovernedContextPackage</code> feeds sidecars redacted RAG, skill metadata, and MCP tool <em>hints</em> (descriptions only — never schema or credentials), truncated to the role budget. Row text and prompt blocks pass through <code>evidence_sanitizer</code> (A1). The <code>build_llm_role_scorecard</code> reads <code>control_plane_trace</code> and gates promotion: a role is trusted only at verdict <strong>HEALTHY</strong> (fallback &lt; 10%, agreement ≥ 70%, n ≥ 20).</p>
-            <div class="chip-row">
-              <span class="chip">HEALTHY</span>
-              <span class="chip warm">DEGRADED</span>
-              <span class="chip">INSUFFICIENT_DATA</span>
-            </div>
-          </div>
+        <div class="note" style="margin-top:18px;">
+          <strong>MITRE is metadata, not evidence.</strong> The export declares that role explicitly. A technique reference never becomes a claim that the technique was observed; the analyst-facing MITRE status stays Candidate, Not Claimed, or Blocked according to the evidence actually collected.
         </div>
 
         <div class="note warn-note" style="margin-top:18px;">
-          <strong>Authority boundary:</strong> the sidecar lane can rewrite prose and propose candidates only. It never sets severity, MITRE status, SPL approval, or <code>execution_eligible</code>, never selects or runs an MCP tool, and never reaches the Experience Center fixture path. On failure the answer falls back to the deterministic floor (see Step&nbsp;3 contract + governance chain — sidecars do not perform resource decomposition).
+          <strong>Corrected on this revision:</strong> earlier versions of this page reported 13 techniques with 11 covered and 2 gaps. The live export now reports <strong>98 / 12 / 86</strong> — the reference surface grew much faster than governed detection coverage, which is exactly the kind of drift this page exists to show.
         </div>
       </div>
     </section>
@@ -2287,244 +2284,57 @@ output template</pre>
     <section>
       <div class="section-title">
         <div>
-          <h2>9. Resource Planner — guided investigation example</h2>
-          <p>What the guided path records after the flow change. With <code>AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED=true</code>, the live branch is <code>guided_hybrid_dispatch</code>, not legacy <code>rag_early</code>: it validates an InvestigationPlan, maps only the validated plan to a ResourcePlan, blocks disallowed resources, performs read-only discovery / safe-catalog hops as <code>planned</code> or <code>collected</code>, then runs RAG. With the hybrid flag off, guided falls back to legacy review-only RAG guidance.</p>
+          <h2 id="s19">19. What the trace records</h2>
+          <p>Every live turn emits a control-plane trace alongside the answer, so the reasoning path can be audited without re-running the turn.</p>
         </div>
       </div>
       <div class="card">
-        <pre>{
-  "match_path": "out_of_registry",
-  "selected_skill": "guided_investigation",
-  "answer_mode": "guided_investigation",
-  "path_type": "guided_investigation",
-  "execution_enabled": false,
-  "rag": {
-    "needed": true,
-    "source": "soc_kb_rag",
-    "no_match_behavior": "general_guidance_allowed",
-    "match_status": "no_match"
-  },
-  "spl": {
-    "needed": "optional",
-    "review_only": true,
-    "status": "skipped_no_deterministic_family_match"
-  },
-  "guided_handoff": {
-    "dispatch_source": "guided_hybrid_dispatch",
-    "dispatch_schedule": ["guided_baseline", "validator_a", "compose_guided_resource_plan", "validator_b", "guided_hybrid_collection", "rag_early"],
-    "evidence_planned": 2,
-    "evidence_collected": 0,
-    "blocked_resources": []
-  },
-  "mcp": {
-    "needed": false,
-    "allowed": false,
-    "skip_reason": "mcp_allowed remains false; guided collection uses only validated read-only / safe-catalog resources"
-  },
-  "mitre": {
-    "allowed": false,
-    "skip_reason": "No evidence-supported technique claim is available."
-  },
-  "severity": {
-    "allowed": false,
-    "skip_reason": "No grounded incident severity is available."
-  },
-  "hil": {
-    "required": true,
-    "reason": "Analyst validates hypotheses and local data scope."
-  },
-  "limitations": [
-    "No live query was executed.",
-    "No governed playbook matched this hunt; general guidance only."
-  ]
-}</pre>
-      </div>
-    </section>
-
-    <section>
-      <div class="section-title">
-        <div>
-          <h2 id="s13">13. LLM endpoints &amp; failover (Qwen flag) <span class="badge-new">updated</span></h2>
-          <p>One COE switch — no env “profiles”. See <code>docs/architecture/llm_endpoint_wiring.md</code>.</p>
-        </div>
-      </div>
-      <div class="card">
-        <p><code>AI_SOC_LLM_QWEN_PRIMARY_ENABLED=false</code> (default) — Qwen never called. Dev uses <code>AI_SOC_LLM_LOCAL_*</code> (Foundation-Sec on host) with Instruct failover.</p>
-        <p style="margin-top:12px;">When COE sets the flag <code>true</code> and <code>AI_SOC_LLM_QWEN_*</code>, Qwen is prepended to the chain; Instruct remains failover.</p>
-
-        <h3 style="margin-top:24px;">T0 / T1 / T2 path model (authority unchanged)</h3>
-        <p style="margin-top:0;color:var(--muted);font-size:14px;">These labels are <strong>assistance tiers</strong>, not route skills. They describe how much help the LLM/SPL producer may provide after deterministic routing has already set the governed path.</p>
-        <table>
-          <thead>
-            <tr>
-              <th>Tier</th>
-              <th>When</th>
-              <th>Typical path</th>
-              <th>LLM allowed?</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>T0</strong></td>
-              <td>Authority-ready exact-105 or explicit authority catalog row, blocked sufficiency, or clarification HIL</td>
-              <td>Use deterministic registry/template/policy; skip intent advisor and optional sidecars</td>
-              <td>No sidecar calls (<code>sidecar_skip_policy</code>)</td>
-            </tr>
-            <tr>
-              <td><strong>T1</strong></td>
-              <td>Known or near-known SOC work needing advisory help: paraphrase intake, SPL-native meta workflow, template assist, narration</td>
-              <td>Deterministic route remains owner; LLM may advise or produce review-only candidates that validators can drop</td>
-              <td>Instruct / local chain; advisory only</td>
-            </tr>
-            <tr>
-              <td><strong>T2</strong></td>
-              <td>Out-of-catalog or weakly mapped investigation-shaped ask, plus missing-evidence / MITRE-risk rationale prose</td>
-              <td>Usually <code>guided_investigation</code> or review-only T2 SPL draft; requires analyst validation and no unsupported MITRE/severity claim</td>
-              <td>Reasoning → local → Instruct; review-only output</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h3 style="margin-top:24px;">Per-turn budget (live trace)</h3>
-        <p>Max <strong>2 sidecar</strong> + <strong>1 narration</strong> per turn. Recorded in <code>control_plane_trace.llm_turn_budget</code>. Successful hop label in <code>answered_label</code> (failover observability).</p>
-
-        <h3 style="margin-top:24px;">Reachability &amp; aligned timeouts <span class="badge-new">new</span></h3>
-        <p>
-          Health ping <code>GET /settings/llm/health</code> probes <code>/v1/models</code> for the active endpoints (TTL-cached 30s) and returns green / red per endpoint; Qwen shows <code>wired_disabled</code> when its flag is off. Timeouts align across three layers so a slow single-slot model can finish instead of being silently cut:
-        </p>
-        <div class="chip-row" style="margin-top:6px;">
-          <span class="chip">env AI_SOC_LLM_TIMEOUT_SECONDS</span>
-          <span class="chip">→ sidecar socket ceiling 120s</span>
-          <span class="chip">→ role wrapper ≤ 120s</span>
-          <span class="chip ok">local_primary · green</span>
-          <span class="chip warm">qwen · wired_disabled</span>
-        </div>
-        <p style="margin-top:10px;color:var(--muted);font-size:13.5px;">
-          The composer trace and health payload both carry an <code>expected_latency_hint</code> (“~60s, the wait is expected”) so the UI can set expectations rather than look broken.
-        </p>
-
-        <h3 style="margin-top:24px;">Dual narration paths (control plane)</h3>
-        <ul>
-          <li><strong>Canonical planning on</strong> (unconditional): <code>governed_answer_composer</code> — requires <code>AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED</code> + <code>AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED</code>.</li>
-          <li><strong>Legacy synthesis off</strong>: <code>lab_runner.narrate_analyst_summary</code> — same synthesis flags, legacy path.</li>
-        </ul>
-        <p style="margin:12px 0 0;color:var(--muted);font-size:14px;">Experience Center fixtures never call a live provider.</p>
-      </div>
-    </section>
-
-    <section>
-      <div class="section-title">
-        <div>
-          <h2 id="s14">14. Knowledge surfaces &amp; detection coverage <span class="badge-new">new</span></h2>
-          <p>Read-only exports and the Knowledge page — no runtime routing changes. Shared aggregate builders from the Wazuh MCP adoption review (A2–A4) also feed Experience Center fixtures.</p>
-        </div>
-      </div>
-      <div class="card">
-        <h3 style="margin-top:0;">MITRE detection coverage &amp; gaps (A3)</h3>
-        <p>
-          <code>build_detection_coverage()</code> in <code>mapping_exports.py</code> walks the governed MITRE technique subset from <code>mitre_kb.py</code>. Each technique’s <code>related_use_cases</code> are its covering detection rules (inverted through <code>rules_coverage_map</code> in <code>soc_aggregates.py</code>). Techniques with no covering use case are <strong>gaps</strong>.
-        </p>
-        <div class="grid-2" style="margin-top:14px;">
+        <div class="grid-3">
           <div class="mini-card blue">
-            <h3>API</h3>
-            <p><code>GET /knowledge/detection-coverage</code> → <code>detection_coverage_v1</code> payload with <code>technique_count</code>, <code>covered_count</code>, <code>gap_count</code>, per-technique rows, and <code>gaps[]</code>.</p>
+            <h3>Decision surfaces</h3>
+            <p><code>routing_provenance</code>, <code>route_adjudication</code>, <code>planning_decision</code>, <code>query_to_intent</code>, <code>evidence_plan</code>, <code>tool_plan</code>, <code>decision_log</code>.</p>
           </div>
           <div class="mini-card green">
-            <h3>Knowledge UI</h3>
-            <p><code>KnowledgePage</code> card “MITRE detection coverage &amp; gaps” — covered/gap badges and gap list. Current governed subset: <strong>13</strong> techniques, <strong>11</strong> covered, <strong>2</strong> gaps (<code>T1110</code>, <code>T1110.003</code>). <code>mitre_metadata_role=metadata_not_evidence</code>.</p>
+            <h3>Evidence surfaces</h3>
+            <p><code>rag_trace</code>, <code>source_evidence_refs</code>, <code>sufficiency</code>, <code>mitre_registry_metadata</code>, <code>mitre_branch_result</code>, <code>mitre_decision</code>, <code>missing_evidence_reasoning</code>.</p>
+          </div>
+          <div class="mini-card amber">
+            <h3>Action surfaces</h3>
+            <p><code>candidate_spl_generation</code>, <code>spl_slot_binding</code>, <code>spl_artifact_handoff_summary</code>, <code>mcp_execution</code>, <code>answer_contract</code>, <code>answer_guard</code>, <code>final_answer_validation</code>.</p>
           </div>
         </div>
 
-        <h3 style="margin-top: 24px;">Shared SOC aggregate builders (A2–A4)</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Builder</th>
-              <th>Purpose</th>
-              <th>Consumers</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>top_risky_hosts()</code> (A2)</td>
-              <td>Urgency-weighted host heatmap (crit×10 + high×5 + med×2 + low×1)</td>
-              <td>EC flagship scenarios, analyst prioritization cards</td>
-            </tr>
-            <tr>
-              <td><code>rules_coverage_map()</code> (A3)</td>
-              <td>Framework-id → covering rule/use-case ids (inverted index)</td>
-              <td>Detection-gap export, future EC coverage card (follow-up)</td>
-            </tr>
-            <tr>
-              <td><code>alert_summary_aggregate()</code> (A4)</td>
-              <td>Shift-handoff rollup: severity distribution, top rules/MITRE/IPs/agents</td>
-              <td>EC / live alert-summary shaped answers</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h3 style="margin-top: 24px;">Other Knowledge exports (unchanged spine)</h3>
-        <p style="margin:0 0 10px;color:var(--muted);font-size:14px;">
-          <code>GET /knowledge/mapping-summary</code>, <code>/knowledge/exports/{artifact}</code> (skill coverage matrix, SOC capability crosswalk, GitHub intake, validation sheets). CSV variants where supported.
-        </p>
-
-        <div class="note warn-note" style="margin-top: 18px;">
-          <strong>Out of scope (plan 5):</strong> live CVE/vulnerability source onboarding, Wazuh as a second MCP server type (COE), and an Experience Center detection-gap card (Knowledge page ships first; EC card is follow-up).
-        </div>
+        <p style="margin-top:18px;">Alongside it, the node trace reports per-node status for the turn, and the durable telemetry spine records the run, its LLM calls, and the final output shape. Secrets are scrubbed on the way out.</p>
       </div>
     </section>
 
     <section>
       <div class="section-title">
         <div>
-          <h2>10. Question cheat sheet for presenters</h2>
-          <p>Use these sample questions when you forget examples during the explanation.</p>
+          <h2 id="s20">20. Experience Center versus the live path</h2>
+          <p>The demo surface and the live pipeline share a wire contract and nothing else. That separation is tested, not assumed.</p>
         </div>
       </div>
       <div class="card">
-        <div class="question-list">
-          <div class="question">
-            <strong>105 analytics</strong>
-            “Which hosts are generating the most SMB traffic?”<br/>
-            “Show top talkers for SMB traffic.”
-          </div>
-          <div class="question">
-            <strong>Catalog SOP</strong>
-            “Show me the brute-force login SOP.”<br/>
-            “What is the playbook for failed login investigation?”
-          </div>
-          <div class="question">
-            <strong>Known investigation</strong>
-            “Investigate failed login spike on APP-01.”<br/>
-            “Check success after repeated failures for this user.”
-          </div>
-          <div class="question">
-            <strong>SPL generation</strong>
-            “Write SPL to find VPN logins from new countries.”<br/>
-            “Draft a Splunk search for failed VPN logins.”
-          </div>
-          <div class="question">
-            <strong>Alert summary</strong>
-            “Summarize this alert evidence.”<br/>
-            “What are the key entities in this alert?”
-          </div>
-          <div class="question">
-            <strong>Guided investigation</strong>
-            “Strange OT chatter to a brand new external host overnight, anything to hunt?”<br/>
-            “Unknown outbound traffic from OT subnet, where should I start?”
-          </div>
-          <div class="question">
-            <strong>MITRE mapping</strong>
-            “Map this alert to MITRE.”<br/>
-            “Is this T1110 or valid accounts?”<br/>
-            <em>Requires alert/evidence context. Otherwise it stays Candidate/Not Claimed or asks for clarification.</em>
-          </div>
-          <div class="question">
-            <strong>Unsafe action</strong>
-            “Block this IP on the firewall now.”<br/>
-            “Quarantine this host immediately.”<br/>
-            <em>Execution is blocked and moved to HIL/approval guidance.</em>
-          </div>
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th></th><th>Experience Center</th><th>Live <code>/chat</code></th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Entry</td><td>Dedicated scenario routes</td><td>The Resource Planner graph</td></tr>
+            <tr><td>Answer source</td><td>Deterministic curated fixtures</td><td>Governed pipeline output</td></tr>
+            <tr><td>Model calls</td><td>None, ever</td><td>Governed sidecars</td></tr>
+            <tr><td>Planning events</td><td><strong>Zero</strong></td><td>Up to 28 catalogued events</td></tr>
+            <tr><td>Handoff rows</td><td><strong>Zero</strong></td><td>Persisted per turn</td></tr>
+            <tr><td>Plan commits</td><td><strong>Zero</strong></td><td>One committed plan per planned turn</td></tr>
+            <tr><td>Shared</td><td colspan="2">The response wire contract and the frontend rendering path — no planning or governance code in common</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="note success-note" style="margin-top:18px;">
+          <strong>Purity is pinned by a test</strong> across 18 scenarios: an Experience Center run that emitted a planning event, wrote a handoff, or committed a plan would fail the suite. The demo cannot quietly become a second live path.
         </div>
       </div>
     </section>
@@ -2532,131 +2342,139 @@ output template</pre>
     <section>
       <div class="section-title">
         <div>
-          <h2 id="s11">11. Examples by use case</h2>
+          <h2 id="s21">21. Examples by use case</h2>
           <p>Use these tabs in team discussions to show how different questions traverse the same pipeline.</p>
         </div>
       </div>
 
       <div class="card">
         <div class="tabs" role="tablist">
-          <button class="tab active" data-tab="ex1">105 analytics</button>
+          <button class="tab active" data-tab="ex1">Exact 105</button>
           <button class="tab" data-tab="ex2">Catalog SOP</button>
-          <button class="tab" data-tab="ex3">Known investigation</button>
-          <button class="tab" data-tab="ex4">SPL only</button>
-          <button class="tab" data-tab="ex5">Alert summary</button>
+          <button class="tab" data-tab="ex3">Missing detail</button>
+          <button class="tab" data-tab="ex4">Clarification resume</button>
+          <button class="tab" data-tab="ex5">Reference lookup</button>
           <button class="tab" data-tab="ex6">Guided investigation</button>
           <button class="tab" data-tab="ex7">Unsafe action</button>
         </div>
 
         <div id="ex1" class="tab-panel active">
           <div class="example-header">
-            <span class="tag blue-tag">Exact 105</span>
+            <span class="tag det">T1 · known lane</span>
             <span class="tag">Question: Which hosts are generating the most SMB traffic?</span>
           </div>
+          <div class="tablewrap">
           <table>
             <tr><th>Stage</th><th>Result</th></tr>
-            <tr><td>Query Understanding</td><td><code>exact_105_question</code>, top-N aggregation</td></tr>
-            <tr><td>Route Skill</td><td><code>attack_discovery</code></td></tr>
-            <tr><td>Intent</td><td><code>analytics_spl_review</code></td></tr>
-            <tr><td>Resource Planner</td><td>SPL needed, RAG skipped, MCP skipped, severity not assigned from analytics alone</td></tr>
-            <tr><td>Final answer</td><td>Review-only SPL + explanation + limitations</td></tr>
+            <tr><td>Understanding</td><td><code>exact_105_question</code> → tier <code>T1</code>, lane <code>known</code></td></tr>
+            <tr><td>Route</td><td><code>attack_discovery</code>, deterministic registry authority</td></tr>
+            <tr><td>Completeness</td><td>Complete — no gap, no detail tool selected</td></tr>
+            <tr><td>Outcome</td><td><code>planned</code> with a committed resource plan</td></tr>
+            <tr><td>Answer</td><td>Review-only SPL, explanation, limitations. Severity not assigned from analytics alone.</td></tr>
           </table>
+          </div>
         </div>
 
         <div id="ex2" class="tab-panel">
           <div class="example-header">
-            <span class="tag green-tag">Catalog SOP</span>
+            <span class="tag det">T2 · known lane</span>
             <span class="tag">Question: Show me the brute-force login SOP.</span>
           </div>
+          <div class="tablewrap">
           <table>
             <tr><th>Stage</th><th>Result</th></tr>
-            <tr><td>Query Understanding</td><td><code>use_case_catalog</code>, <code>soc_show_sop</code></td></tr>
-            <tr><td>Route Skill</td><td><code>knowledge_recall</code></td></tr>
-            <tr><td>Intent</td><td><code>sop_or_playbook</code></td></tr>
-            <tr><td>Resource Planner</td><td>RAG needed, SPL skipped, MCP skipped, MITRE skipped, severity skipped</td></tr>
-            <tr><td>Final answer</td><td>Procedure from governed SOC knowledge base</td></tr>
+            <tr><td>Understanding</td><td><code>use_case_catalog</code> → tier <code>T2</code>, lane <code>known</code></td></tr>
+            <tr><td>Route</td><td><code>knowledge_recall</code></td></tr>
+            <tr><td>Answer mode</td><td><code>rag_only</code> — governed SOC-KB evidence, no SPL lane opened</td></tr>
+            <tr><td>Dispatch</td><td><code>prepare_rag_only</code> → <code>rag_early</code></td></tr>
+            <tr><td>Answer</td><td>Retrieved SOP with citations. No execution path exists on this turn.</td></tr>
           </table>
+          </div>
         </div>
 
         <div id="ex3" class="tab-panel">
           <div class="example-header">
-            <span class="tag purple-tag">Known investigation</span>
-            <span class="tag">Question: Investigate failed login spike on APP-01.</span>
+            <span class="tag gate">detail tool resolves the gap</span>
+            <span class="tag">Question: Show failed logins for the finance segment.</span>
           </div>
+          <div class="tablewrap">
           <table>
             <tr><th>Stage</th><th>Result</th></tr>
-            <tr><td>Query Understanding</td><td>105/catalog match, <code>auth_failed_login_spike</code>, entity APP-01</td></tr>
-            <tr><td>Route Skill</td><td><code>attack_discovery</code></td></tr>
-            <tr><td>Intent</td><td><code>hybrid_investigation</code></td></tr>
-            <tr><td>Resource Planner</td><td>SPL template, possible RAG checklist, MITRE candidate allowed, severity policy allowed</td></tr>
-            <tr><td>Final answer</td><td>Investigation card + review-only SPL + MITRE Candidate + severity if policy supports</td></tr>
+            <tr><td>Understanding</td><td>Catalogue match → lane <code>known</code></td></tr>
+            <tr><td>Completeness</td><td>Missing <code>index</code> — classified <code>tool_discoverable</code></td></tr>
+            <tr><td>Detail tools</td><td>Selected deterministically; the gap is resolved without asking the analyst</td></tr>
+            <tr><td>Merge</td><td>Value recorded with source and confidence; any conflict logged, not overwritten</td></tr>
+            <tr><td>Answer</td><td>Governed catalogue SPL template preserved — no downgrade to an ungoverned draft</td></tr>
           </table>
+          </div>
         </div>
 
         <div id="ex4" class="tab-panel">
           <div class="example-header">
-            <span class="tag blue-tag">SPL only</span>
-            <span class="tag">Question: Write SPL to find VPN logins from new countries.</span>
+            <span class="tag gate">user_only gap</span>
+            <span class="tag">Question: Summarise the alert. (no alert id given)</span>
           </div>
+          <div class="tablewrap">
           <table>
-            <tr><th>Stage</th><th>Result</th></tr>
-            <tr><td>Query Understanding</td><td>SPL authoring shaped, VPN anomaly signals</td></tr>
-            <tr><td>Route Skill</td><td><code>spl_generation</code></td></tr>
-            <tr><td>Intent</td><td><code>spl_generation_only</code></td></tr>
-            <tr><td>Resource Planner</td><td>SPL needed, RAG skipped, MCP skipped, MITRE skipped, severity skipped</td></tr>
-            <tr><td>Final answer</td><td>Review-only SPL + assumptions + fields to validate</td></tr>
+            <tr><th>Turn</th><th>Result</th></tr>
+            <tr><td>1 · Completeness</td><td>Missing <code>alert_id</code> — classified <code>user_only</code>, not tool-discoverable</td></tr>
+            <tr><td>1 · Outcome</td><td><code>clarification_required</code>; handoff v1 <code>awaiting_clarification</code>; no evidence plan, no resource plan</td></tr>
+            <tr><td>1 · Answer</td><td><code>answer_mode = "clarification"</code> — a question, presented as one</td></tr>
+            <tr><td>2 · Resume</td><td>Session pin → transactional resume; answer merged; completeness re-run</td></tr>
+            <tr><td>2 · Outcome</td><td>Handoff v2 <code>plan_committed</code> → an ordinary planned turn</td></tr>
           </table>
+          </div>
         </div>
 
         <div id="ex5" class="tab-panel">
           <div class="example-header">
-            <span class="tag amber-tag">Alert summary</span>
-            <span class="tag">Question: Summarize this alert evidence.</span>
+            <span class="tag det">T4 → resolved T0</span>
+            <span class="tag">Question: What is CVE-2024-3400?</span>
           </div>
+          <div class="tablewrap">
           <table>
             <tr><th>Stage</th><th>Result</th></tr>
-            <tr><td>Query Understanding</td><td>Alert summary shaped, alert/evidence context if provided</td></tr>
-            <tr><td>Route Skill</td><td><code>alert_summary</code></td></tr>
-            <tr><td>Intent</td><td><code>alert_summary</code></td></tr>
-            <tr><td>Resource Planner</td><td>Summarize provided evidence, SPL/MCP skipped unless explicitly needed and allowed</td></tr>
-            <tr><td>Final answer</td><td>Concise summary + key entities + recommended next steps</td></tr>
+            <tr><td>Understanding</td><td>No catalogue match → tier <code>T4</code></td></tr>
+            <tr><td>Qualification</td><td>Reference qualification concludes the governed registry can answer it → resolved tier <code>T0</code></td></tr>
+            <tr><td>Lane</td><td><code>knowledge_short_circuit</code>; skill resolves to <code>knowledge_recall</code></td></tr>
+            <tr><td>Answer mode</td><td><code>rag_only</code></td></tr>
+            <tr><td>Answer</td><td>Governed reference facts with citations. No live-environment claim, and no invented identifiers.</td></tr>
           </table>
+          </div>
         </div>
 
         <div id="ex6" class="tab-panel">
           <div class="example-header">
-            <span class="tag purple-tag">Guided investigation</span>
-            <span class="tag">Question: Strange OT chatter to a brand new external host overnight, anything to hunt?</span>
+            <span class="tag gate">T4 · guided lane</span>
+            <span class="tag">Question: Did anything odd talk out of the OT segment overnight?</span>
           </div>
-          <p style="color:var(--muted);font-size:14px;margin:0 0 14px;">Full stage-by-stage walkthrough for the <strong>S5 guided_investigation</strong> route anchor in 2. The M5 query enters the guided handoff directly before Step 4 fan-out.</p>
+          <div class="tablewrap">
           <table>
             <tr><th>Stage</th><th>Result</th></tr>
-            <tr><td>1 · User query</td><td>OT/external-host hunt phrasing; no 105 or catalog match</td></tr>
-            <tr><td>2 · Query Understanding</td><td><code>out_of_registry</code>, <code>soc_investigation_shaped=true</code></td></tr>
-            <tr><td>3 · Route/intent + resource planning</td><td><code>guided_investigation</code>, <code>primary_intent=investigation_guidance</code>, <code>requires_clarification=false</code>, <code>authority_source=guided_investigation_rescue</code>, <code>needs_rag=true</code>, <code>needs_mcp=false</code>, <code>execution_enabled=false</code>; ResourcePlan can include review-only investigation steps</td></tr>
-            <tr><td>4 · Fan-out</td><td>Skill, Knowledge, MCP, and SPL specialists report what can contribute; no lane gets execution authority from S5 alone</td></tr>
-            <tr><td>5 · Fan-in merge</td><td>Specialist reports merge into a validated work bundle with skipped/blocked lineage for unavailable or unsafe resources</td></tr>
-            <tr><td>6 · Dispatch + collection</td><td>Resource Planner dispatches via RAG-only or composed-plan flow. Guided investigation planning can add validated InvestigationPlan / ResourcePlan structure when enabled; execution remains skipped unless a gated, policy-allowed safe collection path is explicitly configured.</td></tr>
-            <tr><td>7 · Governance + final answer</td><td><code>out_of_catalog_notice</code> + hypotheses + checklist + limitations; no MITRE/severity claim; validator fail-closed</td></tr>
+            <tr><td>Understanding</td><td><code>out_of_registry</code>, investigation-shaped → tier <code>T4</code>, lane <code>guided</code></td></tr>
+            <tr><td>Route</td><td><code>guided_investigation</code> — the deterministic rescue, not a weak knowledge answer</td></tr>
+            <tr><td>Detail resolution</td><td>Bounded read-only resolution; deferred tools recorded as planned, not claimed as run</td></tr>
+            <tr><td>Posture</td><td>Review-only guidance; missing evidence recorded honestly</td></tr>
+            <tr><td>Answer</td><td>Out-of-catalog notice, hypotheses, analyst checklist, explicit limitations</td></tr>
           </table>
+          </div>
         </div>
 
         <div id="ex7" class="tab-panel">
           <div class="example-header">
-            <span class="tag red-tag">Unsafe action</span>
-            <span class="tag">Question: Block this IP on the firewall now.</span>
+            <span class="tag off">blocked</span>
+            <span class="tag">Question: Isolate that host now.</span>
           </div>
-          <p style="color:var(--muted);font-size:14px;margin:0 0 14px;">Walkthrough for an unsafe action request. Even if the query is novel, the enriched contract blocks execution before fan-out.</p>
+          <div class="tablewrap">
           <table>
             <tr><th>Stage</th><th>Result</th></tr>
-            <tr><td>1 · User query</td><td>Containment / enforcement phrasing</td></tr>
-            <tr><td>2 · Query Understanding</td><td><code>action_or_containment_shaped=true</code></td></tr>
-            <tr><td>3 · Route/intent + resource planning</td><td>Not <code>guided_investigation</code>; <code>primary_intent=human_review</code>, blocked action family, <code>path_type=unsafe_blocked</code>, <code>execution_enabled=false</code>, HIL required</td></tr>
-            <tr><td>4 · Fan-out</td><td>Specialists may describe policy/context needs, but no write/enforcement lane is dispatchable</td></tr>
-            <tr><td>5 · Fan-in merge</td><td>Blocked execution posture is preserved in the validated bundle</td></tr>
-            <tr><td>6 · Dispatch + collection</td><td>No MCP write or enforcement; approval checklist only</td></tr>
-            <tr><td>7 · Governance + final answer</td><td>Execution blocked message + human review payload</td></tr>
+            <tr><td>Signals</td><td>Containment / action shape detected</td></tr>
+            <tr><td>Detail tools</td><td>Selection returns <strong>empty</strong> — an unsafe request gets no tools at all</td></tr>
+            <tr><td>Outcome</td><td><code>policy_blocked</code> with an explicit policy reason; no committed plan</td></tr>
+            <tr><td>Dispatch</td><td><code>non_planned_finalize</code> — structurally unable to reach execution</td></tr>
+            <tr><td>Answer</td><td>Human review required, with what would be needed to proceed stated plainly</td></tr>
           </table>
+          </div>
         </div>
       </div>
     </section>
@@ -2664,7 +2482,7 @@ output template</pre>
     <section>
       <div class="section-title">
         <div>
-          <h2 id="s12">12. How the final answer should look</h2>
+          <h2 id="s22">22. How the final answer should look</h2>
           <p>The output is an analyst response card, not raw LLM prose.</p>
         </div>
       </div>
@@ -2681,48 +2499,83 @@ output template</pre>
           </div>
           <div class="answer-row">
             <div class="answer-label">Mode</div>
-            <div class="answer-content"><code>guided_investigation</code> because no 105/catalog contract matched, but the query is investigation-shaped.</div>
+            <div class="answer-content"><code>guided_investigation</code> — no governed contract matched, but the query is investigation-shaped.</div>
           </div>
           <div class="answer-row">
             <div class="answer-label">Out-of-catalog notice</div>
-            <div class="answer-content">Explicit notice that the question is outside the governed 105/catalog. Nearest governed questions may be suggested.</div>
+            <div class="answer-content">Explicit notice that the question sits outside the governed 105 and catalog. Nearest governed questions may be suggested.</div>
           </div>
           <div class="answer-row">
             <div class="answer-label">Suggested hunt</div>
-            <div class="answer-content">
-              Check outbound firewall, proxy, DNS, and EDR telemetry from OT ranges. Compare the external destination against baseline and vendor/maintenance activity.
-            </div>
+            <div class="answer-content">Check outbound firewall, proxy, DNS, and EDR telemetry from OT ranges. Compare the external destination against baseline and vendor or maintenance activity.</div>
           </div>
           <div class="answer-row">
-            <div class="answer-label">Manual Splunk discovery</div>
-            <div class="answer-content">Planned-only checklist when MCP execution is off: <code>splunk_get_indexes</code>, <code>splunk_get_metadata</code>, <code>splunk_get_knowledge_objects</code>. When execution gates are on, the 4B loop may collect sanitized preview rows into <code>source_evidence</code> before finalize.</div>
+            <div class="answer-label">Evidence</div>
+            <div class="answer-content">What was actually collected, separated from what was only planned. Counts come from collected evidence alone, so the card cannot imply data it never fetched.</div>
           </div>
           <div class="answer-row">
             <div class="answer-label">SPL</div>
-            <div class="answer-content">Optional review-only SPL only if a deterministic draft family matches. No live query is executed.</div>
+            <div class="answer-content">Review-only SPL when a governed family matches. Candidate SPL is never executable; execution requires an approved <code>normalized_spl</code> through the gate.</div>
           </div>
           <div class="answer-row">
             <div class="answer-label">MITRE</div>
-            <div class="answer-content">No technique claimed. MITRE may be discussed only as Candidate/Not Claimed when evidence supports.</div>
+            <div class="answer-content">No technique claimed. MITRE appears as Candidate or Not Claimed only where evidence supports it.</div>
           </div>
           <div class="answer-row">
             <div class="answer-label">Severity</div>
-            <div class="answer-content">Not assigned from this question alone. Requires evidence, policy, and business impact.</div>
+            <div class="answer-content">“Not assigned from this question alone” unless governed evidence establishes it.</div>
           </div>
           <div class="answer-row">
             <div class="answer-label">Limitations</div>
-            <div class="answer-content">No live MCP evidence retrieved. No catalog contract matched. If SOC-KB has no playbook match, general hunt guidance is shown with an explicit limitation. Analyst validation required.</div>
+            <div class="answer-content">What could not be resolved, which tools were deferred, and what the analyst would need to supply. Stated, not omitted.</div>
           </div>
           <div class="answer-row">
             <div class="answer-label">Next steps</div>
-            <div class="answer-content">Validate destination ownership, source asset role, traffic frequency, volume, process context, and whether communication is expected.</div>
+            <div class="answer-content">Concrete analyst actions, each within the action-capability tier the plan actually permits.</div>
           </div>
         </div>
       </div>
     </section>
 
+    <section>
+      <div class="section-title">
+        <div>
+          <h2 id="s23">23. Cutover evidence <span class="badge-new">new</span></h2>
+          <p>The numbers behind this page. Anything not verifiable is stated as such rather than carried forward on trust.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Gate</th><th>Result</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Full backend test suite</td><td><strong>4508 passed</strong>, 2 skipped, 6 xfailed, 0 failed</td></tr>
+            <tr><td>Dual-runtime parity</td><td><strong>120 exact / 0 approved / 0 critical</strong> — approved-difference registry empty</td></tr>
+            <tr><td>Parity before the shared seam</td><td>113 exact / 7 critical</td></tr>
+            <tr><td>Parity projection suite</td><td>40 passed</td></tr>
+            <tr><td>Governance regression</td><td>PASS — harness 6/6, clean-answer 120/120, Cisco 50/50, dispatch matrix 5/5</td></tr>
+            <tr><td>Canonical path smoke through Nginx</td><td><strong>6/6</strong></td></tr>
+            <tr><td>Canonical, authority, and lane parity gate</td><td>68 passed</td></tr>
+            <tr><td>Clarification persistence</td><td>6 passed; live smoke resume recorded 20 events and handoff v2 <code>plan_committed</code></td></tr>
+            <tr><td>Plan checklist</td><td>41 / 41</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="note warn-note" style="margin-top:18px;">
+          <strong>Known remaining gaps, recorded rather than buried:</strong> per-step SPL and MCP hooks are not individually wrapped for idempotency; one behavioural-parity filename referenced by a plan gate does not exist and is covered instead by the lane-parity and projection suites; production migration operator sign-off is outstanding; and live-synthesis probes measured 90–240 seconds per turn, which is a latency characteristic rather than a correctness defect.
+        </div>
+
+        <div class="note" style="margin-top:18px;">
+          <strong>Seven production defects were found and fixed during the cutover</strong>, including an intent family derived from the routed skill that silently lost governed SPL, a completeness gate that treated answer-output fields as analyst inputs, a catch-all that rewrote policy answers into live-investigation mode, and a clarification status comparison that dropped the analyst's answer on the resume turn. Each is now pinned by a test.
+        </div>
+      </div>
+    </section>
+
     <div class="footer">
-      AI SOC Assistant — Query Flow Explainer · Self-contained HTML
+      AI SOC Assistant — Query Flow Explainer · Self-contained HTML · Rebuilt 2026-07-27 against the canonical planning cutover
     </div>
   </main>
 
