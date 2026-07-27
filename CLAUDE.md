@@ -66,8 +66,8 @@ AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC
 - Live LLM synthesis (live chat only): may narrate analyst-summary prose with a real on-prem model when `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` + `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED` are both true and an endpoint is configured. All facts (severity, MITRE, actions, SPL, `execution_eligible=false`) stay deterministic authority; model only rewrites prose; failure falls back to deterministic draft. EC fixture path never calls a live model. Model never calls MCP.
 - Do not add Splunk telemetry writes, SAIA/Splunk AI Assistant SPL generation, or direct LLM-to-MCP tool calling unless explicitly scoped. Do not route live synthesis through the Experience Center path.
 - Do not execute raw `candidate_spl`; never pass prompts, reasoning, credentials, RAG chunks, or raw workflow internals to MCP.
-- Chat control plane (query-to-intent, evidence planning, route adjudication, SPL slot binding, MITRE decision, `control_plane_trace`) is implemented, gated by `CONTROL_PLANE_ENABLED` (default `false`). See `plans/2026-06-02_chat-control-plane-master.md`.
-- COE observability: durable trace spine on live `/chat` (`ai_trace_runs`), read-only `/debug` API gated by `AI_SOC_DEBUG_API_ENABLED` + per-user `debug_access`, telemetry sink `db|file|none`. Redacted, best-effort, never breaks chat; EC path emits no traces. See `docs/observability/debugging.md`.
+- Chat control plane (query-to-intent, evidence planning, route adjudication, SPL slot binding, MITRE decision, `control_plane_trace`) runs unconditionally via canonical planning on every `/chat` turn. See `plans/2026-06-02_chat-control-plane-master.md` (historical flag-gate removed in item 25 cutover).
+- COE observability: durable trace spine on live `/chat` (`ai_trace_runs`), read-only `/debug` API gated by `AI_SOC_DEBUG_API_ENABLED` + per-user `debug_access`, telemetry sink `db|file|none`. Redacted, best-effort; **diagnostic** planning telemetry never breaks chat (audit-critical events fail closed before side-effecting execution — see `docs/architecture/canonical_telemetry_coverage.md`). EC path emits no traces. See `docs/observability/debugging.md`.
 
 ## Run / Build
 
@@ -246,10 +246,15 @@ Until staging smoke passes, live envelopes carry `real_schema_unverified` (adapt
 
 Full plan index + active-work table: [`plans/README.md`](plans/README.md). Master roadmap: [`plans/AI_SOC_MASTER_PLAN.md`](plans/AI_SOC_MASTER_PLAN.md). Logic hierarchy/rules/status tables: [`plans/STAGE_3K_Q1C_TO_Q4_SPINE.md`](plans/STAGE_3K_Q1C_TO_Q4_SPINE.md).
 
+**Most recent completed canonical-planning plan:**
+[`plans/2026-07-24_2310_guided-detail-tools-consumable-handoff.md`](plans/2026-07-24_2310_guided-detail-tools-consumable-handoff.md)
+(**Done, rev 17** — checklist 41/41; parity 120/0/0; smoke 6/6). Active work pointers: [`plans/README.md`](plans/README.md).
+
 Most-relevant in-flight/recent plans:
 
 | Plan | Status |
 |------|--------|
+| `plans/2026-07-24_2310_guided-detail-tools-consumable-handoff.md` | **Done (rev 17).** T0–T4 canonical planning cutover complete. Gate 1, dual-runtime parity **120 exact / 0 approved / 0 critical**, Nginx smoke **6/6** (`0ec5322`), pytest + governance green. Completion report: `docs/evals/canonical_cutover_completion_report.md` |
 | `plans/2026-07-06_0337_atlas-casestudies-mitigations-enrichment.md` | **Done** — 22 items, 4 phases: structured ATLAS case-studies/mitigations in reference_registry (A, both `resolve_ids`+`search_domain` paths), RAG narrative depth (B), real MITRE ATT&CK-reference crosswalk (34/170 techniques) wired into `grounding_assembler.py` AND the actual analyst-visible surface `skill_contribution.py::apply_evidence_summary_floor` (C — grounding/MCP-execution/surfacing are 3 independent gates), remediation-visibility-only text with execution deferred to a separate follow-up plan (D) — `reference_taxonomy` stays claim-restricted by existing `unsupported_claims_avoid` guard, pinned by test. External review (2026-07-06) found and fixed 2 High + 1 Medium correctness gaps before execution. Post-implementation live-probe review (2026-07-06) found and fixed 2 further Docker-only bugs invisible to unit tests: `attack_data_resolver.py::_repo_root()` missing the `/workspace` compose-mount fallback (silently degraded to `StixTechniqueResolver`, no ATLAS bundle) and `pipeline.py`'s `assemble_grounding_from_facts()` call missing `resolver=` (always fell back to `NullTechniqueResolver`, stale "ATLAS not onboarded" limitation). Both verified fixed via live `ask_chat` probes; full pytest (4097) + governance regression PASS after fix |
 | `plans/2026-07-04_1736_intent-mcp-tool-routing-hardening.md` | **Done** — Phase 1 intent-hinted tool routing + data-silence advisory HIL + saved-search name allowlist/preference; Phase 2 governed evidence observer (grounded claims, governed ReAct, 1-call cap, telemetry); Phase 3 canonical reference-knowledge path (CVE/ATT&CK/ATLAS registry, `reference_taxonomy` shape, `reference_finalize`, shape advisor main-path advisory, 10-probe + zero-hallucinated-ID evals). Suite 4067 green, governance regression PASS |
 
@@ -262,7 +267,7 @@ Most-relevant in-flight/recent plans:
 | `plans/2026-06-15_1949_coe-observability-debugging.md` | Done — trace spine, `/debug` API, file sink, log correlation |
 | `plans/2026-06-15_0821_wazuh-mcp-adoption-and-flagship-ec-scenario.md` | Done — Wazuh MCP answer-shapes, cyclic evidence loop (§5 items deferred by design) |
 | `plans/2026-06-10_0356_skills-llm-mcp-utilization-and-paraphrase-readiness.md` | In Progress (rev 3) — WS0 Resource Planner done; WS1 paraphrase intake in progress |
-| `plans/2026-06-02_chat-control-plane-master.md` | Done — phases 0–11, gated by `CONTROL_PLANE_ENABLED` (default false) |
+| `plans/2026-06-02_chat-control-plane-master.md` | Done — phases 0–11; canonical planning is now unconditional (historical, non-runtime: formerly gated by `CONTROL_PLANE_ENABLED`) |
 | `/root/.cursor/plans/spl_generation_audit_30f60bc7.plan.md` | Done — relevance-first SPL audit Phases A–H (`8f44eee`) |
 | `.cursor/plans/environment_kb_cisco_catalogue_1eddd12f.plan.md` | Done — Environment KB, Cisco 50 bank/eval, tiered SPL validator |
 | `/root/.cursor/plans/guided_investigation_5th_skill_098a0cdf.plan.md` | Done — 5th route + air-gapped Splunk MCP 7-tool binding |

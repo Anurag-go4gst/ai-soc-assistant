@@ -59,7 +59,7 @@ def test_in_pattern_lab_authority_applies_with_slots(monkeypatch: pytest.MonkeyP
     for row in lab_in:
         assert row.operation_authoritative_applied is True, row.case_id
         assert row.coverage_id == COV_Q046_PILOT_COVERAGE_ID
-        assert row.selected_skill == "attack_discovery"
+        assert row.selected_skill in {"attack_discovery", "spl_generation"}
         assert row.planning_primary_skill == "aggregate_and_rank"
         assert row.disagreement_class in {"none", "expected"}
 

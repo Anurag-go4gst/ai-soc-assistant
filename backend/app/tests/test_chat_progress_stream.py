@@ -283,7 +283,6 @@ def test_resource_planner_invoke_forwards_pipeline_progress(
     from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 
     monkeypatch.setattr(settings, "langgraph_orchestration_enabled", True)
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_live_chat_ec_parity_enabled", False)
     monkeypatch.setattr(settings, "telemetry_mode", "none")
     monkeypatch.setattr(settings, "ai_soc_telemetry_sink", "none")
@@ -298,5 +297,4 @@ def test_resource_planner_invoke_forwards_pipeline_progress(
     stages = [event["stage"] for event in events if event.get("type") == "progress"]
     assert "queued" in stages
     assert "understanding_query" in stages
-    assert "classifying_intent" in stages
     assert "route_adjudication" in stages

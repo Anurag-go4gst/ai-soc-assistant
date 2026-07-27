@@ -125,7 +125,6 @@ def test_mitre_branch_missing_context_requires_context_not_claim(monkeypatch) ->
 
 
 def test_finalize_uses_branch_output_when_branch_enabled(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_planner_mitre_branch_enabled", True)
 
     mappings, decision = _mitre_outputs_for_finalize(
@@ -146,8 +145,7 @@ def test_finalize_uses_branch_output_when_branch_enabled(monkeypatch) -> None:
     assert {item.technique_id for item in mappings} >= {"T1110.001"}
 
 
-def test_cp_off_legacy_path_remains_compatible(monkeypatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
+def test_canonical_policy_question_hides_legacy_mapping(monkeypatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_planner_mitre_branch_enabled", True)
 
     mappings, decision = _mitre_outputs_for_finalize(
@@ -159,6 +157,6 @@ def test_cp_off_legacy_path_remains_compatible(monkeypatch) -> None:
         evidence_plan={"answer_mode": "rag_only"},
     )
 
-    assert decision is None
-    assert mappings
-    assert {item.technique_id for item in mappings} == {"T1110.001"}
+    assert mappings == []
+    assert decision is not None
+    assert decision["answer_visible"] is False

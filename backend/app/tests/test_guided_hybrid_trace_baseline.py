@@ -47,7 +47,6 @@ _EXPECTED_FLAG_OFF_SNAPSHOT: dict[str, Any] = {
 
 @pytest.fixture(autouse=True)
 def _cp_on_hybrid_off(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", False)
     monkeypatch.setattr(settings, "legacy_selected_skill_authority_enabled", False)
     monkeypatch.setattr(settings, "telemetry_mode", "none")

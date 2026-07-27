@@ -27,7 +27,6 @@ GUIDANCE_QUERY = "How should SOC investigate external connections from OT networ
 UNMATCHED_LIVE_QUERY = "Show me privileged VPN sessions from last night."
 
 _CONTROL_PLANE_FLAGS = (
-    "control_plane_enabled",
     "ai_soc_spl_draft_preview_enabled",
     "ai_soc_spl_template_governance_enabled",
     "ai_soc_curated_enrichment_activation_enabled",

@@ -14,6 +14,6 @@ def test_tier0_fixture_has_shared_control_plane_flow_refs() -> None:
     assert all(case.tier == 0 for case in cases)
     assert all(case.source_refs for case in cases)
     assert all("test_chat_control_plane_golden.py::" in case.source_refs[0] for case in cases)
-    assert SAFE_ENV_DEFAULTS["CONTROL_PLANE_ENABLED"] == "true"
+    assert "CONTROL_PLANE_ENABLED" not in SAFE_ENV_DEFAULTS
     assert SAFE_ENV_DEFAULTS["MCP_GLOBAL_EXECUTION_ENABLED"] == "false"
     assert SAFE_ENV_DEFAULTS["AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED"] == "false"

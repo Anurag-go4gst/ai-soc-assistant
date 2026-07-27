@@ -55,7 +55,7 @@
       "analyst_enabled_sections": [
         "out_of_catalog_notice"
       ],
-      "answer_mode": "clarification",
+      "answer_mode": null,
       "candidate_spl_present": false,
       "contract_answer_mode": "clarification",
       "draft_spl_present": false,
@@ -141,9 +141,9 @@
       "analyst_enabled_sections": [
         "analyst_action_guidance"
       ],
-      "answer_mode": "clarification",
+      "answer_mode": null,
       "candidate_spl_present": false,
-      "contract_answer_mode": "clarification",
+      "contract_answer_mode": null,
       "draft_spl_present": false,
       "draft_status": null,
       "enabled_sections": [
@@ -417,7 +417,7 @@
     },
     "q0.q045": {
       "analyst_enabled_sections": [],
-      "answer_mode": "clarification",
+      "answer_mode": null,
       "candidate_spl_present": false,
       "contract_answer_mode": "clarification",
       "draft_spl_present": false,

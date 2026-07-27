@@ -52,7 +52,6 @@ def test_apply_refinement_cap_warning_is_stable() -> None:
 
 @pytest.fixture(autouse=True)
 def _hybrid_on(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", True)
     monkeypatch.setattr(settings, "legacy_selected_skill_authority_enabled", False)
     monkeypatch.setattr(settings, "telemetry_mode", "none")

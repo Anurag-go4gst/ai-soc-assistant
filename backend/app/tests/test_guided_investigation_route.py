@@ -204,7 +204,6 @@ def test_optional_spl_signal_cannot_hijack_guided_path() -> None:
 
 
 def test_guided_live_trace_does_not_claim_disabled_llm_advisory(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.config.settings.ai_soc_llm_intent_advisor_enabled", True)
     monkeypatch.setattr("app.config.settings.ai_soc_llm_enabled", False)
     response = chat(ChatRequest(message=POSITIVE_QUERIES[0]))
@@ -219,7 +218,6 @@ def test_guided_live_trace_does_not_claim_disabled_llm_advisory(monkeypatch) -> 
 
 
 def test_guided_existing_draft_family_is_review_only(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.config.settings.ai_soc_spl_draft_preview_enabled", True)
     with sentinel_runtime():
         response = chat(
@@ -240,7 +238,6 @@ def test_guided_existing_draft_family_is_review_only(monkeypatch) -> None:
 
 
 def test_guided_rag_no_match_surfaces_general_guidance_limitation(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr(
         "app.chat.pipeline.retrieve_soc_kb",
         lambda **_: {
@@ -265,11 +262,10 @@ def test_guided_rag_no_match_surfaces_general_guidance_limitation(monkeypatch) -
     )
 
 
-def test_control_plane_off_keeps_guided_summary_notice_and_validation(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", False)
+def test_canonical_guided_route_keeps_summary_notice_and_validation(monkeypatch) -> None:
     response = chat(ChatRequest(message=POSITIVE_QUERIES[0]))
     assert response.selected_skill == "guided_investigation"
-    assert response.evidence_plan is None
+    assert response.evidence_plan is not None
     assert response.planning_decision["path_type"] == "guided_investigation"
     assert response.planning_decision["resource_plan_summary"]["match_path"] == "out_of_registry"
     assert response.answer_contract["out_of_catalog_notice"]
@@ -277,5 +273,5 @@ def test_control_plane_off_keeps_guided_summary_notice_and_validation(monkeypatc
     assert response.final_answer_validation["guard_status"] != "blocked"
     assert response.control_plane_trace is not None
     assert response.control_plane_trace["routing_provenance"]["rescue_mode"] is True
-    assert response.control_plane_trace["resource_planner"]["source"] == "planning_decision.resource_plan_summary"
+    assert response.control_plane_trace["resource_planner"]["source"] == "evidence_plan.resource_plan.provenance.resource_decisions"
     assert response.control_plane_trace["llm_advisory_trace"] is not None

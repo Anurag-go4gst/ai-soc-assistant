@@ -83,27 +83,25 @@ def test_slot_binding_rejects_missing_template_for_requested_constraints() -> No
 
 
 def test_candidate_spl_stage_slot_binding_is_flag_gated() -> None:
-    _, default_validation = _candidate_spl_stage(
-        trace_id="slot-default",
-        skill="attack_discovery",
-        user_query="Show top users with failed login count in the last 24 hours",
-        query_signals={"time_window_24h": True},
-        template_id="sample_auth_failed_login_top_users_tstats",
-        slot_binding_enabled=False,
-    )
-    _, gated_validation = _candidate_spl_stage(
-        trace_id="slot-gated",
-        skill="attack_discovery",
-        user_query="Show top users with failed login count in the last 24 hours",
-        query_signals={"time_window_24h": True},
-        template_id="sample_auth_failed_login_top_users_tstats",
-        slot_binding_enabled=True,
-    )
-    assert default_validation is not None
-    assert gated_validation is not None
-    assert default_validation["approved"] is True
-    assert gated_validation["approved"] is False
-    assert "missing_binding:last_24h" in gated_validation["reject_reasons"]
+    query = "Generate SPL for successful login after failures on host=APP-01"
+    with patch("app.chat.pipeline.validate_spl_slot_bindings", wraps=validate_spl_slot_bindings) as mock_bind:
+        _candidate_spl_stage(
+            trace_id="slot-default",
+            skill="attack_discovery",
+            user_query=query,
+            template_id="auth_success_after_failure",
+            slot_binding_enabled=False,
+        )
+        assert mock_bind.call_count == 0
+
+        _candidate_spl_stage(
+            trace_id="slot-gated",
+            skill="attack_discovery",
+            user_query=query,
+            template_id="auth_success_after_failure",
+            slot_binding_enabled=True,
+        )
+        assert mock_bind.call_count == 1
 
 
 def test_malicious_host_slot_is_rejected() -> None:

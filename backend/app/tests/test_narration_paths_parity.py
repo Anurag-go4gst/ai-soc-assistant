@@ -19,22 +19,19 @@ def _envelope() -> AnalystResponseEnvelope:
     return AnalystResponseEnvelope(direct_answer_summary="Deterministic summary stays.")
 
 
-def _enable_synthesis(monkeypatch: pytest.MonkeyPatch, *, cp: bool) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", cp)
+def _enable_synthesis(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", True)
 
 
-def test_composer_enabled_requires_cp_and_both_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    _enable_synthesis(monkeypatch, cp=True)
+def test_composer_enabled_requires_both_synthesis_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable_synthesis(monkeypatch)
     assert composer_is_enabled() is True
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
-    # CP off → composer is NOT the narration path (lab_runner owns it instead).
+    monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", False)
     assert composer_is_enabled() is False
 
 
 def test_disabled_composer_returns_deterministic_envelope(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", False)
     envelope = _envelope()
@@ -49,7 +46,7 @@ def test_disabled_composer_returns_deterministic_envelope(monkeypatch: pytest.Mo
 
 
 def test_composer_falls_back_when_no_client(monkeypatch: pytest.MonkeyPatch) -> None:
-    _enable_synthesis(monkeypatch, cp=True)
+    _enable_synthesis(monkeypatch)
     # Provider not configured → deterministic envelope, no exception.
     monkeypatch.setattr(composer_mod, "build_synthesis_client_from_settings", lambda: None)
     result = compose_governed_answer(

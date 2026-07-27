@@ -53,7 +53,7 @@ class MitreRiskRationaleResult:
 
 def mitre_risk_rationale_enabled() -> bool:
     return bool(
-        settings.control_plane_enabled
+        True
         and settings.ai_soc_llm_final_synthesis_enabled
         and settings.ai_soc_llm_live_synthesis_enabled
     )

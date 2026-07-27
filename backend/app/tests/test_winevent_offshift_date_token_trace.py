@@ -20,7 +20,6 @@ _WINEVENT_DATE = "Show Event 4624 logons outside business hours on 6/22"
 
 @pytest.fixture(autouse=True)
 def _flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "legacy_selected_skill_authority_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_template_governance_enabled", True)

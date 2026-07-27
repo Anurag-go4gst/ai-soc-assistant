@@ -2726,8 +2726,6 @@
         "investigation_guidance",
         "limitations",
         "procedural_steps",
-        "severity_assessment",
-        "spl_artifact",
         "triage_checklist"
       ],
       "answer_shape": "hunt",
@@ -2738,20 +2736,18 @@
         "investigation_guidance",
         "limitations",
         "procedural_steps",
-        "severity_assessment",
-        "spl_artifact",
         "triage_checklist"
       ],
-      "execution_eligible": false,
-      "execution_status": "requires_human_review",
-      "human_review_required": true,
+      "execution_eligible": null,
+      "execution_status": "skipped",
+      "human_review_required": false,
       "mapped_question_ref": "cisco.endpoint.050",
       "match_path": "exact_105_plus_use_case_catalog",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
-      "route": "attack_discovery",
-      "severity_label": "P3 Medium",
-      "spl_approved": true
+      "route": "knowledge_recall",
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": null
     },
     "cisco50:cisco.identity.011": {
       "analyst_enabled_sections": [

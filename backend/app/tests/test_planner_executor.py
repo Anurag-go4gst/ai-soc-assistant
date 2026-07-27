@@ -20,7 +20,11 @@ def _state_with_plan(steps: list[dict[str, Any]], **extra: Any) -> dict[str, Any
     return {
         "evidence_plan": {
             "answer_mode": "live_investigation",
-            "resource_plan": {"plan_source": "deterministic", "steps": steps, "provenance": {}},
+            "resource_plan": {
+                "plan_source": "deterministic",
+                "steps": steps,
+                "provenance": {"committed": True},
+            },
         },
         **extra,
     }
@@ -79,18 +83,16 @@ def test_execute_plan_dispatch_does_not_use_guided_trace_hook_names(
     """Guided hybrid labels belong on pipeline handoff trace only, not executor hooks."""
     from app.config import settings
 
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", True)
     calls: list[str] = []
-    state = {
-        "planning_decision": {"path_type": "guided_investigation"},
-        "evidence_plan": {
-            "answer_mode": "guided_investigation",
-            "investigation_planning_enabled": True,
-            "needs_rag": True,
-            "rag_phase": "rag_only",
-        },
-    }
+    state = _state_with_plan(
+        [{"step_id": "rag", "resource_id": "rag_corpus:soc_kb", "purpose": "knowledge_retrieval"}],
+        planning_decision={"path_type": "guided_investigation"},
+    )
+    state["evidence_plan"]["answer_mode"] = "guided_investigation"
+    state["evidence_plan"]["investigation_planning_enabled"] = True
+    state["evidence_plan"]["needs_rag"] = True
+    state["evidence_plan"]["rag_phase"] = "rag_only"
     result = execute_plan_dispatch(state, _hooks(calls, rag_only=True))
     schedule = (result.get("plan_dispatch_trace") or {}).get("dispatch_schedule") or []
     assert "guided_baseline" not in schedule
@@ -345,3 +347,68 @@ def test_walk_plan_steps_and_predicate_parity_on_live_plan() -> None:
     assert walked == legacy
     execute_plan_dispatch(state, hooks)
     assert calls == walked
+
+
+def test_execute_plan_dispatch_uncertain_side_effect_requires_reconciliation_without_execution() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from app.chat import canonical_execution_idempotency as store
+    from app.chat.canonical_execution_idempotency import (
+        acquire_execution_step,
+        build_idempotency_key,
+        clear_in_memory_store_for_tests,
+        use_in_memory_store_for_tests,
+    )
+
+    use_in_memory_store_for_tests(True)
+    clear_in_memory_store_for_tests()
+    params = {
+        "resource_plan_id": "rp:dispatch",
+        "handoff_id": "h-dispatch",
+        "handoff_version": 1,
+        "step_id": "mcp",
+        "operation": "mcp_execution:mcp_tool:splunk_run_query",
+    }
+    try:
+        acquire_execution_step(
+            **params,
+            lease_owner="worker-a",
+            side_effecting=True,
+            operation_contract="side_effecting_without_stable_idempotency",
+        )
+        key = build_idempotency_key(**params)
+        stale = store._TEST_STORE[key]
+        stale["lease_expires_at"] = datetime.now(UTC) - timedelta(seconds=5)
+        store._TEST_STORE[key] = stale
+        calls: list[str] = []
+        state = _state_with_plan(
+            [
+                {
+                    "step_id": "mcp",
+                    "resource_id": "mcp_tool:splunk_run_query",
+                    "purpose": "mcp_execution",
+                    "operation_contract": "side_effecting_without_stable_idempotency",
+                }
+            ],
+            handoff_id="h-dispatch",
+            handoff_version=1,
+        )
+        state["evidence_plan"]["resource_plan"]["provenance"] = {
+            "committed": True,
+            "resource_plan_id": "rp:dispatch",
+            "handoff_id": "h-dispatch",
+            "handoff_version": 1,
+        }
+
+        result = execute_plan_dispatch(state, _hooks(calls))
+    finally:
+        clear_in_memory_store_for_tests()
+        use_in_memory_store_for_tests(False)
+
+    assert "execution" not in calls
+    assert result["execution"]["status"] == "requires_human_review"
+    assert result["execution"]["outcome_uncertain"] is True
+    assert result["execution_reconciliation"]["reason"] == "execution_outcome_uncertain"
+    assert result["human_review"]["reason"] == "execution_outcome_uncertain"
+    assert result["plan_dispatch_trace"]["dispatch_source"] == "execution_reconciliation"
+    assert "canonical_planning_failure" not in result

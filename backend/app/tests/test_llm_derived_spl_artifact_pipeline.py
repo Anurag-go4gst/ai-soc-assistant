@@ -125,9 +125,11 @@ def test_execution_node_dispatches_by_risk_tier(
     state = {
         "request": ChatRequest(message=_QUERY),
         "trace_id": "test-derived-exec",
-        "workflow_plan": {},
+        "workflow_plan": {"skill": "attack_discovery", "execution_enabled": False},
+        "routed": {"skill": "attack_discovery"},
         "route_plan_shadow": {},
         "session_pins": None,
+        "evidence_plan": {"mcp_allowed": True},
         "llm_derived_spl_artifact": {
             "normalized_spl": _RESOLVED_SPL,
             "blocked": False,

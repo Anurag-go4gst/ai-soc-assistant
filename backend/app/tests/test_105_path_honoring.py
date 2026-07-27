@@ -74,7 +74,7 @@ def test_exact_105_smb_top_hosts_sets_needs_spl_true() -> None:
     assert plan.needs_spl is True
     assert plan.spl_allowed is True
     assert plan.needs_mcp is True
-    assert plan.mcp_allowed is False
+    assert plan.mcp_allowed is True
     decision = plan_path_and_tools(
         intent_classification=result.intent_classification.model_dump(),
         evidence_plan=plan.model_dump(),
@@ -264,7 +264,6 @@ def test_live_pipeline_no_p3_leak_for_unbound_105_questions(monkeypatch: pytest.
     """Regression for the q0.q096 stale answer: exact-105 questions without an
     active use-case severity policy must never display the P3 default, and the
     loose alert_context regex ("alert network events") must not defeat the guard."""
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
     from app.api.routes_chat import build_live_chat_response
     from app.schemas.requests import ChatRequest
@@ -294,7 +293,6 @@ def test_live_pipeline_no_p3_leak_for_unbound_105_questions(monkeypatch: pytest.
 def test_use_case_severity_policy_still_wins(monkeypatch: pytest.MonkeyPatch) -> None:
     """Questions bound to a use case with an active severity policy keep their
     policy severity (the guard only replaces the no-policy default)."""
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
     from app.api.routes_chat import build_live_chat_response
     from app.schemas.requests import ChatRequest

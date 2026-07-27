@@ -14,11 +14,8 @@ from typing import Any, Iterator
 from app.chat.pipeline import build_live_chat_response
 from app.config import settings
 from app.coverage.question_runtime_map import list_question_runtime_entries
-from app.graph.planner_led_shadow_graph import (
-    governance_snapshot_from_response,
-    run_planner_led_shadow_graph,
-    shadow_graph_response,
-)
+from app.evals.response_snapshot import governance_snapshot_from_response
+from app.graph.planner_led_shadow_graph import run_planner_led_shadow_graph, shadow_graph_response
 from app.schemas.requests import ChatRequest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -79,7 +76,6 @@ MANUAL_PARITY_SCENARIOS: list[dict[str, str]] = [
 ]
 
 _PROFILE_FLAGS: dict[str, bool] = {
-    "control_plane_enabled": True,
     "ai_soc_planner_path_selection_enabled": True,
     "ai_soc_llm_intent_advisor_enabled": True,
     "ai_soc_curated_enrichment_activation_enabled": True,
@@ -95,16 +91,12 @@ _PROFILE_FLAGS: dict[str, bool] = {
     "ai_soc_llm_live_synthesis_enabled": False,
 }
 
-_ACCEPTABLE_DIFF_FIELDS = frozenset(
-    {
-        "severity_label",
-        "answer_profile",
-        "hil_review_type",
-        "mitre_candidate_techniques",
-        "missing_evidence_count",
-        "spl_template_status",
-    }
-)
+# ``_ACCEPTABLE_DIFF_FIELDS`` was removed (plan item 31). It was dead configuration twice
+# over: the branch that consulted it appended to the same list either way and both outcomes
+# returned "acceptable_diff", and none of its six field names appeared in ``compare_keys``
+# at all. It read as governance while enforcing nothing. Field-level approval now lives in
+# ``app/evals/production_runtime_parity.py``, which compares the two real production entry
+# points and rejects approval for every governance field.
 
 
 def _normalize_query(text: str) -> str:
@@ -340,18 +332,9 @@ def classify_parity_row(
         "mitre_answer_visible",
         "spl_generation_status",
     ]
-    soft_diffs: list[str] = []
-    for key in compare_keys:
-        if imperative.get(key) != shadow.get(key):
-            if key in _ACCEPTABLE_DIFF_FIELDS:
-                soft_diffs.append(key)
-            else:
-                soft_diffs.append(key)
-    hard_diffs = [key for key in soft_diffs if key not in _ACCEPTABLE_DIFF_FIELDS]
-    if hard_diffs:
-        return "acceptable_diff", hard_diffs, []
-    if soft_diffs:
-        return "acceptable_diff", soft_diffs, []
+    diffs = [key for key in compare_keys if imperative.get(key) != shadow.get(key)]
+    if diffs:
+        return "acceptable_diff", diffs, []
     return "match", [], []
 
 
@@ -423,12 +406,28 @@ def _fake_retrieve_soc_kb(**kwargs: Any) -> dict[str, Any]:
 
 @contextmanager
 def dual_parity_profile() -> Iterator[None]:
+    from app.chat import canonical_execution_idempotency
+    from app.chat import canonical_handoff_store
+    from app.chat import durable_planning_telemetry
+
     saved = {name: getattr(settings, name) for name in _PROFILE_FLAGS}
     try:
         for name, value in _PROFILE_FLAGS.items():
             setattr(settings, name, value)
+        canonical_handoff_store.use_in_memory_store_for_tests(True)
+        canonical_handoff_store.clear_all_handoffs_for_tests()
+        canonical_execution_idempotency.use_in_memory_store_for_tests(True)
+        canonical_execution_idempotency.clear_in_memory_store_for_tests()
+        durable_planning_telemetry.use_test_event_store(True)
+        durable_planning_telemetry.clear_persisted_events_for_tests()
         yield
     finally:
+        canonical_handoff_store.clear_all_handoffs_for_tests()
+        canonical_handoff_store.use_in_memory_store_for_tests(False)
+        canonical_execution_idempotency.clear_in_memory_store_for_tests()
+        canonical_execution_idempotency.use_in_memory_store_for_tests(False)
+        durable_planning_telemetry.clear_persisted_events_for_tests()
+        durable_planning_telemetry.use_test_event_store(False)
         for name, value in saved.items():
             setattr(settings, name, value)
 
@@ -683,7 +682,36 @@ def write_dual_parity_outputs(
     markdown_path: Path,
     csv_path: Path | None = None,
     details_markdown_path: Path | None = None,
+    command: str = "write_dual_parity_outputs",
 ) -> None:
+    from app.evals.artifact_safe_writer import is_committed_eval_path, write_artifact_safe
+
+    def _validate(metadata: dict[str, Any]) -> list[str]:
+        return validate_check_report(metadata["report"])
+
+    target_paths = {"json": json_path, "md": markdown_path}
+    if csv_path is not None:
+        target_paths["csv"] = csv_path
+    if details_markdown_path is not None:
+        target_paths["details"] = details_markdown_path
+
+    if any(is_committed_eval_path(path) for path in target_paths.values()):
+        summary = result.report.get("summary") or {}
+        write_artifact_safe(
+            target_paths=target_paths,
+            write_fn=lambda temp_dir: _write_committed_dual_parity_files(
+                temp_dir, result, csv_path is not None, details_markdown_path is not None
+            ),
+            validate_fn=_validate,
+            command=command,
+            include_105=True,
+            corpus_count=int(summary.get("total") or 0),
+            base_105_loaded=len(
+                [row for row in result.report.get("rows") or [] if row.get("source") == "105_map"]
+            ),
+        )
+        return
+
     json_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(result.report, indent=2, sort_keys=True), encoding="utf-8")
     markdown_path.write_text(result.markdown, encoding="utf-8")
@@ -691,6 +719,31 @@ def write_dual_parity_outputs(
         _write_csv(result.report.get("rows") or [], csv_path)
     if details_markdown_path is not None and result.details_markdown:
         details_markdown_path.write_text(result.details_markdown, encoding="utf-8")
+
+
+def _write_committed_dual_parity_files(
+    temp_dir: Path,
+    result: DualParityEvalResult,
+    include_csv: bool,
+    include_details: bool,
+) -> dict[str, Any]:
+    temp_json = temp_dir / "json"
+    temp_md = temp_dir / "md"
+    temp_json.write_text(json.dumps(result.report, indent=2, sort_keys=True), encoding="utf-8")
+    temp_md.write_text(result.markdown, encoding="utf-8")
+    if include_csv:
+        _write_csv(result.report.get("rows") or [], temp_dir / "csv")
+    if include_details and result.details_markdown:
+        (temp_dir / "details").write_text(result.details_markdown, encoding="utf-8")
+    summary = result.report.get("summary") or {}
+    return {
+        "report": result.report,
+        "corpus_count": int(summary.get("total") or 0),
+        "base_105_loaded": len(
+            [row for row in result.report.get("rows") or [] if row.get("source") == "105_map"]
+        ),
+        "include_105": True,
+    }
 
 
 def _write_csv(rows: list[dict[str, Any]], path: Path) -> None:

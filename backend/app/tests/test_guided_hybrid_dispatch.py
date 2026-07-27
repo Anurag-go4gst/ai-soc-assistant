@@ -24,11 +24,29 @@ SAMPLE_QUERY = (
 
 @pytest.fixture(autouse=True)
 def _hybrid_on(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", True)
     monkeypatch.setattr(settings, "legacy_selected_skill_authority_enabled", False)
     monkeypatch.setattr(settings, "telemetry_mode", "none")
     monkeypatch.setattr(settings, "ai_soc_telemetry_sink", "none")
+
+
+from app.tests.support.legacy_planning_harness import with_committed_resource_plan
+
+
+def _guided_committed_resource_plan() -> dict[str, object]:
+    return {
+        "steps": [
+            {
+                "step_id": "safe_catalog_0",
+                "resource_id": "spl_template_family:dns_beaconing_candidate",
+                "purpose": "safe_catalog_query",
+                "status": "planned",
+                "policy_checks": ["guided_safe_catalog"],
+            }
+        ],
+        "plan_source": "deterministic",
+        "provenance": {"committed": True},
+    }
 
 
 def test_uses_guided_hybrid_dispatch_from_state() -> None:
@@ -37,6 +55,7 @@ def test_uses_guided_hybrid_dispatch_from_state() -> None:
         "evidence_plan": {
             "answer_mode": "guided_investigation",
             "investigation_planning_enabled": True,
+            "resource_plan": _guided_committed_resource_plan(),
         },
     }
     assert uses_guided_hybrid_dispatch_from_state(enabled) is True
@@ -133,6 +152,7 @@ def _safe_catalog_dispatch_state() -> dict:
             "safe_spl_execution_allowed": True,
             "freeform_spl_execution_allowed": False,
             "mcp_action_allowed": False,
+            "resource_plan": _guided_committed_resource_plan(),
         },
         "planning_decision": {"path_type": "guided_investigation"},
         "routed": {"skill": "guided_investigation", "routing_provenance": {}},

@@ -4,12 +4,10 @@ from app.connectors.mcp.mcp_tool_plan_shadow import run_mcp_tool_plan_shadow
 
 
 def test_shadow_skips_when_no_mcp_or_spl_interest(monkeypatch) -> None:
-    monkeypatch.setattr("app.connectors.mcp.mcp_tool_plan_shadow.settings.control_plane_enabled", False)
     assert run_mcp_tool_plan_shadow(query="hello", needs_mcp=False, needs_spl=False) is None
 
 
 def test_shadow_returns_deterministic_plan_when_control_plane_on(monkeypatch) -> None:
-    monkeypatch.setattr("app.connectors.mcp.mcp_tool_plan_shadow.settings.control_plane_enabled", True)
     monkeypatch.setattr(
         "app.connectors.mcp.mcp_tool_plan_shadow.mcp_tool_plan_llm_advisory_enabled",
         lambda: False,
@@ -29,7 +27,6 @@ def test_shadow_returns_deterministic_plan_when_control_plane_on(monkeypatch) ->
 
 
 def test_unscoped_shadow_matches_gate_default_analyst(monkeypatch) -> None:
-    monkeypatch.setattr("app.connectors.mcp.mcp_tool_plan_shadow.settings.control_plane_enabled", True)
     monkeypatch.setattr(
         "app.connectors.mcp.mcp_tool_plan_shadow.mcp_tool_plan_llm_advisory_enabled",
         lambda: False,
@@ -47,7 +44,6 @@ def test_unscoped_shadow_matches_gate_default_analyst(monkeypatch) -> None:
 
 
 def test_viewer_shadow_drops_run_query(monkeypatch) -> None:
-    monkeypatch.setattr("app.connectors.mcp.mcp_tool_plan_shadow.settings.control_plane_enabled", True)
     monkeypatch.setattr(
         "app.connectors.mcp.mcp_tool_plan_shadow.mcp_tool_plan_llm_advisory_enabled",
         lambda: False,
@@ -65,7 +61,6 @@ def test_viewer_shadow_drops_run_query(monkeypatch) -> None:
 
 
 def test_shadow_can_disable_llm_advisory_per_turn(monkeypatch) -> None:
-    monkeypatch.setattr("app.connectors.mcp.mcp_tool_plan_shadow.settings.control_plane_enabled", True)
     monkeypatch.setattr(
         "app.connectors.mcp.mcp_tool_plan_shadow.mcp_tool_plan_llm_advisory_enabled",
         lambda: True,
@@ -90,7 +85,6 @@ def test_shadow_can_disable_llm_advisory_per_turn(monkeypatch) -> None:
 
 
 def test_experience_center_fixture_never_calls_planner_llm(monkeypatch) -> None:
-    monkeypatch.setattr("app.connectors.mcp.mcp_tool_plan_shadow.settings.control_plane_enabled", True)
     monkeypatch.setattr(
         "app.connectors.mcp.mcp_tool_plan_shadow.mcp_tool_plan_llm_advisory_enabled",
         lambda: True,
@@ -115,7 +109,6 @@ def test_experience_center_fixture_never_calls_planner_llm(monkeypatch) -> None:
 
 
 def test_shadow_surfaces_turn_budget_skip_reason(monkeypatch) -> None:
-    monkeypatch.setattr("app.connectors.mcp.mcp_tool_plan_shadow.settings.control_plane_enabled", True)
     monkeypatch.setattr(
         "app.connectors.mcp.mcp_tool_plan_shadow.mcp_tool_plan_llm_advisory_enabled",
         lambda: True,

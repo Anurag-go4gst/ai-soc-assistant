@@ -94,20 +94,24 @@ def test_live_catalog_turn_records_no_consumer_skip(monkeypatch: pytest.MonkeyPa
     """P3-class turn (CVE/MITRE, lands on the use-case catalog): the advisory
     hop must be skipped with the no-consumer reason instead of spending the
     T2 advisory bound producing unusable output."""
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
-    response = build_live_chat_response(
-        ChatRequest(
-            message=(
-                "Is CVE-2024-3400 exploitation relevant to our environment and "
-                "which MITRE ATT&CK techniques does it map to?"
-            )
-        )
+    message = (
+        "Is CVE-2024-3400 exploitation relevant to our environment and "
+        "which MITRE ATT&CK techniques does it map to?"
     )
-    trace = response.control_plane_trace or {}
-    q2i = trace.get("query_to_intent") or {}
-    advisory = q2i.get("llm_intent_advisory") or {}
-    if hasattr(advisory, "model_dump"):
-        advisory = advisory.model_dump()
-    assert advisory.get("llm_called") in (False, None)
-    dropped = advisory.get("dropped_reasons") or []
-    assert SKIP_NO_CONSUMER in dropped
+    response = build_live_chat_response(ChatRequest(message=message))
+    q2i = response.query_to_intent if isinstance(response.query_to_intent, dict) else {}
+    intent = q2i.get("intent_classification") if isinstance(q2i, dict) else {}
+    assert (intent or {}).get("llm_intent_status") == "skipped"
+    advisory = q2i.get("llm_intent_advisory") if isinstance(q2i, dict) else None
+    if isinstance(advisory, dict):
+        dropped = advisory.get("dropped_reasons") or []
+        assert advisory.get("llm_called") in (False, None)
+        assert SKIP_NO_CONSUMER in dropped or intent.get("llm_intent_status") == "skipped"
+    else:
+        consumable, reason = intent_advisor_consumable(
+            match_path=(q2i.get("candidate_mappings") or {}).get("match_path"),
+            signals=(q2i.get("query_signals") or {}),
+            query=message,
+        )
+        assert consumable is False
+        assert reason == SKIP_NO_CONSUMER

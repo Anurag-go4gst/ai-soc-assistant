@@ -87,7 +87,6 @@ def test_mitre_finalize_prefers_spine_negative_evidence(monkeypatch: pytest.Monk
     from app.chat.pipeline import _mitre_outputs_for_finalize
     from app.config import settings
 
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     facts = attach_canonical_facts_to_state(
         {
             "query_signals": {},

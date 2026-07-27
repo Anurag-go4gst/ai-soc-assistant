@@ -167,3 +167,63 @@ def test_signed_catalog_without_execution_callback_fails_closed(monkeypatch) -> 
     hop = (state.get("mcp_evidence") or [])[0]
     assert hop["outcome"] == "blocked"
     assert hop["payload"]["block_reason"] == "guided_safe_execution_callback_unavailable"
+
+
+def test_guided_hybrid_stale_uncertain_step_requires_reconciliation_without_execution(monkeypatch) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from app.chat import canonical_execution_idempotency as store
+    from app.chat.canonical_execution_idempotency import acquire_execution_step, build_idempotency_key
+
+    monkeypatch.setattr(
+        "app.spl.guided_safe_spl_dispatch.load_guided_safe_spl_catalog",
+        lambda: GuidedSafeSplCatalog(
+            coe_signed=True,
+            entries=[GuidedSafeSplCatalogEntry(template_id="dns_beaconing_candidate")],
+        ),
+    )
+    monkeypatch.setattr(
+        "app.chat.guided_hybrid_collection.operation_contract_for_step",
+        lambda _step: "side_effecting_without_stable_idempotency",
+    )
+    evidence = _hybrid_evidence()
+    investigation = InvestigationPlan(
+        investigation_objective="OT outbound hunt",
+        safe_spl_template_requests=["dns_beaconing_candidate"],
+    )
+    validated = validate_guided_resource_plan(
+        evidence,
+        compose_guided_resource_plan(evidence, investigation),
+    ).validated_resource_plan.model_copy(
+        update={"provenance": {"resource_plan_id": "rp:guided", "handoff_id": "h-guided", "handoff_version": 1}}
+    )
+    step = next(item for item in validated.steps if item.purpose == "safe_catalog_query")
+    params = {
+        "resource_plan_id": "rp:guided",
+        "handoff_id": "h-guided",
+        "handoff_version": 1,
+        "step_id": step.step_id,
+        "operation": f"{step.purpose}:{step.resource_id}",
+    }
+    acquire_execution_step(
+        **params,
+        lease_owner="worker-a",
+        side_effecting=True,
+        operation_contract="side_effecting_without_stable_idempotency",
+    )
+    key = build_idempotency_key(**params)
+    stale = store._TEST_STORE[key]
+    stale["lease_expires_at"] = datetime.now(UTC) - timedelta(seconds=5)
+    store._TEST_STORE[key] = stale
+    calls = {"count": 0}
+
+    state, collected_count = collect_guided_hybrid_evidence(
+        {"trace_id": "t-guided"},
+        validated_resource=validated,
+        execute_safe_catalog_spl=lambda _validation: calls.__setitem__("count", calls["count"] + 1) or ({}, {}),
+    )
+
+    assert collected_count == 0
+    assert calls["count"] == 0
+    assert state["execution_reconciliation"]["reason"] == "execution_outcome_uncertain"
+    assert state["human_review"]["reason"] == "execution_outcome_uncertain"

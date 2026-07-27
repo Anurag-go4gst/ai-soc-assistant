@@ -196,7 +196,7 @@ def build_run_contract(
     # Mirror the pipeline's _spl_allowed authority: with the control plane off
     # there is no evidence_plan node, so SPL is allowed (a candidate that exists
     # was already permitted upstream).  With CP on, honour the evidence plan.
-    spl_allowed = bool(evidence_plan.get("spl_allowed")) if settings.control_plane_enabled else True
+    spl_allowed = bool(evidence_plan.get("spl_allowed")) if True else True
 
     spl_candidate_present = _spl_candidate_present(candidate_spl, spl_draft_preview)
     spl_candidate_renderable = _spl_candidate_renderable(
@@ -278,7 +278,7 @@ def build_answer_preview(contract: RunContract) -> str:
 
 
 def _resolve_canonical_skill(state: ChatPipelineState) -> str:
-    if settings.control_plane_enabled:
+    if True:
         adjudication = state.get("route_adjudication")
         if isinstance(adjudication, dict):
             final_route = adjudication.get("final_route")
@@ -309,7 +309,7 @@ def _resolve_mcp_allowed(
     authorized this turn. A review-only / blocked answer reports explicit False
     rather than the permissive gate-bypass True.
     """
-    if not settings.control_plane_enabled or not evidence_plan:
+    if not evidence_plan:
         return bool(execution_authorized)
     spl_validation = state.get("spl_validation") if isinstance(state, dict) else None
     if isinstance(spl_validation, dict) and spl_validation.get("approved") is not True:

@@ -133,9 +133,17 @@ def build_answer_contract(
     match_path: str | None = None,
     spl_draft_preview: dict[str, Any] | None = None,
     run_contract: Any | None = None,
+    canonical_status: str | None = None,
 ) -> AnswerContract:
     intent = intent_classification or {}
     plan = evidence_plan or {}
+    if canonical_status == "clarification_required" and not plan.get("answer_mode"):
+        # A clarification turn carries no EvidencePlan by contract, so the answer mode
+        # has to come from the canonical outcome. Injected here rather than at one of the
+        # AnswerContract constructions because this function builds the contract on
+        # several branches, each reading ``plan`` directly. Without it the analyst card
+        # lost its "clarification" label and rendered as an ordinary low-evidence answer.
+        plan = {**plan, "answer_mode": "clarification"}
     if str(intent.get("intent_family") or "") == "guided_investigation" and not plan:
         plan = {
             "answer_mode": "guided_investigation",

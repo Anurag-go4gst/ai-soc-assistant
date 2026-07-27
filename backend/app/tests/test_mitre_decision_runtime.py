@@ -71,8 +71,7 @@ def test_explicit_mitre_mapping_without_context_requires_clarification() -> None
     assert {"T1003", "T1562.001"}.issubset(set(decision.rejected_techniques))
 
 
-def test_flag_off_finalize_keeps_legacy_use_case_mapping(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", False)
+def test_canonical_finalize_hides_policy_mitre(monkeypatch) -> None:
     mappings, decision = _mitre_outputs_for_finalize(
         question_ref="q0.q046",
         use_case_id="auth_failed_login_spike",
@@ -80,13 +79,12 @@ def test_flag_off_finalize_keeps_legacy_use_case_mapping(monkeypatch) -> None:
         intent_classification={"intent_family": "policy_knowledge", "answer_goal": []},
         evidence_plan={"answer_mode": "rag_only"},
     )
-    assert decision is None
-    assert mappings
-    assert {item.technique_id for item in mappings} == {"T1110.001"}
+    assert mappings == []
+    assert decision is not None
+    assert decision["answer_visible"] is False
 
 
 def test_flag_on_finalize_hides_policy_mitre(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     mappings, decision = _mitre_outputs_for_finalize(
         question_ref="q0.q046",
         use_case_id="auth_failed_login_spike",

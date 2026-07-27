@@ -10,7 +10,7 @@ Documentation only. **Does not change runtime defaults.** Production and `.env.e
 | Adopted test/demo path | Governed **imperative** `/chat` pipeline with explicit flags |
 | LangGraph fan-out/fan-in | **Shadow graph exists (Phase 12)** — `AI_SOC_LANGGRAPH_SHADOW_ENABLED` for tests/trace only; not default runtime |
 | LangGraph dual-run parity | **Phase 13 evaluation only** — `scripts/run_langgraph_dual_parity_eval.py`; does not cut over `/chat` |
-| Default production runtime | Legacy/parity (`CONTROL_PLANE_ENABLED=false`, MCP execution off) |
+| Default production runtime | Canonical planning always on; MCP execution off in safe profiles |
 | SPL/MCP execution | Remains **disabled** in all documented profiles below |
 
 `LANGGRAPH_ORCHESTRATION_ENABLED` runs the legacy P1 linear LangGraph parity wrapper when explicitly enabled. The **Phase 12 planner-led shadow graph** (`backend/app/graph/planner_led_shadow_graph.py`) implements fan-out/fan-in topology for parity tests only via `AI_SOC_LANGGRAPH_SHADOW_ENABLED=false` (default). It is **not** the live `/chat` runtime path. Keep both flags **off** for manual demo and answer-quality testing.
@@ -21,7 +21,6 @@ Documentation only. **Does not change runtime defaults.** Production and `.env.e
 
 | Flag | Value |
 |------|-------|
-| `CONTROL_PLANE_ENABLED` | `false` |
 | `AI_SOC_PLANNER_PATH_SELECTION_ENABLED` | `false` |
 | `AI_SOC_LLM_INTENT_ADVISOR_ENABLED` | `false` |
 | `AI_SOC_CURATED_ENRICHMENT_ACTIVATION_ENABLED` | `false` |
@@ -41,11 +40,10 @@ Documentation only. **Does not change runtime defaults.** Production and `.env.e
 
 ## Profile 2 — Safe manual demo / answer-quality (recommended local COE)
 
-Enable governed control plane + planner track + LLM composer **without** execution:
+Enable governed canonical planning + planner track + LLM composer **without** execution:
 
 | Flag | Value |
 |------|-------|
-| `CONTROL_PLANE_ENABLED` | `true` |
 | `AI_SOC_PLANNER_PATH_SELECTION_ENABLED` | `true` |
 | `AI_SOC_LLM_INTENT_ADVISOR_ENABLED` | `true` |
 | `AI_SOC_CURATED_ENRICHMENT_ACTIVATION_ENABLED` | `true` |
@@ -82,7 +80,7 @@ Also configure a local/openai-compatible endpoint (`AI_SOC_LLM_LOCAL_BASE_URL`) 
 1. SOC reviews `docs/validation/*` sheets and promotes rows in the crosswalk (`validation_status=soc_approved`).
 2. Run `./scripts/run_stage3_governance_regression.sh` green in target environment.
 3. Flip flags incrementally per environment, re-running golden + governance regression after each step:
-   - `CONTROL_PLANE_ENABLED=true`
+   - Canonical planning is always on (no env toggle).
    - Planner flags (`PATH_SELECTION`, `CURATED_ENRICHMENT`, `MITRE_BRANCH`, `SPL_TEMPLATE_GOVERNANCE`)
    - Optional: `AI_SOC_LLM_INTENT_ADVISOR_ENABLED`, synthesis flags (with configured local endpoint)
 4. Keep `MCP_GLOBAL_EXECUTION_ENABLED=false` until COE supplies real Splunk MCP contract and approval workflow.

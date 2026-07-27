@@ -56,7 +56,6 @@ def test_lab_tier_stays_non_executable_even_with_mcp_eligibility_on(
     """MCP eligibility (item 2.1) is a plan-time, family-level flag; SPL approval
     is decided entirely by the validator downstream. Turning the former on must
     never influence the latter for a lab-tier producer."""
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
 
     result = generate_llm_spl_via_plan(
         user_query="Detect Modbus writes to PLCs from unapproved hosts",

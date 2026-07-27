@@ -40,7 +40,6 @@ def test_oos_unsafe_04_run_spl_phrasing_blocked(monkeypatch) -> None:
     assert signals.get("explicit_run_spl") is True
     assert signals.get("requires_hil") is True
 
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_planner_path_selection_enabled", True)
     qu = understand_query(query)
     q2i = build_query_to_intent(query=query, query_understanding=qu, routed_skill="spl_generation")

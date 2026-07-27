@@ -203,7 +203,6 @@ def test_hil_status_reflects_missing_evidence_or_review_requirement() -> None:
 
 
 def test_backward_compatible_live_response_shape_remains_valid(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.config.settings.ai_soc_planner_mitre_branch_enabled", True)
     monkeypatch.setattr("app.config.settings.ai_soc_spl_template_governance_enabled", True)
     monkeypatch.setattr("app.config.settings.ai_soc_curated_enrichment_activation_enabled", True)

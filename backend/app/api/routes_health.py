@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.connectors.telemetry import metrics
+from app.db.migration_readiness import build_migration_readiness
 
 router = APIRouter()
 
@@ -16,6 +17,9 @@ def health() -> dict:
     return {
         "status": "ok",
         "service": "ai-soc-assistant-backend",
+        "readiness": {
+            "database_migrations": build_migration_readiness(),
+        },
         # Integer-only counters (no payload content); flat so each value stays an int.
         "telemetry": {
             "write_failures": counters.get("telemetry_write_failures", 0),

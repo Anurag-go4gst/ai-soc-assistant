@@ -194,7 +194,6 @@ def build_hybrid_role_plan(
     skip_composer_reason: str | None,
     intent_advisory_skipped: bool,
     intent_skip_reason: str | None,
-    control_plane_enabled: bool,
     soc_investigation_shaped: bool = False,
     multi_leg: bool = False,
 ) -> HybridRolePlan:
@@ -286,26 +285,21 @@ def build_hybrid_role_plan(
         None if risk_enabled else "no_severity_context"
     )
 
-    shadow_enabled = bool(settings.control_plane_enabled and not draft_preview_active)
-    shadow_skip = "draft_spl_preview_active" if draft_preview_active else (
-        None if shadow_enabled else "control_plane_disabled"
-    )
+    shadow_enabled = not draft_preview_active
+    shadow_skip = "draft_spl_preview_active" if draft_preview_active else None
 
     composer_enabled = bool(
-        control_plane_enabled
-        and answer_contract is not None
+        answer_contract is not None
         and not skip_composer
         and not draft_preview_active
     )
     composer_skip = skip_composer_reason or (
-        "draft_spl_preview_active" if draft_preview_active else (
-            "control_plane_disabled" if not control_plane_enabled else "composer_skipped"
-        )
+        "draft_spl_preview_active" if draft_preview_active else "composer_skipped"
     )
     if skip_composer:
         composer_enabled = False
 
-    tool_plan_enabled = bool(settings.control_plane_enabled and not draft_preview_active)
+    tool_plan_enabled = not draft_preview_active
     tool_plan_skip = shadow_skip if not tool_plan_enabled else None
 
     roles = [

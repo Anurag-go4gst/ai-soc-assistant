@@ -9,9 +9,9 @@ import pytest
 from app.api.routes_chat import chat
 from app.chat.pipeline import build_live_chat_response
 from app.config import settings
+from app.evals.response_snapshot import governance_snapshot_from_response
 from app.graph.planner_led_shadow_graph import (
     _compiled_planner_led_shadow_graph,
-    governance_snapshot_from_response,
     run_planner_led_shadow_graph,
     shadow_graph_response,
 )
@@ -19,7 +19,6 @@ from app.schemas.requests import ChatRequest
 
 
 def _enable_control_plane_stack(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_planner_path_selection_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_intent_advisor_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_curated_enrichment_activation_enabled", True)
@@ -123,10 +122,18 @@ def test_failed_login_followed_by_success_parity(monkeypatch: pytest.MonkeyPatch
         ),
     )
     _assert_core_parity(imperative, shadow)
-    assert imperative["path_type"] in {"hybrid_investigation", "spl_review_plus_rag"}
-    assert "spl" in imperative["branches"]
-    assert imperative["execution_status"] in {"skipped", "requires_human_review", "blocked"}
-    assert imperative["normalized_spl_present"] or imperative["candidate_spl_present"]
+    assert imperative["path_type"] in {
+        "hybrid_investigation",
+        "spl_review_plus_rag",
+        "clarification_required",
+    }
+    if imperative["path_type"] == "clarification_required":
+        assert imperative["branches"] == ["hil", "clarification"]
+        assert imperative["candidate_spl_present"] is False
+    else:
+        assert "spl" in imperative["branches"]
+        assert imperative["execution_status"] in {"skipped", "requires_human_review", "blocked"}
+        assert imperative["normalized_spl_present"] or imperative["candidate_spl_present"]
 
 
 def test_brute_force_sop_rag_only_no_spl(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -26,7 +26,6 @@ def _mock_execution_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MCP_MODE", "mock")
     monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
 
 
 def test_in_catalogue_query_never_recipe_routed(_mock_execution_enabled, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -36,7 +35,11 @@ def test_in_catalogue_query_never_recipe_routed(_mock_execution_enabled, monkeyp
     from app.schemas.requests import ChatRequest
 
     final_state = _compiled_chat_graph_cp().invoke(
-        {"request": ChatRequest(message="show failed admin logins in the last 24 hours"), "session_role": None},
+        {
+            "request": ChatRequest(message="show failed admin logins in the last 24 hours"),
+            "session_role": None,
+            "legacy_langgraph_harness": True,
+        },
         {"recursion_limit": 60},
     )
     assert final_state.get("mcp_recipe_id") is None
@@ -50,7 +53,6 @@ def test_out_of_registry_hunt_shape_with_grant_selects_a_recipe(monkeypatch: pyt
     that happens to satisfy match_path + mcp_allowed + hunt shape simultaneously
     (independently verified as hard to construct — real queries tried during
     development landed on other shapes or in-catalogue match paths)."""
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(pl, "_match_path_from_state", lambda state: "out_of_registry")
 
     class _FakeShape:
@@ -65,6 +67,7 @@ def test_out_of_registry_hunt_shape_with_grant_selects_a_recipe(monkeypatch: pyt
     state = {
         "request": ChatRequest(message="hunt-shaped out-of-registry probe"),
         "trace_id": "test-3.4",
+        "legacy_langgraph_harness": True,
         "intent_classification": {
             "intent_family": "spl_generation_only",
             "primary_intent": "ask_for_query_generation",
@@ -84,7 +87,6 @@ def test_out_of_registry_hunt_shape_with_grant_selects_a_recipe(monkeypatch: pyt
 
 
 def test_out_of_registry_without_grant_selects_no_recipe(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(pl, "_match_path_from_state", lambda state: "out_of_registry")
 
     class _FakeShape:
@@ -99,6 +101,7 @@ def test_out_of_registry_without_grant_selects_no_recipe(monkeypatch: pytest.Mon
     state = {
         "request": ChatRequest(message="rag-only out-of-registry probe"),
         "trace_id": "test-3.4b",
+        "legacy_langgraph_harness": True,
         "intent_classification": {
             "intent_family": "knowledge_only",
             "primary_intent": "ask_for_explanation",
@@ -136,6 +139,7 @@ def test_natural_hunt_query_recipe_routes_without_matchpath_monkeypatch(
                 )
             ),
             "session_role": None,
+            "legacy_langgraph_harness": True,
         },
         {"recursion_limit": 60},
     )

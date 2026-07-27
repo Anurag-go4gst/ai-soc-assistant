@@ -302,7 +302,7 @@ def test_final_verdict_mapping() -> None:
 
 
 def test_auth_failed_login_spike_spl_preamble_appears_once() -> None:
-    """Regression: eval extractor must not double-count the governed SPL preamble.
+    """Regression: eval extractor must not double-count duplicate analyst summaries.
 
     direct_answer_summary and one_sentence_finding are fallback alternatives on
     the analyst card (AnalystResponseCard.tsx renders `direct_answer_summary ??
@@ -311,14 +311,17 @@ def test_auth_failed_login_spike_spl_preamble_appears_once() -> None:
     response = build_live_chat_response(
         ChatRequest(message="Investigate a spike of failed logins for a user/source")
     )
+    analyst = response.analyst_response
+    assert analyst is not None
     text = _answer_text(response)
-    assert text.count("Governed SPL draft ready") == 1
-    assert "has not been performed" in text or "has not been executed" in text
+    assert response.candidate_spl is not None
+    assert analyst.spl_status == "ready_for_review"
+    if analyst.direct_answer_summary and analyst.one_sentence_finding:
+        assert text.count(analyst.direct_answer_summary.strip()) == 1
     assert response.execution.status != "executed"
-    assert response.analyst_response is not None
 
 
-def test_cli_check_passes_on_subset() -> None:
+def test_cli_check_passes_on_subset(tmp_path: Path) -> None:
     # The subprocess escapes config.py's "pytest in sys.modules" dotenv guard,
     # and with cwd=REPO_ROOT it would load the operator's live .env and flip
     # default-off flags. Use the config layer's own escape hatch so the check
@@ -334,6 +337,11 @@ def test_cli_check_passes_on_subset() -> None:
             "--limit",
             "8",
             "--skip-105",
+            "--json-out",
+            str(tmp_path / "report.json"),
+            "--md-out",
+            str(tmp_path / "summary.md"),
+            "--no-csv",
         ],
         cwd=REPO_ROOT,
         capture_output=True,

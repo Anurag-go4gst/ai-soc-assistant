@@ -4,6 +4,15 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from app.chat.canonical_execution_idempotency import (
+    AcquireOutcome,
+    apply_execution_uncertainty_to_state,
+    apply_idempotent_hop_to_state,
+    operation_contract_for_step,
+    plan_step_operation_identity,
+    provenance_from_state,
+    run_idempotent_execution_step,
+)
 from app.chat.evidence_loop import record_hop
 from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.planner.resource_plan import PlanStep, ResourcePlan
@@ -28,6 +37,76 @@ def _template_id_from_step(step: PlanStep) -> str | None:
     return None
 
 
+def _run_mcp_discovery_step(
+    state: dict[str, Any],
+    *,
+    step: PlanStep,
+    rbac_role: str,
+    trace_id: str | None,
+) -> tuple[dict[str, Any], dict[str, Any], int]:
+    tool = _tool_name_from_resource_id(str(step.resource_id or ""))
+    if tool == "splunk_run_query":
+        return state, {}, 0
+    hop = execute_loop_discovery_hop(
+        tool,
+        rbac_role=rbac_role,
+        trace_id=trace_id,
+    )
+    patch = record_hop(
+        state,
+        tool=tool,
+        delivered=list(hop.get("delivered") or []),
+        outcome=str(hop.get("outcome") or "planned"),
+        payload=hop.get("payload") if isinstance(hop.get("payload"), dict) else {},
+    )
+    collected = 1 if str(hop.get("outcome")) == "collected" else 0
+    return {**state, **patch}, patch, collected
+
+
+def _run_safe_catalog_step(
+    state: dict[str, Any],
+    *,
+    step: PlanStep,
+    execute_safe_catalog_spl: SafeCatalogExecutionFn | None,
+) -> tuple[dict[str, Any], dict[str, Any], int]:
+    template_id = _template_id_from_step(step)
+    dispatch_plan = build_guided_safe_spl_dispatch_plan(template_id)
+    outcome = dispatch_plan.outcome
+    payload = dict(dispatch_plan.payload)
+    delivered = list(dispatch_plan.delivered)
+    if dispatch_plan.ready and execute_safe_catalog_spl is not None:
+        execution, review = execute_safe_catalog_spl(dispatch_plan.spl_validation or {})
+        outcome = str(execution.get("status") or outcome)
+        if outcome == "executed":
+            outcome = "collected"
+            if "query_results" not in delivered:
+                delivered.append("query_results")
+        payload.update(
+            {
+                "execution_status": execution.get("status"),
+                "tool_selection_status": execution.get("tool_selection_status"),
+                "tool_selection_reason": execution.get("tool_selection_reason"),
+                "block_reason": execution.get("block_reason"),
+                "human_review_required": bool(review.get("required")),
+                "human_review_reason": review.get("reason"),
+            }
+        )
+    elif dispatch_plan.ready:
+        outcome = "blocked"
+        payload["block_reason"] = "guided_safe_execution_callback_unavailable"
+    elif dispatch_plan.reason:
+        payload["block_reason"] = dispatch_plan.reason
+    patch = record_hop(
+        state,
+        tool="guided_safe_catalog",
+        delivered=delivered,
+        outcome=outcome,
+        payload=payload,
+    )
+    collected = 1 if outcome == "collected" else 0
+    return {**state, **patch}, patch, collected
+
+
 def collect_guided_hybrid_evidence(
     state: dict[str, Any],
     *,
@@ -39,66 +118,60 @@ def collect_guided_hybrid_evidence(
     collected_count = 0
     rbac_role = session_role_for_mcp_gate(state.get("session_role"))
     trace_id = state.get("trace_id")
+    resource_plan_id, handoff_version, handoff_id = provenance_from_state(updated)
+    plan_provenance = dict(validated_resource.provenance or {})
+    plan_id = resource_plan_id or str(plan_provenance.get("resource_plan_id") or "")
+    handoff_id = handoff_id or (str(plan_provenance.get("handoff_id")) if plan_provenance.get("handoff_id") else None)
+    if handoff_version is None and plan_provenance.get("handoff_version") is not None:
+        handoff_version = int(plan_provenance["handoff_version"])
 
     for step in validated_resource.steps:
-        if step.purpose == "mcp_discovery":
-            tool = _tool_name_from_resource_id(str(step.resource_id or ""))
-            if tool == "splunk_run_query":
-                continue
-            hop = execute_loop_discovery_hop(
-                tool,
-                rbac_role=rbac_role,
-                trace_id=str(trace_id) if trace_id else None,
-            )
-            patch = record_hop(
-                updated,
-                tool=tool,
-                delivered=list(hop.get("delivered") or []),
-                outcome=str(hop.get("outcome") or "planned"),
-                payload=hop.get("payload") if isinstance(hop.get("payload"), dict) else {},
-            )
-            updated = {**updated, **patch}
-            if str(hop.get("outcome")) == "collected":
-                collected_count += 1
+        purpose = str(step.purpose or "")
+        if purpose not in {"mcp_discovery", "safe_catalog_query"}:
+            continue
+        step_id = str(step.step_id or "")
+        operation = plan_step_operation_identity(step.model_dump())
+
+        def _execute_step() -> dict[str, Any]:
+            nonlocal updated, collected_count
+            if purpose == "mcp_discovery":
+                next_state, patch, delta = _run_mcp_discovery_step(
+                    updated,
+                    step=step,
+                    rbac_role=rbac_role,
+                    trace_id=str(trace_id) if trace_id else None,
+                )
+            else:
+                next_state, patch, delta = _run_safe_catalog_step(
+                    updated,
+                    step=step,
+                    execute_safe_catalog_spl=execute_safe_catalog_spl,
+                )
+            updated = next_state
+            collected_count += delta
+            return {"hop_patch": patch, "collected_delta": delta}
+
+        if not plan_id or not step_id:
+            _execute_step()
             continue
 
-        if step.purpose == "safe_catalog_query":
-            template_id = _template_id_from_step(step)
-            dispatch_plan = build_guided_safe_spl_dispatch_plan(template_id)
-            outcome = dispatch_plan.outcome
-            payload = dict(dispatch_plan.payload)
-            delivered = list(dispatch_plan.delivered)
-            if dispatch_plan.ready and execute_safe_catalog_spl is not None:
-                execution, review = execute_safe_catalog_spl(dispatch_plan.spl_validation or {})
-                outcome = str(execution.get("status") or outcome)
-                if outcome == "executed":
-                    outcome = "collected"
-                    if "query_results" not in delivered:
-                        delivered.append("query_results")
-                payload.update(
-                    {
-                        "execution_status": execution.get("status"),
-                        "tool_selection_status": execution.get("tool_selection_status"),
-                        "tool_selection_reason": execution.get("tool_selection_reason"),
-                        "block_reason": execution.get("block_reason"),
-                        "human_review_required": bool(review.get("required")),
-                        "human_review_reason": review.get("reason"),
-                    }
-                )
-            elif dispatch_plan.ready:
-                outcome = "blocked"
-                payload["block_reason"] = "guided_safe_execution_callback_unavailable"
-            elif dispatch_plan.reason:
-                payload["block_reason"] = dispatch_plan.reason
-            patch = record_hop(
-                updated,
-                tool="guided_safe_catalog",
-                delivered=delivered,
-                outcome=outcome,
-                payload=payload,
-            )
-            updated = {**updated, **patch}
-            if outcome == "collected":
-                collected_count += 1
+        contract = operation_contract_for_step(step.model_dump())
+        outcome, stored = run_idempotent_execution_step(
+            resource_plan_id=plan_id,
+            step_id=step_id,
+            operation=operation,
+            handoff_id=handoff_id,
+            handoff_version=handoff_version,
+            side_effecting=contract != "read_only_retryable",
+            operation_contract=contract,
+            lease_owner=str(updated.get("trace_id") or ""),
+            execute=_execute_step,
+            telemetry_state=updated,
+        )
+        if outcome == AcquireOutcome.REPLAY:
+            updated = apply_idempotent_hop_to_state(updated, stored)
+            collected_count += int(stored.get("collected_delta") or 0)
+        elif outcome == AcquireOutcome.REQUIRES_RECONCILIATION:
+            updated = apply_execution_uncertainty_to_state(updated, stored)
 
     return updated, collected_count

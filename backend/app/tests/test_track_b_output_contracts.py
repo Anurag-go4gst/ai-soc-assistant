@@ -53,7 +53,6 @@ def test_alert_summary_live_pipeline_returns_structured_message(monkeypatch: pyt
     from app.config import settings
     from app.schemas.requests import ChatRequest
 
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_t2_answer_shape_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_t2_rag_surfacing_enabled", True)
     response = build_live_chat_response(ChatRequest(message=SUMMARY_QUERY))

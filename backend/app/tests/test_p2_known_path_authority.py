@@ -32,9 +32,12 @@ def _cov_q046_candidate_with_slots() -> dict[str, Any]:
     return candidate
 
 
+_CANONICAL_OKTA_FAILED_LOGIN_SKILL = "spl_generation"
+
+
 def test_allowlisted_known_path_surfaces_operation_authority(monkeypatch: pytest.MonkeyPatch) -> None:
     _enable_pilot_authority(monkeypatch)
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery", disable_deterministic_route_plan=True)
     monkeypatch.setattr(
         "app.api.routes_chat._route_plan_shadow_candidate",
         lambda query: _cov_q046_candidate_with_slots(),
@@ -42,7 +45,7 @@ def test_allowlisted_known_path_surfaces_operation_authority(monkeypatch: pytest
 
     response = chat(ChatRequest(message="Find top 10 users with failed Okta logins in the last 24 hours."))
 
-    assert response.selected_skill == "attack_discovery"
+    assert response.selected_skill == _CANONICAL_OKTA_FAILED_LOGIN_SKILL
     assert response.primary_operation == "aggregate_and_rank"
     assert response.coverage_id == COV_Q046_PILOT_COVERAGE_ID
     assert response.route_authority is not None
@@ -57,7 +60,7 @@ def test_allowlisted_known_path_surfaces_operation_authority(monkeypatch: pytest
 def test_non_allowlisted_known_path_surfaces_fallback_without_applying(monkeypatch: pytest.MonkeyPatch) -> None:
     _enable_pilot_authority(monkeypatch)
     monkeypatch.setattr("app.config.settings.route_authority_operation_coverage_allowlist", "")
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery", disable_deterministic_route_plan=True)
     monkeypatch.setattr(
         "app.api.routes_chat._route_plan_shadow_candidate",
         lambda query: _cov_q046_candidate_with_slots(),
@@ -65,7 +68,7 @@ def test_non_allowlisted_known_path_surfaces_fallback_without_applying(monkeypat
 
     response = chat(ChatRequest(message="Find top 10 users with failed Okta logins in the last 24 hours."))
 
-    assert response.selected_skill == "attack_discovery"
+    assert response.selected_skill == _CANONICAL_OKTA_FAILED_LOGIN_SKILL
     assert response.primary_operation == "aggregate_and_rank"
     assert response.coverage_id == COV_Q046_PILOT_COVERAGE_ID
     assert response.route_authority is not None

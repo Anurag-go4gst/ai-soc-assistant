@@ -39,7 +39,6 @@ def _spl_hil_chat_runtime(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("MCP_GLOBAL_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("MCP_SERVER_MOCK_EXECUTION_ENABLED", "true")
 
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_session_context_enabled", True)
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", True)
     monkeypatch.setattr(settings, "mcp_server_mock_execution_enabled", True)

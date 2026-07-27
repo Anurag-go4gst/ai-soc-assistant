@@ -20,7 +20,6 @@ _FIREWALL_COORDINATED_QUERY = (
 
 @pytest.fixture(autouse=True)
 def _enable_control_plane(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", True)
 
 

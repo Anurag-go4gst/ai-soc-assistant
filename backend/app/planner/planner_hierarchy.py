@@ -33,6 +33,7 @@ class DecisionRecord(BaseModel):
     decision_reason: str
     inputs_ref: list[str] = Field(default_factory=list)
     outputs_ref: list[str] = Field(default_factory=list)
+    payload: dict[str, Any] = Field(default_factory=dict)
 
 
 class SpecialistDelegation(BaseModel):

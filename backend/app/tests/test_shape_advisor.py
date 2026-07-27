@@ -18,7 +18,6 @@ NEGATIVE_LIVE = "Search our logs for CVE-2024-3400 exploitation attempts"
 
 @pytest.fixture(autouse=True)
 def _settings(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", True)

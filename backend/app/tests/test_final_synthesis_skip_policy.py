@@ -25,7 +25,6 @@ def _run(monkeypatch: pytest.MonkeyPatch, *, lifecycle: dict, client: _StubClien
         ("ai_soc_llm_final_synthesis_enabled", True),
         ("ai_soc_llm_live_synthesis_enabled", True),
         ("ai_soc_llm_require_context_sufficiency", True),
-        ("control_plane_enabled", False),
     ):
         monkeypatch.setattr(f"app.synthesis.lab_runner.settings.{attr}", value)
     return run_governed_synthesis_lab(

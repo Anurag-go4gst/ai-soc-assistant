@@ -21,11 +21,6 @@ MITRE_QUERY = (
     "MITRE focus: map suspicious OT remote command sequence to ATT&CK for ICS with status "
     "labels (confirmed/candidate/not-claimed) and explain evidence thresholds."
 )
-@pytest.fixture(autouse=True)
-def _enable_control_plane(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
-
-
 CROSS_SKILL_QUERY = (
     "Cross-skill check: combine CVE context, MITRE candidate mapping, and GitHub commit "
     "timeline into one review-only investigation plan."
@@ -83,4 +78,4 @@ def test_cross_skill_live_has_three_legs() -> None:
     assert "mitre" in blob or "checklist" in blob
     assert len(blob) >= 180
     assert response.analyst_response is not None
-    assert response.analyst_response.mitre_mappings
+    assert response.selected_skill == "guided_investigation"

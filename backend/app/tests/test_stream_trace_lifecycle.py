@@ -146,7 +146,6 @@ def test_resource_planner_chat_path_calls_end_trace(
 ) -> None:
     from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 
-    monkeypatch.setattr(stream_mod.settings, "control_plane_enabled", False)
     monkeypatch.setattr(stream_mod.settings, "langgraph_orchestration_enabled", True)
 
     response = run_chat_via_resource_planner_graph(

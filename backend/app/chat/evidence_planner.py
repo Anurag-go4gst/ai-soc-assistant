@@ -4,9 +4,31 @@ from typing import Any
 
 from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.contracts.intent_classification import IntentClassification
+
+_VALID_FAMILIES: frozenset[str] = frozenset(
+    {
+        "policy_knowledge",
+        "live_investigation",
+        "spl_generation_only",
+        "spl_generation_and_run",
+        "hybrid_investigation_plus_policy",
+        "hybrid_alert_review",
+        "mitre_mapping",
+        "mitre_explanation",
+        "knowledge_only",
+        "clarification_required",
+        "sop_or_playbook",
+        "guided_investigation",
+        "alert_summary",
+        "github_investigation",
+        "cve_investigation",
+        "reference_knowledge",
+    }
+)
 from app.chat.query_signals import is_live_data_request
 from app.chat.spl_authoring_intent import is_universal_utility_spl_authoring
 from app.config import settings
+from app.planner.resource_plan_authority import apply_test_resource_plan_shadow_if_allowed
 from app.chat.planning_decision import _apply_completeness_floor
 from app.chat.multi_leg_evidence import compose_multi_leg_evidence
 from app.chat.t2_review_checklist import query_resolves_t2_source_profile
@@ -58,10 +80,32 @@ def plan_evidence(
     `user_query` is accepted solely for guided_investigation signal-class resolution
     so the checklist/investigation_workflow carry query-specific items.
     """
+    intent_raw = (
+        intent_classification
+        if isinstance(intent_classification, dict)
+        else intent_classification.model_dump()
+    )
+    family_raw = str(intent_raw.get("intent_family") or "")
+    if family_raw not in _VALID_FAMILIES:
+        return EvidencePlan(
+            answer_mode="clarification",
+            rag_phase="rag_only",
+            needs_rag=False,
+            needs_spl=False,
+            needs_mcp=False,
+            needs_mitre=False,
+            spl_allowed=False,
+            mcp_allowed=False,
+            policy_context_required=False,
+            policy_context_recommended=False,
+            requires_hil=True,
+            action_mode="hil_required",
+            reasons=["unknown_intent_family_fail_closed"],
+        )
     intent = (
         intent_classification
         if isinstance(intent_classification, IntentClassification)
-        else IntentClassification.model_validate(intent_classification)
+        else IntentClassification.model_validate(intent_raw)
     )
     family = intent.intent_family
     selected_use_case_id = _use_case_id(selected_use_case, query_understanding, query_to_intent, routed)
@@ -94,7 +138,7 @@ def plan_evidence(
             query_to_intent=query_to_intent,
             query_understanding=query_understanding,
         )
-        return _attach_resource_plan(
+        return apply_test_resource_plan_shadow_if_allowed(
             enriched,
             intent=intent,
             use_case_id=selected_use_case_id,
@@ -265,7 +309,7 @@ def plan_evidence(
 
     if family == "guided_investigation":
         hybrid_enabled = bool(
-            settings.control_plane_enabled
+            True
             and settings.ai_soc_guided_hybrid_investigation_enabled
         )
         # Resolve signal-class-specific hypotheses and evidence items from the query.
@@ -449,33 +493,45 @@ def plan_evidence(
                 )
             )
         live_data_request = is_live_data_request(signals if isinstance(signals, dict) else {})
-        # MCP eligibility on all tiers (2026-07 directive), gated on control_plane_enabled
-        # so legacy/flag-off behavior stays byte-identical (matches every other
-        # control-plane-gated branch in this module). When on: a live-data ask is
-        # architecturally eligible for search the same way spl_generation_and_run/
-        # live_investigation already are — real gating (validated normalized_spl,
-        # tool selection, per-call HIL confirmation) happens downstream at
-        # evaluate_mcp_execution. This flag never marks the search validated/executed.
-        mcp_eligible = live_data_request and settings.control_plane_enabled
+        # Least privilege for out-of-catalogue work. The 2026-07 all-tier MCP grant was
+        # written as `live_data_request and control_plane_enabled`; canonical cutover
+        # was removed at the canonical cutover the conjunct collapsed to `and True`,
+        # silently widening the grant so every out-of-catalogue live-data ask reported
+        # mcp_allowed=true. Catalogue-matched asks (T1-T3) keep the grant they already had;
+        # out-of-catalogue asks do not get authorisation from a routing default.
+        # ``mcp_available`` still discloses that the system *could* search live data, so
+        # capability stays visible while authorisation stays with the final planner and
+        # governance for a specific committed ResourcePlan. Downstream gating (validated
+        # normalized_spl, tool selection, per-call HIL confirmation at
+        # evaluate_mcp_execution) is unchanged and still applies on top.
+        from app.chat.lane_router import is_known_catalogue_match
+
+        catalogue_matched = is_known_catalogue_match(
+            str(getattr(query_understanding, "deterministic_match_path", "") or "")
+        )
+        mcp_authorised = live_data_request and catalogue_matched
         return with_enrichment(
             EvidencePlan(
                 answer_mode="live_investigation",
                 rag_phase="post_mcp",
                 needs_rag=False,
                 needs_spl=True,
+                # ``needs_mcp`` stays descriptive (the answer wants live data);
+                # ``mcp_allowed`` is the authorisation and the only execution gate.
                 needs_mcp=live_data_request,
                 needs_mitre=False,
                 spl_allowed=True,
-                mcp_allowed=mcp_eligible,
+                mcp_allowed=mcp_authorised,
+                mcp_available=live_data_request,
                 policy_context_required=False,
                 policy_context_recommended=False,
-                discovery_allowed=True if settings.control_plane_enabled else None,
+                discovery_allowed=True if True else None,
                 reasons=[
                     "spl_artifact_requested",
                     *(
                         ["live_data_request_mcp_search_eligible_pending_validation"]
-                        if mcp_eligible
-                        else ["live_data_request_mcp_needed_but_not_allowed"]
+                        if mcp_authorised
+                        else ["live_data_available_mcp_not_authorised_for_out_of_catalogue"]
                         if live_data_request
                         else []
                     ),
@@ -577,21 +633,40 @@ def plan_evidence(
             )
         )
 
+    if family == "live_investigation":
+        return with_enrichment(
+            EvidencePlan(
+                answer_mode="live_investigation",
+                rag_phase="post_mcp",
+                needs_rag=False,
+                needs_spl=True,
+                needs_mcp=True,
+                needs_mitre=False,
+                spl_allowed=True,
+                mcp_allowed=True,
+                policy_context_required=False,
+                policy_context_recommended=False,
+                requires_hil=intent.requires_hil,
+                action_mode=intent.action_mode or "recommend_only",
+                reasons=["live_investigation"],
+            )
+        )
+
     return with_enrichment(
         EvidencePlan(
-            answer_mode="live_investigation",
-            rag_phase="post_mcp",
+            answer_mode="clarification",
+            rag_phase="rag_only",
             needs_rag=False,
-            needs_spl=True,
-            needs_mcp=True,
+            needs_spl=False,
+            needs_mcp=False,
             needs_mitre=False,
-            spl_allowed=True,
-            mcp_allowed=True,
+            spl_allowed=False,
+            mcp_allowed=False,
             policy_context_required=False,
             policy_context_recommended=False,
-            requires_hil=intent.requires_hil,
-            action_mode=intent.action_mode or "recommend_only",
-            reasons=["live_investigation"],
+            requires_hil=True,
+            action_mode="hil_required",
+            reasons=["unknown_intent_family_fail_closed"],
         )
     )
 
@@ -770,50 +845,6 @@ def _merge_pack_list_field(
         return
     current = [str(item) for item in getattr(plan, plan_field, []) or [] if str(item).strip()]
     updates[plan_field] = list(dict.fromkeys([*current, *incoming]))
-
-
-def _attach_resource_plan(
-    plan: EvidencePlan,
-    *,
-    intent: IntentClassification,
-    use_case_id: str | None,
-    query_understanding: Any,
-    routed_skill: str | None = None,
-) -> EvidencePlan:
-    """Attach the composed step plan (WS0 T0.3). Booleans stay authoritative;
-    composition failure must never break evidence planning."""
-    from app.config import settings
-    from app.planner.composer import compose_resource_plan
-
-    if (
-        plan.answer_mode == "guided_investigation"
-        and settings.control_plane_enabled
-        and settings.ai_soc_guided_hybrid_investigation_enabled
-    ):
-        return plan
-
-    match_path = getattr(query_understanding, "deterministic_match_path", None)
-    try:
-        composed = compose_resource_plan(
-            plan,
-            intent_family=intent.intent_family,
-            use_case_id=use_case_id or plan.use_case_id,
-            match_path=match_path,
-            skill_id=routed_skill,
-        )
-    except Exception:
-        return plan
-    composed_payload = composed.model_dump()
-    if plan.evidence_legs:
-        provenance = dict(composed_payload.get("provenance") or {})
-        provenance.update(
-            {
-                "evidence_legs": list(plan.evidence_legs),
-                "correlation": dict(plan.correlation or {}),
-            }
-        )
-        composed_payload["provenance"] = provenance
-    return plan.model_copy(update={"resource_plan": composed_payload})
 
 
 def _apply_curated_enrichment(

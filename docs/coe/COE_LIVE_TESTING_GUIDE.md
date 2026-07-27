@@ -31,7 +31,7 @@ This guide explains how to turn on **every supported lever** for COE validation,
 | Layer | What you want | What `.env` can do today | What code still gates |
 |-------|----------------|---------------------------|------------------------|
 | **1 — EC parity in `/chat`** | Same analyst cards as Experience Center | `AI_SOC_LIVE_CHAT_EC_PARITY_ENABLED=true` | Only when user text **exactly** matches a scenario query (normalized). Use picker text or copy query from `/demo/scenarios`. |
-| **2 — Mock MCP on live pipeline** | Generate SPL + run → table row | `MCP_MODE=mock`, both execution flags `true`, `CONTROL_PLANE_ENABLED=true` | Mock heuristic rows, not COE Splunk events. No Foundation-sec fixture narrative unless layer 1 matches. |
+| **2 — Mock MCP on live pipeline** | Generate SPL + run → table row | `MCP_MODE=mock`, both execution flags `true` | Mock heuristic rows, not COE Splunk events. No Foundation-sec fixture narrative unless layer 1 matches. |
 | **3 — Real Splunk MCP + governed live narration** | Query real `pgcil_soc` data + Foundation-Sec prose | Set `MCP_MODE=registry`, Splunk URL/token, per-server allowlist/execution flags, and synthesis flags | Adapter exists, but execution still requires approved SPL, allowlisted `splunk_run_query`, global + server execution flags, per-call analyst confirmation, and COE schema smoke. LLM prose is non-authoritative and falls back to deterministic text. |
 
 **Setting every flag to `true` is not a safe layer-3 rollout.** Real execution also needs COE credentials, a reviewed tool allowlist, schema smoke, and an analyst confirmation on the exact normalized SPL.
@@ -42,7 +42,6 @@ This guide explains how to turn on **every supported lever** for COE validation,
 
 ```env
 AI_SOC_LIVE_CHAT_EC_PARITY_ENABLED=true
-CONTROL_PLANE_ENABLED=true
 ```
 
 Paste the **exact** scenario query from the picker, e.g.:
@@ -58,7 +57,7 @@ Use `env/profiles/coe.env.example` **with** `AI_SOC_LIVE_CHAT_EC_PARITY_ENABLED=
 
 Requires:
 
-- `CONTROL_PLANE_ENABLED=true`
+- Canonical planning is unconditional (no env toggle).
 - `MCP_GLOBAL_EXECUTION_ENABLED=true`
 - `MCP_SERVER_MOCK_EXECUTION_ENABLED=true`
 - `MCP_MODE=mock`
@@ -88,7 +87,7 @@ Configure `AI_SOC_LLM_*` endpoints for sidecars (route-plan, MITRE candidates, e
 | Goal | Key variables |
 |------|----------------|
 | EC = live chat | `AI_SOC_LIVE_CHAT_EC_PARITY_ENABLED=true` |
-| Intent / MCP policy | `CONTROL_PLANE_ENABLED=true` |
+| Intent / MCP policy | canonical planning always on |
 | Mock execute SPL | `MCP_MODE=mock`, `MCP_GLOBAL_EXECUTION_ENABLED=true`, `MCP_SERVER_MOCK_EXECUTION_ENABLED=true` |
 | Real Splunk search | `MCP_MODE=registry`, `MCP_SERVER_SPLUNK_SOC_*`, `SPLUNK_MCP_BASE_URL`, `SPLUNK_MCP_TOKEN`, execution flags, per-call confirmation |
 | SOC-KB in trace | `SOC_KB_RETRIEVAL_ENABLED=true`, `RAG_MODE=mock` |

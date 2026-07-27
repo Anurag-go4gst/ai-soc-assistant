@@ -24,7 +24,7 @@ from app.evals.langgraph_dual_parity import (
     validate_check_report,
     write_dual_parity_outputs,
 )
-from app.graph.planner_led_shadow_graph import governance_snapshot_from_response
+from app.evals.response_snapshot import governance_snapshot_from_response
 from app.schemas.requests import ChatRequest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -159,7 +159,9 @@ def test_check_passes_on_current_subset_baseline() -> None:
     assert not result.failures
 
 
-def test_cli_check_passes_on_subset() -> None:
+def test_cli_check_passes_on_subset(tmp_path: Path) -> None:
+    import os
+
     proc = subprocess.run(
         [
             sys.executable,
@@ -168,13 +170,20 @@ def test_cli_check_passes_on_subset() -> None:
             "--limit",
             "8",
             "--skip-105",
+            "--json-out",
+            str(tmp_path / "report.json"),
+            "--md-out",
+            str(tmp_path / "summary.md"),
+            "--no-csv",
         ],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
         check=False,
+        env={**os.environ, "AI_SOC_DISABLE_DOTENV": "1"},
     )
-    assert proc.returncode == 0, proc.stderr
+    assert proc.returncode == 1, proc.stderr
+    assert "partial run cannot satisfy --check" in proc.stderr
 
 
 def test_emit_details_markdown_contains_graph_trace(tmp_path: Path) -> None:

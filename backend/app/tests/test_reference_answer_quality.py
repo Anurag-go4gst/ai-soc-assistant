@@ -19,7 +19,6 @@ ID_RE = re.compile(r"\b(?:AML\.T\d{4}(?:\.\d{3})?|T\d{4}(?:\.\d{3})?|CVE-\d{4}-\
 @pytest.fixture(autouse=True)
 def _offline_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TELEMETRY_MODE", "none")
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "legacy_selected_skill_authority_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_enabled", False)

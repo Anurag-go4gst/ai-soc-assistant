@@ -20,6 +20,7 @@ from app.routing.intent_to_operation_bridge import (
 )
 from app.schemas.requests import ChatRequest
 from app.tests.support.chat_visible import assert_governed_spl_review_posture
+from app.tests.test_p2_known_path_authority import _CANONICAL_OKTA_FAILED_LOGIN_SKILL
 from app.tests.test_route_plan_stage3k_r2 import _patch_common_chat_dependencies, _valid_route_plan_candidate
 
 
@@ -38,7 +39,11 @@ def test_bridge_status_mapping_unit() -> None:
 
 
 def test_chat_selected_skill_and_message_unchanged_with_bridge(monkeypatch) -> None:
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(
+        monkeypatch,
+        skill="attack_discovery",
+        disable_deterministic_route_plan=True,
+    )
 
     response = chat(ChatRequest(message="Top source IPs by failed login count in the last hour."))
 
@@ -53,12 +58,16 @@ def test_chat_selected_skill_and_message_unchanged_with_bridge(monkeypatch) -> N
 
 
 def test_bridge_compatible_when_primary_skill_observed(monkeypatch) -> None:
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(
+        monkeypatch,
+        skill="attack_discovery",
+        disable_deterministic_route_plan=True,
+    )
     monkeypatch.setattr("app.api.routes_chat._route_plan_shadow_candidate", lambda query: _valid_route_plan_candidate())
 
     response = chat(ChatRequest(message="Find the top 10 users with failed Okta login attempts in the last 24 hours."))
 
-    assert response.selected_skill == "attack_discovery"
+    assert response.selected_skill == _CANONICAL_OKTA_FAILED_LOGIN_SKILL
     bridge = response.route_plan_shadow.intent_operation_bridge
     assert bridge["bridge_status"] == BRIDGE_STATUS_COMPATIBLE
     assert bridge["primary_skill_observed"] == "aggregate_and_rank"
@@ -69,12 +78,16 @@ def test_bridge_incompatible_does_not_change_selected_skill(monkeypatch) -> None
     candidate = _valid_route_plan_candidate()
     candidate["primary_skill"] = "metadata_discovery"
     candidate["operation_type"] = "metadata_query"
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(
+        monkeypatch,
+        skill="attack_discovery",
+        disable_deterministic_route_plan=True,
+    )
     monkeypatch.setattr("app.api.routes_chat._route_plan_shadow_candidate", lambda query: candidate)
 
     response = chat(ChatRequest(message="Find the top 10 users with failed Okta login attempts in the last 24 hours."))
 
-    assert response.selected_skill == "attack_discovery"
+    assert response.selected_skill == _CANONICAL_OKTA_FAILED_LOGIN_SKILL
     bridge = response.route_plan_shadow.intent_operation_bridge
     assert bridge["bridge_status"] == BRIDGE_STATUS_INCOMPATIBLE
     assert bridge["compatible"] is False

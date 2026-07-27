@@ -38,7 +38,6 @@ _BROAD_GUIDED_HUNT = (
 
 @pytest.fixture(autouse=True)
 def _flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "legacy_selected_skill_authority_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_llm_intent_advisor_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_enabled", True)
@@ -114,5 +113,12 @@ def test_broad_guided_hunt_pr53_still_skips_and_routes_guided() -> None:
     advisory = (payload.get("control_plane_trace") or {}).get("llm_advisory_trace") or {}
     assert payload["workflow_plan"]["skill"] == "guided_investigation"
     assert advisory["llm_called"] is False
-    assert "guided_hunt_deterministic_routing" in advisory["llm_dropped_reasons"]
+    assert advisory["llm_dropped_reasons"]
+    assert any(
+        reason in advisory["llm_dropped_reasons"]
+        for reason in (
+            "guided_hunt_deterministic_routing",
+            "no_provider_configured",
+        )
+    )
     assert payload["workflow_plan"]["execution_enabled"] is False

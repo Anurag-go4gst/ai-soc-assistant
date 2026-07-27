@@ -23,8 +23,8 @@ def test_chat_behavior_unchanged_with_route_plan_shadow(monkeypatch) -> None:
     assert response.execution.executed_spl is None
     assert response.route_plan_shadow is not None
     assert response.route_plan_shadow.enabled is True
-    assert response.route_plan_shadow.candidate_available is False
-    assert response.route_plan_shadow.candidate_reason == "live_llm_routing_disabled"
+    assert response.route_plan_shadow.candidate_available is True
+    assert response.route_plan_shadow.candidate_reason == "deterministic_control_plane_route_plan"
     assert response.route_plan_shadow.execution_authorized is False
     assert response.route_plan_shadow.llm_called is False
     assert response.route_plan_shadow.reasoning_model_used is False
@@ -92,12 +92,16 @@ def test_missing_ioc_lookup_visible_in_route_plan_shadow(monkeypatch) -> None:
 
 
 def test_mock_candidate_validation_path_is_observational(monkeypatch) -> None:
-    _patch_common_chat_dependencies(monkeypatch, skill="knowledge_recall")
+    _patch_common_chat_dependencies(
+        monkeypatch,
+        skill="spl_generation",
+        disable_deterministic_route_plan=True,
+    )
     monkeypatch.setattr("app.api.routes_chat._route_plan_shadow_candidate", lambda query: _valid_route_plan_candidate())
 
     response = chat(ChatRequest(message="Find the top 10 users with failed Okta login attempts in the last 24 hours."))
 
-    assert response.candidate_spl is None
+    assert response.candidate_spl is not None
     assert response.route_plan_shadow is not None
     assert response.route_plan_shadow.candidate_available is True
     assert response.route_plan_shadow.validation_result == {"is_valid": True}
@@ -135,13 +139,23 @@ def test_experience_center_route_plan_shadow_unchanged() -> None:
     assert response.evidence_origin == "coe_synthetic_fixture"
 
 
-def _patch_common_chat_dependencies(monkeypatch, *, skill: str) -> None:
+def _patch_common_chat_dependencies(
+    monkeypatch,
+    *,
+    skill: str,
+    disable_deterministic_route_plan: bool = False,
+) -> None:
     telemetry = FakeTelemetry()
     monkeypatch.setattr("app.api.routes_chat.route_skill", lambda query, trace_id, **kwargs: _routed(skill))
     monkeypatch.setattr("app.api.routes_chat.plan_workflow", fake_plan_workflow)
     monkeypatch.setattr("app.api.routes_chat.get_telemetry_connector", lambda: telemetry)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: telemetry)
     monkeypatch.setattr("app.routing.operation_audit_store.get_telemetry_connector", lambda: telemetry)
+    if disable_deterministic_route_plan:
+        monkeypatch.setattr(
+            "app.chat.pipeline.build_deterministic_route_plan_candidate",
+            lambda **kwargs: None,
+        )
 
 
 def _routed(skill: str) -> dict[str, Any]:
@@ -186,6 +200,15 @@ class FakeTelemetry:
         self.steps: list[dict[str, Any]] = []
         self.spl_validations: list[dict[str, Any]] = []
         self.mcp_executions: list[dict[str, Any]] = []
+
+    def start_trace(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    def end_trace(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    def reap_stale_running_runs(self, *args: Any, **kwargs: Any) -> None:
+        return None
 
     def record_step(self, trace_id: str, step_name: str, status: str, **fields: Any) -> None:
         self.steps.append({"trace_id": trace_id, "step_name": step_name, "status": status, **fields})

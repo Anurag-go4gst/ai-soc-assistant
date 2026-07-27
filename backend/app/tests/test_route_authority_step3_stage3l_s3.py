@@ -17,6 +17,7 @@ from app.routing.route_authority_gate import (
     evaluate_route_authority,
 )
 from app.schemas.requests import ChatRequest
+from app.tests.test_p2_known_path_authority import _CANONICAL_OKTA_FAILED_LOGIN_SKILL
 from app.tests.test_route_plan_stage3k_r2 import (
     _patch_common_chat_dependencies,
     _valid_route_plan_candidate,
@@ -50,7 +51,7 @@ def test_happy_path_authority_applied_only_with_explicit_lab_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _enable_pilot_authority(monkeypatch)
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery", disable_deterministic_route_plan=True)
     monkeypatch.setattr(
         "app.api.routes_chat._route_plan_shadow_candidate",
         lambda query: _cov_q046_candidate_with_slots(),
@@ -60,7 +61,7 @@ def test_happy_path_authority_applied_only_with_explicit_lab_config(
         ChatRequest(message="Find top 10 users with failed Okta logins in the last 24 hours.")
     )
 
-    assert response.selected_skill == "attack_discovery"
+    assert response.selected_skill == _CANONICAL_OKTA_FAILED_LOGIN_SKILL
     compare = response.route_plan_shadow.route_authority_compare
     assert compare["coverage_id_resolved"] == COV_Q046_PILOT_COVERAGE_ID
     assert compare["operation_authoritative_applied"] is True
@@ -79,7 +80,7 @@ def test_missing_threshold_ref_never_defaults_authority(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _enable_pilot_authority(monkeypatch)
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery", disable_deterministic_route_plan=True)
     monkeypatch.setattr(
         "app.api.routes_chat._route_plan_shadow_candidate",
         lambda query: _valid_route_plan_candidate(),
@@ -89,7 +90,7 @@ def test_missing_threshold_ref_never_defaults_authority(
         ChatRequest(message="Find top 10 users with failed Okta logins in the last 24 hours.")
     )
 
-    assert response.selected_skill == "attack_discovery"
+    assert response.selected_skill == _CANONICAL_OKTA_FAILED_LOGIN_SKILL
     compare = response.route_plan_shadow.route_authority_compare
     assert compare["coverage_id_resolved"] == COV_Q046_PILOT_COVERAGE_ID
     assert compare["operation_authoritative_applied"] is False
@@ -104,7 +105,7 @@ def test_other_coverage_id_not_implicitly_upgraded(monkeypatch: pytest.MonkeyPat
     candidate["pattern_id"] = "top_outbound_source_ips"
     candidate["parameters"]["threshold_ref"] = {"policy_id": "x"}
     candidate["parameters"]["time_window"] = "last_24_hours"
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery", disable_deterministic_route_plan=True)
     monkeypatch.setattr("app.api.routes_chat._route_plan_shadow_candidate", lambda query: candidate)
 
     response = chat(ChatRequest(message="Which source IPs generated the most outbound connections?"))
@@ -120,7 +121,7 @@ def test_default_mode_global_kill_switch_trace(monkeypatch: pytest.MonkeyPatch) 
         "app.config.settings.route_authority_operation_authoritative_enabled",
         False,
     )
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery", disable_deterministic_route_plan=True)
     monkeypatch.setattr(
         "app.api.routes_chat._route_plan_shadow_candidate",
         lambda query: _cov_q046_candidate_with_slots(),

@@ -536,7 +536,6 @@
         "ai_soc_llm_mode": "local",
         "composer_attempted": false,
         "composer_is_enabled": true,
-        "control_plane_enabled": true,
         "expected_latency_hint": "On-prem single-slot model: live narration can take ~60s; the wait is expected. Facts stay deterministic and fall back if the model is slow.",
         "llm_blocked_reason": "guidance_only_deterministic_envelope",
         "llm_composer_enabled": true,

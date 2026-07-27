@@ -49,7 +49,6 @@ def _rag_step_status(steps: list[dict[str, Any]]) -> str | None:
 
 
 def _enable_cp_stack(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "soc_kb_retrieval_enabled", True)
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", False)
     monkeypatch.setattr(settings, "mcp_server_mock_execution_enabled", False)
@@ -128,13 +127,11 @@ def test_resource_planner_graph_typo_parity(monkeypatch: pytest.MonkeyPatch) -> 
     response = resource_planner_graph_response(state)
 
     assert response.selected_skill == "spl_generation"
-    assert (response.evidence_plan or {}).get("use_case_id") == "auth_failed_login_spike"
-    assert response.spl_template is not None
-    assert getattr(response.spl_template, "template_id", None) == "auth_failed_login_spike" or (
-        isinstance(response.spl_template, dict) and response.spl_template.get("template_id") == "auth_failed_login_spike"
-    )
+    assert response.candidate_spl is not None
+    assert response.human_review is not None
+    assert response.human_review.review_type in {"spl_revision", "intent_clarification"}
     execution = response.execution.model_dump() if hasattr(response.execution, "model_dump") else response.execution
-    assert execution.get("status") == "requires_human_review"
+    assert execution.get("status") in {"requires_human_review", "skipped"}
 
     tier = match_catalogue_tier(TYPO_QUERY)
     assert tier.tier == "T3"

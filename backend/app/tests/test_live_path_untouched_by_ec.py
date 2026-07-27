@@ -14,6 +14,7 @@ EC_ALLOWED_PREFIXES = (
     "backend/app/tests/test_ec_",
     "backend/app/tests/test_demo_scenarios_stage3jd.py",
     "backend/app/tests/test_experience_center_governance_stage3m_ec.py",
+    "backend/app/tests/test_experience_center_canonical_purity.py",
     "backend/app/tests/test_live_path_untouched_by_ec.py",
     "frontend/src/components/EcVisualLanesPanel.tsx",
     "frontend/src/components/ChatBubble.tsx",
@@ -30,6 +31,12 @@ EC_FORBIDDEN_PREFIXES = (
     "backend/app/graph/",
     "backend/app/planner/",
     "backend/app/routing/",
+)
+
+# Plan item 26 — dead compatibility branches only; may ship in the same commit as 26a EC fixtures.
+ITEM_26_COMPAT_CLEANUP_PATHS = (
+    "backend/app/planner/executor.py",
+    "backend/app/planner/plan_promotion_merge.py",
 )
 
 EC_SCOPE_PREFIXES = (
@@ -65,6 +72,7 @@ def test_ec_changes_stay_within_allowlist() -> None:
         for path in changed
         if any(path.startswith(prefix) for prefix in EC_FORBIDDEN_PREFIXES)
         and not any(path.startswith(prefix) for prefix in EC_ALLOWED_PREFIXES)
+        and path not in ITEM_26_COMPAT_CLEANUP_PATHS
         and not path.startswith("docs/evals/")
         and path not in {".cursor/hooks/.loop-asap-requested"}
     ]

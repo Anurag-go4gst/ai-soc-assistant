@@ -12,6 +12,7 @@ from app.chat.pipeline import graph_node_evidence_planning
 from app.config import settings
 from app.query_understanding.parser import understand_query
 from app.schemas.requests import ChatRequest
+from app.tests.support.legacy_planning_harness import with_legacy_langgraph_harness
 
 
 def _dispatch_for_query(query: str, *, routed_skill: str = "spl_generation"):
@@ -78,9 +79,10 @@ def test_spl_authoring_with_index_skips_pre_mcp_but_includes_spl_chain() -> None
         PipelineStage.workflow_spl,
         PipelineStage.spl_postprocessor,
         PipelineStage.spl_source_resolve,
+        PipelineStage.mcp_execution,
     ]
     flags = project_dispatch_flags(state.decision)
-    assert flags["run_mcp_execution"] is False
+    assert flags["run_mcp_execution"] is True
     assert flags["run_pre_spl_mcp_discovery"] is False
 
 
@@ -88,8 +90,7 @@ def test_live_data_spl_authoring_schedules_pre_mcp_not_execution() -> None:
     state = _dispatch_for_query("Generate SPL for failed logins")
     assert state.decision.request_mode == "spl_authoring"
     assert PipelineStage.pre_spl_mcp_discovery in state.decision.stage_schedule
-    assert PipelineStage.mcp_execution not in state.decision.stage_schedule
-    assert PipelineStage.pre_spl_mcp_discovery in state.decision.stage_schedule
+    assert PipelineStage.mcp_execution in state.decision.stage_schedule
 
 
 def test_spl_plan_compiler_hop_when_fallback_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -101,7 +102,6 @@ def test_spl_plan_compiler_hop_when_fallback_enabled(monkeypatch: pytest.MonkeyP
 def test_cp_off_synthetic_evidence_plan_builds_dispatch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", True)
     query = "Generate SPL for index=scada_perf by rtu_id over last 24h"
     qu = understand_query(query)
@@ -111,14 +111,16 @@ def test_cp_off_synthetic_evidence_plan_builds_dispatch(
         routed_skill="spl_generation",
     )
     state = graph_node_evidence_planning(
-        {
-            "request": ChatRequest(message=query),
-            "query_understanding": qu,
-            "routed": {"skill": "spl_generation"},
-            "query_to_intent": q2i.model_dump(mode="json"),
-            "intent_classification": q2i.intent_classification.model_dump(mode="json"),
-            "selected_use_case": None,
-        }
+        with_legacy_langgraph_harness(
+            {
+                "request": ChatRequest(message=query),
+                "query_understanding": qu,
+                "routed": {"skill": "spl_generation"},
+                "query_to_intent": q2i.model_dump(mode="json"),
+                "intent_classification": q2i.intent_classification.model_dump(mode="json"),
+                "selected_use_case": None,
+            }
+        )
     )
     dispatch = state["pipeline_dispatch"]["decision"]
     assert dispatch["request_mode"] == "spl_authoring"
@@ -126,6 +128,7 @@ def test_cp_off_synthetic_evidence_plan_builds_dispatch(
         PipelineStage.workflow_spl.value,
         PipelineStage.spl_postprocessor.value,
         PipelineStage.spl_source_resolve.value,
+        PipelineStage.mcp_execution.value,
     ]
 
 

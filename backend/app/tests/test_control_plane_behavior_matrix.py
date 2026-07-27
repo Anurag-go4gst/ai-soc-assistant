@@ -19,7 +19,6 @@ from app.schemas.requests import ChatRequest
 
 @pytest.fixture(autouse=True)
 def _enable_control_plane(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.config.settings.spl_allowed_sourcetypes", "pgcil:auth,aws:cloudtrail")
 
 

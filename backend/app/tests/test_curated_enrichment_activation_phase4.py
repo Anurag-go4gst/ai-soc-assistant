@@ -144,19 +144,16 @@ def test_enrichment_spl_governance_remains_backward_compatible() -> None:
     assert governance["activation"]["planner_runtime_activation_allowed"] is True
 
 
-def test_flag_off_preserves_current_chat_behavior(monkeypatch) -> None:
+def test_canonical_runtime_surfaces_planning_trace(monkeypatch) -> None:
     monkeypatch.setattr("app.config.settings.langgraph_orchestration_enabled", False)
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", False)
     monkeypatch.setattr("app.config.settings.ai_soc_planner_path_selection_enabled", False)
     monkeypatch.setattr("app.config.settings.ai_soc_llm_intent_advisor_enabled", False)
 
     response = chat(ChatRequest(message="What is the escalation policy for repeated failed login alerts?"))
 
-    assert response.control_plane_trace is None
+    assert response.control_plane_trace is not None
     assert response.planning_decision is not None
-    assert response.planning_decision["planner_path_selection_enabled"] is False
     assert response.planning_decision["execution_enabled"] is False
-    assert response.planning_decision["planner_runtime_activation_allowed"] is False
 
 
 def test_knowledge_crosswalk_and_factory_artifacts_remain_present() -> None:

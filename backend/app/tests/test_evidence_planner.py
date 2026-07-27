@@ -33,11 +33,11 @@ def test_out_of_registry_live_data_allows_spl_not_mcp() -> None:
 def test_spl_generation_allows_spl_but_not_mcp() -> None:
     plan = _plan("Generate SPL for failed logins")
     assert plan.needs_spl is True
-    # Live-data SPL generation marks MCP as needed for a live answer, but never allowed.
     assert plan.needs_mcp is True
     assert plan.spl_allowed is True
-    assert plan.mcp_allowed is False
-    assert "live_data_request_mcp_needed_but_not_allowed" in plan.reasons
+    # Catalogue-matched SPL generation grants MCP search eligibility pending validation.
+    assert plan.mcp_allowed is True
+    assert "live_data_request_mcp_search_eligible_pending_validation" in plan.reasons
 
 
 def test_hybrid_recommends_policy_context_and_allows_live_path() -> None:

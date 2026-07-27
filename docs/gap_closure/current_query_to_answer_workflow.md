@@ -4,7 +4,7 @@ Verified state: `master` through Chat Control Plane Phase 10. This document desc
 
 ## Control Plane Rollout Gate
 
-`CONTROL_PLANE_ENABLED=false` remains the production-safe default. With the flag off, `/chat` keeps the legacy skill/SPL/MCP/RAG behavior and the baseline xfail anchors remain unchanged. With `CONTROL_PLANE_ENABLED=true`, the new control plane runs:
+Canonical planning runs unconditionally on `/chat`. The historical env gate `CONTROL_PLANE_ENABLED` was removed (non-runtime). The control plane path runs:
 
 ```text
 User query
@@ -217,7 +217,7 @@ There is no direct RAG-to-LLM path. Draft/unapproved knowledge remains excluded 
 
 ## 9. MITRE
 
-MITRE mapping has deterministic and LLM-assisted layers. With `CONTROL_PLANE_ENABLED=true`, analyst-visible MITRE output is governed by `mitre_decision`, not raw registry metadata.
+MITRE mapping has deterministic and LLM-assisted layers. With canonical planning on, analyst-visible MITRE output is governed by `mitre_decision`, not raw registry metadata.
 
 | Layer | Authority |
 |-------|-----------|

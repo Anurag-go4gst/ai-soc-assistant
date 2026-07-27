@@ -343,7 +343,7 @@ def _resolve_path_type(
         # Command-shaped SPL execution/authoring asks land on the canonical
         # spl_and_run / spl_authoring dispatch spine (danger-tiered MCP command
         # plan), not the generic_soc_guidance fallback. This must hold even when
-        # evidence_plan is None (control_plane_enabled=false default posture),
+        # evidence_plan is None (clarification / non-planned outcome posture),
         # since intent_family alone (spl_generation_and_run/spl_generation_only)
         # has no dedicated branch below and plan.get("needs_spl") is unavailable.
         return "spl_review"

@@ -17,6 +17,7 @@ from app.connectors.mcp.mcp_tool_chronology import deterministic_default_chronol
 from app.cve.requirements import cve_requirements_present
 from app.connectors.mcp.splunk_mcp_readiness import plan_splunk_discovery_calls
 from app.planner.resource_plan import PlanStep, ResourcePlan
+from app.planner.resource_plan_authority import assert_resource_plan_authority
 from app.planner.resource_registry import (
     ResourceRegistry,
     is_composer_dispatchable,
@@ -41,6 +42,7 @@ def compose_resource_plan(
     skill_id: str | None = None,
 ) -> ResourcePlan:
     """Translate a decided EvidencePlan into an ordered, fallback-aware plan."""
+    assert_resource_plan_authority(operation="compose_resource_plan")
     registry = registry or load_resource_registry()
     steps: list[PlanStep] = []
     contract = _skill_contract(skill_id, registry)
@@ -181,6 +183,7 @@ def compose_guided_resource_plan(
     registry: ResourceRegistry | None = None,
 ) -> ResourcePlan:
     """Map a validated InvestigationPlan to a guided-only ResourcePlan."""
+    assert_resource_plan_authority(operation="compose_guided_resource_plan")
     registry = registry or load_resource_registry()
     steps: list[PlanStep] = []
 

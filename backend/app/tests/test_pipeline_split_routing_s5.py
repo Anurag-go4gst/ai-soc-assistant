@@ -25,7 +25,6 @@ ALT_QUERY = (
 
 @pytest.fixture(autouse=True)
 def _flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_live_chat_ec_parity_enabled", False)
     monkeypatch.setattr(settings, "langgraph_orchestration_enabled", False)
     monkeypatch.setattr(settings, "telemetry_mode", "none")

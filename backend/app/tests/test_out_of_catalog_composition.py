@@ -37,7 +37,6 @@ class _StubClient:
 
 
 def _enable_composer(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", True)
 

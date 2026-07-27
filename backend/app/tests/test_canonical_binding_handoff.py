@@ -22,11 +22,6 @@ _LOOKUP_QUERY = (
 )
 
 
-@pytest.fixture(autouse=True)
-def _control_plane_on(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
-
-
 def test_canonical_binding_preserves_question_ref_for_weak_exact() -> None:
     qu = understand_query(_Q046)
     q2i = build_query_to_intent(query=_Q046, query_understanding=qu)

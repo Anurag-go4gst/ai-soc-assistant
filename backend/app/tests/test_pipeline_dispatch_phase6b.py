@@ -19,6 +19,7 @@ from app.chat.contracts.pipeline_dispatch import (
 from app.chat.pipeline import advance_dispatch_cursor
 from app.chat.pipeline_dispatch_builder import build_pipeline_dispatch
 from app.planner.executor import DispatchHooks, _legacy_predicate_dispatch_schedule
+from app.tests.support.legacy_planning_harness import with_committed_resource_plan
 
 
 def _plan(**over: Any) -> EvidencePlan:
@@ -85,11 +86,20 @@ def _dispatch_state(
         evidence_plan=plan.model_dump(),
         intent_classification={"intent_family": family},
     )
-    return {
-        "pipeline_dispatch": dispatch.model_dump(mode="json"),
-        "evidence_plan": plan.model_dump(),
-        "planning_decision": {"path_type": "spl_generation"},
-    }
+    return with_committed_resource_plan(
+        {
+            "pipeline_dispatch": dispatch.model_dump(mode="json"),
+            "evidence_plan": plan.model_dump(),
+            "planning_decision": {"path_type": "spl_generation"},
+        },
+        steps=[
+            {
+                "step_id": "spl",
+                "resource_id": "skill:spl_generation",
+                "purpose": "spl_artifact",
+            }
+        ],
+    )
 
 
 @pytest.mark.parametrize(

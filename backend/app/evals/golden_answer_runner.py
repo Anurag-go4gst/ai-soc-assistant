@@ -22,7 +22,6 @@ DEFAULT_REPORT_JSON = REPO_ROOT / "docs" / "evals" / "out" / "golden_answer_eval
 DEFAULT_REPORT_MD = REPO_ROOT / "docs" / "evals" / "out" / "golden_answer_eval.md"
 
 SAFE_ENV_DEFAULTS: dict[str, str] = {
-    "CONTROL_PLANE_ENABLED": "true",
     "MCP_GLOBAL_EXECUTION_ENABLED": "false",
     "MCP_SERVER_MOCK_EXECUTION_ENABLED": "false",
     "AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED": "false",
@@ -30,7 +29,6 @@ SAFE_ENV_DEFAULTS: dict[str, str] = {
 }
 
 SAFE_SETTING_DEFAULTS: dict[str, Any] = {
-    "control_plane_enabled": True,
     "mcp_global_execution_enabled": False,
     "mcp_server_mock_execution_enabled": False,
     "ai_soc_llm_final_synthesis_enabled": False,
@@ -99,8 +97,7 @@ class RunnerSummary:
             "by_category": self.by_category,
             "case_files": self.case_files,
             "constraints": {
-                "control_plane_enabled": True,
-                "mcp_global_execution_enabled": False,
+                            "mcp_global_execution_enabled": False,
                 "mcp_server_mock_execution_enabled": False,
                 "final_synthesis_enabled": False,
                 "answer_guard_enabled": False,
@@ -471,6 +468,10 @@ def assert_case(case: GoldenCase, response: Any) -> CaseResult:
 
 @contextmanager
 def safe_runtime(case: GoldenCase | None = None):
+    from app.chat import canonical_execution_idempotency
+    from app.chat import canonical_handoff_store
+    from app.chat import durable_planning_telemetry
+
     env_overrides = dict(SAFE_ENV_DEFAULTS)
     if case is not None:
         env_overrides.update(case.required_env)
@@ -485,8 +486,20 @@ def safe_runtime(case: GoldenCase | None = None):
         for key, value in SAFE_SETTING_DEFAULTS.items():
             if hasattr(settings, key):
                 setattr(settings, key, value)
+        canonical_handoff_store.use_in_memory_store_for_tests(True)
+        canonical_handoff_store.clear_all_handoffs_for_tests()
+        canonical_execution_idempotency.use_in_memory_store_for_tests(True)
+        canonical_execution_idempotency.clear_in_memory_store_for_tests()
+        durable_planning_telemetry.use_test_event_store(True)
+        durable_planning_telemetry.clear_persisted_events_for_tests()
         yield
     finally:
+        canonical_handoff_store.clear_all_handoffs_for_tests()
+        canonical_handoff_store.use_in_memory_store_for_tests(False)
+        canonical_execution_idempotency.clear_in_memory_store_for_tests()
+        canonical_execution_idempotency.use_in_memory_store_for_tests(False)
+        durable_planning_telemetry.clear_persisted_events_for_tests()
+        durable_planning_telemetry.use_test_event_store(False)
         for key, value in old_env.items():
             if value is None:
                 os.environ.pop(key, None)

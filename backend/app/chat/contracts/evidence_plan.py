@@ -26,7 +26,13 @@ class EvidencePlan(BaseModel):
     needs_mcp: bool
     needs_mitre: bool
     spl_allowed: bool
+    #: Authorisation to reach MCP for THIS plan. Least privilege: default false for
+    #: out-of-catalogue/T2 work. Only the final planner plus governance may raise it,
+    #: and only for a specific committed ResourcePlan.
     mcp_allowed: bool
+    #: Capability disclosure only — "the system could search live data for this ask".
+    #: Never an authorisation, and never consulted by the execution gate.
+    mcp_available: bool | None = None
     policy_context_required: bool
     policy_context_recommended: bool
     requires_hil: bool = False

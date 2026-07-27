@@ -17,7 +17,7 @@ import httpx
 
 from app.config import settings
 from app.evals.soc_clean_answer_eval import response_record_from_chat
-from app.graph.planner_led_shadow_graph import governance_snapshot_from_response
+from app.evals.response_snapshot import governance_snapshot_from_response
 from app.schemas.responses import PlaceholderResponse
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -54,7 +54,6 @@ VALID_CATEGORIES = frozenset(
 )
 
 _PROFILE_FLAG_NAMES = (
-    "control_plane_enabled",
     "ai_soc_planner_path_selection_enabled",
     "ai_soc_curated_enrichment_activation_enabled",
     "ai_soc_planner_mitre_branch_enabled",
@@ -340,9 +339,8 @@ def _composer_runtime_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any] | 
     for row in rows:
         raw = row.get("raw_response")
         composer = _llm_composer_from_raw(raw if isinstance(raw, dict) else None)
-        if composer.get("control_plane_enabled") is not None or composer.get("ai_soc_llm_live_synthesis_enabled") is not None:
+        if composer.get("ai_soc_llm_live_synthesis_enabled") is not None:
             return {
-                "control_plane_enabled": composer.get("control_plane_enabled"),
                 "ai_soc_llm_final_synthesis_enabled": composer.get("ai_soc_llm_final_synthesis_enabled"),
                 "ai_soc_llm_live_synthesis_enabled": composer.get("ai_soc_llm_live_synthesis_enabled"),
                 "ai_soc_llm_answer_guard_enabled": composer.get("ai_soc_llm_answer_guard_enabled"),
@@ -1195,7 +1193,6 @@ def _finalize_result(
     if composer_runtime:
         merged_flags = dict(flag_snapshot.get("flags") or {})
         for key in (
-            "control_plane_enabled",
             "ai_soc_llm_final_synthesis_enabled",
             "ai_soc_llm_live_synthesis_enabled",
             "ai_soc_llm_answer_guard_enabled",

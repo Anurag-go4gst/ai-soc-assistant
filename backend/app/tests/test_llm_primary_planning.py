@@ -43,7 +43,6 @@ def _proposal(steps: list[dict[str, Any]]) -> str:
 
 @pytest.fixture(autouse=True)
 def _enable_primary_planning(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_guided_hybrid_investigation_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_llm_intent_advisor_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", True)
@@ -61,6 +60,7 @@ def _evidence_state(question: str, *, skill: str = "attack_discovery") -> dict[s
         "intent_classification": intent,
         "routed": {"skill": skill, "routing_provenance": {"deterministic_match_path": qu.deterministic_match_path}},
         "llm_turn_budget": TurnLlmBudget(deadline_seconds=300.0, max_sidecar_calls=5),
+        "legacy_langgraph_harness": True,
     }
 
 
@@ -213,6 +213,11 @@ def test_promoted_plan_walk_reaches_added_step(monkeypatch: pytest.MonkeyPatch) 
         _fake_propose(client),
     )
     state = graph_node_evidence_planning(_evidence_state(_OOS))
+    resource_plan = state["evidence_plan"]["resource_plan"]
+    provenance = dict(resource_plan.get("provenance") or {})
+    provenance["committed"] = True
+    resource_plan["provenance"] = provenance
+    state["evidence_plan"]["resource_plan"] = resource_plan
     calls: list[str] = []
     execute_plan_dispatch(state, _hooks(calls))
     assert "workflow_spl" in calls or "rag_early" in calls

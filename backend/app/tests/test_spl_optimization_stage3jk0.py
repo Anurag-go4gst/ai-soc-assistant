@@ -74,7 +74,6 @@ def test_provider_pipeline_returns_optimized_candidate_and_normalized_spl(monkey
         confidence=0.8,
     )
 
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_spl_template_governance_enabled", False)
     monkeypatch.setattr(chat_pipeline, "_runtime_spl_governance", lambda _use_case_id: None)
     monkeypatch.setattr(chat_pipeline, "_should_use_llm_spl_failover", lambda _skill, **_: False)
@@ -110,8 +109,8 @@ def test_provider_pipeline_returns_optimized_candidate_and_normalized_spl(monkey
         trace_id="optimized-provider",
         skill="spl_generation",
         user_query="failed login spike by user",
-        template_id=None,
-        use_case_id=None,
+        template_id="auth_failed_login_spike",
+        use_case_id="auth_failed_login_spike",
     )
 
     assert candidate["candidate_spl"] == optimized
@@ -138,7 +137,6 @@ def test_provider_pipeline_validation_payload_surfaces_optimization_steps(monkey
         confidence=0.8,
     )
 
-    monkeypatch.setattr(settings, "control_plane_enabled", False)
     monkeypatch.setattr(settings, "ai_soc_spl_template_governance_enabled", False)
     monkeypatch.setattr(chat_pipeline, "_runtime_spl_governance", lambda _use_case_id: None)
     monkeypatch.setattr(chat_pipeline, "_should_use_llm_spl_failover", lambda _skill, **_: False)
@@ -177,8 +175,8 @@ def test_provider_pipeline_validation_payload_surfaces_optimization_steps(monkey
         trace_id="optimized-provider-steps",
         skill="spl_generation",
         user_query="failed login spike by user",
-        template_id=None,
-        use_case_id=None,
+        template_id="auth_failed_login_spike",
+        use_case_id="auth_failed_login_spike",
     )
 
     assert validation["spl_optimization_steps"] == ["drop_table_before_stats"]

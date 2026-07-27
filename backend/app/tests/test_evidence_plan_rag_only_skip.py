@@ -11,7 +11,6 @@ POLICY_QUERY = "What is the escalation policy for repeated failed login alerts?"
 
 
 def test_control_plane_policy_rag_only_skips_spl_and_mcp(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.chat.pipeline.retrieve_soc_kb", _fake_retrieve_collected)
 
     response = chat(ChatRequest(message=POLICY_QUERY))
@@ -36,7 +35,6 @@ def test_control_plane_rag_only_retrieves_soc_kb_once(monkeypatch) -> None:
         calls.append(kwargs)
         return _fake_retrieve_collected(**kwargs)
 
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.chat.pipeline.retrieve_soc_kb", fake_retrieve)
 
     response = chat(ChatRequest(message=POLICY_QUERY))
@@ -48,7 +46,6 @@ def test_control_plane_rag_only_retrieves_soc_kb_once(monkeypatch) -> None:
 
 
 def test_policy_rag_no_match_keeps_insufficient_evidence_with_policy_reasons(monkeypatch) -> None:
-    monkeypatch.setattr("app.config.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.chat.pipeline.retrieve_soc_kb", _fake_retrieve_no_match)
 
     response = chat(ChatRequest(message=POLICY_QUERY))

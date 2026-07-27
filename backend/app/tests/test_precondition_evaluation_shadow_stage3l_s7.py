@@ -17,6 +17,7 @@ from app.routing.precondition_evaluation_shadow import (
 from app.routing.precondition_evaluator import FINDING_MISSING_TEMPLATE
 from app.routing.route_plan_models import RouteStatus
 from app.schemas.requests import ChatRequest
+from app.tests.test_p2_known_path_authority import _CANONICAL_OKTA_FAILED_LOGIN_SKILL
 from app.tests.test_route_plan_stage3k_r2 import _patch_common_chat_dependencies, _valid_route_plan_candidate
 
 COV_Q046 = "cov.q046.excessive_failed_logins_sample"
@@ -95,7 +96,11 @@ def test_cov_q007_shadow_ready_when_detection_registry_enabled(monkeypatch: pyte
 def test_chat_includes_precondition_evaluation_without_changing_selected_skill(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(
+        monkeypatch,
+        skill=_CANONICAL_OKTA_FAILED_LOGIN_SKILL,
+        disable_deterministic_route_plan=True,
+    )
     monkeypatch.setattr(
         "app.api.routes_chat._route_plan_shadow_candidate",
         lambda query: _valid_route_plan_candidate(),
@@ -105,7 +110,7 @@ def test_chat_includes_precondition_evaluation_without_changing_selected_skill(
         ChatRequest(message="Find the top 10 users with failed Okta login attempts in the last 24 hours.")
     )
 
-    assert response.selected_skill == "attack_discovery"
+    assert response.selected_skill == _CANONICAL_OKTA_FAILED_LOGIN_SKILL
     evaluation = response.route_plan_shadow.precondition_evaluation
     assert evaluation is not None
     assert evaluation["observation_only"] is True
@@ -114,7 +119,11 @@ def test_chat_includes_precondition_evaluation_without_changing_selected_skill(
 
 
 def test_lineage_includes_hard_preconditions_stage(monkeypatch: pytest.MonkeyPatch) -> None:
-    _patch_common_chat_dependencies(monkeypatch, skill="attack_discovery")
+    _patch_common_chat_dependencies(
+        monkeypatch,
+        skill=_CANONICAL_OKTA_FAILED_LOGIN_SKILL,
+        disable_deterministic_route_plan=True,
+    )
     monkeypatch.setattr(
         "app.api.routes_chat._route_plan_shadow_candidate",
         lambda query: _valid_route_plan_candidate(),

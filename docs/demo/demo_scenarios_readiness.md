@@ -173,6 +173,6 @@ Use when demonstrating the primary `runtime_active` auth pilot separately from s
 ```bash
 python3 scripts/build_soc_validation_sheets.py --check
 cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_soc_validation_package_phase10.py -q
-cd backend && CONTROL_PLANE_ENABLED=true PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_chat_control_plane_golden.py -q
+cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_chat_control_plane_golden.py -q
 ./scripts/run_stage3_governance_regression.sh
 ```

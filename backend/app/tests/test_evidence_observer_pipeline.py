@@ -53,7 +53,6 @@ def _base_state() -> dict:
 
 
 def _enable_observer(monkeypatch) -> None:
-    monkeypatch.setattr("app.chat.pipeline.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_final_synthesis_enabled", True)
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_live_synthesis_enabled", True)
 
@@ -118,7 +117,6 @@ def test_observer_budget_exhaustion_records_skip_without_call(monkeypatch) -> No
 
 
 def test_observer_not_invoked_when_live_synthesis_disabled(monkeypatch) -> None:
-    monkeypatch.setattr("app.chat.pipeline.settings.control_plane_enabled", True)
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_final_synthesis_enabled", False)
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_llm_live_synthesis_enabled", False)
     called = False

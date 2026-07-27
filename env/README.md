@@ -56,7 +56,7 @@ Settings → **Deployment** → choose profile → Apply. Then restart the backe
 
 ## COE guided hybrid Batch 1
 
-With `AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED=true` and `CONTROL_PLANE_ENABLED=true`,
+With `AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED=true` (canonical planning always on),
 out-of-catalog guided hunts use `guided_hybrid_dispatch` (not legacy `rag_early`).
 
 Sample query: *How should I investigate unusual outbound traffic from an OT host overnight?*

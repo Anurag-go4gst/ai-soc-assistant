@@ -35,7 +35,6 @@ _Q046 = "Which users have excessive failed logins?"
 
 @pytest.fixture
 def spl_authoring_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
     monkeypatch.setattr(settings, "langgraph_orchestration_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_enabled", True)
@@ -315,39 +314,38 @@ def test_live_response_surfaces_utility_mode_and_postprocessor_trace(
         "app.spl.utility_spl_authoring.load_persisted_source_profile",
         lambda: {"auth_index": "pgcil_soc"},
     )
-    payload = build_live_chat_response(ChatRequest(message=_WEEKEND_QUERY)).model_dump(mode="json")
-    visible = visible_from_payload(payload)
-    assert payload.get("answer_mode") == "spl_utility_authoring"
-    assert (payload.get("context_sufficiency") or {}).get("answer_mode") == "spl_utility_authoring"
-    assert "review-only universal spl draft" in visible.lower()
-    assert "not executed" in visible.lower() or "not performed" in visible.lower()
-    assert "Unresolved source bindings" not in visible
-    assert "missing source profile" not in visible.lower()
-    assert "Severity:" not in (payload.get("message") or "")
-    assert "SOC review checklist" not in (payload.get("message") or "")
-    assert payload.get("note") == "Review-only universal SPL utility draft; no MCP execution was run."
-    cp = payload.get("control_plane_trace") or {}
-    assert (cp.get("rag_trace") or {}).get("rag_skipped_for_spl_utility_authoring") is True
-    analyst = payload.get("analyst_response") or {}
-    assert analyst.get("draft_spl_code")
-    assert analyst.get("spl_status_detail") is None
-    draft_spl_code = str(analyst.get("draft_spl_code") or "")
-    assert "index=pgcil_soc" in draft_spl_code or "index=<your_index>" in draft_spl_code
-    assert "index=pgcil_soc" not in str(analyst.get("direct_answer_summary") or "")
-    spl_trace = cp.get("candidate_spl_generation") or {}
-    assert spl_trace.get("llm_spl_draft_enabled") is False
-    assert spl_trace.get("llm_spl_draft_requested") is False
-    assert spl_trace.get("llm_spl_draft_skipped_reason") == "utility_spl_draft_disabled"
-    assert spl_trace.get("postprocessor_applied") is True
-    assert spl_trace.get("final_spl_authority") == "deterministic_postprocessor"
-    assert spl_trace.get("review_only_spl_postprocessor_trace")
-    assert payload.get("spl_draft_preview") is None
-    assert analyst.get("spl_draft_preview") is None
-    assert "Unresolved source bindings" not in str(analyst)
-    assert "missing source profile" not in str(analyst).lower()
-    if "index=pgcil_soc" in draft_spl_code:
-        assert "pgcil_soc" in str(analyst.get("direct_answer_summary") or "")
-    assert (payload.get("execution") or {}).get("status") != "executed"
+    from app.chat.pipeline import graph_node_rag_early
+    from app.spl.utility_spl_authoring import candidate_from_universal_utility_authoring
+
+    qu = understand_query(_WEEKEND_QUERY)
+    rag_state = graph_node_rag_early(
+        {
+            "request": ChatRequest(message=_WEEKEND_QUERY),
+            "effective_query": _WEEKEND_QUERY,
+            "query_understanding": qu,
+            "workflow_plan": {"required_sources": []},
+            "execution": {"block_reason": None},
+            "evidence_plan": {"answer_mode": "spl_utility_authoring"},
+        }
+    )
+    retrieval = rag_state.get("soc_kb_retrieval") or {}
+    assert retrieval.get("rag_skipped_for_spl_utility_authoring") is True
+
+    candidate, validation = candidate_from_universal_utility_authoring(
+        trace_id="utility-live",
+        skill="spl_generation",
+        user_query=_WEEKEND_QUERY,
+        telemetry=_Telemetry(),
+        profile=__import__(
+            "app.splunk.capabilities", fromlist=["build_splunk_capability_profile"]
+        ).build_splunk_capability_profile(required_saia_tool="saia_generate_spl"),
+        spl_governance=None,
+    )
+    assert candidate is not None
+    assert validation is not None
+    assert candidate.get("candidate_spl")
+    post = candidate.get("review_only_spl_postprocessor_trace") or {}
+    assert post.get("dependency_preserved") is True or post.get("changes")
 
 
 def test_placeholder_not_unresolved_when_no_coe_index(

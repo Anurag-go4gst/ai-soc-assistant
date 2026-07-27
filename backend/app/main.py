@@ -3,6 +3,8 @@ import logging
 import traceback
 from uuid import uuid4
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -34,9 +36,24 @@ from app.api.routes_quality import router as quality_router
 from app.api.routes_scenarios import demo_router, router as scenarios_router
 from app.api.routes_settings import router as settings_router
 from app.auth.routes_auth import router as auth_router
+from app.db.migration_readiness import log_startup_migration_readiness
 
 
-app = FastAPI(title="AI SOC Assistant")
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    from app.chat.canonical_retention_scheduler import (
+        start_canonical_retention_scheduler,
+        stop_canonical_retention_scheduler,
+    )
+
+    purge_task = start_canonical_retention_scheduler()
+    try:
+        yield
+    finally:
+        await stop_canonical_retention_scheduler(purge_task)
+
+
+app = FastAPI(title="AI SOC Assistant", lifespan=_lifespan)
 
 # Apply any UI-persisted LLM connection override onto the live settings before
 # the first request, so the endpoint resolver / sidecars / Ask LLM honor it.
@@ -53,6 +70,8 @@ try:
     _apply_mcp_connection_override()
 except Exception:  # noqa: BLE001 - never block startup on an optional override
     logging.getLogger("ai_soc.mcp").warning("mcp_connection_override_apply_failed", exc_info=True)
+
+log_startup_migration_readiness()
 
 _telemetry_logger = logging.getLogger("ai_soc.telemetry")
 

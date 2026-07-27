@@ -264,7 +264,6 @@ def test_mixed_spl_and_block_ip_routes_unsafe_and_suppresses_draft(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Unsafe enforcement intent overrides SPL/search intent — no draft surfaced."""
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
     response = build_live_chat_response(
         ChatRequest(message="Give me an SPL to block this IP immediately on the firewall.")
@@ -287,7 +286,6 @@ def test_additional_enforcement_verbs_route_unsafe_block(
     query: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Generic: enforcement verbs beyond block-ip also route unsafe (one shared signal)."""
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
     response = build_live_chat_response(ChatRequest(message=query))
     payload = response.model_dump()
@@ -436,7 +434,6 @@ def test_esp_draft_preview_review_wording(monkeypatch: pytest.MonkeyPatch) -> No
 def test_esp_draft_preview_review_wording_with_live_composer(monkeypatch: pytest.MonkeyPatch) -> None:
     """Composer must not overwrite draft-preview HIL/SOC review messaging."""
     monkeypatch.setattr(settings, "ai_soc_spl_draft_preview_enabled", True)
-    monkeypatch.setattr(settings, "control_plane_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", True)
     bad_prose = (
