@@ -114,21 +114,28 @@ def block_live_llm_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     yield
 
 
+def _mcp_env_keys() -> set[str]:
+    return {key for key in os.environ if key == "MCP_MODE" or key.startswith("MCP_")}
+
+
 @pytest.fixture()
 def isolated_connection_store_apply() -> Iterator[None]:
     """Snapshot every global `connection_store.apply_to_settings()` mutates.
 
-    apply_to_settings writes ~15 settings attributes AND MCP_* / MCP_SERVER_SPLUNK_SOC_*
-    environment variables. Any test that triggers it without this fixture leaks that
-    state into every later test in the suite (found 2026-07-05: one round-trip test
-    broke 11 unrelated tests). Request this fixture in any test that calls
-    save_connection()/apply_to_settings().
+    apply_to_settings writes ~15 settings attributes AND MCP_* environment variables
+    (including MCP_SERVER_<id>_* for every configured server). Any test that triggers
+    it without this fixture leaks that state into every later test in the suite
+    (found 2026-07-05: one round-trip test broke 11 unrelated tests; #109:
+    test_mcp_connection_store_multi.py leaked MCP_GLOBAL_EXECUTION_ENABLED).
+    Request this fixture in any test that calls save_connection()/apply_to_settings()
+    or routes_settings save/discover helpers that call them.
     """
     from app.config import settings
 
     touched_settings = (
         "splunk_mcp_enabled",
         "ai_soc_environment_mode",
+        "ai_soc_mcp_connection_store_path",
         "splunk_mcp_server_id",
         "splunk_mcp_discovery_mode",
         "splunk_mcp_base_url",
@@ -143,16 +150,11 @@ def isolated_connection_store_apply() -> Iterator[None]:
         "mcp_global_execution_enabled",
     )
     settings_snapshot = {key: getattr(settings, key) for key in touched_settings}
-    env_exact = ("MCP_MODE", "MCP_SERVERS", "MCP_DEFAULT_SERVER", "MCP_GLOBAL_EXECUTION_ENABLED")
-    env_snapshot = {
-        key: value
-        for key, value in os.environ.items()
-        if key in env_exact or key.startswith("MCP_SERVER_SPLUNK_SOC_")
-    }
+    env_snapshot = {key: os.environ[key] for key in _mcp_env_keys()}
     yield
     for key, value in settings_snapshot.items():
         setattr(settings, key, value)
-    for key in [k for k in os.environ if k in env_exact or k.startswith("MCP_SERVER_SPLUNK_SOC_")]:
-        if key not in env_snapshot:
-            del os.environ[key]
+    leaked = _mcp_env_keys() - env_snapshot.keys()
+    for key in leaked:
+        del os.environ[key]
     os.environ.update(env_snapshot)
