@@ -792,6 +792,50 @@
       .lane { grid-template-columns: 1fr; }
       .lane-card:not(:last-child)::after { content:"↓"; right:auto; left:50%; top:auto; bottom:-13px; transform:translateX(-50%); }
     }
+
+    .mermaid-panel {
+      background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 18px 14px;
+      margin-bottom: 18px;
+      overflow-x: auto;
+      box-shadow: var(--shadow-soft, var(--shadow));
+    }
+
+    .mermaid-panel h3 {
+      margin: 0 0 6px;
+      font-size: 17px;
+      letter-spacing: -0.02em;
+    }
+
+    .mermaid-panel p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 14px;
+      max-width: 72ch;
+    }
+
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      min-height: 120px;
+    }
+
+    .mermaid-fallback {
+      display: none;
+      margin: 0;
+      padding: 14px 16px;
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 12px;
+      font-size: 12px;
+      line-height: 1.5;
+      overflow-x: auto;
+    }
+
+    .mermaid-panel.no-js .mermaid { display: none; }
+    .mermaid-panel.no-js .mermaid-fallback { display: block; }
   </style>
 
   <!-- ============================================================
@@ -1012,7 +1056,29 @@
     .grid-3 { gap: 20px; }
     .grid-2 { gap: 22px; }
     .arch-branch-row.five-up { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+    .arch-branch-row.four-up { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
     .arch-branch-row.three-up { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+
+    /* ---------- subordinate branch (a refinement of the branch above, not a peer) ---------- */
+    .sub-branch-label {
+      margin: 14px 0 7px 46px;
+      font-family: "Sora";
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #7c8bb0;
+    }
+    .sub-branch-label code { text-transform: none; letter-spacing: 0; font-size: 11.5px; }
+    .sub-branch {
+      margin-left: 46px;
+      padding-left: 18px;
+      border-left: 3px dashed #c7cfe6;
+    }
+    @media (max-width: 820px) {
+      .sub-branch-label { margin-left: 0; }
+      .sub-branch { margin-left: 0; padding-left: 12px; }
+    }
     .lane { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
     .lane-card:not(:last-child)::after { content: none; }
     .lane-card { border-radius: 18px; min-height: 0; }
@@ -1178,7 +1244,8 @@
   <nav class="docnav">
     <div class="docnav-inner">
       <span class="brandtag">SOC FLOW</span>
-      <a href="#script">Meeting script ★</a>
+      <a href="#overview">0 · Flow charts ★</a>
+      <a href="#script">Meeting script</a>
       <a href="#s1">1 · Traversal</a>
       <a href="#s2">2 · Diagram</a>
       <a href="#s3">3 · Canonical seam ✦</a>
@@ -1231,6 +1298,80 @@
   </header>
 
   <main>
+    <section id="overview">
+      <div class="section-title">
+        <div>
+          <h2>At-a-glance flow charts <span class="badge-new">visual</span></h2>
+          <p>
+            Rendered diagrams for the live <code>/chat</code> path. Scroll to <a href="#s2">section&nbsp;2</a> for the full node-by-node breakdown with decision branches, or <a href="#s1">section&nbsp;1</a> for the seven-stage reader summary.
+          </p>
+        </div>
+      </div>
+
+      <div class="mermaid-panel" id="mermaid-overview-panel">
+        <h3>Production spine — every planned turn</h3>
+        <p>Resource Planner graph (<code>run_chat_via_resource_planner_graph</code>). Non-planned outcomes skip dispatch and execution by topology.</p>
+        <pre class="mermaid">flowchart TB
+  Q["① User query + session context"]
+  U["② Understand query → match_path → tier T1–T4 + lane"]
+  C["③ Canonical planning seam\nrun_canonical_planning"]
+  P["④ Parallel specialists\nSkill · Knowledge · MCP · SPL"]
+  M["⑤ Fan-in merge → validated_work_bundle"]
+  D{"⑥ Dispatch — exactly one path"}
+  R["RAG-only path"]
+  CD["Composed plan dispatch"]
+  SW["SPL workflow"]
+  SPL["⑦ Candidate SPL → validate → source resolve"]
+  GATE["MCP execution gate\nnormalized_spl only"]
+  G["⑧ Governance chain\nfinalize → validate_final_answer"]
+  A["Analyst answer card + durable trace"]
+  NP["Non-planned finalize\nclarification · policy · failure"]
+
+  Q --> U --> C
+  C -->|planned| P --> M --> D
+  C -->|O2–O8| NP --> A
+  D -->|rag_only| R --> G
+  D -->|composed| CD --> G
+  D -->|spl| SW --> SPL --> GATE --> G
+  G --> A</pre>
+        <pre class="mermaid-fallback">User query → understand (tier/lane) → canonical planning → [planned] specialists → merge → dispatch (RAG | composed | SPL) → governance → answer
+[non-planned] → finalize → answer (no execution path)</pre>
+      </div>
+
+      <div class="mermaid-panel" id="mermaid-canonical-panel">
+        <h3>Inside the canonical planning seam</h3>
+        <p>One function, one typed outcome. Downstream branches on <code>CanonicalPlanningOutcome.status</code> — never on a partial <code>evidence_plan</code>.</p>
+        <pre class="mermaid">flowchart TD
+  IN["Lane router\nT1–T3 known · T4 guided"]
+  KC["Known completeness gate"]
+  GDR["Guided detail resolution\nmax 3 tools · 2 iterations"]
+  T0["T4 → T0 reference short-circuit\nknowledge_recall"]
+  CPI["CanonicalPlanningInput"]
+  PLAN["plan_evidence_from_canonical\nsole ResourcePlan creator"]
+  O1["planned → dispatch"]
+  O2["clarification_required → handoff"]
+  O3["policy_blocked"]
+  OF["resolution / planning / unsupported /\nexecution / persistence failed"]
+
+  IN -->|known lane| KC
+  IN -->|T4 lane| GDR
+  KC -->|gaps tool-resolvable| GDR
+  KC -->|complete| CPI
+  GDR -->|reference-only| T0 --> CPI
+  GDR --> CPI
+  CPI --> PLAN
+  PLAN --> O1
+  PLAN --> O2
+  PLAN --> O3
+  PLAN --> OF</pre>
+        <pre class="mermaid-fallback">lane router → completeness / guided resolution → CanonicalPlanningInput → plan_evidence_from_canonical → planned | clarification | policy_blocked | failure</pre>
+      </div>
+
+      <div class="note success-note">
+        <strong>Already on this page:</strong> section&nbsp;2 below is the detailed HTML decision diagram (tiers T1–T4, outcomes O1–O8, dispatch D0–D3). These charts are the same flow in visual form for demos and onboarding.
+      </div>
+    </section>
+
     <section class="meeting-hero" id="script">
       <div class="section-title">
         <div>
@@ -1245,7 +1386,7 @@
         </div>
         <div class="script-step">
           <span class="n">2</span>
-          <p>“<strong>Query Understanding</strong> matches the query against the 105 taxonomy and the use-case catalog, and that match becomes a <strong>tier and a processing lane</strong> — T1/T2/T3 go down the <em>known</em> lane, T4 goes <em>guided</em>, and a pure reference question resolves to T0 and short-circuits to governed knowledge (4). Unsafe containment requests are blocked to human review and never enter guided mode.”</p>
+          <p>“<strong>Query Understanding</strong> matches the query against the 105 taxonomy and the use-case catalog, and that match becomes a <strong>tier and a processing lane</strong> — T1/T2/T3 go down the <em>known</em> lane and T4 goes <em>guided</em>. T4 alone can then be re-tiered: a T4 turn that turns out to be a pure reference question resolves to T0 and short-circuits to governed knowledge (4). Unsafe containment requests are blocked to human review and never enter guided mode.”</p>
         </div>
         <div class="script-step">
           <span class="n">3</span>
@@ -1330,6 +1471,34 @@
         </div>
       </div>
       <div class="card">
+        <div class="mermaid-panel" style="margin-bottom:22px;">
+          <h3>Decision branches — compact view</h3>
+          <p>Matches the numbered boxes below. Green = continues; amber/red = stop or clarify before execution.</p>
+          <pre class="mermaid">flowchart TD
+  S1["1 Session + query understanding"]
+  TIER{"2 Tier from match_path"}
+  T1["T1 exact 105"]
+  T2["T2 use-case catalog"]
+  T3["T3 near / semantic"]
+  T4["T4 out_of_registry"]
+  S3["3 Canonical planning"]
+  OUT{"Outcome status"}
+  O1["O1 planned"]
+  STOP["O2–O8 clarify / block / fail"]
+  S4["4 Specialist fan-out"]
+  S5["5 Merge validated bundle"]
+  DISP{"Dispatch D0–D3"}
+  S8["8 Governance + answer"]
+
+  S1 --> TIER
+  TIER --> T1 & T2 & T3 & T4
+  T1 & T2 & T3 & T4 --> S3 --> OUT
+  OUT -->|planned| O1 --> S4 --> S5 --> DISP
+  OUT -->|other| STOP --> S8
+  DISP -->|D1 RAG / D2 composed / D3 SPL| S8
+  DISP -->|D0 non-planned| S8</pre>
+        </div>
+
         <div class="arch-diagram">
 
           <div class="arch-box blue">
@@ -1348,15 +1517,27 @@
             <p>Matches the query against the 105 taxonomy <em>and</em> the use-case catalog, extracts entities, and raises shape signals. Produces <strong>exactly one</strong> <code>deterministic_match_path</code>. The deterministic registry picks the primary route; an LLM advisory is consulted only when the registry does not retain authority, and it must be registry-validated to win. If parsing fails the turn degrades to keyword failover (<code>qu_unavailable</code>), never an error.</p>
             <div class="tagrow"><span class="tag det">deterministic primary</span><span class="tag llm">advisory must validate</span><span class="tag fb">degrades, never errors</span></div>
           </div>
-          <div class="arch-arrow">↓ match path → tier → lane</div>
+          <div class="arch-arrow">↓ <code>deterministic_match_path</code> → <strong>initial tier</strong> → lane</div>
 
-          <div class="arch-branch-row five-up">
-            <div class="arch-box branch-box green"><span class="arch-seq branch">T1</span><h3>exact 105</h3><p>Verbatim governed question, with or without the catalog. Strongest authority.</p></div>
-            <div class="arch-box branch-box green"><span class="arch-seq branch">T2</span><h3>use-case catalog</h3><p>Known behaviour class, not exact-105.</p></div>
-            <div class="arch-box branch-box cyan"><span class="arch-seq branch">T3</span><h3>near / semantic</h3><p>Recognised by token overlap, meaning, or catalogue alias.</p></div>
-            <div class="arch-box branch-box amber"><span class="arch-seq branch">T4</span><h3>out_of_registry</h3><p>Novel or weakly-understood question. Guided lane.</p></div>
-            <div class="arch-box branch-box purple"><span class="arch-seq branch">T0</span><h3>resolved reference</h3><p>Never from the match path — assigned after T4 qualification.</p></div>
+          <div class="arch-branch-row four-up">
+            <div class="arch-box branch-box green"><span class="arch-seq branch">T1</span><h3>exact 105</h3><p>Verbatim governed question, with or without the catalog. Strongest authority. Lane <code>known</code>.</p></div>
+            <div class="arch-box branch-box green"><span class="arch-seq branch">T2</span><h3>use-case catalog</h3><p>Known behaviour class, not exact-105. Lane <code>known</code>.</p></div>
+            <div class="arch-box branch-box cyan"><span class="arch-seq branch">T3</span><h3>near / semantic</h3><p>Recognised by token overlap, meaning, or catalogue alias. Lane <code>known</code>.</p></div>
+            <div class="arch-box branch-box amber"><span class="arch-seq branch">T4</span><h3>out_of_registry</h3><p>Novel or weakly-understood question. Lane <code>guided</code>. <strong>The only tier that can still be re-tiered.</strong></p></div>
           </div>
+
+          <p class="sub-branch-label">T4 only — a later refinement, not a fifth branch above</p>
+          <div class="sub-branch">
+            <div class="arch-box branch-box purple">
+              <span class="arch-seq branch">T0</span>
+              <h3>Resolved reference — a T4 sub-outcome</h3>
+              <p>No <code>deterministic_match_path</code> value produces T0, so it is never a peer of T1–T4 at this step. A turn that has <em>already</em> been assigned T4 here is re-tiered to T0 later, inside step 3, when <code>qualify_reference_query</code> concludes the governed reference registry alone can answer it. Lane becomes <code>knowledge_short_circuit</code> and the skill resolves to <code>knowledge_recall</code>.</p>
+              <p style="margin-top:9px;">Every turn therefore carries <strong>two</strong> tier fields: <code>initial_tier</code> from the match path here, and <code>resolved_tier</code> after qualification. For T1–T3 they are always equal; only a T4 turn can end with <code>initial_tier=T4, resolved_tier=T0</code>.</p>
+              <div class="tagrow"><span class="tag gate">assigned in step 3</span><span class="tag off">never from the parser</span></div>
+              <span class="see-section">T0 is earned, not detected → 3</span>
+            </div>
+          </div>
+
           <div class="arch-arrow">↓ one canonical planning seam handles every lane</div>
 
           <div class="arch-box purple">
@@ -1368,26 +1549,41 @@
             <div class="tagrow"><span class="tag det">unconditional</span><span class="tag gate">typed outcome</span><span class="tag off">no fork permitted</span></div>
             <span class="see-section">Detail → 3, 5, 6</span>
           </div>
-          <div class="arch-arrow">↓ one of eight outcome statuses</div>
+          <div class="arch-arrow">↓ exactly one of <strong>eight</strong> statuses — 1 continues, 7 stop</div>
 
+          <p class="sub-branch-label">Group A — the one executable status (1 of 8)</p>
           <div class="arch-branch-row three-up">
             <div class="arch-box branch-box green">
               <span class="arch-seq branch">O1</span>
               <h3><code>planned</code></h3>
               <p>Evidence plan present, resource plan <strong>committed</strong>. The only status that can reach dispatch and execution.</p>
             </div>
+          </div>
+
+          <p class="sub-branch-label">Group B — analyst-blocking, not a failure (2 of 8)</p>
+          <div class="arch-branch-row three-up">
             <div class="arch-box branch-box amber">
               <span class="arch-seq branch">O2</span>
               <h3><code>clarification_required</code></h3>
-              <p>Handoff persisted, question returned. Carries <strong>no</strong> evidence plan and no resource plan, by contract.</p>
+              <p>Handoff persisted, question returned to the analyst. Carries <strong>no</strong> evidence plan and no resource plan, by contract.</p>
             </div>
             <div class="arch-box branch-box red">
               <span class="arch-seq branch">O3</span>
-              <h3><code>policy_blocked</code> + failures</h3>
-              <p><code>policy_blocked</code>, <code>resolution_failed</code>, <code>planning_failed</code>, <code>unsupported</code>, <code>execution_failed</code>, <code>persistence_failed</code>. Never a committed plan.</p>
+              <h3><code>policy_blocked</code></h3>
+              <p>Policy refused the request. Carries a <code>policy_reason</code>; an evidence plan is optional, a resource plan is forbidden.</p>
             </div>
           </div>
-          <div class="arch-arrow">↓ planned outcomes continue; everything else routes to finalize</div>
+
+          <p class="sub-branch-label">Group C — the five terminal failure statuses (5 of 8) — <code>FAILURE_STATUSES</code>, each carries a typed <code>PlanningFailure</code>, none carries a plan</p>
+          <div class="arch-branch-row five-up">
+            <div class="arch-box branch-box red"><span class="arch-seq branch">O4</span><h3><code>resolution_failed</code></h3><p>Guided detail resolution could not close the gaps it was asked to close.</p></div>
+            <div class="arch-box branch-box red"><span class="arch-seq branch">O5</span><h3><code>planning_failed</code></h3><p>The final planner could not build a valid evidence plan from the canonical input.</p></div>
+            <div class="arch-box branch-box red"><span class="arch-seq branch">O6</span><h3><code>unsupported</code></h3><p>The request is outside what this system is allowed to plan for at all.</p></div>
+            <div class="arch-box branch-box red"><span class="arch-seq branch">O7</span><h3><code>execution_failed</code></h3><p>A planned step failed in a way that invalidates the outcome rather than degrading it.</p></div>
+            <div class="arch-box branch-box red"><span class="arch-seq branch">O8</span><h3><code>persistence_failed</code></h3><p>Handoff, plan commit, or execution-idempotency write failed. State persistence <strong>fails closed</strong> — there is no memory or file fallback.</p></div>
+          </div>
+
+          <div class="arch-arrow">↓ only <code>planned</code> continues to step 4; O2–O8 route straight to finalize</div>
 
           <div class="arch-box cyan">
             <span class="arch-seq">4</span>
@@ -1466,8 +1662,8 @@
         </div>
 
         <div class="diagram-legend">
-          <div class="legend-item"><span class="dot" style="background:var(--green)"></span> T1–T4/T0 — recognition and lane assignment only (Step&nbsp;2)</div>
-          <div class="legend-item"><span class="dot" style="background:var(--purple)"></span> O1–O3 — the typed planning outcome (Step&nbsp;3)</div>
+          <div class="legend-item"><span class="dot" style="background:var(--green)"></span> T1–T4 — <code>initial_tier</code> from the match path (Step&nbsp;2); T0 is a T4 re-tier decided in Step&nbsp;3</div>
+          <div class="legend-item"><span class="dot" style="background:var(--purple)"></span> O1–O8 — the eight typed planning outcome statuses (Step&nbsp;3)</div>
           <div class="legend-item"><span class="dot" style="background:var(--amber)"></span> D0–D3 — dispatch after merge (Step&nbsp;5)</div>
         </div>
 
@@ -1560,14 +1756,26 @@
         <div class="tablewrap">
         <table>
           <thead>
-            <tr><th>Tier</th><th><code>deterministic_match_path</code></th><th>Lane</th><th>Meaning</th></tr>
+            <tr><th><code>initial_tier</code></th><th><code>deterministic_match_path</code></th><th>Lane</th><th>Meaning</th></tr>
           </thead>
           <tbody>
             <tr><td><code>T1</code></td><td><code>exact_105_question</code>, <code>exact_105_plus_use_case_catalog</code></td><td><code>known</code></td><td>Verbatim governed question. Strongest authority.</td></tr>
             <tr><td><code>T2</code></td><td><code>use_case_catalog</code></td><td><code>known</code></td><td>Known behaviour class from the use-case catalog.</td></tr>
             <tr><td><code>T3</code></td><td><code>near_105_question</code>, <code>semantic_105_question</code>, <code>fuzzy_alias_catalog</code></td><td><code>known</code></td><td>Recognised by overlap, meaning, or alias.</td></tr>
             <tr><td><code>T4</code></td><td><code>out_of_registry</code>, <code>semantic_out_of_registry</code>, <code>query_understanding_weak</code>, <code>qu_unavailable</code>, empty</td><td><code>guided</code></td><td>Novel or weakly understood. Guided resolution applies.</td></tr>
-            <tr><td><code>T0</code></td><td><strong>never</strong> from a match path</td><td><code>knowledge_short_circuit</code></td><td>Assigned only after T4 reference qualification concludes the answer lives in the governed reference registry.</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <p class="sub-branch-label" style="margin-left:0;">The second tier field — <code>resolved_tier</code>, decided after the match path</p>
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th><code>resolved_tier</code></th><th>Reachable from</th><th>Lane</th><th>Decided by</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>T1</code>–<code>T4</code></td><td>the same tier — <code>resolved_tier = initial_tier</code> is the default</td><td>unchanged (<code>known</code> / <code>guided</code>)</td><td>nothing; no re-tier occurred</td></tr>
+            <tr><td><code>T0</code></td><td><strong><code>initial_tier = T4</code> only.</strong> Never from a match path, never from T1–T3</td><td><code>knowledge_short_circuit</code></td><td><code>qualify_reference_query</code> concluding the answer lives entirely in the governed reference registry</td></tr>
           </tbody>
         </table>
         </div>
@@ -2579,6 +2787,7 @@ Turn 2   session context finds the pin → handoff_resume
     </div>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js"></script>
   <script>
     const tabs = document.querySelectorAll(".tab");
     const panels = document.querySelectorAll(".tab-panel");
@@ -2592,6 +2801,28 @@ Turn 2   session context finds the pin → handoff_resume
         if (target) target.classList.add("active");
       });
     });
+
+    if (typeof mermaid !== "undefined") {
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: "base",
+        securityLevel: "loose",
+        flowchart: { htmlLabels: true, curve: "basis", padding: 14 },
+        themeVariables: {
+          primaryColor: "#eef2ff",
+          primaryTextColor: "#0f172a",
+          primaryBorderColor: "#4f46e5",
+          lineColor: "#64748b",
+          secondaryColor: "#ecfeff",
+          tertiaryColor: "#ecfdf5",
+          fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif",
+        },
+      });
+    } else {
+      document.querySelectorAll(".mermaid-panel").forEach((panel) => {
+        panel.classList.add("no-js");
+      });
+    }
   </script>
 </body>
 </html>
