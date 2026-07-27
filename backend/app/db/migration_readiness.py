@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import logging
 from typing import Any
 
@@ -23,16 +24,20 @@ def _database_configured() -> bool:
     return bool(url) and "change-me@postgres" not in url
 
 
+def _not_configured_payload() -> dict[str, Any]:
+    return {
+        "ready": False,
+        "configured": False,
+        "required_versions": required_migration_versions(),
+        "missing_versions": required_migration_versions(),
+        "remediation": migration_remediation_command(),
+        "detail": "database_url not configured",
+    }
+
+
 async def _check_with_connection() -> dict[str, Any]:
     if not _database_configured():
-        return {
-            "ready": False,
-            "configured": False,
-            "required_versions": required_migration_versions(),
-            "missing_versions": required_migration_versions(),
-            "remediation": migration_remediation_command(),
-            "detail": "database_url not configured",
-        }
+        return _not_configured_payload()
     conn = await asyncpg.connect(settings.database_url, timeout=2.0)
     try:
         missing = await missing_migration_versions(conn)
@@ -48,11 +53,25 @@ async def _check_with_connection() -> dict[str, Any]:
     }
 
 
+def _run_check_synchronously() -> dict[str, Any]:
+    """Run the async probe from sync callers, including inside a running event loop."""
+    coro = _check_with_connection()
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=1,
+        thread_name_prefix="migration-readiness",
+    ) as pool:
+        return pool.submit(asyncio.run, coro).result(timeout=10.0)
+
+
 def build_migration_readiness() -> dict[str, Any]:
     if not _database_configured():
-        return asyncio.run(_check_with_connection())
+        return _not_configured_payload()
     try:
-        return asyncio.run(_check_with_connection())
+        return _run_check_synchronously()
     except Exception as exc:  # noqa: BLE001 — readiness must not break health
         _LOGGER.warning("migration_readiness_check_failed", exc_info=True)
         return {
