@@ -1,6 +1,9 @@
 import json
 import os
+from pathlib import Path
 from urllib.error import URLError
+
+import pytest
 
 from app.api import routes_settings
 from app.api.routes_settings import (
@@ -35,11 +38,10 @@ def _fake_user() -> dict[str, str]:
     return {"username": "pytest", "role": "platform_admin"}
 
 
-def _use_temp_store(monkeypatch, tmp_path):
-    store_path = tmp_path / "mcp_connection.json"
+def _use_temp_store(monkeypatch, store_path: Path) -> None:
     monkeypatch.setattr(settings, "ai_soc_mcp_connection_store_path", str(store_path))
     for key in list(os.environ):
-        if key == "MCP_MODE" or key == "MCP_SERVERS" or key == "MCP_DEFAULT_SERVER" or key == "MCP_GLOBAL_EXECUTION_ENABLED" or key.startswith("MCP_SERVER_"):
+        if key == "MCP_MODE" or key.startswith("MCP_"):
             monkeypatch.delenv(key, raising=False)
     monkeypatch.setattr(settings, "mcp_mode", "mock")
     monkeypatch.setattr(settings, "mcp_servers", "")
@@ -53,15 +55,14 @@ def _use_temp_store(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "splunk_saia_tools_enabled", True)
     monkeypatch.setattr(settings, "splunk_ai_assistant_mode", "auto")
     monkeypatch.setattr(settings, "splunk_allow_run_saved_search", False)
-    return store_path
 
 
-def _setup(monkeypatch, tmp_path) -> None:
-    _use_temp_store(monkeypatch, tmp_path)
+@pytest.fixture()
+def temp_mcp_servers_store(monkeypatch, tmp_path, isolated_connection_store_apply) -> None:
+    _use_temp_store(monkeypatch, tmp_path / "mcp_connection.json")
 
 
-def test_splunk_connection_save_accepts_execution_enabled(monkeypatch, tmp_path) -> None:
-    _setup(monkeypatch, tmp_path)
+def test_splunk_connection_save_accepts_execution_enabled(temp_mcp_servers_store) -> None:
 
     payload = save_mcp_connection(
         McpConnectionSaveRequest(
@@ -86,8 +87,7 @@ def test_splunk_connection_save_accepts_execution_enabled(monkeypatch, tmp_path)
     assert settings.mcp_global_execution_enabled is True
 
 
-def test_other_server_crud_rejects_splunk_and_redacts_secrets(monkeypatch, tmp_path) -> None:
-    _setup(monkeypatch, tmp_path)
+def test_other_server_crud_rejects_splunk_and_redacts_secrets(temp_mcp_servers_store) -> None:
 
     rejected = save_mcp_server(
         McpServerSaveRequest(
@@ -125,7 +125,7 @@ def test_other_server_crud_rejects_splunk_and_redacts_secrets(monkeypatch, tmp_p
     assert deleted == {"deleted": True}
 
 
-def test_other_server_discover_stores_status_tools_and_errors(monkeypatch, tmp_path) -> None:
+def test_other_server_discover_stores_status_tools_and_errors(monkeypatch, temp_mcp_servers_store) -> None:
     methods: list[str] = []
 
     def fake_urlopen(request: object, **_kwargs: object) -> _Response:
@@ -143,7 +143,6 @@ def test_other_server_discover_stores_status_tools_and_errors(monkeypatch, tmp_p
         )
 
     monkeypatch.setattr(routes_settings, "urlopen", fake_urlopen)
-    _setup(monkeypatch, tmp_path)
     saved = save_mcp_server(
         McpServerSaveRequest(
             server_id="asset_inventory",
@@ -170,12 +169,11 @@ def test_other_server_discover_stores_status_tools_and_errors(monkeypatch, tmp_p
     assert listed["servers"][0]["last_check_status"] == "Connected"
 
 
-def test_splunk_test_persists_failure_status(monkeypatch, tmp_path) -> None:
+def test_splunk_test_persists_failure_status(monkeypatch, temp_mcp_servers_store) -> None:
     def fake_urlopen(_request: object, **_kwargs: object) -> _Response:
         raise URLError("connection refused")
 
     monkeypatch.setattr(routes_settings, "urlopen", fake_urlopen)
-    _setup(monkeypatch, tmp_path)
     saved = save_mcp_connection(
         McpConnectionSaveRequest(
             enabled=True,
@@ -199,8 +197,7 @@ def test_splunk_test_persists_failure_status(monkeypatch, tmp_path) -> None:
     assert connection["last_technical_detail"] == result["technical_error_detail"]
 
 
-def test_other_server_blank_url_edit_preserves_existing_url(monkeypatch, tmp_path) -> None:
-    _setup(monkeypatch, tmp_path)
+def test_other_server_blank_url_edit_preserves_existing_url(temp_mcp_servers_store) -> None:
     saved = save_mcp_server(
         McpServerSaveRequest(
             server_id="asset_inventory",

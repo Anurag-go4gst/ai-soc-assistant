@@ -1,5 +1,8 @@
 import json
 import os
+from pathlib import Path
+
+import pytest
 
 from app.config import settings
 from app.connectors.mcp import get_mcp_connector
@@ -14,11 +17,10 @@ from app.connectors.mcp.connection_store import (
 from app.connectors.mcp.registry import load_mcp_registry_status
 
 
-def _use_temp_store(monkeypatch, tmp_path):
-    store_path = tmp_path / "mcp_connection.json"
+def _use_temp_store(monkeypatch, store_path: Path) -> None:
     monkeypatch.setattr(settings, "ai_soc_mcp_connection_store_path", str(store_path))
     for key in list(os.environ):
-        if key == "MCP_MODE" or key == "MCP_SERVERS" or key == "MCP_DEFAULT_SERVER" or key == "MCP_GLOBAL_EXECUTION_ENABLED" or key.startswith("MCP_SERVER_"):
+        if key == "MCP_MODE" or key.startswith("MCP_"):
             monkeypatch.delenv(key, raising=False)
     monkeypatch.setattr(settings, "mcp_mode", "mock")
     monkeypatch.setattr(settings, "mcp_servers", "")
@@ -32,11 +34,17 @@ def _use_temp_store(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "splunk_saia_tools_enabled", True)
     monkeypatch.setattr(settings, "splunk_ai_assistant_mode", "auto")
     monkeypatch.setattr(settings, "splunk_allow_run_saved_search", False)
+
+
+@pytest.fixture()
+def temp_connection_store(monkeypatch, tmp_path, isolated_connection_store_apply) -> Path:
+    store_path = tmp_path / "mcp_connection.json"
+    _use_temp_store(monkeypatch, store_path)
     return store_path
 
 
-def test_save_splunk_uses_multi_section_document_and_preserves_other_servers(monkeypatch, tmp_path) -> None:
-    store_path = _use_temp_store(monkeypatch, tmp_path)
+def test_save_splunk_uses_multi_section_document_and_preserves_other_servers(temp_connection_store) -> None:
+    store_path = temp_connection_store
     store_path.write_text(
         json.dumps(
             {
@@ -83,8 +91,8 @@ def test_save_splunk_uses_multi_section_document_and_preserves_other_servers(mon
     assert settings.mcp_global_execution_enabled is True
 
 
-def test_apply_legacy_flat_document_sets_settings_and_global_execution(monkeypatch, tmp_path) -> None:
-    store_path = _use_temp_store(monkeypatch, tmp_path)
+def test_apply_legacy_flat_document_sets_settings_and_global_execution(temp_connection_store) -> None:
+    store_path = temp_connection_store
     store_path.write_text(
         json.dumps(
             {
@@ -113,8 +121,8 @@ def test_apply_legacy_flat_document_sets_settings_and_global_execution(monkeypat
     assert os.environ["MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED"] == "true"
 
 
-def test_other_server_save_merges_with_splunk_and_defaults_execution_false(monkeypatch, tmp_path) -> None:
-    _use_temp_store(monkeypatch, tmp_path)
+def test_other_server_save_merges_with_splunk_and_defaults_execution_false(temp_connection_store) -> None:
+    _ = temp_connection_store
     save_connection(
         enabled=True,
         deployment_mode="coe",
@@ -150,8 +158,8 @@ def test_other_server_save_merges_with_splunk_and_defaults_execution_false(monke
     assert by_name["asset_inventory"].discovered_tools_safe_names == ["asset_lookup"]
 
 
-def test_connector_and_registry_use_applied_splunk_flags(monkeypatch, tmp_path) -> None:
-    _use_temp_store(monkeypatch, tmp_path)
+def test_connector_and_registry_use_applied_splunk_flags(temp_connection_store) -> None:
+    _ = temp_connection_store
     save_connection(
         enabled=True,
         deployment_mode="coe",
@@ -174,8 +182,8 @@ def test_connector_and_registry_use_applied_splunk_flags(monkeypatch, tmp_path) 
     assert type(get_mcp_connector()).__name__ == "SplunkMcpConnector"
 
 
-def test_splunk_check_fields_persist_when_connection_is_resaved(monkeypatch, tmp_path) -> None:
-    _use_temp_store(monkeypatch, tmp_path)
+def test_splunk_check_fields_persist_when_connection_is_resaved(temp_connection_store) -> None:
+    _ = temp_connection_store
     save_connection(
         enabled=True,
         deployment_mode="coe",
@@ -220,8 +228,8 @@ def test_splunk_check_fields_persist_when_connection_is_resaved(monkeypatch, tmp
     assert connection["last_technical_detail"] == "credentials_missing"
 
 
-def test_splunk_check_only_document_keeps_runtime_in_mock_mode(monkeypatch, tmp_path) -> None:
-    _use_temp_store(monkeypatch, tmp_path)
+def test_splunk_check_only_document_keeps_runtime_in_mock_mode(monkeypatch, temp_connection_store) -> None:
+    _ = temp_connection_store
     monkeypatch.setattr(settings, "splunk_mcp_enabled", True)
     record_splunk_check(
         status="Not connected",
@@ -240,8 +248,8 @@ def test_splunk_check_only_document_keeps_runtime_in_mock_mode(monkeypatch, tmp_
     assert os.environ["MCP_SERVERS"] == ""
 
 
-def test_default_server_switches_to_enabled_other_server_when_splunk_disabled(monkeypatch, tmp_path) -> None:
-    _use_temp_store(monkeypatch, tmp_path)
+def test_default_server_switches_to_enabled_other_server_when_splunk_disabled(temp_connection_store) -> None:
+    _ = temp_connection_store
     save_connection(
         enabled=False,
         deployment_mode="coe",
@@ -273,8 +281,8 @@ def test_default_server_switches_to_enabled_other_server_when_splunk_disabled(mo
     assert os.environ["MCP_DEFAULT_SERVER"] == "asset_inventory"
 
 
-def test_string_discovered_tools_are_returned_with_names(monkeypatch, tmp_path) -> None:
-    _use_temp_store(monkeypatch, tmp_path)
+def test_string_discovered_tools_are_returned_with_names(temp_connection_store) -> None:
+    _ = temp_connection_store
     save_other_server(
         server_id="asset_inventory",
         display_name="Asset inventory",
