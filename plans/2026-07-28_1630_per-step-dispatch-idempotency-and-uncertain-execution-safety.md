@@ -67,29 +67,29 @@ Extend execution safety from executor/guided-hybrid per-step idempotency (cutove
   - **Depends on:** outcome-invariant hardening merged (A)
   - **Evidence:** Audit doc created 2026-07-28; P0=3, P1=6, P2=12; `pytest app/tests/test_resource_plan_authority.py::test_guided_hybrid_and_telemetry_never_mutate_committed_plan -q` → 1 passed
 
-- [ ] **I1** — Typed replay payload contract
+- [x] **I1** — Typed replay payload contract
   - **Do:** Define allowlisted replay envelope (`HookReplayEnvelope`: `resource_plan_id`, `handoff_id`, `handoff_version`, `step_id`, `operation_identity`, `input_fingerprint`, `downstream_idempotency_key`) — align with `canonical_execution_idempotency.py`; **no** arbitrary state patch replay
   - **Verify:** `pytest app/tests/test_per_step_hook_idempotency.py -q` rejects non-allowlisted payload shapes
   - **Depends on:** I0
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `backend/app/chat/hook_replay_contract.py`; `pytest app/tests/test_per_step_hook_idempotency.py -q` → 13 passed (envelope/forbidden-field/fingerprint tests)
 
-- [ ] **I2** — Lease + input fingerprint integration at hooks
+- [x] **I2** — Lease + input fingerprint integration at hooks
   - **Do:** Wrap P0 hooks: `graph_node_execution` → `evaluate_mcp_execution` → connector; guided `safe_catalog_query` execute. Input fingerprint = hash of normalized approved SPL + tool identity + time bounds.
   - **Verify:** `pytest app/tests/test_per_step_hook_idempotency.py -q`
   - **Depends on:** I1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `per_step_hook_idempotency.py`, `mcp_execution_gate._dispatch_connector_execution`, `pipeline.resolve_hook_idempotency_context`, `guided_hybrid_collection` envelope storage; hook tests green
 
-- [ ] **I3** — Concurrent worker + stale-lease races
+- [x] **I3** — Concurrent worker + stale-lease races
   - **Do:** Integration tests on disposable Postgres compose (unique port, not 5434): two workers, one step; crash after `running`; replay after `completed`
   - **Verify:** integration module `0 failed 0 skipped`
   - **Depends on:** I2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `test_execution_idempotency_postgres.py::test_postgres_hook_mcp_execution_replays_without_second_side_effect` + existing concurrent acquire tests; unit stale-lease/IN_PROGRESS tests in `test_per_step_hook_idempotency.py`
 
-- [ ] **I4** — `REQUIRES_RECONCILIATION` surfacing
+- [x] **I4** — `REQUIRES_RECONCILIATION` surfacing
   - **Do:** When exactly-once cannot be proven for side-effecting hooks, return honest uncertain outcome; zero false success claims
   - **Verify:** Named regression tests; governance regression PASS
   - **Depends on:** I3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `uncertainty_execution_review`, `run_idempotent_mcp_execution_hook` REQUIRES_RECONCILIATION path, `apply_hook_uncertainty_to_state`; `test_stale_lease_without_stable_contract_requires_reconciliation`, `test_uncertain_execution_surfaces_manual_reconciliation`, replay/HIL negative controls in `test_per_step_hook_idempotency.py` (governance regression deferred to pre-PR gate per loop scope)
 
 - [ ] **I5** — Documentation + completion note
   - **Do:** Update cutover gap reconciliation matrix row 1 → **resolved**; addendum to item 20 scope note in completion report (pointer only)
@@ -104,7 +104,7 @@ Extend execution safety from executor/guided-hybrid per-step idempotency (cutove
 | I0 hook audit | **DONE** |
 | Workstream C operator attestation | **PENDING** (name/role only — does not block I1 coding) |
 | SOP routing investigation | **Fixture mismatch** — does not block D (see closeout note below) |
-| **READY FOR IMPLEMENTATION** | **YES** — proceed with I1 |
+| **READY FOR IMPLEMENTATION** | **YES** — I1–I4 complete; I5 closeout deferred |
 
 ## SOP routing closeout note (bounded investigation)
 
@@ -136,4 +136,4 @@ Three invocations (MCP off, identical session): canonical seam → RP final stat
 | Date | Note |
 |------|------|
 | 2026-07-28 | Skeleton created from gap reconciliation disposition #1 |
-| 2026-07-28 | I0 audit complete; READY FOR IMPLEMENTATION; SOP investigation recorded §SOP routing closeout note |
+| 2026-07-28 | I1–I4 implemented on `feat/per-step-dispatch-idempotency` (commits after I0); pre-PR gates pending |
