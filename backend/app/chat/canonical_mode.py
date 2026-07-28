@@ -15,6 +15,8 @@ CanonicalFailureOutcome = Literal[
 CONTRACT_VERSION = "2026-07-25"
 NODE_VERSION = "canonical_v1"
 
+_LEGACY_FAILURE_ALLOWLIST: frozenset[str] = frozenset({"resolution_failed", "planning_failed"})
+
 
 def is_canonical_authoritative() -> bool:
     return True
@@ -68,6 +70,52 @@ def build_canonical_failure_state(
         evidence["answer_mode"] = "clarification"
     next_state["evidence_plan"] = evidence
     return next_state
+
+
+def build_typed_planning_failure_state(
+    state: dict[str, Any],
+    *,
+    failure_status: Literal[
+        "resolution_failed",
+        "planning_failed",
+        "unsupported",
+        "execution_failed",
+        "persistence_failed",
+    ],
+    reason: str,
+    detail: str | None = None,
+    category: str = "invariant",
+) -> dict[str, Any]:
+    """Pure failure-state builder — no telemetry side effects."""
+    from app.chat.contracts.canonical_planning_outcome import failure_outcome
+
+    outcome = failure_outcome(
+        failure_status,
+        category=category,
+        reason=reason,
+        detail=detail or reason,
+        canonical_input=state.get("canonical_planning_input")
+        if isinstance(state.get("canonical_planning_input"), dict)
+        else None,
+    )
+    failure = {
+        "outcome": failure_status,
+        "reason": reason,
+        "detail": detail or reason,
+        "category": category,
+        "canonical_mode": True,
+    }
+    return {
+        **state,
+        "canonical_planning_outcome": outcome.model_dump(),
+        "canonical_planning_failure": failure,
+        "plan_dispatch_trace": {
+            "dispatch_source": "canonical_failure",
+            "dispatch_schedule": [],
+            "failure": failure,
+            "canonical_status": failure_status,
+        },
+    }
 
 
 def build_persistence_failed_state(
