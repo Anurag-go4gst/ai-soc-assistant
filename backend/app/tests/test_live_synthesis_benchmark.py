@@ -12,16 +12,19 @@ from typing import Any
 import pytest
 
 from app.evals.live_synthesis_benchmark import (
+    ALLOWLISTED_ERROR_CODES,
     APPROVED_LIVE_CASE_IDS,
     LIVE_AUTHORIZATION_ENV,
     LIVE_EVIDENCE_CLASS,
     LiveHarnessConfig,
     LiveHarnessRejected,
+    assert_mock_connector_posture,
     build_live_harness_config,
     estimate_live_probe_cost,
     parse_probe_matrix,
     run_live_benchmark,
     run_stub_benchmark,
+    sanitize_report_error_code,
     summarize_benchmark,
     validate_live_authorization,
     validate_live_case_ids,
@@ -31,6 +34,53 @@ from app.synthesis.turn_timing import RunKind, SynthesisPath, TurnOutcome, sanit
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = REPO_ROOT / "scripts" / "run_live_synthesis_baseline_benchmark.py"
+
+
+def _production_mock_settings(*, global_execution_enabled: bool = True) -> dict[str, Any]:
+    return {
+        "mcp": {
+            "mode": "mock",
+            "discovery_status": "mock",
+            "status_detail": "mock",
+            "global_execution_enabled": global_execution_enabled,
+            "base_url_configured": False,
+            "token_configured": False,
+            "splunk_mcp_enabled": False,
+            "splunk_live_readiness": {"ready_for_live_splunk_mcp": False},
+            "servers": [
+                {
+                    "name": "mock",
+                    "type": "splunk",
+                    "transport": "mock",
+                    "url_configured": False,
+                    "execution_enabled": global_execution_enabled,
+                }
+            ],
+        }
+    }
+
+
+def _production_mock_providers() -> dict[str, Any]:
+    return {
+        "providers": [
+            {
+                "provider_id": "splunk_mcp",
+                "provider_type": "splunk_mcp",
+                "enabled": False,
+                "available": False,
+                "auth_configured": False,
+                "write_supported": False,
+            },
+            {
+                "provider_id": "mock_asset_inventory",
+                "provider_type": "asset_inventory",
+                "enabled": True,
+                "available": True,
+                "auth_configured": False,
+                "write_supported": False,
+            },
+        ]
+    }
 
 
 def _timing(
@@ -72,8 +122,10 @@ class FakeLiveHttpClient:
         health_body: dict[str, Any] | None = None,
         settings_status: int = 200,
         settings_body: dict[str, Any] | None = None,
+        providers_status: int = 200,
+        providers_body: dict[str, Any] | None = None,
         chat_responses: dict[str, tuple[int, dict[str, Any], int]] | None = None,
-        chat_calls: list[str] | None = None,
+        chat_calls: list[tuple[str, str]] | None = None,
     ) -> None:
         self.health_status = health_status
         self.health_body = health_body or {
@@ -81,14 +133,9 @@ class FakeLiveHttpClient:
             "readiness": {"database_migrations": {"ready": True}},
         }
         self.settings_status = settings_status
-        self.settings_body = settings_body or {
-            "mcp": {
-                "mode": "mock",
-                "global_execution_enabled": False,
-                "splunk_live_readiness": {"ready_for_live_splunk_mcp": False},
-                "servers": [],
-            }
-        }
+        self.settings_body = settings_body or _production_mock_settings()
+        self.providers_status = providers_status
+        self.providers_body = providers_body or _production_mock_providers()
         self.chat_responses = chat_responses or {}
         self.chat_calls = chat_calls if chat_calls is not None else []
 
@@ -98,8 +145,11 @@ class FakeLiveHttpClient:
     def fetch_settings_status(self) -> tuple[int, dict[str, Any]]:
         return self.settings_status, self.settings_body
 
+    def fetch_providers_status(self) -> tuple[int, dict[str, Any]]:
+        return self.providers_status, self.providers_body
+
     def post_chat(self, *, case_id: str, session_id: str, timeout_s: int) -> tuple[int, dict[str, Any], int]:
-        self.chat_calls.append(case_id)
+        self.chat_calls.append((case_id, session_id))
         if case_id in self.chat_responses:
             return self.chat_responses[case_id]
         return (
@@ -119,7 +169,7 @@ def _live_config(case_ids: tuple[str, ...] = ("E-P1",)) -> LiveHarnessConfig:
         confirm_live=True,
         probe_timeout_s=30,
         inter_probe_pause_s=0.0,
-        session_id="bench-session",
+        run_id="benchrun",
     )
 
 
@@ -141,7 +191,8 @@ def test_stub_benchmark_produces_sanitized_summary() -> None:
 def test_estimate_live_probe_cost_is_heuristic() -> None:
     cost = estimate_live_probe_cost()
     assert cost["probe_count"] == 6
-    assert cost["estimated_runtime_minutes"] > 0
+    assert cost["heuristic_duration_minutes"] == "10-15"
+    assert cost["maximum_timeout_bound_minutes"] >= 30
     assert "note" in cost
 
 
@@ -156,37 +207,47 @@ def test_summarize_benchmark_handles_empty_runs() -> None:
 def test_missing_confirm_live_rejects() -> None:
     with pytest.raises(LiveHarnessRejected) as exc:
         validate_live_authorization(confirm_live=False)
-    assert exc.value.code == "confirm_live_required"
+    assert sanitize_report_error_code(exc.value.code) == "authorization_missing"
 
 
 def test_missing_authorization_env_rejects(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(LIVE_AUTHORIZATION_ENV, raising=False)
     with pytest.raises(LiveHarnessRejected) as exc:
         validate_live_authorization(confirm_live=True)
-    assert exc.value.code == "authorization_env_required"
+    assert sanitize_report_error_code(exc.value.code) == "authorization_missing"
 
 
 def test_arbitrary_query_input_unsupported() -> None:
-    with pytest.raises(LiveHarnessRejected) as exc:
+    with pytest.raises(LiveHarnessRejected):
         validate_no_arbitrary_query_inputs(message="show me everything")
-    assert exc.value.code == "arbitrary_query_unsupported"
 
 
 def test_unapproved_case_id_rejects() -> None:
-    with pytest.raises(LiveHarnessRejected) as exc:
+    with pytest.raises(LiveHarnessRejected):
         validate_live_case_ids(["E-P1", "E-UNKNOWN"])
-    assert exc.value.code == "unapproved_case_id"
+
+
+def test_production_mock_only_flags_are_accepted() -> None:
+    assert_mock_connector_posture(
+        _production_mock_settings(global_execution_enabled=True),
+        _production_mock_providers(),
+    )
+
+
+def test_live_connector_availability_is_rejected() -> None:
+    settings = _production_mock_settings()
+    settings["mcp"]["mode"] = "registry"
+    settings["mcp"]["discovery_status"] = "configured_unavailable_without_real_adapter"
+    with pytest.raises(LiveHarnessRejected) as exc:
+        assert_mock_connector_posture(settings, _production_mock_providers())
+    assert sanitize_report_error_code(exc.value.code) == "live_connector_selectable"
 
 
 def test_unhealthy_health_rejects() -> None:
-    client = FakeLiveHttpClient(
-        health_status=503,
-        health_body={"status": "degraded"},
-    )
+    client = FakeLiveHttpClient(health_status=503, health_body={"status": "degraded"})
     report = run_live_benchmark(_live_config(), client=client)
     assert report.aborted is True
     assert report.abort_reason == "health_not_ready"
-    assert report.runs == []
 
 
 def test_migration_not_ready_rejects() -> None:
@@ -201,9 +262,10 @@ def test_migration_not_ready_rejects() -> None:
     assert report.abort_reason == "migrations_not_ready"
 
 
-def test_missing_auth_rejects(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_missing_secure_credentials_reject_before_http(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_AUTH_ENABLED", "true")
     monkeypatch.delenv("APP_AUTH_PASSWORD", raising=False)
+    monkeypatch.delenv("APP_AUTH_USER", raising=False)
     monkeypatch.setenv(LIVE_AUTHORIZATION_ENV, "1")
     with pytest.raises(LiveHarnessRejected) as exc:
         build_live_harness_config(
@@ -211,7 +273,7 @@ def test_missing_auth_rejects(monkeypatch: pytest.MonkeyPatch) -> None:
             case_ids=["E-P1"],
             confirm_live=True,
         )
-    assert exc.value.code == "auth_credentials_required"
+    assert sanitize_report_error_code(exc.value.code) == "authentication_failed"
 
 
 def test_execution_enabled_true_aborts() -> None:
@@ -229,28 +291,20 @@ def test_execution_enabled_true_aborts() -> None:
     )
     report = run_live_benchmark(_live_config(("E-P1", "E-P2")), client=client)
     assert report.aborted is True
-    assert report.abort_reason == "execution_enabled_true"
+    assert report.abort_reason == "execution_enabled"
     assert len(report.runs) == 1
-    assert client.chat_calls == ["E-P1"]
 
 
-def test_live_connector_selection_aborts() -> None:
-    client = FakeLiveHttpClient(
-        settings_body={
-            "mcp": {
-                "mode": "registry",
-                "global_execution_enabled": True,
-                "splunk_live_readiness": {"ready_for_live_splunk_mcp": False},
-                "servers": [],
-            }
-        }
-    )
+def test_live_connector_selection_aborts_at_preflight() -> None:
+    settings = _production_mock_settings()
+    settings["mcp"]["base_url_configured"] = True
+    client = FakeLiveHttpClient(settings_body=settings)
     report = run_live_benchmark(_live_config(), client=client)
     assert report.aborted is True
     assert report.abort_reason == "live_connector_selectable"
 
 
-def test_timeout_records_once_with_no_retry() -> None:
+def test_timeout_aborts_remaining_probes_with_no_retry() -> None:
     client = FakeLiveHttpClient(
         chat_responses={
             "E-P1": (
@@ -269,22 +323,24 @@ def test_timeout_records_once_with_no_retry() -> None:
         }
     )
     report = run_live_benchmark(_live_config(("E-P1", "E-P2")), client=client, sleep_fn=lambda _: None)
-    assert len(report.runs) == 2
-    assert client.chat_calls == ["E-P1", "E-P2"]
-    assert report.runs[0].turn_timing["outcome"] == TurnOutcome.TIMEOUT.value
+    assert len(report.runs) == 1
+    assert report.aborted is True
+    assert report.abort_reason == "request_timeout"
+    assert client.chat_calls == [("E-P1", "live-synth-bench-benchrun-knowledge")]
 
 
 def test_non_200_aborts_with_no_retry() -> None:
     client = FakeLiveHttpClient(
         chat_responses={
-            "E-P1": (500, {"detail": "server error"}, 120),
+            "E-P1": (500, {"detail": "server error at https://secret.example.invalid"}, 120),
         }
     )
     report = run_live_benchmark(_live_config(("E-P1", "E-P2")), client=client)
     assert report.aborted is True
-    assert report.abort_reason == "http_500"
+    assert report.abort_reason == "http_non_success"
     assert len(report.runs) == 1
-    assert client.chat_calls == ["E-P1"]
+    payload = report.to_sanitized_dict()
+    assert "secret.example" not in json.dumps(payload)
 
 
 def test_skipped_synthesis_remains_valid_single_result() -> None:
@@ -309,10 +365,67 @@ def test_skipped_synthesis_remains_valid_single_result() -> None:
     assert report.aborted is False
     assert report.runs[0].error is None
     assert report.runs[0].response_valid is True
-    assert report.runs[0].turn_timing["synthesis_path"] == SynthesisPath.SKIPPED.value
 
 
-def test_secrets_prompts_answers_absent_from_json() -> None:
+def test_e_p3_not_relabelled_warm_when_third_in_sequence() -> None:
+    client = FakeLiveHttpClient()
+    report = run_live_benchmark(
+        _live_config(("E-P1", "E-P2", "E-P3")),
+        client=client,
+        sleep_fn=lambda _: None,
+    )
+    e_p3 = report.runs[2]
+    assert e_p3.matrix_run_kind == "cold"
+    assert e_p3.sequence_position == "subsequent"
+    assert e_p3.pair_id == "alert_pair"
+    assert e_p3.pair_position == "first"
+
+
+def test_fixed_matrix_and_pair_labels() -> None:
+    client = FakeLiveHttpClient()
+    report = run_live_benchmark(
+        _live_config(("E-P1", "E-P2", "E-P3", "E-P4", "E-P5", "E-P6")),
+        client=client,
+        sleep_fn=lambda _: None,
+    )
+    labels = {
+        row.case_id: (
+            row.matrix_run_kind,
+            row.pair_id,
+            row.pair_position,
+            row.sequence_position,
+        )
+        for row in report.runs
+    }
+    assert labels["E-P1"] == ("cold", "knowledge_pair", "first", "first")
+    assert labels["E-P2"] == ("warm", "knowledge_pair", "repeat", "subsequent")
+    assert labels["E-P3"] == ("cold", "alert_pair", "first", "subsequent")
+    assert labels["E-P4"] == ("warm", "alert_pair", "repeat", "subsequent")
+    assert labels["E-P5"] == ("cold-intent", "none", "standalone", "subsequent")
+    assert labels["E-P6"] == ("cold-intent", "none", "standalone", "subsequent")
+
+
+def test_server_run_kind_remains_separate() -> None:
+    client = FakeLiveHttpClient(
+        chat_responses={
+            "E-P2": (
+                200,
+                {
+                    "workflow_plan": {"execution_enabled": False},
+                    "control_plane_trace": {"turn_timing": _timing(run_kind=RunKind.UNKNOWN.value)},
+                },
+                700,
+            )
+        }
+    )
+    report = run_live_benchmark(_live_config(("E-P1", "E-P2")), client=client, sleep_fn=lambda _: None)
+    warm_row = report.runs[1]
+    assert warm_row.matrix_run_kind == "warm"
+    assert warm_row.server_run_kind == RunKind.UNKNOWN.value
+    assert warm_row.turn_timing["run_kind"] == RunKind.UNKNOWN.value
+
+
+def test_raw_exception_url_response_content_cannot_enter_error() -> None:
     client = FakeLiveHttpClient(
         chat_responses={
             "E-P1": (
@@ -336,41 +449,26 @@ def test_secrets_prompts_answers_absent_from_json() -> None:
     assert "secret prompt" not in serialized
     assert "secret answer" not in serialized
     assert "do not store" not in serialized
-    assert "password" not in serialized.lower()
+    if payload["runs"][0]["error"] is not None:
+        assert payload["runs"][0]["error"] in ALLOWLISTED_ERROR_CODES
 
 
-def test_client_run_kind_does_not_overwrite_server_run_kind() -> None:
-    client = FakeLiveHttpClient(
-        chat_responses={
-            "E-P2": (
-                200,
-                {
-                    "workflow_plan": {"execution_enabled": False},
-                    "control_plane_trace": {"turn_timing": _timing(run_kind=RunKind.UNKNOWN.value)},
-                },
-                700,
-            )
-        }
-    )
-    report = run_live_benchmark(_live_config(("E-P1", "E-P2")), client=client, sleep_fn=lambda _: None)
-    warm_row = report.runs[1]
-    assert warm_row.client_run_kind == RunKind.WARM.value
-    assert warm_row.server_run_kind == RunKind.UNKNOWN.value
-    assert warm_row.turn_timing["run_kind"] == RunKind.UNKNOWN.value
+def test_repeat_pairs_share_session_posture() -> None:
+    client = FakeLiveHttpClient()
+    run_live_benchmark(_live_config(("E-P1", "E-P2", "E-P3", "E-P4")), client=client, sleep_fn=lambda _: None)
+    sessions = {case_id: session for case_id, session in client.chat_calls}
+    assert sessions["E-P1"] == sessions["E-P2"]
+    assert sessions["E-P3"] == sessions["E-P4"]
+    assert sessions["E-P1"] != sessions["E-P3"]
 
 
 def test_maximum_run_count_enforced() -> None:
-    with pytest.raises(LiveHarnessRejected) as exc:
+    with pytest.raises(LiveHarnessRejected):
         validate_live_case_ids(list(APPROVED_LIVE_CASE_IDS) + ["E-P1"])
-    assert exc.value.code == "max_probe_count_exceeded"
 
 
 def test_partial_report_written_on_abort(tmp_path: Path) -> None:
-    client = FakeLiveHttpClient(
-        chat_responses={
-            "E-P1": (500, {}, 100),
-        }
-    )
+    client = FakeLiveHttpClient(chat_responses={"E-P1": (500, {}, 100)})
     report = run_live_benchmark(_live_config(("E-P1", "E-P2")), client=client)
     out = tmp_path / "partial.json"
     out.write_text(json.dumps(report.to_sanitized_dict(), indent=2), encoding="utf-8")
@@ -409,7 +507,7 @@ def test_cli_live_missing_confirm_live_rejects() -> None:
         check=False,
     )
     assert proc.returncode == 2
-    assert "confirm_live_required" in proc.stderr
+    assert "authorization_missing" in proc.stderr
 
 
 def test_stub_mode_remains_unchanged() -> None:

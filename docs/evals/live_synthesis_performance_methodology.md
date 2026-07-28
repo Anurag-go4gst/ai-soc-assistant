@@ -1,6 +1,6 @@
 # Live synthesis performance methodology (workstream E)
 
-**Status:** phase 1 instrumentation (no SLO targets)
+**Status:** phase 2 harness wiring (no SLO targets; no live probes in CI)
 **Date:** 2026-07-28
 **Plan:** [`plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md`](../../plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md)
 
@@ -49,15 +49,23 @@ Sanitized payload is attached to `control_plane_trace.turn_timing` on live `/cha
 
 **Excluded from artifacts:** prompts, analyst queries, credentials, raw model output.
 
-## Cold vs warm
+## Cold vs warm and harness labels
 
 | Class | Rule |
 |-------|------|
-| **cold** | First synthesis call in process, or ≥120s since prior synthesis completion |
-| **warm** | Subsequent synthesis within 120s |
-| **harness override** | `AI_SOC_BENCHMARK_RUN_KIND=cold|warm` (benchmark script only) |
+| **server `run_kind`** | Authoritative when present on `control_plane_trace.turn_timing` (often `unknown` on current production) |
+| **`matrix_run_kind`** | Fixed approved label per E-P1…E-P6 — experimental test sequencing only |
+| **`sequence_position`** | `first` for the first probe in the invocation; `subsequent` for all later probes |
+| **`pair_id` / `pair_position`** | Repeat-pair posture: `knowledge_pair` (E-P1/E-P2), `alert_pair` (E-P3/E-P4), or `standalone` (E-P5/E-P6) |
 
-Aligns with [`/llm-live-probe`](../../.claude/skills/llm-live-probe/SKILL.md) KV-cache guidance.
+Important:
+
+- Matrix cold/warm is **experimental test sequencing**; it does **not** prove model-server cache state.
+- E-P5/E-P6 are standalone first observations (`cold-intent`), not verified cold endpoint runs.
+- `server_run_kind` remains authoritative when available; harness labels never overwrite it.
+- Repeat pairs reuse the same application session posture within a run (session identifiers are never stored in reports).
+
+Aligns with [`/llm-live-probe`](../../.claude/skills/llm-live-probe/SKILL.md) KV-cache guidance for operator interpretation only.
 
 ## Benchmark harness
 
@@ -79,34 +87,71 @@ Live probes require **all** of:
 6. Sequential execution, max six probes, no retries, bounded per-probe timeout
 7. Default scratch output under `/tmp/live_synthesis_benchmark_report.json`
 
-Fail closed when `/health` or migrations are not ready, MCP is not mock-only, `workflow_plan.execution_enabled=true`, HTTP non-success, or `turn_timing` is malformed.
+Fail closed when `/health` or migrations are not ready, any live/remediation connector is selectable, `workflow_plan.execution_enabled=true`, HTTP non-success, request timeout, or `turn_timing` is malformed.
 
-Committed live reports use `evidence_class=exploratory_live_wiring_validation` — **not** an SLO baseline. Store `client_run_kind` (first probe cold, subsequent warm) separately from server `turn_timing.run_kind` (may be `unknown`).
+Mock-only production posture is accepted when effective evidence confirms:
+
+- registry `mode=mock` and `discovery_status=mock` with `status_detail=mock` (effective `MockMcpConnector` posture);
+- executable MCP server list contains mock transport only;
+- no live Splunk URL/token is configured;
+- no live Splunk provider or remediation/write connector is selectable.
+
+`MCP_GLOBAL_EXECUTION_ENABLED=true` and `MCP_SERVER_MOCK_EXECUTION_ENABLED=true` are **allowed** in mock mode.
+
+Committed live reports use `evidence_class=exploratory_live_wiring_validation` — **not** an SLO baseline. Per-run labels stored: `matrix_run_kind`, `sequence_position`, `pair_id`, `pair_position`, and `server_run_kind`.
+
+### Error codes in committed JSON
+
+Only bounded allowlisted codes may appear in report `error` / `abort_reason` fields:
+
+`authorization_missing`, `health_not_ready`, `migrations_not_ready`, `live_connector_selectable`, `authentication_failed`, `http_non_success`, `request_timeout`, `malformed_turn_timing`, `execution_enabled`, `response_invalid`, `unexpected_client_error`.
+
+No raw exception text, response bodies, headers, URLs, usernames, prompts, answers, tokens, cookies, or session identifiers are stored.
+
+### Operator command (after merge to production `master`)
+
+Run from the production checkout on merged `master`. `APP_AUTH_USER` and `APP_AUTH_PASSWORD` must already be supplied through the approved secure operator environment — never print or commit their values.
 
 ```bash
-AI_SOC_LIVE_BENCHMARK_AUTHORIZED=1 \\
-APP_AUTH_PASSWORD='${APP_AUTH_PASSWORD}' \\
-PYTHONPATH=backend:. python3 scripts/run_live_synthesis_baseline_benchmark.py \\
-  --live --confirm-live \\
-  --base-url https://cisco-vai.vnudge.com \\
-  --cases E-P1,E-P2,E-P3,E-P4,E-P5,E-P6 \\
+cd /var/www/ai-soc-assistant
+test -n "${APP_AUTH_USER:-}" || { echo "APP_AUTH_USER missing"; exit 1; }
+test -n "${APP_AUTH_PASSWORD:-}" || { echo "APP_AUTH_PASSWORD missing"; exit 1; }
+export AI_SOC_LIVE_BENCHMARK_AUTHORIZED=1
+
+PYTHONPATH=backend:. python3 scripts/run_live_synthesis_baseline_benchmark.py \
+  --live \
+  --confirm-live \
+  --base-url 'https://cisco-vai.vnudge.com' \
+  --cases E-P1,E-P2,E-P3,E-P4,E-P5,E-P6 \
+  --probe-timeout-s 300 \
+  --inter-probe-pause-s 2 \
   --json /tmp/live_synthesis_benchmark_report.json
 ```
+
+### Runtime guidance
+
+| Item | Value |
+|------|-------|
+| Expected heuristic duration | approximately **10–15 minutes** |
+| Maximum timeout-bound duration | approximately **30 minutes** plus preflight |
+| Retries | none |
+| Abort policy | first timeout, non-200, or safety violation aborts remaining probes |
+| Partial output | sanitized partial report retained on abort |
 
 Do not run live probes in CI.
 
 ## Proposed limited baseline probe matrix (phase 2)
 
-| Case | Profile | Run kind | Rationale |
-|------|---------|----------|-----------|
-| E-P1 | `knowledge_recall` | cold | RAG-heavy, no SPL |
-| E-P2 | `knowledge_recall` | warm | KV-cache warm repeat |
-| E-P3 | `alert_summary` | cold | Template + MITRE path |
-| E-P4 | `alert_summary` | warm | Warm repeat |
-| E-P5 | `guided_investigation` | cold | Composer path |
-| E-P6 | `spl_generation` | cold | SPL segment stress (synthesis often skipped) |
+| Case | Profile | Matrix label | Pair | Rationale |
+|------|---------|--------------|------|-----------|
+| E-P1 | `knowledge_recall` | cold | knowledge_pair / first | RAG-heavy, no SPL |
+| E-P2 | `knowledge_recall` | warm | knowledge_pair / repeat | Repeat within knowledge pair |
+| E-P3 | `alert_summary` | cold | alert_pair / first | Template + MITRE path |
+| E-P4 | `alert_summary` | warm | alert_pair / repeat | Repeat within alert pair |
+| E-P5 | `guided_investigation` | cold-intent | standalone | Composer path (standalone first observation) |
+| E-P6 | `spl_generation` | cold-intent | standalone | SPL segment stress (generation only) |
 
-Estimated runtime (heuristic from 90–240s/turn smoke): **~13–15 minutes** for six probes on single-slot VPS. Re-estimate from phase-1 stub schema before live run.
+Estimated runtime: approximately **10–15 minutes** heuristic; timeout-bound ceiling approximately **30 minutes** plus preflight.
 
 ## SLO policy
 

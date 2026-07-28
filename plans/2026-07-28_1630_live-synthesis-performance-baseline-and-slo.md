@@ -81,7 +81,7 @@ Independent of workstreams A–D. Recommended after workstream C operator attest
   - **Do:** Wire `run_live_benchmark` + CLI gates (`--confirm-live`, `AI_SOC_LIVE_BENCHMARK_AUTHORIZED=1`, approved case ids, auth via env, sequential/no-retry, `/tmp` default output)
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_live_synthesis_benchmark.py -q`
   - **Depends on:** E4
-  - **Evidence:** 22 passed `test_live_synthesis_benchmark.py`; 30 passed with `test_synthesis_turn_timing.py`; `git diff --check` clean; plan audit 6 checked / 0 gaps
+  - **Evidence:** 27 passed `test_live_synthesis_benchmark.py`; 35 passed with `test_synthesis_turn_timing.py`; corrective pass on mock-only preflight + pair labels + error allowlist
 
 - [ ] **E5-run** — Controlled live baseline run (operator-only, outside CI)
 - [ ] **E6** — COE-reviewed SLO proposal from measured data only
@@ -112,4 +112,4 @@ Independent of workstreams A–D. Recommended after workstream C operator attest
 | Date | Note |
 |------|------|
 | 2026-07-28 | Skeleton created from gap reconciliation disposition #4 |
-| 2026-07-28 | Phase 2 harness wiring: `--live` safety gates + fixed E-P1…E-P6 probes (no operator run yet) |
+| 2026-07-28 | Phase 2 corrective pass: mock-only preflight semantics, pair/sequence labels, allowlisted error codes |

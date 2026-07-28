@@ -50,11 +50,32 @@ DEFAULT_PROBE_MATRIX: tuple[dict[str, str], ...] = (
 
 APPROVED_LIVE_CASE_IDS: frozenset[str] = frozenset(row["case_id"] for row in DEFAULT_PROBE_MATRIX)
 
+ALLOWLISTED_ERROR_CODES: frozenset[str] = frozenset(
+    {
+        "authorization_missing",
+        "health_not_ready",
+        "migrations_not_ready",
+        "live_connector_selectable",
+        "authentication_failed",
+        "http_non_success",
+        "request_timeout",
+        "malformed_turn_timing",
+        "execution_enabled",
+        "response_invalid",
+        "unexpected_client_error",
+    }
+)
+
+_LIVE_MOCK_SERVER_TRANSPORTS = frozenset({"mock"})
+_LIVE_REMEDIATION_PROVIDER_TYPES = frozenset({"ticketing", "remediation", "soar"})
+
 # Fixed, reviewable probe definitions — messages are never accepted from CLI.
 APPROVED_LIVE_PROBE_MESSAGES: dict[str, dict[str, Any]] = {
     "E-P1": {
         "profile": "knowledge_recall",
         "matrix_run_kind": "cold",
+        "pair_id": "knowledge_pair",
+        "pair_position": "first",
         "generation_only": False,
         "message": (
             "What is the standard operating procedure for investigating brute-force login attempts? "
@@ -64,6 +85,8 @@ APPROVED_LIVE_PROBE_MESSAGES: dict[str, dict[str, Any]] = {
     "E-P2": {
         "profile": "knowledge_recall",
         "matrix_run_kind": "warm",
+        "pair_id": "knowledge_pair",
+        "pair_position": "repeat",
         "generation_only": False,
         "message": (
             "Summarize the key investigation steps from the brute-force login SOP. "
@@ -73,6 +96,8 @@ APPROVED_LIVE_PROBE_MESSAGES: dict[str, dict[str, Any]] = {
     "E-P3": {
         "profile": "alert_summary",
         "matrix_run_kind": "cold",
+        "pair_id": "alert_pair",
+        "pair_position": "first",
         "generation_only": False,
         "message": (
             "Summarize alert ALT-BF-001: multiple failed logins for svc_backup from 203.0.113.44 "
@@ -82,6 +107,8 @@ APPROVED_LIVE_PROBE_MESSAGES: dict[str, dict[str, Any]] = {
     "E-P4": {
         "profile": "alert_summary",
         "matrix_run_kind": "warm",
+        "pair_id": "alert_pair",
+        "pair_position": "repeat",
         "generation_only": False,
         "message": (
             "Provide an analyst summary for alert ALT-BF-001 brute-force pattern. "
@@ -90,7 +117,9 @@ APPROVED_LIVE_PROBE_MESSAGES: dict[str, dict[str, Any]] = {
     },
     "E-P5": {
         "profile": "guided_investigation",
-        "matrix_run_kind": "cold",
+        "matrix_run_kind": "cold-intent",
+        "pair_id": "none",
+        "pair_position": "standalone",
         "generation_only": False,
         "message": (
             "We observed periodic HTTPS beacons to an unknown domain from a finance workstation. "
@@ -100,7 +129,9 @@ APPROVED_LIVE_PROBE_MESSAGES: dict[str, dict[str, Any]] = {
     },
     "E-P6": {
         "profile": "spl_generation",
-        "matrix_run_kind": "cold",
+        "matrix_run_kind": "cold-intent",
+        "pair_id": "none",
+        "pair_position": "standalone",
         "generation_only": True,
         "message": (
             "Draft a candidate SPL to hunt failed Windows logon events (event code 4625) in the last 24 hours. "
@@ -143,7 +174,7 @@ class LiveHarnessConfig:
     confirm_live: bool
     probe_timeout_s: int = DEFAULT_PROBE_TIMEOUT_S
     inter_probe_pause_s: float = DEFAULT_INTER_PROBE_PAUSE_S
-    session_id: str = field(default_factory=lambda: f"live-synth-bench-{uuid.uuid4().hex[:12]}")
+    run_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
 
 
 @dataclass(frozen=True)
@@ -162,8 +193,10 @@ class BenchmarkRunResult:
     elapsed_ms: int
     error: str | None = None
     matrix_run_kind: str | None = None
-    client_run_kind: str | None = None
+    sequence_position: str | None = None
     server_run_kind: str | None = None
+    pair_id: str | None = None
+    pair_position: str | None = None
     http_status: int | None = None
     execution_enabled: bool | None = None
     response_valid: bool | None = None
@@ -196,21 +229,23 @@ class BenchmarkReport:
             "run_count": len(self.runs),
             "error_count": sum(1 for row in self.runs if row.error),
             "aborted": self.aborted,
-            "abort_reason": self.abort_reason,
+            "abort_reason": sanitize_report_error_code(self.abort_reason),
             "runs": [
                 {
                     "case_id": row.case_id,
                     "profile": row.profile,
                     "run_kind": row.run_kind,
                     "matrix_run_kind": row.matrix_run_kind,
-                    "client_run_kind": row.client_run_kind,
+                    "sequence_position": row.sequence_position,
                     "server_run_kind": row.server_run_kind,
+                    "pair_id": row.pair_id,
+                    "pair_position": row.pair_position,
                     "http_status": row.http_status,
                     "execution_enabled": row.execution_enabled,
                     "response_valid": row.response_valid,
                     "aborted": row.aborted,
                     "elapsed_ms": row.elapsed_ms,
-                    "error": row.error,
+                    "error": sanitize_report_error_code(row.error),
                     "turn_timing": row.turn_timing,
                 }
                 for row in self.runs
@@ -225,7 +260,46 @@ class LiveBenchmarkHttpClient(Protocol):
 
     def fetch_settings_status(self) -> tuple[int, dict[str, Any]]: ...
 
+    def fetch_providers_status(self) -> tuple[int, dict[str, Any]]: ...
+
     def post_chat(self, *, case_id: str, session_id: str, timeout_s: int) -> tuple[int, dict[str, Any], int]: ...
+
+
+def sanitize_report_error_code(raw: str | None) -> str | None:
+    """Map internal failures to the bounded allowlisted error codes stored in JSON."""
+    if raw is None:
+        return None
+    normalized = str(raw).strip()
+    if not normalized:
+        return None
+    if normalized in ALLOWLISTED_ERROR_CODES:
+        return normalized
+    if normalized.startswith("http_"):
+        return "http_non_success"
+    mapped = _INTERNAL_ERROR_CODE_MAP.get(normalized)
+    if mapped in ALLOWLISTED_ERROR_CODES:
+        return mapped
+    return "unexpected_client_error"
+
+
+_INTERNAL_ERROR_CODE_MAP: dict[str, str] = {
+    "confirm_live_required": "authorization_missing",
+    "authorization_env_required": "authorization_missing",
+    "auth_credentials_required": "authentication_failed",
+    "auth_failed": "authentication_failed",
+    "health_not_ready": "health_not_ready",
+    "migrations_not_ready": "migrations_not_ready",
+    "live_connector_selectable": "live_connector_selectable",
+    "settings_unavailable": "health_not_ready",
+    "malformed_turn_timing": "malformed_turn_timing",
+    "execution_enabled_true": "execution_enabled",
+    "missing_control_plane_trace": "response_invalid",
+    "missing_turn_timing": "response_invalid",
+    "invalid_json_response": "response_invalid",
+    "http_transport_error": "unexpected_client_error",
+    "TimeoutError": "request_timeout",
+    "socket.timeout": "request_timeout",
+}
 
 
 def _drop_sensitive_report_keys(payload: dict[str, Any]) -> dict[str, Any]:
@@ -282,7 +356,10 @@ def _json_request(
             parsed = {"_parse_error": True}
         return status, parsed if isinstance(parsed, dict) else {}
     except URLError as exc:
-        raise LiveHarnessRejected("http_transport_error", str(exc.reason)) from exc
+        reason = str(getattr(exc, "reason", exc))
+        if "timed out" in reason.lower():
+            raise LiveHarnessRejected("request_timeout", "request timed out") from exc
+        raise LiveHarnessRejected("http_transport_error", "http transport failed") from exc
     try:
         parsed = json.loads(body) if body else {}
     except json.JSONDecodeError as exc:
@@ -314,11 +391,12 @@ def validate_live_base_url(base_url: str | None) -> str:
 def validate_live_auth_credentials() -> None:
     if not _auth_enabled():
         return
+    username = os.getenv("APP_AUTH_USER", "").strip()
     password = os.getenv("APP_AUTH_PASSWORD", "").strip()
-    if not password:
+    if not username or not password:
         raise LiveHarnessRejected(
             "auth_credentials_required",
-            "APP_AUTH_PASSWORD must be set in the environment when APP_AUTH_ENABLED=true",
+            "APP_AUTH_USER and APP_AUTH_PASSWORD must be set when APP_AUTH_ENABLED=true",
         )
 
 
@@ -368,23 +446,69 @@ def assert_health_ready(health_body: dict[str, Any]) -> None:
         raise LiveHarnessRejected("migrations_not_ready", "database migrations are not ready")
 
 
-def assert_mock_connector_posture(settings_body: dict[str, Any]) -> None:
+def assert_mock_connector_posture(settings_body: dict[str, Any], providers_body: dict[str, Any] | None = None) -> None:
     mcp = settings_body.get("mcp")
     if not isinstance(mcp, dict):
         raise LiveHarnessRejected("settings_unavailable", "settings mcp block missing")
+
     mode = str(mcp.get("mode") or "")
     if mode != "mock":
-        raise LiveHarnessRejected("live_connector_selectable", f"MCP mode must be mock (observed {mode})")
-    if mcp.get("global_execution_enabled") is True:
-        raise LiveHarnessRejected("live_connector_selectable", "MCP global_execution_enabled must be false")
+        raise LiveHarnessRejected("live_connector_selectable", "MCP registry mode must be mock")
+
+    discovery_status = str(mcp.get("discovery_status") or "")
+    status_detail = str(mcp.get("status_detail") or "")
+    if discovery_status != "mock" or status_detail != "mock":
+        raise LiveHarnessRejected("live_connector_selectable", "effective MCP connector is not mock-only")
+
+    if mcp.get("base_url_configured") is True or mcp.get("token_configured") is True:
+        raise LiveHarnessRejected("live_connector_selectable", "live Splunk endpoint credentials are configured")
+
+    if mcp.get("splunk_mcp_enabled") is True and mcp.get("base_url_configured") is True:
+        raise LiveHarnessRejected("live_connector_selectable", "live Splunk MCP is enabled with a configured URL")
+
     readiness = mcp.get("splunk_live_readiness")
     if isinstance(readiness, dict) and readiness.get("ready_for_live_splunk_mcp") is True:
         raise LiveHarnessRejected("live_connector_selectable", "live Splunk MCP readiness reports execution-ready")
+
     servers = mcp.get("servers")
-    if isinstance(servers, list):
-        for server in servers:
-            if isinstance(server, dict) and server.get("execution_enabled") is True:
-                raise LiveHarnessRejected("live_connector_selectable", "an MCP server has execution_enabled=true")
+    if not isinstance(servers, list) or not servers:
+        raise LiveHarnessRejected("live_connector_selectable", "mock MCP server registry is empty")
+
+    for server in servers:
+        if not isinstance(server, dict):
+            continue
+        transport = str(server.get("transport") or "")
+        if transport not in _LIVE_MOCK_SERVER_TRANSPORTS:
+            raise LiveHarnessRejected("live_connector_selectable", "non-mock MCP server transport is registered")
+        if server.get("url_configured") is True:
+            raise LiveHarnessRejected("live_connector_selectable", "registry server exposes a configured live URL")
+        server_type = str(server.get("type") or "")
+        if server_type in {"splunk", "splunk_mcp"} and transport != "mock":
+            raise LiveHarnessRejected("live_connector_selectable", "live Splunk server type is selectable")
+
+    if providers_body is not None:
+        _assert_no_live_or_remediation_providers(providers_body)
+
+
+def _assert_no_live_or_remediation_providers(providers_body: dict[str, Any]) -> None:
+    providers = providers_body.get("providers")
+    if not isinstance(providers, list):
+        return
+    for provider in providers:
+        if not isinstance(provider, dict):
+            continue
+        provider_type = str(provider.get("provider_type") or "").strip().lower()
+        provider_id = str(provider.get("provider_id") or "").strip().lower()
+        enabled = provider.get("enabled") is True
+        available = provider.get("available") is True
+        auth_configured = provider.get("auth_configured") is True
+        write_supported = provider.get("write_supported") is True
+        if provider_type in _LIVE_REMEDIATION_PROVIDER_TYPES and enabled:
+            raise LiveHarnessRejected("live_connector_selectable", "remediation connector is registered")
+        if provider_type == "splunk_mcp" and enabled and available and auth_configured:
+            raise LiveHarnessRejected("live_connector_selectable", "live Splunk provider is selectable")
+        if write_supported and enabled and available and provider_id not in {"mock_asset_inventory"}:
+            raise LiveHarnessRejected("live_connector_selectable", "write-capable remediation provider is registered")
 
 
 def _workflow_execution_enabled(body: dict[str, Any]) -> bool:
@@ -394,8 +518,18 @@ def _workflow_execution_enabled(body: dict[str, Any]) -> bool:
     return workflow.get("execution_enabled") is True
 
 
-def _client_run_kind_for_index(index: int) -> str:
-    return RunKind.COLD.value if index == 0 else RunKind.WARM.value
+def _sequence_position_for_index(index: int) -> str:
+    return "first" if index == 0 else "subsequent"
+
+
+def _session_id_for_case(case_id: str, *, run_id: str) -> str:
+    definition = APPROVED_LIVE_PROBE_MESSAGES[case_id]
+    pair_id = str(definition.get("pair_id") or "none")
+    if pair_id == "knowledge_pair":
+        return f"live-synth-bench-{run_id}-knowledge"
+    if pair_id == "alert_pair":
+        return f"live-synth-bench-{run_id}-alert"
+    return f"live-synth-bench-{run_id}-{case_id}"
 
 
 def build_live_harness_config(
@@ -463,18 +597,18 @@ def summarize_benchmark(report: BenchmarkReport) -> dict[str, Any]:
         if row.turn_timing.get("segments_ms", {}).get("synthesis_endpoint") is not None
     ]
 
-    def _kind_value(row: BenchmarkRunResult) -> str:
-        return str(row.client_run_kind or row.run_kind or RunKind.UNKNOWN.value)
+    def _matrix_kind_value(row: BenchmarkRunResult) -> str:
+        return str(row.matrix_run_kind or row.run_kind or RunKind.UNKNOWN.value)
 
     cold_e2e = [
         int(row.turn_timing.get("segments_ms", {}).get("end_to_end") or row.elapsed_ms)
         for row in ok_runs
-        if _kind_value(row) == RunKind.COLD.value
+        if _matrix_kind_value(row) in {RunKind.COLD.value, "cold-intent"}
     ]
     warm_e2e = [
         int(row.turn_timing.get("segments_ms", {}).get("end_to_end") or row.elapsed_ms)
         for row in ok_runs
-        if _kind_value(row) == RunKind.WARM.value
+        if _matrix_kind_value(row) == RunKind.WARM.value
     ]
     timeout_count = sum(1 for row in ok_runs if row.turn_timing.get("outcome") == TurnOutcome.TIMEOUT.value)
     fallback_count = sum(1 for row in ok_runs if row.turn_timing.get("fallback_used") is True)
@@ -579,7 +713,7 @@ class UrllibLiveBenchmarkHttpClient:
             timeout_s=30.0,
         )
         if status != 200 or not body.get("authenticated"):
-            raise LiveHarnessRejected("auth_failed", f"auth login failed status={status}")
+            raise LiveHarnessRejected("auth_failed", "auth login failed")
 
     def fetch_health(self) -> tuple[int, dict[str, Any]]:
         return _json_request(
@@ -594,6 +728,14 @@ class UrllibLiveBenchmarkHttpClient:
             self._opener,
             method="GET",
             url=f"{self._api_base}/settings/status",
+            timeout_s=30.0,
+        )
+
+    def fetch_providers_status(self) -> tuple[int, dict[str, Any]]:
+        return _json_request(
+            self._opener,
+            method="GET",
+            url=f"{self._api_base}/settings/providers/status",
             timeout_s=30.0,
         )
 
@@ -614,21 +756,23 @@ class UrllibLiveBenchmarkHttpClient:
 def run_live_preflight(client: LiveBenchmarkHttpClient) -> None:
     health_status, health_body = client.fetch_health()
     if health_status != 200:
-        raise LiveHarnessRejected("health_not_ready", f"/health returned HTTP {health_status}")
+        raise LiveHarnessRejected("health_not_ready", "/health returned non-success status")
     assert_health_ready(health_body)
     settings_status, settings_body = client.fetch_settings_status()
     if settings_status != 200:
-        raise LiveHarnessRejected("settings_unavailable", f"/settings/status returned HTTP {settings_status}")
-    assert_mock_connector_posture(settings_body)
+        raise LiveHarnessRejected("settings_unavailable", "/settings/status returned non-success status")
+    providers_status, providers_body = client.fetch_providers_status()
+    if providers_status != 200:
+        raise LiveHarnessRejected("settings_unavailable", "/settings/providers/status returned non-success status")
+    assert_mock_connector_posture(settings_body, providers_body)
 
 
 def _record_probe_result(
     *,
     case_id: str,
     definition: dict[str, Any],
-    client_run_kind: str,
+    sequence_position: str,
     http_status: int,
-    body: dict[str, Any],
     elapsed_ms: int,
     error: str | None,
     response_valid: bool,
@@ -640,16 +784,18 @@ def _record_probe_result(
     return BenchmarkRunResult(
         case_id=case_id,
         profile=str(definition["profile"]),
-        run_kind=client_run_kind,
+        run_kind=str(definition["matrix_run_kind"]),
         matrix_run_kind=str(definition["matrix_run_kind"]),
-        client_run_kind=client_run_kind,
+        sequence_position=sequence_position,
         server_run_kind=server_run_kind,
+        pair_id=str(definition["pair_id"]),
+        pair_position=str(definition["pair_position"]),
         http_status=http_status,
         execution_enabled=execution_enabled,
         response_valid=response_valid,
         turn_timing=turn_timing,
         elapsed_ms=elapsed_ms,
-        error=error,
+        error=sanitize_report_error_code(error),
         aborted=aborted,
     )
 
@@ -670,14 +816,15 @@ def run_live_benchmark(
         run_live_preflight(http_client)
     except LiveHarnessRejected as exc:
         report.aborted = True
-        report.abort_reason = exc.code
+        report.abort_reason = sanitize_report_error_code(exc.code)
         report.completed_at_unix = time.time()
         report.summary = summarize_benchmark(report)
         return report
 
     for index, case_id in enumerate(config.case_ids):
         definition = APPROVED_LIVE_PROBE_MESSAGES[case_id]
-        client_run_kind = _client_run_kind_for_index(index)
+        sequence_position = _sequence_position_for_index(index)
+        session_id = _session_id_for_case(case_id, run_id=config.run_id)
         error: str | None = None
         turn_timing: dict[str, Any] = {}
         http_status = 0
@@ -690,43 +837,45 @@ def run_live_benchmark(
         try:
             http_status, body, elapsed_ms = http_client.post_chat(
                 case_id=case_id,
-                session_id=config.session_id,
+                session_id=session_id,
                 timeout_s=config.probe_timeout_s,
             )
             if http_status != 200:
-                error = f"http_{http_status}"
+                error = "http_non_success"
                 aborted = True
             else:
                 execution_enabled = _workflow_execution_enabled(body)
                 if execution_enabled:
-                    error = "execution_enabled_true"
+                    error = "execution_enabled"
                     aborted = True
                 trace = body.get("control_plane_trace")
                 if not isinstance(trace, dict):
-                    error = error or "missing_control_plane_trace"
+                    error = error or "response_invalid"
                     aborted = True
                 else:
                     raw_timing = trace.get("turn_timing")
                     if not isinstance(raw_timing, dict):
-                        error = error or "missing_turn_timing"
+                        error = error or "response_invalid"
                         aborted = True
                     else:
                         turn_timing = validate_turn_timing_payload(raw_timing)
                         response_valid = True
+                        if turn_timing.get("outcome") == TurnOutcome.TIMEOUT.value:
+                            error = "request_timeout"
+                            aborted = True
         except LiveHarnessRejected as exc:
-            error = exc.code
+            error = sanitize_report_error_code(exc.code)
             aborted = True
         except Exception as exc:  # noqa: BLE001 — benchmark captures operator failures once
-            error = type(exc).__name__
+            error = sanitize_report_error_code(type(exc).__name__)
             aborted = True
 
         report.runs.append(
             _record_probe_result(
                 case_id=case_id,
                 definition=definition,
-                client_run_kind=client_run_kind,
+                sequence_position=sequence_position,
                 http_status=http_status,
-                body=body,
                 elapsed_ms=elapsed_ms,
                 error=error,
                 response_valid=response_valid,
@@ -765,5 +914,11 @@ def estimate_live_probe_cost(specs: list[BenchmarkProbeSpec] | None = None) -> d
         "inter_probe_pause_seconds": inter_pause_s,
         "estimated_runtime_seconds": est_cold_s + est_warm_s + int(inter_pause_s),
         "estimated_runtime_minutes": round((est_cold_s + est_warm_s + inter_pause_s) / 60, 1),
-        "note": "Heuristic from 90–240s/turn smoke band; exploratory wiring validation only — not an SLO baseline.",
+        "heuristic_duration_minutes": "10-15",
+        "maximum_timeout_bound_minutes": round((MAX_LIVE_PROBES_PER_RUN * DEFAULT_PROBE_TIMEOUT_S + inter_pause_s) / 60, 1),
+        "note": (
+            "Heuristic exploratory duration is approximately 10–15 minutes; "
+            "timeout-bound ceiling is approximately 30 minutes plus preflight. "
+            "Not an SLO baseline; no retries; first timeout/non-200/safety violation aborts remaining probes."
+        ),
     }

@@ -39,6 +39,7 @@ from app.evals.live_synthesis_benchmark import (  # noqa: E402
     parse_probe_matrix,
     run_live_benchmark,
     run_stub_benchmark,
+    sanitize_report_error_code,
     validate_no_arbitrary_query_inputs,
 )
 
@@ -138,7 +139,7 @@ def main() -> int:
                 query=args.query,
             )
         except LiveHarnessRejected as exc:
-            print(f"ERROR: {exc.code}: {exc}", file=sys.stderr)
+            print(f"ERROR: {sanitize_report_error_code(exc.code)}", file=sys.stderr)
             return 2
 
         report = run_live_benchmark(config)
