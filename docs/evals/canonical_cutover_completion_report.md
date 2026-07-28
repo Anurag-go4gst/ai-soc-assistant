@@ -148,8 +148,8 @@ DATABASE_URL=postgresql://...@127.0.0.1:5434/ai_soc_assistant \
 |-----|----------|--------|-------|
 | `test_dual_runtime_behavioural_parity.py` | Medium | **Resolved (2026-07-28)** | Absent at cutover closure; added in outcome-invariant hardening (`test_dual_runtime_behavioural_parity.py`, 9 scenarios). Original Gate 3.4 **78 passed** and parity **120/0/0** evidence unchanged |
 | Hook-level SPL/MCP step idempotency | Low (Medium/High before live MCP execution) | **Resolved (2026-07-28)** | Workstream D — **P0 side-effecting** MCP connector + guided safe-catalog execute only; P1/P2 read-only hooks deferred (see gap reconciliation §Gap 1) |
-| LLM synthesis latency in smoke | Medium | **open** | Deferred to workstream E |
-| Production migration operator attestation | Low | **evidence-pending** | Workstream C — independent of A+B |
+| LLM synthesis latency in smoke | Medium | **open** | Workstream E Phase 1 instrumentation deployed @ `6a7fe54` (PR #116); live baseline deferred |
+| Production migration operator attestation | Low | **Resolved (2026-07-28)** | Workstream C — signed by Anurag Agarwal, AI SOC Project Owner |
 
 ---
 
@@ -176,7 +176,7 @@ DATABASE_URL=postgresql://...@127.0.0.1:5434/ai_soc_assistant \
 | Environment | Migrations | Verified |
 |-------------|------------|----------|
 | Dev Docker Postgres (`127.0.0.1:5434`) | 0001–0006 via `entrypoint.sh` / `migrate_ai_soc_db.py` | `/health` readiness + smoke `schema_migrations` check |
-| VPS prod | 0001–0006 via existing entrypoint contract (no new migration in PR #112) | **Technically verified 2026-07-28:** merge `7ce1474`; `/health` `database_migrations.ready=true`, `missing_versions=[]`; backend `RestartCount=0`. **Operator attestation:** name/role **evidence-pending** (see gap reconciliation §C). |
+| VPS prod | 0001–0006 via existing entrypoint contract (no new migration in PR #112, #115, or #116) | **Technically verified 2026-07-28:** merge `7ce1474` (A+B); Workstream D `42bc899`; Workstream E Phase 1 `6a7fe54`; `/health` `database_migrations.ready=true`, `missing_versions=[]`; backend `RestartCount=0`. **Operator attestation signed:** Anurag Agarwal, AI SOC Project Owner, 2026-07-28 — [`workstream_c_migration_attestation.md`](workstream_c_migration_attestation.md). |
 
 No runtime DDL in canonical handoff repository (`rg` clean).
 
