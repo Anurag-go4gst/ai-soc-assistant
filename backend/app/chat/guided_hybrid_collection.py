@@ -14,6 +14,12 @@ from app.chat.canonical_execution_idempotency import (
     run_idempotent_execution_step,
 )
 from app.chat.evidence_loop import record_hop
+from app.chat.hook_replay_contract import (
+    HOOK_REPLAY_CONTRACT_VERSION,
+    HookReplayEnvelope,
+    build_safe_catalog_fingerprint,
+    build_stored_hook_payload,
+)
 from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.planner.resource_plan import PlanStep, ResourcePlan
 from app.spl.guided_safe_spl_dispatch import build_guided_safe_spl_dispatch_plan
@@ -149,6 +155,30 @@ def collect_guided_hybrid_evidence(
                 )
             updated = next_state
             collected_count += delta
+            if purpose == "safe_catalog_query":
+                template_id = _template_id_from_step(step)
+                normalized_spl = None
+                if isinstance(patch.get("payload"), dict):
+                    normalized_spl = patch["payload"].get("normalized_spl")
+                envelope = HookReplayEnvelope(
+                    contract_version=HOOK_REPLAY_CONTRACT_VERSION,
+                    hook_name="guided_safe_catalog_execute",
+                    resource_plan_id=plan_id,
+                    handoff_id=handoff_id,
+                    handoff_version=handoff_version,
+                    step_id=step_id,
+                    operation_identity="guided_safe_catalog_execute",
+                    input_fingerprint=build_safe_catalog_fingerprint(
+                        template_id=template_id,
+                        normalized_spl=str(normalized_spl) if normalized_spl else None,
+                        selected_mcp_tool="guided_safe_catalog",
+                    ),
+                )
+                return build_stored_hook_payload(
+                    envelope,
+                    hop_patch=patch,
+                    connector_invoked=delta > 0,
+                ) | {"collected_delta": delta}
             return {"hop_patch": patch, "collected_delta": delta}
 
         if not plan_id or not step_id:
