@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from app.chat.canonical_handoff_builder import build_canonical_planning_input, new_handoff_id
@@ -96,7 +97,9 @@ def run_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:
         graph_node_route_contract,
         graph_node_route_resolution,
     )
+    from app.synthesis.turn_timing import record_canonical_planning_ms
 
+    started = time.monotonic()
     try:
         state = graph_node_lane_and_canonical_planning(state)
         from app.chat.canonical_outcome_gate import enforce_canonical_outcome_invariant
@@ -113,6 +116,8 @@ def run_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:
             detail=exc.detail,
             category="database",
         )
+    finally:
+        record_canonical_planning_ms(int((time.monotonic() - started) * 1000))
 
 
 def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:

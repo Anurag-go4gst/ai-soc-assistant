@@ -1,10 +1,15 @@
 ---
 name: live-synthesis-performance-baseline
 overview: "Measure live synthesis latency (cold/warm percentiles, timeout/fallback rates, path timing) before any SLO declaration; keep probes outside CI; sanitize committed artifacts."
-status: proposed
+status: in_progress
 date: 2026-07-28
 canonical_plan: plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md
 depends_on: none
+workstream: E
+execution_scope: Phase 1 only — instrumentation + benchmark harness; no live probes or SLO
+implementation_branch: feat/live-synthesis-perf-phase1
+implementation_worktree: .worktree-live-synthesis-perf
+baseline: 42bc899a519ba1c2cf326181952538e6222ac9fb
 ---
 
 # Live Synthesis Performance Baseline and SLO
@@ -13,78 +18,92 @@ depends_on: none
 
 Establish an **evidence-based** performance baseline for live LLM synthesis (`AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` + `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED`) before declaring SLO targets or optimization work. Split **instrumentation/benchmarking** (phase 1) from **optimization** (phase 2).
 
-**Not a correctness defect** (cutover gap 4). Does not block outcome-invariant hardening.
+**Not a correctness defect** (cutover gap 4). Does not block workstreams A–D.
 
 ## Stop conditions
 
-- Phase 1 baseline artifact published (sanitized) with cold/warm percentiles, **or**
+- Phase 1 checklist E0–E4 checked with evidence, **or**
 - COE defers live synthesis on production until baseline complete, **or**
 - Instrumentation gate fails twice
 
-## Locked decisions (draft)
+## Locked decisions
 
 | ID | Decision |
 |----|----------|
-| P1 | **No SLO targets** until phase 1 baseline is measured and reviewed |
+| P1 | **No SLO targets** until phase 2 after controlled baseline review |
 | P2 | Live probes run **outside CI** (manual or scheduled ops job); never block merge gates |
 | P3 | Committed artifacts **sanitized** — no prompts, credentials, or raw analyst queries |
 | P4 | Report **cold and warm** separately (KV-cache / server warm-up) |
 | P5 | Break down **endpoint vs application** time (HTTP to LLM vs pipeline overhead) |
+| P6 | Phase 1 uses **stub/deterministic harness tests** only; `--live` deferred |
 
 ## Dependency order
 
-Independent of workstreams A–D. Recommended after C (ops closeout) if production probes required.
+Independent of workstreams A–D. Recommended after workstream C operator attestation for production probes.
 
-`P0 → P1 → P2` (phase 2 only after COE review of P1 artifact)
+`E0 → E1 → E2 → E3 → E4` (phase 2 `E5+` deferred)
 
-## Phase 1 — Instrumentation and baseline (skeleton)
+## Phase 1 — Instrumentation and harness (this PR)
 
-- [ ] **P0** — Timing instrumentation spec
-  - **Do:** Document probe points: synthesis invoke start/end, adapter HTTP round-trip, fallback path, timeout events. Align with `/llm-live-probe` skill rubric.
-  - **Verify:** `docs/evals/live_synthesis_performance_methodology.md` reviewed
+- [x] **E0** — Methodology + metric schema
+  - **Do:** Add `docs/evals/live_synthesis_performance_methodology.md` with segment definitions and sanitized schema
+  - **Verify:** `test -f docs/evals/live_synthesis_performance_methodology.md`
   - **Depends on:** none
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** methodology doc committed with schema_version 1 fields
 
-- [ ] **P1** — Baseline measurement run
-  - **Do:** Run closed case set on production-like endpoint (:8081 or configured role URL); record cold/warm **p50/p90/p95**, timeout rate, fallback rate, synthesis-path segments
-  - **Verify:** Sanitized artifact under `docs/evals/live_synthesis_baseline_<date>.json` (or gitignored template + committed summary only)
-  - **Depends on:** P0
-  - **Evidence:** _(fill when done)_
+- [x] **E1** — Turn timing instrumentation
+  - **Do:** Add `app/synthesis/turn_timing.py`; wire canonical planning, retrieval/SPL close, lab/composer endpoint timing, `control_plane_trace.turn_timing`
+  - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_synthesis_turn_timing.py -q`
+  - **Depends on:** E0
+  - **Evidence:** 4 passed `test_synthesis_turn_timing.py`
 
-- [ ] **P1b** — Ops runbook
-  - **Do:** How to re-run baseline; how to compare regressions; explicit “not in CI”
-  - **Verify:** Section in `docs/coe/COE_ROLLOUT_CONFIGURATION.md` or linked ops doc
-  - **Depends on:** P1
-  - **Evidence:** _(fill when done)_
+- [x] **E2** — Benchmark harness
+  - **Do:** Add `app/evals/live_synthesis_benchmark.py` + `scripts/run_live_synthesis_baseline_benchmark.py` (`--stub`, `--matrix`, `--estimate`; `--live` exits 2)
+  - **Verify:** `PYTHONPATH=backend:. python3 scripts/run_live_synthesis_baseline_benchmark.py --stub --json /tmp/live_synth_stub.json`
+  - **Depends on:** E1
+  - **Evidence:** stub JSON with summary percentiles + 6 probes
 
-## Phase 2 — Optimization and SLO (deferred until P1)
+- [x] **E3** — Harness unit tests
+  - **Do:** Add `test_live_synthesis_benchmark.py`
+  - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_live_synthesis_benchmark.py -q`
+  - **Depends on:** E2
+  - **Evidence:** 3 passed `test_live_synthesis_benchmark.py`
 
-- [ ] **P2** — COE-reviewed SLO proposal
-  - **Do:** Propose targets from P1 data only; optimization candidates ranked by measured share of latency
-  - **Verify:** COE sign-off recorded in plan drift log
-  - **Depends on:** P1 + P1b
-  - **Evidence:** _(fill when done)_
+- [x] **E4** — Phase 1 gates (no full pytest/governance)
+  - **Do:** Run `git diff --check`; plan discipline audit
+  - **Verify:** `git diff --check`; `.cursor/hooks/audit-plan-discipline.sh plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md`
+  - **Depends on:** E3
+  - **Evidence:** `git diff --check` clean; plan audit 5 checked / 0 gaps; pytest 7/7 (timing + harness)
+
+## Phase 2 — Controlled baseline + SLO (deferred)
+
+- [ ] **E5** — Controlled live baseline run (operator-only, outside CI)
+- [ ] **E6** — COE-reviewed SLO proposal from measured data only
+- [ ] **E7** — Optimization candidates ranked by measured latency share
 
 ## Metrics required (minimum)
 
-| Metric | Required |
-|--------|----------|
-| Cold p50 / p90 / p95 | Yes |
-| Warm p50 / p90 / p95 | Yes |
-| Timeout rate | Yes |
-| Fallback to deterministic draft rate | Yes |
-| Synthesis-path timing (app segments) | Yes |
-| Endpoint HTTP timing | Yes |
-| Per-turn total (smoke correlation) | Yes |
+| Metric | Phase 1 instrumented | Phase 2 measured |
+|--------|---------------------|------------------|
+| Cold p50 / p90 / p95 | schema + stub | live artifact |
+| Warm p50 / p90 / p95 | schema + stub | live artifact |
+| Timeout rate | yes | live artifact |
+| Fallback rate | yes | live artifact |
+| Segment timing breakdown | yes | live artifact |
+| Endpoint HTTP timing | yes | live artifact |
+| Per-turn total | yes | live artifact |
 
-## Out of scope
+## Out of scope (phase 1)
 
-- Changing synthesis authority (facts remain deterministic)
-- EC / demo path live model calls
+- Live production synthesis probes
+- SLO declaration
+- Production configuration changes
 - CI integration of live probes
+- Changing synthesis authority (facts remain deterministic)
 
 ## Drift log
 
 | Date | Note |
 |------|------|
 | 2026-07-28 | Skeleton created from gap reconciliation disposition #4 |
+| 2026-07-28 | Phase 1 finalized: instrumentation + stub harness; live probes deferred to E5 |

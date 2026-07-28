@@ -8,6 +8,7 @@ fact stays deterministic; any failure falls back to the deterministic summary.
 from __future__ import annotations
 
 import concurrent.futures
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -21,6 +22,11 @@ from app.config import settings
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.llm.clients import LocalChatClient, build_synthesis_client_from_settings
 from app.synthesis.live_narration import narrate_analyst_summary
+from app.synthesis.turn_timing import (
+    SynthesisPath,
+    TurnOutcome,
+    record_synthesis_endpoint,
+)
 from app.chat.analyst_response_builder import reference_narration_seed, reference_summary_line
 from app.evidence.context_sufficiency import (
     ANALYST_REVIEW_REQUIRED,
@@ -147,14 +153,34 @@ def run_governed_synthesis_lab(
             draft = {**draft, "final_synthesis_skip_reason": skip_reason}
         client = synthesis_client or build_synthesis_client_from_settings()
         if client is not None and not (skip_narration and skip_reason):
-            narration, timed_out = _narrate_with_progress_and_timeout(
+            narrated = _narrate_with_progress_and_timeout(
                 package=package,
                 deterministic_draft=draft,
                 severity_label=severity_label,
                 client=client,
                 structured_context=structured_context,
             )
+            if len(narrated) == 2:
+                narration, timed_out = narrated
+                elapsed_ms = (
+                    0
+                    if timed_out
+                    else (
+                        int(getattr(narration, "latency_ms", 0) or 0)
+                        if isinstance(narration, NarrationResult)
+                        else 0
+                    )
+                )
+            else:
+                narration, timed_out, elapsed_ms = narrated
             if timed_out:
+                record_synthesis_endpoint(
+                    elapsed_ms,
+                    path=SynthesisPath.LAB,
+                    outcome=TurnOutcome.TIMEOUT,
+                    timeout_applied=True,
+                    fallback_used=True,
+                )
                 return SynthesisLabResult(
                     status=SynthesisStatus(
                         enabled=True,
@@ -169,6 +195,12 @@ def run_governed_synthesis_lab(
             if isinstance(narration, NarrationFailure):
                 emit_llm_degraded(code=narration.code, message=narration.user_message)
                 reason = f"{narration.user_message} (code={narration.code})"
+                record_synthesis_endpoint(
+                    0,
+                    path=SynthesisPath.LAB,
+                    outcome=TurnOutcome.FALLBACK,
+                    fallback_used=True,
+                )
                 return SynthesisLabResult(
                     status=SynthesisStatus(
                         enabled=True,
@@ -186,11 +218,24 @@ def run_governed_synthesis_lab(
                 provider = "local_model"
                 model = narration.model
                 latency_ms = narration.latency_ms
+                record_synthesis_endpoint(
+                    latency_ms,
+                    path=SynthesisPath.LAB,
+                    outcome=TurnOutcome.COMPLETED,
+                    provider_label=provider,
+                    model=model,
+                )
                 reason = "Analyst summary narrated by the live model; all facts remain deterministic."
             else:
                 emit_llm_degraded(
                     code="llm_client_unavailable",
                     message="Live LLM client is not configured; using the deterministic summary.",
+                )
+                record_synthesis_endpoint(
+                    0,
+                    path=SynthesisPath.SKIPPED,
+                    outcome=TurnOutcome.SKIPPED,
+                    fallback_used=True,
                 )
                 reason = "Live narration failed or was unavailable; kept the deterministic summary."
 
@@ -355,10 +400,8 @@ def _narrate_with_progress_and_timeout(
     severity_label: str | None,
     client: LocalChatClient,
     structured_context: dict[str, Any],
-) -> tuple[NarrationResult | NarrationFailure | None, bool]:
-    """Run live narration with heartbeats; return (result, timed_out)."""
-    import time
-
+) -> tuple[NarrationResult | NarrationFailure | None, bool, int]:
+    """Run live narration with heartbeats; return (result, timed_out, elapsed_ms)."""
     timeout_s = live_synthesis_timeout_seconds()
     heartbeat_label = "Still generating the final governed answer..."
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
@@ -375,25 +418,30 @@ def _narrate_with_progress_and_timeout(
         while True:
             remaining = timeout_s - (time.monotonic() - started)
             if remaining <= 0:
-                return None, True
+                return None, True, int((time.monotonic() - started) * 1000)
             try:
                 result = future.result(timeout=min(poll_s, remaining))
-                return result, False
+                elapsed_ms = int((time.monotonic() - started) * 1000)
+                return result, False, elapsed_ms
             except concurrent.futures.TimeoutError:
                 emit_heartbeat("generating_answer", heartbeat_label)
             except LocalChatError as exc:
+                elapsed_ms = int((time.monotonic() - started) * 1000)
                 return (
                     NarrationFailure(code=exc.code, user_message=exc.user_message),
                     False,
+                    elapsed_ms,
                 )
             except Exception as exc:  # noqa: BLE001
                 code = local_chat_error_code(exc)
+                elapsed_ms = int((time.monotonic() - started) * 1000)
                 return (
                     NarrationFailure(
                         code=code,
                         user_message=user_message_for_local_chat_error(code),
                     ),
                     False,
+                    elapsed_ms,
                 )
 
 
