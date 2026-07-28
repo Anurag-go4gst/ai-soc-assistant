@@ -1,16 +1,22 @@
-"""Live synthesis baseline benchmark harness (workstream E phase 1).
+"""Live synthesis baseline benchmark harness (workstream E).
 
 Deterministic stub mode supports unit tests and CI-free verification.
-Live HTTP probes require explicit operator opt-in outside this module.
+Live HTTP probes require explicit operator opt-in, authorization env, and fixed
+approved case definitions — no arbitrary query text.
 """
 
 from __future__ import annotations
 
+import json
+import os
 import statistics
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from http.cookiejar import CookieJar
+from typing import Any, Callable, Protocol
+from urllib.error import HTTPError, URLError
+from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 from app.synthesis.turn_timing import (
     RunKind,
@@ -20,6 +26,17 @@ from app.synthesis.turn_timing import (
 )
 
 PROBE_MATRIX_VERSION = "1"
+LIVE_HARNESS_SCHEMA_VERSION = "1"
+LIVE_AUTHORIZATION_ENV = "AI_SOC_LIVE_BENCHMARK_AUTHORIZED"
+MAX_LIVE_PROBES_PER_RUN = 6
+DEFAULT_PROBE_TIMEOUT_S = 300
+DEFAULT_INTER_PROBE_PAUSE_S = 2.0
+DEFAULT_LIVE_OUTPUT_PATH = "/tmp/live_synthesis_benchmark_report.json"
+LIVE_EVIDENCE_CLASS = "exploratory_live_wiring_validation"
+LIVE_PERCENTILE_WARNING = (
+    "Six exploratory probes are statistically insufficient for SLO definition; "
+    "percentiles are descriptive only."
+)
 
 # Closed case set for controlled baseline (sanitized ids only — no raw queries in artifacts).
 DEFAULT_PROBE_MATRIX: tuple[dict[str, str], ...] = (
@@ -30,6 +47,103 @@ DEFAULT_PROBE_MATRIX: tuple[dict[str, str], ...] = (
     {"case_id": "E-P5", "profile": "guided_investigation", "run_kind": "cold"},
     {"case_id": "E-P6", "profile": "spl_generation", "run_kind": "cold"},
 )
+
+APPROVED_LIVE_CASE_IDS: frozenset[str] = frozenset(row["case_id"] for row in DEFAULT_PROBE_MATRIX)
+
+# Fixed, reviewable probe definitions — messages are never accepted from CLI.
+APPROVED_LIVE_PROBE_MESSAGES: dict[str, dict[str, Any]] = {
+    "E-P1": {
+        "profile": "knowledge_recall",
+        "matrix_run_kind": "cold",
+        "generation_only": False,
+        "message": (
+            "What is the standard operating procedure for investigating brute-force login attempts? "
+            "Provide playbook guidance only; do not generate or execute SPL."
+        ),
+    },
+    "E-P2": {
+        "profile": "knowledge_recall",
+        "matrix_run_kind": "warm",
+        "generation_only": False,
+        "message": (
+            "Summarize the key investigation steps from the brute-force login SOP. "
+            "Knowledge recall only; no SPL generation or execution."
+        ),
+    },
+    "E-P3": {
+        "profile": "alert_summary",
+        "matrix_run_kind": "cold",
+        "generation_only": False,
+        "message": (
+            "Summarize alert ALT-BF-001: multiple failed logins for svc_backup from 203.0.113.44 "
+            "followed by a successful login. Include severity and MITRE context. Read-only analysis."
+        ),
+    },
+    "E-P4": {
+        "profile": "alert_summary",
+        "matrix_run_kind": "warm",
+        "generation_only": False,
+        "message": (
+            "Provide an analyst summary for alert ALT-BF-001 brute-force pattern. "
+            "Read-only; do not execute searches."
+        ),
+    },
+    "E-P5": {
+        "profile": "guided_investigation",
+        "matrix_run_kind": "cold",
+        "generation_only": False,
+        "message": (
+            "We observed periodic HTTPS beacons to an unknown domain from a finance workstation. "
+            "Provide guided investigation hypotheses and evidence collection guidance only. "
+            "No SPL execution or MCP searches."
+        ),
+    },
+    "E-P6": {
+        "profile": "spl_generation",
+        "matrix_run_kind": "cold",
+        "generation_only": True,
+        "message": (
+            "Draft a candidate SPL to hunt failed Windows logon events (event code 4625) in the last 24 hours. "
+            "Generation and review only; do not execute the search."
+        ),
+    },
+}
+
+_SENSITIVE_REPORT_KEYS = frozenset(
+    {
+        "message",
+        "query",
+        "prompt",
+        "answer",
+        "response",
+        "content",
+        "password",
+        "token",
+        "secret",
+        "credential",
+        "authorization",
+        "cookie",
+        "session_id",
+    }
+)
+
+
+class LiveHarnessRejected(RuntimeError):
+    """Fail-closed rejection before or during a live harness run."""
+
+    def __init__(self, code: str, message: str) -> None:
+        self.code = code
+        super().__init__(message)
+
+
+@dataclass(frozen=True)
+class LiveHarnessConfig:
+    base_url: str
+    case_ids: tuple[str, ...]
+    confirm_live: bool
+    probe_timeout_s: int = DEFAULT_PROBE_TIMEOUT_S
+    inter_probe_pause_s: float = DEFAULT_INTER_PROBE_PAUSE_S
+    session_id: str = field(default_factory=lambda: f"live-synth-bench-{uuid.uuid4().hex[:12]}")
 
 
 @dataclass(frozen=True)
@@ -47,12 +161,19 @@ class BenchmarkRunResult:
     turn_timing: dict[str, Any]
     elapsed_ms: int
     error: str | None = None
+    matrix_run_kind: str | None = None
+    client_run_kind: str | None = None
+    server_run_kind: str | None = None
+    http_status: int | None = None
+    execution_enabled: bool | None = None
+    response_valid: bool | None = None
+    aborted: bool = False
 
 
 @dataclass
 class BenchmarkReport:
     harness: str = "live_synthesis_baseline"
-    schema_version: str = "1"
+    schema_version: str = LIVE_HARNESS_SCHEMA_VERSION
     mode: str = "stub"
     evidence_class: str = "stub_deterministic_not_measured"
     probe_matrix_version: str = PROBE_MATRIX_VERSION
@@ -60,6 +181,8 @@ class BenchmarkReport:
     completed_at_unix: float | None = None
     runs: list[BenchmarkRunResult] = field(default_factory=list)
     summary: dict[str, Any] = field(default_factory=dict)
+    aborted: bool = False
+    abort_reason: str | None = None
 
     def to_sanitized_dict(self) -> dict[str, Any]:
         completed = self.completed_at_unix or time.time()
@@ -72,11 +195,20 @@ class BenchmarkReport:
             "duration_seconds": round(completed - self.started_at_unix, 2),
             "run_count": len(self.runs),
             "error_count": sum(1 for row in self.runs if row.error),
+            "aborted": self.aborted,
+            "abort_reason": self.abort_reason,
             "runs": [
                 {
                     "case_id": row.case_id,
                     "profile": row.profile,
                     "run_kind": row.run_kind,
+                    "matrix_run_kind": row.matrix_run_kind,
+                    "client_run_kind": row.client_run_kind,
+                    "server_run_kind": row.server_run_kind,
+                    "http_status": row.http_status,
+                    "execution_enabled": row.execution_enabled,
+                    "response_valid": row.response_valid,
+                    "aborted": row.aborted,
                     "elapsed_ms": row.elapsed_ms,
                     "error": row.error,
                     "turn_timing": row.turn_timing,
@@ -85,7 +217,211 @@ class BenchmarkReport:
             ],
             "summary": self.summary,
         }
-        return sanitize_turn_timing_payload(payload)
+        return sanitize_turn_timing_payload(_drop_sensitive_report_keys(payload))
+
+
+class LiveBenchmarkHttpClient(Protocol):
+    def fetch_health(self) -> tuple[int, dict[str, Any]]: ...
+
+    def fetch_settings_status(self) -> tuple[int, dict[str, Any]]: ...
+
+    def post_chat(self, *, case_id: str, session_id: str, timeout_s: int) -> tuple[int, dict[str, Any], int]: ...
+
+
+def _drop_sensitive_report_keys(payload: dict[str, Any]) -> dict[str, Any]:
+    def _walk(value: Any) -> Any:
+        if isinstance(value, dict):
+            cleaned: dict[str, Any] = {}
+            for key, item in value.items():
+                if str(key).lower() in _SENSITIVE_REPORT_KEYS:
+                    continue
+                cleaned[key] = _walk(item)
+            return cleaned
+        if isinstance(value, list):
+            return [_walk(item) for item in value]
+        return value
+
+    return _walk(payload)
+
+
+def _normalize_base_url(base_url: str) -> str:
+    return base_url.strip().rstrip("/")
+
+
+def _api_base(base_url: str) -> str:
+    normalized = _normalize_base_url(base_url)
+    if normalized.endswith("/api"):
+        return normalized
+    return f"{normalized}/api"
+
+
+def _json_request(
+    opener: Any,
+    *,
+    method: str,
+    url: str,
+    payload: dict[str, Any] | None = None,
+    timeout_s: float,
+) -> tuple[int, dict[str, Any]]:
+    data = None
+    headers = {"Accept": "application/json"}
+    if payload is not None:
+        data = json.dumps(payload).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    request = Request(url, data=data, headers=headers, method=method)
+    try:
+        with urlopen(request, timeout=timeout_s, opener=opener) as response:
+            body = response.read().decode("utf-8")
+            status = getattr(response, "status", 200)
+    except HTTPError as exc:
+        status = exc.code
+        raw = exc.read().decode("utf-8", errors="replace")
+        try:
+            parsed = json.loads(raw) if raw else {}
+        except json.JSONDecodeError:
+            parsed = {"_parse_error": True}
+        return status, parsed if isinstance(parsed, dict) else {}
+    except URLError as exc:
+        raise LiveHarnessRejected("http_transport_error", str(exc.reason)) from exc
+    try:
+        parsed = json.loads(body) if body else {}
+    except json.JSONDecodeError as exc:
+        raise LiveHarnessRejected("invalid_json_response", "response was not valid JSON") from exc
+    return status, parsed if isinstance(parsed, dict) else {}
+
+
+def _auth_enabled() -> bool:
+    raw = os.getenv("APP_AUTH_ENABLED", "true").strip().lower()
+    return raw not in {"0", "false", "no"}
+
+
+def validate_live_authorization(*, confirm_live: bool) -> None:
+    if not confirm_live:
+        raise LiveHarnessRejected("confirm_live_required", "--confirm-live is required for live probes")
+    if os.getenv(LIVE_AUTHORIZATION_ENV, "").strip() != "1":
+        raise LiveHarnessRejected(
+            "authorization_env_required",
+            f"{LIVE_AUTHORIZATION_ENV}=1 is required for live probes",
+        )
+
+
+def validate_live_base_url(base_url: str | None) -> str:
+    if not base_url or not base_url.strip():
+        raise LiveHarnessRejected("base_url_required", "--base-url is required for live probes")
+    return _normalize_base_url(base_url)
+
+
+def validate_live_auth_credentials() -> None:
+    if not _auth_enabled():
+        return
+    password = os.getenv("APP_AUTH_PASSWORD", "").strip()
+    if not password:
+        raise LiveHarnessRejected(
+            "auth_credentials_required",
+            "APP_AUTH_PASSWORD must be set in the environment when APP_AUTH_ENABLED=true",
+        )
+
+
+def validate_no_arbitrary_query_inputs(*, message: str | None = None, query: str | None = None) -> None:
+    if message or query:
+        raise LiveHarnessRejected(
+            "arbitrary_query_unsupported",
+            "Arbitrary query/message CLI input is not supported; use approved --cases only",
+        )
+
+
+def validate_live_case_ids(case_ids: list[str]) -> tuple[str, ...]:
+    if not case_ids:
+        raise LiveHarnessRejected("case_ids_required", "At least one approved --cases value is required")
+    if len(case_ids) > MAX_LIVE_PROBES_PER_RUN:
+        raise LiveHarnessRejected(
+            "max_probe_count_exceeded",
+            f"Maximum {MAX_LIVE_PROBES_PER_RUN} probes per invocation",
+        )
+    normalized = tuple(case_ids)
+    unknown = [case_id for case_id in normalized if case_id not in APPROVED_LIVE_CASE_IDS]
+    if unknown:
+        raise LiveHarnessRejected("unapproved_case_id", f"Unapproved case id(s): {', '.join(unknown)}")
+    return normalized
+
+
+def validate_turn_timing_payload(raw_timing: dict[str, Any]) -> dict[str, Any]:
+    if raw_timing.get("schema_version") != "1":
+        raise LiveHarnessRejected("malformed_turn_timing", "turn_timing.schema_version must be '1'")
+    segments = raw_timing.get("segments_ms")
+    if not isinstance(segments, dict):
+        raise LiveHarnessRejected("malformed_turn_timing", "turn_timing.segments_ms must be an object")
+    for key in ("synthesis_path", "outcome"):
+        if key not in raw_timing:
+            raise LiveHarnessRejected("malformed_turn_timing", f"turn_timing.{key} is required")
+    return sanitize_turn_timing_payload(raw_timing)
+
+
+def assert_health_ready(health_body: dict[str, Any]) -> None:
+    if health_body.get("status") != "ok":
+        raise LiveHarnessRejected("health_not_ready", "/health status is not ok")
+    readiness = health_body.get("readiness")
+    if not isinstance(readiness, dict):
+        raise LiveHarnessRejected("health_not_ready", "/health readiness block missing")
+    migrations = readiness.get("database_migrations")
+    if not isinstance(migrations, dict) or migrations.get("ready") is not True:
+        raise LiveHarnessRejected("migrations_not_ready", "database migrations are not ready")
+
+
+def assert_mock_connector_posture(settings_body: dict[str, Any]) -> None:
+    mcp = settings_body.get("mcp")
+    if not isinstance(mcp, dict):
+        raise LiveHarnessRejected("settings_unavailable", "settings mcp block missing")
+    mode = str(mcp.get("mode") or "")
+    if mode != "mock":
+        raise LiveHarnessRejected("live_connector_selectable", f"MCP mode must be mock (observed {mode})")
+    if mcp.get("global_execution_enabled") is True:
+        raise LiveHarnessRejected("live_connector_selectable", "MCP global_execution_enabled must be false")
+    readiness = mcp.get("splunk_live_readiness")
+    if isinstance(readiness, dict) and readiness.get("ready_for_live_splunk_mcp") is True:
+        raise LiveHarnessRejected("live_connector_selectable", "live Splunk MCP readiness reports execution-ready")
+    servers = mcp.get("servers")
+    if isinstance(servers, list):
+        for server in servers:
+            if isinstance(server, dict) and server.get("execution_enabled") is True:
+                raise LiveHarnessRejected("live_connector_selectable", "an MCP server has execution_enabled=true")
+
+
+def _workflow_execution_enabled(body: dict[str, Any]) -> bool:
+    workflow = body.get("workflow_plan")
+    if not isinstance(workflow, dict):
+        return False
+    return workflow.get("execution_enabled") is True
+
+
+def _client_run_kind_for_index(index: int) -> str:
+    return RunKind.COLD.value if index == 0 else RunKind.WARM.value
+
+
+def build_live_harness_config(
+    *,
+    base_url: str | None,
+    case_ids: list[str],
+    confirm_live: bool,
+    probe_timeout_s: int = DEFAULT_PROBE_TIMEOUT_S,
+    inter_probe_pause_s: float = DEFAULT_INTER_PROBE_PAUSE_S,
+    message: str | None = None,
+    query: str | None = None,
+) -> LiveHarnessConfig:
+    validate_no_arbitrary_query_inputs(message=message, query=query)
+    validate_live_authorization(confirm_live=confirm_live)
+    validate_live_auth_credentials()
+    normalized_cases = validate_live_case_ids(case_ids)
+    normalized_url = validate_live_base_url(base_url)
+    if probe_timeout_s <= 0:
+        raise LiveHarnessRejected("invalid_probe_timeout", "probe timeout must be positive")
+    return LiveHarnessConfig(
+        base_url=normalized_url,
+        case_ids=normalized_cases,
+        confirm_live=confirm_live,
+        probe_timeout_s=probe_timeout_s,
+        inter_probe_pause_s=inter_probe_pause_s,
+    )
 
 
 def parse_probe_matrix(rows: list[dict[str, str]] | None = None) -> list[BenchmarkProbeSpec]:
@@ -126,15 +462,19 @@ def summarize_benchmark(report: BenchmarkReport) -> dict[str, Any]:
         for row in ok_runs
         if row.turn_timing.get("segments_ms", {}).get("synthesis_endpoint") is not None
     ]
+
+    def _kind_value(row: BenchmarkRunResult) -> str:
+        return str(row.client_run_kind or row.run_kind or RunKind.UNKNOWN.value)
+
     cold_e2e = [
         int(row.turn_timing.get("segments_ms", {}).get("end_to_end") or row.elapsed_ms)
         for row in ok_runs
-        if row.run_kind == RunKind.COLD.value
+        if _kind_value(row) == RunKind.COLD.value
     ]
     warm_e2e = [
         int(row.turn_timing.get("segments_ms", {}).get("end_to_end") or row.elapsed_ms)
         for row in ok_runs
-        if row.run_kind == RunKind.WARM.value
+        if _kind_value(row) == RunKind.WARM.value
     ]
     timeout_count = sum(1 for row in ok_runs if row.turn_timing.get("outcome") == TurnOutcome.TIMEOUT.value)
     fallback_count = sum(1 for row in ok_runs if row.turn_timing.get("fallback_used") is True)
@@ -142,7 +482,7 @@ def summarize_benchmark(report: BenchmarkReport) -> dict[str, Any]:
     for row in ok_runs:
         path = str(row.turn_timing.get("synthesis_path") or SynthesisPath.SKIPPED.value)
         path_counts[path] = path_counts.get(path, 0) + 1
-    return {
+    summary = {
         "sample_count": len(ok_runs),
         "end_to_end_ms": _percentiles(e2e),
         "synthesis_endpoint_ms": _percentiles(endpoint),
@@ -152,6 +492,10 @@ def summarize_benchmark(report: BenchmarkReport) -> dict[str, Any]:
         "fallback_rate": round(fallback_count / len(ok_runs), 4) if ok_runs else None,
         "synthesis_path_counts": path_counts,
     }
+    if report.mode == "live":
+        summary["percentile_warning"] = LIVE_PERCENTILE_WARNING
+        summary["slo_baseline"] = False
+    return summary
 
 
 def _stub_turn_timing(spec: BenchmarkProbeSpec) -> dict[str, Any]:
@@ -213,43 +557,193 @@ def run_stub_benchmark(
     return report
 
 
-def run_live_benchmark(
-    specs: list[BenchmarkProbeSpec],
-    *,
-    chat_fn: Callable[[str], dict[str, Any]],
-) -> BenchmarkReport:
-    """Execute live probes via injected chat_fn (HTTP or in-process).
+class UrllibLiveBenchmarkHttpClient:
+    """Sequential HTTP client for approved live probes (no concurrency, no retries)."""
 
-    chat_fn must return a dict containing control_plane_trace.turn_timing or raise.
-    """
-    report = BenchmarkReport(mode="live")
-    for spec in specs:
-        started = time.monotonic()
+    def __init__(self, *, base_url: str) -> None:
+        self._api_base = _api_base(base_url)
+        self._jar = CookieJar()
+        self._opener = build_opener(HTTPCookieProcessor(self._jar))
+        self._login()
+
+    def _login(self) -> None:
+        if not _auth_enabled():
+            return
+        username = os.getenv("APP_AUTH_USER", "analyst").strip() or "analyst"
+        password = os.getenv("APP_AUTH_PASSWORD", "").strip()
+        status, body = _json_request(
+            self._opener,
+            method="POST",
+            url=f"{self._api_base}/auth/login",
+            payload={"username": username, "password": password},
+            timeout_s=30.0,
+        )
+        if status != 200 or not body.get("authenticated"):
+            raise LiveHarnessRejected("auth_failed", f"auth login failed status={status}")
+
+    def fetch_health(self) -> tuple[int, dict[str, Any]]:
+        return _json_request(
+            self._opener,
+            method="GET",
+            url=f"{self._api_base}/health",
+            timeout_s=30.0,
+        )
+
+    def fetch_settings_status(self) -> tuple[int, dict[str, Any]]:
+        return _json_request(
+            self._opener,
+            method="GET",
+            url=f"{self._api_base}/settings/status",
+            timeout_s=30.0,
+        )
+
+    def post_chat(self, *, case_id: str, session_id: str, timeout_s: int) -> tuple[int, dict[str, Any], int]:
+        definition = APPROVED_LIVE_PROBE_MESSAGES[case_id]
+        started = time.perf_counter()
+        status, body = _json_request(
+            self._opener,
+            method="POST",
+            url=f"{self._api_base}/chat",
+            payload={"message": definition["message"], "session_id": session_id},
+            timeout_s=float(timeout_s),
+        )
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        return status, body, elapsed_ms
+
+
+def run_live_preflight(client: LiveBenchmarkHttpClient) -> None:
+    health_status, health_body = client.fetch_health()
+    if health_status != 200:
+        raise LiveHarnessRejected("health_not_ready", f"/health returned HTTP {health_status}")
+    assert_health_ready(health_body)
+    settings_status, settings_body = client.fetch_settings_status()
+    if settings_status != 200:
+        raise LiveHarnessRejected("settings_unavailable", f"/settings/status returned HTTP {settings_status}")
+    assert_mock_connector_posture(settings_body)
+
+
+def _record_probe_result(
+    *,
+    case_id: str,
+    definition: dict[str, Any],
+    client_run_kind: str,
+    http_status: int,
+    body: dict[str, Any],
+    elapsed_ms: int,
+    error: str | None,
+    response_valid: bool,
+    turn_timing: dict[str, Any],
+    execution_enabled: bool,
+    aborted: bool,
+) -> BenchmarkRunResult:
+    server_run_kind = str(turn_timing.get("run_kind") or RunKind.UNKNOWN.value)
+    return BenchmarkRunResult(
+        case_id=case_id,
+        profile=str(definition["profile"]),
+        run_kind=client_run_kind,
+        matrix_run_kind=str(definition["matrix_run_kind"]),
+        client_run_kind=client_run_kind,
+        server_run_kind=server_run_kind,
+        http_status=http_status,
+        execution_enabled=execution_enabled,
+        response_valid=response_valid,
+        turn_timing=turn_timing,
+        elapsed_ms=elapsed_ms,
+        error=error,
+        aborted=aborted,
+    )
+
+
+def run_live_benchmark(
+    config: LiveHarnessConfig,
+    *,
+    client: LiveBenchmarkHttpClient | None = None,
+    sleep_fn: Callable[[float], None] = time.sleep,
+) -> BenchmarkReport:
+    """Execute approved live probes sequentially via injected or urllib HTTP client."""
+    http_client = client or UrllibLiveBenchmarkHttpClient(base_url=config.base_url)
+    report = BenchmarkReport(
+        mode="live",
+        evidence_class=LIVE_EVIDENCE_CLASS,
+    )
+    try:
+        run_live_preflight(http_client)
+    except LiveHarnessRejected as exc:
+        report.aborted = True
+        report.abort_reason = exc.code
+        report.completed_at_unix = time.time()
+        report.summary = summarize_benchmark(report)
+        return report
+
+    for index, case_id in enumerate(config.case_ids):
+        definition = APPROVED_LIVE_PROBE_MESSAGES[case_id]
+        client_run_kind = _client_run_kind_for_index(index)
         error: str | None = None
-        timing: dict[str, Any] = {}
+        turn_timing: dict[str, Any] = {}
+        http_status = 0
+        elapsed_ms = 0
+        response_valid = False
+        execution_enabled = False
+        body: dict[str, Any] = {}
+        aborted = False
+
         try:
-            payload = chat_fn(f"benchmark:{spec.profile}:{uuid.uuid4().hex[:8]}")
-            trace = payload.get("control_plane_trace") if isinstance(payload, dict) else None
-            if not isinstance(trace, dict):
-                error = "missing_control_plane_trace"
+            http_status, body, elapsed_ms = http_client.post_chat(
+                case_id=case_id,
+                session_id=config.session_id,
+                timeout_s=config.probe_timeout_s,
+            )
+            if http_status != 200:
+                error = f"http_{http_status}"
+                aborted = True
             else:
-                raw_timing = trace.get("turn_timing")
-                if not isinstance(raw_timing, dict):
-                    error = "missing_turn_timing"
+                execution_enabled = _workflow_execution_enabled(body)
+                if execution_enabled:
+                    error = "execution_enabled_true"
+                    aborted = True
+                trace = body.get("control_plane_trace")
+                if not isinstance(trace, dict):
+                    error = error or "missing_control_plane_trace"
+                    aborted = True
                 else:
-                    timing = sanitize_turn_timing_payload(raw_timing)
-        except Exception as exc:  # noqa: BLE001 — benchmark captures operator failures
+                    raw_timing = trace.get("turn_timing")
+                    if not isinstance(raw_timing, dict):
+                        error = error or "missing_turn_timing"
+                        aborted = True
+                    else:
+                        turn_timing = validate_turn_timing_payload(raw_timing)
+                        response_valid = True
+        except LiveHarnessRejected as exc:
+            error = exc.code
+            aborted = True
+        except Exception as exc:  # noqa: BLE001 — benchmark captures operator failures once
             error = type(exc).__name__
+            aborted = True
+
         report.runs.append(
-            BenchmarkRunResult(
-                case_id=spec.case_id,
-                profile=spec.profile,
-                run_kind=spec.run_kind.value,
-                turn_timing=timing,
-                elapsed_ms=int((time.monotonic() - started) * 1000),
+            _record_probe_result(
+                case_id=case_id,
+                definition=definition,
+                client_run_kind=client_run_kind,
+                http_status=http_status,
+                body=body,
+                elapsed_ms=elapsed_ms,
                 error=error,
+                response_valid=response_valid,
+                turn_timing=turn_timing,
+                execution_enabled=execution_enabled,
+                aborted=aborted,
             )
         )
+
+        if aborted:
+            report.aborted = True
+            report.abort_reason = error
+            break
+
+        if index < len(config.case_ids) - 1 and config.inter_probe_pause_s > 0:
+            sleep_fn(config.inter_probe_pause_s)
+
     report.completed_at_unix = time.time()
     report.summary = summarize_benchmark(report)
     return report
@@ -263,11 +757,13 @@ def estimate_live_probe_cost(specs: list[BenchmarkProbeSpec] | None = None) -> d
     # Observed VPS smoke band (gap reconciliation): 90–240 s/turn with live synthesis.
     est_cold_s = cold * 150
     est_warm_s = warm * 45
+    inter_pause_s = max(0, len(matrix) - 1) * DEFAULT_INTER_PROBE_PAUSE_S
     return {
         "probe_count": len(matrix),
         "cold_probes": cold,
         "warm_probes": warm,
-        "estimated_runtime_seconds": est_cold_s + est_warm_s,
-        "estimated_runtime_minutes": round((est_cold_s + est_warm_s) / 60, 1),
-        "note": "Heuristic from 90–240s/turn smoke band; measure phase-1 baseline before SLO.",
+        "inter_probe_pause_seconds": inter_pause_s,
+        "estimated_runtime_seconds": est_cold_s + est_warm_s + int(inter_pause_s),
+        "estimated_runtime_minutes": round((est_cold_s + est_warm_s + inter_pause_s) / 60, 1),
+        "note": "Heuristic from 90–240s/turn smoke band; exploratory wiring validation only — not an SLO baseline.",
     }

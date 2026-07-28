@@ -67,7 +67,33 @@ PYTHONPATH=backend:. python3 scripts/run_live_synthesis_baseline_benchmark.py --
 PYTHONPATH=backend:. python3 scripts/run_live_synthesis_baseline_benchmark.py --estimate
 ```
 
-Live probes (`--live`) are **deferred** until controlled baseline approval. Do not run in CI.
+### Live harness safety contract (phase 2 wiring)
+
+Live probes require **all** of:
+
+1. `--live` and `--confirm-live`
+2. `AI_SOC_LIVE_BENCHMARK_AUTHORIZED=1`
+3. Approved `--cases` from fixed E-P1…E-P6 definitions (no arbitrary query CLI)
+4. `--base-url` pointing at the target backend
+5. Auth via environment only (`APP_AUTH_USER` / `APP_AUTH_PASSWORD` when auth enabled)
+6. Sequential execution, max six probes, no retries, bounded per-probe timeout
+7. Default scratch output under `/tmp/live_synthesis_benchmark_report.json`
+
+Fail closed when `/health` or migrations are not ready, MCP is not mock-only, `workflow_plan.execution_enabled=true`, HTTP non-success, or `turn_timing` is malformed.
+
+Committed live reports use `evidence_class=exploratory_live_wiring_validation` — **not** an SLO baseline. Store `client_run_kind` (first probe cold, subsequent warm) separately from server `turn_timing.run_kind` (may be `unknown`).
+
+```bash
+AI_SOC_LIVE_BENCHMARK_AUTHORIZED=1 \\
+APP_AUTH_PASSWORD='${APP_AUTH_PASSWORD}' \\
+PYTHONPATH=backend:. python3 scripts/run_live_synthesis_baseline_benchmark.py \\
+  --live --confirm-live \\
+  --base-url https://cisco-vai.vnudge.com \\
+  --cases E-P1,E-P2,E-P3,E-P4,E-P5,E-P6 \\
+  --json /tmp/live_synthesis_benchmark_report.json
+```
+
+Do not run live probes in CI.
 
 ## Proposed limited baseline probe matrix (phase 2)
 

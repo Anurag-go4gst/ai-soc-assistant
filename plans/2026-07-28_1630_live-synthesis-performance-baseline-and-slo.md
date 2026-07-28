@@ -6,9 +6,9 @@ date: 2026-07-28
 canonical_plan: plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md
 depends_on: none
 workstream: E
-execution_scope: Phase 1 only — instrumentation + benchmark harness; no live probes or SLO
-implementation_branch: feat/live-synthesis-perf-phase1
-implementation_worktree: .worktree-live-synthesis-perf
+execution_scope: Phase 2 harness wiring (E5-wiring); no live probes or SLO
+implementation_branch: feat/live-synthesis-perf-phase2-harness
+implementation_worktree: .worktree-live-synthesis-phase2
 baseline: 42bc899a519ba1c2cf326181952538e6222ac9fb
 ---
 
@@ -75,9 +75,15 @@ Independent of workstreams A–D. Recommended after workstream C operator attest
   - **Depends on:** E3
   - **Evidence:** `git diff --check` clean; plan audit 5 checked / 0 gaps; pytest 7/7 (timing + harness)
 
-## Phase 2 — Controlled baseline + SLO (deferred)
+## Phase 2 — Live harness wiring (draft PR; no live probes in CI)
 
-- [ ] **E5** — Controlled live baseline run (operator-only, outside CI)
+- [x] **E5-wiring** — Controlled live harness (`--live` path)
+  - **Do:** Wire `run_live_benchmark` + CLI gates (`--confirm-live`, `AI_SOC_LIVE_BENCHMARK_AUTHORIZED=1`, approved case ids, auth via env, sequential/no-retry, `/tmp` default output)
+  - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_live_synthesis_benchmark.py -q`
+  - **Depends on:** E4
+  - **Evidence:** 22 passed `test_live_synthesis_benchmark.py`; 30 passed with `test_synthesis_turn_timing.py`; `git diff --check` clean; plan audit 6 checked / 0 gaps
+
+- [ ] **E5-run** — Controlled live baseline run (operator-only, outside CI)
 - [ ] **E6** — COE-reviewed SLO proposal from measured data only
 - [ ] **E7** — Optimization candidates ranked by measured latency share
 
@@ -106,4 +112,4 @@ Independent of workstreams A–D. Recommended after workstream C operator attest
 | Date | Note |
 |------|------|
 | 2026-07-28 | Skeleton created from gap reconciliation disposition #4 |
-| 2026-07-28 | Phase 1 finalized: instrumentation + stub harness; live probes deferred to E5 |
+| 2026-07-28 | Phase 2 harness wiring: `--live` safety gates + fixed E-P1…E-P6 probes (no operator run yet) |
