@@ -140,12 +140,24 @@ DATABASE_URL=postgresql://...@127.0.0.1:5434/ai_soc_assistant \
 
 ## 15. Remaining gaps
 
-| Gap | Severity | Notes |
-|-----|----------|-------|
-| Uncommitted item 29 + resume fix | Ops | Gates green on working tree; needs KEEP commit before deploy |
-| `test_dual_runtime_behavioural_parity.py` | Doc | Plan gate 3.4 references missing filename; covered by `test_dual_runtime_lane_parity.py` + projection suite |
-| Hook-level SPL/MCP step idempotency | Low | Item 20 note: per-step hook dispatch not individually wrapped |
-| LLM synthesis latency in smoke | Ops | Probes 90–240s/turn when live synthesis enabled; not a correctness defect |
+**Reconciled 2026-07-28:** see [`canonical_cutover_gap_reconciliation.md`](canonical_cutover_gap_reconciliation.md). Post-cutover hardening (workstreams A+B) closed gap 2 below.
+
+| Gap | Severity | Status | Notes |
+|-----|----------|--------|-------|
+| `test_dual_runtime_behavioural_parity.py` | Medium | **Resolved (2026-07-28)** | Absent at cutover closure; added in outcome-invariant hardening (`test_dual_runtime_behavioural_parity.py`, 9 scenarios). Original Gate 3.4 **78 passed** and parity **120/0/0** evidence unchanged |
+| Hook-level SPL/MCP step idempotency | Low (Medium/High before live MCP execution) | **open** | Deferred to workstream D |
+| LLM synthesis latency in smoke | Medium | **open** | Deferred to workstream E |
+| Production migration operator attestation | Low | **evidence-pending** | Workstream C — independent of A+B |
+
+---
+
+## Post-cutover hardening (2026-07-28, workstreams A+B)
+
+- Shared `enforce_canonical_outcome_invariant` gate after lane planning in `run_canonical_planning`
+- Tri-state `read_canonical_planning_outcome` at dispatch/validation consumers (P1–P6)
+- Pure `build_typed_planning_failure_state`; `request.failed` from gate only
+- `test_dual_runtime_behavioural_parity.py` (9 scenarios, imperative vs RP bootstrap)
+- Negative controls: stale EP without outcome fails closed (`non_planned_finalize`, not `workflow_spl`)
 
 ---
 
