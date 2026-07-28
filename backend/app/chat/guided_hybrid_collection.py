@@ -155,7 +155,7 @@ def collect_guided_hybrid_evidence(
                 )
             updated = next_state
             collected_count += delta
-            if purpose == "safe_catalog_query":
+            if purpose == "safe_catalog_query" and plan_id:
                 template_id = _template_id_from_step(step)
                 normalized_spl = None
                 if isinstance(patch.get("payload"), dict):
