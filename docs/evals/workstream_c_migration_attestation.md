@@ -1,7 +1,7 @@
 # Workstream C — migration operator attestation (evidence record)
 
-**Status:** evidence-pending (operator name/role only)  
-**Date:** 2026-07-28  
+**Status:** evidence-pending (operator name/role only)
+**Date:** 2026-07-28
 **Scope:** documentation only — no migration rerun
 
 ## Production deployment (PR #112)
