@@ -285,6 +285,7 @@ from app.synthesis.turn_timing import (
     RunKind,
     SynthesisPath,
     TurnOutcome,
+    benchmark_run_kind_override,
     close_retrieval_spl_phase,
     finalize_turn_timing,
     record_synthesis_endpoint,
