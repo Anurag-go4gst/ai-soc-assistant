@@ -182,7 +182,43 @@ def collect_guided_hybrid_evidence(
             return {"hop_patch": patch, "collected_delta": delta}
 
         if not plan_id or not step_id:
-            _execute_step()
+            if purpose == "safe_catalog_query":
+                template_id = _template_id_from_step(step)
+                dispatch_plan = build_guided_safe_spl_dispatch_plan(template_id)
+                would_execute = dispatch_plan.ready and execute_safe_catalog_spl is not None
+                if would_execute:
+                    # Side-effecting safe-catalog execute requires committed plan identity
+                    # for durable hook replay; never invoke execute_safe_catalog_spl without it.
+                    payload = dict(dispatch_plan.payload)
+                    payload["block_reason"] = "guided_safe_catalog_idempotency_identity_missing"
+                    patch = record_hop(
+                        updated,
+                        tool="guided_safe_catalog",
+                        delivered=list(dispatch_plan.delivered),
+                        outcome="blocked",
+                        payload=payload,
+                    )
+                    updated = apply_execution_uncertainty_to_state(
+                        {**updated, **patch},
+                        {"reason": "hook_idempotency_identity_missing"},
+                    )
+                    continue
+                next_state, patch, delta = _run_safe_catalog_step(
+                    updated,
+                    step=step,
+                    execute_safe_catalog_spl=execute_safe_catalog_spl,
+                )
+                updated = next_state
+                collected_count += delta
+                continue
+            next_state, patch, delta = _run_mcp_discovery_step(
+                updated,
+                step=step,
+                rbac_role=rbac_role,
+                trace_id=str(trace_id) if trace_id else None,
+            )
+            updated = next_state
+            collected_count += delta
             continue
 
         contract = operation_contract_for_step(step.model_dump())
