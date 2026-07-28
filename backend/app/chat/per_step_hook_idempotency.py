@@ -22,7 +22,7 @@ from app.chat.hook_replay_contract import (
     rehydrate_safe_catalog_hop,
     stored_envelope_matches,
 )
-from app.orchestration.human_review import human_review
+from app.orchestration.human_review import human_review, no_human_review
 
 
 @dataclass(frozen=True)
@@ -118,10 +118,13 @@ def run_idempotent_mcp_execution_hook(
     """Wrap a side-effecting MCP execution; replay restores sanitized execution/review only."""
 
     connector_calls = {"count": 0}
+    live_pair: dict[str, Any] = {}
 
     def _execute() -> dict[str, Any]:
         connector_calls["count"] += 1
         execution, review = execute_side_effect()
+        live_pair["execution"] = execution
+        live_pair["review"] = review
         return build_stored_hook_payload(
             envelope,
             execution=execution,
@@ -145,6 +148,10 @@ def run_idempotent_mcp_execution_hook(
         return outcome, execution, review
     if outcome == AcquireOutcome.IN_PROGRESS:
         execution, review = in_progress_execution_review(selection)
+        return outcome, execution, review
+    if outcome == AcquireOutcome.EXECUTE and isinstance(live_pair.get("execution"), dict):
+        execution = {**live_pair["execution"], "execution_eligible": False}
+        review = live_pair.get("review") if isinstance(live_pair.get("review"), dict) else no_human_review()
         return outcome, execution, review
     execution, review = rehydrate_mcp_execution_pair(stored, selection=selection)
     return outcome, execution, review

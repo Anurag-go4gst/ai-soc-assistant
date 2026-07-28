@@ -246,6 +246,7 @@ def rehydrate_mcp_execution_pair(
         **selection,
         **sanitize_hook_result_summary(execution_raw),
         "execution_eligible": False,
+        "results_preview": list((fallback_execution or {}).get("results_preview") or execution_raw.get("results_preview") or []),
     }
     if isinstance(review_raw, dict):
         review = {
