@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import concurrent.futures
+
 from app.synthesis.turn_timing import (
     RunKind,
     SynthesisPath,
@@ -11,6 +13,7 @@ from app.synthesis.turn_timing import (
     finalize_turn_timing,
     record_canonical_planning_ms,
     record_synthesis_endpoint,
+    resolve_run_kind,
     sanitize_turn_timing_payload,
     synthesis_turn_timing_scope,
 )
@@ -71,3 +74,50 @@ def test_benchmark_run_kind_override_reads_env(monkeypatch) -> None:
     assert benchmark_run_kind_override() is None
     monkeypatch.setenv("AI_SOC_BENCHMARK_RUN_KIND", "warm")
     assert benchmark_run_kind_override() is RunKind.WARM
+
+
+def test_resolve_run_kind_defaults_unknown_without_global_state() -> None:
+    assert resolve_run_kind() is RunKind.UNKNOWN
+    assert resolve_run_kind(explicit=RunKind.COLD) is RunKind.COLD
+
+
+def test_concurrent_turn_timing_sessions_do_not_share_state() -> None:
+    def _collect(run_kind: RunKind) -> RunKind:
+        with synthesis_turn_timing_scope(run_kind=run_kind):
+            record_canonical_planning_ms(100)
+            payload = finalize_turn_timing()
+        assert payload is not None
+        return RunKind(payload["run_kind"])
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        cold = pool.submit(_collect, RunKind.COLD)
+        warm = pool.submit(_collect, RunKind.WARM)
+        assert cold.result() is RunKind.COLD
+        assert warm.result() is RunKind.WARM
+
+
+def test_timeout_outcome_does_not_fabricate_full_budget_latency() -> None:
+    session = TurnTimingSession()
+    session.record_synthesis_endpoint(
+        1500,
+        path=SynthesisPath.LAB,
+        outcome=TurnOutcome.TIMEOUT,
+        timeout_applied=True,
+        fallback_used=True,
+    )
+    payload = session.finalize()
+    assert payload["segments_ms"]["synthesis_endpoint"] == 1500
+    assert payload["outcome"] == "timeout"
+    assert payload["timeout_applied"] is True
+
+
+def test_application_overhead_is_never_negative() -> None:
+    session = TurnTimingSession()
+    session.record_canonical_planning(50_000)
+    session.record_synthesis_endpoint(
+        50_000,
+        path=SynthesisPath.LAB,
+        outcome=TurnOutcome.COMPLETED,
+    )
+    payload = session.finalize()
+    assert payload["segments_ms"]["application_overhead"] >= 0

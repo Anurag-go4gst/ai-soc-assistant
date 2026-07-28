@@ -14,7 +14,9 @@ def test_stub_benchmark_produces_sanitized_summary() -> None:
     report = run_stub_benchmark()
     payload = report.to_sanitized_dict()
     assert payload["mode"] == "stub"
+    assert payload["evidence_class"] == "stub_deterministic_not_measured"
     assert payload["run_count"] == len(parse_probe_matrix())
+    assert payload["summary"]["sample_count"] == payload["run_count"]
     assert "end_to_end_ms" in payload["summary"]
     assert "synthesis_path_counts" in payload["summary"]
     for row in payload["runs"]:

@@ -15,7 +15,6 @@ from enum import StrEnum
 from typing import Any, Iterator
 
 SCHEMA_VERSION = "1"
-COLD_WARM_GAP_SECONDS = 120.0
 
 _SENSITIVE_KEY_FRAGMENTS = (
     "prompt",
@@ -105,12 +104,9 @@ class TurnTimingSession:
         self.outcome = outcome
         self.timeout_applied = self.timeout_applied or bool(timeout_applied)
         self.fallback_used = self.fallback_used or bool(fallback_used)
-        if provider_label:
-            self.endpoint_provider_label = provider_label
-        if model:
-            self.endpoint_model = model
         if increment:
-            _mark_synthesis_completed()
+            self.endpoint_provider_label = _bound_metadata(provider_label)
+            self.endpoint_model = _bound_metadata(model)
 
     def mark_synthesis_skipped(
         self,
@@ -165,12 +161,14 @@ class TurnTimingSession:
 
 
 _session: ContextVar[TurnTimingSession | None] = ContextVar("synthesis_turn_timing", default=None)
-_last_synthesis_completed_at: float | None = None
+
+_METADATA_MAX_LEN = 64
 
 
-def _mark_synthesis_completed() -> None:
-    global _last_synthesis_completed_at
-    _last_synthesis_completed_at = time.monotonic()
+def _bound_metadata(value: str | None) -> str | None:
+    if not value:
+        return None
+    return str(value).strip()[:_METADATA_MAX_LEN] or None
 
 
 def benchmark_run_kind_override() -> RunKind | None:
@@ -181,20 +179,16 @@ def benchmark_run_kind_override() -> RunKind | None:
     return None
 
 
-def infer_run_kind(*, explicit: RunKind | None = None) -> RunKind:
+def resolve_run_kind(*, explicit: RunKind | None = None) -> RunKind:
+    """Per-request run kind only — no cross-request mutable timer state."""
     if explicit is not None and explicit is not RunKind.UNKNOWN:
         return explicit
-    if _last_synthesis_completed_at is None:
-        return RunKind.COLD
-    gap = time.monotonic() - _last_synthesis_completed_at
-    if gap >= COLD_WARM_GAP_SECONDS:
-        return RunKind.COLD
-    return RunKind.WARM
+    return RunKind.UNKNOWN
 
 
 @contextmanager
 def synthesis_turn_timing_scope(*, run_kind: RunKind | None = None) -> Iterator[TurnTimingSession]:
-    session = TurnTimingSession(run_kind=infer_run_kind(explicit=run_kind))
+    session = TurnTimingSession(run_kind=resolve_run_kind(explicit=run_kind))
     token = _session.set(session)
     try:
         yield session

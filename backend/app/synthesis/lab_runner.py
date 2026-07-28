@@ -153,7 +153,7 @@ def run_governed_synthesis_lab(
             draft = {**draft, "final_synthesis_skip_reason": skip_reason}
         client = synthesis_client or build_synthesis_client_from_settings()
         if client is not None and not (skip_narration and skip_reason):
-            narration, timed_out = _narrate_with_progress_and_timeout(
+            narration, timed_out, elapsed_ms = _narrate_with_progress_and_timeout(
                 package=package,
                 deterministic_draft=draft,
                 severity_label=severity_label,
@@ -162,7 +162,7 @@ def run_governed_synthesis_lab(
             )
             if timed_out:
                 record_synthesis_endpoint(
-                    int(live_synthesis_timeout_seconds() * 1000),
+                    elapsed_ms,
                     path=SynthesisPath.LAB,
                     outcome=TurnOutcome.TIMEOUT,
                     timeout_applied=True,
@@ -387,8 +387,8 @@ def _narrate_with_progress_and_timeout(
     severity_label: str | None,
     client: LocalChatClient,
     structured_context: dict[str, Any],
-) -> tuple[NarrationResult | NarrationFailure | None, bool]:
-    """Run live narration with heartbeats; return (result, timed_out)."""
+) -> tuple[NarrationResult | NarrationFailure | None, bool, int]:
+    """Run live narration with heartbeats; return (result, timed_out, elapsed_ms)."""
     timeout_s = live_synthesis_timeout_seconds()
     heartbeat_label = "Still generating the final governed answer..."
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
@@ -405,25 +405,30 @@ def _narrate_with_progress_and_timeout(
         while True:
             remaining = timeout_s - (time.monotonic() - started)
             if remaining <= 0:
-                return None, True
+                return None, True, int((time.monotonic() - started) * 1000)
             try:
                 result = future.result(timeout=min(poll_s, remaining))
-                return result, False
+                elapsed_ms = int((time.monotonic() - started) * 1000)
+                return result, False, elapsed_ms
             except concurrent.futures.TimeoutError:
                 emit_heartbeat("generating_answer", heartbeat_label)
             except LocalChatError as exc:
+                elapsed_ms = int((time.monotonic() - started) * 1000)
                 return (
                     NarrationFailure(code=exc.code, user_message=exc.user_message),
                     False,
+                    elapsed_ms,
                 )
             except Exception as exc:  # noqa: BLE001
                 code = local_chat_error_code(exc)
+                elapsed_ms = int((time.monotonic() - started) * 1000)
                 return (
                     NarrationFailure(
                         code=code,
                         user_message=user_message_for_local_chat_error(code),
                     ),
                     False,
+                    elapsed_ms,
                 )
 
 

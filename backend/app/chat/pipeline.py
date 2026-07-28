@@ -5201,9 +5201,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             control_plane_trace["guided_hunt_grounding"] = guided_hunt_grounding_trace(
                 guided_grounding_block
             )
-        turn_timing = finalize_turn_timing()
-        if turn_timing is not None:
-            control_plane_trace["turn_timing"] = turn_timing
+        try:
+            turn_timing = finalize_turn_timing()
+            if turn_timing is not None:
+                control_plane_trace["turn_timing"] = turn_timing
+        except Exception:  # noqa: BLE001 — timing is best-effort only
+            logger.warning("turn_timing_finalize_failed", exc_info=True)
 
     session_context_status = None
     if settings.ai_soc_session_context_enabled and isinstance(session_resolution, SessionContextResolution):

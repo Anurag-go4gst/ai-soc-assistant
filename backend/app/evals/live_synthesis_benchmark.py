@@ -54,6 +54,7 @@ class BenchmarkReport:
     harness: str = "live_synthesis_baseline"
     schema_version: str = "1"
     mode: str = "stub"
+    evidence_class: str = "stub_deterministic_not_measured"
     probe_matrix_version: str = PROBE_MATRIX_VERSION
     started_at_unix: float = field(default_factory=time.time)
     completed_at_unix: float | None = None
@@ -66,6 +67,7 @@ class BenchmarkReport:
             "harness": self.harness,
             "schema_version": self.schema_version,
             "mode": self.mode,
+            "evidence_class": self.evidence_class,
             "probe_matrix_version": self.probe_matrix_version,
             "duration_seconds": round(completed - self.started_at_unix, 2),
             "run_count": len(self.runs),
@@ -141,6 +143,7 @@ def summarize_benchmark(report: BenchmarkReport) -> dict[str, Any]:
         path = str(row.turn_timing.get("synthesis_path") or SynthesisPath.SKIPPED.value)
         path_counts[path] = path_counts.get(path, 0) + 1
     return {
+        "sample_count": len(ok_runs),
         "end_to_end_ms": _percentiles(e2e),
         "synthesis_endpoint_ms": _percentiles(endpoint),
         "cold_end_to_end_ms": _percentiles(cold_e2e),
