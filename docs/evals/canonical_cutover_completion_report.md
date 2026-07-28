@@ -166,7 +166,7 @@ DATABASE_URL=postgresql://...@127.0.0.1:5434/ai_soc_assistant \
 | Environment | Migrations | Verified |
 |-------------|------------|----------|
 | Dev Docker Postgres (`127.0.0.1:5434`) | 0001–0006 via `entrypoint.sh` / `migrate_ai_soc_db.py` | `/health` readiness + smoke `schema_migrations` check |
-| VPS prod | Operator sign-off pending | Same entrypoint contract |
+| VPS prod | 0001–0006 via existing entrypoint contract (no new migration in PR #112) | **Technically verified 2026-07-28:** merge `7ce1474`; `/health` `database_migrations.ready=true`, `missing_versions=[]`; backend `RestartCount=0`. **Operator attestation:** name/role **evidence-pending** (see gap reconciliation §C). |
 
 No runtime DDL in canonical handoff repository (`rg` clean).
 
