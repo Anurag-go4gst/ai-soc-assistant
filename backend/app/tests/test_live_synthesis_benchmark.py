@@ -31,6 +31,7 @@ from app.evals.live_synthesis_benchmark import (
     validate_no_arbitrary_query_inputs,
 )
 from app.synthesis.turn_timing import RunKind, SynthesisPath, TurnOutcome, sanitize_turn_timing_payload
+from urllib.request import Request, build_opener
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = REPO_ROOT / "scripts" / "run_live_synthesis_baseline_benchmark.py"
@@ -523,3 +524,92 @@ def test_stub_mode_remains_unchanged() -> None:
     )
     assert proc.returncode == 0
     assert "stub benchmark complete" in proc.stdout
+
+
+class _RecordingOpener:
+    def __init__(self, *, status: int = 200, body: bytes = b"{}", exc: Exception | None = None) -> None:
+        self.status = status
+        self.body = body
+        self.exc = exc
+        self.calls: list[tuple[object, float | None]] = []
+
+    def open(self, request: object, timeout: float | None = None) -> object:
+        self.calls.append((request, timeout))
+        if self.exc is not None:
+            raise self.exc
+
+        class _Resp:
+            def __init__(self, status: int, body: bytes) -> None:
+                self.status = status
+                self._body = body
+
+            def read(self) -> bytes:
+                return self._body
+
+            def __enter__(self) -> "_Resp":
+                return self
+
+            def __exit__(self, *args: object) -> None:
+                return None
+
+        return _Resp(self.status, self.body)
+
+
+def test_json_request_uses_opener_open_not_urlopen_opener_kwarg() -> None:
+    from urllib.request import urlopen
+
+    from app.evals.live_synthesis_benchmark import _json_request
+
+    with pytest.raises(TypeError):
+        urlopen(Request("http://127.0.0.1:8010/api/health"), timeout=1.0, opener=build_opener())  # type: ignore[call-arg]
+
+    opener = _RecordingOpener(body=b'{"status":"ok"}')
+    status, body = _json_request(
+        opener,
+        method="GET",
+        url="http://127.0.0.1:8010/api/health",
+        timeout_s=1.5,
+    )
+    assert status == 200
+    assert body == {"status": "ok"}
+    assert len(opener.calls) == 1
+    assert opener.calls[0][1] == 1.5
+
+
+def test_json_request_timeout_maps_to_request_timeout_code() -> None:
+    from urllib.error import URLError
+
+    from app.evals.live_synthesis_benchmark import LiveHarnessRejected, _json_request
+
+    opener = _RecordingOpener(exc=URLError("timed out"))
+    with pytest.raises(LiveHarnessRejected) as exc:
+        _json_request(opener, method="GET", url="http://127.0.0.1:8010/api/health", timeout_s=1.0)
+    assert sanitize_report_error_code(exc.value.code) == "request_timeout"
+
+
+def test_http_504_maps_to_http_non_success_without_body_leak() -> None:
+    import io
+    from urllib.error import HTTPError
+
+    from app.evals.live_synthesis_benchmark import _json_request
+
+    opener = _RecordingOpener(
+        exc=HTTPError(
+            url="https://cisco-vai.vnudge.com/api/chat",
+            code=504,
+            msg="Gateway Timeout",
+            hdrs=None,
+            fp=io.BytesIO(b'{"detail":"secret upstream body"}'),
+        )
+    )
+    status, body = _json_request(opener, method="POST", url="https://cisco-vai.vnudge.com/api/chat", timeout_s=5.0)
+    assert status == 504
+    assert isinstance(body, dict)
+    report = run_live_benchmark(
+        _live_config(("E-P1", "E-P2")),
+        client=FakeLiveHttpClient(chat_responses={"E-P1": (504, {"detail": "secret upstream body"}, 120000)}),
+    )
+    payload = report.to_sanitized_dict()
+    assert payload["runs"][0]["error"] == "http_non_success"
+    assert "secret upstream" not in json.dumps(payload)
+    assert len(report.runs) == 1

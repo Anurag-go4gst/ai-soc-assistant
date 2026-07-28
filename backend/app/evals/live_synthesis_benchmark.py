@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from http.cookiejar import CookieJar
 from typing import Any, Callable, Protocol
 from urllib.error import HTTPError, URLError
-from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
+from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 from app.synthesis.turn_timing import (
     RunKind,
@@ -344,7 +344,7 @@ def _json_request(
         headers["Content-Type"] = "application/json"
     request = Request(url, data=data, headers=headers, method=method)
     try:
-        with urlopen(request, timeout=timeout_s, opener=opener) as response:
+        with opener.open(request, timeout=timeout_s) as response:
             body = response.read().decode("utf-8")
             status = getattr(response, "status", 200)
     except HTTPError as exc:
