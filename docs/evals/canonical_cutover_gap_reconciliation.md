@@ -24,7 +24,7 @@ A → B → C → D → E
 | Gap | Current factual status | Severity | Blocking | Owner / approval | Target plan | Target PR type | Acceptance evidence | Status |
 |-----|------------------------|----------|----------|------------------|-------------|----------------|---------------------|--------|
 | **1. Per-step SPL/MCP hook idempotency** | Item 20 covers executor + guided-hybrid per-step idempotency (`canonical_execution_idempotency.py`, 9 unit tests). **Hook-level** SPL/MCP pipeline nodes (`graph_node_workflow_spl`, MCP discovery/search hops) are **not** individually wrapped — cutover drift note item 20 scope (rev 17). | Low (correctness of cross-process replay at hook boundary) | **Not blocking A** | COE / platform owner before D implementation | [`plans/2026-07-28_1630_per-step-dispatch-idempotency-and-uncertain-execution-safety.md`](../plans/2026-07-28_1630_per-step-dispatch-idempotency-and-uncertain-execution-safety.md) | Separate feature PR after A+B+C | Hook side-effect audit doc; typed allowlisted replay payloads; lease + fingerprint tests; concurrent-worker race proof; `REQUIRES_RECONCILIATION` when exactly-once unprovable; governance regression PASS | **open** |
-| **2. Missing `test_dual_runtime_behavioural_parity.py`** | File **absent** at cutover closure (`rg` → 0 files). Item 34 marked done with **docs-only substitution**: lane parity + projection + production parity eval (`70 passed`, `120/0/0`). Gate 3.4 **78 passed** without this filename. | Medium (test-honesty / seam regression) | **Blocking B** (subset of A C6) | Engineering — no COE behaviour change | [`plans/2026-07-28_1610_canonical-outcome-invariant-hardening.md`](../plans/2026-07-28_1610_canonical-outcome-invariant-hardening.md) R5, C6, C7 | Same PR as A (test + doc addendum) | New file green on both entry points (9 scenarios); historical docs corrected; **original** closure evidence preserved (`120/0/0`, Gate 3.4 `78 passed`) | **open** → closes in **B** |
+| **2. Missing `test_dual_runtime_behavioural_parity.py`** | File **shipped** in PR #112 (`backend/app/tests/test_dual_runtime_behavioural_parity.py`, 9 scenarios). Cutover item 34 historical substitution preserved in §Gap 2 below. | Medium (test-honesty / seam regression) | — | Engineering | [`plans/2026-07-28_1610_canonical-outcome-invariant-hardening.md`](../plans/2026-07-28_1610_canonical-outcome-invariant-hardening.md) | Merged PR #112 | 9/9 behavioural parity; negative controls 8/8; production parity **120/0/0** unchanged | **resolved (2026-07-28)** |
 | **3. Production migration operator sign-off** | **Technically verified:** migrations `0001`–`0006` applied via `entrypoint.sh` / `migrate_ai_soc_db.py`; `/health` `readiness.database_migrations.ready=true`, `missing_versions=[]`; merged production checkout at cutover SHA; integration suite `34 passed / 0 skipped` on dev Postgres; no runtime DDL in handoff repository. **Formally missing:** named operator attestation (name, role, date) and a **linked** production `/health` capture or deploy log entry in the completion report. | Low (ops audit trail) | **Not blocking A** | Operator / COE signatory for closeout row | This doc §C + completion report §16 addendum | **Docs-only** PR (no migration rerun) | Completion report table row: prod env, apply date, operator name/role, link to redacted `/health` JSON or internal deploy ticket; `missing_versions=[]` quoted | **evidence-pending** |
 | **4. Live-synthesis latency in smoke** | Observed **90–240 s/turn** when live synthesis enabled on VPS smoke; not a correctness defect. No baseline p50/p90/p95, no cold/warm split, no timeout/fallback rate, no endpoint-vs-app timing breakdown. SLO targets **not** declared (correct). | Medium (ops / analyst UX) | **Not blocking A–C** | COE for any future SLO; perf owner for E | [`plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md`](../plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md) | Phase 1: instrumentation docs PR; Phase 2: optimization PR after baseline | Sanitized benchmark artifact; cold/warm p50/p90/p95; timeout + fallback rates; synthesis-path timing breakdown; live probes **outside CI** | **open** |
 
@@ -46,17 +46,15 @@ A → B → C → D → E
 
 ### Still missing (documentation only)
 
-1. **Operator name and role** (e.g. COE platform lead, SOC engineering owner).
-2. **Apply date** (UTC) for production Postgres.
-3. **Evidence link** — one of:
-   - Redacted production `GET /health` JSON showing `ready: true`, `missing_versions: []`, and `applied_versions` containing `0001`–`0006`, or
-   - Internal deploy ticket / change record ID referencing the cutover merge SHA and post-deploy health check.
+1. **Operator name and role** — **evidence-pending** (requires named COE/platform signatory).
+2. **Apply date** — **recorded:** 2026-07-28 UTC (PR #112 production deploy; merge SHA `7ce14748219e0943b6623dec85309241a4ac24fb`).
+3. **Evidence link** — **recorded:** production `/health` post-deploy (`database_migrations.ready=true`, `missing_versions=[]`, versions `0001`–`0006` present). Redacted capture path: internal deploy record PR #112 closeout.
 
 ### Closeout checklist (documentation PR)
 
-- [ ] **C-MIG-1** — Update [`canonical_cutover_completion_report.md`](canonical_cutover_completion_report.md) §16 prod row with operator + date + link.
-- [ ] **C-MIG-2** — Add §15 addendum cross-reference (this file).
-- [ ] **C-MIG-3** — No code or migration file changes in the closeout PR.
+- [x] **C-MIG-1** — Update [`canonical_cutover_completion_report.md`](canonical_cutover_completion_report.md) §16 prod row with deploy SHA + health evidence (operator name pending).
+- [x] **C-MIG-2** — Add §15 addendum cross-reference (this file).
+- [x] **C-MIG-3** — No code or migration file changes in the closeout PR.
 
 ---
 
