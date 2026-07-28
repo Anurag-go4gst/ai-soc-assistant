@@ -15,9 +15,11 @@ from typing import Any
 
 from app.config import settings
 from app.llm.clients import LocalChatClient, LocalChatError
+from app.llm.clients.failover_client import FailoverChatClient
 from app.llm.clients.local_chat_errors import user_message_for_local_chat_error
 from app.llm.sanitize_user_facing_prose import sanitize_user_facing_prose
 from app.synthesis.models import GovernedSynthesisPackage
+from app.synthesis.narration_deadline import budget_exhausted, hop_timeout_seconds
 
 _SYSTEM_PROMPT = (
     "You are a SOC analyst assistant. You will be given a set of GOVERNED FACTS "
@@ -58,10 +60,16 @@ def narrate_analyst_summary(
     package: GovernedSynthesisPackage,
     deterministic_draft: dict[str, Any],
     severity_label: str | None,
-    client: LocalChatClient,
+    client: LocalChatClient | FailoverChatClient,
     structured_context: dict[str, Any] | None = None,
+    deadline: float | None = None,
 ) -> NarrationResult | NarrationFailure | None:
     """Return narrated summary, structured failure, or None when client misconfigured."""
+    if budget_exhausted(deadline):
+        return NarrationFailure(
+            code="url_error:timeout",
+            user_message=user_message_for_local_chat_error("url_error:timeout"),
+        )
     user_prompt = _build_governed_prompt(
         package=package,
         deterministic_draft=deterministic_draft,
@@ -70,12 +78,26 @@ def narrate_analyst_summary(
     )
     max_tokens = min(settings.ai_soc_llm_max_output_tokens, 256)
     try:
-        result = client.generate(
-            system_prompt=_SYSTEM_PROMPT,
-            user_prompt=user_prompt,
-            max_tokens=max_tokens,
-            temperature=settings.ai_soc_llm_temperature,
-        )
+        if isinstance(client, FailoverChatClient):
+            result = client.generate(
+                system_prompt=_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                max_tokens=max_tokens,
+                temperature=settings.ai_soc_llm_temperature,
+                deadline=deadline,
+            )
+        else:
+            client_timeout = int(getattr(client, "timeout_seconds", 60))
+            per_hop_timeout = hop_timeout_seconds(client_timeout, deadline)
+            if deadline is not None and per_hop_timeout is None:
+                raise LocalChatError("url_error:timeout")
+            result = client.generate(
+                system_prompt=_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                max_tokens=max_tokens,
+                temperature=settings.ai_soc_llm_temperature,
+                timeout_seconds=per_hop_timeout,
+            )
     except LocalChatError as exc:
         return NarrationFailure(code=exc.code, user_message=exc.user_message)
     if result.finish_reason == "length":

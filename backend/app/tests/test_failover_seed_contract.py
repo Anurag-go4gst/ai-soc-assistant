@@ -39,6 +39,7 @@ class _SeedCapableClient:
         temperature: float,
         response_format: dict | None = None,
         seed: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> ChatResult:
         self.received = {
             "system_prompt": system_prompt,
@@ -47,6 +48,7 @@ class _SeedCapableClient:
             "temperature": temperature,
             "response_format": response_format,
             "seed": seed,
+            "timeout_seconds": timeout_seconds,
         }
         if self.fail:
             raise LocalChatError("seed_client_forced_failure")
@@ -74,6 +76,7 @@ class _SeedIncapableClient:
         max_tokens: int,
         temperature: float,
         response_format: dict | None = None,
+        timeout_seconds: float | None = None,
     ) -> ChatResult:
         self.received = {
             "system_prompt": system_prompt,
@@ -81,6 +84,7 @@ class _SeedIncapableClient:
             "max_tokens": max_tokens,
             "temperature": temperature,
             "response_format": response_format,
+            "timeout_seconds": timeout_seconds,
         }
         return ChatResult(text=self.text, model=self.model, latency_ms=1)
 
@@ -197,8 +201,14 @@ def test_detection_plan_through_real_failover_builder(monkeypatch) -> None:
         temperature: float,
         response_format: dict | None = None,
         seed: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> ChatResult:
-        observed.update(seed=seed, response_format=response_format, base_url=self.base_url)
+        observed.update(
+            seed=seed,
+            response_format=response_format,
+            base_url=self.base_url,
+            timeout_seconds=timeout_seconds,
+        )
         return ChatResult(text=json.dumps(plan_obj), model=self.model, latency_ms=1)
 
     monkeypatch.setattr(LocalChatClient, "generate", _generate)

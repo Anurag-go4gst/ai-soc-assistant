@@ -89,13 +89,19 @@ Independent of workstreams A–D. Recommended after workstream C operator attest
   - **Depends on:** E5-wiring
   - **Evidence:** PARTIAL_EXPLORATORY — attempted=1, valid_samples=0; E-P1 HTTP 504 @ 120139ms; artifact SHA256 `22f4fbaf…`; no SLO conclusion
 
-- [ ] **E5-remediation** — Harness opener hotfix + timeout hierarchy (before second authorized run)
-  - **Do:** Fix `_json_request` opener path; document timeout owner; propose version-controlled Nginx `/api/` read timeout bump
-  - **Verify:** `pytest app/tests/test_live_synthesis_benchmark.py`; plan drift updated
-  - **Depends on:** E5-run-1
-  - **Evidence:** _(PR pending merge)_
+- [x] **E5-remediation** — Monotonic synthesis deadline (runtime timeout contract)
+  - **Do:** Shared deadline across narration + failover; no executor shutdown join; respect configured per-hop timeout without 120s floor on synthesis
+  - **Verify:** `pytest app/tests/test_synthesis_narration_deadline.py`; plan drift updated
+  - **Depends on:** E5-run-2
+  - **Evidence:** PR `feat/e5-synthesis-runtime-deadline`; 12 deadline tests green; parity 120/0/0
 
-- [ ] **E5-run-2** — Second authorized exploratory run (requires fresh operator authorization)
+- [x] **E5-run-2** — Second authorized exploratory run (operator-only)
+  - **Do:** Run E-P1…E-P6 once via HTTPS harness against production
+  - **Verify:** Inspect `/tmp/live_synthesis_benchmark_report_e5_run2.json` locally; no commit
+  - **Depends on:** E5-wiring
+  - **Evidence:** PARTIAL_EXPLORATORY — attempted=1, valid_samples=0; E-P1 HTTP 504 @ ~240s; Nginx upstream timeout; post-restart retry identical (`e5_run2_retry.json`); no SLO evidence; E5-run-3 unauthorized
+
+- [ ] **E5-run-3** — Further live run (requires fresh operator authorization after remediation merge + LLM health smoke)
 - [ ] **E6** — COE-reviewed SLO proposal from measured data only
 - [ ] **E7** — Optimization candidates ranked by measured latency share
 
@@ -125,3 +131,4 @@ Independent of workstreams A–D. Recommended after workstream C operator attest
 |------|------|
 | 2026-07-28 | Skeleton created from gap reconciliation disposition #4 |
 | 2026-07-28 | E5-run-1 PARTIAL_EXPLORATORY: harness `urlopen(..., opener=...)` defect; Nginx `proxy_read_timeout=120s` fired before backend response; LLM `url_error:timeout` logged 1s later |
+| 2026-07-28 | E5-run-2 PARTIAL_EXPLORATORY: E-P1 only; HTTP 504 @ ~240s; zero valid `turn_timing`; sequential failover exceeded 120s synthesis budget; post-LLM-restart retry identical; blocker = ineffective total deadline not dead endpoint |

@@ -42,7 +42,10 @@ SIDECAR_SOCKET_CEILING_SECONDS = 120
 def _timeout_for_mode(mode: str, *, sidecar: bool = False) -> int:
     configured = max(int(settings.ai_soc_llm_timeout_seconds or 60), 60)
     if mode == "local":
-        return min(configured, SIDECAR_SOCKET_CEILING_SECONDS) if sidecar else max(configured, 120)
+        if sidecar:
+            return min(configured, SIDECAR_SOCKET_CEILING_SECONDS)
+        # Live synthesis / narration: honor configured env exactly (no silent 120s floor).
+        return configured
     return min(configured, 120)
 
 
