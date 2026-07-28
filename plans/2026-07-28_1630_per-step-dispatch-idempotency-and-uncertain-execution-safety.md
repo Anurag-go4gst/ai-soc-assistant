@@ -1,10 +1,11 @@
 ---
 name: per-step-dispatch-idempotency
 overview: "Close the hook-level SPL/MCP idempotency gap left by cutover item 20: audit side effects, typed allowlisted replay payloads, leases, fingerprints, concurrent workers, and REQUIRES_RECONCILIATION when exactly-once cannot be proven."
-status: proposed
+status: done
 date: 2026-07-28
 canonical_plan: plans/2026-07-28_1630_per-step-dispatch-idempotency-and-uncertain-execution-safety.md
 depends_on: plans/2026-07-28_1610_canonical-outcome-invariant-hardening.md
+implementation_readiness: READY
 ---
 
 # Per-Step Dispatch Idempotency and Uncertain-Execution Safety
@@ -13,7 +14,7 @@ depends_on: plans/2026-07-28_1610_canonical-outcome-invariant-hardening.md
 
 Extend execution safety from executor/guided-hybrid per-step idempotency (cutover item 20, **done**) to **hook-level** SPL/MCP pipeline dispatch so cross-process replay, concurrent workers, and side-effecting tool calls cannot double-execute or silently succeed after uncertainty.
 
-**Not in scope of outcome-invariant hardening (workstream A).** Workstreams **A+B merged** @ `7ce1474`. **Next engineering priority** after closeout — start with **I0 hook side-effect audit** (read-only).
+**Not in scope of outcome-invariant hardening (workstream A).** Workstreams **A+B merged** @ `7ce1474`. **Next engineering priority** after closeout — **I0 complete** (2026-07-28).
 
 ## Stop conditions
 
@@ -44,43 +45,85 @@ Extend execution safety from executor/guided-hybrid per-step idempotency (cutove
 | **D** This plan | A (B+C recommended) |
 | **E** Live synthesis perf | independent of D |
 
-## Checklist (skeleton)
+## I0 deliverables (complete)
 
-- [ ] **I0** — Hook side-effect audit (read-only deliverable)
+| Artifact | Location |
+|----------|----------|
+| Hook inventory (22 production-reachable hooks classified) | [`docs/architecture/per_step_hook_idempotency_audit.md`](../docs/architecture/per_step_hook_idempotency_audit.md) |
+| P0 boundary | `graph_node_execution` / MCP gate / connector + guided `safe_catalog_query` execute |
+| Typed replay schema | `HookReplayEnvelope` in audit doc §Typed replay schema proposal |
+| Identity / fingerprint | `build_idempotency_key` + `input_fingerprint` (sha256 allowlisted fields) |
+| Crash / timeout FSM | Audit doc §F — align gate + hook wrapper with `execution_uncertain` |
+| Minimum tests | `test_per_step_hook_idempotency.py` (new) + extend `test_execution_idempotency.py` + integration postgres |
+| Commit sequence | Audit doc §Estimated commit sequence (6 commits) |
+
+**I0 verification:** `docs/architecture/per_step_hook_idempotency_audit.md` exists; inventory table lists hook name, file:line, side-effect class, idempotency coverage. Reachability spot-check: `pytest app/tests/test_resource_plan_authority.py::test_guided_hybrid_and_telemetry_never_mutate_committed_plan -q`.
+
+## Checklist
+
+- [x] **I0** — Hook side-effect audit (read-only deliverable)
   - **Do:** Inventory every SPL/MCP hook in `pipeline.py`, `resource_planner_graph.py`, `guided_hybrid_collection.py`, and MCP gate paths. Classify: read-only, side-effecting-stable-key, side-effecting-no-key. Document persistence writes, telemetry, and external I/O per hook.
   - **Verify:** `docs/architecture/per_step_hook_idempotency_audit.md` exists; table lists hook name, file:line, side-effect class, current idempotency coverage
   - **Depends on:** outcome-invariant hardening merged (A)
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Audit doc created 2026-07-28; P0=3, P1=6, P2=12; `pytest app/tests/test_resource_plan_authority.py::test_guided_hybrid_and_telemetry_never_mutate_committed_plan -q` → 1 passed
 
-- [ ] **I1** — Typed replay payload contract
-  - **Do:** Define allowlisted replay envelope (resource_plan_id, handoff_id, handoff_version, step_id, operation_identity, downstream_key) — align with `canonical_execution_idempotency.py` contracts; **no** arbitrary state patch replay
-  - **Verify:** Unit tests reject non-allowlisted payload shapes
+- [x] **I1** — Typed replay payload contract
+  - **Do:** Define allowlisted replay envelope (`HookReplayEnvelope`: `resource_plan_id`, `handoff_id`, `handoff_version`, `step_id`, `operation_identity`, `input_fingerprint`, `downstream_idempotency_key`) — align with `canonical_execution_idempotency.py`; **no** arbitrary state patch replay
+  - **Verify:** `pytest app/tests/test_per_step_hook_idempotency.py -q` rejects non-allowlisted payload shapes
   - **Depends on:** I0
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `backend/app/chat/hook_replay_contract.py`; `pytest app/tests/test_per_step_hook_idempotency.py -q` → 13 passed (envelope/forbidden-field/fingerprint tests)
 
-- [ ] **I2** — Lease + input fingerprint integration at hooks
-  - **Do:** Wrap highest-risk hooks identified in I0 (priority: MCP `run_query`, SPL submit paths). Input fingerprint = hash of normalized approved SPL + tool identity + time bounds.
-  - **Verify:** `pytest app/tests/test_per_step_hook_idempotency.py -q` (new module)
+- [x] **I2** — Lease + input fingerprint integration at hooks
+  - **Do:** Wrap P0 hooks: `graph_node_execution` → `evaluate_mcp_execution` → connector; guided `safe_catalog_query` execute. Input fingerprint = hash of normalized approved SPL + tool identity + time bounds.
+  - **Verify:** `pytest app/tests/test_per_step_hook_idempotency.py -q`
   - **Depends on:** I1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `per_step_hook_idempotency.py`, `mcp_execution_gate._dispatch_connector_execution`, `pipeline.resolve_hook_idempotency_context`, `guided_hybrid_collection` envelope storage; hook tests green
 
-- [ ] **I3** — Concurrent worker + stale-lease races
+- [x] **I3** — Concurrent worker + stale-lease races
   - **Do:** Integration tests on disposable Postgres compose (unique port, not 5434): two workers, one step; crash after `running`; replay after `completed`
   - **Verify:** integration module `0 failed 0 skipped`
   - **Depends on:** I2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `test_execution_idempotency_postgres.py::test_postgres_hook_mcp_execution_replays_without_second_side_effect` + existing concurrent acquire tests; unit stale-lease/IN_PROGRESS tests in `test_per_step_hook_idempotency.py`
 
-- [ ] **I4** — `REQUIRES_RECONCILIATION` surfacing
+- [x] **I4** — `REQUIRES_RECONCILIATION` surfacing
   - **Do:** When exactly-once cannot be proven for side-effecting hooks, return honest uncertain outcome; zero false success claims
   - **Verify:** Named regression tests; governance regression PASS
   - **Depends on:** I3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `uncertainty_execution_review`, `run_idempotent_mcp_execution_hook` REQUIRES_RECONCILIATION path, `apply_hook_uncertainty_to_state`; `test_stale_lease_without_stable_contract_requires_reconciliation`, `test_uncertain_execution_surfaces_manual_reconciliation`, replay/HIL negative controls in `test_per_step_hook_idempotency.py` (governance regression deferred to pre-PR gate per loop scope)
 
-- [ ] **I5** — Documentation + completion note
+- [x] **I5** — Documentation + completion note
   - **Do:** Update cutover gap reconciliation matrix row 1 → **resolved**; addendum to item 20 scope note in completion report (pointer only)
   - **Verify:** `rg "hook-level SPL/MCP" docs/` shows closed status
   - **Depends on:** I4
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `canonical_cutover_gap_reconciliation.md` row 1 → **resolved (2026-07-28)**; `canonical_cutover_completion_report.md` §5 item-20 addendum + §15 row **Resolved**; `rg "hook-level SPL/MCP" docs/` → 2 hits (completion report resolved + gap reconciliation closed)
+
+## Implementation verdict
+
+| Gate | Status |
+|------|--------|
+| I0 hook audit | **DONE** |
+| Workstream C operator attestation | **PENDING** (name/role only — does not block I1 coding) |
+| SOP routing investigation | **Fixture mismatch** — does not block D (see closeout note below) |
+| **READY FOR IMPLEMENTATION** | **DONE** — I0–I5 complete on `feat/per-step-dispatch-idempotency`; pre-merge full gates pending |
+
+## SOP routing closeout note (bounded investigation)
+
+Query: `What is the SOP for ransomware response?`
+Three invocations (MCP off, identical session): canonical seam → RP final state → public projection.
+
+**Classification: 4 — Fixture mismatch.** Probe context without canonical Postgres / audit-critical telemetry persistence yields `persistence_failed` → `non_planned_finalize`, not `planned`/`rag_only`. Behavioural parity (`sop_playbook`) matches this fail-closed path (both runtimes `persistence_failed`). Public `execution_approval` + `policy_checks_passed` with `required=false` is `no_human_review()` finalize filler — not execution mis-routing.
+
+**Field transitions:**
+
+| Field | After seam | RP final | Public response |
+|-------|------------|----------|-----------------|
+| `outcome_read_kind` | `valid` | `valid` | _(not projected)_ |
+| `outcome.status` | `persistence_failed` | `persistence_failed` | absent from CPT |
+| `evidence_plan` | absent (stripped) | absent | absent |
+| `human_review` | null | `execution_approval` / `policy_checks_passed` / `required=false` | same |
+| `execution.status` | null | `skipped` | `skipped` |
+
+**Action:** Correct smoke/probe fixture to use canonical DB (or in-memory test store) when asserting `planned`/`rag_only`; do not change API contract in this task. Secondary observability: `canonical_planning_outcome` is never included in `build_control_plane_trace` — document for future CPT extension (no GitHub issue opened in this closeout).
 
 ## Out of scope
 
@@ -93,3 +136,4 @@ Extend execution safety from executor/guided-hybrid per-step idempotency (cutove
 | Date | Note |
 |------|------|
 | 2026-07-28 | Skeleton created from gap reconciliation disposition #1 |
+| 2026-07-28 | I5 docs closeout — gap reconciliation row 1 resolved; completion report §5 addendum |

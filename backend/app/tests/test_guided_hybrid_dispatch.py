@@ -45,7 +45,12 @@ def _guided_committed_resource_plan() -> dict[str, object]:
             }
         ],
         "plan_source": "deterministic",
-        "provenance": {"committed": True},
+        "provenance": {
+            "committed": True,
+            "resource_plan_id": "rp:guided-dispatch-test",
+            "handoff_id": "h-guided-dispatch",
+            "handoff_version": 1,
+        },
     }
 
 

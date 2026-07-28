@@ -75,7 +75,15 @@ def test_signed_catalog_safe_query_reaches_mediated_execution(monkeypatch) -> No
         safe_spl_template_requests=["dns_beaconing_candidate"],
     )
     plan = compose_guided_resource_plan(evidence, investigation)
-    validated = validate_guided_resource_plan(evidence, plan).validated_resource_plan
+    validated = validate_guided_resource_plan(evidence, plan).validated_resource_plan.model_copy(
+        update={
+            "provenance": {
+                "resource_plan_id": "rp:guided-exec",
+                "handoff_id": "h-guided-exec",
+                "handoff_version": 1,
+            }
+        }
+    )
     calls: list[dict] = []
 
     def _fake_execution(spl_validation: dict) -> tuple[dict, dict]:
@@ -105,6 +113,61 @@ def test_signed_catalog_safe_query_reaches_mediated_execution(monkeypatch) -> No
     assert hop["payload"]["coe_signed"] is True
     assert hop["payload"]["human_review_required"] is True
     assert hop["payload"]["human_review_reason"] == "analyst_confirmation_required"
+
+
+def test_safe_catalog_execute_blocked_without_resource_plan_id(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.spl.guided_safe_spl_dispatch.load_guided_safe_spl_catalog",
+        lambda: GuidedSafeSplCatalog(
+            coe_signed=True,
+            entries=[GuidedSafeSplCatalogEntry(template_id="dns_beaconing_candidate")],
+        ),
+    )
+    evidence = _hybrid_evidence()
+    investigation = InvestigationPlan(
+        investigation_objective="OT outbound hunt",
+        safe_spl_template_requests=["dns_beaconing_candidate"],
+    )
+    validated = validate_guided_resource_plan(
+        evidence,
+        compose_guided_resource_plan(evidence, investigation),
+    ).validated_resource_plan
+    calls = {"count": 0}
+
+    state, collected_count = collect_guided_hybrid_evidence(
+        {},
+        validated_resource=validated,
+        execute_safe_catalog_spl=lambda _validation: calls.__setitem__("count", calls["count"] + 1) or ({}, {}),
+    )
+
+    assert collected_count == 0
+    assert calls["count"] == 0
+    hop = next(hop for hop in (state.get("mcp_evidence") or []) if hop.get("tool") == "guided_safe_catalog")
+    assert hop["outcome"] == "blocked"
+    assert hop["payload"]["block_reason"] == "guided_safe_catalog_idempotency_identity_missing"
+    assert state["execution_reconciliation"]["reason"] == "execution_outcome_uncertain"
+    assert state["human_review"]["reason"] == "execution_outcome_uncertain"
+
+
+def test_mcp_discovery_without_resource_plan_id_remains_read_only() -> None:
+    evidence = _hybrid_evidence()
+    investigation = InvestigationPlan(
+        investigation_objective="OT outbound hunt",
+        read_only_tool_requests=["mcp_tool:splunk_get_metadata"],
+    )
+    validated = validate_guided_resource_plan(
+        evidence,
+        compose_guided_resource_plan(evidence, investigation),
+    ).validated_resource_plan
+
+    state, collected_count = collect_guided_hybrid_evidence({}, validated_resource=validated)
+
+    assert collected_count == 0
+    hops = state.get("mcp_evidence") or []
+    assert len(hops) == 1
+    assert hops[0]["tool"] == "splunk_get_metadata"
+    assert hops[0]["outcome"] == "planned"
+    assert "execution_reconciliation" not in state
 
 
 def test_signed_catalog_validation_failure_blocks_before_execution(monkeypatch) -> None:

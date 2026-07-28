@@ -23,10 +23,24 @@ A → B → C → D → E
 
 | Gap | Current factual status | Severity | Blocking | Owner / approval | Target plan | Target PR type | Acceptance evidence | Status |
 |-----|------------------------|----------|----------|------------------|-------------|----------------|---------------------|--------|
-| **1. Per-step SPL/MCP hook idempotency** | Item 20 covers executor + guided-hybrid per-step idempotency (`canonical_execution_idempotency.py`, 9 unit tests). **Hook-level** SPL/MCP pipeline nodes (`graph_node_workflow_spl`, MCP discovery/search hops) are **not** individually wrapped — cutover drift note item 20 scope (rev 17). | Low (correctness of cross-process replay at hook boundary) | **Not blocking A** | COE / platform owner before D implementation | [`plans/2026-07-28_1630_per-step-dispatch-idempotency-and-uncertain-execution-safety.md`](../plans/2026-07-28_1630_per-step-dispatch-idempotency-and-uncertain-execution-safety.md) | Separate feature PR after A+B+C | Hook side-effect audit doc; typed allowlisted replay payloads; lease + fingerprint tests; concurrent-worker race proof; `REQUIRES_RECONCILIATION` when exactly-once unprovable; governance regression PASS | **open** |
+| **1. Per-step SPL/MCP hook idempotency** | **P0 side-effecting execution boundary resolved** (workstream D): MCP gate connector dispatch (`graph_node_execution` → `evaluate_mcp_execution` → connector) and guided `safe_catalog_query` **execute callback** (only when COE-signed catalog would invoke `execute_safe_catalog_spl`) wrapped with typed `HookReplayEnvelope` + `canonical_execution_idempotency` replay. **P1/P2 read-only/advisory hooks** (workflow SPL, RAG, discovery, governance nodes) **accepted/deferred** — they do not create the external duplicate side effect this gap addressed. Item 20 executor + guided-hybrid per-step idempotency unchanged. | Low while live execution disabled; Medium/High before side-effecting MCP go-live | **Not blocking A** | COE / platform owner (pre-live MCP) | [`plans/2026-07-28_1630_per-step-dispatch-idempotency-and-uncertain-execution-safety.md`](../plans/2026-07-28_1630_per-step-dispatch-idempotency-and-uncertain-execution-safety.md) | Feature PR `feat/per-step-dispatch-idempotency` | Audit doc; hook replay modules; unit + Postgres integration tests; governance + parity gates on PR branch | **resolved (2026-07-28)** — P0 side-effecting paths only |
 | **2. Missing `test_dual_runtime_behavioural_parity.py`** | File **shipped** in PR #112 (`backend/app/tests/test_dual_runtime_behavioural_parity.py`, 9 scenarios). Cutover item 34 historical substitution preserved in §Gap 2 below. | Medium (test-honesty / seam regression) | — | Engineering | [`plans/2026-07-28_1610_canonical-outcome-invariant-hardening.md`](../plans/2026-07-28_1610_canonical-outcome-invariant-hardening.md) | Merged PR #112 | 9/9 behavioural parity; negative controls 8/8; production parity **120/0/0** unchanged | **resolved (2026-07-28)** |
 | **3. Production migration operator sign-off** | **Technically verified:** migrations `0001`–`0006` applied via `entrypoint.sh` / `migrate_ai_soc_db.py`; `/health` `readiness.database_migrations.ready=true`, `missing_versions=[]`; merged production checkout at cutover SHA; integration suite `34 passed / 0 skipped` on dev Postgres; no runtime DDL in handoff repository. **Formally missing:** named operator attestation (name, role, date) and a **linked** production `/health` capture or deploy log entry in the completion report. | Low (ops audit trail) | **Not blocking A** | Operator / COE signatory for closeout row | This doc §C + completion report §16 addendum | **Docs-only** PR (no migration rerun) | Completion report table row: prod env, apply date, operator name/role, link to redacted `/health` JSON or internal deploy ticket; `missing_versions=[]` quoted | **evidence-pending** |
 | **4. Live-synthesis latency in smoke** | Observed **90–240 s/turn** when live synthesis enabled on VPS smoke; not a correctness defect. No baseline p50/p90/p95, no cold/warm split, no timeout/fallback rate, no endpoint-vs-app timing breakdown. SLO targets **not** declared (correct). | Medium (ops / analyst UX) | **Not blocking A–C** | COE for any future SLO; perf owner for E | [`plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md`](../plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md) | Phase 1: instrumentation docs PR; Phase 2: optimization PR after baseline | Sanitized benchmark artifact; cold/warm p50/p90/p95; timeout + fallback rates; synthesis-path timing breakdown; live probes **outside CI** | **open** |
+
+---
+
+## Gap 1 — hook-level idempotency closeout (workstream D)
+
+**Supersedes** cutover item 20 drift note: executor/guided-hybrid idempotency was always in scope; **P0 side-effecting hook dispatch** was deferred to workstream D.
+
+| Fact | Treatment |
+|------|-----------|
+| **P0 protected** | MCP gate connector invoke; guided `safe_catalog_query` execute callback (requires `resource_plan_id` + `step_id` before callback; fail-closed + `REQUIRES_RECONCILIATION` when identity missing) |
+| **P1/P2 deferred** | Read-only/advisory hooks (`workflow_spl`, RAG, MCP discovery, governance chain) — no durable per-hook replay added; cannot duplicate external MCP search side effects |
+| Replay contract | Typed `HookReplayEnvelope` only — no arbitrary state-delta replay; fingerprint mismatch → `REQUIRES_RECONCILIATION`, never silent replay |
+| Uncertainty | Stale lease / unprovable exactly-once → `execution_outcome_uncertain`; connectors without verified downstream idempotency never auto-retry uncertain results |
+| Scope honesty | **Does not** claim every SPL/RAG/governance node has durable per-hook replay — only side-effecting execution paths |
 
 ---
 
@@ -78,7 +92,7 @@ A → B → C → D → E
 | 1 | Completion report §15: behavioural gap severity **Doc**, “covered by” substitutes | **Superseded** — gap is **open** until file lands; substitutes retained as complementary |
 | 2 | Cutover item 34 **Evidence** claims behavioural parity via substitute suite | **Historical addendum** — item stays `[x]`; evidence footnote points here |
 | 3 | Gate 3.4 command lists `test_dual_runtime_behavioural_parity.py` | **Acknowledged** — gate passed without file; hardening C6 adds file; Gate 3.4 wording updated in hardening R8 note only |
-| 4 | Hardening L3 defers executor/idempotency vs cutover “item 20 done” | **Not a contradiction** — plan-level idempotency done; **hook-level** gap is gap 1 → plan D |
+| 4 | Hardening L3 defers executor/idempotency vs cutover “item 20 done” | **Reconciled (2026-07-28)** — item 20 executor scope unchanged; **hook-level** gap 1 closed in workstream D |
 | 5 | Completion report §16 “operator sign-off pending” vs technical verify | **Reconciled** — status **evidence-pending** (attestation only), not “migrations unapplied” |
 
 ---

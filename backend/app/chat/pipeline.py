@@ -41,6 +41,7 @@ from app.orchestration.broaden_orchestration import (
 from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.spl_revision_hil import polish_spl_revision_human_review, resolve_spl_revision_hil_reason
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
+from app.chat.per_step_hook_idempotency import HookIdempotencyContext, resolve_hook_idempotency_context
 from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS
 from app.orchestration.workflow_planner import plan_workflow
 from app.query_understanding.soc_investigation_shape import detect_spl_artifact_request
@@ -2974,6 +2975,7 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         data_silence_advisory=state.get("data_silence_advisory")
         if isinstance(state.get("data_silence_advisory"), dict)
         else None,
+        hook_idempotency=resolve_hook_idempotency_context(state),
     )
     # O5c Step 2: the broaden confirm turn executed the approved broadened
     # search. Attach the two-call cross-turn envelope (empty primary + broadened
@@ -9354,6 +9356,7 @@ def _execution_stage(
     catalogue_use_case_id: str | None = None,
     data_silence_advisory: dict[str, Any] | None = None,
     execution_intent: str = "spl_search",
+    hook_idempotency: HookIdempotencyContext | None = None,
 ) -> tuple[dict, dict]:
     if spl_validation is None:
         return (
@@ -9409,6 +9412,7 @@ def _execution_stage(
         catalogue_use_case_id=catalogue_use_case_id,
         data_silence_advisory=data_silence_advisory,
         execution_intent=execution_intent,
+        hook_idempotency=hook_idempotency,
     )
 
 

@@ -53,8 +53,10 @@ cd backend && DATABASE_URL=postgresql://ai_soc:ai_soc_dev_password@127.0.0.1:543
 ## 5. Execution idempotency
 
 - Contract: `canonical_execution_idempotency` table + `guard_plan_dispatch_idempotency` before executor dispatch (items 20, 24).
-- In-memory default for unit tests; Postgres proof in `app/tests/integration/test_execution_idempotency_postgres.py` (**3 passed**).
+- In-memory default for unit tests; Postgres proof in `app/tests/integration/test_execution_idempotency_postgres.py` (**3 passed** at cutover; **4 passed** after workstream D hook replay test).
 - Guided hybrid per-step idempotency wired in `guided_hybrid_executor.py`.
+
+**Item 20 scope addendum (workstream D, 2026-07-28):** Cutover item 20 covered executor and guided-hybrid **per-step** idempotency. Workstream D closes the **P0 side-effecting execution boundary** only: MCP gate connector invoke and guided safe-catalog **execute callback**. P1/P2 read-only/advisory pipeline hooks remain outside durable per-hook replay by design. See [`per_step_hook_idempotency_audit.md`](../architecture/per_step_hook_idempotency_audit.md).
 
 ---
 
@@ -145,7 +147,7 @@ DATABASE_URL=postgresql://...@127.0.0.1:5434/ai_soc_assistant \
 | Gap | Severity | Status | Notes |
 |-----|----------|--------|-------|
 | `test_dual_runtime_behavioural_parity.py` | Medium | **Resolved (2026-07-28)** | Absent at cutover closure; added in outcome-invariant hardening (`test_dual_runtime_behavioural_parity.py`, 9 scenarios). Original Gate 3.4 **78 passed** and parity **120/0/0** evidence unchanged |
-| Hook-level SPL/MCP step idempotency | Low (Medium/High before live MCP execution) | **open** | Deferred to workstream D |
+| Hook-level SPL/MCP step idempotency | Low (Medium/High before live MCP execution) | **Resolved (2026-07-28)** | Workstream D — **P0 side-effecting** MCP connector + guided safe-catalog execute only; P1/P2 read-only hooks deferred (see gap reconciliation §Gap 1) |
 | LLM synthesis latency in smoke | Medium | **open** | Deferred to workstream E |
 | Production migration operator attestation | Low | **evidence-pending** | Workstream C — independent of A+B |
 
@@ -158,6 +160,14 @@ DATABASE_URL=postgresql://...@127.0.0.1:5434/ai_soc_assistant \
 - Pure `build_typed_planning_failure_state`; `request.failed` from gate only
 - `test_dual_runtime_behavioural_parity.py` (9 scenarios, imperative vs RP bootstrap)
 - Negative controls: stale EP without outcome fails closed (`non_planned_finalize`, not `workflow_spl`)
+
+## Post-cutover hardening (2026-07-28, workstream D — P0 hook idempotency)
+
+- Hook side-effect audit: [`per_step_hook_idempotency_audit.md`](../architecture/per_step_hook_idempotency_audit.md) (22 hooks classified; P0/P1/P2)
+- **P0 resolved:** MCP gate connector dispatch + guided `safe_catalog_query` execute callback (identity required before callback)
+- **P1/P2 accepted/deferred:** read-only/advisory hooks — no external duplicate side-effect risk addressed by durable replay
+- Typed `HookReplayEnvelope` stored in existing `canonical_execution_idempotency.result` JSONB (no migration)
+- `REQUIRES_RECONCILIATION` on stale lease, fingerprint mismatch, or missing execute identity
 
 ---
 
