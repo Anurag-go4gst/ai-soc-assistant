@@ -197,7 +197,12 @@ def failure_outcome(
 
 
 def outcome_from_state(state: dict[str, Any]) -> CanonicalPlanningOutcome | None:
-    """Read the outcome back off pipeline state, tolerating the dict round-trip."""
+    """Read the outcome back off pipeline state, tolerating the dict round-trip.
+
+    Prefer ``read_canonical_planning_outcome`` for dispatch, validation, and gate
+    paths — it distinguishes absent from malformed. This helper remains for tests
+    and transitional callers that expect ``None`` on absent keys only.
+    """
     raw = state.get("canonical_planning_outcome")
     if isinstance(raw, CanonicalPlanningOutcome):
         return raw

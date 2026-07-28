@@ -394,7 +394,7 @@ class Settings(BaseSettings):
     # user message exactly matches a demo scenario query (normalized). Does not enable
     # real Splunk MCP or live Foundation-sec calls.
     ai_soc_live_chat_ec_parity_enabled: bool = False
-    # P1: LangGraph orchestration parity with imperative /chat (default off).
+    # LangGraph Resource Planner graph is the production /chat spine (default on).
     langgraph_orchestration_enabled: bool = True
     # Phase 12: planner-led fan-out/fan-in shadow graph for tests/trace only (default off).
     ai_soc_langgraph_shadow_enabled: bool = False

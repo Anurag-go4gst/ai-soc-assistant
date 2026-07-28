@@ -136,7 +136,7 @@ def _resolve_request_mode(
         return "spl_and_run"
     if family in {"hybrid_investigation_plus_policy", "hybrid_alert_review"}:
         return "hybrid"
-    if family == "clarification_required" or plan.answer_mode == "clarification":
+    if family == "clarification_required":
         return "clarification"
     if family in {"guided_investigation", "github_investigation"}:
         return "clarification"

@@ -14,9 +14,9 @@ import logging
 import re
 from typing import Any, Literal
 
+from app.chat.canonical_outcome_read import OutcomeReadKind, read_canonical_planning_outcome
 from app.chat.contracts.canonical_planning_outcome import (
     NON_EXECUTING_STATUSES,
-    outcome_from_state,
 )
 from app.chat.planning_telemetry import (
     _mark_terminal_request_event,
@@ -142,10 +142,20 @@ def _tool_failures_surfaced(state: dict[str, Any]) -> bool:
     return any(str(tool).lower() in joined or "tool" in joined for tool in failed_tools)
 
 
+def _outcome_from_read(state: dict[str, Any]):
+    read = read_canonical_planning_outcome(state)
+    if read.kind != OutcomeReadKind.VALID:
+        return read.kind, None
+    return read.kind, read.outcome
+
+
 def _validate_clarification(state: dict[str, Any]) -> list[str]:
     reasons: list[str] = []
-    outcome = outcome_from_state(state)
-    if outcome is None or outcome.status != "clarification_required":
+    kind, outcome = _outcome_from_read(state)
+    if kind == OutcomeReadKind.MALFORMED:
+        reasons.append("malformed_canonical_outcome")
+        return reasons
+    if kind == OutcomeReadKind.ABSENT or outcome is None or outcome.status != "clarification_required":
         return reasons
     clarification = outcome.clarification
     if clarification is None or not clarification.unresolved_fields:
@@ -161,7 +171,13 @@ def _validate_clarification(state: dict[str, Any]) -> list[str]:
 
 def _validate_non_planned_outcome(state: dict[str, Any]) -> list[str]:
     reasons: list[str] = []
-    outcome = outcome_from_state(state)
+    kind, outcome = _outcome_from_read(state)
+    if kind == OutcomeReadKind.MALFORMED:
+        reasons.append("malformed_canonical_outcome")
+        return reasons
+    if kind == OutcomeReadKind.ABSENT:
+        reasons.append("missing_canonical_outcome")
+        return reasons
     if outcome is None or outcome.status == "planned":
         return reasons
     if outcome.status in NON_EXECUTING_STATUSES and outcome.resource_plan is not None:
@@ -243,8 +259,11 @@ def _validate_planned_pipeline_state(state: dict[str, Any]) -> list[str]:
 
 def _validate_policy_blocked(state: dict[str, Any]) -> list[str]:
     reasons: list[str] = []
-    outcome = outcome_from_state(state)
-    if outcome is None or outcome.status != "policy_blocked":
+    kind, outcome = _outcome_from_read(state)
+    if kind == OutcomeReadKind.MALFORMED:
+        reasons.append("malformed_canonical_outcome")
+        return reasons
+    if kind == OutcomeReadKind.ABSENT or outcome is None or outcome.status != "policy_blocked":
         return reasons
     if not outcome.policy_reason:
         reasons.append("policy_blocked_missing_reason")
@@ -261,7 +280,12 @@ def _validate_policy_blocked(state: dict[str, Any]) -> list[str]:
 
 def validate_final_response(state: dict[str, Any]) -> tuple[ValidationOutcome, list[str]]:
     """Validate pipeline state before analyst-response assembly."""
-    outcome = outcome_from_state(state)
+    kind, outcome = _outcome_from_read(state)
+    if kind == OutcomeReadKind.MALFORMED:
+        return _finalize(["malformed_canonical_outcome"])
+    if kind == OutcomeReadKind.ABSENT:
+        return _finalize(["missing_canonical_outcome"])
+
     if outcome is not None and outcome.status == "clarification_required":
         return _finalize(_validate_clarification(state))
 
@@ -302,8 +326,8 @@ def validate_assembled_response(
         return "ok", []
 
     reasons: list[str] = []
-    outcome = outcome_from_state(state)
-    if outcome is not None and outcome.status != "planned":
+    read = read_canonical_planning_outcome(state)
+    if read.kind == OutcomeReadKind.VALID and read.outcome is not None and read.outcome.status != "planned":
         return "ok", []
 
     response = analyst_response if analyst_response is not None else state.get("analyst_response")
