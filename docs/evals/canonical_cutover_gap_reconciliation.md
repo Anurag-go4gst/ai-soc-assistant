@@ -25,8 +25,8 @@ A → B → C → D → E
 |-----|------------------------|----------|----------|------------------|-------------|----------------|---------------------|--------|
 | **1. Per-step SPL/MCP hook idempotency** | **P0 side-effecting execution boundary resolved** (workstream D): MCP gate connector dispatch (`graph_node_execution` → `evaluate_mcp_execution` → connector) and guided `safe_catalog_query` **execute callback** (only when COE-signed catalog would invoke `execute_safe_catalog_spl`) wrapped with typed `HookReplayEnvelope` + `canonical_execution_idempotency` replay. **P1/P2 read-only/advisory hooks** (workflow SPL, RAG, discovery, governance nodes) **accepted/deferred** — they do not create the external duplicate side effect this gap addressed. Item 20 executor + guided-hybrid per-step idempotency unchanged. | Low while live execution disabled; Medium/High before side-effecting MCP go-live | **Not blocking A** | COE / platform owner (pre-live MCP) | [`plans/2026-07-28_1630_per-step-dispatch-idempotency-and-uncertain-execution-safety.md`](../plans/2026-07-28_1630_per-step-dispatch-idempotency-and-uncertain-execution-safety.md) | Feature PR `feat/per-step-dispatch-idempotency` | Audit doc; hook replay modules; unit + Postgres integration tests; governance + parity gates on PR branch | **resolved (2026-07-28)** — P0 side-effecting paths only |
 | **2. Missing `test_dual_runtime_behavioural_parity.py`** | File **shipped** in PR #112 (`backend/app/tests/test_dual_runtime_behavioural_parity.py`, 9 scenarios). Cutover item 34 historical substitution preserved in §Gap 2 below. | Medium (test-honesty / seam regression) | — | Engineering | [`plans/2026-07-28_1610_canonical-outcome-invariant-hardening.md`](../plans/2026-07-28_1610_canonical-outcome-invariant-hardening.md) | Merged PR #112 | 9/9 behavioural parity; negative controls 8/8; production parity **120/0/0** unchanged | **resolved (2026-07-28)** |
-| **3. Production migration operator sign-off** | **Technically verified:** migrations `0001`–`0006` applied via `entrypoint.sh` / `migrate_ai_soc_db.py`; `/health` `readiness.database_migrations.ready=true`, `missing_versions=[]`; merged production checkout at cutover SHA; integration suite `34 passed / 0 skipped` on dev Postgres; no runtime DDL in handoff repository. **Formally missing:** named operator attestation (name, role, date) and a **linked** production `/health` capture or deploy log entry in the completion report. | Low (ops audit trail) | **Not blocking A** | Operator / COE signatory for closeout row | This doc §C + completion report §16 addendum | **Docs-only** PR (no migration rerun) | Completion report table row: prod env, apply date, operator name/role, link to redacted `/health` JSON or internal deploy ticket; `missing_versions=[]` quoted | **evidence-pending** |
-| **4. Live-synthesis latency in smoke** | Observed **90–240 s/turn** when live synthesis enabled on VPS smoke; not a correctness defect. Phase 1 instrumentation + stub harness shipped on `feat/live-synthesis-perf-phase1`; no live baseline p50/p90/p95 yet. SLO targets **not** declared (correct). | Medium (ops / analyst UX) | **Not blocking A–D** | COE for any future SLO; perf owner for E | [`plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md`](../plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md) | Phase 1: instrumentation PR; Phase 2: live baseline + optimization | Sanitized benchmark artifact; cold/warm p50/p90/p95; timeout + fallback rates; synthesis-path timing breakdown; live probes **outside CI** | **open** (phase 1 instrumentation in progress) |
+| **3. Production migration operator sign-off** | **Technically verified:** migrations `0001`–`0006` applied via `entrypoint.sh` / `migrate_ai_soc_db.py`; `/health` `readiness.database_migrations.ready=true`, `missing_versions=[]`; integration suite `34 passed / 0 skipped` on dev Postgres; no runtime DDL in handoff repository; Workstream D deploy @ `42bc899` and Workstream E Phase 1 deploy @ `6a7fe54` confirmed **no migration delta**. **Operator attestation signed:** Anurag Agarwal, AI SOC Project Owner, 2026-07-28 — see [`workstream_c_migration_attestation.md`](workstream_c_migration_attestation.md). | Low (ops audit trail) | — | Operator / COE signatory | This doc §C + completion report §16 | **Docs-only** closeout | Named operator, role, date; `missing_versions=[]` quoted; health evidence linked | **resolved (2026-07-28)** |
+| **4. Live-synthesis latency in smoke** | Observed **90–240 s/turn** when live synthesis enabled on VPS smoke; not a correctness defect. Phase 1 instrumentation deployed @ `6a7fe54` (PR #116); `control_plane_trace.turn_timing` live. No live baseline p50/p90/p95 yet. SLO targets **not** declared (correct). | Medium (ops / analyst UX) | **Not blocking A–D** | COE for any future SLO; perf owner for E | [`plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md`](../plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md) | Phase 1 deployed; Phase 2 live baseline + optimization | Sanitized benchmark artifact; cold/warm p50/p90/p95; timeout + fallback rates; live probes **outside CI** | **open** (phase 1 deployed; live baseline deferred) |
 
 ---
 
@@ -60,15 +60,15 @@ A → B → C → D → E
 
 ### Still missing (documentation only)
 
-1. **Operator name and role** — **evidence-pending** (requires named COE/platform signatory).
-2. **Apply date** — **recorded:** 2026-07-28 UTC (PR #112 production deploy; merge SHA `7ce14748219e0943b6623dec85309241a4ac24fb`).
-3. **Evidence link** — **recorded:** production `/health` post-deploy (`database_migrations.ready=true`, `missing_versions=[]`, versions `0001`–`0006` present). Redacted capture path: internal deploy record PR #112 closeout.
+_None — operator attestation signed 2026-07-28 (Anurag Agarwal, AI SOC Project Owner)._
 
 ### Closeout checklist (documentation PR)
 
-- [x] **C-MIG-1** — Update [`canonical_cutover_completion_report.md`](canonical_cutover_completion_report.md) §16 prod row with deploy SHA + health evidence (operator name pending).
+- [x] **C-MIG-1** — Update [`canonical_cutover_completion_report.md`](canonical_cutover_completion_report.md) §16 prod row with deploy SHA + health evidence.
 - [x] **C-MIG-2** — Add §15 addendum cross-reference (this file).
 - [x] **C-MIG-3** — No code or migration file changes in the closeout PR.
+- [x] **C-MIG-4** — Record Workstream D production deploy evidence (`42bc899`, PR #115, no migration change) in [`workstream_c_migration_attestation.md`](workstream_c_migration_attestation.md).
+- [x] **C-MIG-5** — Operator name + role attestation — **Anurag Agarwal**, AI SOC Project Owner, 2026-07-28.
 
 ---
 
@@ -93,7 +93,7 @@ A → B → C → D → E
 | 2 | Cutover item 34 **Evidence** claims behavioural parity via substitute suite | **Historical addendum** — item stays `[x]`; evidence footnote points here |
 | 3 | Gate 3.4 command lists `test_dual_runtime_behavioural_parity.py` | **Acknowledged** — gate passed without file; hardening C6 adds file; Gate 3.4 wording updated in hardening R8 note only |
 | 4 | Hardening L3 defers executor/idempotency vs cutover “item 20 done” | **Reconciled (2026-07-28)** — item 20 executor scope unchanged; **hook-level** gap 1 closed in workstream D |
-| 5 | Completion report §16 “operator sign-off pending” vs technical verify | **Reconciled** — status **evidence-pending** (attestation only), not “migrations unapplied” |
+| 5 | Completion report §16 “operator sign-off pending” vs technical verify | **Reconciled (2026-07-28)** — operator attestation signed; see [`workstream_c_migration_attestation.md`](workstream_c_migration_attestation.md) |
 
 ---
 
