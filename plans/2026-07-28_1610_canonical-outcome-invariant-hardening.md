@@ -247,11 +247,11 @@ Targeted canonical + dual-runtime tests; full `pytest`; governance regression; `
 
 ## R10 — Commits
 
-1. Reader + cross-state validators  
-2. Pure failure builder + allowlist tests  
-3–4. Gate + consumers (**atomic**)  
-5. Behavioural parity + negative controls + compose IT  
-6. Docs mirror  
+1. Reader + cross-state validators
+2. Pure failure builder + allowlist tests
+3–4. Gate + consumers (**atomic**)
+5. Behavioural parity + negative controls + compose IT
+6. Docs mirror
 
 ---
 
@@ -329,9 +329,9 @@ Targeted canonical + dual-runtime tests; full `pytest`; governance regression; `
 
 ## Loop-asap session closeout (2026-07-28)
 
-**Session:** `loop-asap — execute plans/2026-07-28_1610_canonical-outcome-invariant-hardening.md`  
-**Scope:** Workstreams **A+B** only (C/D/E explicitly out of scope).  
-**Follow-ups:** Hook armed **5** turns; **1 consumed**; stop condition met before turns 2–5.  
+**Session:** `loop-asap — execute plans/2026-07-28_1610_canonical-outcome-invariant-hardening.md`
+**Scope:** Workstreams **A+B** only (C/D/E explicitly out of scope).
+**Follow-ups:** Hook armed **5** turns; **1 consumed**; stop condition met before turns 2–5.
 **Isolation:** All runtime code in `.worktree-canonical-outcome-invariant` @ `feat/canonical-outcome-invariant` (`be838c9..a6c8d28`). Main checkout backend **not merged** (by design).
 
 ### Turn timeline

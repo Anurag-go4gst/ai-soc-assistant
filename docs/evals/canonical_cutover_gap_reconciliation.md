@@ -1,6 +1,6 @@
 # Canonical cutover gap reconciliation matrix
 
-**Date:** 2026-07-28  
+**Date:** 2026-07-28
 **Scope:** Plan and documentation only. Does **not** reopen [`plans/2026-07-24_2310_guided-detail-tools-consumable-handoff.md`](../plans/2026-07-24_2310_guided-detail-tools-consumable-handoff.md) (41/41 complete). Historical addenda live here and in the completion report §15 addendum.
 
 **Workstream dependency order (mandatory):**
