@@ -153,13 +153,26 @@ def run_governed_synthesis_lab(
             draft = {**draft, "final_synthesis_skip_reason": skip_reason}
         client = synthesis_client or build_synthesis_client_from_settings()
         if client is not None and not (skip_narration and skip_reason):
-            narration, timed_out, elapsed_ms = _narrate_with_progress_and_timeout(
+            narrated = _narrate_with_progress_and_timeout(
                 package=package,
                 deterministic_draft=draft,
                 severity_label=severity_label,
                 client=client,
                 structured_context=structured_context,
             )
+            if len(narrated) == 2:
+                narration, timed_out = narrated
+                elapsed_ms = (
+                    0
+                    if timed_out
+                    else (
+                        int(getattr(narration, "latency_ms", 0) or 0)
+                        if isinstance(narration, NarrationResult)
+                        else 0
+                    )
+                )
+            else:
+                narration, timed_out, elapsed_ms = narrated
             if timed_out:
                 record_synthesis_endpoint(
                     elapsed_ms,
