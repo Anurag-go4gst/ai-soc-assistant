@@ -216,6 +216,20 @@ Hooks with **no external side effect** under default flags and **no durable writ
 
 ---
 
+## P0 execution invariants (implemented)
+
+| Invariant | Enforcement |
+|-----------|-------------|
+| Guided safe-catalog execute callback | `collect_guided_hybrid_evidence`: when `dispatch_plan.ready` and `execute_safe_catalog_spl` is set, requires `resource_plan_id` + `step_id`; otherwise blocks with `guided_safe_catalog_idempotency_identity_missing` and `REQUIRES_RECONCILIATION` — **callback never invoked** |
+| MCP connector via `graph_node_execution` | `resolve_hook_idempotency_context` + `_dispatch_connector_execution` wrap side-effecting connector calls when context present (production path always passes `trace_id` minimum) |
+| Fingerprint replay | `stored_envelope_matches` — mismatch → `REQUIRES_RECONCILIATION`, never silent replay |
+| Uncertain downstream | `side_effecting_without_stable_idempotency` contract → stale lease / uncertain → manual reconciliation; no automatic retry |
+| JSONB compatibility | `HookReplayEnvelope` + sanitized summary in existing `canonical_execution_idempotency.result`; non-hook records unchanged |
+
+Regression: `test_safe_catalog_execute_blocked_without_resource_plan_id`, `test_mcp_discovery_without_resource_plan_id_remains_read_only`.
+
+---
+
 ## I0 evidence
 
 - Inventory: this file (§Inventory).

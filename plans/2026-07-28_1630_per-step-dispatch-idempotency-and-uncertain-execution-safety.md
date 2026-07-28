@@ -1,7 +1,7 @@
 ---
 name: per-step-dispatch-idempotency
 overview: "Close the hook-level SPL/MCP idempotency gap left by cutover item 20: audit side effects, typed allowlisted replay payloads, leases, fingerprints, concurrent workers, and REQUIRES_RECONCILIATION when exactly-once cannot be proven."
-status: proposed
+status: done
 date: 2026-07-28
 canonical_plan: plans/2026-07-28_1630_per-step-dispatch-idempotency-and-uncertain-execution-safety.md
 depends_on: plans/2026-07-28_1610_canonical-outcome-invariant-hardening.md
@@ -91,11 +91,11 @@ Extend execution safety from executor/guided-hybrid per-step idempotency (cutove
   - **Depends on:** I3
   - **Evidence:** `uncertainty_execution_review`, `run_idempotent_mcp_execution_hook` REQUIRES_RECONCILIATION path, `apply_hook_uncertainty_to_state`; `test_stale_lease_without_stable_contract_requires_reconciliation`, `test_uncertain_execution_surfaces_manual_reconciliation`, replay/HIL negative controls in `test_per_step_hook_idempotency.py` (governance regression deferred to pre-PR gate per loop scope)
 
-- [ ] **I5** — Documentation + completion note
+- [x] **I5** — Documentation + completion note
   - **Do:** Update cutover gap reconciliation matrix row 1 → **resolved**; addendum to item 20 scope note in completion report (pointer only)
   - **Verify:** `rg "hook-level SPL/MCP" docs/` shows closed status
   - **Depends on:** I4
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `canonical_cutover_gap_reconciliation.md` row 1 → **resolved (2026-07-28)**; `canonical_cutover_completion_report.md` §5 item-20 addendum + §15 row **Resolved**; `rg "hook-level SPL/MCP" docs/` → 2 hits (completion report resolved + gap reconciliation closed)
 
 ## Implementation verdict
 
@@ -104,7 +104,7 @@ Extend execution safety from executor/guided-hybrid per-step idempotency (cutove
 | I0 hook audit | **DONE** |
 | Workstream C operator attestation | **PENDING** (name/role only — does not block I1 coding) |
 | SOP routing investigation | **Fixture mismatch** — does not block D (see closeout note below) |
-| **READY FOR IMPLEMENTATION** | **YES** — I1–I4 complete; I5 closeout deferred |
+| **READY FOR IMPLEMENTATION** | **DONE** — I0–I5 complete on `feat/per-step-dispatch-idempotency`; pre-merge full gates pending |
 
 ## SOP routing closeout note (bounded investigation)
 
@@ -136,4 +136,4 @@ Three invocations (MCP off, identical session): canonical seam → RP final stat
 | Date | Note |
 |------|------|
 | 2026-07-28 | Skeleton created from gap reconciliation disposition #1 |
-| 2026-07-28 | I1–I4 implemented on `feat/per-step-dispatch-idempotency` (commits after I0); pre-PR gates pending |
+| 2026-07-28 | I5 docs closeout — gap reconciliation row 1 resolved; completion report §5 addendum |
