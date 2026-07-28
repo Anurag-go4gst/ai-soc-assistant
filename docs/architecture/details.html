@@ -1340,7 +1340,7 @@
 
       <div class="mermaid-panel" id="mermaid-canonical-panel">
         <h3>Inside the canonical planning seam</h3>
-        <p>One function, one typed outcome. Downstream branches on <code>CanonicalPlanningOutcome.status</code> — never on a partial <code>evidence_plan</code>.</p>
+        <p>One function, one typed outcome. After <code>plan_evidence_from_canonical</code>, <code>enforce_canonical_outcome_invariant</code> tri-state-parses the outcome, validates cross-state consistency, strips stale executable artifacts on failure, and emits <code>request.failed</code> once from the gate layer. Downstream dispatch branches on <code>CanonicalPlanningOutcome.status</code> — never on a partial <code>evidence_plan</code>.</p>
         <pre class="mermaid">flowchart TD
   IN["Lane router\nT1–T3 known · T4 guided"]
   KC["Known completeness gate"]
@@ -1348,6 +1348,7 @@
   T0["T4 → T0 reference short-circuit\nknowledge_recall"]
   CPI["CanonicalPlanningInput"]
   PLAN["plan_evidence_from_canonical\nsole ResourcePlan creator"]
+  INV["enforce_canonical_outcome_invariant\ntri-state parse · cross-state · normalize"]
   O1["planned → dispatch"]
   O2["clarification_required → handoff"]
   O3["policy_blocked"]
@@ -1360,11 +1361,12 @@
   GDR -->|reference-only| T0 --> CPI
   GDR --> CPI
   CPI --> PLAN
-  PLAN --> O1
-  PLAN --> O2
-  PLAN --> O3
-  PLAN --> OF</pre>
-        <pre class="mermaid-fallback">lane router → completeness / guided resolution → CanonicalPlanningInput → plan_evidence_from_canonical → planned | clarification | policy_blocked | failure</pre>
+  PLAN --> INV
+  INV --> O1
+  INV --> O2
+  INV --> O3
+  INV --> OF</pre>
+        <pre class="mermaid-fallback">lane router → completeness / guided resolution → CanonicalPlanningInput → plan_evidence_from_canonical → enforce_canonical_outcome_invariant → planned | clarification | policy_blocked | failure</pre>
       </div>
 
       <div class="note success-note">
@@ -1694,19 +1696,19 @@
           </div>
           <div class="mini-card purple">
             <h3>Typed exit, always</h3>
-            <p>Every path out of the seam is a <code>CanonicalPlanningOutcome</code>. A database failure becomes <code>persistence_failed</code>, not a half-planned turn that renders as a confident answer.</p>
+            <p>Every path out of the seam is a <code>CanonicalPlanningOutcome</code>. A database failure becomes <code>persistence_failed</code>, not a half-planned turn that renders as a confident answer. Before <code>run_canonical_planning</code> returns, <code>enforce_canonical_outcome_invariant</code> rejects missing, malformed, or cross-state contradictory artifacts and strips stale <code>evidence_plan</code> / execution eligibility.</p>
           </div>
         </div>
 
         <h3 style="margin-top:26px;">Four sub-stages, in order</h3>
-        <p>Node names in full: <code>graph_node_lane_and_canonical_planning</code> → <code>graph_node_route_resolution</code> → <code>graph_node_route_contract</code> → <code>_graph_node_planning_decision_from_canonical</code>.</p>
+        <p>Node names in full: <code>graph_node_lane_and_canonical_planning</code> (ends with <code>enforce_canonical_outcome_invariant</code>) → <code>graph_node_route_resolution</code> → <code>graph_node_route_contract</code> → <code>_graph_node_planning_decision_from_canonical</code>.</p>
         <div class="tablewrap">
         <table>
           <thead>
             <tr><th>#</th><th>Sub-stage</th><th>What it settles</th></tr>
           </thead>
           <tbody>
-            <tr><td>1</td><td>lane + canonical planning</td><td>Lane, tier, intent, completeness, detail resolution, handoff, evidence plan, committed resource plan</td></tr>
+            <tr><td>1</td><td>lane + canonical planning + outcome invariant</td><td>Lane, tier, intent, completeness, detail resolution, handoff, evidence plan, committed resource plan; then <code>enforce_canonical_outcome_invariant</code> (tri-state parse, cross-state consistency, typed failure normalization, idempotent <code>request.failed</code>)</td></tr>
             <tr><td>2</td><td>route resolution</td><td>Route adjudication — produces the final route and its authority source</td></tr>
             <tr><td>3</td><td>route contract</td><td>Builds the route contract and <strong>overwrites</strong> the routed skill with the canonical skill — one final authority</td></tr>
             <tr><td>4</td><td>planning decision</td><td>The planning decision surfaced to the trace and the analyst card</td></tr>

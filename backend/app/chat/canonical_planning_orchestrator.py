@@ -99,6 +99,9 @@ def run_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:
 
     try:
         state = graph_node_lane_and_canonical_planning(state)
+        from app.chat.canonical_outcome_gate import enforce_canonical_outcome_invariant
+
+        state = enforce_canonical_outcome_invariant(state)
         state = graph_node_route_resolution(state)
         state = graph_node_route_contract(state)
         state = _graph_node_planning_decision_from_canonical(state)

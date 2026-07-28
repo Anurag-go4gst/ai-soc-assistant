@@ -110,13 +110,18 @@ def _mark_terminal_request_event(state: dict[str, Any], event: str) -> dict[str,
 
 
 def should_emit_request_completed(state: dict[str, Any]) -> bool:
-    from app.chat.contracts.canonical_planning_outcome import outcome_from_state
+    from app.chat.canonical_outcome_read import OutcomeReadKind, read_canonical_planning_outcome
 
     if terminal_request_event_emitted(state) is not None:
         return False
-    outcome = outcome_from_state(state)
-    if outcome is not None and outcome.status == "clarification_required":
+    read = read_canonical_planning_outcome(state)
+    if read.kind == OutcomeReadKind.MALFORMED:
         return False
+    if read.kind == OutcomeReadKind.VALID and read.outcome is not None:
+        if read.outcome.status == "clarification_required":
+            return False
+        if read.outcome.status == "persistence_failed":
+            return False
     failure = state.get("canonical_planning_failure")
     if isinstance(failure, dict) and failure.get("outcome") == "persistence_failed":
         return False

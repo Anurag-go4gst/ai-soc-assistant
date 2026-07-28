@@ -623,26 +623,29 @@ def _run_live_chat_pipeline(
             build_canonical_failure_state,
             build_non_planned_dispatch_state,
         )
-        from app.chat.contracts.canonical_planning_outcome import outcome_from_state
+        from app.chat.canonical_outcome_read import OutcomeReadKind, read_canonical_planning_outcome
 
-        canonical_outcome = outcome_from_state(state)
-        if canonical_outcome is not None and canonical_outcome.status != "planned":
-            # Clarification / policy block / typed failure: there is nothing to
-            # dispatch and nothing has gone wrong. Branch on status before treating a
-            # missing ResourcePlan as a planning failure.
+        read = read_canonical_planning_outcome(state)
+        if read.kind == OutcomeReadKind.VALID and read.outcome is not None and read.outcome.status != "planned":
+            status = read.outcome.status
             state = _timed_node(
                 state,
                 "plan_dispatch_skipped_non_planned",
-                lambda s: build_non_planned_dispatch_state(s, status=canonical_outcome.status),
+                lambda s: build_non_planned_dispatch_state(s, status=status),
             )
         else:
+            reason = "canonical_missing_resource_plan_at_dispatch"
+            if read.kind == OutcomeReadKind.MALFORMED:
+                reason = "canonical_invalid_outcome_at_dispatch"
+            elif read.kind == OutcomeReadKind.ABSENT:
+                reason = "canonical_missing_outcome_at_dispatch"
             state = _timed_node(
                 state,
                 "plan_dispatch_canonical_failure",
-                lambda s: build_canonical_failure_state(
+                lambda s, r=reason: build_canonical_failure_state(
                     s,
                     outcome="planning_failed",
-                    reason="canonical_missing_resource_plan_at_dispatch",
+                    reason=r,
                 ),
             )
     if loop_initialized(state):
@@ -1650,14 +1653,21 @@ def _attach_evidence_observer(state: ChatPipelineState, *, rows: list[dict[str, 
 def _graph_node_planning_decision_from_canonical(state: ChatPipelineState) -> ChatPipelineState:
     """Attach planning_decision when evidence_plan was produced by canonical final planner."""
     from app.chat.canonical_mode import build_canonical_failure_state, is_canonical_authoritative
-
-    from app.chat.contracts.canonical_planning_outcome import outcome_from_state
+    from app.chat.canonical_outcome_read import OutcomeReadKind, read_canonical_planning_outcome
 
     intent = state.get("intent_classification")
     evidence_payload = state.get("evidence_plan")
 
-    canonical_outcome = outcome_from_state(state)
-    if canonical_outcome is not None and canonical_outcome.status != "planned" and isinstance(intent, dict):
+    read = read_canonical_planning_outcome(state)
+    if read.kind != OutcomeReadKind.VALID or read.outcome is None:
+        return build_canonical_failure_state(
+            state,
+            outcome="planning_failed",
+            reason="canonical_invalid_outcome_for_planning_decision",
+        )
+
+    canonical_outcome = read.outcome
+    if canonical_outcome.status != "planned" and isinstance(intent, dict):
         # A non-planned outcome has no EvidencePlan by contract, but the planning
         # decision must still be computed: ``path_type`` is what drives the unsafe /
         # clarification branches downstream. Treating a missing EvidencePlan as a
@@ -1680,19 +1690,6 @@ def _graph_node_planning_decision_from_canonical(state: ChatPipelineState) -> Ch
             reason="canonical_missing_planning_artifacts",
         )
     if is_canonical_authoritative() and not evidence_payload.get("resource_plan"):
-        if evidence_payload.get("answer_mode") == "clarification":
-            planning = plan_path_and_tools(
-                intent_classification=intent,
-                evidence_plan=evidence_payload,
-                routed=state.get("routed"),
-                query_understanding=state.get("query_understanding"),
-                selected_use_case=state.get("selected_use_case"),
-                llm_intent_advisory=state.get("llm_intent_advisory"),
-            )
-            return {
-                **state,
-                "planning_decision": planning.model_dump(),
-            }
         return build_canonical_failure_state(
             state,
             outcome="planning_failed",

@@ -455,10 +455,10 @@ def rp_node_resource_planner_merge(state: ResourcePlannerGraphState) -> Resource
 
 
 def _rp_dispatch_route(state: ResourcePlannerGraphState) -> DispatchRoute:
-    from app.chat.contracts.canonical_planning_outcome import outcome_from_state
+    from app.chat.canonical_outcome_read import OutcomeReadKind, read_canonical_planning_outcome
 
-    canonical_outcome = outcome_from_state(state)
-    if canonical_outcome is not None and canonical_outcome.status != "planned":
+    read = read_canonical_planning_outcome(state)
+    if read.kind != OutcomeReadKind.VALID or read.outcome is None or read.outcome.status != "planned":
         return "non_planned_finalize"
     plan = _evidence_plan(state)
     if plan.get("answer_mode") == "rag_only":
@@ -470,11 +470,11 @@ def _rp_dispatch_route(state: ResourcePlannerGraphState) -> DispatchRoute:
 
 def rp_node_non_planned_finalize(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
     from app.chat.canonical_mode import build_non_planned_dispatch_state
-    from app.chat.contracts.canonical_planning_outcome import outcome_from_state
+    from app.chat.canonical_outcome_read import OutcomeReadKind, read_canonical_planning_outcome
 
-    canonical_outcome = outcome_from_state(state)
-    if canonical_outcome is not None and canonical_outcome.status != "planned":
-        state = build_non_planned_dispatch_state(state, status=canonical_outcome.status)
+    read = read_canonical_planning_outcome(state)
+    if read.kind == OutcomeReadKind.VALID and read.outcome is not None and read.outcome.status != "planned":
+        state = build_non_planned_dispatch_state(state, status=read.outcome.status)
     state = _with_trace(state, "non_planned_finalize")
     return _record(
         state,
