@@ -281,6 +281,15 @@ from app.chat.planning_decision import plan_path_and_tools
 from app.chat.control_plane_trace import build_control_plane_trace
 from app.chat.canonical_facts_spine import harvest_canonical_facts_from_state
 from app.chat.canonical_db import planning_turn_scope
+from app.synthesis.turn_timing import (
+    RunKind,
+    SynthesisPath,
+    TurnOutcome,
+    close_retrieval_spl_phase,
+    finalize_turn_timing,
+    record_synthesis_endpoint,
+    synthesis_turn_timing_scope,
+)
 from app.chat.debug_summary import build_debug_summary
 from app.chat.guided_discovery_promotion import build_guided_discovery_promotion_offer
 from app.chat.guided_answer_contract import enhance_answer_contract_for_guided_hybrid
@@ -520,6 +529,10 @@ def build_rp_degraded_placeholder_response(
     return response
 
 
+def _benchmark_run_kind_override() -> RunKind | None:
+    return benchmark_run_kind_override()
+
+
 def build_live_chat_response(
     request: ChatRequest,
     *,
@@ -535,8 +548,10 @@ def build_live_chat_response(
     token = bind_progress_reporter(progress) if progress is not None else None
 
     try:
-        with planning_turn_scope():
-            return _build_live_chat_response_inner(request, session_role=session_role, entrypoint=entrypoint)
+        run_kind = _benchmark_run_kind_override()
+        with synthesis_turn_timing_scope(run_kind=run_kind):
+            with planning_turn_scope():
+                return _build_live_chat_response_inner(request, session_role=session_role, entrypoint=entrypoint)
     finally:
         if token is not None:
             reset_progress_reporter(token)
@@ -3755,6 +3770,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     )
     emit_stage("generating_answer")
     _skip_registry_warnings, _skip_catalog_row = _composer_skip_registry_context(state)
+    close_retrieval_spl_phase()
     synthesis_lab = run_governed_synthesis_lab(
         structured_context=structured_context,
         source_evidence=source_evidence,
@@ -4647,12 +4663,35 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                     reference_narration_seed=_reference_seed,
                 )
                 composer_trace = {**composer_trace, **composer_result.trace_payload()}
-            if composer_result.llm_composer_used:
-                budget.record_narration(
-                    provider_label=composer_result.llm_provider_label,
-                    outcome="completed",
-                    latency_ms=int((time.monotonic() - _t0) * 1000),
-                )
+                if composer_result.llm_composer_used:
+                    latency_ms = int((time.monotonic() - _t0) * 1000)
+                    budget.record_narration(
+                        provider_label=composer_result.llm_provider_label,
+                        outcome="completed",
+                        latency_ms=latency_ms,
+                    )
+                    record_synthesis_endpoint(
+                        latency_ms,
+                        path=SynthesisPath.COMPOSER,
+                        outcome=TurnOutcome.COMPLETED,
+                        provider_label=composer_result.llm_provider_label,
+                    )
+                elif composer_result.llm_fallback_used:
+                    latency_ms = int((time.monotonic() - _t0) * 1000)
+                    blocked = str(composer_result.llm_blocked_reason or "")
+                    outcome = (
+                        TurnOutcome.TIMEOUT
+                        if "timeout" in blocked.lower()
+                        else TurnOutcome.FALLBACK
+                    )
+                    record_synthesis_endpoint(
+                        latency_ms,
+                        path=SynthesisPath.COMPOSER,
+                        outcome=outcome,
+                        timeout_applied=outcome is TurnOutcome.TIMEOUT,
+                        fallback_used=True,
+                        provider_label=composer_result.llm_provider_label,
+                    )
             analyst_response = composer_result.envelope
             if composer_result.llm_composer_used and weak_case:
                 confidence = composition_confidence(
@@ -5162,6 +5201,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             control_plane_trace["guided_hunt_grounding"] = guided_hunt_grounding_trace(
                 guided_grounding_block
             )
+        turn_timing = finalize_turn_timing()
+        if turn_timing is not None:
+            control_plane_trace["turn_timing"] = turn_timing
 
     session_context_status = None
     if settings.ai_soc_session_context_enabled and isinstance(session_resolution, SessionContextResolution):

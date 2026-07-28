@@ -8,6 +8,7 @@ fact stays deterministic; any failure falls back to the deterministic summary.
 from __future__ import annotations
 
 import concurrent.futures
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -21,6 +22,11 @@ from app.config import settings
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.llm.clients import LocalChatClient, build_synthesis_client_from_settings
 from app.synthesis.live_narration import narrate_analyst_summary
+from app.synthesis.turn_timing import (
+    SynthesisPath,
+    TurnOutcome,
+    record_synthesis_endpoint,
+)
 from app.chat.analyst_response_builder import reference_narration_seed, reference_summary_line
 from app.evidence.context_sufficiency import (
     ANALYST_REVIEW_REQUIRED,
@@ -155,6 +161,13 @@ def run_governed_synthesis_lab(
                 structured_context=structured_context,
             )
             if timed_out:
+                record_synthesis_endpoint(
+                    int(live_synthesis_timeout_seconds() * 1000),
+                    path=SynthesisPath.LAB,
+                    outcome=TurnOutcome.TIMEOUT,
+                    timeout_applied=True,
+                    fallback_used=True,
+                )
                 return SynthesisLabResult(
                     status=SynthesisStatus(
                         enabled=True,
@@ -169,6 +182,12 @@ def run_governed_synthesis_lab(
             if isinstance(narration, NarrationFailure):
                 emit_llm_degraded(code=narration.code, message=narration.user_message)
                 reason = f"{narration.user_message} (code={narration.code})"
+                record_synthesis_endpoint(
+                    0,
+                    path=SynthesisPath.LAB,
+                    outcome=TurnOutcome.FALLBACK,
+                    fallback_used=True,
+                )
                 return SynthesisLabResult(
                     status=SynthesisStatus(
                         enabled=True,
@@ -186,11 +205,24 @@ def run_governed_synthesis_lab(
                 provider = "local_model"
                 model = narration.model
                 latency_ms = narration.latency_ms
+                record_synthesis_endpoint(
+                    latency_ms,
+                    path=SynthesisPath.LAB,
+                    outcome=TurnOutcome.COMPLETED,
+                    provider_label=provider,
+                    model=model,
+                )
                 reason = "Analyst summary narrated by the live model; all facts remain deterministic."
             else:
                 emit_llm_degraded(
                     code="llm_client_unavailable",
                     message="Live LLM client is not configured; using the deterministic summary.",
+                )
+                record_synthesis_endpoint(
+                    0,
+                    path=SynthesisPath.SKIPPED,
+                    outcome=TurnOutcome.SKIPPED,
+                    fallback_used=True,
                 )
                 reason = "Live narration failed or was unavailable; kept the deterministic summary."
 
@@ -357,8 +389,6 @@ def _narrate_with_progress_and_timeout(
     structured_context: dict[str, Any],
 ) -> tuple[NarrationResult | NarrationFailure | None, bool]:
     """Run live narration with heartbeats; return (result, timed_out)."""
-    import time
-
     timeout_s = live_synthesis_timeout_seconds()
     heartbeat_label = "Still generating the final governed answer..."
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:

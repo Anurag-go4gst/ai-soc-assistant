@@ -40,6 +40,7 @@ from app.chat.session_context import resolve_session_context
 from app.config import settings
 from app.chat.progress_context import bind_progress_reporter, emit_stage, reset_progress_reporter
 from app.chat.progress_events import ProgressReporter
+from app.synthesis.turn_timing import benchmark_run_kind_override, synthesis_turn_timing_scope
 from app.planner.executor import annotate_step_statuses, has_composed_plan
 from app.planner.planner_hierarchy import (
     DecisionRecord,
@@ -863,38 +864,39 @@ def run_chat_via_resource_planner_graph(
     token = bind_progress_reporter(progress) if progress is not None else None
     started_at = datetime.now(UTC)
     try:
-        emit_stage("queued")
-        final_state = run_resource_planner_graph(request, session_role=session_role)
-        response = final_state.get("response")
-        if response is None:
-            degraded = build_rp_degraded_placeholder_response(
-                request,
-                state=final_state,
-                session_role=session_role,
-                entrypoint="rp_fallback",
-                reason="graph_response_missing",
-            )
+        with synthesis_turn_timing_scope(run_kind=benchmark_run_kind_override()):
+            emit_stage("queued")
+            final_state = run_resource_planner_graph(request, session_role=session_role)
+            response = final_state.get("response")
+            if response is None:
+                degraded = build_rp_degraded_placeholder_response(
+                    request,
+                    state=final_state,
+                    session_role=session_role,
+                    entrypoint="rp_fallback",
+                    reason="graph_response_missing",
+                )
+                finalize_chat_trace_from_state(
+                    final_state,
+                    degraded,
+                    started_at=started_at,
+                    session_role=session_role,
+                    entrypoint=entrypoint,
+                )
+                return degraded
+            note = response.note or ""
+            suffix = "Orchestration: resource_planner_hierarchy."
+            if suffix not in note:
+                response = response.model_copy(update={"note": f"{note} {suffix}".strip()})
+            response = patch_control_plane_trace_decision_log(response, final_state)
             finalize_chat_trace_from_state(
                 final_state,
-                degraded,
+                response,
                 started_at=started_at,
                 session_role=session_role,
                 entrypoint=entrypoint,
             )
-            return degraded
-        note = response.note or ""
-        suffix = "Orchestration: resource_planner_hierarchy."
-        if suffix not in note:
-            response = response.model_copy(update={"note": f"{note} {suffix}".strip()})
-        response = patch_control_plane_trace_decision_log(response, final_state)
-        finalize_chat_trace_from_state(
-            final_state,
-            response,
-            started_at=started_at,
-            session_role=session_role,
-            entrypoint=entrypoint,
-        )
-        return response
+            return response
     finally:
         if token is not None:
             reset_progress_reporter(token)
