@@ -6,8 +6,15 @@ import inspect
 import logging
 from dataclasses import dataclass
 
+import time
+
 from app.llm.clients.local_chat_client import ChatResult, LocalChatClient, LocalChatError
 from app.synthesis.narration_deadline import hop_timeout_seconds, should_attempt_hop
+from app.synthesis.turn_timing import (
+    EndpointAttemptOutcome,
+    get_turn_timing_session,
+    record_endpoint_attempt,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +96,7 @@ class FailoverChatClient:
             per_hop_timeout = hop_timeout_seconds(client.timeout_seconds, deadline)
             if deadline is not None and per_hop_timeout is None:
                 break
+            hop_started = time.monotonic()
             # Negotiate optional kwargs per hop: a child whose `generate` lacks
             # `seed` (or `response_format`) must not receive it, or it raises
             # TypeError instead of running. Required kwargs always pass through.
@@ -107,6 +115,13 @@ class FailoverChatClient:
                     timeout_seconds=per_hop_timeout,
                     **optional_kwargs,
                 )
+                hop_ms = int((time.monotonic() - hop_started) * 1000)
+                if get_turn_timing_session() is not None:
+                    record_endpoint_attempt(
+                        hop_ms,
+                        outcome=EndpointAttemptOutcome.COMPLETED,
+                        provider_label=label,
+                    )
                 if label != self.chain[0][0]:
                     logger.info("llm_failover succeeded on %s", label)
                 return ChatResult(
@@ -118,6 +133,19 @@ class FailoverChatClient:
                     finish_reason=result.finish_reason,
                 )
             except LocalChatError as exc:
+                hop_ms = int((time.monotonic() - hop_started) * 1000)
+                if get_turn_timing_session() is not None:
+                    code = str(exc.code).lower()
+                    attempt_outcome = (
+                        EndpointAttemptOutcome.TIMEOUT
+                        if "timeout" in code
+                        else EndpointAttemptOutcome.FALLBACK
+                    )
+                    record_endpoint_attempt(
+                        hop_ms,
+                        outcome=attempt_outcome,
+                        provider_label=label,
+                    )
                 last_error = exc
                 logger.warning("llm_failover attempt failed label=%s code=%s", label, exc.code)
                 continue
