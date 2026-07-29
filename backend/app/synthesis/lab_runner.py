@@ -25,7 +25,7 @@ from app.synthesis.live_narration import NarrationFailure, NarrationResult, narr
 from app.synthesis.turn_timing import (
     SynthesisPath,
     TurnOutcome,
-    record_synthesis_endpoint,
+    set_synthesis_path_outcome,
 )
 from app.chat.analyst_response_builder import reference_narration_seed, reference_summary_line
 from app.evidence.context_sufficiency import (
@@ -174,14 +174,12 @@ def run_governed_synthesis_lab(
             else:
                 narration, timed_out, elapsed_ms = narrated
             if timed_out:
-                record_synthesis_endpoint(
-                    elapsed_ms,
+                set_synthesis_path_outcome(
                     path=SynthesisPath.LAB,
                     outcome=TurnOutcome.TIMEOUT,
                     timeout_applied=True,
                     fallback_used=True,
                     governed_request_timeout=True,
-                    endpoint_attempt_timeout=True,
                 )
                 return SynthesisLabResult(
                     status=SynthesisStatus(
@@ -198,12 +196,11 @@ def run_governed_synthesis_lab(
                 emit_llm_degraded(code=narration.code, message=narration.user_message)
                 reason = f"{narration.user_message} (code={narration.code})"
                 endpoint_timeout = "timeout" in str(narration.code).lower()
-                record_synthesis_endpoint(
-                    elapsed_ms,
+                set_synthesis_path_outcome(
                     path=SynthesisPath.LAB,
                     outcome=TurnOutcome.FALLBACK,
                     fallback_used=True,
-                    endpoint_attempt_timeout=endpoint_timeout,
+                    governed_request_timeout=endpoint_timeout,
                 )
                 return SynthesisLabResult(
                     status=SynthesisStatus(
@@ -222,8 +219,7 @@ def run_governed_synthesis_lab(
                 provider = "local_model"
                 model = narration.model
                 latency_ms = narration.latency_ms
-                record_synthesis_endpoint(
-                    latency_ms,
+                set_synthesis_path_outcome(
                     path=SynthesisPath.LAB,
                     outcome=TurnOutcome.COMPLETED,
                     provider_label=provider,
@@ -235,8 +231,7 @@ def run_governed_synthesis_lab(
                     code="llm_client_unavailable",
                     message="Live LLM client is not configured; using the deterministic summary.",
                 )
-                record_synthesis_endpoint(
-                    0,
+                set_synthesis_path_outcome(
                     path=SynthesisPath.SKIPPED,
                     outcome=TurnOutcome.SKIPPED,
                     fallback_used=True,

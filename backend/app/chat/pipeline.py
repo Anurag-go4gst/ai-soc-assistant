@@ -286,9 +286,11 @@ from app.synthesis.turn_timing import (
     SynthesisPath,
     TurnOutcome,
     benchmark_run_kind_override,
-    close_retrieval_spl_phase,
+    close_dispatch_and_retrieval_phase,
+    close_final_synthesis_phase,
+    close_post_planning_pipeline_phase,
     finalize_turn_timing,
-    record_synthesis_endpoint,
+    set_synthesis_path_outcome,
     synthesis_turn_timing_scope,
 )
 from app.chat.debug_summary import build_debug_summary
@@ -3510,9 +3512,7 @@ def _ensure_context_finalize_state(state: ChatPipelineState) -> ChatPipelineStat
 
 
 def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
-    # Close retrieval/SPL wall-clock before MITRE/sufficiency/synthesis — prior
-    # placement at generating_answer captured composer/LLM sidecar work incorrectly.
-    close_retrieval_spl_phase()
+    close_dispatch_and_retrieval_phase()
     emit_stage("mapping_mitre")
     state = _ensure_context_finalize_state(state)
     request = state["request"]
@@ -3773,6 +3773,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         hil_required=run_contract.effective_hil_required,
     )
     emit_stage("generating_answer")
+    close_post_planning_pipeline_phase()
     _skip_registry_warnings, _skip_catalog_row = _composer_skip_registry_context(state)
     synthesis_lab = run_governed_synthesis_lab(
         structured_context=structured_context,
@@ -4673,8 +4674,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                         outcome="completed",
                         latency_ms=latency_ms,
                     )
-                    record_synthesis_endpoint(
-                        latency_ms,
+                    set_synthesis_path_outcome(
                         path=SynthesisPath.COMPOSER,
                         outcome=TurnOutcome.COMPLETED,
                         provider_label=composer_result.llm_provider_label,
@@ -4687,14 +4687,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                         if "timeout" in blocked.lower()
                         else TurnOutcome.FALLBACK
                     )
-                    record_synthesis_endpoint(
-                        latency_ms,
+                    set_synthesis_path_outcome(
                         path=SynthesisPath.COMPOSER,
                         outcome=outcome,
                         timeout_applied=outcome is TurnOutcome.TIMEOUT,
                         fallback_used=True,
                         governed_request_timeout=outcome is TurnOutcome.TIMEOUT,
-                        endpoint_attempt_timeout="timeout" in blocked.lower(),
                         provider_label=composer_result.llm_provider_label,
                     )
             analyst_response = composer_result.envelope
@@ -4787,6 +4785,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             if analyst_response is None
             else "composer_not_eligible"
         )
+    close_final_synthesis_phase()
     if _rag_no_match(state.get("soc_kb_retrieval")) and spl_validation is None:
         reference_facts_for_guidance = _reference_facts_for_card(structured_context)
         has_guidance = bool(
