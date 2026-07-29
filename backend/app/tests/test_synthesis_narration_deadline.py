@@ -15,6 +15,7 @@ from app.llm.clients.failover_client import FailoverChatClient
 from app.synthesis.lab_runner import _narrate_with_progress_and_timeout, run_governed_synthesis_lab
 from app.synthesis.live_narration import narrate_analyst_summary
 from app.synthesis.models import build_governed_synthesis_package
+from app.synthesis.narration_deadline import hop_timeout_seconds
 from app.tests.test_live_synthesis_narration import _run as run_live_narration_lab
 from app.tests.test_p6_guarded_synthesis_lab import (
     _source_evidence,
@@ -314,3 +315,86 @@ def test_narrate_analyst_summary_passes_deadline_to_failover() -> None:
     )
     assert isinstance(result, object)
     assert client.generate.call_args.kwargs.get("deadline") == deadline
+
+
+def test_hop_timeout_never_exceeds_configured_or_remaining() -> None:
+    configured = 90
+    deadline = time.monotonic() + 30.0
+    capped = hop_timeout_seconds(configured, deadline)
+    assert capped is not None
+    assert capped <= 30.0
+    assert capped <= configured
+
+
+def test_failover_hops_receive_decreasing_budget_not_fresh_full_timeout() -> None:
+    class _BudgetClient:
+        def __init__(self, label: str, delay_s: float, fail: bool) -> None:
+            self.label = label
+            self.delay_s = delay_s
+            self.fail = fail
+            self.timeout_seconds = 90
+            self.base_url = f"http://{label}.invalid/v1"
+            self.model = "m"
+            self.budgets: list[float | None] = []
+
+        def generate(
+            self,
+            *,
+            system_prompt: str,
+            user_prompt: str,
+            max_tokens: int,
+            temperature: float,
+            timeout_seconds: int | None = None,
+            **kwargs: object,
+        ) -> ChatResult:
+            self.budgets.append(timeout_seconds)
+            time.sleep(self.delay_s)
+            if self.fail:
+                raise LocalChatError("http_503")
+            return ChatResult(text="ok", model="m", latency_ms=1)
+
+    primary = _BudgetClient("primary", delay_s=0.12, fail=True)
+    secondary = _BudgetClient("secondary", delay_s=0.02, fail=True)
+    client = FailoverChatClient(
+        chain=(
+            ("local_primary", primary),
+            ("foundation_sec_instruct_fallback", secondary),
+        )
+    )
+    deadline = time.monotonic() + 0.4
+    with pytest.raises(LocalChatError):
+        client.generate(
+            system_prompt="sys",
+            user_prompt="user",
+            max_tokens=16,
+            temperature=0.0,
+            deadline=deadline,
+        )
+    assert len(primary.budgets) == 1
+    assert len(secondary.budgets) == 1
+    assert primary.budgets[0] is not None
+    assert secondary.budgets[0] is not None
+    assert secondary.budgets[0] <= primary.budgets[0]
+
+
+def test_lab_runner_deadline_uses_monotonic_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.synthesis.lab_runner.live_synthesis_timeout_seconds", lambda: 0.5)
+    monotonic_calls: list[float] = []
+    real_monotonic = time.monotonic
+
+    def _spy_monotonic() -> float:
+        value = real_monotonic()
+        monotonic_calls.append(value)
+        return value
+
+    monkeypatch.setattr(time, "monotonic", _spy_monotonic)
+    package, draft, structured = _minimal_narration_inputs()
+    client = FailoverChatClient(chain=(("local_primary", _HangingClient()),))
+    _narrate_with_progress_and_timeout(
+        package=package,
+        deterministic_draft=draft,
+        severity_label=None,
+        client=client,
+        structured_context=structured,
+    )
+    assert len(monotonic_calls) >= 2

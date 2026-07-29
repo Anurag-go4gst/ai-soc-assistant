@@ -16,7 +16,7 @@ from app.actions.capability_policy import ActionCapability
 from app.chat.progress_context import emit_heartbeat, emit_llm_degraded
 from app.llm.clients import LocalChatError
 from app.llm.clients.local_chat_errors import local_chat_error_code, user_message_for_local_chat_error
-from app.synthesis.narration_deadline import SYNTHESIS_NARRATION_EXECUTOR
+from app.synthesis.narration_deadline import try_submit_narration
 from app.chat.progress_events import live_synthesis_timeout_seconds
 from app.config import settings
 from app.llm.sidecar_skip_policy import should_skip_sidecar
@@ -405,7 +405,8 @@ def _narrate_with_progress_and_timeout(
     timeout_s = live_synthesis_timeout_seconds()
     deadline = time.monotonic() + timeout_s
     heartbeat_label = "Still generating the final governed answer..."
-    future = SYNTHESIS_NARRATION_EXECUTOR.submit(
+    started = time.monotonic()
+    future = try_submit_narration(
         narrate_analyst_summary,
         package=package,
         deterministic_draft=deterministic_draft,
@@ -414,7 +415,9 @@ def _narrate_with_progress_and_timeout(
         structured_context=structured_context,
         deadline=deadline,
     )
-    started = time.monotonic()
+    if future is None:
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        return None, True, elapsed_ms
     poll_s = 4.0
     while True:
         remaining = deadline - time.monotonic()

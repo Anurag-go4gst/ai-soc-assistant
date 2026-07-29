@@ -3,15 +3,25 @@
 Never wrap narration in ``with ThreadPoolExecutor()``: ``__exit__`` calls
 ``shutdown(wait=True)`` and blocks until blocking HTTP failover hops finish,
 defeating the outer synthesis wall-clock budget (E5-run-2).
+
+Admission uses a single-slot semaphore acquired *before* executor submit so
+saturated requests fail closed instead of queueing past their deadline.
 """
 
 from __future__ import annotations
 
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor
+from typing import TypeVar
 
-# Single worker matches single-slot local model posture; persistent pool avoids
-# context-manager shutdown joining orphaned urlopen workers after caller timeout.
+T = TypeVar("T")
+
+# One in-flight narration matches single-slot local model posture. try_acquire only —
+# do not queue synthesis jobs behind an orphaned urlopen worker.
+_NARRATION_SLOT = threading.BoundedSemaphore(1)
+
 SYNTHESIS_NARRATION_EXECUTOR = ThreadPoolExecutor(
     max_workers=1,
     thread_name_prefix="synthesis-narration",
@@ -46,3 +56,48 @@ def should_attempt_hop(deadline: float | None) -> bool:
     if deadline is None:
         return True
     return remaining_seconds(deadline) > _MIN_HOP_BUDGET_SECONDS
+
+
+def narration_slot_available() -> bool:
+    """Non-blocking probe: True when narration can start immediately."""
+    acquired = _NARRATION_SLOT.acquire(blocking=False)
+    if acquired:
+        _NARRATION_SLOT.release()
+        return True
+    return False
+
+
+def try_submit_narration(
+    fn: Callable[..., T],
+    /,
+    *args: object,
+    **kwargs: object,
+) -> Future[T] | None:
+    """
+    Submit ``fn`` only when the narration slot is free.
+
+    Returns ``None`` when saturated (another narration is in-flight) so callers
+    fail closed to deterministic fallback without queueing past the deadline.
+    """
+    if not _NARRATION_SLOT.acquire(blocking=False):
+        return None
+
+    def _guarded() -> T:
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _NARRATION_SLOT.release()
+
+    try:
+        return SYNTHESIS_NARRATION_EXECUTOR.submit(_guarded)
+    except Exception:
+        _NARRATION_SLOT.release()
+        return None
+
+
+def release_narration_slot_for_tests() -> None:
+    """Best-effort slot release for isolated executor safety tests."""
+    try:
+        _NARRATION_SLOT.release()
+    except ValueError:
+        pass
