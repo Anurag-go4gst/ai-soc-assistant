@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import os
-import statistics
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -18,6 +17,7 @@ from typing import Any, Callable, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 
+from app.evals.percentile_stats import percentile_summary
 from app.synthesis.turn_timing import (
     RunKind,
     SynthesisPath,
@@ -578,14 +578,7 @@ def parse_probe_matrix(rows: list[dict[str, str]] | None = None) -> list[Benchma
 
 
 def _percentiles(values: list[int]) -> dict[str, int | None]:
-    if not values:
-        return {"p50": None, "p90": None, "p95": None}
-    ordered = sorted(values)
-    return {
-        "p50": int(statistics.median(ordered)),
-        "p90": int(statistics.quantiles(ordered, n=10)[8]) if len(ordered) >= 2 else ordered[-1],
-        "p95": int(statistics.quantiles(ordered, n=20)[18]) if len(ordered) >= 2 else ordered[-1],
-    }
+    return percentile_summary(values)
 
 
 def summarize_benchmark(report: BenchmarkReport) -> dict[str, Any]:
@@ -611,6 +604,7 @@ def summarize_benchmark(report: BenchmarkReport) -> dict[str, Any]:
         if _matrix_kind_value(row) == RunKind.WARM.value
     ]
     timeout_count = sum(1 for row in ok_runs if row.turn_timing.get("outcome") == TurnOutcome.TIMEOUT.value)
+    # Request-level governed timeout (final outcome), not per-hop endpoint_attempt_timeout.
     fallback_count = sum(1 for row in ok_runs if row.turn_timing.get("fallback_used") is True)
     path_counts: dict[str, int] = {}
     for row in ok_runs:

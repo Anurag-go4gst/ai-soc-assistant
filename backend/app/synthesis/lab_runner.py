@@ -180,6 +180,8 @@ def run_governed_synthesis_lab(
                     outcome=TurnOutcome.TIMEOUT,
                     timeout_applied=True,
                     fallback_used=True,
+                    governed_request_timeout=True,
+                    endpoint_attempt_timeout=True,
                 )
                 return SynthesisLabResult(
                     status=SynthesisStatus(
@@ -195,11 +197,13 @@ def run_governed_synthesis_lab(
             if isinstance(narration, NarrationFailure):
                 emit_llm_degraded(code=narration.code, message=narration.user_message)
                 reason = f"{narration.user_message} (code={narration.code})"
+                endpoint_timeout = "timeout" in str(narration.code).lower()
                 record_synthesis_endpoint(
-                    0,
+                    elapsed_ms,
                     path=SynthesisPath.LAB,
                     outcome=TurnOutcome.FALLBACK,
                     fallback_used=True,
+                    endpoint_attempt_timeout=endpoint_timeout,
                 )
                 return SynthesisLabResult(
                     status=SynthesisStatus(

@@ -107,9 +107,20 @@ Independent of workstreams A–D. Recommended after workstream C operator attest
   - **Depends on:** E5-run-2
   - **Evidence:** PARTIAL_EXPLORATORY — same 504 @ ~241s; zero valid `turn_timing` samples; not E5-run-3
 
-- [ ] **E5-run-3** — Third authorized exploratory run (**not authorized**; blocked until remediation merged + fresh operator sign-off)
-- [ ] **E6** — COE-reviewed SLO proposal from measured data only (**deferred** — zero valid timing samples after E5-run-2/retry)
-- [ ] **E7** — Optimization candidates ranked by measured latency share (**deferred** — prompt-size/model-throughput work needs valid timing first)
+- [x] **E5-run-3** — Third authorized exploratory run (post PR #120 deploy)
+  - **Do:** Single E-P1…E-P6 harness against production `https://cisco-vai.vnudge.com`
+  - **Verify:** `/tmp/live_synthesis_benchmark_report_e5_run3.json` (SHA256 `86852282…`)
+  - **Depends on:** E5-remediation merged and deployed (`f682502`)
+  - **Evidence:** **COMPLETE_EXPLORATORY** — 6/6 HTTP 200, valid `turn_timing`, no 504, `execution_enabled=false`; governed completion before Nginx 240s; timeout-stack remediation validated; **no SLO/baseline conclusion**
+
+- [ ] **E5-measurement-integrity** — Percentile bounds + timing attribution correction (draft PR)
+  - **Do:** Fix bounded percentiles; close `retrieval_spl` after dispatch retrieval; additive `attribution_v2`; endpoint attempt accounting
+  - **Verify:** targeted pytest + plan audit; offline recompute of E5-run-3 aggregates
+  - **Depends on:** E5-run-3
+  - **Evidence:** _(in progress)_
+
+- [ ] **E6** — COE-reviewed SLO proposal from measured data only (**deferred** — six exploratory samples; attribution correction pending)
+- [ ] **E7** — Optimization candidates ranked by measured latency share (**deferred**)
 
 ## Merge-readiness notes (PR #120, 2026-07-29)
 
@@ -150,4 +161,4 @@ Independent of workstreams A–D. Recommended after workstream C operator attest
 | 2026-07-28 | Skeleton created from gap reconciliation disposition #4 |
 | 2026-07-28 | E5-run-1 PARTIAL_EXPLORATORY: harness `urlopen(..., opener=...)` defect; Nginx `proxy_read_timeout=120s` fired before backend response; LLM `url_error:timeout` logged 1s later |
 | 2026-07-29 | E5-run-2 + retry: zero-sample 504 @ ~240s (Nginx 240s ceiling); remediation PR #120 adds monotonic deadline + executor admission |
-| 2026-07-29 | E5-run-3 not authorized; prompt/throughput optimization deferred until valid timing samples exist |
+| 2026-07-29 | E5-run-3 COMPLETE_EXPLORATORY: 6/6 valid timing, no 504, artifact `86852282…`; retrieval_spl attribution overstated — measurement-integrity follow-up |

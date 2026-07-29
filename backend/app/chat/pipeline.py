@@ -3510,6 +3510,9 @@ def _ensure_context_finalize_state(state: ChatPipelineState) -> ChatPipelineStat
 
 
 def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
+    # Close retrieval/SPL wall-clock before MITRE/sufficiency/synthesis — prior
+    # placement at generating_answer captured composer/LLM sidecar work incorrectly.
+    close_retrieval_spl_phase()
     emit_stage("mapping_mitre")
     state = _ensure_context_finalize_state(state)
     request = state["request"]
@@ -3771,7 +3774,6 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     )
     emit_stage("generating_answer")
     _skip_registry_warnings, _skip_catalog_row = _composer_skip_registry_context(state)
-    close_retrieval_spl_phase()
     synthesis_lab = run_governed_synthesis_lab(
         structured_context=structured_context,
         source_evidence=source_evidence,
@@ -4691,6 +4693,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                         outcome=outcome,
                         timeout_applied=outcome is TurnOutcome.TIMEOUT,
                         fallback_used=True,
+                        governed_request_timeout=outcome is TurnOutcome.TIMEOUT,
+                        endpoint_attempt_timeout="timeout" in blocked.lower(),
                         provider_label=composer_result.llm_provider_label,
                     )
             analyst_response = composer_result.envelope

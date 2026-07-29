@@ -15,6 +15,7 @@ from enum import StrEnum
 from typing import Any, Iterator
 
 SCHEMA_VERSION = "1"
+ATTRIBUTION_V2_SCHEMA_VERSION = "1"
 
 _SENSITIVE_KEY_FRAGMENTS = (
     "prompt",
@@ -62,6 +63,9 @@ class TurnTimingSession:
     outcome: TurnOutcome = TurnOutcome.SKIPPED
     timeout_applied: bool = False
     fallback_used: bool = False
+    governed_request_timeout: bool = False
+    endpoint_attempt_count: int = 0
+    endpoint_attempt_timeout_count: int = 0
     endpoint_provider_label: str | None = None
     endpoint_model: str | None = None
     _retrieval_phase_started_at: float | None = None
@@ -93,10 +97,20 @@ class TurnTimingSession:
         fallback_used: bool = False,
         provider_label: str | None = None,
         model: str | None = None,
+        endpoint_attempt_timeout: bool = False,
+        governed_request_timeout: bool = False,
     ) -> None:
         increment = max(0, int(duration_ms))
-        prior = self.synthesis_endpoint_ms or 0
-        self.synthesis_endpoint_ms = prior + increment if increment else prior
+        if increment:
+            self.endpoint_attempt_count += 1
+            self.synthesis_endpoint_ms = (self.synthesis_endpoint_ms or 0) + increment
+            self.endpoint_provider_label = _bound_metadata(provider_label)
+            self.endpoint_model = _bound_metadata(model)
+        elif path is not SynthesisPath.SKIPPED:
+            # Failed/zero-duration attempts still count when an endpoint hop was attempted.
+            self.endpoint_attempt_count += 1
+        if endpoint_attempt_timeout:
+            self.endpoint_attempt_timeout_count += 1
         if path is SynthesisPath.COMPOSER:
             self.synthesis_path = path
         elif self.synthesis_path is not SynthesisPath.COMPOSER:
@@ -104,9 +118,7 @@ class TurnTimingSession:
         self.outcome = outcome
         self.timeout_applied = self.timeout_applied or bool(timeout_applied)
         self.fallback_used = self.fallback_used or bool(fallback_used)
-        if increment:
-            self.endpoint_provider_label = _bound_metadata(provider_label)
-            self.endpoint_model = _bound_metadata(model)
+        self.governed_request_timeout = self.governed_request_timeout or bool(governed_request_timeout)
 
     def mark_synthesis_skipped(
         self,
@@ -155,6 +167,14 @@ class TurnTimingSession:
                     "provider_label": self.endpoint_provider_label,
                     "model": self.endpoint_model,
                     "http_round_trip_ms": self.synthesis_endpoint_ms,
+                },
+                "attribution_v2": {
+                    "schema_version": ATTRIBUTION_V2_SCHEMA_VERSION,
+                    "endpoint_attempt_count": self.endpoint_attempt_count,
+                    "endpoint_attempt_timeout_count": self.endpoint_attempt_timeout_count,
+                    "endpoint_attempt_ms_total": self.synthesis_endpoint_ms,
+                    "governed_request_timeout": self.governed_request_timeout,
+                    "endpoint_attempt_timeout": self.endpoint_attempt_timeout_count > 0,
                 },
             }
         )
@@ -227,6 +247,8 @@ def record_synthesis_endpoint(
     fallback_used: bool = False,
     provider_label: str | None = None,
     model: str | None = None,
+    endpoint_attempt_timeout: bool = False,
+    governed_request_timeout: bool = False,
 ) -> None:
     session = _session.get()
     if session is not None:
@@ -238,6 +260,8 @@ def record_synthesis_endpoint(
             fallback_used=fallback_used,
             provider_label=provider_label,
             model=model,
+            endpoint_attempt_timeout=endpoint_attempt_timeout,
+            governed_request_timeout=governed_request_timeout,
         )
 
 
