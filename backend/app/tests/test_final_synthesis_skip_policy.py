@@ -14,7 +14,16 @@ class _StubClient:
     def __init__(self) -> None:
         self.calls = 0
 
-    def generate(self, *, system_prompt: str, user_prompt: str, max_tokens: int, temperature: float):
+    def generate(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int,
+        temperature: float,
+        timeout_seconds: int | float | None = None,
+        **kwargs: object,
+    ):
         self.calls += 1
         from app.llm.clients import ChatResult
         return ChatResult(text="Narrated prose only.", model="stub", latency_ms=1, usage={})

@@ -24,7 +24,7 @@ class _StubClient:
         self._finish_reason = finish_reason
         self.calls = 0
 
-    def generate(self, *, system_prompt: str, user_prompt: str, max_tokens: int, temperature: float) -> ChatResult:
+    def generate(self, *, system_prompt: str, user_prompt: str, max_tokens: int, temperature: float, **kwargs: object) -> ChatResult:
         self.calls += 1
         if self._raises:
             raise LocalChatError("transport_error:Boom")

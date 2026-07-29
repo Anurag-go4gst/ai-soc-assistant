@@ -89,15 +89,39 @@ Independent of workstreams A–D. Recommended after workstream C operator attest
   - **Depends on:** E5-wiring
   - **Evidence:** PARTIAL_EXPLORATORY — attempted=1, valid_samples=0; E-P1 HTTP 504 @ 120139ms; artifact SHA256 `22f4fbaf…`; no SLO conclusion
 
-- [ ] **E5-remediation** — Harness opener hotfix + timeout hierarchy (before second authorized run)
-  - **Do:** Fix `_json_request` opener path; document timeout owner; propose version-controlled Nginx `/api/` read timeout bump
-  - **Verify:** `pytest app/tests/test_live_synthesis_benchmark.py`; plan drift updated
+- [x] **E5-remediation** — Monotonic synthesis deadline + executor admission (PR #120)
+  - **Do:** `narration_deadline.py` monotonic budget; per-hop `hop_timeout_seconds`; remove 120s synthesis floor; persistent executor with slot admission (no queue past deadline); `future.cancel()` on expiry
+  - **Verify:** `pytest app/tests/test_synthesis_narration_deadline.py app/tests/test_synthesis_narration_executor_safety.py`; clean-env focused bundle; `run_langgraph_dual_parity_eval.py --check`
   - **Depends on:** E5-run-1
-  - **Evidence:** _(PR pending merge)_
+  - **Evidence:** PR #120 @ `fa59008`; deadline+executor tests 23/23; focused bundle 104/104 clean env; parity 120/0/0; P6 6/6 identical on control `aa6c194` and candidate
 
-- [ ] **E5-run-2** — Second authorized exploratory run (requires fresh operator authorization)
-- [ ] **E6** — COE-reviewed SLO proposal from measured data only
-- [ ] **E7** — Optimization candidates ranked by measured latency share
+- [x] **E5-run-2** — Second authorized exploratory run (operator-only)
+  - **Do:** Run E-P1…E-P6 once via HTTPS harness against production (no retry)
+  - **Verify:** Inspect `/tmp/live_synthesis_benchmark_report_e5_run2.json` locally; no commit
+  - **Depends on:** E5-remediation merged (blocked — remediation in draft PR)
+  - **Evidence:** PARTIAL_EXPLORATORY — attempted=1, valid_samples=0; E-P1 HTTP 504 @ ~240s (Nginx ceiling); artifact SHA256 `f9f3c1c5…`; compound timeout-stack root cause documented
+
+- [x] **E5-run-2-retry** — Post-`llama-server` restart retry (operator-only, still unauthorized as E5-run-3)
+  - **Do:** Restart LLM smoke + single harness retry
+  - **Verify:** `/tmp/live_synthesis_benchmark_report_e5_run2_retry.json`
+  - **Depends on:** E5-run-2
+  - **Evidence:** PARTIAL_EXPLORATORY — same 504 @ ~241s; zero valid `turn_timing` samples; not E5-run-3
+
+- [ ] **E5-run-3** — Third authorized exploratory run (**not authorized**; blocked until remediation merged + fresh operator sign-off)
+- [ ] **E6** — COE-reviewed SLO proposal from measured data only (**deferred** — zero valid timing samples after E5-run-2/retry)
+- [ ] **E7** — Optimization candidates ranked by measured latency share (**deferred** — prompt-size/model-throughput work needs valid timing first)
+
+## Merge-readiness notes (PR #120, 2026-07-29)
+
+| Gate | Result |
+|------|--------|
+| Executor/queue safety | PASS — slot admission + 8 executor safety tests |
+| P6 differential (clean env) | PASS — 6/6 control `aa6c194` and candidate `fa59008` identical |
+| Focused synthesis bundle (clean env) | PASS — 104/104 |
+| Governance (clean `env -i`, no DB) | pytest 4617 passed / 11 failed — **10 failure signatures byte-identical to control** on same files (no `DATABASE_URL`); 1 retention test flaky under full-suite order only |
+| Parity | 120 exact / 0 approved / 0 critical |
+| Nginx | Production stays **240s** `proxy_read_timeout`; no further increase proposed |
+| E5-run-3 | **Unauthorized** |
 
 ## Metrics required (minimum)
 
@@ -125,3 +149,5 @@ Independent of workstreams A–D. Recommended after workstream C operator attest
 |------|------|
 | 2026-07-28 | Skeleton created from gap reconciliation disposition #4 |
 | 2026-07-28 | E5-run-1 PARTIAL_EXPLORATORY: harness `urlopen(..., opener=...)` defect; Nginx `proxy_read_timeout=120s` fired before backend response; LLM `url_error:timeout` logged 1s later |
+| 2026-07-29 | E5-run-2 + retry: zero-sample 504 @ ~240s (Nginx 240s ceiling); remediation PR #120 adds monotonic deadline + executor admission |
+| 2026-07-29 | E5-run-3 not authorized; prompt/throughput optimization deferred until valid timing samples exist |

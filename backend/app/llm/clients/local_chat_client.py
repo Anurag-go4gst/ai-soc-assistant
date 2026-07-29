@@ -127,6 +127,7 @@ class LocalChatClient:
         temperature: float,
         response_format: dict | None = None,
         seed: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> ChatResult:
         if not self.base_url.strip():
             raise LocalChatError("base_url_not_configured")
@@ -155,8 +156,9 @@ class LocalChatClient:
         body = json.dumps(payload).encode("utf-8")
         request = Request(url, data=body, method="POST", headers=headers)
         started = time.monotonic()
+        effective_timeout = timeout_seconds if timeout_seconds is not None else self.timeout_seconds
         try:
-            with urlopen(request, timeout=max(self.timeout_seconds, 1)) as response:  # noqa: S310
+            with urlopen(request, timeout=max(float(effective_timeout), 0.05)) as response:  # noqa: S310
                 raw = response.read(1024 * 256)
         except HTTPError as exc:
             body = _read_http_error_body(exc)

@@ -16,12 +16,12 @@ from app.actions.capability_policy import ActionCapability
 from app.chat.progress_context import emit_heartbeat, emit_llm_degraded
 from app.llm.clients import LocalChatError
 from app.llm.clients.local_chat_errors import local_chat_error_code, user_message_for_local_chat_error
-from app.synthesis.live_narration import NarrationFailure, NarrationResult
+from app.synthesis.narration_deadline import try_submit_narration
 from app.chat.progress_events import live_synthesis_timeout_seconds
 from app.config import settings
 from app.llm.sidecar_skip_policy import should_skip_sidecar
 from app.llm.clients import LocalChatClient, build_synthesis_client_from_settings
-from app.synthesis.live_narration import narrate_analyst_summary
+from app.synthesis.live_narration import NarrationFailure, NarrationResult, narrate_analyst_summary
 from app.synthesis.turn_timing import (
     SynthesisPath,
     TurnOutcome,
@@ -403,46 +403,52 @@ def _narrate_with_progress_and_timeout(
 ) -> tuple[NarrationResult | NarrationFailure | None, bool, int]:
     """Run live narration with heartbeats; return (result, timed_out, elapsed_ms)."""
     timeout_s = live_synthesis_timeout_seconds()
+    deadline = time.monotonic() + timeout_s
     heartbeat_label = "Still generating the final governed answer..."
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        future = pool.submit(
-            narrate_analyst_summary,
-            package=package,
-            deterministic_draft=deterministic_draft,
-            severity_label=severity_label,
-            client=client,
-            structured_context=structured_context,
-        )
-        started = time.monotonic()
-        poll_s = 4.0
-        while True:
-            remaining = timeout_s - (time.monotonic() - started)
-            if remaining <= 0:
-                return None, True, int((time.monotonic() - started) * 1000)
-            try:
-                result = future.result(timeout=min(poll_s, remaining))
-                elapsed_ms = int((time.monotonic() - started) * 1000)
-                return result, False, elapsed_ms
-            except concurrent.futures.TimeoutError:
-                emit_heartbeat("generating_answer", heartbeat_label)
-            except LocalChatError as exc:
-                elapsed_ms = int((time.monotonic() - started) * 1000)
-                return (
-                    NarrationFailure(code=exc.code, user_message=exc.user_message),
-                    False,
-                    elapsed_ms,
-                )
-            except Exception as exc:  # noqa: BLE001
-                code = local_chat_error_code(exc)
-                elapsed_ms = int((time.monotonic() - started) * 1000)
-                return (
-                    NarrationFailure(
-                        code=code,
-                        user_message=user_message_for_local_chat_error(code),
-                    ),
-                    False,
-                    elapsed_ms,
-                )
+    started = time.monotonic()
+    future = try_submit_narration(
+        narrate_analyst_summary,
+        package=package,
+        deterministic_draft=deterministic_draft,
+        severity_label=severity_label,
+        client=client,
+        structured_context=structured_context,
+        deadline=deadline,
+    )
+    if future is None:
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        return None, True, elapsed_ms
+    poll_s = 4.0
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            future.cancel()
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            return None, True, elapsed_ms
+        try:
+            result = future.result(timeout=min(poll_s, remaining))
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            return result, False, elapsed_ms
+        except concurrent.futures.TimeoutError:
+            emit_heartbeat("generating_answer", heartbeat_label)
+        except LocalChatError as exc:
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            return (
+                NarrationFailure(code=exc.code, user_message=exc.user_message),
+                False,
+                elapsed_ms,
+            )
+        except Exception as exc:  # noqa: BLE001
+            code = local_chat_error_code(exc)
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            return (
+                NarrationFailure(
+                    code=code,
+                    user_message=user_message_for_local_chat_error(code),
+                ),
+                False,
+                elapsed_ms,
+            )
 
 
 def _preview_rows_from_evidence(source_evidence: list[dict[str, Any]]) -> list[dict[str, Any]]:

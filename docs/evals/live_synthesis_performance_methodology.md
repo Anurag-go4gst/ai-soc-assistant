@@ -110,7 +110,9 @@ No raw exception text, response bodies, headers, URLs, usernames, prompts, answe
 
 ### Operator command (after merge to production `master`)
 
-Run from the production checkout on merged `master`. `APP_AUTH_USER` and `APP_AUTH_PASSWORD` must already be supplied through the approved secure operator environment — never print or commit their values.
+Run from the production checkout on merged `master`. `APP_AUTH_USER` and `APP_AUTH_PASSWORD` must already be exported in the **approved operator shell** (password manager export, locked CI secret injection, or `docker compose exec` env) — **do not** `source .env` for harness runs.
+
+Why: production `.env` is Docker Compose dotenv (comma-containing values such as `SPL_ALLOWED_SOURCETYPES` are valid there) but is **not** valid POSIX shell syntax; `source .env` can emit `command not found` noise and does not reliably export auth vars.
 
 ```bash
 cd /var/www/ai-soc-assistant
@@ -139,6 +141,20 @@ PYTHONPATH=backend:. python3 scripts/run_live_synthesis_baseline_benchmark.py \
 | Partial output | sanitized partial report retained on abort |
 
 Do not run live probes in CI.
+
+## Synthesis wall-clock budget (runtime remediation)
+
+| Layer | Owner | Production value | Role |
+|-------|-------|------------------|------|
+| Nginx `/api/` `proxy_read_timeout` | Nginx | **240s** | Gateway ceiling — not the primary remediation lever |
+| Harness `--probe-timeout-s` | benchmark CLI | **300s** | Client-side upper bound (diagnostic only) |
+| `live_synthesis_timeout_seconds()` | `progress_events` | **120s** | **Total** narration + failover wall-clock budget |
+| `AI_SOC_LLM_TIMEOUT_SECONDS` | env / settings | operator value (e.g. 90) | Per-hop socket cap for synthesis (no silent 120s floor) |
+| Sidecar socket ceiling | `endpoint_resolver` | 120s max | Sidecar paths only |
+
+Worst-case before remediation (E5-run-2): `ThreadPoolExecutor` shutdown joined sequential failover hops (`max(configured,120)` per hop) → ~240s gateway 504 with zero `turn_timing`.
+
+Corrected contract: one monotonic deadline across primary + all failovers; governed deterministic fallback and `turn_timing` (timeout/fallback flags) return before the 240s gateway ceiling.
 
 ## Proposed limited baseline probe matrix (phase 2)
 

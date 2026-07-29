@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass
 
 from app.llm.clients.local_chat_client import ChatResult, LocalChatClient, LocalChatError
+from app.synthesis.narration_deadline import hop_timeout_seconds, should_attempt_hop
 
 logger = logging.getLogger(__name__)
 
@@ -77,11 +78,17 @@ class FailoverChatClient:
         temperature: float,
         response_format: dict | None = None,
         seed: int | None = None,
+        deadline: float | None = None,
     ) -> ChatResult:
         if not self.chain:
             raise LocalChatError("no_llm_endpoint_configured")
         last_error: LocalChatError | None = None
         for label, client in self.chain:
+            if not should_attempt_hop(deadline):
+                break
+            per_hop_timeout = hop_timeout_seconds(client.timeout_seconds, deadline)
+            if deadline is not None and per_hop_timeout is None:
+                break
             # Negotiate optional kwargs per hop: a child whose `generate` lacks
             # `seed` (or `response_format`) must not receive it, or it raises
             # TypeError instead of running. Required kwargs always pass through.
@@ -97,6 +104,7 @@ class FailoverChatClient:
                     user_prompt=user_prompt,
                     max_tokens=max_tokens,
                     temperature=temperature,
+                    timeout_seconds=per_hop_timeout,
                     **optional_kwargs,
                 )
                 if label != self.chain[0][0]:
