@@ -10,12 +10,15 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 from typing import Any, Callable
 
 from app.config import settings
+from app.llm.llm_call_context import run_with_call_context
 from app.llm.registry_settings import REASONING_PROVIDER_ID, build_llm_governance_status
+from app.synthesis.turn_timing import WrapperEventOutcome, record_wrapper_event
 
 SIDECAR_ASSIST_TIMEOUT_SECONDS = 1.5
 
@@ -155,6 +158,9 @@ def run_sidecar_llm_with_timeout(
     *,
     timeout_seconds: float = SIDECAR_ASSIST_TIMEOUT_SECONDS,
     slot_wait_seconds: float = 0.0,
+    call_purpose: str | None = None,
+    wrapper_kind: str = "sidecar",
+    deadline: float | None = None,
 ) -> SidecarLlmCallResult:
     """Invoke sidecar LLM provider with a wall-clock timeout (default 1.5s).
 
@@ -165,21 +171,38 @@ def run_sidecar_llm_with_timeout(
     ``timed_out=False`` with no output and a ``NOTE_LLM_SLOT_BUSY`` note (distinct from
     a real timeout, so callers do not trigger failover pile-on).
     """
-    # Bind the live semaphore once so the worker releases the exact object it acquired,
-    # even if the module global is later rebound (e.g. per-test isolation fixtures).
+    started = time.monotonic()
+    if deadline is not None:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            duration_ms = int((time.monotonic() - started) * 1000)
+            record_wrapper_event(
+                duration_ms,
+                call_purpose=call_purpose,
+                wrapper_kind=wrapper_kind,
+                outcome=WrapperEventOutcome.TIMEOUT,
+            )
+            return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT])
+        timeout_seconds = min(timeout_seconds, remaining)
+
     slot = _MODEL_SLOT_SEMAPHORE
     if slot_wait_seconds and slot_wait_seconds > 0:
         acquired = slot.acquire(timeout=slot_wait_seconds)
     else:
         acquired = slot.acquire(blocking=False)
     if not acquired:
+        duration_ms = int((time.monotonic() - started) * 1000)
+        record_wrapper_event(
+            duration_ms,
+            call_purpose=call_purpose,
+            wrapper_kind=wrapper_kind,
+            outcome=WrapperEventOutcome.SATURATED,
+        )
         return SidecarLlmCallResult(raw_output=None, timed_out=False, notes=[NOTE_LLM_SLOT_BUSY])
 
-    # The worker owns slot release so the slot is freed only when the call truly
-    # finishes — even after the caller below has timed out and walked away.
     def _slot_guarded() -> str:
         try:
-            return llm_raw_output_provider()
+            return run_with_call_context(llm_raw_output_provider)
         finally:
             slot.release()
 
@@ -187,19 +210,43 @@ def run_sidecar_llm_with_timeout(
         future = _SIDECAR_EXECUTOR.submit(_slot_guarded)
     except Exception:  # noqa: BLE001 — pool rejected the work; release and skip
         slot.release()
+        duration_ms = int((time.monotonic() - started) * 1000)
+        record_wrapper_event(
+            duration_ms,
+            call_purpose=call_purpose,
+            wrapper_kind=wrapper_kind,
+            outcome=WrapperEventOutcome.FAILURE,
+        )
         return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT])
 
     try:
         raw_output = future.result(timeout=timeout_seconds)
+        duration_ms = int((time.monotonic() - started) * 1000)
+        record_wrapper_event(
+            duration_ms,
+            call_purpose=call_purpose,
+            wrapper_kind=wrapper_kind,
+            outcome=WrapperEventOutcome.COMPLETED,
+        )
         return SidecarLlmCallResult(raw_output=raw_output, timed_out=False, notes=[])
     except (FuturesTimeoutError, TimeoutError):
-        # Do not join the worker — cancel is best-effort for a running urlopen. The
-        # orphan keeps the slot held until _slot_guarded's finally runs, so the next
-        # hop sees the slot busy and skips instead of thrashing the single model slot.
         future.cancel()
+        duration_ms = int((time.monotonic() - started) * 1000)
+        record_wrapper_event(
+            duration_ms,
+            call_purpose=call_purpose,
+            wrapper_kind=wrapper_kind,
+            outcome=WrapperEventOutcome.TIMEOUT,
+        )
         return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT])
     except Exception:  # noqa: BLE001 — never propagate provider errors to /chat
-        # _slot_guarded's finally already released the slot on a provider error.
+        duration_ms = int((time.monotonic() - started) * 1000)
+        record_wrapper_event(
+            duration_ms,
+            call_purpose=call_purpose,
+            wrapper_kind=wrapper_kind,
+            outcome=WrapperEventOutcome.FAILURE,
+        )
         return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT])
 
 

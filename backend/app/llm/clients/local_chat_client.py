@@ -117,6 +117,8 @@ class LocalChatClient:
     model: str
     api_key: str = ""
     timeout_seconds: int = 60
+    adapter_type: str = "local_chat_client"
+    api_protocol: str = "openai_chat_completions"
 
     def generate(
         self,

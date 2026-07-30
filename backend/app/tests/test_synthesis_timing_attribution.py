@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 
+import pytest
 from unittest.mock import MagicMock
 
 from app.evals.percentile_stats import percentile_summary
@@ -227,8 +228,14 @@ def test_synthesis_skipped_after_genuine_retrieval_closes_v1_retrieval_at_genera
 
 def test_failover_client_records_per_hop_attempts_not_wrapper_only() -> None:
     primary = MagicMock(spec=LocalChatClient)
+    primary.base_url = "http://primary.example/v1"
+    primary.model = "primary-model"
+    primary.timeout_seconds = 60
     primary.generate.side_effect = LocalChatError("url_error:timeout")
     secondary = MagicMock(spec=LocalChatClient)
+    secondary.base_url = "http://fallback.example/v1"
+    secondary.model = "fallback-model"
+    secondary.timeout_seconds = 60
     secondary.generate.return_value = ChatResult(
         text="ok",
         model="fallback-model",
@@ -280,8 +287,83 @@ def test_finalize_includes_additive_attribution_v2_without_breaking_v1() -> None
         )
         payload = finalize_turn_timing()
     assert payload["schema_version"] == "1"
-    assert payload["attribution_v2"]["schema_version"] == "1"
+    assert payload["attribution_v2"]["schema_version"] == "3"
     assert "segments_ms" in payload
+
+
+def test_finalize_freezes_endpoint_attempts_against_late_workers() -> None:
+    session = TurnTimingSession()
+    session.record_endpoint_attempt(10, outcome=EndpointAttemptOutcome.COMPLETED, call_purpose="routing")
+    payload = session.finalize()
+    session.record_endpoint_attempt(90_000, outcome=EndpointAttemptOutcome.TIMEOUT, call_purpose="shadow")
+    assert payload["attribution_v2"]["endpoint_attempt_count"] == 1
+    assert len(payload["attribution_v2"]["endpoint_attempts"]) == 1
+
+
+def test_endpoint_attempt_payload_includes_call_purpose_and_position() -> None:
+    with synthesis_turn_timing_scope():
+        record_endpoint_attempt(
+            42,
+            outcome=EndpointAttemptOutcome.TIMEOUT,
+            provider_label="local_primary",
+            model="foundation-sec-8b-instruct",
+            call_purpose="synthesis_lab",
+            candidate_position=1,
+        )
+        payload = finalize_turn_timing()
+    attempt = payload["attribution_v2"]["endpoint_attempts"][0]
+    assert attempt["call_purpose"] == "synthesis_lab"
+    assert attempt["candidate_position"] == 1
+    assert attempt["model"] == "foundation-sec-8b-instruct"
+    assert attempt["timeout"] is True
+    assert attempt["completed"] is False
+
+
+def test_failover_client_suppresses_duplicate_timeout_retry() -> None:
+    primary = MagicMock(spec=LocalChatClient)
+    primary.base_url = "http://llm.example/v1"
+    primary.model = "same-model"
+    primary.timeout_seconds = 60
+    primary.adapter_type = "local_chat_client"
+    primary.api_protocol = "openai_chat_completions"
+    primary.api_key = ""
+    primary.generate.side_effect = LocalChatError("url_error:timeout")
+    duplicate = MagicMock(spec=LocalChatClient)
+    duplicate.base_url = "http://llm.example/v1"
+    duplicate.model = "same-model"
+    duplicate.timeout_seconds = 60
+    duplicate.adapter_type = "local_chat_client"
+    duplicate.api_protocol = "openai_chat_completions"
+    duplicate.api_key = ""
+    duplicate.generate.return_value = ChatResult(
+        text="ok",
+        model="same-model",
+        latency_ms=5,
+        answered_label="foundation_sec_instruct_fallback",
+    )
+    with synthesis_turn_timing_scope():
+        from app.llm.llm_call_context import CALL_PURPOSE_COMPOSER, llm_call_purpose_scope
+
+        client = FailoverChatClient(
+            chain=(
+                ("local_primary", primary),
+                ("local_primary", duplicate),
+            )
+        )
+        with llm_call_purpose_scope(CALL_PURPOSE_COMPOSER):
+            with pytest.raises(LocalChatError):
+                client.generate(
+                    system_prompt="sys",
+                    user_prompt="user",
+                    max_tokens=10,
+                    temperature=0.0,
+                    call_purpose=CALL_PURPOSE_COMPOSER,
+                )
+        payload = finalize_turn_timing()
+    attempts = payload["attribution_v2"]["endpoint_attempts"]
+    assert len(attempts) == 1
+    assert payload["attribution_v2"]["suppressed_candidate_count"] == 1
+    duplicate.generate.assert_not_called()
 
 
 def test_sanitize_drops_sensitive_keys_from_attribution_payload() -> None:

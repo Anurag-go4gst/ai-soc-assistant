@@ -16,6 +16,8 @@ from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import TypeVar
 
+from app.llm.llm_call_context import run_with_call_context
+
 T = TypeVar("T")
 
 # One in-flight narration matches single-slot local model posture. try_acquire only —
@@ -84,7 +86,7 @@ def try_submit_narration(
 
     def _guarded() -> T:
         try:
-            return fn(*args, **kwargs)
+            return run_with_call_context(lambda: fn(*args, **kwargs))
         finally:
             _NARRATION_SLOT.release()
 

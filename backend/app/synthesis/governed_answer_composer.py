@@ -8,11 +8,13 @@ unsupported output falls back to the deterministic Phase 8 envelope.
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass
 from typing import Any
 
 from app.chat.contracts.answer_contract import AnswerContract
 from app.llm.governed_context_package import GovernedContextPackage
+from app.llm.llm_call_context import CALL_PURPOSE_COMPOSER, llm_call_purpose_scope
 from app.synthesis import claim_patterns
 from app.synthesis.composition_confidence import qualifies_for_weak_case_composition
 from app.chat.final_answer_readability import apply_draft_preview_readability
@@ -636,24 +638,51 @@ def compose_governed_answer(
         _SYSTEM_PROMPT_GUIDED if str(path_type or "") == "guided_investigation" else _SYSTEM_PROMPT
     )
 
-    def _generate() -> Any:
-        return llm_client.generate(
+    def _generate(*, invoke_deadline: float | None = None) -> Any:
+        from app.llm.clients.failover_client import FailoverChatClient
+        from app.llm.clients.local_chat_client import LocalChatClient
+        from app.synthesis.narration_deadline import hop_timeout_seconds
+
+        common = dict(
             system_prompt=active_system_prompt,
             user_prompt=prompt,
             max_tokens=min(settings.ai_soc_llm_max_output_tokens, 400),
             temperature=settings.ai_soc_llm_temperature,
         )
+        if isinstance(llm_client, FailoverChatClient):
+            return llm_client.generate(
+                **common,
+                deadline=invoke_deadline,
+                call_purpose=CALL_PURPOSE_COMPOSER,
+            )
+        if isinstance(llm_client, LocalChatClient):
+            per_hop_timeout = hop_timeout_seconds(int(llm_client.timeout_seconds), invoke_deadline)
+            if per_hop_timeout is not None:
+                return llm_client.generate(**common, timeout_seconds=per_hop_timeout)
+        return llm_client.generate(**common)
 
     try:
         if timeout_seconds is not None and timeout_seconds > 0:
             from app.llm.sidecar_governance import run_sidecar_llm_with_timeout
 
-            bounded = run_sidecar_llm_with_timeout(_generate, timeout_seconds=timeout_seconds)
+            deadline = time.monotonic() + float(timeout_seconds)
+
+            def _bounded_generate() -> Any:
+                return _generate(invoke_deadline=deadline)
+
+            bounded = run_sidecar_llm_with_timeout(
+                _bounded_generate,
+                timeout_seconds=timeout_seconds,
+                call_purpose=CALL_PURPOSE_COMPOSER,
+                wrapper_kind="composer",
+                deadline=deadline,
+            )
             if bounded.timed_out or bounded.raw_output is None:
                 raise LocalChatError("url_error:timeout")
             result = bounded.raw_output
         else:
-            result = _generate()
+            with llm_call_purpose_scope(CALL_PURPOSE_COMPOSER):
+                result = _generate()
     except LocalChatError as exc:
         return GovernedComposerResult(
             envelope=fallback_envelope,
