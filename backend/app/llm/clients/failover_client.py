@@ -4,36 +4,34 @@ from __future__ import annotations
 
 import inspect
 import logging
+import time
 from dataclasses import dataclass
 
-import time
-
+from app.llm.clients.endpoint_fingerprint import (
+    TRANSPORT_SIDECAR,
+    TRANSPORT_SYNTHESIS,
+    CandidateContractFingerprint,
+    RequestContractFingerprint,
+    candidate_fingerprint_from_client,
+    candidates_equivalent,
+)
 from app.llm.clients.local_chat_client import ChatResult, LocalChatClient, LocalChatError
+from app.llm.llm_call_context import get_call_purpose
 from app.synthesis.narration_deadline import hop_timeout_seconds, should_attempt_hop
 from app.synthesis.turn_timing import (
     EndpointAttemptOutcome,
     get_turn_timing_session,
     record_endpoint_attempt,
+    record_suppressed_candidate,
 )
 
 logger = logging.getLogger(__name__)
 
-# Per-`generate` capability cache keyed by the bound method's underlying function.
-# Child clients duck-type `generate` with no formal Protocol, so we negotiate which
-# optional kwargs each hop accepts once (cheap signature inspection) and reuse it.
 _CAPABILITY_CACHE: dict[object, frozenset[str]] = {}
-
-# Optional kwargs that a hop may or may not accept. Required kwargs
-# (system_prompt/user_prompt/max_tokens/temperature) are always forwarded.
 _NEGOTIABLE_KWARGS: tuple[str, ...] = ("seed", "response_format")
 
 
 def _supported_kwargs(generate_callable: object) -> frozenset[str]:
-    """Return the subset of negotiable kwargs the child's `generate` accepts.
-
-    Inspected once per underlying function and cached. A hop whose signature
-    declares ``**kwargs`` is treated as accepting every negotiable kwarg.
-    """
     key = getattr(generate_callable, "__func__", generate_callable)
     cached = _CAPABILITY_CACHE.get(key)
     if cached is not None:
@@ -41,8 +39,6 @@ def _supported_kwargs(generate_callable: object) -> frozenset[str]:
     try:
         signature = inspect.signature(generate_callable)
     except (TypeError, ValueError):
-        # Cannot introspect (builtin / C callable) — be conservative and forward
-        # nothing optional rather than risk a TypeError on an unknown signature.
         supported: frozenset[str] = frozenset()
         _CAPABILITY_CACHE[key] = supported
         return supported
@@ -63,6 +59,7 @@ def _supported_kwargs(generate_callable: object) -> frozenset[str]:
 @dataclass(frozen=True)
 class FailoverChatClient:
     chain: tuple[tuple[str, LocalChatClient], ...]
+    transport_mode: str = TRANSPORT_SYNTHESIS
 
     @property
     def base_url(self) -> str:
@@ -86,20 +83,42 @@ class FailoverChatClient:
         response_format: dict | None = None,
         seed: int | None = None,
         deadline: float | None = None,
+        call_purpose: str | None = None,
     ) -> ChatResult:
         if not self.chain:
             raise LocalChatError("no_llm_endpoint_configured")
         last_error: LocalChatError | None = None
-        for label, client in self.chain:
+        purpose = call_purpose or get_call_purpose()
+        request_contract = RequestContractFingerprint.from_generate_kwargs(
+            call_purpose=purpose,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            response_format=response_format,
+            seed=seed,
+        )
+        timed_out_fingerprints: set[tuple] = set()
+        for position, (label, client) in enumerate(self.chain, start=1):
+            candidate_fp = candidate_fingerprint_from_client(
+                client,
+                provider_label=label,
+                transport_mode=self.transport_mode,
+                request_contract=request_contract,
+            )
+            equiv_key = candidate_fp.equivalence_key()
+            if equiv_key in timed_out_fingerprints:
+                record_suppressed_candidate()
+                logger.info(
+                    "llm_failover suppressed duplicate timeout retry label=%s position=%s",
+                    label,
+                    position,
+                )
+                continue
             if not should_attempt_hop(deadline):
                 break
             per_hop_timeout = hop_timeout_seconds(client.timeout_seconds, deadline)
             if deadline is not None and per_hop_timeout is None:
                 break
             hop_started = time.monotonic()
-            # Negotiate optional kwargs per hop: a child whose `generate` lacks
-            # `seed` (or `response_format`) must not receive it, or it raises
-            # TypeError instead of running. Required kwargs always pass through.
             supported = _supported_kwargs(client.generate)
             optional_kwargs: dict[str, object] = {}
             if "seed" in supported:
@@ -121,6 +140,9 @@ class FailoverChatClient:
                         hop_ms,
                         outcome=EndpointAttemptOutcome.COMPLETED,
                         provider_label=label,
+                        model=result.model or candidate_fp.model or None,
+                        call_purpose=purpose,
+                        candidate_position=position,
                     )
                 if label != self.chain[0][0]:
                     logger.info("llm_failover succeeded on %s", label)
@@ -145,8 +167,43 @@ class FailoverChatClient:
                         hop_ms,
                         outcome=attempt_outcome,
                         provider_label=label,
+                        model=candidate_fp.model or None,
+                        call_purpose=purpose,
+                        candidate_position=position,
                     )
                 last_error = exc
                 logger.warning("llm_failover attempt failed label=%s code=%s", label, exc.code)
+                if "timeout" in str(exc.code).lower():
+                    timed_out_fingerprints.add(equiv_key)
+                if not should_attempt_hop(deadline):
+                    break
                 continue
         raise last_error or LocalChatError("all_failover_endpoints_failed")
+
+
+def chain_has_equivalent_candidates(
+    chain: tuple[tuple[str, LocalChatClient], ...],
+    *,
+    transport_mode: str,
+) -> bool:
+    """Return True when two chain entries are provably equivalent at build time."""
+    fingerprints: list[CandidateContractFingerprint] = []
+    reference_contract = RequestContractFingerprint(
+        call_purpose="chain_build",
+        max_tokens=0,
+        temperature=0.0,
+        response_format_present=False,
+        seed_present=False,
+    )
+    for label, client in chain:
+        fp = candidate_fingerprint_from_client(
+            client,
+            provider_label=label,
+            transport_mode=transport_mode,
+            request_contract=reference_contract,
+        )
+        for existing in fingerprints:
+            if candidates_equivalent(existing, fp):
+                return True
+        fingerprints.append(fp)
+    return False

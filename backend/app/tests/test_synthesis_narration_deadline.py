@@ -15,7 +15,7 @@ from app.llm.clients.failover_client import FailoverChatClient
 from app.synthesis.lab_runner import _narrate_with_progress_and_timeout, run_governed_synthesis_lab
 from app.synthesis.live_narration import narrate_analyst_summary
 from app.synthesis.models import build_governed_synthesis_package
-from app.synthesis.narration_deadline import hop_timeout_seconds
+from app.synthesis.narration_deadline import hop_timeout_seconds, release_narration_slot_for_tests
 from app.tests.test_live_synthesis_narration import _run as run_live_narration_lab
 from app.tests.test_p6_guarded_synthesis_lab import (
     _source_evidence,
@@ -31,6 +31,7 @@ _EXECUTOR_TAIL_S = 2.5
 def _drain_synthesis_executor_worker() -> None:
     yield
     time.sleep(_EXECUTOR_TAIL_S)
+    release_narration_slot_for_tests()
 
 
 class _HangingClient:

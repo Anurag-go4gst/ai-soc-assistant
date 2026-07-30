@@ -30,6 +30,7 @@ from app.connectors.mcp.mcp_tool_chronology import (
     review_proposed_tool_chronology,
 )
 from app.llm.clients.endpoint_resolver import (
+    TRANSPORT_SYNTHESIS,
     _append_endpoint,
     resolve_foundation_sec_instruct_endpoint,
     resolve_local_primary_endpoint,
@@ -57,22 +58,24 @@ def build_planner_client() -> FailoverChatClient | None:
     # actually return a plan when invoked async (eval/precompute). Never wire this
     # onto the live /chat blocking path.
     chain: list[tuple[str, LocalChatClient]] = []
+    build_fps: list = []
+    transport_mode = TRANSPORT_SYNTHESIS
     primary = resolve_local_primary_endpoint(sidecar=False)
     if primary is not None:
-        _append_endpoint(chain, primary)
+        _append_endpoint(chain, primary, transport_mode=transport_mode, existing_fingerprints=build_fps)
 
     if settings.ai_soc_llm_planner_qwen_failover_enabled:
         qwen = resolve_qwen_primary_endpoint(sidecar=False)
         if qwen is not None:
-            _append_endpoint(chain, qwen)
+            _append_endpoint(chain, qwen, transport_mode=transport_mode, existing_fingerprints=build_fps)
 
     fallback = resolve_foundation_sec_instruct_endpoint(sidecar=False)
     if fallback is not None:
-        _append_endpoint(chain, fallback)
+        _append_endpoint(chain, fallback, transport_mode=transport_mode, existing_fingerprints=build_fps)
 
     if not chain:
         return None
-    return FailoverChatClient(chain=tuple(chain))
+    return FailoverChatClient(chain=tuple(chain), transport_mode=transport_mode)
 
 
 def build_planner_prompts(

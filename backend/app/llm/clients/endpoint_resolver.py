@@ -5,6 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.config import settings
+from app.llm.clients.endpoint_fingerprint import (
+    ADAPTER_LOCAL_CHAT,
+    API_PROTOCOL_OPENAI_CHAT,
+    TRANSPORT_SIDECAR,
+    TRANSPORT_SYNTHESIS,
+    CandidateContractFingerprint,
+    RequestContractFingerprint,
+    candidate_fingerprint_from_client,
+    candidates_equivalent,
+)
 from app.llm.clients.failover_client import FailoverChatClient
 from app.llm.clients.local_chat_client import LocalChatClient
 
@@ -125,23 +135,54 @@ def resolve_foundation_sec_reasoning_endpoint(*, sidecar: bool = False) -> Resol
     )
 
 
-def _client_from_endpoint(endpoint: ResolvedEndpoint) -> LocalChatClient:
+def _client_from_endpoint(
+    endpoint: ResolvedEndpoint,
+    *,
+    transport_mode: str,
+) -> LocalChatClient:
     return LocalChatClient(
         base_url=endpoint.base_url,
         model=endpoint.model,
         api_key=endpoint.api_key,
         timeout_seconds=endpoint.timeout_seconds,
+        adapter_type=ADAPTER_LOCAL_CHAT,
+        api_protocol=API_PROTOCOL_OPENAI_CHAT,
+    )
+
+
+def _reference_fingerprint(
+    endpoint: ResolvedEndpoint,
+    *,
+    transport_mode: str,
+) -> CandidateContractFingerprint:
+    client = _client_from_endpoint(endpoint, transport_mode=transport_mode)
+    return candidate_fingerprint_from_client(
+        client,
+        provider_label=endpoint.label,
+        transport_mode=transport_mode,
+        request_contract=RequestContractFingerprint(
+            call_purpose="chain_build",
+            max_tokens=0,
+            temperature=0.0,
+            response_format_present=False,
+            seed_present=False,
+        ),
     )
 
 
 def _append_endpoint(
     chain: list[tuple[str, LocalChatClient]],
     endpoint: ResolvedEndpoint,
+    *,
+    transport_mode: str,
+    existing_fingerprints: list[CandidateContractFingerprint],
 ) -> None:
-    normalized = endpoint.base_url.rstrip("/")
-    if any(client.base_url.rstrip("/") == normalized for _, client in chain):
-        return
-    chain.append((endpoint.label, _client_from_endpoint(endpoint)))
+    candidate_fp = _reference_fingerprint(endpoint, transport_mode=transport_mode)
+    for existing in existing_fingerprints:
+        if candidates_equivalent(existing, candidate_fp):
+            return
+    chain.append((endpoint.label, _client_from_endpoint(endpoint, transport_mode=transport_mode)))
+    existing_fingerprints.append(candidate_fp)
 
 
 def build_failover_chat_client(
@@ -155,26 +196,28 @@ def build_failover_chat_client(
     When Qwen flag is off, behavior is unchanged (LOCAL / Instruct only).
     """
     chain: list[tuple[str, LocalChatClient]] = []
+    transport_mode = TRANSPORT_SIDECAR if sidecar else TRANSPORT_SYNTHESIS
+    build_fps: list[CandidateContractFingerprint] = []
     if role in REASONING_ROLES:
         reasoning = resolve_foundation_sec_reasoning_endpoint(sidecar=sidecar)
         if reasoning is not None:
-            _append_endpoint(chain, reasoning)
+            _append_endpoint(chain, reasoning, transport_mode=transport_mode, existing_fingerprints=build_fps)
 
     qwen = resolve_qwen_primary_endpoint(sidecar=sidecar)
     if qwen is not None:
-        _append_endpoint(chain, qwen)
+        _append_endpoint(chain, qwen, transport_mode=transport_mode, existing_fingerprints=build_fps)
 
     primary = resolve_local_primary_endpoint(sidecar=sidecar)
     if primary is not None:
-        _append_endpoint(chain, primary)
+        _append_endpoint(chain, primary, transport_mode=transport_mode, existing_fingerprints=build_fps)
 
     fallback = resolve_foundation_sec_instruct_endpoint(sidecar=sidecar)
     if fallback is not None:
-        _append_endpoint(chain, fallback)
+        _append_endpoint(chain, fallback, transport_mode=transport_mode, existing_fingerprints=build_fps)
 
     if not chain:
         return None
-    return FailoverChatClient(chain=tuple(chain))
+    return FailoverChatClient(chain=tuple(chain), transport_mode=transport_mode)
 
 
 def build_synthesis_client_from_settings() -> FailoverChatClient | None:

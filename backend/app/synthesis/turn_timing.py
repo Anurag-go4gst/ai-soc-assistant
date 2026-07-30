@@ -19,7 +19,7 @@ from enum import StrEnum
 from typing import Any, Iterator
 
 SCHEMA_VERSION = "1"
-ATTRIBUTION_V2_SCHEMA_VERSION = "1"
+ATTRIBUTION_V2_SCHEMA_VERSION = "3"
 _ARITHMETIC_TOLERANCE_MS = 5
 
 _SENSITIVE_KEY_FRAGMENTS = (
@@ -60,6 +60,13 @@ class EndpointAttemptOutcome(StrEnum):
     FALLBACK = "fallback"
 
 
+class WrapperEventOutcome(StrEnum):
+    COMPLETED = "completed"
+    TIMEOUT = "timeout"
+    FAILURE = "failure"
+    SATURATED = "saturated"
+
+
 class RunKind(StrEnum):
     COLD = "cold"
     WARM = "warm"
@@ -71,6 +78,17 @@ class EndpointAttemptRecord:
     duration_ms: int
     outcome: EndpointAttemptOutcome
     provider_label: str | None = None
+    model: str | None = None
+    call_purpose: str | None = None
+    candidate_position: int | None = None
+
+
+@dataclass(frozen=True)
+class WrapperEventRecord:
+    call_purpose: str | None
+    wrapper_kind: str
+    duration_ms: int
+    outcome: WrapperEventOutcome
 
 
 @dataclass
@@ -101,6 +119,8 @@ class TurnTimingSession:
     _final_synthesis_started_at: float | None = None
     _finalization_started_at: float | None = None
     _endpoint_attempts: list[EndpointAttemptRecord] = field(default_factory=list)
+    _wrapper_events: list[WrapperEventRecord] = field(default_factory=list)
+    _suppressed_candidate_count: int = 0
     _finalized: bool = False
 
     def record_canonical_planning(self, duration_ms: int) -> None:
@@ -187,14 +207,22 @@ class TurnTimingSession:
         *,
         outcome: EndpointAttemptOutcome,
         provider_label: str | None = None,
+        model: str | None = None,
+        call_purpose: str | None = None,
+        candidate_position: int | None = None,
     ) -> None:
         """One primary or failover model HTTP hop (nested inside final_synthesis)."""
+        if self._finalized:
+            return
         increment = max(0, int(duration_ms))
         self._endpoint_attempts.append(
             EndpointAttemptRecord(
                 duration_ms=increment,
                 outcome=outcome,
                 provider_label=_bound_metadata(provider_label),
+                model=_bound_metadata(model),
+                call_purpose=_bound_metadata(call_purpose),
+                candidate_position=candidate_position,
             )
         )
         self.endpoint_attempt_count += 1
@@ -203,6 +231,30 @@ class TurnTimingSession:
         self.synthesis_endpoint_ms = (self.synthesis_endpoint_ms or 0) + increment
         if provider_label:
             self.endpoint_provider_label = _bound_metadata(provider_label)
+
+    def record_wrapper_event(
+        self,
+        duration_ms: int,
+        *,
+        call_purpose: str | None,
+        wrapper_kind: str,
+        outcome: WrapperEventOutcome,
+    ) -> None:
+        if self._finalized:
+            return
+        self._wrapper_events.append(
+            WrapperEventRecord(
+                call_purpose=_bound_metadata(call_purpose),
+                wrapper_kind=_bound_metadata(wrapper_kind) or "unknown",
+                duration_ms=max(0, int(duration_ms)),
+                outcome=outcome,
+            )
+        )
+
+    def record_suppressed_candidate(self) -> None:
+        if self._finalized:
+            return
+        self._suppressed_candidate_count += 1
 
     def set_synthesis_path_outcome(
         self,
@@ -290,8 +342,23 @@ class TurnTimingSession:
                 "duration_ms": row.duration_ms,
                 "outcome": row.outcome.value,
                 "provider_label": row.provider_label,
+                "model": row.model,
+                "call_purpose": row.call_purpose,
+                "candidate_position": row.candidate_position,
+                "completed": row.outcome is EndpointAttemptOutcome.COMPLETED,
+                "timeout": row.outcome is EndpointAttemptOutcome.TIMEOUT,
+                "failure": row.outcome is EndpointAttemptOutcome.FALLBACK,
             }
             for row in self._endpoint_attempts
+        ]
+        wrapper_payload = [
+            {
+                "call_purpose": row.call_purpose,
+                "wrapper_kind": row.wrapper_kind,
+                "duration_ms": row.duration_ms,
+                "outcome": row.outcome.value,
+            }
+            for row in self._wrapper_events
         ]
         return sanitize_turn_timing_payload(
             {
@@ -342,6 +409,8 @@ class TurnTimingSession:
                     "endpoint_attempt_count": self.endpoint_attempt_count,
                     "endpoint_attempt_timeout_count": self.endpoint_attempt_timeout_count,
                     "endpoint_attempt_ms_total": endpoint_attempt_ms_total,
+                    "wrapper_events": wrapper_payload,
+                    "suppressed_candidate_count": self._suppressed_candidate_count,
                     "governed_request_timeout": self.governed_request_timeout,
                     "endpoint_attempt_timeout": self.endpoint_attempt_timeout_count > 0,
                     "exclusive_phase_total_ms": exclusive_total,
@@ -419,6 +488,9 @@ def record_endpoint_attempt(
     *,
     outcome: EndpointAttemptOutcome,
     provider_label: str | None = None,
+    model: str | None = None,
+    call_purpose: str | None = None,
+    candidate_position: int | None = None,
 ) -> None:
     session = _session.get()
     if session is not None:
@@ -426,6 +498,32 @@ def record_endpoint_attempt(
             duration_ms,
             outcome=outcome,
             provider_label=provider_label,
+            model=model,
+            call_purpose=call_purpose,
+            candidate_position=candidate_position,
+        )
+
+
+def record_suppressed_candidate() -> None:
+    session = _session.get()
+    if session is not None:
+        session.record_suppressed_candidate()
+
+
+def record_wrapper_event(
+    duration_ms: int,
+    *,
+    call_purpose: str | None,
+    wrapper_kind: str,
+    outcome: WrapperEventOutcome,
+) -> None:
+    session = _session.get()
+    if session is not None:
+        session.record_wrapper_event(
+            duration_ms,
+            call_purpose=call_purpose,
+            wrapper_kind=wrapper_kind,
+            outcome=outcome,
         )
 
 

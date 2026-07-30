@@ -17,6 +17,7 @@ from app.config import settings
 from app.llm.clients import LocalChatClient, LocalChatError
 from app.llm.clients.failover_client import FailoverChatClient
 from app.llm.clients.local_chat_errors import user_message_for_local_chat_error
+from app.llm.llm_call_context import CALL_PURPOSE_SYNTHESIS_LAB, llm_call_purpose_scope
 from app.llm.sanitize_user_facing_prose import sanitize_user_facing_prose
 from app.synthesis.models import GovernedSynthesisPackage
 from app.synthesis.narration_deadline import budget_exhausted, hop_timeout_seconds
@@ -78,26 +79,28 @@ def narrate_analyst_summary(
     )
     max_tokens = min(settings.ai_soc_llm_max_output_tokens, 256)
     try:
-        if isinstance(client, FailoverChatClient):
-            result = client.generate(
-                system_prompt=_SYSTEM_PROMPT,
-                user_prompt=user_prompt,
-                max_tokens=max_tokens,
-                temperature=settings.ai_soc_llm_temperature,
-                deadline=deadline,
-            )
-        else:
-            client_timeout = int(getattr(client, "timeout_seconds", 60))
-            per_hop_timeout = hop_timeout_seconds(client_timeout, deadline)
-            if deadline is not None and per_hop_timeout is None:
-                raise LocalChatError("url_error:timeout")
-            result = client.generate(
-                system_prompt=_SYSTEM_PROMPT,
-                user_prompt=user_prompt,
-                max_tokens=max_tokens,
-                temperature=settings.ai_soc_llm_temperature,
-                timeout_seconds=per_hop_timeout,
-            )
+        with llm_call_purpose_scope(CALL_PURPOSE_SYNTHESIS_LAB):
+            if isinstance(client, FailoverChatClient):
+                result = client.generate(
+                    system_prompt=_SYSTEM_PROMPT,
+                    user_prompt=user_prompt,
+                    max_tokens=max_tokens,
+                    temperature=settings.ai_soc_llm_temperature,
+                    deadline=deadline,
+                    call_purpose=CALL_PURPOSE_SYNTHESIS_LAB,
+                )
+            else:
+                client_timeout = int(getattr(client, "timeout_seconds", 60))
+                per_hop_timeout = hop_timeout_seconds(client_timeout, deadline)
+                if deadline is not None and per_hop_timeout is None:
+                    raise LocalChatError("url_error:timeout")
+                result = client.generate(
+                    system_prompt=_SYSTEM_PROMPT,
+                    user_prompt=user_prompt,
+                    max_tokens=max_tokens,
+                    temperature=settings.ai_soc_llm_temperature,
+                    timeout_seconds=per_hop_timeout,
+                )
     except LocalChatError as exc:
         return NarrationFailure(code=exc.code, user_message=exc.user_message)
     if result.finish_reason == "length":

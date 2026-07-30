@@ -6,7 +6,7 @@ date: 2026-07-28
 canonical_plan: plans/2026-07-28_1630_live-synthesis-performance-baseline-and-slo.md
 depends_on: none
 workstream: E
-execution_scope: Phase 2 harness wiring (E5-wiring); no live probes or SLO
+execution_scope: Phase 2 harness + E5 exploratory closeout + attribution reconciliation (no new live probes)
 implementation_branch: feat/live-synthesis-perf-phase2-harness
 implementation_worktree: .worktree-live-synthesis-phase2
 baseline: 42bc899a519ba1c2cf326181952538e6222ac9fb
@@ -113,14 +113,32 @@ Independent of workstreams A–D. Recommended after workstream C operator attest
   - **Depends on:** E5-remediation merged and deployed (`f682502`)
   - **Evidence:** **COMPLETE_EXPLORATORY** — 6/6 HTTP 200, valid `turn_timing`, no 504, `execution_enabled=false`; governed completion before Nginx 240s; timeout-stack remediation validated; **no SLO/baseline conclusion**
 
-- [ ] **E5-measurement-integrity** — Percentile bounds + timing attribution correction (draft PR)
+- [x] **E5-measurement-integrity** — Percentile bounds + timing attribution correction (PR #121 @ `204d76b`)
   - **Do:** Fix bounded percentiles; close `retrieval_spl` after dispatch retrieval; additive `attribution_v2`; endpoint attempt accounting
   - **Verify:** targeted pytest + plan audit; offline recompute of E5-run-3 aggregates
   - **Depends on:** E5-run-3
-  - **Evidence:** _(in progress)_
+  - **Evidence:** PR #121 merged to master @ `204d76b`; `test_synthesis_timing_attribution.py` green; bounded percentiles in `percentile_stats.py`
 
-- [ ] **E6** — COE-reviewed SLO proposal from measured data only (**deferred** — six exploratory samples; attribution correction pending)
-- [ ] **E7** — Optimization candidates ranked by measured latency share (**deferred**)
+- [x] **E5-run-4** — Fourth authorized exploratory run (post measurement-integrity deploy)
+  - **Do:** Single E-P1…E-P6 harness against production `https://cisco-vai.vnudge.com`
+  - **Verify:** Local artifact inspection; no commit of raw queries
+  - **Depends on:** E5-measurement-integrity deployed
+  - **Evidence:** **COMPLETE_EXPLORATORY** — 6/6 HTTP 200, valid `attribution_v2`; governed completion; VPS single-slot profile; **no SLO/baseline conclusion**; six samples not SLO-grade
+
+- [x] **E5-exploratory-closeout** — Close measurement phase; defer optimization
+  - **Do:** Document instrumentation deployed, timeout behavior proven, VPS as infrastructure-constrained profile; exclude prompt/model quality reductions; point optimization to quality-preserving review
+  - **Verify:** Plan audit; inventory doc present
+  - **Depends on:** E5-run-4
+  - **Evidence:** [`docs/evals/workstream_e_llm_call_inventory.md`](../docs/evals/workstream_e_llm_call_inventory.md); plan drift log 2026-07-29
+
+- [ ] **E5-reconciliation** — LLM call inventory + attribution v2 completeness (this PR)
+  - **Do:** Static inventory E-P1/E-P3/E-P5/E-P6; `attribution_v2` schema v2 (`call_purpose`, model, candidate position, duplicate suppression); composer wrapper attribution; finalize freeze; URL+model chain dedup; duplicate timeout retry suppression
+  - **Verify:** `pytest app/tests/test_synthesis_timing_attribution.py`; parity 120/0/0; clean-answer --check; sentinel --check; plan audit
+  - **Depends on:** E5-exploratory-closeout
+  - **Evidence:** _(pending commit)_
+
+- [ ] **E6** — COE-reviewed SLO proposal from measured data only (**deferred** — six exploratory VPS samples; production throughput baseline required)
+- [ ] **E7** — Optimization candidates ranked by measured latency share (**deferred** — requires E5-reconciliation + production infra profile)
 
 ## Merge-readiness notes (PR #120, 2026-07-29)
 
@@ -133,6 +151,7 @@ Independent of workstreams A–D. Recommended after workstream C operator attest
 | Parity | 120 exact / 0 approved / 0 critical |
 | Nginx | Production stays **240s** `proxy_read_timeout`; no further increase proposed |
 | E5-run-3 | **Unauthorized** |
+| E5-run-4 | **COMPLETE_EXPLORATORY** — 6/6 HTTP 200 + valid `attribution_v2`; VPS profile only |
 
 ## Metrics required (minimum)
 
@@ -162,3 +181,5 @@ Independent of workstreams A–D. Recommended after workstream C operator attest
 | 2026-07-28 | E5-run-1 PARTIAL_EXPLORATORY: harness `urlopen(..., opener=...)` defect; Nginx `proxy_read_timeout=120s` fired before backend response; LLM `url_error:timeout` logged 1s later |
 | 2026-07-29 | E5-run-2 + retry: zero-sample 504 @ ~240s (Nginx 240s ceiling); remediation PR #120 adds monotonic deadline + executor admission |
 | 2026-07-29 | E5-run-3 COMPLETE_EXPLORATORY: 6/6 valid timing, no 504, artifact `86852282…`; retrieval_spl attribution overstated — measurement-integrity follow-up |
+| 2026-07-29 | E5-run-4 COMPLETE_EXPLORATORY: 6/6 HTTP 200 + valid `attribution_v2` @ master `204d76b`; nine `llm_failover` timeout logs vs six attributed hops — reconciliation follow-up |
+| 2026-07-29 | Measurement phase **closed**; prompt/model/stage reductions **excluded**; optimization requires separate quality-preserving review |
