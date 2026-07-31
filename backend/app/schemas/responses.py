@@ -186,6 +186,9 @@ class ExecutionEnvelope(BaseModel):
     # execution_status_label: not_executed | review_required | mock_executed | live_executed
     evidence_source: str | None = None
     execution_status_label: str | None = None
+    # G2 — execution uncertainty (additive; default preserves legacy clients).
+    outcome_uncertain: bool = False
+    reconciliation_reason: str | None = None
 
 
 class HumanReviewEnvelope(BaseModel):
@@ -452,6 +455,15 @@ class SessionContextStatusEnvelope(BaseModel):
     clarification_required: bool = False
 
 
+class PlanningOutcomeSummary(BaseModel):
+    """Analyst-safe canonical planning summary (G1) — no internal plans or secrets."""
+
+    status: str
+    user_message: str
+    recovery_hint: str
+    category: str | None = None
+
+
 class PlaceholderResponse(BaseModel):
     trace_id: str
     turn_id: str | None = None
@@ -548,6 +560,8 @@ class PlaceholderResponse(BaseModel):
     ec_answer_source: str | None = None
     ec_provenance: dict[str, object] | None = None
     ec_stage_latencies: list[dict[str, object]] | None = None
+    # G1 — safe canonical planning summary for analyst UI (no internal plans).
+    planning_outcome: PlanningOutcomeSummary | None = None
 
     @model_validator(mode="after")
     def derive_blocked_action_state(self) -> "PlaceholderResponse":
