@@ -1,4 +1,6 @@
-from pydantic import BaseModel, model_validator
+from typing import Literal
+
+from pydantic import BaseModel, field_validator, model_validator
 
 from app.actions.capability_policy import ActionCapability
 from app.answer_guard.models import AnswerGuardStatus
@@ -11,6 +13,33 @@ from app.threat.mitre_kb import MitreMappingDecision
 from app.demo.experience_center_governance import ExperienceCenterGovernance
 from app.governance.trace_panels import GovernanceTrace
 from app.use_cases.models import UseCaseSelection
+
+PlanningOutcomeStatus = Literal[
+    "planned",
+    "clarification_required",
+    "resolution_failed",
+    "planning_failed",
+    "policy_blocked",
+    "unsupported",
+    "execution_failed",
+    "persistence_failed",
+]
+
+PlanningOutcomeCategory = Literal[
+    "policy",
+    "clarification",
+    "planner",
+    "database",
+    "resolution",
+    "unsupported",
+    "execution",
+    "invariant",
+]
+
+ReconciliationReason = Literal[
+    "execution_outcome_uncertain",
+    "execution_step_in_progress",
+]
 
 
 class WorkflowStep(BaseModel):
@@ -188,7 +217,17 @@ class ExecutionEnvelope(BaseModel):
     execution_status_label: str | None = None
     # G2 — execution uncertainty (additive; default preserves legacy clients).
     outcome_uncertain: bool = False
-    reconciliation_reason: str | None = None
+    reconciliation_reason: ReconciliationReason | None = None
+
+    @field_validator("reconciliation_reason", mode="before")
+    @classmethod
+    def _reconciliation_reason_allowlist(cls, value: object, info) -> object:
+        if not info.data.get("outcome_uncertain"):
+            return None
+        cleaned = str(value or "").strip()
+        if cleaned in {"execution_outcome_uncertain", "execution_step_in_progress"}:
+            return cleaned
+        return "execution_outcome_uncertain"
 
 
 class HumanReviewEnvelope(BaseModel):
@@ -458,10 +497,15 @@ class SessionContextStatusEnvelope(BaseModel):
 class PlanningOutcomeSummary(BaseModel):
     """Analyst-safe canonical planning summary (G1) — no internal plans or secrets."""
 
-    status: str
+    status: PlanningOutcomeStatus
     user_message: str
     recovery_hint: str
-    category: str | None = None
+    category: PlanningOutcomeCategory | None = None
+
+    @field_validator("user_message", "recovery_hint", mode="before")
+    @classmethod
+    def _strip_bounded_text(cls, value: object) -> str:
+        return str(value or "").strip()[:500]
 
 
 class PlaceholderResponse(BaseModel):

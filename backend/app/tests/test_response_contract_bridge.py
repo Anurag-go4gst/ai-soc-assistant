@@ -96,9 +96,52 @@ def test_planning_outcome_summary_terminal_states(status: str, category: str, bu
     assert "connection refused" not in summary.recovery_hint.lower()
 
 
-def test_planned_outcome_omits_summary() -> None:
+def test_planned_outcome_populates_summary() -> None:
     summary = build_planning_outcome_summary({"plan_dispatch_trace": {"canonical_status": "planned"}})
-    assert summary is None
+    assert summary is not None
+    assert summary.status == "planned"
+    assert summary.user_message == "Investigation planning completed."
+    assert summary.recovery_hint == ""
+    assert summary.category is None
+
+
+def test_unknown_status_coerced_to_planning_failed() -> None:
+    summary = build_planning_outcome_summary({"plan_dispatch_trace": {"canonical_status": "bogus_internal"}})
+    assert summary is not None
+    assert summary.status == "planning_failed"
+    assert summary.category == "planner"
+
+
+def test_no_status_without_canonical_signal_returns_none() -> None:
+    assert build_planning_outcome_summary({}) is None
+    assert build_planning_outcome_summary({"evidence_plan": {"route": "spl_generation"}}) is None
+
+
+def test_schema_rejects_invalid_planning_status() -> None:
+    with pytest.raises(Exception):
+        PlanningOutcomeSummary(
+            status="bogus_internal",
+            user_message="x",
+            recovery_hint="y",
+        )
+
+
+def test_reconciliation_in_progress_allowlisted() -> None:
+    envelope = normalize_execution_envelope(
+        {
+            "status": "requires_human_review",
+            "execution_intent": "spl_search",
+            "tool_selection_status": "blocked_by_idempotency",
+            "tool_selection_reason": "execution_step_in_progress",
+            "result_count": 0,
+            "results_preview": [],
+            "duration_ms": 0,
+            "outcome_uncertain": True,
+            "block_reason": "execution_step_in_progress",
+        }
+    )
+    assert envelope is not None
+    assert envelope.reconciliation_reason == "execution_step_in_progress"
 
 
 def test_normalize_execution_uncertainty_fields() -> None:

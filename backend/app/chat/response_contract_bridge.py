@@ -14,26 +14,30 @@ Does not alter routing, planning, execution gates, or persistence behavior.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from app.chat.canonical_outcome_read import OutcomeReadKind, read_canonical_planning_outcome
 from app.schemas.responses import (
     ExecutionEnvelope,
     HumanReviewEnvelope,
     PlaceholderResponse,
+    PlanningOutcomeCategory,
+    PlanningOutcomeStatus,
     PlanningOutcomeSummary,
 )
 
-PlanningOutcomeCategory = Literal[
-    "policy",
-    "clarification",
-    "planner",
-    "database",
-    "resolution",
-    "unsupported",
-    "execution",
-    "invariant",
-]
+PLANNING_OUTCOME_STATUSES: frozenset[str] = frozenset(
+    {
+        "planned",
+        "clarification_required",
+        "resolution_failed",
+        "planning_failed",
+        "policy_blocked",
+        "unsupported",
+        "execution_failed",
+        "persistence_failed",
+    }
+)
 
 RECONCILIATION_REASON_ALLOWLIST: frozenset[str] = frozenset(
     {
@@ -105,6 +109,15 @@ def _safe_user_line(
     return text[:max_len]
 
 
+def _coerce_planning_status(raw: str | None) -> PlanningOutcomeStatus | None:
+    cleaned = str(raw or "").strip()
+    if not cleaned:
+        return None
+    if cleaned in PLANNING_OUTCOME_STATUSES:
+        return cleaned  # type: ignore[return-value]
+    return "planning_failed"
+
+
 def _category_for_status(status: str, failure_category: str | None) -> PlanningOutcomeCategory | None:
     if failure_category in _CATEGORY_BY_STATUS.values():
         return failure_category  # type: ignore[return-value]
@@ -117,7 +130,11 @@ def build_planning_outcome_summary(
     human_review: HumanReviewEnvelope | dict[str, Any] | None = None,
     message: str | None = None,
 ) -> PlanningOutcomeSummary | None:
-    """Build safe planning summary from pipeline state. Returns None when status is ``planned``."""
+    """Build safe planning summary from pipeline state.
+
+    Successful planned responses return ``status=\"planned\"``. ``None`` only when no
+    canonical planning status is available (do not infer from evidence_plan shape).
+    """
     read = read_canonical_planning_outcome(state)
     status: str | None = None
     failure_category: str | None = None
@@ -135,12 +152,12 @@ def build_planning_outcome_summary(
         if isinstance(dispatch, dict) and dispatch.get("canonical_status"):
             status = str(dispatch.get("canonical_status"))
 
-    if not status or status == "planned":
+    status = _coerce_planning_status(status)
+    if not status:
         return None
 
-    if status not in _STATUS_USER_MESSAGE:
-        status = "planning_failed"
-        failure_category = failure_category or "planner"
+    if status == "planning_failed" and failure_category is None:
+        failure_category = "planner"
 
     review = human_review if isinstance(human_review, dict) else (
         human_review.model_dump() if hasattr(human_review, "model_dump") else {}
@@ -150,9 +167,12 @@ def build_planning_outcome_summary(
     default_message = _STATUS_USER_MESSAGE[status]
     default_hint = _STATUS_RECOVERY_HINT[status]
 
-    user_message = _safe_user_line(safe_review or message, default_message)
+    user_message = _safe_user_line(
+        safe_review or message if status != "planned" else None,
+        default_message,
+    )
     recovery_hint = _safe_user_line(None, default_hint)
-    category = _category_for_status(status, failure_category)
+    category = _category_for_status(status, failure_category) if status != "planned" else None
 
     return PlanningOutcomeSummary(
         status=status,
