@@ -1,6 +1,15 @@
 export interface HealthResponse {
   status: string;
   service: string;
+  readiness?: {
+    database_migrations?: {
+      ready: boolean;
+      configured?: boolean;
+      missing_versions?: string[];
+      remediation?: string;
+      detail?: string;
+    };
+  };
 }
 
 export interface AuthResponse {
@@ -18,6 +27,13 @@ export interface SessionContextStatusEnvelope {
   used_fields?: string[];
   ignored_fields?: string[];
   clarification_required?: boolean;
+}
+
+export interface PlanningOutcomeSummary {
+  status: string;
+  user_message: string;
+  recovery_hint: string;
+  category?: string | null;
 }
 
 export interface PlaceholderResponse {
@@ -99,6 +115,8 @@ export interface PlaceholderResponse {
   answer_guard_status?: string | null;
   final_answer_safety_status?: string | null;
   session_context_status?: SessionContextStatusEnvelope | null;
+  /** G1 — safe canonical planning summary (terminal outcomes only). */
+  planning_outcome?: PlanningOutcomeSummary | null;
   /** Experience Center capture provenance (B6 honesty badge). */
   ec_provenance?: EcProvenance | null;
   /** Per-stage recorded/replayed latency for staged-progress replay (B4). */
@@ -720,6 +738,8 @@ export interface ExecutionEnvelope {
   evidence_source?: string | null;
   execution_status_label?: string | null;
   saved_search_name?: string | null;
+  outcome_uncertain?: boolean;
+  reconciliation_reason?: string | null;
 }
 
 export interface HumanReviewEnvelope {

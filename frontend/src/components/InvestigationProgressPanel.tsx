@@ -224,6 +224,8 @@ export function InvestigationProgressPanel({ state, demoMode, ecProvenance, onRe
         <div
           className="mt-3 rounded-lg border border-red-500/40 bg-red-500/[0.08] px-3 py-3"
           data-testid="investigation-error-panel"
+          role="alert"
+          aria-live="assertive"
         >
           <p className="text-sm font-medium text-red-100">{state.error.message}</p>
           {state.error.code ? (
@@ -247,6 +249,7 @@ export function InvestigationProgressPanel({ state, demoMode, ecProvenance, onRe
         <div
           className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-3 py-3"
           data-testid="investigation-finalization-panel"
+          aria-live="polite"
         >
           <div className="flex items-start gap-2">
             <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-amber-200" />

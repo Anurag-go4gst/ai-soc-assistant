@@ -1,6 +1,7 @@
 import { Activity, ShieldCheck, Database, Gauge, ArrowRight, Cpu, FileSearch, ListChecks, Route, ShieldAlert, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CopyButton } from '@/components/CopyButton';
+import { executionLabel } from '@/lib/planningOutcome';
 import { cn } from '@/lib/utils';
 import type { PlaceholderResponse } from '@/types/api';
 
@@ -32,31 +33,14 @@ const SUFFICIENCY_LABEL: Record<string, { label: string; variant: Variant }> = {
   insufficient_evidence: { label: 'Insufficient evidence', variant: 'destructive' },
 };
 
-const EXECUTION_LABEL: Record<string, { label: string; variant: Variant }> = {
-  executed: { label: 'Executed (mock)', variant: 'success' },
-  blocked: { label: 'Execution blocked', variant: 'warning' },
-  requires_human_review: { label: 'Awaiting review', variant: 'warning' },
-  failed: { label: 'Execution failed', variant: 'destructive' },
-  skipped: { label: 'Not required', variant: 'secondary' },
-};
-
-const BLOCK_REASON_LABEL: Record<string, string> = {
-  mcp_global_execution_disabled: 'Execution disabled',
-  mcp_server_execution_disabled: 'Execution disabled (server)',
-  validated_spl_only_to_mcp: 'Needs validated SPL',
-};
-
 function sufficiency(status?: string): { label: string; variant: Variant } {
   if (!status) return { label: 'No assessment', variant: 'secondary' };
   return SUFFICIENCY_LABEL[status] ?? { label: status.replace(/_/g, ' '), variant: 'secondary' };
 }
 
 function executionState(trace: PlaceholderResponse): { label: string; variant: Variant } {
-  const status = trace.execution?.status;
-  const reason = trace.execution?.block_reason;
-  if (reason && BLOCK_REASON_LABEL[reason]) return { label: BLOCK_REASON_LABEL[reason], variant: 'warning' };
-  if (!status) return { label: 'Not required', variant: 'secondary' };
-  return EXECUTION_LABEL[status] ?? { label: status.replace(/_/g, ' '), variant: 'secondary' };
+  const mapped = executionLabel(trace);
+  return { label: mapped.label, variant: mapped.variant };
 }
 
 function evidenceState(trace: PlaceholderResponse): { label: string; variant: Variant } {
@@ -245,6 +229,42 @@ function Stat({
   );
 }
 
+function SplArtifactPair({ trace }: { trace: PlaceholderResponse }) {
+  const candidate = trace.candidate_spl?.candidate_spl;
+  const normalized = trace.spl_validation?.normalized_spl;
+  const executed = trace.execution?.executed_spl;
+  if (!candidate && !normalized && !executed) return null;
+  return (
+    <div className="mb-3 space-y-2 rounded-lg border border-slate-700/60 bg-slate-950/50 p-3 text-xs">
+      <p className="font-semibold uppercase tracking-[0.14em] text-slate-400">SPL artifacts</p>
+      {candidate ? (
+        <div>
+          <span className="text-slate-500">Candidate (non-executable):</span>
+          <code className="mt-1 block overflow-x-auto rounded border border-slate-800 bg-slate-950 p-2 font-mono text-[0.7rem] text-cyan-100">
+            {candidate}
+          </code>
+        </div>
+      ) : null}
+      {normalized ? (
+        <div>
+          <span className="text-slate-500">Validated / normalized:</span>
+          <code className="mt-1 block overflow-x-auto rounded border border-slate-800 bg-slate-950 p-2 font-mono text-[0.7rem] text-emerald-100">
+            {normalized}
+          </code>
+        </div>
+      ) : null}
+      {executed ? (
+        <div>
+          <span className="text-slate-500">Executed query:</span>
+          <code className="mt-1 block overflow-x-auto rounded border border-slate-800 bg-slate-950 p-2 font-mono text-[0.7rem] text-amber-100">
+            {executed}
+          </code>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function AnalystSummaryCard({ trace }: { trace: PlaceholderResponse }) {
   const status = sufficiency(trace.context_sufficiency?.status);
   const exec = executionState(trace);
@@ -275,6 +295,7 @@ export function AnalystSummaryCard({ trace }: { trace: PlaceholderResponse }) {
       {summaryParagraph ? (
         <p className="mb-3 text-sm leading-6 text-slate-100">{summaryParagraph}</p>
       ) : null}
+      <SplArtifactPair trace={trace} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat icon={<Activity className="h-3 w-3" />} label="Status" value={status.label} variant={status.variant} />
         <Stat icon={<Cpu className="h-3 w-3" />} label="Execution" value={exec.label} variant={exec.variant} />

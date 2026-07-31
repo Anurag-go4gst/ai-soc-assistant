@@ -1,4 +1,4 @@
-import { LogOut, ShieldCheck } from 'lucide-react';
+import { LogOut, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { HealthResponse } from '@/types/api';
@@ -12,6 +12,9 @@ interface TopBarProps {
 
 export function TopBar({ username, health, healthError, onLogout }: TopBarProps) {
   const backendOk = health?.status === 'ok';
+  const migration = health?.readiness?.database_migrations;
+  const migrationReady = migration?.ready !== false;
+  const migrationConfigured = migration?.configured !== false;
 
   return (
     <header
@@ -25,8 +28,14 @@ export function TopBar({ username, health, healthError, onLogout }: TopBarProps)
       <div className="flex items-center gap-2">
         <Badge variant={backendOk ? 'success' : 'warning'} className="hidden md:inline-flex">
           <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-current" />
-          Backend {backendOk ? 'OK' : healthError ? 'Unavailable' : 'Checking'}
+          API {backendOk ? 'reachable' : healthError ? 'unreachable' : 'checking'}
         </Badge>
+        {backendOk && migrationConfigured && !migrationReady ? (
+          <Badge variant="warning" className="hidden md:inline-flex" title={migration?.remediation ?? migration?.detail}>
+            <AlertTriangle className="mr-1 h-3 w-3" />
+            Migrations pending
+          </Badge>
+        ) : null}
         <div className="hidden items-center gap-1.5 rounded-md border border-slate-800 bg-slate-950/60 px-2.5 py-1.5 text-xs text-slate-300 md:flex">
           <ShieldCheck className="h-3.5 w-3.5 text-cyan-400" />
           {username}

@@ -62,15 +62,31 @@ Bundle splitting deferred unless trivial and non-blocking.
   - **Verify:** `python3 scripts/run_langgraph_dual_parity_eval.py --check`
   - **Evidence:** `total=120 exact=120 approved=0 critical=0`
 
-- [ ] **A5** — Draft PR opened (stop before merge)
+- [x] **A5** — Draft PR opened (stop before merge)
+  - **Evidence:** https://github.com/Anurag-go4gst/ai-soc-assistant/pull/123 (draft, OPEN)
 
 ## PR B checklist (pending PR A merge base)
 
-- [ ] **B1** — Wave 1 contracts + safety components
-- [ ] **B2** — Wave 2 journey completion
-- [ ] **B3** — Wave 3 vitest 10 journeys + a11y + trace allowlist
-- [ ] **B4** — `npm ci && npm test && npm run build`
-- [ ] **B5** — Staging dist hashes recorded
+- [x] **B1** — Wave 1 contracts + safety components
+  - **Verify:** grep `PlanningOutcomeBanner|ExecutionReconciliationCard|planningOutcome` in `frontend/src`
+  - **Evidence:** types, mapper, banners, execution labels, TopBar migration readiness, HumanReviewCard posture
+
+- [x] **B2** — Wave 2 journey completion
+  - **Verify:** `ApprovalStatusPanel`, SPL pairing in `AnalystSummaryCard`, citations in `ChatBubble`
+  - **Evidence:** cockpit read-only HIL; settings-degraded warning in TopBar; retry via existing chat/SSE paths
+
+- [x] **B3** — Wave 3 vitest 10 journeys + a11y + trace allowlist
+  - **Verify:** `npm test` — 11 journey contract tests; `SafeControlPlaneSection` + `buildSafeControlPlaneSummary`
+  - **Evidence:** focus-on-appearance HIL, aria-live on progress panel, semantic headings in banners
+
+- [x] **B4** — `npm ci && npm test && npm run build`
+  - **Verify:** `npm test` 11/11; `npm run build` tsc+vite PASS (2026-07-31)
+  - **Evidence:** `git diff --check` clean in PR B worktree
+
+- [x] **B5** — Staging dist hashes recorded
+  - **Verify:** `/tmp/ai-soc-frontend-staging-202607310558` + `/tmp/ai-soc-staging-hashes.txt`
+  - **Evidence:** see release report §5
+
 - [ ] **B6** — Draft PR opened (stop before merge)
 
 ## Trace UI allowlist (normal analyst)

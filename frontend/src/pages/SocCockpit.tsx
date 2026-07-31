@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, Bug, ShieldCheck } from 'lucide-react';
 import { AlertList } from '@/components/AlertList';
-import { ApprovalPanel } from '@/components/ApprovalPanel';
+import { ApprovalStatusPanel } from '@/components/ApprovalStatusPanel';
 import { ChatPanel } from '@/components/ChatPanel';
 import { EvidencePanel } from '@/components/EvidencePanel';
 import { GraphContextPanel } from '@/components/GraphContextPanel';
@@ -92,7 +92,7 @@ export function SocCockpit() {
                   </Card>
                 </TabsContent>
                 <TabsContent value="approval" className="m-0">
-                  <ApprovalPanel />
+                  <ApprovalStatusPanel trace={lastTrace} />
                 </TabsContent>
               </div>
             </ScrollArea>
