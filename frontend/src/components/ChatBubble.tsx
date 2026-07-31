@@ -1,4 +1,6 @@
 import { Bot, ChevronRight, ShieldAlert, User } from 'lucide-react';
+import { ExecutionReconciliationCard } from '@/components/ExecutionReconciliationCard';
+import { PlanningOutcomeBanner } from '@/components/PlanningOutcomeBanner';
 import { AnalystResponseCard } from '@/components/AnalystResponseCard';
 import { AnalystSummaryCard } from '@/components/AnalystSummaryCard';
 import { AnswerFeedbackControls } from '@/components/AnswerFeedbackControls';
@@ -106,15 +108,31 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
             onRetryFinalSynthesis={onRetryFinalSynthesis}
           />
         ) : null}
+        {showSummaryOnly && message.trace?.planning_outcome ? (
+          <PlanningOutcomeBanner outcome={message.trace.planning_outcome} />
+        ) : null}
         {showSummaryOnly ? <AnalystSummaryCard trace={message.trace!} /> : null}
+        {showFullAnswer && message.trace?.planning_outcome ? (
+          <PlanningOutcomeBanner outcome={message.trace.planning_outcome} />
+        ) : null}
+        {showFullAnswer && message.trace?.execution ? (
+          <ExecutionReconciliationCard execution={message.trace.execution} />
+        ) : null}
         {showFullAnswer && message.trace?.ec_visual_lanes ? (
           <EcVisualLanesPanel lanes={message.trace.ec_visual_lanes} />
         ) : null}
         {showFullAnswer && message.trace?.analyst_response ? (
-          <AnalystResponseCard
-            response={message.trace.analyst_response}
-            foundationSecGovernance={message.trace.foundation_sec_governance}
-          />
+          <>
+            {message.trace.human_review?.sop_reference ? (
+              <div className="max-w-[68ch] rounded-lg border border-cyan-500/25 bg-cyan-500/[0.06] px-3 py-2 text-xs text-cyan-100">
+                Governed citation: <span className="font-mono">{message.trace.human_review.sop_reference}</span>
+              </div>
+            ) : null}
+            <AnalystResponseCard
+              response={message.trace.analyst_response}
+              foundationSecGovernance={message.trace.foundation_sec_governance}
+            />
+          </>
         ) : null}
         {showFullAnswer && blockedActionState ? (
           <div className="max-w-[68ch] rounded-xl border border-amber-400/40 bg-amber-500/[0.10] px-4 py-3 text-sm text-amber-50 shadow-sm">
@@ -141,6 +159,8 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
             review={message.trace.human_review}
             busy={investigationBusy}
             onExecutionReview={onExecutionReview}
+            execution={message.trace.execution}
+            runContract={message.trace.run_contract}
           />
         ) : null}
         {showFullAnswer && message.trace ? (

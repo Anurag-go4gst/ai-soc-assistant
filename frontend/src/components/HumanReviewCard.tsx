@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { HelpCircle, ShieldAlert, UserCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import type { ChatExecutionReviewOptions, ExecutionReviewAction, HumanReviewEnvelope } from '@/types/api';
+import type { ChatExecutionReviewOptions, ExecutionEnvelope, ExecutionReviewAction, HumanReviewEnvelope } from '@/types/api';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,10 +23,14 @@ export function HumanReviewCard({
   review,
   onExecutionReview,
   busy = false,
+  execution,
+  runContract,
 }: {
   review: HumanReviewEnvelope;
   onExecutionReview?: (payload: ChatExecutionReviewOptions, label: string) => void;
   busy?: boolean;
+  execution?: ExecutionEnvelope | null;
+  runContract?: Record<string, unknown> | null;
 }) {
   const meta = REVIEW_META[review.review_type] ?? { title: 'Review required', icon: ShieldAlert, tone: 'amber' as const };
   const Icon = meta.icon;
@@ -74,6 +78,20 @@ export function HumanReviewCard({
         </span>
       </div>
       <p className="mt-2 text-sm leading-6 text-slate-100">{review.safe_message_for_user}</p>
+      {showExecutionControls ? (
+        <div className="mt-3 rounded-md border border-slate-700/80 bg-slate-950/50 p-3 text-xs text-slate-400">
+          <p className="font-semibold text-slate-200">Execution posture (this response)</p>
+          <ul className="mt-1 space-y-0.5">
+            <li>Status: {execution?.status ?? 'not evaluated'}</li>
+            <li>MCP allowed: {runContract?.mcp_allowed === true ? 'yes' : 'no'}</li>
+            <li>Execution authorized: {runContract?.execution_authorized === true ? 'yes' : 'no'}</li>
+            {execution?.block_reason ? <li>Block: {execution.block_reason}</li> : null}
+          </ul>
+          <p className="mt-2 text-[0.65rem] text-slate-500">
+            Confirm runs policy checks; execution may still remain disabled by governance.
+          </p>
+        </div>
+      ) : null}
       {showExecutionControls ? (
         <div className="mt-3 space-y-3 rounded-md border border-slate-700/80 bg-slate-950/50 p-3">
           <div className="space-y-1.5">

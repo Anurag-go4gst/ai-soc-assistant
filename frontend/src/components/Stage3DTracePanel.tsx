@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { ExperienceCenterGovernancePanels } from '@/components/ExperienceCenterGovernancePanels';
 import { TraceAuthorityPanel } from '@/components/TraceAuthorityPanel';
 import { resolveGovernanceTrace } from '@/lib/governanceTrace';
-import { hasTraceAuthorityData } from '@/lib/traceAuthority';
+import { buildSafeControlPlaneSummary } from '@/lib/safeTraceSummary';
 import type { ExecutionEnvelope, HumanReviewEnvelope, PlaceholderResponse, SourceEvidenceEnvelope, SplValidationEnvelope, StructuredContextPackage, WorkflowPlan } from '@/types/api';
 
 interface Stage3DTracePanelProps {
@@ -256,10 +256,42 @@ function RoutePlanShadowDemoCallout({ trace }: Stage3DTracePanelProps) {
   );
 }
 
+function SafeControlPlaneSection({ summary }: { summary: ReturnType<typeof buildSafeControlPlaneSummary> }) {
+  if (
+    !summary.canonicalStatus &&
+    !summary.dispatchSource &&
+    !summary.blockedAction &&
+    summary.llmCalls.length === 0 &&
+    !summary.composerSkipReason &&
+    !summary.composerFallbackReason
+  ) {
+    return null;
+  }
+  return (
+    <TraceSection icon={<Shield className="h-3.5 w-3.5 text-cyan-300" />} title="Planning & governance summary">
+      <div className="grid gap-2 sm:grid-cols-2">
+        {summary.canonicalStatus ? <KeyValue label="canonical status" value={summary.canonicalStatus} /> : null}
+        {summary.dispatchSource ? <KeyValue label="dispatch source" value={summary.dispatchSource} /> : null}
+      </div>
+      {summary.blockedAction ? (
+        <div className="mt-2 rounded border border-amber-500/30 bg-amber-950/20 p-2">
+          <KeyValue label="blocked action" value={summary.blockedAction.status} badgeVariant="warning" />
+          {summary.blockedAction.safeMessage ? <p className="mt-1 text-slate-300">{summary.blockedAction.safeMessage}</p> : null}
+        </div>
+      ) : null}
+      {summary.llmCalls.length ? <ChipLine label="LLM calls" values={summary.llmCalls} variant="outline" /> : null}
+      {summary.composerSkipReason ? <KeyValue label="composer skip" value={summary.composerSkipReason} /> : null}
+      {summary.composerFallbackReason ? <KeyValue label="composer fallback" value={summary.composerFallbackReason} /> : null}
+    </TraceSection>
+  );
+}
+
 function RawDeveloperTracePanel({ trace }: Stage3DTracePanelProps) {
+  const safeSummary = buildSafeControlPlaneSummary(trace);
   return (
     <div className="rounded-md border border-slate-800 bg-slate-950/70 p-3 text-xs text-slate-300">
       <RoutePlanShadowDemoCallout trace={trace} />
+      <SafeControlPlaneSection summary={safeSummary} />
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="secondary">Technical evidence path</Badge>
         <Badge>{trace.trace_id.slice(0, 8)}</Badge>
@@ -271,12 +303,6 @@ function RawDeveloperTracePanel({ trace }: Stage3DTracePanelProps) {
         </Badge>
       </div>
       {trace.trace_explanation?.length ? <ChipLine label="demo trace" values={trace.trace_explanation} variant="outline" /> : null}
-
-      {trace.control_plane_trace && hasTraceAuthorityData(trace.control_plane_trace) ? (
-        <TraceSection icon={<Shield className="h-3.5 w-3.5 text-cyan-300" />} title="Trace Authority Tier (Diagnostic)">
-          <TraceAuthorityPanel controlPlaneTrace={trace.control_plane_trace} />
-        </TraceSection>
-      ) : null}
 
       <TraceSection icon={<SearchCode className="h-3.5 w-3.5 text-cyan-300" />} title="Query Received">
         <p className="break-words text-slate-100">{safeText(trace.user_query ?? '') || 'No query text returned.'}</p>
