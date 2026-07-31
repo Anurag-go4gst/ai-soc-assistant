@@ -529,7 +529,20 @@ def build_rp_degraded_placeholder_response(
         from app.chat.control_plane_trace import patch_control_plane_trace_decision_log
 
         response = patch_control_plane_trace_decision_log(response, state)
-    return response
+    from app.chat.response_contract_bridge import enrich_placeholder_response
+
+    bridge_state: dict[str, Any] = dict(state or {})
+    bridge_state.setdefault(
+        "canonical_planning_failure",
+        {
+            "outcome": "planning_failed",
+            "reason": reason,
+            "category": "planner",
+            "detail": reason,
+        },
+    )
+    bridge_state.setdefault("plan_dispatch_trace", {"canonical_status": "planning_failed"})
+    return enrich_placeholder_response(response, bridge_state)
 
 
 def _benchmark_run_kind_override() -> RunKind | None:
@@ -5471,6 +5484,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     except Exception:
         # Scorecard is reporting only; it must never break an answer.
         pass
+    from app.chat.response_contract_bridge import enrich_placeholder_response
+
+    response = enrich_placeholder_response(response, state)
     assembly_outcome, assembly_reasons = validate_assembled_response(
         state,
         analyst_response=analyst_response,
