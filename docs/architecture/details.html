@@ -2836,8 +2836,12 @@ Turn 2   session context finds the pin → handoff_resume
         </table>
         </div>
 
+        <div class="note success-note" style="margin-top:18px;">
+          <strong>Cutover follow-ups closed (2026-07-28):</strong> P0 side-effecting MCP connector dispatch and guided safe-catalog <strong>execute</strong> callbacks are wrapped with hook-level idempotency and typed replay envelopes (PR #115). <code>test_dual_runtime_behavioural_parity.py</code> is shipped (PR #112, 9 scenarios). Production DB migrations <code>0001</code>–<code>0006</code> are applied and operator-attested. Authoritative matrix: <code>docs/evals/canonical_cutover_gap_reconciliation.md</code>.
+        </div>
+
         <div class="note warn-note" style="margin-top:18px;">
-          <strong>Known remaining gaps, recorded rather than buried:</strong> per-step SPL and MCP hooks are not individually wrapped for idempotency; one behavioural-parity filename referenced by a plan gate does not exist and is covered instead by the lane-parity and projection suites; optional live Splunk MCP schema sign-off is still operator-driven when credentials are added; and live-synthesis probes measured 90–240 seconds per turn on this hardware, which is a latency characteristic rather than a correctness defect.
+          <strong>Still open (non-blocking):</strong> live-synthesis cold/warm baseline and SLO targets are deferred — Phase 1 turn-timing instrumentation is deployed; probes on this VPS measured 90–240 seconds per turn when live narration is enabled (latency, not correctness). Optional live Splunk MCP wire-schema sign-off remains operator-driven when credentials are added. Read-only/advisory hooks (workflow SPL, RAG, discovery, governance nodes) intentionally lack durable per-hook replay; they do not duplicate external MCP search side effects.
         </div>
 
         <div class="note" style="margin-top:18px;">
