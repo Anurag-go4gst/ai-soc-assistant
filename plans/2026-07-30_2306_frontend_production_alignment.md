@@ -87,7 +87,8 @@ Bundle splitting deferred unless trivial and non-blocking.
   - **Verify:** `/tmp/ai-soc-frontend-staging-202607310558` + `/tmp/ai-soc-staging-hashes.txt`
   - **Evidence:** see release report §5
 
-- [ ] **B6** — Draft PR opened (stop before merge)
+- [x] **B6** — Draft PR opened (stop before merge)
+  - **Evidence:** PR B draft opened (see release report)
 
 ## Trace UI allowlist (normal analyst)
 
