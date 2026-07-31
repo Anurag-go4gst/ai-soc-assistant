@@ -1260,6 +1260,7 @@
       <a href="#s12">12 · Rollback path</a>
       <a href="#s14">14 · Route skills</a>
       <a href="#s18">18 · Knowledge</a>
+      <a href="#s19">19 · Response + trace</a>
       <a href="#s21">21 · Examples</a>
       <a href="#s23">23 · Evidence ✦</a>
     </div>
@@ -1273,7 +1274,8 @@
           Implementation-accurate walkthrough of the live <code>/chat</code> pipeline under the <strong>Resource Planner</strong> graph spine:
           query understanding, catalogue tiers and processing lanes, the single <strong>canonical planning seam</strong>,
           guided detail tools, clarification handoffs, parallel specialist fan-out, the governed MCP execution gate,
-          and the analyst answer card. Rebuilt 2026-07-27 after the guided-detail-tools canonical planning cutover.
+          analyst-safe response fields (<code>planning_outcome</code>, execution uncertainty), and the analyst answer card.
+          Last verified against <code>master@65eacfc</code> (2026-07-31): canonical planning cutover plus frontend production alignment (PR #123 / #124).
         </p>
       </div>
       <div class="hero-card">
@@ -2404,7 +2406,7 @@ Turn 2   session context finds the pin → handoff_resume
           <div class="lane-card">
             <span class="ln">02 · BUDGET</span>
             <h4>Per-turn ceiling</h4>
-            <p>A turn-level deadline of 75 seconds by default, 45 for T2, with a per-call timeout of 30 seconds and an advisory reserve. The budget is opened at routing and every call is recorded against it.</p>
+            <p>Per-turn ceiling from <code>AI_SOC_LLM_TURN_DEADLINE_SECONDS</code> (code default 75s, COE/VPS profile 210s) with a tighter T2 clamp when configured. Per-hop timeout and intent-advisor reserve are separate knobs. The budget opens at routing; every call is recorded against it, including turn-timing attribution segments (workstream E).</p>
           </div>
           <div class="lane-card">
             <span class="ln">03 · GROUND</span>
@@ -2436,18 +2438,19 @@ Turn 2   session context finds the pin → handoff_resume
         <div class="tablewrap">
         <table>
           <thead>
-            <tr><th>Setting</th><th>Default</th><th>Purpose</th></tr>
+            <tr><th>Setting</th><th>Code default</th><th>COE / VPS profile</th><th>Purpose</th></tr>
           </thead>
           <tbody>
-            <tr><td>Active model</td><td><code>foundation-sec-1.1-8b-instruct-q8_0</code></td><td>On-prem security model, served locally</td></tr>
-            <tr><td>Per-call timeout</td><td>30s</td><td>Hard ceiling on a single hop</td></tr>
-            <tr><td>Turn deadline</td><td>75.0s</td><td>Budget for all hops in one turn</td></tr>
-            <tr><td>T2 turn deadline</td><td>45.0s</td><td>Tighter budget on the out-of-catalogue path</td></tr>
-            <tr><td>T2 advisor bound</td><td>25.0s</td><td>Cap on the advisory hop specifically</td></tr>
-            <tr><td>Advisor reserve</td><td>12.0s</td><td>Reserved headroom so an advisor cannot consume the whole turn</td></tr>
-            <tr><td>Max input / output tokens</td><td>8000 / 1024</td><td>Prompt and completion bounds</td></tr>
-            <tr><td>Temperature</td><td>0.2</td><td>Low variance for reproducible behaviour</td></tr>
-            <tr><td>Secret redaction</td><td>on</td><td>Status and trace output carry booleans, never credentials</td></tr>
+            <tr><td>Active model</td><td><code>foundation-sec-1.1-8b-instruct-q8_0</code></td><td>same</td><td>On-prem security model label (llama-server unit pins the real weights)</td></tr>
+            <tr><td>Final / live synthesis</td><td>off</td><td><strong>on</strong></td><td><code>AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED</code> + <code>AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED</code> — narration with deterministic fallback on failure</td></tr>
+            <tr><td>Per-call timeout</td><td>30s</td><td>90s</td><td>Hard ceiling on a single hop</td></tr>
+            <tr><td>Turn deadline</td><td>75.0s</td><td>210.0s</td><td>Budget for all hops in one turn</td></tr>
+            <tr><td>T2 turn deadline</td><td>45.0s</td><td>210.0s</td><td>Tighter budget on out-of-catalogue paths when not aligned to the main turn deadline</td></tr>
+            <tr><td>T2 advisor bound</td><td>25.0s</td><td>25.0s</td><td>Cap on the advisory hop specifically</td></tr>
+            <tr><td>Advisor reserve</td><td>12.0s</td><td>25.0s</td><td>Reserved headroom so an advisor cannot consume the whole turn</td></tr>
+            <tr><td>Max input / output tokens</td><td>8000 / 1024</td><td>6500 / 512</td><td>Prompt and completion bounds</td></tr>
+            <tr><td>Temperature</td><td>0.2</td><td>0.1</td><td>Low variance for reproducible behaviour</td></tr>
+            <tr><td>Secret redaction</td><td>on</td><td>on</td><td>Status and trace output carry booleans, never credentials</td></tr>
           </tbody>
         </table>
         </div>
@@ -2494,11 +2497,43 @@ Turn 2   session context finds the pin → handoff_resume
     <section>
       <div class="section-title">
         <div>
-          <h2 id="s19">19. What the trace records</h2>
-          <p>Every live turn emits a control-plane trace alongside the answer, so the reasoning path can be audited without re-running the turn.</p>
+          <h2 id="s19">19. Trace, response envelope, and what the UI reads</h2>
+          <p>Every live turn emits a control-plane trace for audit, plus a bounded <code>PlaceholderResponse</code> wire contract for the analyst UI. The UI consumes authoritative response fields — it does not infer planning outcomes from <code>evidence_plan</code> shape.</p>
         </div>
       </div>
       <div class="card">
+        <h3 style="margin-top:0;">Analyst-facing response fields (G1 / G2)</h3>
+        <p>After governance assembly, <code>enrich_placeholder_response()</code> in <code>response_contract_bridge.py</code> attaches additive fields without changing routing, planning, or execution behaviour:</p>
+        <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>When present</th><th>What crosses the wire</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>planning_outcome</code></td>
+              <td>Every serialized turn with a canonical planning status</td>
+              <td><code>status</code> (bounded enum), <code>user_message</code>, <code>recovery_hint</code>, optional <code>category</code>. Successful plans use <code>status=&quot;planned&quot;</code>. Never includes <code>evidence_plan</code>, <code>resource_plan</code>, prompts, endpoints, or internal exception text.</td>
+            </tr>
+            <tr>
+              <td><code>execution.outcome_uncertain</code></td>
+              <td>When the executor reports uncertain reconciliation</td>
+              <td>Boolean; default <code>false</code> for backward compatibility.</td>
+            </tr>
+            <tr>
+              <td><code>execution.reconciliation_reason</code></td>
+              <td>Only when <code>outcome_uncertain=true</code></td>
+              <td>Allowlisted codes only: <code>execution_outcome_uncertain</code>, <code>execution_step_in_progress</code>. Arbitrary backend text is sanitized to the safe default.</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="note success-note" style="margin-top:18px;">
+          <strong>Terminal planning statuses on the wire:</strong> <code>planned</code>, <code>clarification_required</code>, <code>policy_blocked</code>, <code>planning_failed</code>, <code>persistence_failed</code>, <code>resolution_failed</code>, <code>unsupported</code>, <code>execution_failed</code>. The chat UI shows a banner only for non-<code>planned</code> outcomes, sourced exclusively from <code>planning_outcome</code>.
+        </div>
+
+        <h3 style="margin-top:26px;">Control-plane trace (diagnostic)</h3>
         <div class="grid-3">
           <div class="mini-card blue">
             <h3>Decision surfaces</h3>
@@ -2514,7 +2549,10 @@ Turn 2   session context finds the pin → handoff_resume
           </div>
         </div>
 
-        <p style="margin-top:18px;">Alongside it, the node trace reports per-node status for the turn, and the durable telemetry spine records the run, its LLM calls, and the final output shape. Secrets are scrubbed on the way out.</p>
+        <h3 style="margin-top:26px;">Collapsed trace in the chat UI</h3>
+        <p>The default analyst trace panel is built from an <strong>allowlist</strong> — canonical status, dispatch source, blocked-action summary, LLM role/outcome counts, and safe fallback/skip reason codes. It does <strong>not</strong> render raw prompts, tokens, endpoint URLs, runtime context blobs, or arbitrary trace JSON. A separate debug-gated expander may show fuller trace authority tiers for users with <code>debug_access</code>.</p>
+
+        <p style="margin-top:18px;">Alongside the envelope, the node trace reports per-node status for the turn, and the durable telemetry spine records the run, its LLM calls (with timing attribution segments), and the final output shape. Secrets are scrubbed on the way out.</p>
       </div>
     </section>
 
@@ -2538,7 +2576,7 @@ Turn 2   session context finds the pin → handoff_resume
             <tr><td>Planning events</td><td><strong>Zero</strong></td><td>Up to 28 catalogued events</td></tr>
             <tr><td>Handoff rows</td><td><strong>Zero</strong></td><td>Persisted per turn</td></tr>
             <tr><td>Plan commits</td><td><strong>Zero</strong></td><td>One committed plan per planned turn</td></tr>
-            <tr><td>Shared</td><td colspan="2">The response wire contract and the frontend rendering path — no planning or governance code in common</td></tr>
+            <tr><td>Shared</td><td colspan="2"><code>PlaceholderResponse</code> wire types and some React presentation components (e.g. chat bubble, summary card). <strong>Not</strong> shared: backend planning, handoffs, governance execution, or live model calls.</td></tr>
           </tbody>
         </table>
         </div>
@@ -2693,7 +2731,7 @@ Turn 2   session context finds the pin → handoff_resume
       <div class="section-title">
         <div>
           <h2 id="s22">22. How the final answer should look</h2>
-          <p>The output is an analyst response card, not raw LLM prose.</p>
+          <p>The output is an analyst response card in the SOC cockpit, not raw LLM prose. Production UI at <code>master@65eacfc</code> adds contract-driven banners and labels on top of the card body.</p>
         </div>
       </div>
 
@@ -2703,6 +2741,18 @@ Turn 2   session context finds the pin → handoff_resume
           <p>Example shape for a guided investigation answer.</p>
         </div>
         <div class="answer-body">
+          <div class="answer-row">
+            <div class="answer-label">Planning outcome</div>
+            <div class="answer-content">When <code>planning_outcome.status</code> is not <code>planned</code>, a top banner shows the safe <code>user_message</code> and <code>recovery_hint</code> from the response only (clarification, policy block, planning failure, persistence failure). No heuristic fallback from trace shape.</div>
+          </div>
+          <div class="answer-row">
+            <div class="answer-label">Execution posture</div>
+            <div class="answer-content">Labels reflect <code>execution.evidence_source</code> and <code>execution_status_label</code> — e.g. blocked pending review, executed with mock vs live provenance, or outcome uncertain when <code>outcome_uncertain=true</code> (reconciliation card with allowlisted reason).</div>
+          </div>
+          <div class="answer-row">
+            <div class="answer-label">Human review</div>
+            <div class="answer-content">HIL card shows execution posture from the response <code>run_contract</code>, not a separate stale settings poll. Cockpit approval panel is read-only state — not a fake execute CTA.</div>
+          </div>
           <div class="answer-row">
             <div class="answer-label">Understanding</div>
             <div class="answer-content">This looks like an OT-to-external communication hunt.</div>
@@ -2725,7 +2775,15 @@ Turn 2   session context finds the pin → handoff_resume
           </div>
           <div class="answer-row">
             <div class="answer-label">SPL</div>
-            <div class="answer-content">Review-only SPL when a governed family matches. Candidate SPL is never executable; execution requires an approved <code>normalized_spl</code> through the gate.</div>
+            <div class="answer-content">Candidate, normalized, and executed SPL are labeled separately when present. Review-only SPL when only a candidate exists; execution requires approved <code>normalized_spl</code> through the gate.</div>
+          </div>
+          <div class="answer-row">
+            <div class="answer-label">Top bar</div>
+            <div class="answer-content">API reachability (<code>/health</code>) is separate from database migration readiness (<code>readiness.database_migrations</code>). Settings-degraded or mock-fallback posture surfaces a warning when the status API reports it.</div>
+          </div>
+          <div class="answer-row">
+            <div class="answer-label">Technical trace</div>
+            <div class="answer-content">Collapsed by default; primary panel uses the safe-field allowlist (see <a href="#s19">section&nbsp;19</a>). Full developer trace remains behind an explicit expander.</div>
           </div>
           <div class="answer-row">
             <div class="answer-label">MITRE</div>
@@ -2761,7 +2819,9 @@ Turn 2   session context finds the pin → handoff_resume
             <tr><th>Gate</th><th>Result</th></tr>
           </thead>
           <tbody>
-            <tr><td>Full backend test suite</td><td><strong>4508 passed</strong>, 2 skipped, 6 xfailed, 0 failed</td></tr>
+            <tr><td>Full backend test suite</td><td><strong>4648 passed</strong>, 39 skipped, 6 xfailed (2026-07-31 on <code>65eacfc</code>)</td></tr>
+            <tr><td>Response contract bridge tests</td><td><strong>14 passed</strong> — planning_outcome + execution uncertainty serialization</td></tr>
+            <tr><td>Frontend journey contract tests</td><td><strong>11 passed</strong> — banners, HIL posture, execution labels, migration indicator</td></tr>
             <tr><td>Dual-runtime parity</td><td><strong>120 exact / 0 approved / 0 critical</strong> — approved-difference registry empty</td></tr>
             <tr><td>Parity before the shared seam</td><td>113 exact / 7 critical</td></tr>
             <tr><td>Parity projection suite</td><td>40 passed</td></tr>
@@ -2769,13 +2829,15 @@ Turn 2   session context finds the pin → handoff_resume
             <tr><td>Canonical path smoke through Nginx</td><td><strong>6/6</strong></td></tr>
             <tr><td>Canonical, authority, and lane parity gate</td><td>68 passed</td></tr>
             <tr><td>Clarification persistence</td><td>6 passed; live smoke resume recorded 20 events and handoff v2 <code>plan_committed</code></td></tr>
-            <tr><td>Plan checklist</td><td>41 / 41</td></tr>
+            <tr><td>Plan checklist (canonical cutover)</td><td>41 / 41</td></tr>
+            <tr><td>Frontend alignment release</td><td><code>65eacfc</code> — PR #123 response bridge + PR #124 UI consumers merged 2026-07-31</td></tr>
+            <tr><td>Production DB migrations</td><td><code>/health</code> reports <code>ready=true</code>, versions <code>0001</code>–<code>0006</code> applied (operator contract sign-off for optional live connectors remains separate)</td></tr>
           </tbody>
         </table>
         </div>
 
         <div class="note warn-note" style="margin-top:18px;">
-          <strong>Known remaining gaps, recorded rather than buried:</strong> per-step SPL and MCP hooks are not individually wrapped for idempotency; one behavioural-parity filename referenced by a plan gate does not exist and is covered instead by the lane-parity and projection suites; production migration operator sign-off is outstanding; and live-synthesis probes measured 90–240 seconds per turn, which is a latency characteristic rather than a correctness defect.
+          <strong>Known remaining gaps, recorded rather than buried:</strong> per-step SPL and MCP hooks are not individually wrapped for idempotency; one behavioural-parity filename referenced by a plan gate does not exist and is covered instead by the lane-parity and projection suites; optional live Splunk MCP schema sign-off is still operator-driven when credentials are added; and live-synthesis probes measured 90–240 seconds per turn on this hardware, which is a latency characteristic rather than a correctness defect.
         </div>
 
         <div class="note" style="margin-top:18px;">
@@ -2785,7 +2847,7 @@ Turn 2   session context finds the pin → handoff_resume
     </section>
 
     <div class="footer">
-      AI SOC Assistant — Query Flow Explainer · Self-contained HTML · Rebuilt 2026-07-27 against the canonical planning cutover
+      AI SOC Assistant — Query Flow Explainer · Self-contained HTML · Verified 2026-07-31 against <code>master@65eacfc</code>
     </div>
   </main>
 
