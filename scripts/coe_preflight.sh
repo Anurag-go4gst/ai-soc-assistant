@@ -6,24 +6,36 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+AUTO_PORT=false
+if [[ "${1:-}" == "--auto-port" ]]; then
+  AUTO_PORT=true
+fi
+
+if [[ "${AUTO_PORT}" == true ]]; then
+  # Resolves host-port conflicts and the derived API/CORS keys before we validate them.
+  ./scripts/coe_port_autoselect.sh
+  echo ""
+fi
+
 if [[ ! -f .env ]]; then
   echo "ERROR: repo-root .env is missing. Copy env/profiles/<profile>.env.example to .env and add operator secrets." >&2
+  echo "HINT: ./scripts/coe_preflight.sh --auto-port seeds .env and picks free host ports automatically." >&2
   exit 1
 fi
 
-set -a
-# shellcheck disable=SC1091
-source .env
-set +a
+# Read .env literally — it may hold unquoted JSON values that bash cannot source.
+# shellcheck source=lib/dotenv.sh
+source "${REPO_ROOT}/scripts/lib/dotenv.sh"
+ENV_FILE="${REPO_ROOT}/.env"
 
-PROFILE="${AI_SOC_ENV_PROFILE:-coe}"
-HOST_BIND="${AI_SOC_HOST_BIND:-127.0.0.1}"
-BACKEND_PORT="${AI_SOC_BACKEND_HOST_PORT:-8010}"
-FRONTEND_PORT="${AI_SOC_FRONTEND_HOST_PORT:-3010}"
-POSTGRES_PORT="${AI_SOC_POSTGRES_HOST_PORT:-5434}"
-PUBLIC_API="${AI_SOC_PUBLIC_API_BASE_URL:-http://127.0.0.1:8010/api}"
-CORS_ORIGINS="${AI_SOC_CORS_ALLOWED_ORIGINS:-http://localhost:3010,http://127.0.0.1:3010}"
-VLLM_BASE="${AI_SOC_LLM_LOCAL_BASE_URL:-}"
+PROFILE="$(dotenv_get "${ENV_FILE}" AI_SOC_ENV_PROFILE coe)"
+HOST_BIND="$(dotenv_get "${ENV_FILE}" AI_SOC_HOST_BIND 127.0.0.1)"
+BACKEND_PORT="$(dotenv_get "${ENV_FILE}" AI_SOC_BACKEND_HOST_PORT 8010)"
+FRONTEND_PORT="$(dotenv_get "${ENV_FILE}" AI_SOC_FRONTEND_HOST_PORT 3010)"
+POSTGRES_PORT="$(dotenv_get "${ENV_FILE}" AI_SOC_POSTGRES_HOST_PORT 5434)"
+PUBLIC_API="$(dotenv_get "${ENV_FILE}" AI_SOC_PUBLIC_API_BASE_URL "http://127.0.0.1:8010/api")"
+CORS_ORIGINS="$(dotenv_get "${ENV_FILE}" AI_SOC_CORS_ALLOWED_ORIGINS "http://localhost:3010,http://127.0.0.1:3010")"
+VLLM_BASE="$(dotenv_get "${ENV_FILE}" AI_SOC_LLM_LOCAL_BASE_URL)"
 
 echo "== AI-SOC deployment preflight =="
 echo "profile:              ${PROFILE}"
@@ -48,11 +60,29 @@ port_in_use() {
   return 1
 }
 
+# Ports our own compose project already publishes are not conflicts — otherwise a
+# preflight run against a live stack always reports WARN.
+own_published_port() {
+  local mapped
+  mapped="$(docker compose port "$1" "$2" 2>/dev/null || true)"
+  # Must return 0 even when the service is down: a non-zero return here would abort
+  # the enclosing command substitution under `set -e` and truncate OWN_PORTS.
+  [[ -n "${mapped}" ]] && printf '%s\n' "${mapped##*:}"
+  return 0
+}
+OWN_PORTS="$(
+  own_published_port backend 8010
+  own_published_port frontend 3010
+  own_published_port postgres 5432
+)"
+
 PORTS_OK=true
 for label_port in "backend:${BACKEND_PORT}" "frontend:${FRONTEND_PORT}" "postgres:${POSTGRES_PORT}"; do
   label="${label_port%%:*}"
   port="${label_port##*:}"
-  if port_in_use "${port}"; then
+  if [[ -n "${OWN_PORTS}" ]] && grep -qx "${port}" <<<"${OWN_PORTS}"; then
+    echo "port held by this stack: ${label} ${port}"
+  elif port_in_use "${port}"; then
     echo "WARN: ${label} host port ${port} appears to be in use" >&2
     PORTS_OK=false
   else

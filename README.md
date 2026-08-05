@@ -13,9 +13,13 @@ This project is intended to become a production-convertible assistant using Fast
 
 ## Start
 
+Deploying onto a fresh host from Git? Follow [`docs/coe/COE_GIT_DEPLOY_RUNBOOK.md`](docs/coe/COE_GIT_DEPLOY_RUNBOOK.md) instead — it covers repo access, port conflicts, secrets, verification, and updates.
+
+For an existing checkout:
+
 ```bash
 cd /var/www/ai-soc-assistant
-cp .env.example .env
+./scripts/coe_preflight.sh --auto-port   # seeds .env, picks free host ports, validates
 docker compose build
 docker compose up -d
 ```

@@ -74,11 +74,16 @@ AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC
 Primary path is Docker Compose, not bare uvicorn/npm:
 
 ```bash
+./scripts/coe_preflight.sh --auto-port   # seed .env, pick free host ports, validate
 docker compose build
 docker compose up -d
 ```
 
-Ports (all bound to 127.0.0.1):
+Fresh-host deploy from Git (clone → configure → run → update → troubleshoot): [`docs/coe/COE_GIT_DEPLOY_RUNBOOK.md`](docs/coe/COE_GIT_DEPLOY_RUNBOOK.md).
+
+`--auto-port` exists because a fresh COE host usually has 8010/3010/5434 taken. It walks up to the next free port and rewrites the derived keys (`AI_SOC_PUBLIC_API_BASE_URL`, `AI_SOC_CORS_ALLOWED_ORIGINS`) in the same pass — editing a port key alone gives a stack that starts but whose UI cannot reach the API. Ports this compose project already publishes are kept, so re-running is a no-op. Omit `--auto-port` for a read-only check (exit 2 = conflict). `./scripts/coe_deploy_verify.sh` does build + up + health smoke.
+
+Ports (all bound to 127.0.0.1; defaults, overridable via `AI_SOC_*_HOST_PORT`):
 - Backend: `http://127.0.0.1:8010` (uvicorn `--reload`, entry `app.main:app`)
 - Frontend dev: `http://127.0.0.1:3010` (Vite)
 - Postgres: `127.0.0.1:5434`
@@ -177,8 +182,9 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 
 ## Gotchas
 
+- `.env` contains unquoted JSON (`AI_SOC_SOURCE_PROFILE_MAP`). Docker's `env_file` parser accepts it; `source .env` in bash does not — it aborts with `command not found`. Helper scripts must read `.env` through `scripts/lib/dotenv.sh` (`dotenv_get`), never `set -a; source .env`.
 - Auth migration is recent: app-level FastAPI session login replaces the old Nginx basic auth. Don't reintroduce basic-auth assumptions.
-- CORS origin is hardcoded to `http://127.0.0.1:3010` in the FastAPI middleware — update when deploying or changing dev ports.
+- CORS origins come from `AI_SOC_CORS_ALLOWED_ORIGINS` (`main.py:187`, validated in `config.py` — empty or wildcard is rejected). Must track `AI_SOC_FRONTEND_HOST_PORT`; `scripts/coe_port_autoselect.sh` keeps them in sync.
 - `MCP_MODE=mock` must keep mock behavior. It may execute bounded deterministic mock rows only when both execution flags are explicitly enabled.
 - `MCP_MODE=registry` with `SPLUNK_MCP_BASE_URL` + `SPLUNK_MCP_TOKEN` routes to the live Splunk connector when execution flags are on. Without credentials it fails closed (`splunk_mcp_not_configured`). Mock mode unchanged.
 - All MCP and LLM settings/status output must redact secrets. Expose only booleans such as `url_configured`, `auth_configured`, `api_key_configured`.
