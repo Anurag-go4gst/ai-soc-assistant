@@ -2,6 +2,8 @@
 
 Docker Compose is the default local and runtime setup for this scaffold. Use `docker compose`, the Compose v2 Docker CLI plugin command.
 
+> **Deploying to a new host from Git?** Use [`coe/COE_GIT_DEPLOY_RUNBOOK.md`](coe/COE_GIT_DEPLOY_RUNBOOK.md) — step-by-step clone → configure → run → update, including port-conflict handling. This document describes the existing VPS production layout.
+
 ## Current Production-Style Layout
 
 - Public URL: `https://cisco-vai.vnudge.com`.

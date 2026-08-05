@@ -10,16 +10,16 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-set -a
-# shellcheck disable=SC1091
-source .env
-set +a
+# Read .env literally — it may hold unquoted JSON values that bash cannot source.
+# shellcheck source=lib/dotenv.sh
+source "${REPO_ROOT}/scripts/lib/dotenv.sh"
+ENV_FILE="${REPO_ROOT}/.env"
 
-HOST_BIND="${AI_SOC_HOST_BIND:-127.0.0.1}"
-BACKEND_PORT="${AI_SOC_BACKEND_HOST_PORT:-8010}"
-FRONTEND_PORT="${AI_SOC_FRONTEND_HOST_PORT:-3010}"
-PUBLIC_API="${AI_SOC_PUBLIC_API_BASE_URL:-http://127.0.0.1:8010/api}"
-VLLM_BASE="${AI_SOC_LLM_LOCAL_BASE_URL:-}"
+HOST_BIND="$(dotenv_get "${ENV_FILE}" AI_SOC_HOST_BIND 127.0.0.1)"
+BACKEND_PORT="$(dotenv_get "${ENV_FILE}" AI_SOC_BACKEND_HOST_PORT 8010)"
+FRONTEND_PORT="$(dotenv_get "${ENV_FILE}" AI_SOC_FRONTEND_HOST_PORT 3010)"
+PUBLIC_API="$(dotenv_get "${ENV_FILE}" AI_SOC_PUBLIC_API_BASE_URL "http://127.0.0.1:8010/api")"
+VLLM_BASE="$(dotenv_get "${ENV_FILE}" AI_SOC_LLM_LOCAL_BASE_URL)"
 BACKEND_HEALTH="http://${HOST_BIND}:${BACKEND_PORT}/health"
 FRONTEND_URL="http://${HOST_BIND}:${FRONTEND_PORT}/"
 
