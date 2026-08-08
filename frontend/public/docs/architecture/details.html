@@ -1693,10 +1693,10 @@
 
               <rect class="arch-node gated" x="585" y="1180" width="250" height="70" rx="5"/>
               <text class="arch-title" x="710" y="1208">SPL build → validate</text>
-              <text class="arch-sub" x="710" y="1229">Bind the approved data source</text>
+              <text class="arch-sub" x="710" y="1229">Candidate search, never executable</text>
               <path class="arch-edge gated" d="M710 1250 L710 1265"/>
               <rect class="arch-node gated" x="585" y="1265" width="250" height="65" rx="5"/>
-              <text class="arch-title" x="710" y="1292">MCP execution gate</text>
+              <text class="arch-title" x="710" y="1292">Bind the data source</text>
               <text class="arch-code" x="710" y="1314">spl_source_resolve</text>
 
               <rect class="arch-node stopped" x="860" y="1180" width="250" height="75" rx="5"/>
@@ -1804,7 +1804,7 @@
               <text class="arch-label" x="180" y="1548">Stage 7 · authorized workers only</text>
               <rect class="arch-node reference" x="25" y="1560" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1584">D1 · Knowledge Retrieval Worker</text><text class="arch-code" x="180" y="1605">rag_early</text>
               <rect class="arch-node live" x="25" y="1624" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1648">D2 · Approved step workers</text><text class="arch-code" x="180" y="1669">composed_dispatch</text>
-              <rect class="arch-node gated" x="25" y="1688" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1712">D3 · SPL → bind → MCP gate</text><text class="arch-code" x="180" y="1733">spl_source_resolve</text>
+              <rect class="arch-node gated" x="25" y="1688" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1712">D3 · SPL build → bind source</text><text class="arch-code" x="180" y="1733">spl_source_resolve</text>
               <rect class="arch-node stopped" x="25" y="1752" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1776">D4 · No evidence worker</text><text class="arch-code" x="180" y="1797">non_planned_finalize</text>
 
               <path class="arch-edge" d="M180 1820 L180 1850"/>

@@ -102,12 +102,20 @@ def test_architecture_map_carries_the_flow_through_workers_governance_and_releas
         # Stage 7: the workers each dispatch path is allowed to run.
         assert "Knowledge Retrieval Worker" in svg, variant
         assert "Approved step workers" in svg, variant
-        assert "MCP execution gate" in svg or "MCP gate" in svg, variant
+        assert "spl_source_resolve" in svg, variant
         assert "No evidence worker" in svg, variant
 
-        # Stage 8: all nine checks, in the order _add_governance_chain wires them.
-        found = [node for node in governance_nodes if node in svg]
-        assert found == list(governance_nodes), (variant, found)
+        # Stage 8: all nine checks, laid out in the order _add_governance_chain
+        # wires them, so positions must increase monotonically through the SVG.
+        # Anchored so stage 7's non_planned_finalize label cannot be mistaken
+        # for governance check 8 (finalize).
+        matches = [re.search(rf"[>·] ?{node}<", svg) for node in governance_nodes]
+        assert all(match is not None for match in matches), (
+            variant,
+            [node for node, match in zip(governance_nodes, matches) if match is None],
+        )
+        positions = [match.start() for match in matches if match is not None]
+        assert positions == sorted(positions), (variant, positions)
 
         # Stage 9: the turn actually ends somewhere.
         assert "Analyst card + durable trace" in svg, variant
