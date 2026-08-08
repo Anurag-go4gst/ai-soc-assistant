@@ -76,6 +76,54 @@ def test_both_active_journeys_include_fan_out_merge_and_distinct_dispatch() -> N
     assert "T4 → T0" in reference and "D1" in reference
 
 
+def _architecture_svg(variant: str) -> str:
+    page = _page()
+    start = page.index(f'<svg class="arch-svg {variant}"')
+    return page[start : page.index("</svg>", start) + len("</svg>")]
+
+
+def test_architecture_map_carries_the_flow_through_workers_governance_and_release() -> None:
+    """The map must not stop at dispatch — it has to reach the analyst card."""
+    governance_nodes = (
+        "spl_validate",
+        "mcp_execution_gate",
+        "context_sufficiency",
+        "decide_facts",
+        "answer_guard",
+        "human_review",
+        "policy_veto",
+        "finalize",
+        "validate_final_answer",
+    )
+
+    for variant in ("desktop", "mobile"):
+        svg = _architecture_svg(variant)
+
+        # Stage 7: the workers each dispatch path is allowed to run.
+        assert "Knowledge Retrieval Worker" in svg, variant
+        assert "Approved step workers" in svg, variant
+        assert "MCP execution gate" in svg or "MCP gate" in svg, variant
+        assert "No evidence worker" in svg, variant
+
+        # Stage 8: all nine checks, in the order _add_governance_chain wires them.
+        found = [node for node in governance_nodes if node in svg]
+        assert found == list(governance_nodes), (variant, found)
+
+        # Stage 9: the turn actually ends somewhere.
+        assert "Analyst card + durable trace" in svg, variant
+
+
+def test_architecture_map_states_where_each_dispatch_path_enters_governance() -> None:
+    """D4 reaches finalize directly, so it must not be drawn entering at check 1."""
+    desktop = _architecture_svg("desktop")
+    assert desktop.count("enters at check 1") == 2
+    assert "enters at check 2" in desktop
+    assert "enters at check 8" in desktop
+
+    mobile = _architecture_svg("mobile")
+    assert "D1 and D2 enter at 1 · D3 at 2 · D4 at 8" in mobile
+
+
 def test_page_states_current_specialist_limits_and_mobile_layout_contract() -> None:
     page = _page()
 

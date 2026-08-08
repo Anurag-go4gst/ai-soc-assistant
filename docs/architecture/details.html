@@ -932,6 +932,7 @@
     .arch-svg.mobile .arch-edge { marker-end: url(#arch-arrow-mobile); }
     .arch-svg .arch-edge.reference { stroke: var(--cyan); }
     .arch-svg .arch-edge.gated { stroke: var(--amber); }
+    .arch-svg .arch-edge.stopped { stroke: var(--rose); }
     .arch-svg .arch-title {
       fill: #fff;
       font-family: var(--display);
@@ -1572,12 +1573,12 @@
         </div>
 
         <figure class="architecture-visual" aria-labelledby="architecture-map-heading">
-          <h4 id="architecture-map-heading">Architecture map — one planner, two recognition paths, four permanent specialists</h4>
-          <p>Follow the arrows. Both the recognized path and the T4→T0 reference path must enter the same four-specialist fan-out and validated merge before one D1–D4 work path is chosen.</p>
+          <h4 id="architecture-map-heading">Architecture map — question to analyst card, end to end</h4>
+          <p>Follow the arrows. Both the recognized T1–T3 path and the T4→T0 reference path enter the same four-specialist fan-out and validated merge, choose one D1–D4 work path, run only the workers that path authorizes, then join the nine governance checks — each path entering at its own check — before the analyst card and durable trace are released.</p>
           <div class="architecture-svg-shell">
-            <svg class="arch-svg desktop" viewBox="0 0 1180 1260" role="img" aria-labelledby="arch-desktop-title arch-desktop-desc" xmlns="http://www.w3.org/2000/svg">
-              <title id="arch-desktop-title">AI SOC Assistant canonical architecture flow</title>
-              <desc id="arch-desktop-desc">A question is recognized as T1 through T3 or initially T4. A T4 reference question may resolve to T0. Every planned path then runs the Routing Contract, Knowledge Coverage, MCP Readiness, and SPL Readiness auditors, merges their reports, chooses exactly one D1 through D4 path, and passes governance before an analyst card is released.</desc>
+            <svg class="arch-svg desktop" viewBox="0 0 1180 1830" role="img" aria-labelledby="arch-desktop-title arch-desktop-desc" xmlns="http://www.w3.org/2000/svg">
+              <title id="arch-desktop-title">AI SOC Assistant canonical architecture flow, end to end</title>
+              <desc id="arch-desktop-desc">A question is recognized as T1 through T3 or initially T4. A T4 reference question may resolve to T0. Every planned path then runs the Routing Contract, Knowledge Coverage, MCP Readiness, and SPL Readiness auditors, merges their reports, and chooses exactly one D1 through D4 path. Stage 7 runs only the workers that path authorizes: D1 the knowledge retrieval worker, D2 the approved plan steps, D3 the SPL build, source bind, and MCP execution gate, and D4 no evidence worker at all. Stage 8 runs the nine governance checks in fixed order, each path entering at its own check — D1 and D2 at check 1, D3 at check 2, D4 at check 8 — and the turn ends with an analyst card and durable trace, with no success recorded if final validation fails.</desc>
               <defs><marker id="arch-arrow-desktop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="context-stroke"/></marker></defs>
 
               <rect class="arch-node live" x="420" y="20" width="340" height="60" rx="6"/>
@@ -1672,18 +1673,91 @@
               <text class="arch-title" x="985" y="1069">D4 · Stop or ask</text>
               <text class="arch-sub" x="985" y="1092">No execution route</text>
 
-              <path class="arch-edge" d="M160 1110 L160 1135 L590 1135 L590 1160"/>
-              <path class="arch-edge" d="M435 1110 L435 1135 L590 1135 L590 1160"/>
-              <path class="arch-edge gated" d="M710 1110 L710 1135 L590 1135 L590 1160"/>
-              <path class="arch-edge gated" d="M985 1110 L985 1135 L590 1135 L590 1160"/>
-              <rect class="arch-node live" x="350" y="1160" width="480" height="75" rx="6"/>
-              <text class="arch-title" x="590" y="1190">7–8 · Authorized workers → nine governance checks</text>
-              <text class="arch-sub" x="590" y="1213">Constrain claims, require review, build and validate the analyst card</text>
+              <path class="arch-edge reference" d="M160 1110 L160 1140"/>
+              <path class="arch-edge" d="M435 1110 L435 1140"/>
+              <path class="arch-edge gated" d="M710 1110 L710 1140"/>
+              <path class="arch-edge stopped" d="M985 1110 L985 1140"/>
+
+              <rect class="arch-group" x="35" y="1140" width="1110" height="200" rx="8"/>
+              <text class="arch-label" x="590" y="1168">Stage 7 · only the workers the chosen path authorizes</text>
+
+              <rect class="arch-node reference" x="35" y="1180" width="250" height="75" rx="5"/>
+              <text class="arch-title" x="160" y="1208">Knowledge Retrieval Worker</text>
+              <text class="arch-sub" x="160" y="1229">Governed SOC-KB with citations</text>
+              <text class="arch-code" x="160" y="1247">rag_early</text>
+
+              <rect class="arch-node live" x="310" y="1180" width="250" height="75" rx="5"/>
+              <text class="arch-title" x="435" y="1208">Approved step workers</text>
+              <text class="arch-sub" x="435" y="1229">Run plan steps in order</text>
+              <text class="arch-code" x="435" y="1247">composed_dispatch</text>
+
+              <rect class="arch-node gated" x="585" y="1180" width="250" height="70" rx="5"/>
+              <text class="arch-title" x="710" y="1208">SPL build → validate</text>
+              <text class="arch-sub" x="710" y="1229">Bind the approved data source</text>
+              <path class="arch-edge gated" d="M710 1250 L710 1265"/>
+              <rect class="arch-node gated" x="585" y="1265" width="250" height="65" rx="5"/>
+              <text class="arch-title" x="710" y="1292">MCP execution gate</text>
+              <text class="arch-code" x="710" y="1314">spl_source_resolve</text>
+
+              <rect class="arch-node stopped" x="860" y="1180" width="250" height="75" rx="5"/>
+              <text class="arch-title" x="985" y="1208">No evidence worker</text>
+              <text class="arch-sub" x="985" y="1229">Clarify, block, or typed failure</text>
+              <text class="arch-code" x="985" y="1247">non_planned_finalize</text>
+
+              <path class="arch-edge reference" d="M160 1340 L160 1400"/>
+              <text class="arch-code" x="238" y="1382">enters at check 1</text>
+              <path class="arch-edge" d="M435 1340 L435 1400"/>
+              <text class="arch-code" x="513" y="1382">enters at check 1</text>
+              <path class="arch-edge gated" d="M710 1340 L710 1400"/>
+              <text class="arch-code" x="788" y="1382">enters at check 2</text>
+              <path class="arch-edge stopped" d="M985 1340 L985 1400"/>
+              <text class="arch-code" x="1063" y="1382">enters at check 8</text>
+
+              <rect class="arch-group" x="35" y="1400" width="1110" height="290" rx="8"/>
+              <text class="arch-label" x="590" y="1428">Stage 8 · nine governance checks in fixed order</text>
+
+              <rect class="arch-node gated" x="65" y="1442" width="340" height="62" rx="5"/>
+              <text class="arch-title" x="235" y="1468">1 · Search safety</text>
+              <text class="arch-code" x="235" y="1490">spl_validate</text>
+              <rect class="arch-node gated" x="415" y="1442" width="340" height="62" rx="5"/>
+              <text class="arch-title" x="585" y="1468">2 · Execution permission</text>
+              <text class="arch-code" x="585" y="1490">mcp_execution_gate</text>
+              <rect class="arch-node" x="765" y="1442" width="340" height="62" rx="5"/>
+              <text class="arch-title" x="935" y="1468">3 · Evidence readiness</text>
+              <text class="arch-code" x="935" y="1490">context_sufficiency</text>
+
+              <rect class="arch-node live" x="65" y="1516" width="340" height="62" rx="5"/>
+              <text class="arch-title" x="235" y="1542">4 · Claim authority</text>
+              <text class="arch-code" x="235" y="1564">decide_facts</text>
+              <rect class="arch-node" x="415" y="1516" width="340" height="62" rx="5"/>
+              <text class="arch-title" x="585" y="1542">5 · Answer safety</text>
+              <text class="arch-code" x="585" y="1564">answer_guard</text>
+              <rect class="arch-node gated" x="765" y="1516" width="340" height="62" rx="5"/>
+              <text class="arch-title" x="935" y="1542">6 · Human approval</text>
+              <text class="arch-code" x="935" y="1564">human_review</text>
+
+              <rect class="arch-node stopped" x="65" y="1590" width="340" height="62" rx="5"/>
+              <text class="arch-title" x="235" y="1616">7 · Policy veto</text>
+              <text class="arch-code" x="235" y="1638">policy_veto</text>
+              <rect class="arch-node live" x="415" y="1590" width="340" height="62" rx="5"/>
+              <text class="arch-title" x="585" y="1616">8 · Build analyst card</text>
+              <text class="arch-code" x="585" y="1638">finalize</text>
+              <rect class="arch-node live" x="765" y="1590" width="340" height="62" rx="5"/>
+              <text class="arch-title" x="935" y="1616">9 · Validate final response</text>
+              <text class="arch-code" x="935" y="1638">validate_final_answer</text>
+
+              <text class="arch-sub" x="590" y="1674">Each path enters at its own check and then runs every remaining check in this order.</text>
+
+              <path class="arch-edge" d="M590 1690 L590 1730"/>
+              <rect class="arch-node live" x="340" y="1730" width="500" height="85" rx="6"/>
+              <text class="arch-title" x="590" y="1760">Analyst card + durable trace</text>
+              <text class="arch-sub" x="590" y="1782">Answer, evidence, decisions, limitations, and next steps</text>
+              <text class="arch-sub" x="590" y="1801">If final validation fails, no success event is recorded</text>
             </svg>
 
-            <svg class="arch-svg mobile" viewBox="0 0 360 1630" role="img" aria-labelledby="arch-mobile-title arch-mobile-desc" xmlns="http://www.w3.org/2000/svg">
+            <svg class="arch-svg mobile" viewBox="0 0 360 2410" role="img" aria-labelledby="arch-mobile-title arch-mobile-desc" xmlns="http://www.w3.org/2000/svg">
               <title id="arch-mobile-title">AI SOC Assistant canonical architecture flow, mobile layout</title>
-              <desc id="arch-mobile-desc">A vertical version of the canonical flow. Both T1 through T3 and T4 through T0 planned paths converge on four permanent specialist auditors, merge, choose D1 through D4, and finish through governance.</desc>
+              <desc id="arch-mobile-desc">A vertical version of the canonical flow. Both T1 through T3 and T4 through T0 planned paths converge on four permanent specialist auditors, merge, and choose one of D1 through D4. Stage 7 runs only the workers that path authorizes, stage 8 runs the nine governance checks in fixed order with each path entering at its own check, and the turn ends with an analyst card and durable trace.</desc>
               <defs><marker id="arch-arrow-mobile" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="context-stroke"/></marker></defs>
               <rect class="arch-node live" x="15" y="20" width="330" height="60" rx="6"/>
               <text class="arch-title" x="180" y="47">1 · Receive the SOC question</text><text class="arch-sub" x="180" y="67">Carry forward approved context</text>
@@ -1723,12 +1797,35 @@
               <rect class="arch-node live" x="185" y="1340" width="160" height="65" rx="5"/><text class="arch-title" x="265" y="1368">D2 · Composed</text><text class="arch-sub" x="265" y="1390">Step-walk</text>
               <rect class="arch-node gated" x="15" y="1415" width="160" height="65" rx="5"/><text class="arch-title" x="95" y="1443">D3 · SPL</text><text class="arch-sub" x="95" y="1465">Validate + gate</text>
               <rect class="arch-node stopped" x="185" y="1415" width="160" height="65" rx="5"/><text class="arch-title" x="265" y="1443">D4 · Stop/ask</text><text class="arch-sub" x="265" y="1465">No execution</text>
-              <path class="arch-edge" d="M95 1405 L8 1405 L8 1500 L180 1500 L180 1520"/><path class="arch-edge" d="M265 1405 L352 1405 L352 1500 L180 1500 L180 1520"/>
-              <path class="arch-edge gated" d="M95 1480 L95 1500 L180 1500 L180 1520"/><path class="arch-edge gated" d="M265 1480 L265 1500 L180 1500 L180 1520"/>
-              <rect class="arch-node live" x="15" y="1520" width="330" height="90" rx="6"/><text class="arch-title" x="180" y="1550">7–8 · Workers → governance</text><text class="arch-sub" x="180" y="1574">Nine checks constrain claims, require review,</text><text class="arch-sub" x="180" y="1594">and validate the analyst card</text>
+              <path class="arch-edge reference" d="M95 1405 L8 1405 L8 1500 L180 1500 L180 1520"/><path class="arch-edge" d="M265 1405 L352 1405 L352 1500 L180 1500 L180 1520"/>
+              <path class="arch-edge gated" d="M95 1480 L95 1500 L180 1500 L180 1520"/><path class="arch-edge stopped" d="M265 1480 L265 1500 L180 1500 L180 1520"/>
+
+              <rect class="arch-group" x="10" y="1520" width="340" height="300" rx="8"/>
+              <text class="arch-label" x="180" y="1548">Stage 7 · authorized workers only</text>
+              <rect class="arch-node reference" x="25" y="1560" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1584">D1 · Knowledge Retrieval Worker</text><text class="arch-code" x="180" y="1605">rag_early</text>
+              <rect class="arch-node live" x="25" y="1624" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1648">D2 · Approved step workers</text><text class="arch-code" x="180" y="1669">composed_dispatch</text>
+              <rect class="arch-node gated" x="25" y="1688" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1712">D3 · SPL → bind → MCP gate</text><text class="arch-code" x="180" y="1733">spl_source_resolve</text>
+              <rect class="arch-node stopped" x="25" y="1752" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1776">D4 · No evidence worker</text><text class="arch-code" x="180" y="1797">non_planned_finalize</text>
+
+              <path class="arch-edge" d="M180 1820 L180 1850"/>
+              <rect class="arch-group" x="10" y="1850" width="340" height="430" rx="8"/>
+              <text class="arch-label" x="180" y="1878">Stage 8 · nine checks in fixed order</text>
+              <text class="arch-code" x="180" y="1898">D1 and D2 enter at 1 · D3 at 2 · D4 at 8</text>
+              <rect class="arch-node gated" x="25" y="1912" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="1934">1 · Search safety · spl_validate</text>
+              <rect class="arch-node gated" x="25" y="1952" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="1974">2 · Execution gate · mcp_execution_gate</text>
+              <rect class="arch-node" x="25" y="1992" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2014">3 · Evidence check · context_sufficiency</text>
+              <rect class="arch-node live" x="25" y="2032" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2054">4 · Claim authority · decide_facts</text>
+              <rect class="arch-node" x="25" y="2072" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2094">5 · Answer safety · answer_guard</text>
+              <rect class="arch-node gated" x="25" y="2112" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2134">6 · Human approval · human_review</text>
+              <rect class="arch-node stopped" x="25" y="2152" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2174">7 · Policy veto · policy_veto</text>
+              <rect class="arch-node live" x="25" y="2192" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2214">8 · Build analyst card · finalize</text>
+              <rect class="arch-node live" x="25" y="2232" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2254">9 · Final check · validate_final_answer</text>
+
+              <path class="arch-edge" d="M180 2280 L180 2310"/>
+              <rect class="arch-node live" x="15" y="2310" width="330" height="85" rx="6"/><text class="arch-title" x="180" y="2340">Analyst card + durable trace</text><text class="arch-sub" x="180" y="2362">Answer, evidence, decisions, limitations</text><text class="arch-sub" x="180" y="2381">No success recorded if validation fails</text>
             </svg>
           </div>
-          <figcaption>Solid paths are deterministic. Amber paths are gates. Cyan marks the deterministic reference path—not an LLM decision.</figcaption>
+          <figcaption>Solid paths are deterministic. Amber paths are gates. Red paths carry no evidence or execution work. Cyan marks the deterministic reference path—not an LLM decision.</figcaption>
         </figure>
 
         <div class="flow-map" role="group" aria-labelledby="plain-flow-title" aria-describedby="plain-flow-summary">
