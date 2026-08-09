@@ -1033,6 +1033,91 @@
       stroke: var(--ink-sunk);
       stroke-width: 1.5;
     }
+
+    /* ---------- stage-by-stage walk ---------- */
+    .arch-walk {
+      margin: 0 0 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      background: var(--ink-sunk);
+    }
+    .arch-walk__ask {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .arch-walk__prompt { font-size: 14px; color: var(--txt-dim); }
+    .arch-walk__paths { display: flex; gap: 8px; flex-wrap: wrap; }
+    .arch-walk__pick,
+    .arch-walk__btn {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--txt-dim);
+      background: var(--ink-plate);
+      border: 1px solid var(--rule);
+      border-radius: 3px;
+      padding: 7px 12px;
+      cursor: pointer;
+    }
+    .arch-walk__pick.t-gate:hover, .arch-walk__pick.t-gate[aria-pressed="true"] { color: var(--amber); border-color: var(--amber); }
+    .arch-walk__pick.t-ref:hover,  .arch-walk__pick.t-ref[aria-pressed="true"]  { color: var(--cyan);  border-color: var(--cyan); }
+    .arch-walk__pick.t-stop:hover, .arch-walk__pick.t-stop[aria-pressed="true"] { color: var(--rose);  border-color: var(--rose); }
+    .arch-walk__run {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--rule-soft);
+    }
+    .arch-walk__nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .arch-walk__btn.primary { color: #fff; border-color: var(--mint); }
+    .arch-walk__btn.ghost { margin-left: auto; }
+    .arch-walk__btn:hover:not(:disabled) { color: #fff; border-color: var(--mint); }
+    .arch-walk__btn:disabled { opacity: .38; cursor: default; }
+    .arch-walk__count {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .06em;
+      color: var(--txt-faint);
+    }
+    .arch-walk__caption {
+      margin: 10px 0 0;
+      font-size: 15px;
+      max-width: 88ch;
+      min-height: 3.2em;
+    }
+    .arch-walk__caption .stage-name {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--txt-faint);
+      display: block;
+      margin-bottom: 3px;
+    }
+    .arch-walk__caption .llm-here { color: var(--iris); font-weight: 700; }
+
+    /* While walking, the looping auto-trace stands down so only the chosen path shows. */
+    .arch-svg.walking .arch-flow-layer { display: none; }
+    .arch-svg .arch-walk-shade { fill: var(--ink-sunk); opacity: .8; }
+    .arch-svg .arch-walk-seg {
+      fill: none;
+      stroke-width: 7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-opacity: .34;
+    }
+    .arch-svg .arch-walk-focus {
+      fill: none;
+      stroke-width: 2.5;
+      rx: 6;
+    }
+    .arch-walk-layer.tone-gate .arch-walk-seg, .arch-walk-layer.tone-gate .arch-walk-focus { stroke: var(--amber); }
+    .arch-walk-layer.tone-ref  .arch-walk-seg, .arch-walk-layer.tone-ref  .arch-walk-focus { stroke: var(--cyan); }
+    .arch-walk-layer.tone-stop .arch-walk-seg, .arch-walk-layer.tone-stop .arch-walk-focus { stroke: var(--rose); }
+    .arch-svg .arch-walk-focus { stroke-opacity: .95; }
     .arch-svg .arch-llm-ring {
       fill: none;
       stroke: var(--iris);
@@ -1646,10 +1731,30 @@
         <figure class="architecture-visual" aria-labelledby="architecture-map-heading">
           <h4 id="architecture-map-heading">Architecture map — question to analyst card, end to end</h4>
           <p>Follow the arrows. Both the recognized T1–T3 path and the T4→T0 reference path enter the same four-specialist fan-out and validated merge, choose one D1–D4 work path, run only the workers that path authorizes, then join the nine governance checks — each path entering at its own check — before the analyst card and durable trace are released.</p>
-          <p>The map traces one query at a time. Each of the four work paths is drawn in turn — they are alternatives, never concurrent — and the caption in the top-left names the path currently in flight. Iris dots mark the three stages where the LLM may run.</p>
+          <p>The map traces one query at a time. Each of the four work paths is drawn in turn — they are alternatives, never concurrent — and the caption in the top-left names the path currently in flight. Iris dots mark the three stages where the LLM may run. To go slower, pick a recognition path below and step through it: the map dims everything that path never touches, and each click moves the query one stage and explains what just happened.</p>
           <div class="arch-anim-bar">
             <button type="button" class="arch-anim-toggle" id="arch-anim-toggle" aria-pressed="false">Pause animation</button>
             <span class="arch-anim-note">One full cycle traces all four work paths, D2 → D3 → D1 → D4.</span>
+          </div>
+
+          <div class="arch-walk" id="arch-walk">
+            <div class="arch-walk__ask">
+              <span class="arch-walk__prompt">Or walk one query through, stage by stage. Which recognition path?</span>
+              <div class="arch-walk__paths">
+                <button type="button" class="arch-walk__pick t-gate" data-walk-path="t13">T1–T3 · known request</button>
+                <button type="button" class="arch-walk__pick t-ref" data-walk-path="t0">T4 → T0 · reference</button>
+                <button type="button" class="arch-walk__pick t-stop" data-walk-path="t4">T4 · guided</button>
+              </div>
+            </div>
+            <div class="arch-walk__run" id="arch-walk-run" hidden>
+              <div class="arch-walk__nav">
+                <button type="button" class="arch-walk__btn" id="arch-walk-back">← Back</button>
+                <button type="button" class="arch-walk__btn primary" id="arch-walk-next">Next stage →</button>
+                <span class="arch-walk__count" id="arch-walk-count"></span>
+                <button type="button" class="arch-walk__btn ghost" id="arch-walk-exit">Exit walk</button>
+              </div>
+              <p class="arch-walk__caption" id="arch-walk-caption" role="status" aria-live="polite"></p>
+            </div>
           </div>
           <div class="architecture-svg-shell">
             <svg class="arch-svg desktop" viewBox="0 0 1180 1830" role="img" aria-labelledby="arch-desktop-title arch-desktop-desc" xmlns="http://www.w3.org/2000/svg">
@@ -1657,12 +1762,12 @@
               <desc id="arch-desktop-desc">A question is recognized as T1 through T3 or initially T4. A T4 reference question may resolve to T0. Every planned path then runs the Routing Contract, Knowledge Coverage, MCP Readiness, and SPL Readiness auditors, merges their reports, and chooses exactly one D1 through D4 path. Stage 7 runs only the workers that path authorizes: D1 the knowledge retrieval worker, D2 the approved plan steps, D3 the SPL build, source bind, and MCP execution gate, and D4 no evidence worker at all. Stage 8 runs the nine governance checks in fixed order, each path entering at its own check — D1 and D2 at check 1, D3 at check 2, D4 at check 8 — and the turn ends with an analyst card and durable trace, with no success recorded if final validation fails. An animation traces one query at a time along each of the four work paths in turn, and iris dots mark the three stages where the LLM may optionally assist: stage 2 as an advisory route suggestion, the stage 7 D3 SPL build as a detection-plan proposer, and stage 8 check 8 as a narrator of prose. All three are optional and none of them holds authority.</desc>
               <defs><marker id="arch-arrow-desktop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="context-stroke"/></marker></defs>
 
-              <rect class="arch-node live" x="420" y="20" width="340" height="60" rx="6"/>
+              <rect class="arch-node live" data-node="q-receive" x="420" y="20" width="340" height="60" rx="6"/>
               <text class="arch-title" x="590" y="47">1 · Receive the SOC question</text>
               <text class="arch-sub" x="590" y="67">Carry forward approved conversation context</text>
               <path class="arch-edge" d="M590 80 L590 110"/>
 
-              <rect class="arch-node live" x="420" y="110" width="340" height="70" rx="6"/>
+              <rect class="arch-node live" data-node="q-recognize" x="420" y="110" width="340" height="70" rx="6"/>
               <text class="arch-title" x="590" y="139">2 · Recognize the request</text>
               <text class="arch-sub" x="590" y="160">Assign an initial T0–T4 recognition tier</text>
               <g class="arch-llm-marker"><title>LLM may assist here — advisory route suggestion. Optional; the deterministic registry must validate the suggestion before it can win.</title>
@@ -1672,35 +1777,35 @@
               <path class="arch-edge" d="M590 180 L590 200 L310 200 L310 225"/>
               <path class="arch-edge gated" d="M590 180 L590 200 L870 200 L870 225"/>
 
-              <rect class="arch-node live" x="120" y="225" width="380" height="80" rx="6"/>
+              <rect class="arch-node live" data-node="known-path" x="120" y="225" width="380" height="80" rx="6"/>
               <text class="arch-label" x="310" y="250">T1–T3 · recognized</text>
               <text class="arch-title" x="310" y="275">Known request path</text>
               <text class="arch-sub" x="310" y="294">Exact, use-case, or close governed match</text>
               <path class="arch-edge" d="M310 305 L310 340"/>
 
-              <rect class="arch-node gated" x="680" y="225" width="380" height="80" rx="6"/>
+              <rect class="arch-node gated" data-node="t4-entry" x="680" y="225" width="380" height="80" rx="6"/>
               <text class="arch-label" x="870" y="250">Initial T4 · not recognized</text>
               <text class="arch-title" x="870" y="275">Guided entry path</text>
               <text class="arch-sub" x="870" y="294">Qualify the request before choosing work</text>
               <path class="arch-edge gated" d="M870 305 L870 340"/>
 
-              <rect class="arch-node live" x="120" y="340" width="380" height="90" rx="6"/>
+              <rect class="arch-node live" data-node="commit-plan" x="120" y="340" width="380" height="90" rx="6"/>
               <text class="arch-title" x="310" y="371">3 · Commit the Resource Plan</text>
               <text class="arch-sub" x="310" y="394">Confirm intent, required details, and policy</text>
               <text class="arch-code" x="310" y="415">planned → continue · ask/stop → D4</text>
 
-              <rect class="arch-node gated" x="680" y="340" width="380" height="90" rx="6"/>
+              <rect class="arch-node gated" data-node="ref-qualify" x="680" y="340" width="380" height="90" rx="6"/>
               <text class="arch-title" x="870" y="371">3 · Reference qualification</text>
               <text class="arch-sub" x="870" y="394">Can trusted knowledge answer without live data?</text>
               <text class="arch-code" x="870" y="415">deterministic decision</text>
               <path class="arch-edge reference" d="M870 430 L870 450 L725 450 L725 475"/>
               <path class="arch-edge gated" d="M870 430 L870 475 L975 475"/>
 
-              <rect class="arch-node reference" x="620" y="475" width="210" height="75" rx="6"/>
+              <rect class="arch-node reference" data-node="ref-plan" x="620" y="475" width="210" height="75" rx="6"/>
               <text class="arch-label" x="725" y="500">Yes · T4 → T0</text>
               <text class="arch-title" x="725" y="525">Reference plan</text>
               <text class="arch-sub" x="725" y="543">Knowledge-only evidence</text>
-              <rect class="arch-node gated" x="870" y="475" width="210" height="75" rx="6"/>
+              <rect class="arch-node gated" data-node="guided-plan" x="870" y="475" width="210" height="75" rx="6"/>
               <text class="arch-label" x="975" y="500">No · remain T4</text>
               <text class="arch-title" x="975" y="525">Guided plan</text>
               <text class="arch-sub" x="975" y="543">Safe gaps and limits</text>
@@ -1709,7 +1814,7 @@
               <path class="arch-edge reference" d="M725 550 L725 565 L590 565 L590 590"/>
               <path class="arch-edge gated" d="M975 550 L975 565 L590 565 L590 590"/>
 
-              <rect class="arch-group" x="35" y="590" width="1110" height="190" rx="8"/>
+              <rect class="arch-group" data-node="stage4" x="35" y="590" width="1110" height="190" rx="8"/>
               <text class="arch-label" x="590" y="620">Stage 4 · every planned path</text>
               <text class="arch-title" x="590" y="646">Four independent planning auditors run in parallel</text>
 
@@ -1727,12 +1832,12 @@
               <text class="arch-code" x="995" y="738">specialist_spl</text>
 
               <path class="arch-edge" d="M590 780 L590 820"/>
-              <rect class="arch-node live" x="420" y="820" width="340" height="75" rx="6"/>
+              <rect class="arch-node live" data-node="merge" x="420" y="820" width="340" height="75" rx="6"/>
               <text class="arch-title" x="590" y="850">5 · Merge and validate reports</text>
               <text class="arch-sub" x="590" y="873">Fill blanks only; never rewrite the approved plan</text>
               <path class="arch-edge" d="M590 895 L590 930"/>
 
-              <rect class="arch-node gated" x="420" y="930" width="340" height="75" rx="6"/>
+              <rect class="arch-node gated" data-node="choose" x="420" y="930" width="340" height="75" rx="6"/>
               <text class="arch-title" x="590" y="960">6 · Choose exactly one work path</text>
               <text class="arch-sub" x="590" y="983">D1–D4 are alternatives, not sequential stages</text>
 
@@ -1740,16 +1845,16 @@
               <path class="arch-edge" d="M590 1005 L590 1025 L435 1025 L435 1040"/>
               <path class="arch-edge gated" d="M590 1005 L590 1025 L710 1025 L710 1040"/>
               <path class="arch-edge gated" d="M590 1005 L590 1025 L985 1025 L985 1040"/>
-              <rect class="arch-node reference" x="35" y="1040" width="250" height="70" rx="5"/>
+              <rect class="arch-node reference" data-node="d1" x="35" y="1040" width="250" height="70" rx="5"/>
               <text class="arch-title" x="160" y="1069">D1 · Knowledge only</text>
               <text class="arch-sub" x="160" y="1092">Governed retrieval worker</text>
-              <rect class="arch-node live" x="310" y="1040" width="250" height="70" rx="5"/>
+              <rect class="arch-node live" data-node="d2" x="310" y="1040" width="250" height="70" rx="5"/>
               <text class="arch-title" x="435" y="1069">D2 · Composed plan</text>
               <text class="arch-sub" x="435" y="1092">Approved step-walk</text>
-              <rect class="arch-node gated" x="585" y="1040" width="250" height="70" rx="5"/>
+              <rect class="arch-node gated" data-node="d3" x="585" y="1040" width="250" height="70" rx="5"/>
               <text class="arch-title" x="710" y="1069">D3 · SPL workflow</text>
               <text class="arch-sub" x="710" y="1092">Validate, bind, execution gate</text>
-              <rect class="arch-node stopped" x="860" y="1040" width="250" height="70" rx="5"/>
+              <rect class="arch-node stopped" data-node="d4" x="860" y="1040" width="250" height="70" rx="5"/>
               <text class="arch-title" x="985" y="1069">D4 · Stop or ask</text>
               <text class="arch-sub" x="985" y="1092">No execution route</text>
 
@@ -1761,17 +1866,17 @@
               <rect class="arch-group" x="35" y="1140" width="1110" height="200" rx="8"/>
               <text class="arch-label" x="590" y="1168">Stage 7 · only the workers the chosen path authorizes</text>
 
-              <rect class="arch-node reference" x="35" y="1180" width="250" height="75" rx="5"/>
+              <rect class="arch-node reference" data-node="w-knowledge" x="35" y="1180" width="250" height="75" rx="5"/>
               <text class="arch-title" x="160" y="1208">Knowledge Retrieval Worker</text>
               <text class="arch-sub" x="160" y="1229">Governed SOC-KB with citations</text>
               <text class="arch-code" x="160" y="1247">rag_early</text>
 
-              <rect class="arch-node live" x="310" y="1180" width="250" height="75" rx="5"/>
+              <rect class="arch-node live" data-node="w-steps" x="310" y="1180" width="250" height="75" rx="5"/>
               <text class="arch-title" x="435" y="1208">Approved step workers</text>
               <text class="arch-sub" x="435" y="1229">Run plan steps in order</text>
               <text class="arch-code" x="435" y="1247">composed_dispatch</text>
 
-              <rect class="arch-node gated" x="585" y="1180" width="250" height="70" rx="5"/>
+              <rect class="arch-node gated" data-node="w-spl" x="585" y="1180" width="250" height="70" rx="5"/>
               <text class="arch-title" x="710" y="1208">SPL build → validate</text>
               <text class="arch-sub" x="710" y="1229">Candidate search, never executable</text>
               <g class="arch-llm-marker"><title>LLM may assist here — detection-plan proposer. The model emits a small JSON plan; deterministic code compiles the SPL. Raw model SPL is never executable.</title>
@@ -1779,11 +1884,11 @@
                 <circle class="arch-llm-dot" cx="818" cy="1193" r="6"/>
               </g>
               <path class="arch-edge gated" d="M710 1250 L710 1265"/>
-              <rect class="arch-node gated" x="585" y="1265" width="250" height="65" rx="5"/>
+              <rect class="arch-node gated" data-node="w-bind" x="585" y="1265" width="250" height="65" rx="5"/>
               <text class="arch-title" x="710" y="1292">Bind the data source</text>
               <text class="arch-code" x="710" y="1314">spl_source_resolve</text>
 
-              <rect class="arch-node stopped" x="860" y="1180" width="250" height="75" rx="5"/>
+              <rect class="arch-node stopped" data-node="w-none" x="860" y="1180" width="250" height="75" rx="5"/>
               <text class="arch-title" x="985" y="1208">No evidence worker</text>
               <text class="arch-sub" x="985" y="1229">Clarify, block, or typed failure</text>
               <text class="arch-code" x="985" y="1247">non_planned_finalize</text>
@@ -1800,44 +1905,44 @@
               <rect class="arch-group" x="35" y="1400" width="1110" height="290" rx="8"/>
               <text class="arch-label" x="590" y="1428">Stage 8 · nine governance checks in fixed order</text>
 
-              <rect class="arch-node gated" x="65" y="1442" width="340" height="62" rx="5"/>
+              <rect class="arch-node gated" data-node="chk1" x="65" y="1442" width="340" height="62" rx="5"/>
               <text class="arch-title" x="235" y="1468">1 · Search safety</text>
               <text class="arch-code" x="235" y="1490">spl_validate</text>
-              <rect class="arch-node gated" x="415" y="1442" width="340" height="62" rx="5"/>
+              <rect class="arch-node gated" data-node="chk2" x="415" y="1442" width="340" height="62" rx="5"/>
               <text class="arch-title" x="585" y="1468">2 · Execution permission</text>
               <text class="arch-code" x="585" y="1490">mcp_execution_gate</text>
-              <rect class="arch-node" x="765" y="1442" width="340" height="62" rx="5"/>
+              <rect class="arch-node" data-node="chk3" x="765" y="1442" width="340" height="62" rx="5"/>
               <text class="arch-title" x="935" y="1468">3 · Evidence readiness</text>
               <text class="arch-code" x="935" y="1490">context_sufficiency</text>
 
-              <rect class="arch-node live" x="65" y="1516" width="340" height="62" rx="5"/>
+              <rect class="arch-node live" data-node="chk4" x="65" y="1516" width="340" height="62" rx="5"/>
               <text class="arch-title" x="235" y="1542">4 · Claim authority</text>
               <text class="arch-code" x="235" y="1564">decide_facts</text>
-              <rect class="arch-node" x="415" y="1516" width="340" height="62" rx="5"/>
+              <rect class="arch-node" data-node="chk5" x="415" y="1516" width="340" height="62" rx="5"/>
               <text class="arch-title" x="585" y="1542">5 · Answer safety</text>
               <text class="arch-code" x="585" y="1564">answer_guard</text>
-              <rect class="arch-node gated" x="765" y="1516" width="340" height="62" rx="5"/>
+              <rect class="arch-node gated" data-node="chk6" x="765" y="1516" width="340" height="62" rx="5"/>
               <text class="arch-title" x="935" y="1542">6 · Human approval</text>
               <text class="arch-code" x="935" y="1564">human_review</text>
 
-              <rect class="arch-node stopped" x="65" y="1590" width="340" height="62" rx="5"/>
+              <rect class="arch-node stopped" data-node="chk7" x="65" y="1590" width="340" height="62" rx="5"/>
               <text class="arch-title" x="235" y="1616">7 · Policy veto</text>
               <text class="arch-code" x="235" y="1638">policy_veto</text>
-              <rect class="arch-node live" x="415" y="1590" width="340" height="62" rx="5"/>
+              <rect class="arch-node live" data-node="chk8" x="415" y="1590" width="340" height="62" rx="5"/>
               <text class="arch-title" x="585" y="1616">8 · Build analyst card</text>
               <text class="arch-code" x="585" y="1638">finalize</text>
               <g class="arch-llm-marker"><title>LLM may assist here — narrator. Rewrites analyst-summary prose only; no fact, severity, MITRE status, or execution decision depends on it.</title>
                 <circle class="arch-llm-ring" cx="738" cy="1603" r="7"><animate attributeName="r" values="7;16;16" keyTimes="0;0.55;1" dur="2.8s" begin="1.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.55;1" dur="2.8s" begin="1.8s" repeatCount="indefinite"/></circle>
                 <circle class="arch-llm-dot" cx="738" cy="1603" r="6"/>
               </g>
-              <rect class="arch-node live" x="765" y="1590" width="340" height="62" rx="5"/>
+              <rect class="arch-node live" data-node="chk9" x="765" y="1590" width="340" height="62" rx="5"/>
               <text class="arch-title" x="935" y="1616">9 · Validate final response</text>
               <text class="arch-code" x="935" y="1638">validate_final_answer</text>
 
               <text class="arch-sub" x="590" y="1674">Each path enters at its own check and then runs every remaining check in this order.</text>
 
               <path class="arch-edge" d="M590 1690 L590 1730"/>
-              <rect class="arch-node live" x="340" y="1730" width="500" height="85" rx="6"/>
+              <rect class="arch-node live" data-node="card" x="340" y="1730" width="500" height="85" rx="6"/>
               <text class="arch-title" x="590" y="1760">Analyst card + durable trace</text>
               <text class="arch-sub" x="590" y="1782">Answer, evidence, decisions, limitations, and next steps</text>
               <text class="arch-sub" x="590" y="1801">If final validation fails, no success event is recorded</text>
@@ -1908,73 +2013,73 @@
               <title id="arch-mobile-title">AI SOC Assistant canonical architecture flow, mobile layout</title>
               <desc id="arch-mobile-desc">A vertical version of the canonical flow. Both T1 through T3 and T4 through T0 planned paths converge on four permanent specialist auditors, merge, and choose one of D1 through D4. Stage 7 runs only the workers that path authorizes, stage 8 runs the nine governance checks in fixed order with each path entering at its own check, and the turn ends with an analyst card and durable trace. An animation traces one example query along the known T1 through T3 path into D2, and iris dots mark the three stages where the LLM may optionally assist: stage 2 route advisory, the D3 SPL build, and building the analyst card at stage 8 check 8.</desc>
               <defs><marker id="arch-arrow-mobile" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="context-stroke"/></marker></defs>
-              <rect class="arch-node live" x="15" y="20" width="330" height="60" rx="6"/>
+              <rect class="arch-node live" data-node="q-receive" x="15" y="20" width="330" height="60" rx="6"/>
               <text class="arch-title" x="180" y="47">1 · Receive the SOC question</text><text class="arch-sub" x="180" y="67">Carry forward approved context</text>
               <path class="arch-edge" d="M180 80 L180 110"/>
-              <rect class="arch-node live" x="15" y="110" width="330" height="70" rx="6"/>
+              <rect class="arch-node live" data-node="q-recognize" x="15" y="110" width="330" height="70" rx="6"/>
               <text class="arch-title" x="180" y="139">2 · Recognize the request</text><text class="arch-sub" x="180" y="160">Assign an initial recognition tier</text>
               <g class="arch-llm-marker"><title>LLM may assist here — advisory route suggestion. Optional; the deterministic registry must validate the suggestion before it can win.</title><circle class="arch-llm-ring" cx="328" cy="126" r="6"><animate attributeName="r" values="6;14;14" keyTimes="0;0.55;1" dur="2.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.55;1" dur="2.8s" repeatCount="indefinite"/></circle><circle class="arch-llm-dot" cx="328" cy="126" r="5.5"/></g>
               <path class="arch-edge" d="M180 180 L180 220"/>
-              <rect class="arch-node live" x="15" y="220" width="330" height="80" rx="6"/>
+              <rect class="arch-node live" data-node="known-path commit-plan" x="15" y="220" width="330" height="80" rx="6"/>
               <text class="arch-label" x="180" y="245">T1–T3 · recognized path</text><text class="arch-title" x="180" y="270">Commit the Resource Plan</text><text class="arch-sub" x="180" y="290">Known intent, evidence, and policy</text>
               <path class="arch-edge gated" d="M180 180 L350 180 L350 315 L180 315 L180 330"/>
-              <rect class="arch-node gated" x="15" y="330" width="330" height="70" rx="6"/>
+              <rect class="arch-node gated" data-node="t4-entry" x="15" y="330" width="330" height="70" rx="6"/>
               <text class="arch-label" x="180" y="355">Initial T4 · guided entry</text><text class="arch-title" x="180" y="382">Qualify the request</text>
               <path class="arch-edge gated" d="M180 400 L180 430"/>
-              <rect class="arch-node gated" x="15" y="430" width="330" height="90" rx="6"/>
+              <rect class="arch-node gated" data-node="ref-qualify" x="15" y="430" width="330" height="90" rx="6"/>
               <text class="arch-title" x="180" y="460">3 · Reference qualification</text><text class="arch-sub" x="180" y="483">Can trusted knowledge answer completely</text><text class="arch-sub" x="180" y="502">without checking the live environment?</text>
               <path class="arch-edge reference" d="M180 520 L180 540 L95 540 L95 560"/>
               <path class="arch-edge gated" d="M180 520 L180 540 L265 540 L265 560"/>
-              <rect class="arch-node reference" x="15" y="560" width="160" height="80" rx="6"/>
+              <rect class="arch-node reference" data-node="ref-plan" x="15" y="560" width="160" height="80" rx="6"/>
               <text class="arch-label" x="95" y="585">Yes · T4 → T0</text><text class="arch-title" x="95" y="612">Reference plan</text><text class="arch-sub" x="95" y="631">Knowledge only</text>
-              <rect class="arch-node gated" x="185" y="560" width="160" height="80" rx="6"/>
+              <rect class="arch-node gated" data-node="guided-plan" x="185" y="560" width="160" height="80" rx="6"/>
               <text class="arch-label" x="265" y="585">No · stay T4</text><text class="arch-title" x="265" y="612">Guided plan</text><text class="arch-sub" x="265" y="631">Safe gaps</text>
               <path class="arch-edge" d="M180 300 L6 300 L6 670 L180 670 L180 690"/>
               <path class="arch-edge reference" d="M95 640 L95 670 L180 670 L180 690"/>
               <path class="arch-edge gated" d="M265 640 L265 670 L180 670 L180 690"/>
-              <rect class="arch-group" x="10" y="690" width="340" height="390" rx="8"/>
+              <rect class="arch-group" data-node="stage4" x="10" y="690" width="340" height="390" rx="8"/>
               <text class="arch-label" x="180" y="720">Stage 4 · every planned path</text><text class="arch-title" x="180" y="746">Four permanent auditors</text>
               <rect class="arch-node live" x="25" y="770" width="310" height="65" rx="5"/><text class="arch-title" x="180" y="797">Routing Contract Auditor</text><text class="arch-code" x="180" y="819">specialist_skill</text>
               <rect class="arch-node live" x="25" y="845" width="310" height="65" rx="5"/><text class="arch-title" x="180" y="872">Knowledge Coverage Auditor</text><text class="arch-code" x="180" y="894">specialist_knowledge</text>
               <rect class="arch-node gated" x="25" y="920" width="310" height="65" rx="5"/><text class="arch-title" x="180" y="947">MCP Readiness Auditor</text><text class="arch-code" x="180" y="969">specialist_mcp</text>
               <rect class="arch-node gated" x="25" y="995" width="310" height="65" rx="5"/><text class="arch-title" x="180" y="1022">SPL Readiness Auditor</text><text class="arch-code" x="180" y="1044">specialist_spl</text>
               <path class="arch-edge" d="M180 1080 L180 1120"/>
-              <rect class="arch-node live" x="15" y="1120" width="330" height="70" rx="6"/><text class="arch-title" x="180" y="1149">5 · Merge and validate</text><text class="arch-sub" x="180" y="1172">Fill blanks; never rewrite the plan</text>
+              <rect class="arch-node live" data-node="merge" x="15" y="1120" width="330" height="70" rx="6"/><text class="arch-title" x="180" y="1149">5 · Merge and validate</text><text class="arch-sub" x="180" y="1172">Fill blanks; never rewrite the plan</text>
               <path class="arch-edge" d="M180 1190 L180 1230"/>
-              <rect class="arch-node gated" x="15" y="1230" width="330" height="70" rx="6"/><text class="arch-title" x="180" y="1259">6 · Choose one work path</text><text class="arch-sub" x="180" y="1282">D1–D4 are alternatives</text>
+              <rect class="arch-node gated" data-node="choose" x="15" y="1230" width="330" height="70" rx="6"/><text class="arch-title" x="180" y="1259">6 · Choose one work path</text><text class="arch-sub" x="180" y="1282">D1–D4 are alternatives</text>
               <path class="arch-edge" d="M180 1300 L180 1320 L95 1320 L95 1340"/><path class="arch-edge" d="M180 1300 L180 1320 L265 1320 L265 1340"/>
-              <rect class="arch-node reference" x="15" y="1340" width="160" height="65" rx="5"/><text class="arch-title" x="95" y="1368">D1 · Knowledge</text><text class="arch-sub" x="95" y="1390">Retrieval</text>
-              <rect class="arch-node live" x="185" y="1340" width="160" height="65" rx="5"/><text class="arch-title" x="265" y="1368">D2 · Composed</text><text class="arch-sub" x="265" y="1390">Step-walk</text>
-              <rect class="arch-node gated" x="15" y="1415" width="160" height="65" rx="5"/><text class="arch-title" x="95" y="1443">D3 · SPL</text><text class="arch-sub" x="95" y="1465">Validate + gate</text>
-              <rect class="arch-node stopped" x="185" y="1415" width="160" height="65" rx="5"/><text class="arch-title" x="265" y="1443">D4 · Stop/ask</text><text class="arch-sub" x="265" y="1465">No execution</text>
+              <rect class="arch-node reference" data-node="d1" x="15" y="1340" width="160" height="65" rx="5"/><text class="arch-title" x="95" y="1368">D1 · Knowledge</text><text class="arch-sub" x="95" y="1390">Retrieval</text>
+              <rect class="arch-node live" data-node="d2" x="185" y="1340" width="160" height="65" rx="5"/><text class="arch-title" x="265" y="1368">D2 · Composed</text><text class="arch-sub" x="265" y="1390">Step-walk</text>
+              <rect class="arch-node gated" data-node="d3" x="15" y="1415" width="160" height="65" rx="5"/><text class="arch-title" x="95" y="1443">D3 · SPL</text><text class="arch-sub" x="95" y="1465">Validate + gate</text>
+              <rect class="arch-node stopped" data-node="d4" x="185" y="1415" width="160" height="65" rx="5"/><text class="arch-title" x="265" y="1443">D4 · Stop/ask</text><text class="arch-sub" x="265" y="1465">No execution</text>
               <path class="arch-edge reference" d="M95 1405 L8 1405 L8 1500 L180 1500 L180 1520"/><path class="arch-edge" d="M265 1405 L352 1405 L352 1500 L180 1500 L180 1520"/>
               <path class="arch-edge gated" d="M95 1480 L95 1500 L180 1500 L180 1520"/><path class="arch-edge stopped" d="M265 1480 L265 1500 L180 1500 L180 1520"/>
 
               <rect class="arch-group" x="10" y="1520" width="340" height="300" rx="8"/>
               <text class="arch-label" x="180" y="1548">Stage 7 · authorized workers only</text>
-              <rect class="arch-node reference" x="25" y="1560" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1584">D1 · Knowledge Retrieval Worker</text><text class="arch-code" x="180" y="1605">rag_early</text>
-              <rect class="arch-node live" x="25" y="1624" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1648">D2 · Approved step workers</text><text class="arch-code" x="180" y="1669">composed_dispatch</text>
-              <rect class="arch-node gated" x="25" y="1688" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1712">D3 · SPL build → bind source</text><text class="arch-code" x="180" y="1733">spl_source_resolve</text>
+              <rect class="arch-node reference" data-node="w-knowledge" x="25" y="1560" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1584">D1 · Knowledge Retrieval Worker</text><text class="arch-code" x="180" y="1605">rag_early</text>
+              <rect class="arch-node live" data-node="w-steps" x="25" y="1624" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1648">D2 · Approved step workers</text><text class="arch-code" x="180" y="1669">composed_dispatch</text>
+              <rect class="arch-node gated" data-node="w-spl w-bind" x="25" y="1688" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1712">D3 · SPL build → bind source</text><text class="arch-code" x="180" y="1733">spl_source_resolve</text>
               <g class="arch-llm-marker"><title>LLM may assist here — detection-plan proposer. The model emits a small JSON plan; deterministic code compiles the SPL. Raw model SPL is never executable.</title><circle class="arch-llm-ring" cx="320" cy="1701" r="6"><animate attributeName="r" values="6;14;14" keyTimes="0;0.55;1" dur="2.8s" begin="0.9s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.55;1" dur="2.8s" begin="0.9s" repeatCount="indefinite"/></circle><circle class="arch-llm-dot" cx="320" cy="1701" r="5.5"/></g>
-              <rect class="arch-node stopped" x="25" y="1752" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1776">D4 · No evidence worker</text><text class="arch-code" x="180" y="1797">non_planned_finalize</text>
+              <rect class="arch-node stopped" data-node="w-none" x="25" y="1752" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1776">D4 · No evidence worker</text><text class="arch-code" x="180" y="1797">non_planned_finalize</text>
 
               <path class="arch-edge" d="M180 1820 L180 1850"/>
               <rect class="arch-group" x="10" y="1850" width="340" height="430" rx="8"/>
               <text class="arch-label" x="180" y="1878">Stage 8 · nine checks in fixed order</text>
               <text class="arch-code" x="180" y="1898">D1 and D2 enter at 1 · D3 at 2 · D4 at 8</text>
-              <rect class="arch-node gated" x="25" y="1912" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="1934">1 · Search safety · spl_validate</text>
-              <rect class="arch-node gated" x="25" y="1952" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="1974">2 · Execution gate · mcp_execution_gate</text>
-              <rect class="arch-node" x="25" y="1992" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2014">3 · Evidence check · context_sufficiency</text>
-              <rect class="arch-node live" x="25" y="2032" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2054">4 · Claim authority · decide_facts</text>
-              <rect class="arch-node" x="25" y="2072" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2094">5 · Answer safety · answer_guard</text>
-              <rect class="arch-node gated" x="25" y="2112" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2134">6 · Human approval · human_review</text>
-              <rect class="arch-node stopped" x="25" y="2152" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2174">7 · Policy veto · policy_veto</text>
-              <rect class="arch-node live" x="25" y="2192" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2214">8 · Build analyst card · finalize</text>
+              <rect class="arch-node gated" data-node="chk1" x="25" y="1912" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="1934">1 · Search safety · spl_validate</text>
+              <rect class="arch-node gated" data-node="chk2" x="25" y="1952" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="1974">2 · Execution gate · mcp_execution_gate</text>
+              <rect class="arch-node" data-node="chk3" x="25" y="1992" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2014">3 · Evidence check · context_sufficiency</text>
+              <rect class="arch-node live" data-node="chk4" x="25" y="2032" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2054">4 · Claim authority · decide_facts</text>
+              <rect class="arch-node" data-node="chk5" x="25" y="2072" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2094">5 · Answer safety · answer_guard</text>
+              <rect class="arch-node gated" data-node="chk6" x="25" y="2112" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2134">6 · Human approval · human_review</text>
+              <rect class="arch-node stopped" data-node="chk7" x="25" y="2152" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2174">7 · Policy veto · policy_veto</text>
+              <rect class="arch-node live" data-node="chk8" x="25" y="2192" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2214">8 · Build analyst card · finalize</text>
               <g class="arch-llm-marker"><title>LLM may assist here — narrator. Rewrites analyst-summary prose only; no fact, severity, MITRE status, or execution decision depends on it.</title><circle class="arch-llm-ring" cx="322" cy="2202" r="6"><animate attributeName="r" values="6;14;14" keyTimes="0;0.55;1" dur="2.8s" begin="1.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.55;1" dur="2.8s" begin="1.8s" repeatCount="indefinite"/></circle><circle class="arch-llm-dot" cx="322" cy="2202" r="5.5"/></g>
-              <rect class="arch-node live" x="25" y="2232" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2254">9 · Final check · validate_final_answer</text>
+              <rect class="arch-node live" data-node="chk9" x="25" y="2232" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2254">9 · Final check · validate_final_answer</text>
 
               <path class="arch-edge" d="M180 2280 L180 2310"/>
-              <rect class="arch-node live" x="15" y="2310" width="330" height="85" rx="6"/><text class="arch-title" x="180" y="2340">Analyst card + durable trace</text><text class="arch-sub" x="180" y="2362">Answer, evidence, decisions, limitations</text><text class="arch-sub" x="180" y="2381">No success recorded if validation fails</text>
+              <rect class="arch-node live" data-node="card" x="15" y="2310" width="330" height="85" rx="6"/><text class="arch-title" x="180" y="2340">Analyst card + durable trace</text><text class="arch-sub" x="180" y="2362">Answer, evidence, decisions, limitations</text><text class="arch-sub" x="180" y="2381">No success recorded if validation fails</text>
 
               <!-- Animated query flow, mobile: one example turn on the known T1–T3 path into D2.
                    The trace steps around the Stage 7 workers D2 does not authorize. -->
@@ -4344,6 +4449,267 @@ Turn 2   session context finds the pin → handoff_resume
       if (archToggle) {
         archToggle.addEventListener("click", function () { setArchAnimation(!archPaused); });
       }
+    }
+
+    // ---- architecture map: stage-by-stage walk ----
+    // One query, one recognition path, one stage per click. Geometry is read from the
+    // `data-node` rects at runtime and the connectors are routed orthogonally, so the
+    // same step list drives both the desktop and the mobile map.
+    var LLM = '<span class="llm-here">LLM may assist here</span>';
+
+    var WALK_COMMON = {
+      receive: { name: "Stage 1 · Receive the SOC question", nodes: ["q-receive"],
+        text: "The analyst's question arrives with approved conversation context carried forward. Nothing is decided yet — no route, no tier, no evidence." },
+      recognize: { name: "Stage 2 · Recognize the request", nodes: ["q-recognize"],
+        text: "The request is matched against the governed catalogue and given an initial T0–T4 recognition tier. " + LLM + " — it can suggest a route, but the suggestion is advisory: the deterministic registry must validate it before it can win, and an unvalidated suggestion is discarded." },
+      stage4: { name: "Stage 4 · Four planning auditors, in parallel", nodes: ["stage4"],
+        text: "Routing contract, knowledge coverage, MCP readiness, and SPL readiness all run — on every planned path, not just this one. They fill only the plan blanks they own. None of them may re-pick the skill, rewrite intent, create a plan, or execute a tool." },
+      merge: { name: "Stage 5 · Merge and validate the reports", nodes: ["merge"],
+        text: "The four reports are merged and validated against the committed plan. Blanks get filled; the approved plan is never rewritten by a specialist." },
+      card: { name: "Turn ends · Analyst card + durable trace", nodes: ["card"],
+        text: "The card is released with answer, evidence, decisions, limitations, and next steps, alongside a durable trace in Postgres. If final validation fails, no success event is recorded." }
+    };
+
+    var WALKS = {
+      t13: {
+        tone: "gate",
+        label: "T1–T3 · known request",
+        steps: [
+          WALK_COMMON.receive,
+          WALK_COMMON.recognize,
+          { name: "Recognized · T1–T3", nodes: ["known-path"],
+            text: "An exact, use-case, or close governed match. This is a known request, so it goes straight to planning — no qualification lane needed." },
+          { name: "Stage 3 · Commit the Resource Plan", nodes: ["commit-plan"],
+            text: "Intent, required details, and policy are confirmed and the plan is committed durably. Missing details a read-only tool can look up are resolved without interrupting the analyst — max 3 calls, 2 iterations, no LLM in that selection loop. Only genuinely human-only details become a clarification." },
+          WALK_COMMON.stage4,
+          WALK_COMMON.merge,
+          { name: "Stage 6 · Choose exactly one work path", nodes: ["choose"],
+            text: "D1–D4 are alternatives, not sequential stages. This walk follows D3, the SPL workflow; a known request that needs no search would take D2 and walk its approved plan steps instead." },
+          { name: "D3 · SPL workflow", nodes: ["d3"],
+            text: "Build a search, bind its data source, then face the execution gate. Only this lane's workers are authorized to run — the other three stay idle." },
+          { name: "Stage 7 · SPL build → validate", nodes: ["w-spl"],
+            text: "A candidate search is produced from the governed template registry and validated deterministically. " + LLM + " — on the LLM rung the model emits a small JSON detection plan and deterministic code compiles the SOC-STD SPL from it. Raw model SPL is never authority and never executable." },
+          { name: "Stage 7 · Bind the data source", nodes: ["w-bind"],
+            text: "Placeholder slots — index, sourcetype, host — are resolved from the source-profile map, governed retrieval, or session pins. Unresolved slots route to human clarification, never to a guess or a lab draft." },
+          { name: "Stage 8 · Nine governance checks, entering at check 2", nodes: ["chk2", "chk3", "chk4", "chk5", "chk6", "chk7", "chk8", "chk9"],
+            text: "D3 enters at check 2, the MCP execution gate, and then runs every remaining check in fixed order. Search safety, execution permission, evidence readiness, claim authority, answer safety, human approval, and policy veto are all deterministic. " + LLM + " at check 8 — narrating prose only, after severity, MITRE status, and execution eligibility are already decided." },
+          WALK_COMMON.card
+        ]
+      },
+      t0: {
+        tone: "ref",
+        label: "T4 → T0 · reference",
+        steps: [
+          WALK_COMMON.receive,
+          WALK_COMMON.recognize,
+          { name: "Not recognized · initial T4", nodes: ["t4-entry"],
+            text: "No governed match. The turn does not guess — it enters the guided lane and qualifies the request before choosing any work." },
+          { name: "Stage 3 · Reference qualification", nodes: ["ref-qualify"],
+            text: "One question, answered by rule: can trusted knowledge answer this completely without checking the live environment? This is a deterministic decision, not an LLM classification." },
+          { name: "Yes · T4 resolves to T0", nodes: ["ref-plan"],
+            text: "The tier resolves T4 → T0 and a knowledge-only Resource Plan is committed. No live data will be touched on this turn." },
+          WALK_COMMON.stage4,
+          WALK_COMMON.merge,
+          { name: "Stage 6 · Choose exactly one work path", nodes: ["choose"],
+            text: "A resolved-T0 reference plan takes D1: knowledge only. No SPL is built and no MCP tool is selected, because none was planned." },
+          { name: "D1 · Stage 7 knowledge retrieval worker", nodes: ["d1", "w-knowledge"],
+            text: "Governed SOC-KB retrieval runs and returns cited evidence. Retrieval flows through SourceEvidence and StructuredContext — there is no direct path from the knowledge base to the model." },
+          { name: "Stage 8 · Nine governance checks, entering at check 1", nodes: ["chk1", "chk2", "chk3", "chk4", "chk5", "chk6", "chk7", "chk8", "chk9"],
+            text: "D1 enters at check 1 and runs all nine in order — a knowledge answer is governed exactly as hard as a search answer. " + LLM + " at check 8, prose only." },
+          WALK_COMMON.card
+        ]
+      },
+      t4: {
+        tone: "stop",
+        label: "T4 · guided",
+        steps: [
+          WALK_COMMON.receive,
+          WALK_COMMON.recognize,
+          { name: "Not recognized · initial T4", nodes: ["t4-entry"],
+            text: "No governed match. The turn enters the guided lane and qualifies the request before choosing any work." },
+          { name: "Stage 3 · Reference qualification", nodes: ["ref-qualify"],
+            text: "Can trusted knowledge answer this completely without live data? Here the deterministic answer is no." },
+          { name: "No · the request stays T4", nodes: ["guided-plan"],
+            text: "A guided plan is committed instead: safe gaps and explicit limits. The turn will say what it cannot establish rather than inventing a route to establish it." },
+          WALK_COMMON.stage4,
+          WALK_COMMON.merge,
+          { name: "Stage 6 · Choose exactly one work path", nodes: ["choose"],
+            text: "When no execution route is safe or available, Stage 6 chooses D4. That is a decision, not a failure to decide." },
+          { name: "D4 · Stage 7 runs no evidence worker", nodes: ["d4", "w-none"],
+            text: "No retrieval, no SPL, no MCP call. The turn clarifies, blocks, or returns a typed failure — and says which." },
+          { name: "Stage 8 · Nine governance checks, entering at check 8", nodes: ["chk8", "chk9"],
+            text: "D4 enters at check 8. It still builds an analyst card and still gets validated — a stopped turn is governed and recorded, never dropped silently." },
+          { name: "Turn ends · Analyst card + durable trace", nodes: ["card"],
+            text: "The analyst gets an honest card: what was asked, what is missing, what is not permitted, and what to do next — plus the durable trace of every decision above." }
+        ]
+      }
+    };
+
+    var walkKey = null;
+    var walkStep = 0;
+    var walkUid = 0;
+    var walkRun = document.getElementById("arch-walk-run");
+    var walkBack = document.getElementById("arch-walk-back");
+    var walkNext = document.getElementById("arch-walk-next");
+    var walkExit = document.getElementById("arch-walk-exit");
+    var walkCount = document.getElementById("arch-walk-count");
+    var walkCaption = document.getElementById("arch-walk-caption");
+    var walkPicks = Array.prototype.slice.call(document.querySelectorAll("[data-walk-path]"));
+
+    function walkNodeBox(svg, id) {
+      var el = svg.querySelector('[data-node~="' + id + '"]');
+      if (!el) return null;
+      return {
+        el: el,
+        x: parseFloat(el.getAttribute("x")),
+        y: parseFloat(el.getAttribute("y")),
+        w: parseFloat(el.getAttribute("width")),
+        h: parseFloat(el.getAttribute("height"))
+      };
+    }
+
+    // Orthogonal connector between two boxes — the map is a grid, so a down/across/down
+    // route lands on the same lines the static arrows already use.
+    function walkRoute(a, b) {
+      var acx = a.x + a.w / 2, bcx = b.x + b.w / 2;
+      var acy = a.y + a.h / 2, bcy = b.y + b.h / 2;
+      var m;
+      if (b.y >= a.y + a.h - 1) {
+        if (Math.abs(acx - bcx) < 1) return "M" + acx + " " + (a.y + a.h) + " L" + bcx + " " + b.y;
+        m = (a.y + a.h + b.y) / 2;
+        return "M" + acx + " " + (a.y + a.h) + " L" + acx + " " + m + " L" + bcx + " " + m + " L" + bcx + " " + b.y;
+      }
+      if (b.y + b.h <= a.y + 1) {
+        if (Math.abs(acx - bcx) < 1) return "M" + acx + " " + a.y + " L" + bcx + " " + (b.y + b.h);
+        m = (a.y + b.y + b.h) / 2;
+        return "M" + acx + " " + a.y + " L" + acx + " " + m + " L" + bcx + " " + m + " L" + bcx + " " + (b.y + b.h);
+      }
+      var right = bcx > acx;
+      var x0 = right ? a.x + a.w : a.x;
+      var x1 = right ? b.x : b.x + b.w;
+      if (Math.abs(acy - bcy) < 1) return "M" + x0 + " " + acy + " L" + x1 + " " + bcy;
+      var mx = (x0 + x1) / 2;
+      return "M" + x0 + " " + acy + " L" + mx + " " + acy + " L" + mx + " " + bcy + " L" + x1 + " " + bcy;
+    }
+
+    function svgEl(name, attrs) {
+      var el = document.createElementNS("http://www.w3.org/2000/svg", name);
+      for (var k in attrs) { if (attrs.hasOwnProperty(k)) el.setAttribute(k, attrs[k]); }
+      return el;
+    }
+
+    function clearWalkLayer(svg) {
+      var old = svg.querySelector(".arch-walk-layer");
+      if (old) old.parentNode.removeChild(old);
+      var defs = svg.querySelector(".arch-walk-defs");
+      if (defs) defs.parentNode.removeChild(defs);
+    }
+
+    function renderWalk(svg) {
+      clearWalkLayer(svg);
+      if (!walkKey) { svg.classList.remove("walking"); return; }
+      svg.classList.add("walking");
+
+      var walk = WALKS[walkKey];
+      var vb = (svg.getAttribute("viewBox") || "0 0 0 0").split(/\s+/);
+      var seen = [];
+      var i, j, box;
+      for (i = 0; i <= walkStep; i++) {
+        for (j = 0; j < walk.steps[i].nodes.length; j++) {
+          box = walkNodeBox(svg, walk.steps[i].nodes[j]);
+          if (box && (!seen.length || seen[seen.length - 1].el !== box.el)) seen.push(box);
+        }
+      }
+      if (!seen.length) return;
+
+      var uid = "arch-walk-mask-" + (++walkUid);
+      var defs = svgEl("defs", { "class": "arch-walk-defs" });
+      var mask = svgEl("mask", { id: uid });
+      mask.appendChild(svgEl("rect", { x: vb[0], y: vb[1], width: vb[2], height: vb[3], fill: "#fff" }));
+      seen.forEach(function (b) {
+        mask.appendChild(svgEl("rect", { x: b.x - 5, y: b.y - 5, width: b.w + 10, height: b.h + 10, rx: 8, fill: "#000" }));
+      });
+      defs.appendChild(mask);
+      svg.appendChild(defs);
+
+      var layer = svgEl("g", { "class": "arch-walk-layer tone-" + walk.tone, "aria-hidden": "true" });
+      layer.appendChild(svgEl("rect", {
+        "class": "arch-walk-shade", x: vb[0], y: vb[1], width: vb[2], height: vb[3], mask: "url(#" + uid + ")"
+      }));
+
+      var last = null;
+      for (i = 1; i < seen.length; i++) {
+        var d = walkRoute(seen[i - 1], seen[i]);
+        if (!d) continue;
+        var seg = svgEl("path", { "class": "arch-walk-seg", d: d, pathLength: "100", "stroke-dasharray": "100" });
+        seg.setAttribute("stroke-dashoffset", "0");
+        layer.appendChild(seg);
+        last = seg;
+      }
+
+      walk.steps[walkStep].nodes.forEach(function (id) {
+        var b = walkNodeBox(svg, id);
+        if (!b) return;
+        layer.appendChild(svgEl("rect", {
+          "class": "arch-walk-focus", x: b.x - 4, y: b.y - 4, width: b.w + 8, height: b.h + 8
+        }));
+      });
+
+      svg.appendChild(layer);
+
+      // Draw the newest connector in, so the eye follows the query into the stage.
+      if (last && !reduce) {
+        last.setAttribute("stroke-dashoffset", "100");
+        last.getBoundingClientRect();
+        last.style.transition = "stroke-dashoffset .6s ease-out";
+        last.setAttribute("stroke-dashoffset", "0");
+      }
+    }
+
+    function renderWalkAll() { archSvgs.forEach(renderWalk); }
+
+    function updateWalkChrome() {
+      if (!walkKey) {
+        walkRun.hidden = true;
+        walkPicks.forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
+        return;
+      }
+      var walk = WALKS[walkKey];
+      var step = walk.steps[walkStep];
+      var atEnd = walkStep === walk.steps.length - 1;
+      walkRun.hidden = false;
+      walkPicks.forEach(function (b) {
+        b.setAttribute("aria-pressed", b.getAttribute("data-walk-path") === walkKey ? "true" : "false");
+      });
+      walkBack.disabled = walkStep === 0;
+      walkNext.disabled = atEnd;
+      walkNext.textContent = atEnd ? "Walk complete" : "Next stage →";
+      walkCount.textContent = "Step " + (walkStep + 1) + " of " + walk.steps.length + " · " + walk.label;
+      walkCaption.innerHTML = '<span class="stage-name">' + step.name + "</span>" + step.text;
+    }
+
+    function setWalk(key, index) {
+      walkKey = key;
+      walkStep = index || 0;
+      updateWalkChrome();
+      renderWalkAll();
+    }
+
+    if (walkRun && archSvgs.length) {
+      walkPicks.forEach(function (btn) {
+        btn.addEventListener("click", function () { setWalk(btn.getAttribute("data-walk-path"), 0); });
+      });
+      walkNext.addEventListener("click", function () {
+        if (walkKey && walkStep < WALKS[walkKey].steps.length - 1) setWalk(walkKey, walkStep + 1);
+      });
+      walkBack.addEventListener("click", function () {
+        if (walkKey && walkStep > 0) setWalk(walkKey, walkStep - 1);
+      });
+      walkExit.addEventListener("click", function () { setWalk(null, 0); });
+      walkRun.addEventListener("keydown", function (ev) {
+        if (ev.key === "ArrowRight") { walkNext.click(); }
+        else if (ev.key === "ArrowLeft") { walkBack.click(); }
+      });
     }
 
     // Diagrams are hand-built HTML/CSS — no renderer, no CDN, works offline on a COE host.
