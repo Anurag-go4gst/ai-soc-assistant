@@ -968,6 +968,77 @@
       font-size: 13px;
     }
 
+    /* ---------- animated query flow on the architecture map ----------
+       The four D1–D4 work paths are alternatives, never concurrent, so they are
+       traced one after another on a single 24s cycle rather than all at once.
+       Motion is SMIL (no renderer, no CDN); prefers-reduced-motion is honoured
+       by pausing both SVG timelines in script, since SMIL ignores CSS media. */
+    .arch-anim-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 0 0 10px;
+    }
+    .arch-anim-toggle {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--txt-dim);
+      background: var(--ink-sunk);
+      border: 1px solid var(--rule);
+      border-radius: 3px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .arch-anim-toggle:hover { color: #fff; border-color: var(--mint); }
+    .arch-anim-note {
+      font-size: 12.5px;
+      color: var(--txt-faint);
+    }
+    .arch-svg .arch-flow {
+      fill: none;
+      stroke-width: 7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      /* Highlighter, not strike-through: the trace runs over node titles, so it
+         stays translucent. `opacity` is left free for the SMIL timeline. */
+      stroke-opacity: .34;
+      opacity: 0;
+    }
+    .arch-svg .arch-flow.f-live { stroke: var(--mint); }
+    .arch-svg .arch-flow.f-ref  { stroke: var(--cyan); }
+    .arch-svg .arch-flow.f-gate { stroke: var(--amber); }
+    .arch-svg .arch-flow.f-stop { stroke: var(--rose); }
+    .arch-svg .arch-pulse { opacity: 0; }
+    .arch-svg .arch-pulse.f-live { fill: var(--mint); }
+    .arch-svg .arch-pulse.f-ref  { fill: var(--cyan); }
+    .arch-svg .arch-pulse.f-gate { fill: var(--amber); }
+    .arch-svg .arch-pulse.f-stop { fill: var(--rose); }
+    .arch-svg .arch-flow-caption {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-anchor: start;
+      opacity: 0;
+    }
+    .arch-svg .arch-flow-caption.f-live { fill: var(--mint); }
+    .arch-svg .arch-flow-caption.f-ref  { fill: var(--cyan); }
+    .arch-svg .arch-flow-caption.f-gate { fill: var(--amber); }
+    .arch-svg .arch-flow-caption.f-stop { fill: var(--rose); }
+    .arch-svg .arch-llm-dot {
+      fill: var(--iris);
+      stroke: var(--ink-sunk);
+      stroke-width: 1.5;
+    }
+    .arch-svg .arch-llm-ring {
+      fill: none;
+      stroke: var(--iris);
+      stroke-width: 1.5;
+    }
+
     /* ---------- plain-language responsive architecture flows ---------- */
     .flow-map {
       background: var(--ink-sunk);
@@ -1569,16 +1640,21 @@
           <span><i class="swatch" style="background:var(--mint)"></i> deterministic — holds authority, continues</span>
           <span><i class="swatch" style="background:var(--amber)"></i> a gate — stops, asks, or requires confirmation</span>
           <span><i class="swatch" style="background:var(--rose)"></i> blocked, failed, or never permitted</span>
-          <span><i class="swatch" style="background:var(--iris)"></i> the LLM — advisory only</span>
+          <span><i class="swatch" style="background:var(--iris)"></i> the LLM — advisory only; an iris dot marks a stage where it <em>may</em> assist</span>
         </div>
 
         <figure class="architecture-visual" aria-labelledby="architecture-map-heading">
           <h4 id="architecture-map-heading">Architecture map — question to analyst card, end to end</h4>
           <p>Follow the arrows. Both the recognized T1–T3 path and the T4→T0 reference path enter the same four-specialist fan-out and validated merge, choose one D1–D4 work path, run only the workers that path authorizes, then join the nine governance checks — each path entering at its own check — before the analyst card and durable trace are released.</p>
+          <p>The map traces one query at a time. Each of the four work paths is drawn in turn — they are alternatives, never concurrent — and the caption in the top-left names the path currently in flight. Iris dots mark the three stages where the LLM may run.</p>
+          <div class="arch-anim-bar">
+            <button type="button" class="arch-anim-toggle" id="arch-anim-toggle" aria-pressed="false">Pause animation</button>
+            <span class="arch-anim-note">One full cycle traces all four work paths, D2 → D3 → D1 → D4.</span>
+          </div>
           <div class="architecture-svg-shell">
             <svg class="arch-svg desktop" viewBox="0 0 1180 1830" role="img" aria-labelledby="arch-desktop-title arch-desktop-desc" xmlns="http://www.w3.org/2000/svg">
               <title id="arch-desktop-title">AI SOC Assistant canonical architecture flow, end to end</title>
-              <desc id="arch-desktop-desc">A question is recognized as T1 through T3 or initially T4. A T4 reference question may resolve to T0. Every planned path then runs the Routing Contract, Knowledge Coverage, MCP Readiness, and SPL Readiness auditors, merges their reports, and chooses exactly one D1 through D4 path. Stage 7 runs only the workers that path authorizes: D1 the knowledge retrieval worker, D2 the approved plan steps, D3 the SPL build, source bind, and MCP execution gate, and D4 no evidence worker at all. Stage 8 runs the nine governance checks in fixed order, each path entering at its own check — D1 and D2 at check 1, D3 at check 2, D4 at check 8 — and the turn ends with an analyst card and durable trace, with no success recorded if final validation fails.</desc>
+              <desc id="arch-desktop-desc">A question is recognized as T1 through T3 or initially T4. A T4 reference question may resolve to T0. Every planned path then runs the Routing Contract, Knowledge Coverage, MCP Readiness, and SPL Readiness auditors, merges their reports, and chooses exactly one D1 through D4 path. Stage 7 runs only the workers that path authorizes: D1 the knowledge retrieval worker, D2 the approved plan steps, D3 the SPL build, source bind, and MCP execution gate, and D4 no evidence worker at all. Stage 8 runs the nine governance checks in fixed order, each path entering at its own check — D1 and D2 at check 1, D3 at check 2, D4 at check 8 — and the turn ends with an analyst card and durable trace, with no success recorded if final validation fails. An animation traces one query at a time along each of the four work paths in turn, and iris dots mark the three stages where the LLM may optionally assist: stage 2 as an advisory route suggestion, the stage 7 D3 SPL build as a detection-plan proposer, and stage 8 check 8 as a narrator of prose. All three are optional and none of them holds authority.</desc>
               <defs><marker id="arch-arrow-desktop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="context-stroke"/></marker></defs>
 
               <rect class="arch-node live" x="420" y="20" width="340" height="60" rx="6"/>
@@ -1589,6 +1665,10 @@
               <rect class="arch-node live" x="420" y="110" width="340" height="70" rx="6"/>
               <text class="arch-title" x="590" y="139">2 · Recognize the request</text>
               <text class="arch-sub" x="590" y="160">Assign an initial T0–T4 recognition tier</text>
+              <g class="arch-llm-marker"><title>LLM may assist here — advisory route suggestion. Optional; the deterministic registry must validate the suggestion before it can win.</title>
+                <circle class="arch-llm-ring" cx="741" cy="128" r="7"><animate attributeName="r" values="7;16;16" keyTimes="0;0.55;1" dur="2.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.55;1" dur="2.8s" repeatCount="indefinite"/></circle>
+                <circle class="arch-llm-dot" cx="741" cy="128" r="6"/>
+              </g>
               <path class="arch-edge" d="M590 180 L590 200 L310 200 L310 225"/>
               <path class="arch-edge gated" d="M590 180 L590 200 L870 200 L870 225"/>
 
@@ -1694,6 +1774,10 @@
               <rect class="arch-node gated" x="585" y="1180" width="250" height="70" rx="5"/>
               <text class="arch-title" x="710" y="1208">SPL build → validate</text>
               <text class="arch-sub" x="710" y="1229">Candidate search, never executable</text>
+              <g class="arch-llm-marker"><title>LLM may assist here — detection-plan proposer. The model emits a small JSON plan; deterministic code compiles the SPL. Raw model SPL is never executable.</title>
+                <circle class="arch-llm-ring" cx="818" cy="1193" r="7"><animate attributeName="r" values="7;16;16" keyTimes="0;0.55;1" dur="2.8s" begin="0.9s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.55;1" dur="2.8s" begin="0.9s" repeatCount="indefinite"/></circle>
+                <circle class="arch-llm-dot" cx="818" cy="1193" r="6"/>
+              </g>
               <path class="arch-edge gated" d="M710 1250 L710 1265"/>
               <rect class="arch-node gated" x="585" y="1265" width="250" height="65" rx="5"/>
               <text class="arch-title" x="710" y="1292">Bind the data source</text>
@@ -1742,6 +1826,10 @@
               <rect class="arch-node live" x="415" y="1590" width="340" height="62" rx="5"/>
               <text class="arch-title" x="585" y="1616">8 · Build analyst card</text>
               <text class="arch-code" x="585" y="1638">finalize</text>
+              <g class="arch-llm-marker"><title>LLM may assist here — narrator. Rewrites analyst-summary prose only; no fact, severity, MITRE status, or execution decision depends on it.</title>
+                <circle class="arch-llm-ring" cx="738" cy="1603" r="7"><animate attributeName="r" values="7;16;16" keyTimes="0;0.55;1" dur="2.8s" begin="1.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.55;1" dur="2.8s" begin="1.8s" repeatCount="indefinite"/></circle>
+                <circle class="arch-llm-dot" cx="738" cy="1603" r="6"/>
+              </g>
               <rect class="arch-node live" x="765" y="1590" width="340" height="62" rx="5"/>
               <text class="arch-title" x="935" y="1616">9 · Validate final response</text>
               <text class="arch-code" x="935" y="1638">validate_final_answer</text>
@@ -1753,17 +1841,79 @@
               <text class="arch-title" x="590" y="1760">Analyst card + durable trace</text>
               <text class="arch-sub" x="590" y="1782">Answer, evidence, decisions, limitations, and next steps</text>
               <text class="arch-sub" x="590" y="1801">If final validation fails, no success event is recorded</text>
+
+              <!-- Animated query flow. One work path is traced at a time on a shared 24s cycle:
+                   D2 (0–6s), D3 (6.5–12s), D1 (12.5–18s), D4 (18.5–24s). D1–D4 are alternatives,
+                   so tracing them concurrently would misstate the architecture. -->
+              <g class="arch-flow-layer" aria-hidden="true">
+                <path class="arch-flow f-live" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"
+                      d="M590 30 L590 200 L310 200 L310 565 L590 565 L590 1025 L435 1025 L435 1400 L435 1425 L235 1425 L235 1473 L935 1473 L935 1510 L235 1510 L235 1547 L935 1547 L935 1584 L235 1584 L235 1621 L935 1621 L935 1690 L590 1690 L590 1775">
+                  <animate attributeName="stroke-dashoffset" dur="24s" repeatCount="indefinite" calcMode="linear" values="100;100;0;0;100;100" keyTimes="0;0.02;0.22;0.24;0.2401;1"/>
+                  <animate attributeName="opacity" dur="24s" repeatCount="indefinite" calcMode="linear" values="0;0;1;1;0;0" keyTimes="0;0.019;0.02;0.22;0.24;1"/>
+                </path>
+                <path class="arch-flow f-gate" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"
+                      d="M590 30 L590 200 L310 200 L310 565 L590 565 L590 1025 L710 1025 L710 1400 L710 1425 L585 1425 L585 1473 L935 1473 L935 1510 L235 1510 L235 1547 L935 1547 L935 1584 L235 1584 L235 1621 L935 1621 L935 1690 L590 1690 L590 1775">
+                  <animate attributeName="stroke-dashoffset" dur="24s" repeatCount="indefinite" calcMode="linear" values="100;100;0;0;100;100" keyTimes="0;0.27;0.47;0.49;0.4901;1"/>
+                  <animate attributeName="opacity" dur="24s" repeatCount="indefinite" calcMode="linear" values="0;0;1;1;0;0" keyTimes="0;0.269;0.27;0.47;0.49;1"/>
+                </path>
+                <path class="arch-flow f-ref" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"
+                      d="M590 30 L590 200 L870 200 L870 450 L725 450 L725 565 L590 565 L590 1025 L160 1025 L160 1400 L160 1425 L235 1425 L235 1473 L935 1473 L935 1510 L235 1510 L235 1547 L935 1547 L935 1584 L235 1584 L235 1621 L935 1621 L935 1690 L590 1690 L590 1775">
+                  <animate attributeName="stroke-dashoffset" dur="24s" repeatCount="indefinite" calcMode="linear" values="100;100;0;0;100;100" keyTimes="0;0.52;0.72;0.74;0.7401;1"/>
+                  <animate attributeName="opacity" dur="24s" repeatCount="indefinite" calcMode="linear" values="0;0;1;1;0;0" keyTimes="0;0.519;0.52;0.72;0.74;1"/>
+                </path>
+                <path class="arch-flow f-stop" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"
+                      d="M590 30 L590 200 L870 200 L870 475 L975 475 L975 565 L590 565 L590 1025 L985 1025 L985 1400 L985 1418 L760 1418 L760 1670 L585 1670 L585 1621 L935 1621 L935 1690 L590 1690 L590 1775">
+                  <animate attributeName="stroke-dashoffset" dur="24s" repeatCount="indefinite" calcMode="linear" values="100;100;0;0;100;100" keyTimes="0;0.77;0.97;0.99;0.9901;1"/>
+                  <animate attributeName="opacity" dur="24s" repeatCount="indefinite" calcMode="linear" values="0;0;1;1;0;0" keyTimes="0;0.769;0.77;0.97;0.99;1"/>
+                </path>
+
+                <circle class="arch-pulse f-live" r="6">
+                  <animateMotion dur="24s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.02;0.22;1"
+                                 path="M590 30 L590 200 L310 200 L310 565 L590 565 L590 1025 L435 1025 L435 1400 L435 1425 L235 1425 L235 1473 L935 1473 L935 1510 L235 1510 L235 1547 L935 1547 L935 1584 L235 1584 L235 1621 L935 1621 L935 1690 L590 1690 L590 1775"/>
+                  <animate attributeName="opacity" dur="24s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.019;0.02;0.22;0.235;1"/>
+                </circle>
+                <circle class="arch-pulse f-gate" r="6">
+                  <animateMotion dur="24s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.27;0.47;1"
+                                 path="M590 30 L590 200 L310 200 L310 565 L590 565 L590 1025 L710 1025 L710 1400 L710 1425 L585 1425 L585 1473 L935 1473 L935 1510 L235 1510 L235 1547 L935 1547 L935 1584 L235 1584 L235 1621 L935 1621 L935 1690 L590 1690 L590 1775"/>
+                  <animate attributeName="opacity" dur="24s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.269;0.27;0.47;0.485;1"/>
+                </circle>
+                <circle class="arch-pulse f-ref" r="6">
+                  <animateMotion dur="24s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.52;0.72;1"
+                                 path="M590 30 L590 200 L870 200 L870 450 L725 450 L725 565 L590 565 L590 1025 L160 1025 L160 1400 L160 1425 L235 1425 L235 1473 L935 1473 L935 1510 L235 1510 L235 1547 L935 1547 L935 1584 L235 1584 L235 1621 L935 1621 L935 1690 L590 1690 L590 1775"/>
+                  <animate attributeName="opacity" dur="24s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.519;0.52;0.72;0.735;1"/>
+                </circle>
+                <circle class="arch-pulse f-stop" r="6">
+                  <animateMotion dur="24s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.77;0.97;1"
+                                 path="M590 30 L590 200 L870 200 L870 475 L975 475 L975 565 L590 565 L590 1025 L985 1025 L985 1400 L985 1418 L760 1418 L760 1670 L585 1670 L585 1621 L935 1621 L935 1690 L590 1690 L590 1775"/>
+                  <animate attributeName="opacity" dur="24s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.769;0.77;0.97;0.985;1"/>
+                </circle>
+
+                <text class="arch-label" x="40" y="34" style="text-anchor:start">Query in flight</text>
+                <text class="arch-flow-caption f-live" x="40" y="58">T1–T3 known → D2 composed plan
+                  <animate attributeName="opacity" dur="24s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.019;0.02;0.225;0.24;1"/>
+                </text>
+                <text class="arch-flow-caption f-gate" x="40" y="58">T1–T3 known → D3 SPL workflow
+                  <animate attributeName="opacity" dur="24s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.269;0.27;0.475;0.49;1"/>
+                </text>
+                <text class="arch-flow-caption f-ref" x="40" y="58">T4 → T0 reference → D1 knowledge
+                  <animate attributeName="opacity" dur="24s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.519;0.52;0.725;0.74;1"/>
+                </text>
+                <text class="arch-flow-caption f-stop" x="40" y="58">T4 guided → D4 stop or ask
+                  <animate attributeName="opacity" dur="24s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.769;0.77;0.975;0.99;1"/>
+                </text>
+              </g>
             </svg>
 
             <svg class="arch-svg mobile" viewBox="0 0 360 2410" role="img" aria-labelledby="arch-mobile-title arch-mobile-desc" xmlns="http://www.w3.org/2000/svg">
               <title id="arch-mobile-title">AI SOC Assistant canonical architecture flow, mobile layout</title>
-              <desc id="arch-mobile-desc">A vertical version of the canonical flow. Both T1 through T3 and T4 through T0 planned paths converge on four permanent specialist auditors, merge, and choose one of D1 through D4. Stage 7 runs only the workers that path authorizes, stage 8 runs the nine governance checks in fixed order with each path entering at its own check, and the turn ends with an analyst card and durable trace.</desc>
+              <desc id="arch-mobile-desc">A vertical version of the canonical flow. Both T1 through T3 and T4 through T0 planned paths converge on four permanent specialist auditors, merge, and choose one of D1 through D4. Stage 7 runs only the workers that path authorizes, stage 8 runs the nine governance checks in fixed order with each path entering at its own check, and the turn ends with an analyst card and durable trace. An animation traces one example query along the known T1 through T3 path into D2, and iris dots mark the three stages where the LLM may optionally assist: stage 2 route advisory, the D3 SPL build, and building the analyst card at stage 8 check 8.</desc>
               <defs><marker id="arch-arrow-mobile" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="context-stroke"/></marker></defs>
               <rect class="arch-node live" x="15" y="20" width="330" height="60" rx="6"/>
               <text class="arch-title" x="180" y="47">1 · Receive the SOC question</text><text class="arch-sub" x="180" y="67">Carry forward approved context</text>
               <path class="arch-edge" d="M180 80 L180 110"/>
               <rect class="arch-node live" x="15" y="110" width="330" height="70" rx="6"/>
               <text class="arch-title" x="180" y="139">2 · Recognize the request</text><text class="arch-sub" x="180" y="160">Assign an initial recognition tier</text>
+              <g class="arch-llm-marker"><title>LLM may assist here — advisory route suggestion. Optional; the deterministic registry must validate the suggestion before it can win.</title><circle class="arch-llm-ring" cx="328" cy="126" r="6"><animate attributeName="r" values="6;14;14" keyTimes="0;0.55;1" dur="2.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.55;1" dur="2.8s" repeatCount="indefinite"/></circle><circle class="arch-llm-dot" cx="328" cy="126" r="5.5"/></g>
               <path class="arch-edge" d="M180 180 L180 220"/>
               <rect class="arch-node live" x="15" y="220" width="330" height="80" rx="6"/>
               <text class="arch-label" x="180" y="245">T1–T3 · recognized path</text><text class="arch-title" x="180" y="270">Commit the Resource Plan</text><text class="arch-sub" x="180" y="290">Known intent, evidence, and policy</text>
@@ -1805,6 +1955,7 @@
               <rect class="arch-node reference" x="25" y="1560" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1584">D1 · Knowledge Retrieval Worker</text><text class="arch-code" x="180" y="1605">rag_early</text>
               <rect class="arch-node live" x="25" y="1624" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1648">D2 · Approved step workers</text><text class="arch-code" x="180" y="1669">composed_dispatch</text>
               <rect class="arch-node gated" x="25" y="1688" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1712">D3 · SPL build → bind source</text><text class="arch-code" x="180" y="1733">spl_source_resolve</text>
+              <g class="arch-llm-marker"><title>LLM may assist here — detection-plan proposer. The model emits a small JSON plan; deterministic code compiles the SPL. Raw model SPL is never executable.</title><circle class="arch-llm-ring" cx="320" cy="1701" r="6"><animate attributeName="r" values="6;14;14" keyTimes="0;0.55;1" dur="2.8s" begin="0.9s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.55;1" dur="2.8s" begin="0.9s" repeatCount="indefinite"/></circle><circle class="arch-llm-dot" cx="320" cy="1701" r="5.5"/></g>
               <rect class="arch-node stopped" x="25" y="1752" width="310" height="56" rx="5"/><text class="arch-title" x="180" y="1776">D4 · No evidence worker</text><text class="arch-code" x="180" y="1797">non_planned_finalize</text>
 
               <path class="arch-edge" d="M180 1820 L180 1850"/>
@@ -1819,14 +1970,40 @@
               <rect class="arch-node gated" x="25" y="2112" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2134">6 · Human approval · human_review</text>
               <rect class="arch-node stopped" x="25" y="2152" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2174">7 · Policy veto · policy_veto</text>
               <rect class="arch-node live" x="25" y="2192" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2214">8 · Build analyst card · finalize</text>
+              <g class="arch-llm-marker"><title>LLM may assist here — narrator. Rewrites analyst-summary prose only; no fact, severity, MITRE status, or execution decision depends on it.</title><circle class="arch-llm-ring" cx="322" cy="2202" r="6"><animate attributeName="r" values="6;14;14" keyTimes="0;0.55;1" dur="2.8s" begin="1.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.55;1" dur="2.8s" begin="1.8s" repeatCount="indefinite"/></circle><circle class="arch-llm-dot" cx="322" cy="2202" r="5.5"/></g>
               <rect class="arch-node live" x="25" y="2232" width="310" height="34" rx="5"/><text class="arch-sub" x="180" y="2254">9 · Final check · validate_final_answer</text>
 
               <path class="arch-edge" d="M180 2280 L180 2310"/>
               <rect class="arch-node live" x="15" y="2310" width="330" height="85" rx="6"/><text class="arch-title" x="180" y="2340">Analyst card + durable trace</text><text class="arch-sub" x="180" y="2362">Answer, evidence, decisions, limitations</text><text class="arch-sub" x="180" y="2381">No success recorded if validation fails</text>
+
+              <!-- Animated query flow, mobile: one example turn on the known T1–T3 path into D2.
+                   The trace steps around the Stage 7 workers D2 does not authorize. -->
+              <g class="arch-flow-layer" aria-hidden="true">
+                <path class="arch-flow f-live" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"
+                      d="M180 30 L180 300 L6 300 L6 670 L180 670 L180 1300 L180 1320 L265 1320 L265 1405 L352 1405 L352 1620 L180 1620 L180 1680 L352 1690 L352 1860 L180 1860 L180 2266 L180 2360">
+                  <animate attributeName="stroke-dashoffset" dur="14s" repeatCount="indefinite" calcMode="linear" values="100;100;0;0;100;100" keyTimes="0;0.05;0.8;0.9;0.901;1"/>
+                  <animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="linear" values="0;0;1;1;0;0" keyTimes="0;0.049;0.05;0.8;0.9;1"/>
+                </path>
+                <circle class="arch-pulse f-live" r="6">
+                  <animateMotion dur="14s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.05;0.8;1"
+                                 path="M180 30 L180 300 L6 300 L6 670 L180 670 L180 1300 L180 1320 L265 1320 L265 1405 L352 1405 L352 1620 L180 1620 L180 1680 L352 1690 L352 1860 L180 1860 L180 2266 L180 2360"/>
+                  <animate attributeName="opacity" dur="14s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.049;0.05;0.8;0.86;1"/>
+                </circle>
+              </g>
             </svg>
           </div>
-          <figcaption>Solid paths are deterministic. Amber paths are gates. Red paths carry no evidence or execution work. Cyan marks the deterministic reference path—not an LLM decision.</figcaption>
+          <figcaption>Solid paths are deterministic. Amber paths are gates. Red paths carry no evidence or execution work. Cyan marks the deterministic reference path—not an LLM decision. The travelling trace shows one query at a time; the four work paths are alternatives, so they animate one after another, never together. On a narrow screen the vertical map traces the known T1–T3 path into D2.</figcaption>
         </figure>
+
+        <div class="note llm">
+          <strong>Where the LLM may run — three optional hops.</strong> Iris dots on the map mark them, and nothing else on the map is a model.
+          <ol style="margin:10px 0 0; padding-left:20px;">
+            <li><strong>Stage 2 · Recognize the request</strong> — <em>route advisor.</em> Suggests a route. The deterministic registry must validate the suggestion before it can win; an unvalidated suggestion is discarded.</li>
+            <li><strong>Stage 7 · D3 SPL build</strong> — <em>detection-plan proposer.</em> Emits a small JSON detection plan that deterministic code compiles into SOC-STD SPL. Raw model SPL is never executable, and the compiled result still walks the ordinary validation, quality, and adapter gates.</li>
+            <li><strong>Stage 8 · check 8, build analyst card</strong> — <em>narrator.</em> Rewrites analyst-summary prose. No fact depends on it: severity, MITRE status, execution eligibility, and human-review verdict are decided before it runs, and any failure falls back to the deterministic draft.</li>
+          </ol>
+          <p style="margin:10px 0 0;">Every hop is optional — a turn completes correctly with the model entirely absent, and exact-105 turns commonly skip all three. No model participates anywhere else on the map: the four Stage 4 specialists, the guided detail tools, MCP tool selection, and the nine Stage 8 governance checks are deterministic, and the LLM never calls MCP. See <a href="#s18">18 · What the LLM may do</a>.</p>
+        </div>
 
         <div class="flow-map" role="group" aria-labelledby="plain-flow-title" aria-describedby="plain-flow-summary">
           <div class="flow-map__head">
@@ -4142,6 +4319,31 @@ Turn 2   session context finds the pin → handoff_resume
         });
       }, { rootMargin: "0px 0px -8% 0px", threshold: 0.05 });
       rv.forEach(function (el) { revealer.observe(el); });
+    }
+
+    // ---- architecture map: query-flow animation ----
+    // SMIL does not observe prefers-reduced-motion, so pause both timelines here.
+    var archSvgs = Array.prototype.slice.call(document.querySelectorAll(".arch-svg"));
+    var archToggle = document.getElementById("arch-anim-toggle");
+    var archPaused = false;
+
+    function setArchAnimation(paused) {
+      archPaused = paused;
+      archSvgs.forEach(function (svg) {
+        var fn = paused ? svg.pauseAnimations : svg.unpauseAnimations;
+        if (typeof fn === "function") fn.call(svg);
+      });
+      if (archToggle) {
+        archToggle.textContent = paused ? "Play animation" : "Pause animation";
+        archToggle.setAttribute("aria-pressed", paused ? "true" : "false");
+      }
+    }
+
+    if (archSvgs.length) {
+      if (reduce) setArchAnimation(true);
+      if (archToggle) {
+        archToggle.addEventListener("click", function () { setArchAnimation(!archPaused); });
+      }
     }
 
     // Diagrams are hand-built HTML/CSS — no renderer, no CDN, works offline on a COE host.
