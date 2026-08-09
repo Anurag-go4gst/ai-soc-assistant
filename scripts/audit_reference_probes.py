@@ -1,10 +1,25 @@
 #!/usr/bin/env python3
-"""Audit current routing for the reference-knowledge probe contract."""
+"""Audit current routing for the reference-knowledge probe contract.
+
+Default mode is ``--check``: run the ten probes, compare them against the frozen
+baseline, and **write nothing**. A verification gate must never rewrite the
+artifact it is verifying — before this had a CLI, every run overwrote
+``docs/evals/reference_knowledge_baseline.md``, so "the probes pass" was
+unfalsifiable and drift landed silently in commits.
+
+    python3 scripts/audit_reference_probes.py --check                # gate (default)
+    python3 scripts/audit_reference_probes.py --out /tmp/probes.md   # scratch report
+    python3 scripts/audit_reference_probes.py --update-baseline      # deliberate refresh
+
+Exit codes: 0 = matches baseline, 1 = drift, 2 = usage/IO error.
+"""
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
+import re
 import signal
 import sys
 from datetime import UTC, datetime
@@ -152,13 +167,152 @@ def _render(rows: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def main() -> None:
+#: Fields that define the contract. ``query`` is echoed for readability and
+#: ``kind`` is fixture metadata; neither is a routing decision, so drift in them
+#: means the probe set changed rather than the pipeline regressing.
+COMPARED_FIELDS: tuple[str, ...] = (
+    "selected_skill",
+    "answer_mode",
+    "request_mode",
+    "stage_schedule",
+    "primary_shape",
+    "human_review_type",
+    "has_mitre_panel",
+    "has_reference_panel",
+)
+
+
+def _parse_baseline_rows(text: str) -> list[dict[str, Any]] | None:
+    """Read the structured rows embedded in the baseline's fenced json block.
+
+    The markdown table is for humans; the json block is authoritative because it
+    carries list/bool types the table flattens to strings.
+    """
+    match = re.search(r"```json\s*\n(.*?)\n```", text, re.DOTALL)
+    if not match:
+        return None
+    try:
+        rows = json.loads(match.group(1))
+    except json.JSONDecodeError:
+        return None
+    return rows if isinstance(rows, list) else None
+
+
+def _normalize(row: dict[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for field in COMPARED_FIELDS:
+        value = row.get(field)
+        out[field] = list(value) if isinstance(value, list) else value
+    return out
+
+
+def _compare(current: list[dict[str, Any]], baseline: list[dict[str, Any]]) -> tuple[bool, list[str]]:
+    by_id = {str(row.get("id")): row for row in baseline}
+    lines: list[str] = []
+    ok = True
+
+    for row in current:
+        probe_id = str(row.get("id"))
+        old = by_id.pop(probe_id, None)
+        if old is None:
+            ok = False
+            lines.append(f"  {probe_id:<4} DRIFT  not present in baseline")
+            continue
+        if row.get("error"):
+            ok = False
+            lines.append(f"  {probe_id:<4} DRIFT  probe errored: {row['error']}")
+            continue
+        new_n, old_n = _normalize(row), _normalize(old)
+        if new_n == old_n:
+            lines.append(f"  {probe_id:<4} PASS   {row.get('selected_skill')} / {row.get('answer_mode')}")
+            continue
+        ok = False
+        deltas = [
+            f"{field}: {old_n[field]!r} -> {new_n[field]!r}"
+            for field in COMPARED_FIELDS
+            if old_n[field] != new_n[field]
+        ]
+        lines.append(f"  {probe_id:<4} DRIFT  " + "; ".join(deltas))
+
+    for missing in by_id:
+        ok = False
+        lines.append(f"  {missing:<4} DRIFT  in baseline but not produced by this run")
+
+    return ok, lines
+
+
+def _run_probes() -> list[dict[str, Any]]:
     probes = json.loads(PROBES.read_text(encoding="utf-8"))
-    rows = [_route_row(probe) for probe in probes]
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(_render(rows), encoding="utf-8")
-    print(json.dumps({"probe_count": len(rows), "baseline": str(OUT)}, sort_keys=True))
+    return [_route_row(probe) for probe in probes]
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--check",
+        action="store_true",
+        help="compare against the frozen baseline and write nothing (default)",
+    )
+    mode.add_argument(
+        "--update-baseline",
+        action="store_true",
+        help="deliberately rewrite the frozen baseline; never used by a verification gate",
+    )
+    ap.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="write the rendered report to this scratch path instead of the baseline",
+    )
+    args = ap.parse_args()
+
+    rows = _run_probes()
+    rendered = _render(rows)
+
+    if args.update_baseline:
+        OUT.parent.mkdir(parents=True, exist_ok=True)
+        OUT.write_text(rendered, encoding="utf-8")
+        print(json.dumps({"probe_count": len(rows), "baseline": str(OUT), "mode": "update-baseline"}, sort_keys=True))
+        return 0
+
+    if args.out is not None:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(rendered, encoding="utf-8")
+        print(json.dumps({"probe_count": len(rows), "report": str(args.out), "mode": "report"}, sort_keys=True))
+
+    # --check is the default: comparison happens unless the caller only wanted a
+    # scratch report written.
+    if args.out is not None and not args.check:
+        return 0
+
+    try:
+        baseline_text = OUT.read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"cannot read baseline {OUT}: {exc}", file=sys.stderr)
+        return 2
+
+    baseline_rows = _parse_baseline_rows(baseline_text)
+    if baseline_rows is None:
+        print(f"baseline {OUT} has no parseable json row block", file=sys.stderr)
+        return 2
+
+    ok, lines = _compare(rows, baseline_rows)
+    print(f"reference probe contract vs {OUT.name} ({len(rows)} probes):")
+    for line in lines:
+        print(line)
+    if not ok:
+        print(
+            "\nDRIFT: routing changed against the frozen contract. If this is intended, "
+            "say so explicitly and re-run with --update-baseline.",
+            file=sys.stderr,
+        )
+        return 1
+    print("all probes match the frozen baseline")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
