@@ -5,10 +5,18 @@ status: audit
 date: 2026-08-10
 canonical_plan: plans/2026-08-10_0555_architecture-audit-query-understanding-and-plan-creation.md
 source_plan: plans/2026-08-08_1824_architecture-review-corrective-actions.md
+source_plan_status: done (e5c1937, 2026-08-10)
 source_review: docs/architecture/architecture_review_2026-08-08.md
+current_disposition: "see the Post-G1 disposition section — it supersedes the body for open/closed status"
 ---
 
 # Audit — query understanding, tier assignment, T4 planning, node-to-node coupling
+
+> **Read the [Post-G1 disposition](#post-g1-disposition-2026-08-10) section at the end first.**
+> The body below is the audit **as written on 2026-08-10 while the corrective plan was still
+> executing**, and is preserved unedited as the historical record. Several of its statements were
+> overtaken by that plan's own execution (notably the B1 premise and the "A1 blocked" framing in
+> Context). The disposition section is the only authority on what is still open.
 
 ## Context
 
@@ -607,3 +615,85 @@ Audit only — no runtime edits. Method:
 runtime-behaviour claims rest on static reachability, not observed traces. Cheapest empirical
 confirmation is a single T4 query with `control_plane_trace` inspected for
 `provenance.llm_bridge`, `resource_plan_shadow_trace`, and `rp_graph_trace.visited_nodes`.
+
+---
+
+## Post-G1 disposition (2026-08-10)
+
+The corrective plan
+[`2026-08-08_1824`](2026-08-08_1824_architecture-review-corrective-actions.md) closed at
+**16/16, `status: done`, final commit `e5c1937`**. Runtime work on it is accepted as complete
+and is **not** reopened by anything below.
+
+Everything above this line is the historical audit, preserved as written. This section is the
+only authority on what remains open. Gap numbering matches "Gaps NOT covered by the corrective
+plan".
+
+| Gap | Subject | Disposition |
+|---|---|---|
+| **1** | Topology self-certification | **OPEN** |
+| **2** | Composed step order vs execution sequencing | **OPEN** |
+| **3** | Legacy discovery posture | **Documentation CLOSED (G0); retire-vs-rewire decision OPEN** |
+| **4** | LLM planning / shadow architecture | **OPEN** |
+| **5** | `MAX_MCP_HOPS` posture | **OPEN — coupled to Gap 3** |
+| **6** | Stale pipeline-state documentation | **CLOSED by G0** |
+| **7** | dispatch-v2 documentation mismatch | **CLOSED by G0** |
+| **8** | Decision-record `inputs_ref`/`outputs_ref` | **OPEN** |
+
+### Still open
+
+**Gap 1 — the edge contract cannot fail.** `resource_planner_graph_edges()` returns
+`introspected | _documented_resource_planner_edges()`. Only 4 of 34 edges are introspectable, so
+an assertion against that union is satisfied by editing the documentation it checks. A1 shipped
+under exactly that assertion (`d0f3ad9`), and the stale `bootstrap → route_setup` pair plus the
+orphan `route_setup` node remain undetectable. Cheapest real fix: assert against
+`_compiled_resource_planner_graph().get_graph()` directly, or split the helper so
+documented-only edges are distinguishable.
+
+**Gap 2 — the composed plan's order is lineage, not schedule.**
+`build_step_walk_dispatch_schedule` preserves `step_walk_order` "for lineage" and returns a fixed
+legacy predicate schedule; the plan's composed order contributes only `blocked_step_ids`. Its own
+comment says "until parity proves a safe reorder" — nobody has since asked whether to prove it.
+This caps how comprehensive a multi-resource answer can be.
+
+**Gap 3 (decision half) + Gap 5 — one decision, not two.** The question is whether canonical mode
+intends to **retire** the fenced legacy lane or **re-wire** it. `MAX_MCP_HOPS = 6` is inert for
+the same reason the lane is (`initialize_loop` is only reached inside the fenced node), so
+answering Gap 3 answers Gap 5. Needs a COE decision before any code.
+
+**Gap 4 — LLM planning surfaces.** The plan bridge's only call site sits behind
+`canonical_forbids_legacy_evidence_planning`; the shadow runner hard-sets
+`promotion_blocked=True`; the guided-hybrid rail is wired only into the imperative pipeline.
+Live consequence worth pricing: on this host the shadow planner still makes a real model call per
+eligible turn and discards the result, and it cannot be switched off independently —
+`resource_plan_shadow_enabled()` piggybacks on `final_synthesis AND live_synthesis`.
+
+**Gap 8 — decision-record refs are labels, not dataflow**, and several are wrong
+(`rp_node_decide_facts` declares outputs it does not write; `rp_node_mcp_execution_gate` declares
+an input that is not a state channel). Worth a correctness pass before anything else writes to
+those records.
+
+### Closed, and the distinction that must survive
+
+Gaps 6 and 7 were closed by **G0** (`a717d4c`), together with the documentation half of Gap 3.
+
+**Do not collapse these two mechanisms — they are different, and both statements below are
+load-bearing:**
+
+- **Legacy multi-hop Resource Planner discovery is fenced.** `graph_node_evidence_planning` fails
+  closed under canonical mode with `canonical_forbids_legacy_evidence_planning`. The chronology
+  proposal, discovery hops, data-silence advisory, O5c recipe path and `evidence_observer` do not
+  run on a canonical `/chat` turn.
+- **Bounded pre-SPL MCP discovery is live** when `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` is true
+  (it is, on the COE host). `graph_node_workflow_spl` calls `graph_node_pre_spl_mcp_discovery`
+  inline, and the result **may feed the SPL plan compiler** and saved-search preference.
+
+So "MCP discovery never runs" is wrong, and "the discovery loop runs" is also wrong. Any Plan 2
+item, and the MCP specialist's `candidate_tool_names` contract, must respect that split.
+
+### Sequencing for Plan 2 (not started)
+
+Gaps **1** and **8** first — mechanical, self-contained, no policy question. Gap **2** is a design
+call. Gaps **3/4/5** should be raised to COE as a single posture decision before any code, since
+the MCP specialist contract and every future "the LLM plans across resources" claim depend on the
+answer.
