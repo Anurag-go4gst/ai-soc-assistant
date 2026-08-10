@@ -129,7 +129,7 @@ def _reject_validated_work_bundle(
         node="work_bundle.apply",
         reason=reason,
         inputs_ref=["validated_work_bundle"],
-        outputs_ref=["evidence_plan"],
+        outputs_ref=[],
         authority="resource_planner",
     )
 
@@ -257,14 +257,14 @@ def _record_parallel_specialist_decisions(state: ResourcePlannerGraphState) -> R
             "specialist.skill",
             "skill_lane_advisory",
             "specialist:skill",
-            ["routed"],
+            ["routed", "canonical_planning_input"],
             ["specialist_reports"],
         ),
         (
             "specialist.knowledge",
             report_reasons.get("knowledge") or "knowledge_lane_idle",
             "specialist:knowledge",
-            ["evidence_plan"],
+            ["intent_classification", "evidence_plan"],
             ["specialist_reports"],
         ),
         (
@@ -348,8 +348,13 @@ def rp_node_route_resolution(state: ResourcePlannerGraphState) -> ResourcePlanne
         state,
         node="route_resolution",
         reason="route_contract_and_planning_decision_ready",
-        inputs_ref=["routed", "evidence_plan"],
-        outputs_ref=["route_contract", "planning_decision"],
+        inputs_ref=["routed", "route_plan_shadow"],
+        outputs_ref=[
+            "route_plan_shadow",
+            "llm_plan_validation",
+            "skill_selection",
+            "selected_skill_chain",
+        ],
         authority="deterministic",
     )
 
@@ -371,7 +376,7 @@ def rp_node_resource_planner_delegate(state: ResourcePlannerGraphState) -> Resou
         state,
         node="resource_planner.delegate",
         reason="fan_out_specialists",
-        inputs_ref=["evidence_plan"],
+        inputs_ref=[],
         outputs_ref=["specialist_delegations"],
     )
 
@@ -458,8 +463,17 @@ def rp_node_resource_planner_merge(state: ResourcePlannerGraphState) -> Resource
         state,
         node="resource_planner.merge",
         reason="fan_in_work_bundle",
-        inputs_ref=["specialist_reports", "evidence_plan.resource_plan"],
-        outputs_ref=["work_bundle", "planner_iteration"],
+        inputs_ref=[
+            "specialist_reports",
+            "specialist_delegations",
+            "evidence_plan.resource_plan",
+        ],
+        outputs_ref=[
+            "work_bundle",
+            "validated_work_bundle",
+            "planner_iteration",
+            "evidence_plan",
+        ],
     )
 
 
@@ -516,8 +530,8 @@ def rp_node_prepare_rag_only(state: ResourcePlannerGraphState) -> ResourcePlanne
         state,
         node="prepare_rag_only",
         reason="rag_only_path",
-        inputs_ref=["evidence_plan"],
-        outputs_ref=["execution"],
+        inputs_ref=["validated_work_bundle", "evidence_plan"],
+        outputs_ref=["evidence_plan", "execution"],
         authority="deterministic",
     )
 
@@ -529,8 +543,8 @@ def rp_node_rag_early(state: ResourcePlannerGraphState) -> ResourcePlannerGraphS
         state,
         node="rag_early",
         reason="governed_rag_retrieval",
-        inputs_ref=["evidence_plan"],
-        outputs_ref=["soc_kb_retrieval", "source_evidence"],
+        inputs_ref=["workflow_plan"],
+        outputs_ref=["soc_kb_retrieval"],
         authority="deterministic",
     )
 
@@ -544,7 +558,7 @@ def rp_node_composed_dispatch(state: ResourcePlannerGraphState) -> ResourcePlann
         node="composed_dispatch",
         reason="resource_plan_step_walk",
         inputs_ref=["validated_work_bundle", "evidence_plan.resource_plan"],
-        outputs_ref=["candidate_spl", "spl_validation", "execution"],
+        outputs_ref=["evidence_plan", "candidate_spl", "spl_validation", "execution"],
         authority="deterministic",
     )
 
@@ -557,8 +571,8 @@ def rp_node_workflow_spl(state: ResourcePlannerGraphState) -> ResourcePlannerGra
         state,
         node="workflow_spl",
         reason="spl_worker",
-        inputs_ref=["validated_work_bundle"],
-        outputs_ref=["candidate_spl", "spl_validation"],
+        inputs_ref=["validated_work_bundle", "evidence_plan"],
+        outputs_ref=["evidence_plan", "candidate_spl", "spl_validation"],
         authority="deterministic",
     )
 
@@ -570,7 +584,7 @@ def rp_node_spl_source_resolve(state: ResourcePlannerGraphState) -> ResourcePlan
         state,
         node="spl_source_resolve",
         reason="placeholder_slot_resolution",
-        inputs_ref=["candidate_spl"],
+        inputs_ref=["candidate_spl", "spl_validation"],
         outputs_ref=["spl_validation"],
         authority="deterministic",
     )
@@ -600,7 +614,7 @@ def rp_node_spl_validate(state: ResourcePlannerGraphState) -> ResourcePlannerGra
         state,
         node="spl_validate",
         reason="candidate_only_gate",
-        inputs_ref=["candidate_spl"],
+        inputs_ref=["spl_validation"],
         outputs_ref=["spl_validation"],
         authority="deterministic",
     )
@@ -615,7 +629,7 @@ def rp_node_context_sufficiency(state: ResourcePlannerGraphState) -> ResourcePla
         {**state, "context_sufficiency": sufficiency},
         node="context_sufficiency",
         reason="pre_finalize_sufficiency_surface",
-        inputs_ref=["source_evidence"],
+        inputs_ref=["context_sufficiency"],
         outputs_ref=["context_sufficiency"],
         authority="deterministic",
     )
@@ -627,8 +641,8 @@ def rp_node_decide_facts(state: ResourcePlannerGraphState) -> ResourcePlannerGra
         state,
         node="decide_facts",
         reason="severity_mitre_authority_pending_finalize",
-        inputs_ref=["mitre_decision", "severity_decision"],
-        outputs_ref=["severity_decision", "mitre_mappings"],
+        inputs_ref=[],
+        outputs_ref=[],
         authority="deterministic",
     )
 
@@ -686,8 +700,8 @@ def rp_node_answer_guard(state: ResourcePlannerGraphState) -> ResourcePlannerGra
         state,
         node="answer_guard",
         reason="answer_guard_pending_finalize",
-        inputs_ref=["answer_contract"],
-        outputs_ref=["answer_guard"],
+        inputs_ref=[],
+        outputs_ref=[],
         authority="deterministic",
     )
 
@@ -700,7 +714,7 @@ def rp_node_finalize(state: ResourcePlannerGraphState) -> ResourcePlannerGraphSt
         state,
         node="finalize",
         reason="context_finalize_compose_response",
-        inputs_ref=["structured_context", "source_evidence"],
+        inputs_ref=["evidence_plan", "execution", "soc_kb_retrieval", "spl_validation"],
         outputs_ref=["response", "context_sufficiency", "severity_decision"],
         authority="deterministic",
     )
@@ -735,8 +749,15 @@ def rp_node_validate_final_answer(state: ResourcePlannerGraphState) -> ResourceP
         state,
         node="validate_final_answer",
         reason="final_answer_validator",
-        inputs_ref=["response", "answer_contract"],
-        outputs_ref=["final_answer_validation"],
+        inputs_ref=[
+            "response",
+            "answer_contract",
+            "evidence_plan",
+            "mitre_decision",
+            "human_review",
+            "planning_decision",
+        ],
+        outputs_ref=["final_answer_validation", "response"],
         authority="deterministic",
     )
     response = state.get("response")
@@ -755,7 +776,7 @@ def rp_node_human_review(state: ResourcePlannerGraphState) -> ResourcePlannerGra
         state,
         node="human_review",
         reason="hil_gate_surface",
-        inputs_ref=["execution"],
+        inputs_ref=["human_review"],
         outputs_ref=["human_review"],
         authority="deterministic",
     )
@@ -768,8 +789,8 @@ def rp_node_policy_veto(state: ResourcePlannerGraphState) -> ResourcePlannerGrap
         state,
         node="policy_veto",
         reason="evidence_plan_policy_checks",
-        inputs_ref=["evidence_plan"],
-        outputs_ref=["policy_veto", "execution", "human_review", "spl_validation"],
+        inputs_ref=["evidence_plan", "execution", "spl_validation"],
+        outputs_ref=["policy_veto", "execution", "spl_validation"],
         authority="deterministic",
     )
 
