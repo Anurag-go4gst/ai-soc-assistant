@@ -193,14 +193,41 @@ Run `.claude/skills/invariant-check/SKILL.md` manually before every runtime comm
   - **Commit boundary:** One topology/test commit; no decision-record, planning, or scheduling edits.
   - **Stop:** Builder internals do not expose stable fixed/branch data; a second node is unexpectedly orphaned; removing `route_setup` changes any parity probe; dynamic Send needs framework internals rather than direct contract invocation.
 
-- [ ] **A1.1 — Inventory every decision-record reference and enforce the state-channel vocabulary**
+- [x] **A1.1 — Inventory every decision-record reference and enforce the state-channel vocabulary**
   - **Do:** Add `backend/app/tests/test_resource_planner_decision_record_io.py` (**NEW**). Inventory every remaining Resource Planner record shape after A0, including specialist records and rejection paths. For each record, document actual read roots, write roots, and declared refs in a test-owned expected table. Validate every declared root against `ResourcePlannerGraphState.__annotations__`; allow a dotted path only when its root is a real channel and validate the nested path on representative data. Correct nonexistent-channel labels such as root `normalized_spl` to the real nested channel. Keep refs descriptive only—no code may consume them for scheduling.
   - **Why:** Schema-valid labels are the minimum mechanical prerequisite before judging semantic truth.
   - **Surfaces:** `backend/app/graph/resource_planner_graph.py`; `backend/app/chat/decision_record.py`; new test; `backend/app/tests/test_decision_record.py`.
   - **Depends on:** A0.
   - **Failing-first / observation:** The new inventory test must initially fail on `normalized_spl` and any other nonexistent/dangling path discovered; paste the complete inventory into Evidence.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_planner_decision_record_io.py app/tests/test_decision_record.py app/tests/test_planner_hierarchy_contracts.py app/tests/test_state_channel_parity.py -q`; root manifest check and plan audit as in A0.
-  - **Evidence:** _(record-shape count, full inventory artifact/test table, initial invalid refs, final zero invalid roots/paths, pytest, manifest, commit)_
+  - **Evidence:** **COMPLETE 2026-08-10; runtime commit `a435d8a`.** Added test-owned `EXPECTED_RECORD_IO` in `backend/app/tests/test_resource_planner_decision_record_io.py`, covering all **24** post-A0 shapes (20 direct declarations + four specialist records), with separately documented actual read roots, actual write roots, and emitted refs. Failing-first: new slice returned **1 failed, 3 passed**; the sole invalid declaration was `mcp_execution_gate` root `normalized_spl`. Corrected only its descriptive label to `spl_validation.normalized_spl`; no state channel or runtime dependency was added. Final vocabulary result: **zero invalid roots, zero dangling dotted paths**, with `evidence_plan.resource_plan` and `spl_validation.normalized_spl` resolved against representative data; a static negative assertion found zero runtime consumers of `inputs_ref`/`outputs_ref`. Exact Verify slice: **32 passed**. Manifest: `protected artifacts unchanged (13 checked)`. Invariant: **7/7 PASS** — no MCP/LLM/SPL authority, demo, secret, state-channel, flag, port, or test-honesty change. Semantic mismatches intentionally remain declared as inventory inputs for A1.2 rather than being corrected in this schema-only commit.
+
+    | Record shape | Actual read roots | Actual write roots | Declared inputs → outputs after A1.1 |
+    |---|---|---|---|
+    | `work_bundle.apply` | `validated_work_bundle` | none | `validated_work_bundle` → `evidence_plan` |
+    | `specialist.skill` | `routed`, `canonical_planning_input` | `specialist_reports` | `routed` → `specialist_reports` |
+    | `specialist.knowledge` | `intent_classification`, `evidence_plan` | `specialist_reports` | `evidence_plan` → `specialist_reports` |
+    | `specialist.mcp` | `evidence_plan` | `specialist_reports` | `evidence_plan` → `specialist_reports` |
+    | `specialist.spl` | `evidence_plan` | `specialist_reports` | `evidence_plan` → `specialist_reports` |
+    | `bootstrap` | `request` | `evidence_plan`, `query_to_intent`, `canonical_planning_input` | `request` → `evidence_plan`, `query_to_intent`, `canonical_planning_input` |
+    | `route_resolution` | `routed`, `evidence_plan` | `route_contract`, `planning_decision` | `routed`, `evidence_plan` → `route_contract`, `planning_decision` |
+    | `resource_planner.delegate` | `evidence_plan` | `specialist_delegations` | `evidence_plan` → `specialist_delegations` |
+    | `resource_planner.merge` | `specialist_reports`, `specialist_delegations`, `evidence_plan` | `work_bundle`, `validated_work_bundle`, `planner_iteration`, `evidence_plan` | `specialist_reports`, `evidence_plan.resource_plan` → `work_bundle`, `planner_iteration` |
+    | `non_planned_finalize` | `canonical_planning_outcome` | `plan_dispatch_trace` | `canonical_planning_outcome` → `plan_dispatch_trace` |
+    | `prepare_rag_only` | `validated_work_bundle`, `evidence_plan` | `evidence_plan`, `execution` | `evidence_plan` → `execution` |
+    | `rag_early` | `evidence_plan` | `soc_kb_retrieval` | `evidence_plan` → `soc_kb_retrieval`, `source_evidence` |
+    | `composed_dispatch` | `validated_work_bundle`, `evidence_plan` | `evidence_plan`, `candidate_spl`, `spl_validation`, `execution` | `validated_work_bundle`, `evidence_plan.resource_plan` → `candidate_spl`, `spl_validation`, `execution` |
+    | `workflow_spl` | `validated_work_bundle`, `evidence_plan` | `evidence_plan`, `candidate_spl`, `spl_validation` | `validated_work_bundle` → `candidate_spl`, `spl_validation` |
+    | `spl_source_resolve` | `candidate_spl`, `spl_validation` | `spl_validation` | `candidate_spl` → `spl_validation` |
+    | `mcp_execution_gate` | `spl_validation` | `execution`, `human_review` | `spl_validation`, `spl_validation.normalized_spl` → `execution`, `human_review` |
+    | `spl_validate` | `spl_validation` | `spl_validation` | `candidate_spl` → `spl_validation` |
+    | `context_sufficiency` | `context_sufficiency` | `context_sufficiency` | `source_evidence` → `context_sufficiency` |
+    | `decide_facts` | none | none | `mitre_decision`, `severity_decision` → `severity_decision`, `mitre_mappings` |
+    | `answer_guard` | none | none | `answer_contract` → `answer_guard` |
+    | `finalize` | `structured_context`, `source_evidence` | `response`, `context_sufficiency`, `severity_decision` | `structured_context`, `source_evidence` → `response`, `context_sufficiency`, `severity_decision` |
+    | `validate_final_answer` | `response`, `answer_contract`, `evidence_plan`, `mitre_decision`, `human_review`, `planning_decision` | `final_answer_validation`, `response` | `response`, `answer_contract` → `final_answer_validation` |
+    | `human_review` | `human_review` | `human_review` | `execution` → `human_review` |
+    | `policy_veto` | `evidence_plan`, `execution`, `spl_validation` | `policy_veto`, `execution`, `spl_validation` | `evidence_plan` → `policy_veto`, `execution`, `human_review`, `spl_validation` |
   - **Invariant / manifest:** Invariant check; assert no new state channel unless independently justified and declared on both runtime paths.
   - **Commit boundary:** Schema/inventory commit only; semantic output corrections belong to A1.2.
   - **Stop:** A ref requires secret/raw payload exposure; tests would infer I/O from node names; validation would become a runtime dependency mechanism.
@@ -554,3 +581,4 @@ None at authoring time. Tests marked **NEW** are created in the owning item. B0'
 | 2026-08-10 | Latent pre-existing bug found while triaging the above, **left unfixed as out of A0's commit boundary**: `pipeline.py:3669` calls `.get()` on `_query_signals_from_state()`, which returns `None` whenever `query_to_intent` is absent, raising `AttributeError` instead of degrading. Reachable whenever canonical planning cannot complete. Needs its own correctness item. |
 | 2026-08-10 | Governance regenerated the same five `docs/evals/` reports as at P0, and this time with genuine observed-output deltas (parity rows 112–113 `contract_answer_mode` → `None`, `enabled_sections` 6→8, `mitre_technique_ids` 0→2, `mitre_answer_visible` False→True). Re-running the parity eval **with the A0 diff stashed** reproduced every delta byte-for-byte, so the churn is host-environment nondeterminism, not an A0 behavior change. Files reverted; verdicts were `120 exact` in both runs. A stray newline appended to `backend/app/chat/detail_tools/__init__.py` by the run was also reverted. |
 | 2026-08-10 | **Fresh P0 COMPLETE at runtime baseline `f34f4d8`, start HEAD `17ebd19`.** Baseline→HEAD and runtime-worktree guards passed; manifest 13/13, reference probes 10/10, parity 120 exact with zero approved/critical, governance PASS, and independent backend `4797 passed, 2 skipped, 6 xfailed`. Safe host, topology (25 nodes; builder 20 fixed + 8 mapped + 4 dynamic Send targets), and decision-record (25 shapes; 107 channels) inventories were re-measured. Governance's five regenerated eval files had identical verdict/classification projections and summary counts; metadata/timing/order/observed-output churn was reverted. No runtime change; A0 not started. |
+| 2026-08-10 | **A1.1 COMPLETE at `a435d8a`.** The complete post-A0 inventory contains 24 decision-record shapes. Failing-first isolated one vocabulary defect, root `normalized_spl`; it is now the descriptive nested ref `spl_validation.normalized_spl`. All roots/dotted paths validate, refs have zero scheduling consumers, targeted tests are 32 passed, manifest 13/13, and invariants 7/7. Semantic overclaims remain explicit for A1.2. |
