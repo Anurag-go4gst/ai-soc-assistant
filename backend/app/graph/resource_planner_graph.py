@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Annotated, Any, Iterator, Literal
@@ -28,7 +29,6 @@ from app.chat.pipeline import (
     graph_node_init_routing,
     graph_node_prepare_rag_only,
     graph_node_rag_early,
-    graph_node_shadow_enrichment,
     graph_node_shadow_tail,
     graph_node_spl_source_resolve,
     graph_node_workflow_spl,
@@ -350,19 +350,6 @@ def rp_node_route_resolution(state: ResourcePlannerGraphState) -> ResourcePlanne
         reason="route_contract_and_planning_decision_ready",
         inputs_ref=["routed", "evidence_plan"],
         outputs_ref=["route_contract", "planning_decision"],
-        authority="deterministic",
-    )
-
-
-def rp_node_route_setup(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
-    state = graph_node_shadow_enrichment(state)
-    state = _with_trace(state, "route_setup")
-    return _record(
-        state,
-        node="route_setup",
-        reason="route_contract_and_skill_chain_ready",
-        inputs_ref=["routed", "evidence_plan"],
-        outputs_ref=["route_contract", "selected_skill_chain"],
         authority="deterministic",
     )
 
@@ -804,7 +791,6 @@ def _compiled_resource_planner_graph() -> Any:
     graph: StateGraph = StateGraph(ResourcePlannerGraphState)
     graph.add_node("bootstrap", rp_node_bootstrap)
     graph.add_node("route_resolution", rp_node_route_resolution)
-    graph.add_node("route_setup", rp_node_route_setup)
     graph.add_node("resource_planner_delegate", rp_node_resource_planner_delegate)
     graph.add_node("specialist_skill", rp_node_specialist_skill)
     graph.add_node("specialist_knowledge", rp_node_specialist_knowledge)
@@ -938,11 +924,150 @@ def resource_planner_graph_node_names() -> list[str]:
     return []
 
 
+GRAPH_START_SENTINEL = "__start__"
+GRAPH_END_SENTINEL = "__end__"
+
+
+@dataclass(frozen=True)
+class TopologyReconciliation:
+    """Result of comparing documented topology against runtime-derived topology."""
+
+    matched: frozenset[tuple[str, str]]
+    documented_only: frozenset[tuple[str, str]]
+    runtime_only: frozenset[tuple[str, str]]
+
+    @property
+    def is_consistent(self) -> bool:
+        return not self.documented_only and not self.runtime_only
+
+
+def _strip_sentinel_edges(edges: set[tuple[str, str]]) -> set[tuple[str, str]]:
+    sentinels = {GRAPH_START_SENTINEL, GRAPH_END_SENTINEL}
+    return {(src, dst) for src, dst in edges if src not in sentinels and dst not in sentinels}
+
+
+def reconcile_topology(
+    *,
+    fixed: set[tuple[str, str]],
+    mapped: set[tuple[str, str]],
+    dynamic: set[tuple[str, str]],
+    documented: set[tuple[str, str]],
+) -> TopologyReconciliation:
+    """Compare a documented edge set against runtime-derived edges.
+
+    Pure so mutation controls can inject topology instead of rebuilding the
+    ``lru_cache``d compiled graph. Sentinel start/end edges are normalized away
+    because the documented set describes node-to-node wiring only.
+    """
+    runtime = _strip_sentinel_edges(fixed | mapped | dynamic)
+    documented_normalized = _strip_sentinel_edges(documented)
+    return TopologyReconciliation(
+        matched=frozenset(runtime & documented_normalized),
+        documented_only=frozenset(documented_normalized - runtime),
+        runtime_only=frozenset(runtime - documented_normalized),
+    )
+
+
+def unreachable_nodes(
+    *,
+    nodes: set[str],
+    edges: set[tuple[str, str]],
+    entry: str = GRAPH_START_SENTINEL,
+) -> set[str]:
+    """Registered nodes that no path from ``entry`` can reach.
+
+    Pure for the same reason ``reconcile_topology`` is: an orphan must be
+    provable by injecting a topology, not only by compiling the live graph.
+    """
+    outbound: dict[str, set[str]] = {}
+    for source, target in edges:
+        outbound.setdefault(source, set()).add(target)
+
+    reached: set[str] = set()
+    frontier = [entry]
+    while frontier:
+        current = frontier.pop()
+        for target in outbound.get(current, set()):
+            if target not in reached:
+                reached.add(target)
+                frontier.append(target)
+    return {node for node in nodes if node not in reached}
+
+
+def resource_planner_fixed_edges() -> set[tuple[str, str]]:
+    """Unconditional ``add_edge`` wiring, including start/end sentinels."""
+    builder = _compiled_resource_planner_graph().builder
+    return {(str(source), str(target)) for source, target in builder.edges}
+
+
+def resource_planner_mapped_conditional_edges() -> set[tuple[str, str]]:
+    """Conditional destinations declared with an explicit path map."""
+    builder = _compiled_resource_planner_graph().builder
+    edges: set[tuple[str, str]] = set()
+    for source, branches in builder.branches.items():
+        for branch in branches.values():
+            for target in (branch.ends or {}).values():
+                edges.add((str(source), str(target)))
+    return edges
+
+
+def resource_planner_dynamic_send_targets() -> list[str]:
+    """Fan-out targets of the delegate's unmapped ``Send`` branch.
+
+    Resolved by invoking the fan-out contract directly. The branch is located by
+    name so a rename or an accidentally *mapped* delegate branch fails loudly
+    rather than silently reporting the wrong source of truth; reading the
+    callable back out of LangGraph's ``BranchSpec`` wrapper would be framework
+    internals, which this contract deliberately avoids.
+    """
+    builder = _compiled_resource_planner_graph().builder
+    branches = builder.branches.get("resource_planner_delegate") or {}
+    if list(branches) != ["_fan_out_specialists"]:
+        raise RuntimeError(f"unexpected delegate branch registration: {sorted(branches)}")
+    if branches["_fan_out_specialists"].ends is not None:
+        raise RuntimeError("delegate fan-out is mapped; dynamic Send contract no longer holds")
+    return [str(send.node) for send in _fan_out_specialists({})]
+
+
+def resource_planner_dynamic_send_edges() -> set[tuple[str, str]]:
+    return {("resource_planner_delegate", target) for target in resource_planner_dynamic_send_targets()}
+
+
+def resource_planner_registered_node_names() -> set[str]:
+    """Node names the builder actually registered (no start/end sentinels)."""
+    return {str(name) for name in _compiled_resource_planner_graph().builder.nodes}
+
+
+def resource_planner_topology_reconciliation() -> TopologyReconciliation:
+    return reconcile_topology(
+        fixed=resource_planner_fixed_edges(),
+        mapped=resource_planner_mapped_conditional_edges(),
+        dynamic=resource_planner_dynamic_send_edges(),
+        documented=_documented_resource_planner_edges(),
+    )
+
+
+def resource_planner_unreachable_nodes() -> set[str]:
+    return unreachable_nodes(
+        nodes=resource_planner_registered_node_names(),
+        edges=resource_planner_fixed_edges()
+        | resource_planner_mapped_conditional_edges()
+        | resource_planner_dynamic_send_edges(),
+    )
+
+
 def _documented_resource_planner_edges() -> set[tuple[str, str]]:
-    """Static edges LangGraph ``Send`` fan-out does not surface via ``get_graph()``."""
+    """Human-readable topology, pinned to runtime by ``reconcile_topology``.
+
+    This set is documentation, never a truth source. ``resource_planner_graph_edges()``
+    used to union it into the introspected edges, so an invented pair here became a
+    member of the set the assertions checked; the reconciliation contract now requires
+    exact equality with builder-derived fixed, mapped-conditional, and dynamic ``Send``
+    edges instead.
+    """
     edges: set[tuple[str, str]] = {
-        ("bootstrap", "route_setup"),
-        ("route_setup", "resource_planner_delegate"),
+        ("bootstrap", "route_resolution"),
+        ("route_resolution", "resource_planner_delegate"),
     }
     for node in _SPECIALIST_NODE_NAMES:
         edges.add(("resource_planner_delegate", node))
@@ -973,10 +1098,17 @@ def _documented_resource_planner_edges() -> set[tuple[str, str]]:
 
 
 def resource_planner_graph_edges() -> set[tuple[str, str]]:
-    compiled = _compiled_resource_planner_graph()
-    graph = compiled.get_graph()
-    introspected = {(edge.source, edge.target) for edge in graph.edges}
-    return introspected | _documented_resource_planner_edges()
+    """Runtime-derived topology only.
+
+    ``get_graph()`` is not used: it omits every conditional destination and
+    reports a phantom ``resource_planner_delegate -> __end__`` for the unmapped
+    fan-out branch.
+    """
+    return (
+        resource_planner_fixed_edges()
+        | resource_planner_mapped_conditional_edges()
+        | resource_planner_dynamic_send_edges()
+    )
 
 
 def resource_planner_governance_inbound_targets() -> dict[str, set[str]]:
