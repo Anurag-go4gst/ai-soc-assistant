@@ -53,6 +53,8 @@ from app.planner.planner_hierarchy import (
     new_decision_record_id,
 )
 from app.planner.knowledge_specialist import build_knowledge_audit_report
+from app.planner.mcp_specialist import build_mcp_audit_report
+from app.planner.spl_specialist import build_spl_audit_report
 from app.planner.resource_plan import ResourcePlan
 from app.planner.specialist_registry import load_specialist_registry
 from app.schemas.requests import ChatRequest
@@ -245,14 +247,11 @@ def _record_parallel_specialist_decisions(state: ResourcePlannerGraphState) -> R
     """Emit specialist audit records in stable order after parallel fan-in."""
     routed = state.get("routed") if isinstance(state.get("routed"), dict) else {}
     skill_id = str(routed.get("skill") or "")
-    knowledge_reason = next(
-        (
-            str(report.get("decision_reason") or "")
-            for report in state.get("specialist_reports") or []
-            if isinstance(report, dict) and report.get("specialist_id") == "knowledge"
-        ),
-        "knowledge_lane_idle",
-    )
+    report_reasons = {
+        str(report.get("specialist_id") or ""): str(report.get("decision_reason") or "")
+        for report in state.get("specialist_reports") or []
+        if isinstance(report, dict)
+    }
     decisions = [
         (
             "specialist.skill",
@@ -263,21 +262,21 @@ def _record_parallel_specialist_decisions(state: ResourcePlannerGraphState) -> R
         ),
         (
             "specialist.knowledge",
-            knowledge_reason,
+            report_reasons.get("knowledge") or "knowledge_lane_idle",
             "specialist:knowledge",
             ["evidence_plan"],
             ["specialist_reports"],
         ),
         (
             "specialist.mcp",
-            "mcp_lane_advisory",
+            report_reasons.get("mcp") or "mcp_unavailable",
             "specialist:mcp",
             ["evidence_plan"],
             ["specialist_reports"],
         ),
         (
             "specialist.spl",
-            "spl_lane_advisory",
+            report_reasons.get("spl") or "spl_unavailable",
             "specialist:spl",
             ["evidence_plan"],
             ["specialist_reports"],
@@ -420,20 +419,12 @@ def rp_node_specialist_knowledge(state: ResourcePlannerGraphState) -> ResourcePl
 
 
 def rp_node_specialist_mcp(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
-    report = McpSpecialistReport(
-        delegation_id="del:mcp",
-        decision_reason="mcp_lane_advisory",
-        hop_count=0,
-    ).model_dump()
+    report = build_mcp_audit_report(evidence_plan=_evidence_plan(state)).model_dump()
     return {"specialist_reports": [report]}
 
 
 def rp_node_specialist_spl(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
-    report = SplSpecialistReport(
-        delegation_id="del:spl",
-        decision_reason="spl_lane_advisory",
-        spl_source="template_or_fallback",
-    ).model_dump()
+    report = build_spl_audit_report(evidence_plan=_evidence_plan(state)).model_dump()
     return {"specialist_reports": [report]}
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -42,6 +43,19 @@ _LANE_BUILDERS: tuple[Callable[[Any], dict[str, Any]], ...] = (
     rp_node_specialist_spl,
 )
 
+_FORBIDDEN_REPORT_KEYS = {
+    "candidate_spl",
+    "normalized_spl",
+    "endpoint",
+    "auth_token",
+    "bearer_token",
+    "password",
+    "secret",
+    "raw_query",
+    "prompt",
+    "rag_text",
+}
+
 
 def _fake_retrieve(**kwargs: Any) -> dict[str, Any]:
     return {
@@ -80,6 +94,20 @@ def _fan_out_reports(request: ChatRequest) -> list[dict[str, Any]]:
     return [builder(state)["specialist_reports"][0] for builder in _LANE_BUILDERS]
 
 
+def _all_keys(value: Any) -> set[str]:
+    if isinstance(value, dict):
+        keys = {str(key) for key in value}
+        for nested in value.values():
+            keys.update(_all_keys(nested))
+        return keys
+    if isinstance(value, list):
+        keys: set[str] = set()
+        for nested in value:
+            keys.update(_all_keys(nested))
+        return keys
+    return set()
+
+
 @pytest.mark.parametrize(("probe_id", "query"), _PROBES, ids=[row[0] for row in _PROBES])
 def test_specialist_reports_are_exact_and_content_preserving_across_paths(
     monkeypatch: pytest.MonkeyPatch,
@@ -109,6 +137,43 @@ def test_specialist_reports_are_exact_and_content_preserving_across_paths(
         f"{probe_id}: reducer changed or dropped per-lane report content"
     )
 
+    by_specialist = _by_specialist(reports)
+    mcp_report = by_specialist["mcp"]
+    spl_report = by_specialist["spl"]
+    assert mcp_report["decision_reason"].startswith("mcp_")
+    assert mcp_report["decision_reason"] != "mcp_lane_advisory"
+    assert spl_report["decision_reason"].startswith("spl_")
+    assert spl_report["decision_reason"] != "spl_lane_advisory"
+    assert spl_report["spl_source"] != "template_or_fallback"
+    assert spl_report["execution_eligible"] is False
+
+    plan_steps = (
+        ((state.get("work_bundle") or {}).get("source_plan") or {}).get("steps")
+        or []
+    )
+    mcp_steps = [
+        step
+        for step in plan_steps
+        if step.get("purpose") in {"mcp_execution", "mcp_discovery"}
+    ]
+    spl_steps = [step for step in plan_steps if step.get("purpose") == "spl_artifact"]
+    assert mcp_report["planned_hop_count"] == len(mcp_steps)
+    assert mcp_report["hop_count"] == len(mcp_steps)
+    assert mcp_report["requires_execution_gate"] is any(
+        step.get("purpose") == "mcp_execution" for step in mcp_steps
+    )
+    assert spl_report["plan_needs_spl"] is bool(spl_steps)
+    assert spl_report["planned_resource_id"] == (
+        spl_steps[0].get("resource_id") if spl_steps else None
+    )
+
+    for report in reports:
+        assert len(json.dumps(report, sort_keys=True)) <= 8192
+        assert not (_all_keys(report) & _FORBIDDEN_REPORT_KEYS)
+        for value in report.values():
+            if isinstance(value, list):
+                assert len(value) <= 16
+
     iteration = state.get("planner_iteration")
     assert isinstance(iteration, dict)
     iteration_reports = iteration.get("reports") or []
@@ -124,6 +189,26 @@ def test_specialist_reports_are_exact_and_content_preserving_across_paths(
     assert _by_specialist(bundle_reports) == _by_specialist(expected_reports), (
         f"{probe_id}: work bundle dropped specialist subtype content"
     )
+
+    source_steps = {
+        step["step_id"]: step
+        for step in (bundle.get("source_plan") or {}).get("steps") or []
+    }
+    tasks = {task["step_id"]: task for task in bundle.get("tasks") or []}
+    assert set(tasks) == set(source_steps)
+    for step_id, source in source_steps.items():
+        assert tasks[step_id]["status"] == source["status"]
+        assert tasks[step_id]["policy_checks"] == source["policy_checks"]
+
+    decision_records = {
+        record.get("node"): record
+        for record in state.get("decision_log") or []
+        if isinstance(record, dict) and str(record.get("node") or "").startswith("specialist.")
+    }
+    assert decision_records["specialist.mcp"]["decision_reason"] == mcp_report["decision_reason"]
+    assert decision_records["specialist.spl"]["decision_reason"] == spl_report["decision_reason"]
+    assert decision_records["specialist.mcp"].get("payload") in ({}, None)
+    assert decision_records["specialist.spl"].get("payload") in ({}, None)
 
 
 def test_resource_planner_edges_document_all_four_send_branches() -> None:
