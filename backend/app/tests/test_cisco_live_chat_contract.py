@@ -64,10 +64,11 @@ def test_dns_observation_window_paraphrase_live_contract(monkeypatch: pytest.Mon
         "app.chat.pipeline.run_mitre_risk_rationale",
         lambda **_: pytest.fail("draft preview path must skip MITRE/risk LLM rationale"),
     )
-    monkeypatch.setattr(
-        "app.chat.pipeline.run_resource_plan_shadow",
-        lambda **_: pytest.fail("draft preview path must skip resource-plan LLM shadow"),
-    )
+    # The resource-plan LLM shadow used to be patched here to fail if called on
+    # the draft-preview path. B2-R2 retired that runner outright, so the
+    # guarantee is now structural rather than test-enforced — there is no shadow
+    # call site left to trip. `test_retired_resource_planning_surfaces.py` pins
+    # its absence.
     payload = _chat("List all DNS requests during the observation window.")
 
     understanding = payload["query_understanding"]

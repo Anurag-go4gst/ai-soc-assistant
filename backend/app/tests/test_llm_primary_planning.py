@@ -78,31 +78,15 @@ def _fake_propose(client: _FakeClient, *, match_path: str | None = None):
     return _propose
 
 
-def test_oos_promoted_plan_addition_drives_dispatch_order(monkeypatch: pytest.MonkeyPatch) -> None:
-    client = _FakeClient(
-        _proposal(
-            [
-                {"resource_id": "rag_corpus:soc_kb", "purpose": "knowledge_retrieval"},
-                {"resource_id": "skill:mitre_mapping", "purpose": "mitre_mapping"},
-            ]
-        )
-    )
-    monkeypatch.setattr(
-        "app.planner.plan_promotion_merge.propose_validated_llm_plan",
-        _fake_propose(client),
-    )
-    state = graph_node_evidence_planning(_evidence_state(_OOS))
-    resource_plan = (state["evidence_plan"].get("resource_plan") or {})
-    assert resource_plan.get("provenance", {}).get("llm_bridge") == "promoted"
-    purposes = [step["purpose"] for step in resource_plan.get("steps") or []]
-    assert "mitre_mapping" in purposes
-    mitre_index = purposes.index("mitre_mapping")
-    narration_index = purposes.index("narration")
-    assert mitre_index < narration_index
-
-    walk = walk_plan_steps(state)
-    assert walk is not None
-    assert "mitre_mapping" in [step.get("purpose") for step in walk.steps_in_order]
+# B2-R2 (B1=RETIRE) removed two tests from this file:
+#   test_oos_promoted_plan_addition_drives_dispatch_order
+#   test_llm_unavailable_keeps_deterministic_plan
+# Both drove the inline bridge through `graph_node_evidence_planning` and
+# asserted `provenance["llm_bridge"]`. That promotion is retired, so their
+# subject no longer exists — they are deleted, not weakened. The module-level
+# tests below still exercise `apply_llm_primary_resource_plan` and
+# `merge_floor_with_promoted` directly, so floor-preservation coverage is
+# unchanged.
 
 
 def test_exact_105_floor_retained_when_proposal_omits_required_steps(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -138,17 +122,6 @@ def test_exact_105_floor_retained_when_proposal_omits_required_steps(monkeypatch
     assert floor_purposes.issubset(merged_purposes)
     assert merged.provenance.get("llm_bridge") == "promoted"
     assert merged.provenance.get("floor_merge_rejected")
-
-
-def test_llm_unavailable_keeps_deterministic_plan(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "app.planner.plan_promotion_merge.propose_validated_llm_plan",
-        lambda **kwargs: None,
-    )
-    state = graph_node_evidence_planning(_evidence_state(_OOS))
-    resource_plan = state["evidence_plan"]["resource_plan"]
-    assert resource_plan["plan_source"] == "deterministic"
-    assert resource_plan["provenance"]["llm_bridge"] == "rejected:no_valid_proposal"
 
 
 def test_exhausted_budget_skips_planner_with_provenance() -> None:

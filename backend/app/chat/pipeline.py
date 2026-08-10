@@ -201,9 +201,7 @@ from app.llm.mitre_risk_rationale import (
     build_deterministic_severity_rationale,
     run_mitre_risk_rationale,
 )
-from app.planner.plan_promotion_merge import apply_llm_primary_resource_plan, record_planner_sidecar
 from app.planner.resource_plan import ResourcePlan
-from app.planner.resource_plan_shadow import run_resource_plan_shadow
 from app.connectors.mcp.mcp_tool_chronology import deterministic_default_chronology
 from app.connectors.mcp.mcp_tool_planner import plan_tool_chronology
 from app.chat.evidence_loop import (
@@ -306,7 +304,6 @@ from app.chat.guided_hybrid_refinement import (
 )
 from app.chat.guided_hybrid_dispatch import uses_guided_hybrid_dispatch_from_state
 from app.chat.guided_hybrid_collection import collect_guided_hybrid_evidence
-from app.chat.guided_investigation_plan_llm import propose_investigation_plan_llm
 from app.chat.guided_investigation_synthesizer import (
     build_guided_llm_degraded_message,
     build_guided_llm_trace,
@@ -1871,22 +1868,10 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         user_query=getattr(_req_for_evidence, "message", None) if _req_for_evidence is not None else None,
     )
     evidence_payload = plan.model_dump()
-    if isinstance(evidence_payload.get("resource_plan"), dict):
-        floor_plan = ResourcePlan.model_validate(evidence_payload["resource_plan"])
-        _match_path = getattr(state.get("query_understanding"), "deterministic_match_path", None)
-        _budget = state.get("llm_turn_budget")
-        _planner_started = time.monotonic()
-        merged_plan, llm_planner_called = apply_llm_primary_resource_plan(
-            floor_plan,
-            query=str(getattr(_req_for_evidence, "message", "") or ""),
-            match_path=str(_match_path) if _match_path is not None else None,
-            action_mode=str(evidence_payload.get("action_mode") or "") or None,
-            mcp_allowed=bool(evidence_payload.get("mcp_allowed")),
-            budget=_budget if isinstance(_budget, TurnLlmBudget) else None,
-        )
-        evidence_payload["resource_plan"] = merged_plan.model_dump()
-        if llm_planner_called and isinstance(_budget, TurnLlmBudget):
-            record_planner_sidecar(_budget, started_at=_planner_started)
+    # B2-R2 (B1=RETIRE): the inline LLM plan-bridge promotion was applied here.
+    # This whole node is fenced off canonical turns, so the bridge was already
+    # unreachable in production; retiring it removes the second planning
+    # authority rather than changing any reachable behavior.
     evidence_payload["mcp_allowed_normalized"] = _mcp_allowed_decision_from_plan(evidence_payload)
     workflow_plan = state.get("workflow_plan")
     if (
@@ -4532,67 +4517,17 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             if llm_turn_budget_trace is not None:
                 llm_turn_budget_trace = budget.to_trace_dict()
 
-        evidence_plan_payload = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None
-        live_plan_source = None
-        if isinstance(evidence_plan_payload, dict):
-            live_resource_plan = evidence_plan_payload.get("resource_plan")
-            if isinstance(live_resource_plan, dict):
-                live_plan_source = live_resource_plan.get("plan_source")
-        if draft_preview_active:
-            resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": "draft_spl_preview_active"}
-        elif hybrid_role_plan is None or not hybrid_role_plan.role_enabled("route_plan_candidate_generator"):
-            resource_plan_shadow_trace = {
-                "llm_called": False,
-                "skipped_reason": (
-                    hybrid_role_plan.skip_reason("route_plan_candidate_generator")
-                    if hybrid_role_plan is not None
-                    else "hybrid_plan_unavailable"
-                ),
-            }
-        elif (hop_block := budget.sidecar_hop_blocked(role="route_plan_candidate_generator")):
-            resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": hop_block}
-        else:
-            _inline_bridge = None
-            if isinstance(evidence_plan_payload, dict):
-                live_resource_plan = evidence_plan_payload.get("resource_plan")
-                if isinstance(live_resource_plan, dict):
-                    _inline_bridge = (live_resource_plan.get("provenance") or {}).get("llm_bridge")
-            if _inline_bridge == "promoted":
-                live_steps = (
-                    (evidence_plan_payload.get("resource_plan") or {}).get("steps")
-                    if isinstance(evidence_plan_payload, dict)
-                    else None
-                )
-                resource_plan_shadow_trace = {
-                    "shadow_only": True,
-                    "promotion_blocked": False,
-                    "llm_called": True,
-                    "deterministic_plan_source": live_plan_source or "deterministic",
-                    "skipped_reason": "promoted_inline",
-                    "shadow_plan_source": (evidence_plan_payload or {}).get("resource_plan", {}).get("plan_source"),
-                    "shadow_step_count": len(live_steps or []),
-                    "shadow_provenance": (evidence_plan_payload or {}).get("resource_plan", {}).get("provenance"),
-                    "live_plan_source_unchanged": False,
-                }
-            else:
-                _t0 = time.monotonic()
-                shadow_result = run_resource_plan_shadow(
-                    query=request.message,
-                    match_path=_match_path_from_state(state),
-                    evidence_plan=evidence_plan_payload,
-                )
-                resource_plan_shadow_trace = shadow_result.to_trace_dict()
-                if shadow_result.llm_called:
-                    budget.record_sidecar(
-                        role="route_plan_candidate_generator",
-                        provider_label="local_or_failover",
-                        outcome="completed",
-                        latency_ms=int((time.monotonic() - _t0) * 1000),
-                    )
-                if isinstance(evidence_plan_payload, dict):
-                    after_source = (evidence_plan_payload.get("resource_plan") or {}).get("plan_source")
-                    if live_plan_source is not None:
-                        resource_plan_shadow_trace["live_plan_source_unchanged"] = after_source == live_plan_source
+        # B2-R2 (B1=RETIRE): the ResourcePlan shadow runner is retired. It spent a
+        # model hop on a plan that was discarded by construction, so no planning
+        # model call is made here any more. The trace key is retained with an
+        # explicit posture because live consumers read it — llm_role_scorecard and
+        # run_out_of_catalogue_scorecard — and the EC path builds its own sidecar.
+        resource_plan_shadow_trace = {
+            "llm_called": False,
+            "shadow_status": "retired",
+            "skipped_reason": "retired_not_called",
+            "live_plan_source_unchanged": True,
+        }
         if llm_turn_budget_trace is not None:
             llm_turn_budget_trace = budget.to_trace_dict()
     composer_trace: dict[str, Any] = build_composer_runtime_status()
@@ -5939,7 +5874,6 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
     pre_plan = None
     validation = None
     validated_resource: ResourcePlan | None = committed_resource
-    llm_result = None
     refinement_round = 0
 
     while True:
@@ -5953,25 +5887,16 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
             if isinstance(state.get("soc_kb_retrieval"), dict)
             else None,
         ).model_copy(update={"refinement_round": refinement_round})
-        if settings.ai_soc_guided_llm_enabled:
-            from app.chat.guided_investigation_plan_llm import InvestigationPlanLlmResult
-
-            llm_result = InvestigationPlanLlmResult(
-                raw_llm=None,
-                proposal=None,
-                attempted=False,
-                timed_out=False,
-                provider_label=None,
-                dropped_reasons=["guided_finalize_composer_reserved"],
-            )
-        else:
-            llm_result = propose_investigation_plan_llm(query=query, baseline=baseline)
-        if refinement_round == 0 and llm_result.attempted:
-            dispatch_steps.append("guided_investigation_plan_llm")
+        # B2-R2 (B1=RETIRE, guided_hybrid_llm_rail_disposition=RETIRE_PROPOSER):
+        # the imperative guided proposer was a second planning authority beside
+        # canonical planning. Guided planning is now deterministic-only; the
+        # baseline plan goes straight to the unchanged Validator A contract.
+        # The `guided_investigation_plan_llm` dispatch-step label is removed with
+        # its producer, and pinned absent by the B2-R1 contract.
         validated_plan = validate_investigation_plan(
             baseline,
-            llm_result.proposal,
-            llm_attempted=llm_result.attempted,
+            None,
+            llm_attempted=False,
         )
         if refinement_round == 0:
             dispatch_steps.extend(
@@ -6044,13 +5969,14 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
     assert pre_plan is not None
     assert validation is not None
     assert validated_resource is not None
-    assert llm_result is not None
     handoff_trace = build_guided_handoff_trace(
         investigation_plan_validated=validated_plan,
         resource_plan_pre_validation=pre_plan,
         resource_plan_validated=validated_resource,
         blocked_resources=blocked_resources_wire(validation),
-        investigation_plan_raw_llm=llm_result.raw_llm,
+        # Retired proposer: no raw LLM plan exists on this rail any more. The
+        # field stays in the trace because consumers assert it is None.
+        investigation_plan_raw_llm=None,
         evidence_collected=collected_count,
         refinement_rounds=refinement_rounds,
     )

@@ -47,8 +47,8 @@ _PIPELINE_SRC = _PIPELINE_PATH.read_text()
 PLANNING_SURFACE_EXPECTATION: dict[str, dict[str, Any]] = {
     "resource_plan_shadow": {
         "pipeline_symbol": "run_resource_plan_shadow",
-        "symbol_present": True,
-        "call_site_present": True,
+        "symbol_present": False,
+        "call_site_present": False,
         # The runner executes on some canonical turns, but never spends a model
         # hop under repo-default settings.
         "model_called_on_canonical_turn": False,
@@ -57,8 +57,8 @@ PLANNING_SURFACE_EXPECTATION: dict[str, dict[str, Any]] = {
     },
     "llm_plan_bridge_inline": {
         "pipeline_symbol": "apply_llm_primary_resource_plan",
-        "symbol_present": True,
-        "call_site_present": True,
+        "symbol_present": False,
+        "call_site_present": False,
         # Its only call site is inside the fenced legacy planning node, so a
         # canonical turn can never reach it.
         "reachable_on_canonical_turn": False,
@@ -66,11 +66,11 @@ PLANNING_SURFACE_EXPECTATION: dict[str, dict[str, Any]] = {
     },
     "guided_hybrid_proposer": {
         "pipeline_symbol": "propose_investigation_plan_llm",
-        "symbol_present": True,
-        "call_site_present": True,
-        # The gate is inverted: flag TRUE reserves the proposer, FALSE calls it.
-        "flag_gates_proposer": True,
-        "proposer_gate_consumers": 1,
+        "symbol_present": False,
+        "call_site_present": False,
+        # Retired by B2-R2: the flag no longer gates any planning-model call.
+        "flag_gates_proposer": False,
+        "proposer_gate_consumers": 0,
         "reserved_dropped_reason": "guided_finalize_composer_reserved",
         "dispatch_label": "guided_investigation_plan_llm",
     },
