@@ -467,6 +467,9 @@ class ChatPipelineState(TypedDict, total=False):
     processing_lane: str | None
     initial_tier: str | None
     resolved_tier: str | None
+    catalogue_binding_candidate: dict[str, Any] | None
+    observed_catalogue_match_path: str | None
+    effective_catalogue_match_path: str | None
     handoff_resume: dict[str, Any] | None
     pending_handoff_id: str | None
     pending_handoff_version: int | None
@@ -1004,6 +1007,22 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
             request.message,
             routed.get("routing_provenance") or {},
         )
+    candidate_mappings = {
+        "match_path": getattr(query_understanding, "deterministic_match_path", None),
+        "question_ref": getattr(query_understanding, "mapped_question_ref", None),
+        "use_case_ids": list(
+            getattr(query_understanding, "mapped_use_case_ids", None) or []
+        ),
+    }
+    selected_use_case, routed, _candidate_mappings, catalogue_binding = (
+        apply_live_catalogue_bind(
+            query=query_text,
+            query_understanding=query_understanding,
+            selected_use_case=selected_use_case,
+            routed=routed,
+            candidate_mappings=candidate_mappings,
+        )
+    )
     route_plan_shadow = _route_plan_shadow_stage(
         query_text,
         deterministic_primary_skill=str(routed["skill"]),
@@ -1023,6 +1042,9 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
         "query_understanding": query_understanding,
         "selected_use_case": selected_use_case,
         "routed": routed,
+        "catalogue_binding_candidate": catalogue_binding.model_dump(),
+        "observed_catalogue_match_path": catalogue_binding.observed_match_path,
+        "effective_catalogue_match_path": catalogue_binding.effective_match_path,
         "route_plan_shadow": route_plan_shadow,
         "llm_turn_budget": llm_budget,
     }
@@ -1347,7 +1369,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
             routed_skill = "knowledge_recall"
 
     if isinstance(routed, dict):
-        _pre_use_case, routed, candidate_mappings = apply_live_catalogue_bind(
+        _pre_use_case, routed, candidate_mappings, _pre_catalogue_binding = apply_live_catalogue_bind(
             query=query_text,
             query_understanding=query_understanding,
             selected_use_case=None,
@@ -1371,7 +1393,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case = None
     else:
         selected_use_case = _selected_use_case(query_text, query_signals=signals)
-    selected_use_case, routed, candidate_mappings = apply_live_catalogue_bind(
+    selected_use_case, routed, candidate_mappings, catalogue_binding = apply_live_catalogue_bind(
         query=query_text,
         query_understanding=query_understanding,
         selected_use_case=selected_use_case,
@@ -1396,6 +1418,9 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         "routed": routed,
         "intent_classification": payload.get("intent_classification"),
         "selected_use_case": selected_use_case,
+        "catalogue_binding_candidate": catalogue_binding.model_dump(),
+        "observed_catalogue_match_path": catalogue_binding.observed_match_path,
+        "effective_catalogue_match_path": catalogue_binding.effective_match_path,
         "llm_turn_budget": budget,
     }
 

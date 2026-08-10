@@ -15,8 +15,6 @@ from typing import Annotated, Any, Iterator, Literal
 from langgraph.graph import END, StateGraph
 from langgraph.types import Send
 
-from app.catalogue.match_tiers import match_catalogue_tier
-
 from app.chat.control_plane_trace import patch_control_plane_trace_decision_log
 from app.chat.decision_record import emit_decision_record
 from app.chat.final_answer_validator import validate_final_answer
@@ -394,13 +392,20 @@ def rp_node_resource_planner_delegate(state: ResourcePlannerGraphState) -> Resou
 
 def rp_node_specialist_skill(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
     routed = state.get("routed") if isinstance(state.get("routed"), dict) else {}
-    query = state.get("effective_query") or state["request"].message
-    tier = match_catalogue_tier(query, understanding=state.get("query_understanding"))
+    canonical = (
+        state.get("canonical_planning_input")
+        if isinstance(state.get("canonical_planning_input"), dict)
+        else {}
+    )
+    routing = canonical.get("routing") if isinstance(canonical.get("routing"), dict) else {}
+    catalogue_tier = routing.get("catalogue_tier")
+    warnings = [] if catalogue_tier is not None else ["canonical_routing_unavailable"]
     report = SkillSpecialistReport(
         delegation_id="del:skill",
         decision_reason="route_lane",
         skill_id=str(routed.get("skill") or ""),
-        catalogue_tier=tier.tier,
+        catalogue_tier=str(catalogue_tier) if catalogue_tier is not None else None,
+        warnings=warnings,
     ).model_dump()
     return {"specialist_reports": [report]}
 

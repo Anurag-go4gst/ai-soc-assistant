@@ -128,7 +128,15 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     routed = dict(state.get("routed") or {})
     trace_id = state.get("trace_id")
     session_id = state.get("session_id")
-    match_path = str(getattr(qu, "deterministic_match_path", "") or "out_of_registry")
+    observed_match_path = str(
+        state.get("observed_catalogue_match_path")
+        or getattr(qu, "deterministic_match_path", "")
+        or "out_of_registry"
+    )
+    effective_match_path = str(
+        state.get("effective_catalogue_match_path") or observed_match_path
+    )
+    match_path = effective_match_path
 
     state = emit_planning_event(
         state,
@@ -137,7 +145,8 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         decision_reason="query_understanding_completed",
         payload={
             "trace_id": trace_id,
-            "match_path": match_path,
+            "match_path": observed_match_path,
+            "effective_match_path": effective_match_path,
             "normalized_query": str(getattr(qu, "normalized_query", query) or query),
         },
     ) or state
@@ -181,9 +190,18 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
             session_id=str(session_id) if session_id else None,
         ) or state
         query = str(resumed_record.original_query or query)
-        match_path = str(
-            (resume_result.merged_canonical.get("routing") or {}).get("match_path") or match_path
+        resumed_routing = resume_result.merged_canonical.get("routing") or {}
+        observed_match_path = str(
+            resumed_routing.get("observed_match_path")
+            or resumed_routing.get("match_path")
+            or observed_match_path
         )
+        effective_match_path = str(
+            resumed_routing.get("effective_match_path")
+            or resumed_routing.get("match_path")
+            or effective_match_path
+        )
+        match_path = effective_match_path
 
     initial, resolved, lane = lane_for_match_path(match_path)
     if resumed_record is not None:
@@ -514,6 +532,8 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         gap=gap,
         reference_ids=reference_ids,
         route_reason=route_reason,
+        observed_match_path=observed_match_path,
+        effective_match_path=effective_match_path,
     )
 
     clarification_required = bool(
@@ -686,6 +706,8 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         "processing_lane": processing_lane,
         "resolved_tier": resolved_tier,
         "initial_tier": initial,
+        "observed_catalogue_match_path": observed_match_path,
+        "effective_catalogue_match_path": effective_match_path,
         "handoff_id": handoff_id,
         "handoff_version": handoff_version,
     }

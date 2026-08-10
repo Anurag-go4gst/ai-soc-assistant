@@ -80,6 +80,9 @@ _CANONICAL_CHANNELS = (
     "processing_lane",
     "initial_tier",
     "resolved_tier",
+    "catalogue_binding_candidate",
+    "observed_catalogue_match_path",
+    "effective_catalogue_match_path",
     "pending_handoff_id",
     "pending_handoff_version",
 )

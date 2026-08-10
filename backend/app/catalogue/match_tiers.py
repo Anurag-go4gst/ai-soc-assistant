@@ -21,6 +21,7 @@ from app.query_understanding.parser import understand_query
 from app.use_cases.registry import match_use_cases
 
 CatalogueTier = Literal["T0", "T1", "T2", "T3", "T4"]
+BindingCandidateTier = Literal["T1", "T2", "T3", "T4"]
 
 _REFERENCE_ID_RE = re.compile(
     r"\b(?:AML\.T\d{4}|CVE-\d{4}-\d+|T\d{4}(?:\.\d{3})?)\b",
@@ -48,6 +49,26 @@ class CatalogueMatchResult(BaseModel):
     source: str
     match_path: str
     match_reason: str
+    use_case_id: str | None = None
+    question_ref: str | None = None
+    skill_id: str | None = None
+    spl_template_id: str | None = None
+    alias_applied: bool = False
+    matched_patterns: list[str] = Field(default_factory=list)
+
+
+class CatalogueBindingCandidate(BaseModel):
+    """Non-authoritative catalogue bind proposed to the canonical routing seam."""
+
+    entry_id: str
+    binding_candidate_tier: BindingCandidateTier
+    source: str
+    observed_match_path: str
+    candidate_match_path: str
+    effective_match_path: str
+    match_reason: str
+    decision_reason: str = "not_reconciled"
+    accepted: bool = False
     use_case_id: str | None = None
     question_ref: str | None = None
     skill_id: str | None = None
@@ -155,31 +176,67 @@ def _use_case_catalog_match(query: str, *, alias_applied: bool) -> CatalogueMatc
     )
 
 
+def build_catalogue_binding_candidate(
+    query: str,
+    *,
+    understanding: Any | None = None,
+) -> CatalogueBindingCandidate:
+    """Build a catalogue candidate without granting canonical T0 authority."""
+    understanding = understanding or understand_query(query)
+    observed_match_path = str(
+        getattr(understanding, "deterministic_match_path", "") or "out_of_registry"
+    )
+    mapped = _tier_from_understanding(understanding)
+    if mapped is None:
+        mapped = _use_case_catalog_match(query, alias_applied=False)
+    if mapped is None:
+        normalized, alias_applied = normalize_query_aliases(query)
+        if alias_applied:
+            mapped = _use_case_catalog_match(normalized, alias_applied=True)
+    if mapped is None:
+        mapped = CatalogueMatchResult(
+            entry_id="out_of_registry",
+            tier="T4",
+            source="use_cases_catalog",
+            match_path="out_of_registry",
+            match_reason="no_catalogue_bind",
+        )
+    if mapped.tier == "T0":
+        raise ValueError("catalogue binding candidates cannot grant T0")
+    return CatalogueBindingCandidate(
+        entry_id=mapped.entry_id,
+        binding_candidate_tier=mapped.tier,
+        source=mapped.source,
+        observed_match_path=observed_match_path,
+        candidate_match_path=mapped.match_path,
+        effective_match_path=observed_match_path,
+        match_reason=mapped.match_reason,
+        use_case_id=mapped.use_case_id,
+        question_ref=mapped.question_ref,
+        skill_id=mapped.skill_id,
+        spl_template_id=mapped.spl_template_id,
+        alias_applied=mapped.alias_applied,
+        matched_patterns=list(mapped.matched_patterns),
+    )
+
+
 def match_catalogue_tier(query: str, *, understanding: Any | None = None) -> CatalogueMatchResult:
-    """Classify a query into T0–T4 without mutating live routing."""
+    """Compatibility classifier for tests and non-production inspection surfaces."""
     reference = _reference_match(query)
     if reference is not None:
         return reference
 
-    understanding = understanding or understand_query(query)
-    mapped = _tier_from_understanding(understanding)
-    if mapped is not None:
-        return mapped
-
-    direct = _use_case_catalog_match(query, alias_applied=False)
-    if direct is not None:
-        return direct
-
-    normalized, alias_applied = normalize_query_aliases(query)
-    if alias_applied:
-        fuzzy = _use_case_catalog_match(normalized, alias_applied=True)
-        if fuzzy is not None:
-            return fuzzy
-
+    candidate = build_catalogue_binding_candidate(query, understanding=understanding)
     return CatalogueMatchResult(
-        entry_id="out_of_registry",
-        tier="T4",
-        source="use_cases_catalog",
-        match_path="out_of_registry",
-        match_reason="no_catalogue_bind",
+        entry_id=candidate.entry_id,
+        tier=candidate.binding_candidate_tier,
+        source=candidate.source,
+        match_path=candidate.candidate_match_path,
+        match_reason=candidate.match_reason,
+        use_case_id=candidate.use_case_id,
+        question_ref=candidate.question_ref,
+        skill_id=candidate.skill_id,
+        spl_template_id=candidate.spl_template_id,
+        alias_applied=candidate.alias_applied,
+        matched_patterns=list(candidate.matched_patterns),
     )

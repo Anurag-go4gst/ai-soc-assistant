@@ -42,6 +42,8 @@ class RoutingContext(BaseModel):
     initial_tier: CatalogueTier
     resolved_tier: CatalogueTier
     match_path: str
+    observed_match_path: str | None = None
+    effective_match_path: str | None = None
     catalogue_tier: CatalogueTier
     processing_lane: ProcessingLane
     route_reason: str
