@@ -178,3 +178,72 @@ def test_module_paths_exist() -> None:
     repo = Path(__file__).resolve().parents[2]
     assert (repo / "app" / "chat" / "canonical_planning_orchestrator.py").is_file()
     assert (repo / "app" / "graph" / "resource_planner_graph.py").is_file()
+
+
+# --- F0: canonical lane seam decomposition -------------------------------------
+#
+# ``graph_node_lane_and_canonical_planning`` is an ordered set of named stages. The
+# decomposition must not create a second plan creator: ``plan_evidence_from_canonical``
+# stays the sole one, and no stage may compose a ResourcePlan or take plan authority
+# on its own.
+
+#: Every stage the canonical lane node delegates to, in execution order.
+_CANONICAL_LANE_STAGES = (
+    "_prepare_planning_intake",
+    "_resolve_lane_intent_and_details",
+    "_persist_clarification_outcome",
+    "_commit_planned_outcome",
+)
+
+#: Composing a plan or claiming plan authority anywhere but the sole creator.
+_FORBIDDEN_PLAN_CREATION_CALLS = frozenset(
+    {"compose_resource_plan", "compose_guided_resource_plan", "resource_plan_authority"}
+)
+
+
+def _canonical_lane_stage(name: str) -> Callable[..., Any]:
+    import app.chat.canonical_planning_orchestrator as orchestrator
+
+    stage = getattr(orchestrator, name, None)
+    assert stage is not None, f"canonical lane stage {name} is missing"
+    return stage
+
+
+@pytest.mark.parametrize("stage_name", _CANONICAL_LANE_STAGES)
+def test_no_canonical_lane_stage_composes_a_resource_plan(stage_name: str) -> None:
+    """No extracted stage may compose a plan or take resource-plan authority."""
+    calls = _function_call_names(_canonical_lane_stage(stage_name))
+    offending = calls & _FORBIDDEN_PLAN_CREATION_CALLS
+    assert not offending, f"{stage_name} composes a resource plan directly: {sorted(offending)}"
+
+
+def test_exactly_one_canonical_lane_stage_calls_the_sole_plan_creator() -> None:
+    """``plan_evidence_from_canonical`` is reached from one stage, not several."""
+    callers = [
+        name
+        for name in _CANONICAL_LANE_STAGES
+        if "plan_evidence_from_canonical" in _function_call_names(_canonical_lane_stage(name))
+    ]
+    assert callers == ["_commit_planned_outcome"]
+
+
+def test_canonical_lane_node_delegates_to_every_stage() -> None:
+    """The node stays a seam: it calls each stage rather than inlining the work."""
+    from app.chat.canonical_planning_orchestrator import (
+        graph_node_lane_and_canonical_planning,
+    )
+
+    calls = _function_call_names(graph_node_lane_and_canonical_planning)
+    missing = [name for name in _CANONICAL_LANE_STAGES if name not in calls]
+    assert not missing, f"canonical lane node no longer delegates to: {missing}"
+    assert not calls & _FORBIDDEN_PLAN_CREATION_CALLS
+
+
+def _bad_stage_composing_its_own_plan(state: dict[str, Any]) -> dict[str, Any]:
+    return compose_resource_plan(state)  # noqa: F821
+
+
+def test_negative_control_detector_catches_a_stage_composing_a_plan() -> None:
+    """Evidence: the stage guard fails when a stage does compose a plan."""
+    calls = _function_call_names(_bad_stage_composing_its_own_plan)
+    assert calls & _FORBIDDEN_PLAN_CREATION_CALLS

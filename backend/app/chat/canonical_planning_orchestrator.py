@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from app.chat.canonical_answer_mode_policy import CanonicalAnswerModePolicyError
@@ -122,12 +123,58 @@ def run_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:
         record_canonical_planning_ms(int((time.monotonic() - started) * 1000))
 
 
-def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:
-    """Lane router → completeness/guided resolution → canonical handoff → final planner."""
+@dataclass(frozen=True)
+class _PlanningIntake:
+    """Stage 1 output — resume reconciliation and lane routing settled.
+
+    ``terminal_state`` is a completed pipeline state the caller must return
+    immediately (resume failure); every other field is undefined when it is set.
+    """
+
+    state: ChatPipelineState
+    query: str
+    handoff_id: str
+    handoff_version: int
+    resumed_record: CanonicalHandoffRecord | None
+    initial_tier: str
+    resolved_tier: str
+    processing_lane: str
+    observed_match_path: str
+    effective_match_path: str
+    match_path: str
+    terminal_state: ChatPipelineState | None = None
+
+
+@dataclass(frozen=True)
+class _LaneResolution:
+    """Stage 2 output — intent, completeness, and gap resolution settled."""
+
+    state: ChatPipelineState
+    routed: dict[str, Any]
+    intent_classification: dict[str, Any] | None
+    query_to_intent: dict[str, Any] | None
+    known_query_to_intent_built: bool
+    completeness: Any | None
+    gap: Any | None
+    post: Any | None
+    processing_lane: str
+    resolved_tier: str
+    route_reason: str
+    preserved_answer_goal: str
+    use_case_id: str | None
+    reference_ids: list[str]
+    terminal_state: ChatPipelineState | None = None
+
+
+def _prepare_planning_intake(state: ChatPipelineState) -> _PlanningIntake:
+    """Stage 1 — query/handoff resume preparation and lane routing.
+
+    Creates no plan and takes no planning decision; it only settles which handoff
+    version this turn continues and which lane the match path implies.
+    """
     request = state["request"]
     query = state.get("effective_query") or request.message
     qu = state.get("query_understanding")
-    routed = dict(state.get("routed") or {})
     trace_id = state.get("trace_id")
     session_id = state.get("session_id")
     observed_match_path = str(
@@ -173,11 +220,24 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
                 trace_id=str(trace_id) if trace_id else None,
             )
         except ClarificationResumeError as exc:
-            return build_canonical_failure_state(
-                state,
-                outcome="resolution_failed",
-                reason=exc.reason,
-                detail=exc.detail,
+            return _PlanningIntake(
+                state=state,
+                query=query,
+                handoff_id=handoff_id,
+                handoff_version=handoff_version,
+                resumed_record=None,
+                initial_tier="",
+                resolved_tier="",
+                processing_lane="",
+                observed_match_path=observed_match_path,
+                effective_match_path=effective_match_path,
+                match_path=match_path,
+                terminal_state=build_canonical_failure_state(
+                    state,
+                    outcome="resolution_failed",
+                    reason=exc.reason,
+                    detail=exc.detail,
+                ),
             )
         resumed_record = resume_result.record
         handoff_id = resumed_record.handoff_id
@@ -221,12 +281,46 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         route_reason="handoff_resume" if resumed_record else "initial_route",
     ) or state
 
+    return _PlanningIntake(
+        state=state,
+        query=query,
+        handoff_id=handoff_id,
+        handoff_version=handoff_version,
+        resumed_record=resumed_record,
+        initial_tier=initial,
+        resolved_tier=resolved,
+        processing_lane=lane,
+        observed_match_path=observed_match_path,
+        effective_match_path=effective_match_path,
+        match_path=match_path,
+    )
+
+
+def _resolve_lane_intent_and_details(
+    state: ChatPipelineState,
+    *,
+    intake: _PlanningIntake,
+) -> _LaneResolution:
+    """Stage 2 — resume / known / T4 lane resolution and post-guided completeness.
+
+    Classifies intent and resolves missing detail. It composes no Resource Plan;
+    ``plan_evidence_from_canonical`` remains the sole plan creator.
+    """
+    query = intake.query
+    qu = state.get("query_understanding")
+    routed = dict(state.get("routed") or {})
+    handoff_id = intake.handoff_id
+    handoff_version = intake.handoff_version
+    resumed_record = intake.resumed_record
+    match_path = intake.match_path
+    initial = intake.initial_tier
+
     gap = None
     completeness = None
     intent_classification: dict[str, Any] | None = None
     query_to_intent: dict[str, Any] | None = state.get("query_to_intent")
-    processing_lane = lane
-    resolved_tier = resolved
+    processing_lane = intake.processing_lane
+    resolved_tier = intake.resolved_tier
     known_query_to_intent_built = False
     route_reason = "handoff_resume" if resumed_record else ""
 
@@ -244,6 +338,25 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     reference_ids = extract_reference_ids(query, getattr(qu, "entities", None) if qu else None)
     signals = extract_query_signals(query, qu)
 
+    def _terminal(failure_state: ChatPipelineState) -> _LaneResolution:
+        return _LaneResolution(
+            state=state,
+            routed=routed,
+            intent_classification=None,
+            query_to_intent=query_to_intent,
+            known_query_to_intent_built=False,
+            completeness=None,
+            gap=None,
+            post=None,
+            processing_lane=processing_lane,
+            resolved_tier=resolved_tier,
+            route_reason=route_reason,
+            preserved_answer_goal="",
+            use_case_id=use_case_id,
+            reference_ids=reference_ids,
+            terminal_state=failure_state,
+        )
+
     if resumed_record is not None:
         from app.chat.canonical_mode import build_canonical_failure_state
         from app.chat.canonical_query_to_intent_resume import (
@@ -259,11 +372,13 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
             routing=routing,
         )
         if intent_classification is None:
-            return build_canonical_failure_state(
-                state,
-                outcome="resolution_failed",
-                reason="invalid_handoff_intent_contract",
-                detail="missing_original_skill_or_answer_goal",
+            return _terminal(
+                build_canonical_failure_state(
+                    state,
+                    outcome="resolution_failed",
+                    reason="invalid_handoff_intent_contract",
+                    detail="missing_original_skill_or_answer_goal",
+                )
             )
         query_to_intent = reconstruct_query_to_intent_for_resume(
             resumed_record=resumed_record,
@@ -274,11 +389,13 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         )
         contract_error = query_to_intent_contract_error(query_to_intent)
         if contract_error:
-            return build_canonical_failure_state(
-                state,
-                outcome="resolution_failed",
-                reason=contract_error,
-                detail="invalid_handoff_query_to_intent_contract",
+            return _terminal(
+                build_canonical_failure_state(
+                    state,
+                    outcome="resolution_failed",
+                    reason=contract_error,
+                    detail="invalid_handoff_query_to_intent_contract",
+                )
             )
         known_query_to_intent_built = True
         if resumed_record.gap_resolution and not state.get("gap_resolution"):
@@ -511,136 +628,136 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
                 "answer_goal": ["clarification"],
             }
 
-    assert intent_classification is not None
-    # Mirror canonical intent onto the query_to_intent this node built for the known
-    # lane, so the response surface and the planner cannot disagree there. The T4/T0
-    # branch is left alone: it deliberately reclassifies a qualified reference question
-    # to ``reference_knowledge`` for planning while ``query_to_intent`` keeps the
-    # classifier's own read, and that split is pinned by existing golden tests.
-    if known_query_to_intent_built and isinstance(query_to_intent, dict):
-        query_to_intent = {**query_to_intent, "intent_classification": intent_classification}
-
-    canonical = build_canonical_planning_input(
-        query=query,
-        query_understanding=qu,
+    return _LaneResolution(
+        state=state,
         routed=routed,
         intent_classification=intent_classification,
-        trace_id=str(trace_id) if trace_id else None,
-        handoff_id=handoff_id,
-        handoff_version=handoff_version,
-        resolved_tier=resolved_tier,
-        processing_lane=processing_lane,
+        query_to_intent=query_to_intent,
+        known_query_to_intent_built=known_query_to_intent_built,
         completeness=completeness,
         gap=gap,
-        reference_ids=reference_ids,
-        route_reason=route_reason,
-        observed_match_path=observed_match_path,
-        effective_match_path=effective_match_path,
-    )
-
-    clarification_required = bool(
-        intent_classification.get("requires_clarification")
-        or (post is not None and post.clarification_required)
-        or (gap is not None and gap.clarification_required)
-    )
-
-    policy_reason = resolve_canonical_policy_block_reason(
-        intent_classification=intent_classification,
-        query_understanding=qu,
-        gap=gap,
         post=post,
+        processing_lane=processing_lane,
+        resolved_tier=resolved_tier,
+        route_reason=route_reason,
+        preserved_answer_goal=preserved_answer_goal,
+        use_case_id=use_case_id,
+        reference_ids=reference_ids,
     )
-    if policy_reason:
-        outcome = policy_blocked_outcome(
-            canonical_input=canonical.model_dump(),
-            policy_reason=policy_reason,
-        )
-        policy_state = {
-            **state,
-            "routed": routed,
-            "intent_classification": intent_classification,
-            "query_to_intent": query_to_intent,
-            "canonical_planning_input": canonical.model_dump(),
-            "canonical_planning_outcome": outcome.model_dump(),
-            "gap_resolution": gap.model_dump() if gap else None,
-            "known_completeness": completeness.model_dump() if completeness else None,
-            "processing_lane": processing_lane,
-            "resolved_tier": resolved_tier,
-            "initial_tier": initial,
-        }
-        policy_state.pop("evidence_plan", None)
-        return policy_state
 
-    if clarification_required:
-        unresolved_fields = list(
-            gap.unresolved_details if gap else completeness.missing_fields if completeness else []
-        )
-        if not unresolved_fields:
-            # The outcome contract requires at least one unresolved field; without this
-            # the clarification would be unanswerable and the handoff unresumable.
-            unresolved_fields = ["investigation_scope"]
-        save_clarification_handoff(
-            handoff_id=handoff_id,
-            handoff_version=handoff_version,
-            canonical_planning_input=canonical.model_dump(),
-            gap_resolution=gap.model_dump() if gap else None,
-            unresolved_fields=unresolved_fields,
-            clarification_reason=route_reason or "clarification_required",
-            trace_id=str(trace_id) if trace_id else None,
-            session_id=str(session_id) if session_id else None,
-            original_query=query,
-            original_skill=str(routed.get("skill") or intent_classification.get("primary_intent")),
-            original_use_case_id=use_case_id,
-            original_answer_goal=preserved_answer_goal
-            or str(intent_classification.get("answer_goal_primary") or ""),
-            initial_tier=initial,
-            resolved_tier=resolved_tier,
-        )
-        state = emit_handoff_persisted(
-            state,
-            handoff_id=handoff_id,
-            handoff_version=handoff_version,
-            handoff_status="awaiting_clarification",
-            trace_id=str(trace_id) if trace_id else None,
-            session_id=str(session_id) if session_id else None,
-        ) or state
-        state = emit_clarification_requested(
-            state,
-            {
-                "handoff_id": handoff_id,
-                "handoff_version": handoff_version,
-                "clarification_reason": route_reason,
-                "unresolved_fields": unresolved_fields,
-            },
-        ) or state
-        # No EvidencePlan on this path. A partial dict here is what produced nine
-        # missing-field ValidationErrors in every downstream consumer that reached
-        # ``EvidencePlan.model_validate``. Downstream branches on outcome status.
-        outcome = clarification_outcome(
-            canonical_input=canonical.model_dump(),
-            question=build_clarification_question(unresolved_fields),
-            unresolved_fields=unresolved_fields,
-            handoff_id=handoff_id,
-            handoff_version=handoff_version,
-            reason=route_reason or "clarification_required",
-        )
-        clarification_state = {
-            **state,
-            "routed": routed,
-            "intent_classification": intent_classification,
-            "query_to_intent": query_to_intent,
-            "canonical_planning_input": canonical.model_dump(),
-            "canonical_planning_outcome": outcome.model_dump(),
-            "gap_resolution": gap.model_dump() if gap else None,
-            "known_completeness": completeness.model_dump() if completeness else None,
-            "processing_lane": processing_lane,
-            "resolved_tier": resolved_tier,
-            "initial_tier": initial,
-            "pending_handoff_id": handoff_id,
-            "pending_handoff_version": handoff_version,
-        }
-        clarification_state.pop("evidence_plan", None)
-        return clarification_state
+
+def _persist_clarification_outcome(
+    state: ChatPipelineState,
+    *,
+    intake: _PlanningIntake,
+    lane: _LaneResolution,
+    canonical: Any,
+    intent_classification: dict[str, Any],
+    query_to_intent: dict[str, Any] | None,
+) -> ChatPipelineState:
+    """Stage 4 — persist the clarification handoff and return its terminal state."""
+    handoff_id = intake.handoff_id
+    handoff_version = intake.handoff_version
+    trace_id = state.get("trace_id")
+    session_id = state.get("session_id")
+    gap = lane.gap
+    completeness = lane.completeness
+    route_reason = lane.route_reason
+
+    unresolved_fields = list(
+        gap.unresolved_details if gap else completeness.missing_fields if completeness else []
+    )
+    if not unresolved_fields:
+        # The outcome contract requires at least one unresolved field; without this
+        # the clarification would be unanswerable and the handoff unresumable.
+        unresolved_fields = ["investigation_scope"]
+    save_clarification_handoff(
+        handoff_id=handoff_id,
+        handoff_version=handoff_version,
+        canonical_planning_input=canonical.model_dump(),
+        gap_resolution=gap.model_dump() if gap else None,
+        unresolved_fields=unresolved_fields,
+        clarification_reason=route_reason or "clarification_required",
+        trace_id=str(trace_id) if trace_id else None,
+        session_id=str(session_id) if session_id else None,
+        original_query=intake.query,
+        original_skill=str(lane.routed.get("skill") or intent_classification.get("primary_intent")),
+        original_use_case_id=lane.use_case_id,
+        original_answer_goal=lane.preserved_answer_goal
+        or str(intent_classification.get("answer_goal_primary") or ""),
+        initial_tier=intake.initial_tier,
+        resolved_tier=lane.resolved_tier,
+    )
+    state = emit_handoff_persisted(
+        state,
+        handoff_id=handoff_id,
+        handoff_version=handoff_version,
+        handoff_status="awaiting_clarification",
+        trace_id=str(trace_id) if trace_id else None,
+        session_id=str(session_id) if session_id else None,
+    ) or state
+    state = emit_clarification_requested(
+        state,
+        {
+            "handoff_id": handoff_id,
+            "handoff_version": handoff_version,
+            "clarification_reason": route_reason,
+            "unresolved_fields": unresolved_fields,
+        },
+    ) or state
+    # No EvidencePlan on this path. A partial dict here is what produced nine
+    # missing-field ValidationErrors in every downstream consumer that reached
+    # ``EvidencePlan.model_validate``. Downstream branches on outcome status.
+    outcome = clarification_outcome(
+        canonical_input=canonical.model_dump(),
+        question=build_clarification_question(unresolved_fields),
+        unresolved_fields=unresolved_fields,
+        handoff_id=handoff_id,
+        handoff_version=handoff_version,
+        reason=route_reason or "clarification_required",
+    )
+    clarification_state = {
+        **state,
+        "routed": lane.routed,
+        "intent_classification": intent_classification,
+        "query_to_intent": query_to_intent,
+        "canonical_planning_input": canonical.model_dump(),
+        "canonical_planning_outcome": outcome.model_dump(),
+        "gap_resolution": gap.model_dump() if gap else None,
+        "known_completeness": completeness.model_dump() if completeness else None,
+        "processing_lane": lane.processing_lane,
+        "resolved_tier": lane.resolved_tier,
+        "initial_tier": intake.initial_tier,
+        "pending_handoff_id": handoff_id,
+        "pending_handoff_version": handoff_version,
+    }
+    clarification_state.pop("evidence_plan", None)
+    return clarification_state
+
+
+def _commit_planned_outcome(
+    state: ChatPipelineState,
+    *,
+    intake: _PlanningIntake,
+    lane: _LaneResolution,
+    canonical: Any,
+    intent_classification: dict[str, Any],
+    query_to_intent: dict[str, Any] | None,
+) -> ChatPipelineState:
+    """Stage 5 — persist the in-progress handoff and commit the planned outcome.
+
+    ``plan_evidence_from_canonical`` stays the sole plan creator; this stage only
+    persists around it and projects the committed plan onto the returned state.
+    """
+    handoff_id = intake.handoff_id
+    handoff_version = intake.handoff_version
+    trace_id = state.get("trace_id")
+    session_id = state.get("session_id")
+    qu = state.get("query_understanding")
+    selected_use_case = state.get("selected_use_case")
+    routed = lane.routed
+    gap = lane.gap
+    completeness = lane.completeness
 
     save_handoff(
         CanonicalHandoffRecord(
@@ -649,12 +766,12 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
             status="in_progress",
             trace_id=str(trace_id) if trace_id else None,
             session_id=str(session_id) if session_id else None,
-            original_query=query,
+            original_query=intake.query,
             original_skill=str(routed.get("skill") or intent_classification.get("primary_intent")),
-            original_use_case_id=use_case_id,
+            original_use_case_id=lane.use_case_id,
             original_answer_goal=str(intent_classification.get("answer_goal_primary")),
-            initial_tier=initial,
-            resolved_tier=resolved_tier,
+            initial_tier=intake.initial_tier,
+            resolved_tier=lane.resolved_tier,
             canonical_planning_input=canonical.model_dump(),
             gap_resolution=gap.model_dump() if gap else None,
         )
@@ -677,7 +794,7 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
             query_understanding=qu,
             routed=routed,
             selected_use_case=selected_use_case,
-            user_query=query,
+            user_query=intake.query,
         )
     except CanonicalAnswerModePolicyError as exc:
         failure_state = build_typed_planning_failure_state(
@@ -687,9 +804,9 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
                 "intent_classification": intent_classification,
                 "query_to_intent": query_to_intent,
                 "canonical_planning_input": canonical.model_dump(),
-                "processing_lane": processing_lane,
-                "resolved_tier": resolved_tier,
-                "initial_tier": initial,
+                "processing_lane": lane.processing_lane,
+                "resolved_tier": lane.resolved_tier,
+                "initial_tier": intake.initial_tier,
             },
             failure_status="planning_failed",
             reason=exc.reason,
@@ -727,11 +844,111 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         "evidence_plan": evidence_payload,
         "planner_consumed_fields": consumed,
         "planner_ignored_fields": ignored,
-        "processing_lane": processing_lane,
-        "resolved_tier": resolved_tier,
-        "initial_tier": initial,
-        "observed_catalogue_match_path": observed_match_path,
-        "effective_catalogue_match_path": effective_match_path,
+        "processing_lane": lane.processing_lane,
+        "resolved_tier": lane.resolved_tier,
+        "initial_tier": intake.initial_tier,
+        "observed_catalogue_match_path": intake.observed_match_path,
+        "effective_catalogue_match_path": intake.effective_match_path,
         "handoff_id": handoff_id,
         "handoff_version": handoff_version,
     }
+
+
+def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:
+    """Lane router → completeness/guided resolution → canonical handoff → final planner.
+
+    Ordered stage seam. Each stage is separately typed and testable; none of them
+    creates a Resource Plan, and the stage order is the planning contract:
+    intake/resume → lane+intent/detail → canonical input + policy outcome →
+    clarification persistence *or* plan commit.
+    """
+    intake = _prepare_planning_intake(state)
+    if intake.terminal_state is not None:
+        return intake.terminal_state
+    state = intake.state
+
+    lane = _resolve_lane_intent_and_details(state, intake=intake)
+    if lane.terminal_state is not None:
+        return lane.terminal_state
+    state = lane.state
+
+    intent_classification = lane.intent_classification
+    assert intent_classification is not None
+    query_to_intent = lane.query_to_intent
+    # Mirror canonical intent onto the query_to_intent this node built for the known
+    # lane, so the response surface and the planner cannot disagree there. The T4/T0
+    # branch is left alone: it deliberately reclassifies a qualified reference question
+    # to ``reference_knowledge`` for planning while ``query_to_intent`` keeps the
+    # classifier's own read, and that split is pinned by existing golden tests.
+    if lane.known_query_to_intent_built and isinstance(query_to_intent, dict):
+        query_to_intent = {**query_to_intent, "intent_classification": intent_classification}
+
+    canonical = build_canonical_planning_input(
+        query=intake.query,
+        query_understanding=state.get("query_understanding"),
+        routed=lane.routed,
+        intent_classification=intent_classification,
+        trace_id=str(state.get("trace_id")) if state.get("trace_id") else None,
+        handoff_id=intake.handoff_id,
+        handoff_version=intake.handoff_version,
+        resolved_tier=lane.resolved_tier,
+        processing_lane=lane.processing_lane,
+        completeness=lane.completeness,
+        gap=lane.gap,
+        reference_ids=lane.reference_ids,
+        route_reason=lane.route_reason,
+        observed_match_path=intake.observed_match_path,
+        effective_match_path=intake.effective_match_path,
+    )
+
+    clarification_required = bool(
+        intent_classification.get("requires_clarification")
+        or (lane.post is not None and lane.post.clarification_required)
+        or (lane.gap is not None and lane.gap.clarification_required)
+    )
+
+    policy_reason = resolve_canonical_policy_block_reason(
+        intent_classification=intent_classification,
+        query_understanding=state.get("query_understanding"),
+        gap=lane.gap,
+        post=lane.post,
+    )
+    if policy_reason:
+        outcome = policy_blocked_outcome(
+            canonical_input=canonical.model_dump(),
+            policy_reason=policy_reason,
+        )
+        policy_state = {
+            **state,
+            "routed": lane.routed,
+            "intent_classification": intent_classification,
+            "query_to_intent": query_to_intent,
+            "canonical_planning_input": canonical.model_dump(),
+            "canonical_planning_outcome": outcome.model_dump(),
+            "gap_resolution": lane.gap.model_dump() if lane.gap else None,
+            "known_completeness": lane.completeness.model_dump() if lane.completeness else None,
+            "processing_lane": lane.processing_lane,
+            "resolved_tier": lane.resolved_tier,
+            "initial_tier": intake.initial_tier,
+        }
+        policy_state.pop("evidence_plan", None)
+        return policy_state
+
+    if clarification_required:
+        return _persist_clarification_outcome(
+            state,
+            intake=intake,
+            lane=lane,
+            canonical=canonical,
+            intent_classification=intent_classification,
+            query_to_intent=query_to_intent,
+        )
+
+    return _commit_planned_outcome(
+        state,
+        intake=intake,
+        lane=lane,
+        canonical=canonical,
+        intent_classification=intent_classification,
+        query_to_intent=query_to_intent,
+    )
