@@ -80,39 +80,6 @@ def _fan_out_reports(request: ChatRequest) -> list[dict[str, Any]]:
     return [builder(state)["specialist_reports"][0] for builder in _LANE_BUILDERS]
 
 
-_BASE_REPORT_FIELDS = {
-    "specialist_id",
-    "delegation_id",
-    "proposals",
-    "decision_reason",
-    "authority",
-    "warnings",
-}
-
-
-def _base_report_payload(report: dict[str, Any]) -> dict[str, Any]:
-    return {key: report[key] for key in _BASE_REPORT_FIELDS}
-
-
-def _assert_base_report_parity(
-    reports: list[dict[str, Any]],
-    expected_reports: list[dict[str, Any]],
-) -> None:
-    assert {report["specialist_id"] for report in reports} == {
-        "skill",
-        "knowledge",
-        "mcp",
-        "spl",
-    }
-    assert {
-        specialist_id: _base_report_payload(report)
-        for specialist_id, report in _by_specialist(reports).items()
-    } == {
-        specialist_id: _base_report_payload(report)
-        for specialist_id, report in _by_specialist(expected_reports).items()
-    }
-
-
 @pytest.mark.parametrize(("probe_id", "query"), _PROBES, ids=[row[0] for row in _PROBES])
 def test_specialist_reports_are_exact_and_content_preserving_across_paths(
     monkeypatch: pytest.MonkeyPatch,
@@ -146,13 +113,17 @@ def test_specialist_reports_are_exact_and_content_preserving_across_paths(
     assert isinstance(iteration, dict)
     iteration_reports = iteration.get("reports") or []
     assert len(iteration_reports) == 4
-    _assert_base_report_parity(iteration_reports, expected_reports)
+    assert _by_specialist(iteration_reports) == _by_specialist(expected_reports), (
+        f"{probe_id}: planner iteration dropped specialist subtype content"
+    )
 
     bundle = state.get("work_bundle")
     assert isinstance(bundle, dict)
     bundle_reports = bundle.get("specialist_reports") or []
     assert len(bundle_reports) == 4
-    _assert_base_report_parity(bundle_reports, expected_reports)
+    assert _by_specialist(bundle_reports) == _by_specialist(expected_reports), (
+        f"{probe_id}: work bundle dropped specialist subtype content"
+    )
 
 
 def test_resource_planner_edges_document_all_four_send_branches() -> None:

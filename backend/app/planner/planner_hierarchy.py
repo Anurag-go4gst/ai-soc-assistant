@@ -9,7 +9,7 @@ blocked statuses without failing validation.
 from __future__ import annotations
 
 import uuid
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -92,6 +92,15 @@ class SplSpecialistReport(SpecialistReport):
     spl_source: str | None = None
 
 
+SpecialistReportPayload = Annotated[
+    SkillSpecialistReport
+    | McpSpecialistReport
+    | KnowledgeSpecialistReport
+    | SplSpecialistReport,
+    Field(discriminator="specialist_id"),
+]
+
+
 class WorkTask(BaseModel):
     task_id: str
     step_id: str
@@ -111,13 +120,13 @@ class WorkBundle(BaseModel):
     tasks: list[WorkTask] = Field(default_factory=list)
     source_plan: ResourcePlan
     merge_decision_reason: str = ""
-    specialist_reports: list[SpecialistReport] = Field(default_factory=list)
+    specialist_reports: list[SpecialistReportPayload] = Field(default_factory=list)
 
 
 class PlannerIteration(BaseModel):
     iteration: int
     delegations: list[SpecialistDelegation] = Field(default_factory=list)
-    reports: list[SpecialistReport] = Field(default_factory=list)
+    reports: list[SpecialistReportPayload] = Field(default_factory=list)
     bundle: WorkBundle | None = None
     resource_plan: ResourcePlan
     decision_log: list[DecisionRecord] = Field(default_factory=list)
