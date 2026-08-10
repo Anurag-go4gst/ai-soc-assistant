@@ -1,5 +1,22 @@
 # Chat Pipeline State v2 and Per-Node Trace — Specification
 
+> **Stale as a runtime description (2026-08-10).** This document describes the nine-node
+> imperative pipeline and states that `langgraph_orchestration_enabled` and
+> `control_plane_enabled` default to `False`. Both statements are now wrong:
+> `langgraph_orchestration_enabled` defaults **true** (`app/config.py`), the production spine is
+> the Resource Planner graph (`app/graph/resource_planner_graph.py`), and canonical planning runs
+> unconditionally — the control-plane flag gate was removed at the canonical cutover.
+> The imperative path is rollback-only.
+>
+> The **field inventory and the `node_trace` record schema below remain the C1/C9 reference**
+> and are unaffected. Use `docs/architecture/details.html` for the current node topology.
+>
+> Two runtime notes that change how the branch table below reads: the legacy multi-hop MCP
+> discovery loop is fenced off under canonical mode, while bounded **pre-SPL** MCP discovery
+> runs inline on the SPL path when **dispatch-v2** (`AI_SOC_PIPELINE_DISPATCH_V2_ENABLED`) is
+> enabled — see `docs/architecture/mcp_tool_routing.md` for which is which.
+
+
 > Slice **S1b** (work items **C1** + **C9**) of `plans/AI_SOC_MASTER_PLAN.md`.
 > **Batch 4 runtime:** additive top-level visibility + `node_trace` ship in
 > `app/chat/pipeline_visibility.py` (control-plane gated). The field inventory and schema

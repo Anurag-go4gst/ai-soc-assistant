@@ -1,5 +1,27 @@
 # MCP Tool Routing (repo-true)
 
+> **Scope correction (2026-08-10).** Two different MCP discovery mechanisms exist. Read this
+> before using anything below.
+>
+> - **The multi-hop discovery loop described in this document is fenced off from the live
+>   path.** `graph_node_evidence_planning` — the HUB that calls `initialize_loop` / `assess_loop`
+>   — fails closed under canonical mode with `canonical_forbids_legacy_evidence_planning`
+>   (`app/chat/pipeline.py`). It is not a node in the Resource Planner graph, which is the
+>   production spine (`LANGGRAPH_ORCHESTRATION_ENABLED` defaults true). Consequently
+>   `MAX_MCP_HOPS`, the chronology proposal, the data-silence advisory, the O5c recipe path and
+>   the `evidence_observer` **do not run on a live `/chat` turn** today. Treat the walkthroughs
+>   below as the design of that lane, not as current runtime behaviour.
+> - **Bounded pre-SPL MCP discovery *is* live** when `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` is
+>   true. `graph_node_workflow_spl` calls `graph_node_pre_spl_mcp_discovery` inline; the result
+>   lands in `pipeline_dispatch["runtime_context"]["mcp_discovery_context"]` and feeds the SPL
+>   plan compiler and saved-search preference. This is a single bounded step on the SPL path,
+>   not a hop loop.
+>
+> So "MCP discovery never runs" is wrong, and "the discovery loop runs" is also wrong. The
+> accurate statement is: *the legacy multi-hop loop is fenced; bounded pre-SPL discovery runs
+> under dispatch-v2.* Gated execution via `evaluate_mcp_execution` is unaffected either way.
+
+
 **Status:** Dev-facing reference for intent → MCP tool routing on the existing evidence-loop spine.  
 **Canonical sources:** `backend/app/connectors/mcp/mcp_tool_playbook.json`, `backend/app/chat/evidence_loop.py`, `backend/app/orchestration/mcp_execution_gate.py`, `backend/app/connectors/mcp/mcp_tool_chronology.py`  
 **Related:** `docs/architecture/catalogue_auto_execute_policy.md`, `contracts/splunk_mcp_connection_contract.md`, plan `plans/2026-07-04_1736_intent-mcp-tool-routing-hardening.md`

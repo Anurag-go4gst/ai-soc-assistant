@@ -225,3 +225,39 @@ Recorded so the review is not read as a list of complaints. These are the decisi
 - **Two-phase response validation.** Refusing to emit `request.completed` for a response that failed assembly validation means the telemetry cannot record a success the system did not produce.
 - **Fork detection as a test with a negative control.** The static architecture guard has to fail when a fork is deliberately reintroduced. That is the difference between a guard and a comment.
 - **Honest degradation throughout.** Empty MCP results reported as empty, deferred tools recorded as deferred, evidence counts drawn only from collected telemetry, MITRE explicitly typed as metadata rather than evidence.
+
+---
+
+## Resolution — corrective plan outcomes (2026-08-10)
+
+Every finding above was closed by `plans/2026-08-08_1824_architecture-review-corrective-actions.md`.
+Recorded here so the review is read with its verdicts, not as an open list.
+
+| # | Finding | Outcome |
+|---|---|---|
+| 1 | Tier divergence — specialist recomputes instead of reading `RoutingContext` | **Fixed (B0/B1).** One production tier authority. `initial_tier` / `resolved_tier` / `binding_candidate_tier` are now distinct, the parser path is preserved as `observed_match_path`, and the accepted path is `effective_catalogue_match_path`. `rp_node_specialist_skill` copies canonical routing instead of recomputing. |
+| 2 | `"our "` unbounded substring denies `T0` | **Fixed (C0).** Boundary-aware phrase matching; the frozen 10-probe reference contract still passes. |
+| 3 | Marker-list breadth (`vulnerable`, `exposure`) | **Fixed (C0).** Replaced with explicit environment-status phrases. |
+| 4 | `emit_planning_event` bypasses the telemetry catalog | **Fixed (E1).** Unclassified events fail closed; a static inventory test pins the 8 audit-critical + 20 diagnostic partition. |
+| 5 | MCP / SPL specialists are stubs | **Fixed (D1/D2).** Both now read the committed plan and registries and emit bounded, redacted readiness reports — `planned_hop_count`, `candidate_tool_names`, `execution_posture` on the MCP side; `slot_binding_status`, `spl_source`, `template_status` on the SPL side, with `execution_eligible` hard-validated false. |
+| 6 | Answer-mode policy as a chain of `if`s | **Fixed (E0).** Ordered, inspectable policy across lane / answer goal / intent family; a contradictory `alert_summary` + SPL contract now fails closed instead of silently opening an SPL lane. |
+| 7 | `graph_node_lane_and_canonical_planning` is oversized | **Fixed (F0).** Decomposed into four typed stages behind a 98-line seam. Measured 613 lines at execution time, not the 569 recorded here — E0/E1 had grown it further. |
+
+### The defect this review missed
+
+The highest-priority runtime defect was **not** in the review. `specialist_reports` was an
+`Annotated[list, operator.add]` channel while every post-merge node returned full state, so the
+list re-appended itself once per downstream node: **16,384** reports on a T0 reference turn and
+**8,192** on T2/T3/T4, against four unique specialist lanes. Growth was exponential (doubling per
+post-merge node), not linear, and it was masked by an `assert len(reports) >= 4`.
+
+Fixed in **A1** with a deterministic reducer keyed on `(delegation_id, specialist_id)` that
+deduplicates identical replays and fails closed on conflicting ones.
+
+Two lessons worth keeping:
+
+- **A `>=` assertion is not a cardinality test.** It passed throughout, at every magnitude.
+- **Measure with the real dependencies attached.** The defect was first sized at 64 reports on a
+  host with no reachable database: persistence failed closed, planning never reached `planned`,
+  and the run took a much shorter path through the graph. The same probe against a live database
+  returned 16,384. A reachable database is part of the measurement, not an optimisation of it.
