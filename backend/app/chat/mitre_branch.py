@@ -55,7 +55,11 @@ def run_mitre_evidence_branch(
     if not settings.ai_soc_planner_mitre_branch_enabled:
         return [], None, MitreBranchResult(status="skipped", reason="planner_mitre_branch_disabled")
 
-    if not _planner_selected_mitre(planning_decision, evidence_plan):
+    if not _planner_selected_mitre(
+        planning_decision,
+        evidence_plan,
+        query_signals=query_signals,
+    ):
         return [], None, MitreBranchResult(
             status="not_applicable",
             reason="planner_did_not_select_mitre_branch",
@@ -99,6 +103,7 @@ def run_mitre_evidence_branch(
         alert_context_present=alert_context_present,
         negative_evidence=negative_evidence,
         use_case_review_guidance=bool((query_signals or {}).get("use_case_review_guidance")),
+        explicit_mitre_request=bool((query_signals or {}).get("mitre_map")),
         source_evidence=source_evidence,
         execution=execution,
         source_profile_missing=_source_profile_missing(evidence_plan),
@@ -117,11 +122,16 @@ def run_mitre_evidence_branch(
 def _planner_selected_mitre(
     planning_decision: dict[str, Any] | None,
     evidence_plan: dict[str, Any] | None,
+    *,
+    query_signals: dict[str, Any] | None = None,
 ) -> bool:
     branches = (planning_decision or {}).get("branches")
     if isinstance(branches, list) and "mitre" in {str(item) for item in branches}:
         return True
-    return bool((evidence_plan or {}).get("needs_mitre"))
+    if (evidence_plan or {}).get("needs_mitre"):
+        return True
+    signals = query_signals or {}
+    return bool(signals.get("mitre_map") and signals.get("alert_context_present"))
 
 
 def _branch_result(

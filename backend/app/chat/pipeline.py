@@ -793,6 +793,18 @@ def _resolve_trace_answer_mode(payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _response_answer_mode(state: ChatPipelineState) -> str | None:
+    evidence_plan = state.get("evidence_plan")
+    if isinstance(evidence_plan, dict) and evidence_plan.get("answer_mode"):
+        return str(evidence_plan["answer_mode"])
+    outcome = state.get("canonical_planning_outcome")
+    if not isinstance(outcome, dict) or outcome.get("status") != "clarification_required":
+        return None
+    intent = state.get("intent_classification")
+    requested = intent.get("requested_output_type") if isinstance(intent, dict) else None
+    return "live_investigation" if str(requested or "").lower() == "mitre_mapping" else "clarification"
+
+
 def _strip_rag_from_workflow_plan(workflow_plan: dict[str, Any]) -> dict[str, Any]:
     steps: list[dict[str, Any]] = []
     for step in workflow_plan.get("steps") or []:
@@ -3633,6 +3645,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     session_alert_context = bool(
         isinstance(session_resolution, SessionContextResolution) and session_resolution.session_alert_context
     )
+    mitre_query_signals = _query_signals_from_state(state)
     branch_mappings, branch_decision, mitre_branch = run_mitre_evidence_branch(
         query=state.get("effective_query") or request.message,
         question_ref=question_ref,
@@ -3645,12 +3658,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         intent_classification=state.get("intent_classification"),
         evidence_plan=state.get("evidence_plan"),
         planning_decision=state.get("planning_decision"),
-        query_signals=_query_signals_from_state(state),
+        query_signals=mitre_query_signals,
         source_evidence=source_evidence,
         structured_context=structured_context,
-        alert_context_present=_mitre_alert_context_present(
-            state.get("effective_query") or request.message,
-            session_alert_context=session_alert_context,
+        alert_context_present=(
+            _mitre_alert_context_present(
+                state.get("effective_query") or request.message,
+                session_alert_context=session_alert_context,
+            )
+            or bool(mitre_query_signals.get("alert_context_present"))
         ),
         execution=execution,
     )
@@ -3674,7 +3690,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             intent_classification=state.get("intent_classification"),
             evidence_plan=state.get("evidence_plan"),
             planning_decision=state.get("planning_decision"),
-            query_signals=_query_signals_from_state(state),
+            query_signals=mitre_query_signals,
             source_evidence=source_evidence,
             structured_context=structured_context,
             session_alert_context=session_alert_context,
@@ -5255,11 +5271,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         session_context_status = SessionContextStatusEnvelope(**session_resolution.status.model_dump())
 
     partial_fallback = synthesis_status.status == "partial_timeout"
-    answer_mode = (
-        state.get("evidence_plan", {}).get("answer_mode")
-        if isinstance(state.get("evidence_plan"), dict)
-        else None
-    )
+    answer_mode = _response_answer_mode(state)
     if not answer_mode and _is_universal_spl_authoring_review(
         candidate_spl if isinstance(candidate_spl, dict) else None,
         spl_validation if isinstance(spl_validation, dict) else None,
@@ -6293,7 +6305,12 @@ def _mitre_outputs_for_finalize(
         query_signals=query_signals,
         source_evidence=source_evidence,
         structured_context=structured_context,
-        alert_context_present=_mitre_alert_context_present(query or "", session_alert_context=session_alert_context),
+        alert_context_present=(
+            _mitre_alert_context_present(
+                query or "", session_alert_context=session_alert_context
+            )
+            or bool((query_signals or {}).get("alert_context_present"))
+        ),
         execution=execution,
     )
     if branch.ran:
@@ -6324,9 +6341,15 @@ def _mitre_outputs_for_finalize(
         source_refs=source_refs,
         intent_classification=intent_classification,
         evidence_plan=evidence_plan,
-        alert_context_present=_mitre_alert_context_present(query or "", session_alert_context=session_alert_context),
+        alert_context_present=(
+            _mitre_alert_context_present(
+                query or "", session_alert_context=session_alert_context
+            )
+            or bool((query_signals or {}).get("alert_context_present"))
+        ),
         negative_evidence=negative_evidence,
         use_case_review_guidance=bool((query_signals or {}).get("use_case_review_guidance")),
+        explicit_mitre_request=bool((query_signals or {}).get("mitre_map")),
         source_evidence=source_evidence,
         execution=execution,
         source_profile_missing=_source_profile_missing(evidence_plan),
