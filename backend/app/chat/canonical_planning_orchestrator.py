@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from app.chat.canonical_answer_mode_policy import CanonicalAnswerModePolicyError
 from app.chat.canonical_handoff_builder import build_canonical_planning_input, new_handoff_id
 from app.chat.canonical_query_to_intent_resume import (
     normalize_resume_answer_goal,
@@ -27,6 +28,7 @@ from app.chat.intent_family_defaults import build_known_path_intent_stub, build_
 from app.chat.known_detail_completion import evaluate_known_detail_completion
 from app.chat.lane_router import is_known_catalogue_match, lane_for_match_path
 from app.chat.canonical_policy_boundary import resolve_canonical_policy_block_reason
+from app.chat.canonical_mode import build_typed_planning_failure_state
 from app.chat.plan_evidence_from_canonical import plan_evidence_from_canonical
 from app.chat.planning_telemetry import (
     emit_clarification_requested,
@@ -666,16 +668,38 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         session_id=str(session_id) if session_id else None,
     ) or state
 
-    evidence_plan, consumed, ignored = plan_evidence_from_canonical(
-        canonical,
-        state=state,
-        intent_classification=intent_classification,
-        query_to_intent=query_to_intent,
-        query_understanding=qu,
-        routed=routed,
-        selected_use_case=selected_use_case,
-        user_query=query,
-    )
+    try:
+        evidence_plan, consumed, ignored = plan_evidence_from_canonical(
+            canonical,
+            state=state,
+            intent_classification=intent_classification,
+            query_to_intent=query_to_intent,
+            query_understanding=qu,
+            routed=routed,
+            selected_use_case=selected_use_case,
+            user_query=query,
+        )
+    except CanonicalAnswerModePolicyError as exc:
+        failure_state = build_typed_planning_failure_state(
+            {
+                **state,
+                "routed": routed,
+                "intent_classification": intent_classification,
+                "query_to_intent": query_to_intent,
+                "canonical_planning_input": canonical.model_dump(),
+                "processing_lane": processing_lane,
+                "resolved_tier": resolved_tier,
+                "initial_tier": initial,
+            },
+            failure_status="planning_failed",
+            reason=exc.reason,
+            detail=exc.detail,
+            category=exc.category,
+        )
+        failure_state.pop("evidence_plan", None)
+        failure_state.pop("execution", None)
+        failure_state.pop("mcp_evidence", None)
+        return failure_state
 
     evidence_payload = evidence_plan.model_dump()
     # Audit projection of the MCP authorisation decision. The legacy planning node set

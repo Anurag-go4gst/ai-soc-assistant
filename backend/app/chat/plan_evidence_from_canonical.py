@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from app.chat.canonical_answer_mode_policy import resolve_canonical_answer_mode
 from app.chat.canonical_handoff_store import commit_resource_plan, get_committed_resource_plan
 from app.chat.contracts.canonical_planning_input import CanonicalPlanningInput
 from app.chat.contracts.evidence_plan import EvidencePlan
@@ -16,33 +17,6 @@ from app.chat.planning_telemetry import (
     emit_resource_plan_commit_reused,
     emit_resource_plan_created,
 )
-
-
-def _answer_mode_from_canonical(canonical: CanonicalPlanningInput) -> str | None:
-    """Canonical answer-mode override, or None to keep the evidence planner's own choice.
-
-    Returning a catch-all ``"live_investigation"`` here meant canonical routing silently
-    overrode ``plan_evidence`` for every family it had no rule for — knowledge families
-    such as ``mitre_explanation`` and ``sop_or_playbook`` were rewritten from ``rag_only``
-    to ``live_investigation``, which attached a lab SPL draft and a MITRE assertion to
-    what should be a policy/procedure answer. Only override where canonical routing
-    genuinely knows better than the planner.
-    """
-    lane = canonical.routing.processing_lane
-    goal = canonical.routing.answer_goal
-    family = canonical.routing.intent_family
-    if canonical.guided_resolution.clarification_required or family == "clarification_required":
-        return "clarification"
-    if lane == "knowledge_short_circuit" or family in {"reference_knowledge", "knowledge_only"}:
-        return "rag_only"
-    if goal in {"spl_generation", "spl_artifact"} or family in {"spl_generation_only", "spl_generation_and_run"}:
-        return "live_investigation"
-    if goal == "guided_investigation" or family == "guided_investigation":
-        return "guided_investigation"
-    if family == "alert_summary":
-        return "rag_only"
-    return None
-
 
 def _evidence_plan_from_committed(committed_evidence: dict[str, Any]) -> EvidencePlan:
     return EvidencePlan.model_validate(committed_evidence)
@@ -62,6 +36,7 @@ def plan_evidence_from_canonical(
     """Create EvidencePlan + ResourcePlan from canonical input only."""
     handoff_id = canonical.trace.handoff_id
     handoff_version = canonical.trace.handoff_version
+    answer_mode_decision = resolve_canonical_answer_mode(canonical)
 
     existing = get_committed_resource_plan(handoff_id, handoff_version)
     if existing is not None:
@@ -129,7 +104,7 @@ def plan_evidence_from_canonical(
         user_query=user_query or canonical.message.content_reference,
     )
 
-    target_mode = _answer_mode_from_canonical(canonical)
+    target_mode = answer_mode_decision.answer_mode
     if target_mode is not None and plan.answer_mode != target_mode:
         plan = plan.model_copy(update={"answer_mode": target_mode})  # type: ignore[arg-type]
 

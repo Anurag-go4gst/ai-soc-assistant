@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from app.config import Settings
+
+TelemetryClassification = Literal["audit-critical", "diagnostic"]
 
 # Locked decision 12 / item 21b — see docs/architecture/canonical_telemetry_coverage.md
 AUDIT_CRITICAL_PLANNING_EVENTS: frozenset[str] = frozenset(
@@ -42,6 +46,26 @@ DIAGNOSTIC_PLANNING_EVENTS: frozenset[str] = frozenset(
         "request.completed",
     }
 )
+
+
+class TelemetryEventClassificationError(ValueError):
+    """An event is absent from, or multiply assigned within, the closed catalog."""
+
+
+def classify_canonical_planning_event(event: str | None) -> TelemetryClassification:
+    """Return the event class, rejecting unknown or duplicate catalog membership."""
+    event_name = str(event or "").strip()
+    in_audit = event_name in AUDIT_CRITICAL_PLANNING_EVENTS
+    in_diagnostic = event_name in DIAGNOSTIC_PLANNING_EVENTS
+    if in_audit and in_diagnostic:
+        raise TelemetryEventClassificationError(
+            f"duplicate canonical telemetry classification: {event_name}"
+        )
+    if not in_audit and not in_diagnostic:
+        raise TelemetryEventClassificationError(
+            f"unclassified canonical telemetry event: {event_name or '<empty>'}"
+        )
+    return "audit-critical" if in_audit else "diagnostic"
 
 
 class DiagnosticTelemetryPersistenceDegraded(Exception):
@@ -95,7 +119,8 @@ def should_persist_planning_event_to_db(
     *,
     settings: Settings | None = None,
 ) -> bool:
-    if is_audit_critical_planning_event(event):
+    classification = classify_canonical_planning_event(event)
+    if classification == "audit-critical":
         return True
     return diagnostic_planning_telemetry_to_db_enabled(settings)
 

@@ -18,6 +18,7 @@ from app.chat.canonical_db import (
 from app.chat.planning_telemetry_policy import (
     AuditCriticalTelemetryPersistenceError,
     DiagnosticTelemetryPersistenceDegraded,
+    classify_canonical_planning_event,
     is_audit_critical_planning_event,
     should_persist_planning_event_to_db,
 )
@@ -236,8 +237,9 @@ def persist_planning_event(
     conn: asyncpg.Connection | None = None,
     immediate: bool = False,
 ) -> None:
+    event_name = str(payload.get("event") or "")
+    classify_canonical_planning_event(event_name)
     sanitized, correlation = _prepare_event(payload)
-    event_name = str(correlation.get("event") or "")
 
     if not should_persist_planning_event_to_db(event_name):
         _capture_test_event(sanitized, correlation)

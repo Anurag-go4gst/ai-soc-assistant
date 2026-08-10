@@ -8,6 +8,7 @@ from typing import Any
 from app.chat.canonical_mode import CONTRACT_VERSION, NODE_VERSION
 from app.chat.contracts.canonical_planning_input import CanonicalPlanningInput
 from app.chat.decision_record import emit_decision_record
+from app.chat.planning_telemetry_policy import classify_canonical_planning_event
 from app.planner.planner_hierarchy import DecisionRecord, new_decision_record_id
 
 _EVENT_LOG: list[dict[str, Any]] = []
@@ -142,6 +143,7 @@ def emit_planning_event(
 ) -> dict[str, Any] | None:
     """Emit durable planning telemetry through DecisionRecord.payload."""
     global _LAST_DECISION_ID
+    classify_canonical_planning_event(event)
     record_id = new_decision_record_id()
     _LAST_DECISION_ID = record_id
     enriched_payload = _enrich_payload(state, payload)
