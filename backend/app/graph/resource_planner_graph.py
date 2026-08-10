@@ -6,7 +6,6 @@ Callable from tests always; wired to ``/chat`` when ``LANGGRAPH_ORCHESTRATION_EN
 from __future__ import annotations
 
 import logging
-import operator
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from datetime import UTC, datetime
@@ -135,12 +134,38 @@ def _reject_validated_work_bundle(
     )
 
 
+def _reduce_specialist_reports(
+    current: list[dict[str, Any]],
+    update: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Merge parallel specialist reports without amplifying identical replays."""
+    reports_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for report in [*current, *update]:
+        if not isinstance(report, dict):
+            raise TypeError("specialist report must be a mapping")
+        delegation_id = report.get("delegation_id")
+        specialist_id = report.get("specialist_id")
+        if not isinstance(delegation_id, str) or not delegation_id:
+            raise ValueError("specialist report requires delegation_id")
+        if not isinstance(specialist_id, str) or not specialist_id:
+            raise ValueError("specialist report requires specialist_id")
+        key = (delegation_id, specialist_id)
+        existing = reports_by_key.get(key)
+        if existing is not None and existing != report:
+            raise ValueError(
+                "conflicting specialist reports for "
+                f"delegation_id={delegation_id!r}, specialist_id={specialist_id!r}"
+            )
+        reports_by_key[key] = report
+    return [reports_by_key[key] for key in sorted(reports_by_key)]
+
+
 class ResourcePlannerGraphState(ChatPipelineState, total=False):
     rp_graph_trace: dict[str, Any]
     planner_iteration: dict[str, Any]
     work_bundle: dict[str, Any]
     validated_work_bundle: dict[str, Any] | None
-    specialist_reports: Annotated[list[dict[str, Any]], operator.add]
+    specialist_reports: Annotated[list[dict[str, Any]], _reduce_specialist_reports]
     specialist_delegations: list[dict[str, Any]]
     policy_veto: dict[str, Any]
 
@@ -924,6 +949,7 @@ def _documented_resource_planner_edges() -> set[tuple[str, str]]:
         ("route_setup", "resource_planner_delegate"),
     }
     for node in _SPECIALIST_NODE_NAMES:
+        edges.add(("resource_planner_delegate", node))
         edges.add((node, "resource_planner_merge"))
     for target in ("prepare_rag_only", "composed_dispatch", "workflow_spl", "non_planned_finalize"):
         edges.add(("resource_planner_merge", target))
