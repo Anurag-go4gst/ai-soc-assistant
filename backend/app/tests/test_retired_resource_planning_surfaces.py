@@ -76,6 +76,25 @@ PLANNING_SURFACE_EXPECTATION: dict[str, dict[str, Any]] = {
     },
 }
 
+# B2-R3: fenced legacy discovery. The whole evidence-loop cluster is reachable
+# only through `graph_node_evidence_planning`, which is fenced off canonical
+# turns and is also the loop's only initializer — so these live call sites can
+# never do work. R3 flips these to absent and removes them.
+LEGACY_DISCOVERY_EXPECTATION: dict[str, Any] = {
+    "imperative_drain_symbol": "_run_discovery_loop_imperative",
+    "imperative_drain_present": False,
+    "live_call_sites": (
+        '_timed_node(state, "discovery_loop", _run_discovery_loop_imperative)',
+        '_timed_node(state, "evidence_planning_loop", graph_node_evidence_planning)',
+    ),
+    "live_call_sites_present": False,
+    # RETAINED regardless: the node, the loop module and the hop bound all keep
+    # consumers (the legacy harness graph and direct unit tests), and MAX_MCP_HOPS
+    # still bounds recipe budgets inside evidence_loop.py.
+    "retained_symbols": ("graph_node_evidence_planning", "graph_node_mcp_call"),
+}
+
+
 # RETAINED — never flipped by any B2-R item. R3 must not remove these.
 RETAINED_SURFACE_EXPECTATION: dict[str, dict[str, Any]] = {
     "live_pre_spl_discovery": {
@@ -358,4 +377,40 @@ def test_legacy_evidence_planning_is_fenced_off_canonical_turns() -> None:
     failure = result.get("canonical_planning_failure") or {}
     assert failure.get("reason") == "canonical_forbids_legacy_evidence_planning", (
         "legacy planning node is no longer fenced; the inline bridge would become reachable"
+    )
+
+
+# ---------------------------------------------------------------------------
+# B2-R3 — fenced legacy discovery has no live call site
+# ---------------------------------------------------------------------------
+
+
+def test_legacy_discovery_live_call_sites_match_contract() -> None:
+    expected = LEGACY_DISCOVERY_EXPECTATION
+    present = [site for site in expected["live_call_sites"] if site in _PIPELINE_SRC]
+    assert bool(present) is expected["live_call_sites_present"], (
+        f"legacy discovery call-site presence changed: still present={present}"
+    )
+
+
+def test_imperative_discovery_drain_presence_matches_contract() -> None:
+    expected = LEGACY_DISCOVERY_EXPECTATION
+    symbol = expected["imperative_drain_symbol"]
+    assert (f"def {symbol}(" in _PIPELINE_SRC) is expected["imperative_drain_present"]
+
+
+def test_legacy_discovery_symbols_kept_for_retained_consumers() -> None:
+    """RETAINED: the node and mcp_call keep the legacy harness graph and unit tests."""
+    for symbol in LEGACY_DISCOVERY_EXPECTATION["retained_symbols"]:
+        assert hasattr(pipeline, symbol), f"{symbol} still has retained consumers"
+
+
+def test_hop_bound_survives_and_still_guards_recipe_budgets() -> None:
+    """RETAINED: MAX_MCP_HOPS is inert on live paths but still bounds recipes."""
+    from app.chat import evidence_loop
+
+    assert evidence_loop.MAX_MCP_HOPS >= 1
+    source = Path(evidence_loop.__file__).read_text()
+    assert "min(MAX_MCP_HOPS - hops_done" in source, (
+        "MAX_MCP_HOPS no longer bounds the recipe call budget"
     )

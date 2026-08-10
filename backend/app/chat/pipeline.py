@@ -637,8 +637,11 @@ def _run_live_chat_pipeline(
     from app.chat.canonical_planning_orchestrator import run_canonical_planning
 
     state = _timed_node(state, "canonical_planning", run_canonical_planning)
-    if not _uses_guided_hybrid_dispatch(state):
-        state = _timed_node(state, "discovery_loop", _run_discovery_loop_imperative)
+    # B2-R3 (B1=RETIRE): the imperative discovery drain ran here on every
+    # non-guided turn but could never do work — the evidence loop's only
+    # initializer is `graph_node_evidence_planning`, which is fenced off
+    # canonical turns, so `loop_initialized` was always False and the drain
+    # returned immediately.
     state = _timed_node(state, "shadow_tail", graph_node_shadow_tail)
     if _session_spl_refine_active(state):
         state = _timed_node(
@@ -680,8 +683,9 @@ def _run_live_chat_pipeline(
                     reason=r,
                 ),
             )
-    if loop_initialized(state):
-        state = _timed_node(state, "evidence_planning_loop", graph_node_evidence_planning)
+    # B2-R3: same reasoning — a canonical turn never initializes the loop, so
+    # this re-entry into the fenced legacy hub was unreachable. The node itself
+    # is retained: the legacy harness graph and unit tests still consume it.
     state = _timed_node(state, "context_finalize", graph_node_context_finalize)
     return state
 
@@ -2262,21 +2266,6 @@ def _target_index_from_spl_validation(spl_validation: dict[str, Any] | None) -> 
     normalized = str(spl_validation.get("normalized_spl") or "")
     match = re.search(r"\bindex\s*=\s*([^\s|]+)", normalized, re.IGNORECASE)
     return match.group(1).strip() if match else None
-
-
-def _run_discovery_loop_imperative(state: ChatPipelineState) -> ChatPipelineState:
-    """Imperative twin: drain discovery hops before the linear chain when CP is on."""
-    if not loop_initialized(state):
-        return state
-    hops = 0
-    while hops < MAX_MCP_HOPS:
-        route = (state.get("mcp_loop") or {}).get("route")
-        if route != ROUTE_DISCOVERY_HOP:
-            break
-        state = graph_node_mcp_call(state)
-        state = graph_node_evidence_planning(state)
-        hops += 1
-    return state
 
 
 def graph_node_composed_dispatch(state: ChatPipelineState) -> ChatPipelineState:
