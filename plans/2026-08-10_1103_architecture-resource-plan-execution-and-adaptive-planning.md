@@ -244,14 +244,298 @@ Run `.claude/skills/invariant-check/SKILL.md` manually before every runtime comm
   - **Commit boundary:** One decision-record correctness commit; no topology/scheduler/LLM edits.
   - **Stop:** A correct record would require moving authority or adding runtime writes solely to satisfy telemetry; same differential gate fails twice.
 
-- [ ] **B0 — Observe one bounded live-core T4 planning path**
+- [x] **B0 — Observe one bounded live-core T4 planning path**
   - **Do:** Observation only, in two stages. **B0 preflight — deterministic only:** use `understand_query()`, `extract_query_signals()`, `initial_tier_for_match_path()`, `processing_lane_for_initial_tier()`, and `bridge_trigger_match()` without invoking the graph or any LLM; require initial tier T4, processing lane `guided`, bridge eligibility, no explicit execution request, and no destructive/action intent. Treat `guided` as the processing-lane assertion—not a requirement that the lower-level deterministic route helper return the `guided_investigation` skill. **B0 observation — exactly one full graph call:** only after preflight passes, create a temporary/non-production diagnostic wrapper (prefer `/tmp`; if reusable, it must have zero production importers) that instruments the shadow planner's module-local `resource_plan_shadow.propose_validated_llm_plan` bridge path. Inject a counting proxy around the actual client returned for that proposal, increment only `shadow_bridge_generate_attempts`, and delegate unchanged; do not patch a generic/global client `generate()` used by other LLM roles. Invoke `run_resource_planner_graph(ChatRequest(...))` exactly once with the preflighted query and live synthesis left enabled. Emit only sanitized JSON: shadow bridge attempt count; `evidence_plan.resource_plan.provenance.llm_bridge`; `control_plane_trace.resource_plan_shadow`; `rp_graph_trace.visited_nodes`; deterministic plan source and before/after step fingerprints; promotion/discard result; safe budget role/outcome/latency; elapsed time. Do not print prompts, completions, credentials, endpoint URLs, SPL, or raw evidence.
   - **Why:** Static reachability cannot prove whether a real shadow request occurs, returns a plan, is promoted, or is discarded.
   - **Surfaces:** temporary probe; `backend/app/planner/resource_plan_shadow.py`; `llm_plan_bridge.py`; `pipeline.py` finalize trace; `resource_planner_graph.py` entrypoint. No production edit.
   - **Depends on:** A1.2.
   - **Failing-first / observation:** Use query `Investigate suspicious authentication behavior across identity and endpoint telemetry; identify what evidence would be needed, but do not run or modify anything.` Run deterministic preflight first. If its initial tier is not T4, its processing lane is not `guided`, it is not bridge-eligible, it requests execution, or it is action/containment-shaped, record the contradiction and stop before any full graph invocation; do not try a query ladder.
   - **Verify:** Export the host DB URL for the whole probe. Run `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=backend:. python3 /tmp/plan2_observe_t4_planning.py --preflight-only | tee /tmp/plan2-t4-planning-preflight.json`; validate with `python3 -m json.tool /tmp/plan2-t4-planning-preflight.json` and `jq -e '.initial_tier == "T4" and .processing_lane == "guided" and .bridge_trigger_eligible == true and .run_execution == false and .explicit_run_spl == false and .block_or_contain == false and .action_or_containment_shaped == false' /tmp/plan2-t4-planning-preflight.json`. Only if that passes, run `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=backend:. python3 /tmp/plan2_observe_t4_planning.py --observe | tee /tmp/plan2-t4-planning-observation.json`; validate sanitization and required keys with `python3 -m json.tool /tmp/plan2-t4-planning-observation.json` and `jq -e '.shadow_bridge_generate_attempts >= 0 and (.rp_graph_trace.visited_nodes|type=="array") and (.resource_plan_shadow|type=="object") and (.elapsed_ms|type=="number")' /tmp/plan2-t4-planning-observation.json`; re-run the manifest check. The exact temporary script body must be pasted into Evidence before execution so review can confirm deterministic-only preflight, one graph call, shadow-specific delegation, and allowlisted output.
-  - **Evidence:** _(script body/hash, deterministic preflight JSON and query classification/match path, shadow-specific attempt count, shadow trace, visited nodes, plan returned/promoted/discarded, step fingerprints, budget/latency, elapsed, manifest, explicit limitation that this one `out_of_registry` observation does not price `qu_unavailable` or other trigger-path postures)_
+  - **Evidence:** **PRE-EXECUTION WRAPPER REVIEW 2026-08-10.** The exact temporary script below was syntax-checked but has not yet run preflight or invoked the graph. SHA-256: `fae9a245a05bee94dda6e2eb2131566b76381f2c7b51658a981854d104d05918`. Review: preflight imports/calls only deterministic classification helpers; `--observe` refuses a failed preflight; the script contains exactly one `run_resource_planner_graph(...)` call; it wraps only `resource_plan_shadow.propose_validated_llm_plan`, supplies a counting proxy around the actual `_bridge_client()` returned for that proposal, and delegates `generate()` unchanged; the additional pipeline shadow-run wrapper records only pre/post structural hashes. Stdout is an allowlisted JSON object containing no prompt, completion, credentials, endpoint, SPL, query text, or raw evidence.
+
+    ```python
+    /root/.bashrc: line 5: # ~/.bashrc: executed by bash(1) for non-login shells.
+    # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
+    # for examples
+
+    # If not running interactively, dont: No such file or directory
+    #!/usr/bin/env python3
+    """One-shot, sanitized Plan 2 B0 T4 shadow-planning observation."""
+
+    from __future__ import annotations
+
+    import argparse
+    import contextlib
+    import hashlib
+    import json
+    import sys
+    import time
+    from typing import Any
+
+    QUERY = (
+        "Investigate suspicious authentication behavior across identity and endpoint telemetry; "
+        "identify what evidence would be needed, but do not run or modify anything."
+    )
+
+
+    def _json(payload: dict[str, Any]) -> None:
+        print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+
+
+    def deterministic_preflight() -> dict[str, Any]:
+        # Keep import/config diagnostics off stdout so the tee target is one JSON object.
+        with contextlib.redirect_stdout(sys.stderr):
+            from app.chat.lane_router import (
+                initial_tier_for_match_path,
+                processing_lane_for_initial_tier,
+            )
+            from app.chat.query_signals import extract_query_signals
+            from app.planner.llm_plan_bridge import bridge_trigger_match
+            from app.query_understanding.parser import understand_query
+
+            query_understanding = understand_query(QUERY)
+            signals = extract_query_signals(QUERY, query_understanding)
+            match_path = str(query_understanding.deterministic_match_path or "")
+            initial_tier = initial_tier_for_match_path(match_path)
+            processing_lane = processing_lane_for_initial_tier(initial_tier)
+
+        return {
+            "initial_tier": initial_tier,
+            "processing_lane": processing_lane,
+            "match_path": match_path,
+            "bridge_trigger_eligible": bool(bridge_trigger_match(match_path)),
+            "run_execution": bool(signals.get("run_execution")),
+            "explicit_run_spl": bool(signals.get("explicit_run_spl")),
+            "block_or_contain": bool(signals.get("block_or_contain")),
+            "action_or_containment_shaped": bool(
+                signals.get("action_or_containment_shaped")
+            ),
+        }
+
+
+    def _preflight_passed(payload: dict[str, Any]) -> bool:
+        return bool(
+            payload.get("initial_tier") == "T4"
+            and payload.get("processing_lane") == "guided"
+            and payload.get("bridge_trigger_eligible") is True
+            and payload.get("run_execution") is False
+            and payload.get("explicit_run_spl") is False
+            and payload.get("block_or_contain") is False
+            and payload.get("action_or_containment_shaped") is False
+        )
+
+
+    def _step_fingerprint(evidence_plan: dict[str, Any] | None) -> dict[str, Any] | None:
+        if not isinstance(evidence_plan, dict):
+            return None
+        plan = evidence_plan.get("resource_plan")
+        if not isinstance(plan, dict):
+            return None
+        steps = plan.get("steps")
+        safe_steps = []
+        if isinstance(steps, list):
+            for step in steps:
+                if not isinstance(step, dict):
+                    continue
+                safe_steps.append(
+                    {
+                        "step_id": str(step.get("step_id") or ""),
+                        "resource_id": str(step.get("resource_id") or ""),
+                        "purpose": str(step.get("purpose") or ""),
+                        "status": str(step.get("status") or ""),
+                    }
+                )
+        encoded = json.dumps(safe_steps, sort_keys=True, separators=(",", ":")).encode()
+        return {
+            "step_count": len(safe_steps),
+            "sha256": hashlib.sha256(encoded).hexdigest(),
+        }
+
+
+    def _safe_shadow_trace(raw: Any) -> dict[str, Any]:
+        if not isinstance(raw, dict):
+            return {}
+        allowed = (
+            "shadow_only",
+            "promotion_blocked",
+            "llm_called",
+            "deterministic_plan_source",
+            "skipped_reason",
+            "shadow_plan_source",
+            "shadow_step_count",
+            "live_plan_source_unchanged",
+        )
+        return {key: raw.get(key) for key in allowed if key in raw}
+
+
+    def _safe_budget_record(state: dict[str, Any]) -> dict[str, Any]:
+        budget = state.get("llm_turn_budget")
+        records = getattr(budget, "records", None)
+        if not isinstance(records, list):
+            return {
+                "role": "route_plan_candidate_generator",
+                "outcome": "not_recorded",
+                "latency_ms": None,
+            }
+        for record in reversed(records):
+            if (
+                isinstance(record, dict)
+                and record.get("role") == "route_plan_candidate_generator"
+            ):
+                return {
+                    "role": "route_plan_candidate_generator",
+                    "outcome": str(record.get("outcome") or "unknown"),
+                    "latency_ms": (
+                        int(record["latency_ms"])
+                        if isinstance(record.get("latency_ms"), (int, float))
+                        else None
+                    ),
+                }
+        return {
+            "role": "route_plan_candidate_generator",
+            "outcome": "not_recorded",
+            "latency_ms": None,
+        }
+
+
+    def observe_once(preflight: dict[str, Any]) -> dict[str, Any]:
+        if not _preflight_passed(preflight):
+            raise RuntimeError("deterministic_preflight_failed")
+
+        observed: dict[str, Any] = {
+            "shadow_bridge_generate_attempts": 0,
+            "step_fingerprint_before": None,
+            "step_fingerprint_after": None,
+            "shadow_result": {},
+        }
+
+        with contextlib.redirect_stdout(sys.stderr):
+            from app.chat import pipeline
+            from app.graph.resource_planner_graph import run_resource_planner_graph
+            from app.planner import llm_plan_bridge, resource_plan_shadow
+            from app.schemas.requests import ChatRequest
+
+            original_propose = resource_plan_shadow.propose_validated_llm_plan
+            original_shadow_run = pipeline.run_resource_plan_shadow
+
+            class ShadowBridgeClientProxy:
+                def __init__(self, delegate: Any) -> None:
+                    self._delegate = delegate
+
+                def generate(self, **kwargs: Any) -> Any:
+                    observed["shadow_bridge_generate_attempts"] += 1
+                    return self._delegate.generate(**kwargs)
+
+                def __getattr__(self, name: str) -> Any:
+                    return getattr(self._delegate, name)
+
+            def instrumented_propose(**kwargs: Any) -> Any:
+                actual_client = kwargs.get("client") or llm_plan_bridge._bridge_client()
+                if actual_client is None:
+                    raise RuntimeError("shadow_bridge_client_unavailable_for_instrumentation")
+                return original_propose(
+                    **{**kwargs, "client": ShadowBridgeClientProxy(actual_client)}
+                )
+
+            def instrumented_shadow_run(**kwargs: Any) -> Any:
+                observed["step_fingerprint_before"] = _step_fingerprint(
+                    kwargs.get("evidence_plan")
+                )
+                result = original_shadow_run(**kwargs)
+                observed["step_fingerprint_after"] = _step_fingerprint(
+                    kwargs.get("evidence_plan")
+                )
+                observed["shadow_result"] = _safe_shadow_trace(result.to_trace_dict())
+                return result
+
+            resource_plan_shadow.propose_validated_llm_plan = instrumented_propose
+            pipeline.run_resource_plan_shadow = instrumented_shadow_run
+
+            started = time.monotonic()
+            # The only full graph invocation in this script.
+            state = run_resource_planner_graph(ChatRequest(message=QUERY))
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+
+        evidence_plan = state.get("evidence_plan")
+        resource_plan = (
+            evidence_plan.get("resource_plan")
+            if isinstance(evidence_plan, dict)
+            else None
+        )
+        provenance = (
+            resource_plan.get("provenance")
+            if isinstance(resource_plan, dict)
+            and isinstance(resource_plan.get("provenance"), dict)
+            else {}
+        )
+        response = state.get("response")
+        control_plane_trace = getattr(response, "control_plane_trace", None)
+        trace_shadow = (
+            control_plane_trace.get("resource_plan_shadow")
+            if isinstance(control_plane_trace, dict)
+            else None
+        )
+        safe_shadow = _safe_shadow_trace(trace_shadow) or dict(observed["shadow_result"])
+        bridge_value = provenance.get("llm_bridge")
+        if bridge_value == "promoted":
+            promotion_result = "promoted_inline"
+        elif safe_shadow.get("llm_called") and safe_shadow.get("promotion_blocked"):
+            promotion_result = "discarded_shadow_only"
+        elif safe_shadow.get("skipped_reason"):
+            promotion_result = f"skipped:{safe_shadow['skipped_reason']}"
+        else:
+            promotion_result = "no_valid_shadow_proposal"
+
+        return {
+            "shadow_bridge_generate_attempts": int(
+                observed["shadow_bridge_generate_attempts"]
+            ),
+            "evidence_plan_resource_plan_provenance_llm_bridge": (
+                str(bridge_value) if bridge_value is not None else None
+            ),
+            "resource_plan_shadow": safe_shadow,
+            "rp_graph_trace": {
+                "visited_nodes": [
+                    str(item)
+                    for item in (state.get("rp_graph_trace") or {}).get(
+                        "visited_nodes", []
+                    )
+                ]
+            },
+            "deterministic_plan_source": (
+                str(resource_plan.get("plan_source") or "")
+                if isinstance(resource_plan, dict)
+                else None
+            ),
+            "step_fingerprint_before": observed["step_fingerprint_before"],
+            "step_fingerprint_after": observed["step_fingerprint_after"],
+            "shadow_plan_returned": bool(safe_shadow.get("shadow_step_count")),
+            "promotion_or_discard_result": promotion_result,
+            "budget": _safe_budget_record(state),
+            "elapsed_ms": elapsed_ms,
+        }
+
+
+    def main() -> int:
+        parser = argparse.ArgumentParser()
+        mode = parser.add_mutually_exclusive_group(required=True)
+        mode.add_argument("--preflight-only", action="store_true")
+        mode.add_argument("--observe", action="store_true")
+        args = parser.parse_args()
+
+        preflight = deterministic_preflight()
+        if args.preflight_only:
+            _json(preflight)
+            return 0
+        _json(observe_once(preflight))
+        return 0
+
+
+    if __name__ == "__main__":
+        raise SystemExit(main())
+    ```
+
+    **OBSERVED ONCE 2026-08-10; no retry and no runtime commit.** Deterministic preflight JSON: `{"action_or_containment_shaped":false,"block_or_contain":false,"bridge_trigger_eligible":true,"explicit_run_spl":false,"initial_tier":"T4","match_path":"out_of_registry","processing_lane":"guided","run_execution":false}`; both `json.tool` and the exact `jq -e` predicate passed before observation. With final/live synthesis left enabled and the host DB override exported without echo, the script then made exactly one full `run_resource_planner_graph(...)` call. Sanitized observation: `shadow_bridge_generate_attempts=0`; live `evidence_plan.resource_plan.provenance.llm_bridge=null`; shadow trace `{"llm_called":false,"skipped_reason":"draft_spl_preview_active"}`; deterministic plan source `deterministic`; no shadow plan returned; result `skipped:draft_spl_preview_active`; before/after shadow step fingerprints both `null` because the shadow runner was skipped before entry; route-plan budget record `outcome=not_recorded`, `latency_ms=null`; total graph elapsed **954 ms**. Visited nodes, in order: `bootstrap`, `route_resolution`, `resource_planner_delegate`, all four specialists, `resource_planner_merge`, `composed_dispatch`, `spl_validate`, `mcp_execution_gate`, `context_sufficiency`, `decide_facts`, `answer_guard`, `human_review`, `policy_veto`, `finalize`, `validate_final_answer`. Required-key `jq` validation passed with the stronger `attempts<=1` assertion; a negative scan confirmed the JSON artifact contains no URL, host, prompt, completion, credential/key/token/password, candidate/normalized SPL, or raw-evidence field. Existing non-shadow local-client diagnostics wrote two DNS failures to stderr (including a configured local endpoint); they were not captured by `tee`, contained no credential, and the shadow-specific proxy correctly did not count them. Manifest: `protected artifacts unchanged (13 checked)`. This observation proves **zero shadow-bridge model cost on this one `out_of_registry` turn because draft-preview gating skipped the runner**; it does not price a returned/promoted/discarded shadow plan, `qu_unavailable`, `semantic_out_of_registry`, `query_understanding_weak`, `near_105_question`, or other flag/budget/draft-preview postures. The observation can distinguish attempted from skipped: proxy count 0 plus the explicit finalize skip reason and absent budget record.
   - **Invariant / manifest:** No runtime diff. If a reusable diagnostic script is committed, run invariant/redaction review and commit it separately.
   - **Commit boundary:** Evidence-only plan update; normally no code commit.
   - **Stop:** Deterministic preflight fails; the full graph is invoked before preflight passes; instrumentation patches a generic/global LLM method or cannot isolate the shadow planner bridge role; probe would need destructive execution; more than one shadow bridge attempt; final/live synthesis would need disabling; output contains sensitive data; evidence cannot distinguish attempted call from a skipped call.
@@ -583,3 +867,4 @@ None at authoring time. Tests marked **NEW** are created in the owning item. B0'
 | 2026-08-10 | **Fresh P0 COMPLETE at runtime baseline `f34f4d8`, start HEAD `17ebd19`.** Baseline→HEAD and runtime-worktree guards passed; manifest 13/13, reference probes 10/10, parity 120 exact with zero approved/critical, governance PASS, and independent backend `4797 passed, 2 skipped, 6 xfailed`. Safe host, topology (25 nodes; builder 20 fixed + 8 mapped + 4 dynamic Send targets), and decision-record (25 shapes; 107 channels) inventories were re-measured. Governance's five regenerated eval files had identical verdict/classification projections and summary counts; metadata/timing/order/observed-output churn was reverted. No runtime change; A0 not started. |
 | 2026-08-10 | **A1.1 COMPLETE at `a435d8a`.** The complete post-A0 inventory contains 24 decision-record shapes. Failing-first isolated one vocabulary defect, root `normalized_spl`; it is now the descriptive nested ref `spl_validation.normalized_spl`. All roots/dotted paths validate, refs have zero scheduling consumers, targeted tests are 32 passed, manifest 13/13, and invariants 7/7. Semantic overclaims remain explicit for A1.2. |
 | 2026-08-10 | **A1.2 COMPLETE at `7f9121a`.** All 24 record shapes are now semantically grounded; every direct wrapper and four specialist producers have representative differential coverage, trace-only nodes carry empty output lists, and a nonexistent-output mutation fails. Exact valid host gate: 47 passed; manifest 13/13; invariants 7/7. Two accidentally concurrent restricted-sandbox copies stalled after 25 tests without an assertion result; both exact PIDs were terminated and one host-reachable rerun with the already-proven DB override passed in 8.77s. This was execution-environment noise, not a valid gate failure. |
+| 2026-08-10 | **B0 COMPLETE with one full graph call.** Preflight was `out_of_registry` / T4 / `guided`, bridge-eligible, and non-executing/non-action-shaped. Shadow-specific generate attempts were **0** because finalize reported `draft_spl_preview_active`; deterministic plan source remained `deterministic`, no plan was returned/promoted/discarded, graph elapsed 954 ms, and manifest stayed 13/13. The JSON artifact passed required-key and sensitive-field scans. Existing non-shadow client logging exposed a credential-free local endpoint on stderr only; this was excluded from the JSON evidence. B0 therefore does not price `qu_unavailable` or any posture in which the shadow runner actually enters. |
