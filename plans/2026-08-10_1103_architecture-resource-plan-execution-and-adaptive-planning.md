@@ -95,7 +95,37 @@ This is the execution plan, not execution. Plan authoring changed no runtime cod
 
 ### B1 — planning/discovery posture
 
-No B2 item is executable until this block is filled by the user/COE:
+**DECIDED 2026-08-10 — `selected_posture: RETIRE`.** Recorded values below; the `RE-WIRE` rows are `N/A`.
+
+| Decided field | Value |
+|---|---|
+| `selected_posture` | **`RETIRE`** |
+| `approved_by` | **Anurag** |
+| `approved_at` | **`2026-08-10T17:29:24Z`** |
+| `B0_evidence_reference` | B0 evidence recorded at commit `e99fe0b`: one graph call, T4 `out_of_registry`, guided, non-executing; **shadow attempts 0** because `draft_spl_preview_active` skipped the runner; deterministic plan remained authoritative; elapsed 954 ms. |
+| `guided_hybrid_llm_rail_disposition` | **`RETIRE_PROPOSER`** |
+| `bridge_trigger_match_paths` | **N/A** — `RE-WIRE` only. |
+| `guided_promotion_policy` | **N/A** — `RE-WIRE` only. |
+| `RE-WIRE` flag/scope/budget/discovery fields | **N/A** — `RE-WIRE` only. |
+
+Approved rationale, verbatim in substance: deterministic canonical planning remains the current production authority. The existing LLM planning rails are retired because they are fragmented, non-authoritative, discard-only, or parallel planning authorities — **not** because adaptive LLM planning is rejected as a future architecture. Future adaptive planning, if required, is to be evaluated as a new single-seam architecture above the deterministic floor, not by retaining the current fragmented rails.
+
+Approved dispositions, binding on B2-R1 → B2-R4:
+
+1. Retire the fenced bridge and shadow planning surfaces **after consumer proof**.
+2. Retire the imperative guided-hybrid LLM proposer.
+3. Preserve deterministic guided dispatch, validators, evidence collection, and the four-specialist advisory layer.
+4. Preserve live dispatch-v2 pre-SPL discovery.
+5. Retire legacy discovery/chronology **only after proving there are no live consumers**.
+6. Retain `ai_soc_guided_llm_enabled` for budget/deadline scope only; it must no longer gate planning-model calls.
+7. Remove / pin-absent the obsolete `guided_investigation_plan_llm` dispatch-step label **after consumer verification**.
+8. No MCP / SPL / HIL / RBAC or execution-authority expansion.
+
+Execution order approved: `B2-R1 → B2-R2 → B2-R3 → B2-R4`, then **stop at C0** for the independent ResourcePlan execution-order decision.
+
+**Approver-acknowledged evidence limit:** B0 measured zero shadow attempts, so it establishes neither shadow latency nor `qu_unavailable` coverage. `RETIRE` does not depend on either, since a discard-only path needs no latency budget; this limit is recorded so no later item cites B0 as positive evidence of shadow cost or match-path coverage.
+
+Original requirement table, retained for reference:
 
 | Field | Required value |
 |---|---|
@@ -540,14 +570,14 @@ Run `.claude/skills/invariant-check/SKILL.md` manually before every runtime comm
   - **Commit boundary:** Evidence-only plan update; normally no code commit.
   - **Stop:** Deterministic preflight fails; the full graph is invoked before preflight passes; instrumentation patches a generic/global LLM method or cannot isolate the shadow planner bridge role; probe would need destructive execution; more than one shadow bridge attempt; final/live synthesis would need disabling; output contains sensitive data; evidence cannot distinguish attempted call from a skipped call.
 
-- [ ] **B1 — COE decision: RETIRE or RE-WIRE planning/discovery architecture**
+- [x] **B1 — COE decision: RETIRE or RE-WIRE planning/discovery architecture**
   - **Do:** Present B0 evidence, the three-surface planning inventory (fenced bridge, discard-only shadow runner, imperative guided-hybrid proposer), cost/latency, and the two options in this plan. The user/COE fills every required B1 decision field, including guided-rail disposition and, for RE-WIRE, per-match-path trigger coverage plus both guided-promotion exclusions. Note for the approver that either rail disposition also strands two dependent surfaces — the *inverted* `ai_soc_guided_llm_enabled` proposer gate (whose three budget/deadline consumers survive either way) and the `guided_investigation_plan_llm` dispatch-step label. The default executor disposition is retain-the-flag-for-budget-scope-only plus an explicit label decision, handled inside B2-R2/B2-W2; escalate to this gate only if a coherent outcome would require renaming, repurposing, or deleting the flag. Do not infer coverage for `qu_unavailable` from B0's single `out_of_registry` observation. Do not implement either branch. Disposition the rejected B2 branch N/A.
   - **Why:** This changes intended architecture and cannot be selected by an executor.
   - **Surfaces:** this plan only.
   - **Depends on:** B0.
   - **Failing-first / observation:** Decision gate; no code.
   - **Verify:** After the decision edit, run `rg -n 'selected_posture.*(RETIRE|RE-WIRE)|approved_by|approved_at|B0_evidence_reference|guided_hybrid_llm_rail_disposition|bridge_trigger_match_paths|guided_promotion_policy' plans/2026-08-10_1103_architecture-resource-plan-execution-and-adaptive-planning.md` and the plan-discipline audit.
-  - **Evidence:** _(selected option, approver/date, rationale, guided-rail disposition, complete RE-WIRE config/match-path/promotion subfields if applicable, N/A disposition count)_
+  - **Evidence:** **DECIDED 2026-08-10.** `selected_posture: RETIRE`, `approved_by: Anurag`, `approved_at: 2026-08-10T17:29:24Z`, `B0_evidence_reference` = B0 evidence at `e99fe0b`. `guided_hybrid_llm_rail_disposition: RETIRE_PROPOSER`. Rationale: deterministic canonical planning stays the production authority; the rails are retired for being fragmented/non-authoritative/discard-only/parallel authorities, not because adaptive planning is rejected — a future adaptive design is to be a single seam above the deterministic floor. Eight approved dispositions recorded in the B1 decision block, including retain `ai_soc_guided_llm_enabled` for budget/deadline scope only, remove the `guided_investigation_plan_llm` label after consumer verification, retire fenced bridge/shadow and legacy discovery only after consumer proof, retain live dispatch-v2 pre-SPL discovery and the four-specialist advisory layer, and no MCP/SPL/HIL/RBAC or execution-authority expansion. **N/A disposition count: 4** — `bridge_trigger_match_paths`, `guided_promotion_policy`, the `RE-WIRE` flag/scope/budget/discovery field set, and the entire B2-W1…B2-W7 branch. Approver acknowledged that B0 recorded zero shadow attempts, so it evidences neither shadow latency nor `qu_unavailable` coverage; `RETIRE` does not rest on either. Approved order: `B2-R1 → B2-R2 → B2-R3 → B2-R4`, then stop at C0. No runtime change; invariant/manifest N/A. Commit: `8b596d2`.
   - **Invariant / manifest:** N/A; no runtime change.
   - **Commit boundary:** Optional plan-only decision commit; no runtime files.
   - **Stop:** No explicit choice; guided-hybrid proposer is left as a parallel/undispositioned authority; incomplete RE-WIRE discovery/flag/budget/match-path/promotion semantics; trigger scope and guided promotion policy contradict each other; decision conflicts with locked invariants.
@@ -600,86 +630,86 @@ Run `.claude/skills/invariant-check/SKILL.md` manually before every runtime comm
   - **Commit boundary:** Regression/test-only commit if needed; no new feature.
   - **Stop:** Any baseline drift, authority change, or hidden consumer appears.
 
-- [ ] **B2-W1 — RE-WIRE: add explicit default-false posture configuration**
+- [x] **B2-W1 — RE-WIRE: add explicit default-false posture configuration**
   - **Do:** If RE-WIRE selected, implement only the B1-approved dedicated flag name and bounded settings (plan step cap, timeout, discovery posture/hop cap). Defaults are disabled/fail-closed; no piggyback on synthesis/intent flags. Status surfaces expose booleans/numbers only, no endpoint/credential. Add `backend/app/tests/test_canonical_adaptive_planning_config.py` (**NEW**).
   - **Why:** Adaptive planning must be an explicit operator choice with reviewable bounds.
   - **Surfaces:** `backend/app/config.py`; settings/status schemas and redacted status builder; env docs/profiles only if B1 authorizes; new test.
   - **Depends on:** B1=`RE-WIRE` with complete config fields.
   - **Failing-first / observation:** Tests first prove flag absent and unrelated synthesis flags cannot enable planning.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_canonical_adaptive_planning_config.py app/tests/test_settings_status.py app/tests/test_settings_status_safety.py app/tests/test_llm_settings_stage3jb.py app/tests/test_resource_plan_authority.py -q`; manifest check.
-  - **Evidence:** _(approved flag/bounds, default-off and redaction tests, pytest/manifest/invariant, commit)_
+  - **Evidence:** N/A — rejected by B1 decision RETIRE, Anurag / 2026-08-10T17:29:24Z.
   - **Invariant / manifest:** Full invariant check; B1 approval is evidence for the otherwise prohibited new flag.
   - **Commit boundary:** Config/status only; no bridge call.
   - **Stop:** B1 did not approve exact semantics; any flag defaults on or bypasses safety.
 
-- [ ] **B2-W2 — RE-WIRE: insert one canonical bridge seam after the deterministic floor**
+- [x] **B2-W2 — RE-WIRE: insert one canonical bridge seam after the deterministic floor**
   - **Do:** Add one named helper at `_commit_planned_outcome` after `plan_evidence_from_canonical` builds the deterministic floor and before `planned_outcome` persists it. Both runtimes continue through the same canonical seam. Implement the exact B1 `bridge_trigger_match_paths` disposition rather than preserving `_TRIGGER_MATCH_PATHS` by accident. Fold the imperative guided-hybrid proposer into this seam: remove its direct `propose_investigation_plan_llm` call/parallel authority while preserving deterministic guided execution and validation. That fold exposes two surfaces which must be dispositioned in this same commit, not left implicit: (a) **`ai_soc_guided_llm_enabled` semantics.** Its proposer consumer is an *inverted* gate — flag true reserves the proposer with `guided_finalize_composer_reserved`, flag false calls it — so folding removes the flag's only proposer meaning while its three budget/deadline consumers (`pipeline.py:967`, `pipeline.py:1045`, `guided_llm_budget.py:12`) legitimately remain. Re-verify the consumer set by `rg`, retain the flag for budget/deadline scope only, and prove it cannot enable, disable, or otherwise gate the new canonical seam — the B2-W1 dedicated flag is the sole planning switch, and the existing "no piggyback on synthesis/intent flags" rule extends to this one. (b) **Guided dispatch-step trace compatibility.** The `dispatch_steps.append("guided_investigation_plan_llm")` emitter is gated on `llm_result.attempted`; decide whether the label is removed or re-sourced from the canonical seam's own attempt outcome, and prove the chosen posture against trace/scorecard consumers found by `rg`. With flag off, output is byte/field equivalent. Do not wire legacy `graph_node_evidence_planning` or direct MCP.
   - **Why:** There must be one live canonical insertion point, not parallel planning authorities. A retained guided flag that still appears to gate planning, or a dispatch-step label re-sourced by accident, would recreate a second de-facto planning switch.
   - **Surfaces:** `canonical_planning_orchestrator.py`; `pipeline.py`; `llm_plan_bridge.py`/promotion helper; `guided_investigation_plan_llm.py`; guided-hybrid executor/validator boundaries; `test_canonical_adaptive_planning_wiring.py` (**NEW**); dual-runtime/authority tests.
   - **Depends on:** B2-W1.
   - **Failing-first / observation:** Static seam test fails until exactly one canonical caller exists across both runtimes and no direct guided proposer remains; path-table tests fail for every B1-approved trigger that is absent and every excluded trigger that calls. Flag-off parity is captured first.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_canonical_adaptive_planning_wiring.py app/tests/test_dual_runtime_single_orchestration.py app/tests/test_canonical_planning_architecture.py app/tests/test_resource_plan_authority.py app/tests/test_canonical_handoff_e2e_probes.py app/tests/test_guided_investigation_plan_llm.py app/tests/test_guided_investigation_llm_firewall.py -q`; production parity `--check`; manifest check.
-  - **Evidence:** _(single caller proof across both runtimes, exact match-path matrix including `qu_unavailable`, no direct guided/legacy caller, flag-off parity, `ai_soc_guided_llm_enabled` consumer list before/after with proof it cannot gate the seam, guided dispatch-step label disposition and its consumer proof, pytest/parity/manifest/invariant, commit)_
+  - **Evidence:** N/A — rejected by B1 decision RETIRE, Anurag / 2026-08-10T17:29:24Z.
   - **Invariant / manifest:** Full invariant check; deterministic plan remains floor and sole fallback. Flag-group review must show exactly one planning switch — the B2-W1 dedicated flag — and no flag renamed, repurposed, or defaulted on.
   - **Commit boundary:** Insertion seam only; proposal semantics remain non-promoting until W3.
   - **Stop:** A second runtime needs a separate seam; any direct guided proposer/parallel planning authority remains; a B1-approved match path cannot reach the seam under the approved flag/posture; an excluded path does not fail closed; flag-off differs; canonical persistence order would become ambiguous; `ai_soc_guided_llm_enabled` would need renaming/repurposing/removal, or would end up co-gating the seam alongside the dedicated flag; the guided dispatch-step label has a consumer that tolerates neither removal nor re-sourcing — all three are B1 scope, not executor scope.
 
-- [ ] **B2-W3 — RE-WIRE: validate and promote proposals without weakening the floor**
+- [x] **B2-W3 — RE-WIRE: validate and promote proposals without weakening the floor**
   - **Do:** Harden the proposal schema and promotion contract: registry IDs/purposes only; B1 plan cap; forbidden raw-query/SPL/credential keys recursively rejected; no execution eligibility; all deterministic floor steps/policy checks/status constraints retained; additions only where skill/resource policy permits; exact promotion provenance and dropped reasons. Implement the B1 `guided_promotion_policy` explicitly: if guided is in adaptive scope, replace the current `guided_hybrid_v1`/`guided_investigation` blanket returns with validated canonical handling; if excluded, retain both guards and test the declared deterministic-only scope. Add mutation tests for floor removal, invented resource, policy relaxation, unsafe args, direct MCP intent, oversized plans, and both guided guard shapes.
   - **Why:** An LLM proposal is data, never authority.
   - **Surfaces:** `llm_plan_bridge.py`; `plan_promotion_merge.py`; resource registry/plan models; `test_canonical_adaptive_planning_promotion.py` (**NEW**) plus existing bridge tests.
   - **Depends on:** B2-W2.
   - **Failing-first / observation:** Mutation cases fail before hardening; deterministic floor fingerprint must remain identical on every rejection.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_canonical_adaptive_planning_promotion.py app/tests/test_llm_plan_bridge.py app/tests/test_llm_plan_bridge_promotion.py app/tests/test_llm_primary_planning.py app/tests/test_compose_guided_resource_plan.py app/tests/test_guided_investigation_plan_llm.py app/tests/test_resource_plan_authority.py app/tests/test_specialist_report_contracts.py -q`; manifest check.
-  - **Evidence:** _(mutation matrix, exact guided-promotion disposition for composer and skill guards, promotion/fallback fingerprints, pytest/manifest/invariant, commit)_
+  - **Evidence:** N/A — rejected by B1 decision RETIRE, Anurag / 2026-08-10T17:29:24Z.
   - **Invariant / manifest:** Full invariant check including recursive secret/query/SPL scan.
   - **Commit boundary:** Proposal validation/promotion only; no discovery scheduling.
   - **Stop:** Any proposal can remove a floor step, authorize execution, or carry forbidden content.
 
-- [ ] **B2-W4 — RE-WIRE: implement the approved discovery/hop/time budget semantics**
+- [x] **B2-W4 — RE-WIRE: implement the approved discovery/hop/time budget semantics**
   - **Do:** Implement exactly the B1-selected discovery posture. If legacy discovery is RETIRED, keep it fenced/remove inert semantics and allow no adaptive discovery step. If CANONICALLY_REIMPLEMENTED, validate discovery steps into a deterministic scheduler; LLM never selects/calls a connector; enforce B1 hop/time/step caps; preserve execution gate; keep dispatch-v2 pre-SPL discovery separate and prevent double discovery. Reuse V2/recipe concepts only after proving they do not import fenced authority.
   - **Why:** `MAX_MCP_HOPS` cannot silently regain meaning, and two discovery mechanisms cannot double-run.
   - **Surfaces:** approved scheduler/plan contracts; `evidence_loop.py` only if selected; dispatch-v2 pipeline and tests; `test_canonical_adaptive_planning_budget.py` (**NEW**).
   - **Depends on:** B2-W3.
   - **Failing-first / observation:** Tests inject over-budget, duplicate-discovery, LLM-direct-tool, timeout, and flag-off cases before implementation.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_canonical_adaptive_planning_budget.py app/tests/test_orchestration_scheduler.py app/tests/test_recipe_registry_contract.py app/tests/test_dispatch_authority_wiring.py app/tests/test_pipeline_dispatch_phase4.py app/tests/test_pipeline_dispatch_phase5.py app/tests/test_pipeline_dispatch_phase6.py app/tests/test_mcp_execution_gate.py -q`; manifest check.
-  - **Evidence:** _(selected posture, budget matrix, double-run proof, gate proof, pytest/manifest/invariant, commit)_
+  - **Evidence:** N/A — rejected by B1 decision RETIRE, Anurag / 2026-08-10T17:29:24Z.
   - **Invariant / manifest:** Full invariant check; no LLM→MCP path and no execution-authority expansion.
   - **Commit boundary:** Discovery/budget semantics only.
   - **Stop:** B1 posture incomplete; dispatch-v2 and adaptive discovery cannot be distinguished; a connector call would occur outside the gate.
 
-- [ ] **B2-W5 — RE-WIRE: add redacted planning trace and model-hop telemetry**
+- [x] **B2-W5 — RE-WIRE: add redacted planning trace and model-hop telemetry**
   - **Do:** Record attempt/call/outcome/latency, flag/budget skip reason, validation verdict, promotion status, deterministic fallback, plan source and bounded step IDs. Do not persist prompts, rationale text beyond existing bounded safe provenance, args, query, endpoint, credentials, RAG/raw events, or SPL. Make attempted-but-invalid distinct from not-called. Retire the ambiguous `llm_called=false/no_valid_shadow_proposal` semantics.
   - **Why:** B0 showed that architecture cost/promotion must be empirically observable.
   - **Surfaces:** canonical planning trace, `TurnLlmBudget`, telemetry redaction, control-plane trace, `test_canonical_adaptive_planning_trace.py` (**NEW**).
   - **Depends on:** B2-W4.
   - **Failing-first / observation:** Redaction tests and attempted-vs-skipped matrix first.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_canonical_adaptive_planning_trace.py app/tests/test_control_plane_trace.py app/tests/test_telemetry_connector.py app/tests/test_live_chat_telemetry_spine.py app/tests/test_turn_llm_budget_enforced.py app/tests/test_resource_plan_shadow.py -q`; manifest check.
-  - **Evidence:** _(trace schema/matrix, redaction grep, pytest/manifest/invariant, commit)_
+  - **Evidence:** N/A — rejected by B1 decision RETIRE, Anurag / 2026-08-10T17:29:24Z.
   - **Invariant / manifest:** Full invariant/redaction check.
   - **Commit boundary:** Trace/telemetry only.
   - **Stop:** Safe evidence cannot distinguish call attempt/result; any forbidden content reaches telemetry.
 
-- [ ] **B2-W6 — RE-WIRE: prove timeout/rejection/failure fallback**
+- [x] **B2-W6 — RE-WIRE: prove timeout/rejection/failure fallback**
   - **Do:** Add deterministic tests for disabled, budget skip, no client, timeout, exception, invalid JSON/schema, all steps dropped, partial valid plan, persistence failure, and discovery failure. Every case must return the deterministic floor or a governed planning failure—never a partial/unvalidated plan—and must not duplicate final shadow calls.
   - **Why:** Adaptive planning is acceptable only when failure is operationally equivalent to deterministic planning.
   - **Surfaces:** canonical bridge helper; sidecar timeout; promotion; persistence; `test_canonical_adaptive_planning_fallback.py` (**NEW**).
   - **Depends on:** B2-W5.
   - **Failing-first / observation:** Parameterized failure matrix written first.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_canonical_adaptive_planning_fallback.py app/tests/test_canonical_adaptive_planning_wiring.py app/tests/test_canonical_adaptive_planning_promotion.py app/tests/test_canonical_adaptive_planning_budget.py app/tests/test_canonical_adaptive_planning_trace.py app/tests/test_canonical_handoff_persistence_failclosed.py -q`; manifest check.
-  - **Evidence:** _(failure matrix, floor fingerprints, no duplicate call, pytest/manifest/invariant, commit)_
+  - **Evidence:** N/A — rejected by B1 decision RETIRE, Anurag / 2026-08-10T17:29:24Z.
   - **Invariant / manifest:** Full invariant check.
   - **Commit boundary:** Failure/fallback only.
   - **Stop:** Any failure loses the floor, weakens policy, or makes a second model call.
 
-- [ ] **B2-W7 — RE-WIRE: parity and regression proof**
+- [x] **B2-W7 — RE-WIRE: parity and regression proof**
   - **Do:** Prove flag-off exact parity and flag-on governed widening only for B1-approved paths; run a fake-client trigger matrix covering `out_of_registry`, `near_105_question`, `semantic_out_of_registry`, `query_understanding_weak`, `qu_unavailable`, and empty/unknown path, plus novel T4 probes and one explicitly approved live observation if still needed. Record plan-size/time budgets and no authority changes. B0's single `out_of_registry` call is not evidence for the other paths.
   - **Why:** RE-WIRE must prove both compatibility and bounded value before closure.
   - **Surfaces:** adaptive test family, eval/parity/governance evidence.
   - **Depends on:** B2-W6.
   - **Failing-first / observation:** No new architecture in this item; failures are fixed only within W1–W6 scope.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_canonical_adaptive_planning_config.py app/tests/test_canonical_adaptive_planning_wiring.py app/tests/test_canonical_adaptive_planning_promotion.py app/tests/test_canonical_adaptive_planning_budget.py app/tests/test_canonical_adaptive_planning_trace.py app/tests/test_canonical_adaptive_planning_fallback.py -q`; from root use P0's host DB export, then run `TELEMETRY_MODE=none PYTHONPATH=backend:. python3 scripts/audit_reference_probes.py --check`; `PYTHONPATH=backend:. python3 scripts/run_production_parity_eval.py --out-dir /tmp/plan2-rewire-parity --check`; `PYTHONPATH=backend:. python3 scripts/eval_out_of_set_intent_probe.py --check`; `./scripts/run_stage3_governance_regression.sh`; manifest check.
-  - **Evidence:** _(flag-off exact tuple, approved/excluded trigger-path matrix, guided promotion posture, flag-on cases, novel probes, budgets, reference/parity/governance, manifest, invariant, commit if test-only)_
+  - **Evidence:** N/A — rejected by B1 decision RETIRE, Anurag / 2026-08-10T17:29:24Z.
   - **Invariant / manifest:** Full cumulative invariant check for B2-W.
   - **Commit boundary:** Regression/test-only commit if needed.
   - **Stop:** Baseline refresh needed; any non-approved route changes; live probe requires new authority.
@@ -860,6 +890,7 @@ None at authoring time. Tests marked **NEW** are created in the owning item. B0'
 | 2026-08-10 | `route_setup` remains registered and unreachable; deletion is planned only after A0 failing-first reachability evidence. |
 | 2026-08-10 | Decision-ref inventory widened beyond the audit's three examples: additional false outputs are visible on `work_bundle.apply`, `rag_early`, and `policy_veto`. A1 covers the full remaining inventory. |
 | 2026-08-10 | Dormant `ResourcePlanV2` and pure orchestration scheduler exist, but are tied to fixture/fenced legacy concepts; C1-E may not promote them without the C0 decision and boundary tests. |
+| 2026-08-10 | **B1 DECIDED: `RETIRE`, approved by Anurag at `2026-08-10T17:29:24Z`.** `guided_hybrid_llm_rail_disposition: RETIRE_PROPOSER`. Eight dispositions bind B2-R1 → B2-R4; the whole B2-W branch (7 items) is dispositioned N/A per the conditional-item rule, alongside `bridge_trigger_match_paths` and `guided_promotion_policy`. Approver explicitly acknowledged that B0 measured **zero** shadow attempts (`draft_spl_preview_active` skipped the runner), so B0 evidences neither shadow latency nor `qu_unavailable` coverage and must not be cited for either later; `RETIRE` does not rest on those. The decision retires the current rails as fragmented/non-authoritative/discard-only/parallel authorities and does **not** reject adaptive LLM planning as a future architecture — a future design is to be a single seam above the deterministic floor. Approved order: `B2-R1 → B2-R2 → B2-R3 → B2-R4`, then stop at C0. |
 | 2026-08-10 | **A0 COMPLETE at `03b333b`.** The union-masking defect was confirmed empirically before removal: `resource_planner_graph_edges()` returned two edges that exist nowhere in the builder. `route_setup` was proven orphaned by the failing reachability test and removed; final topology is fixed 20 / mapped 8 / dynamic 4 / documented 30, reconciled by exact equality, 23 registered nodes, zero unreachable. No dispatch, specialist-authority, MCP, SPL, or scheduling behavior changed; parity stayed `120 exact / 0 approved / 0 critical`. |
 | 2026-08-10 | **Host environment cannot run the governance gate as-is — not a code regression.** `DATABASE_URL` targets `postgres:5432`, which does not resolve outside Docker (no `/etc/hosts` entry, no DNS), so every canonical handoff save/load raises from `asyncpg.create_pool` and the clean-answer eval refuses ~115 rows with `ARTIFACT_WRITE_REFUSED: …:exception`. Reproduced identically **with the A0 diff stashed at the P0 baseline** (`EXIT=3`), so attribution is environmental. The container is not a substitute: it aborts on the first gate because `/tmp/ai-soc-references/Anthropic-Cybersecurity-Skills` is not mounted. The gate passes on the host with `DATABASE_URL` overridden to the published `127.0.0.1:5434`; that override is how governance must be invoked from the host until the clone is mounted or the URL is host-resolvable. Reference probes have the same split — they fail on the host at `pipeline.py:3669` and pass `10/10` in-container. |
 | 2026-08-10 | Latent pre-existing bug found while triaging the above, **left unfixed as out of A0's commit boundary**: `pipeline.py:3669` calls `.get()` on `_query_signals_from_state()`, which returns `None` whenever `query_to_intent` is absent, raising `AttributeError` instead of degrading. Reachable whenever canonical planning cannot complete. Needs its own correctness item. |
