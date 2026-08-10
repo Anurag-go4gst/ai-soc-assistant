@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -116,6 +117,50 @@ def test_postgres_concurrent_resume_creates_single_next_version(postgres_migrate
     versions = {result.record.handoff_version for result in results}
     assert versions == {2}
     assert sum(1 for result in results if result.idempotent_replay) == 1
+
+
+def test_postgres_barrier_synchronized_resume_replays_instead_of_raising(
+    postgres_migrated: str,
+) -> None:
+    """Loser of a genuine resume race must replay, never see handoff_not_pending.
+
+    The unsynchronized sibling test above only overlaps the two resumes by
+    luck. Here a barrier forces both threads into the critical section, so the
+    successor lookup must be ordered behind the pending-row lock: a lookup made
+    before that lock observes the window between `supersede_version` and
+    `persist_handoff_record` and misreports a completed peer as a stale handoff.
+    """
+    for round_index in range(5):
+        handoff_id = new_integration_handoff_id(f"barrier{round_index}")
+        session_id = f"sess-pg-barrier-{round_index}"
+        _save_pending(handoff_id=handoff_id, session_id=session_id)
+        barrier = threading.Barrier(2)
+
+        def _resume(_: int, *, hid: str = handoff_id, sid: str = session_id) -> Any:
+            barrier.wait(timeout=10)
+            try:
+                return merge_clarification_answer(
+                    handoff_id=hid,
+                    handoff_version=1,
+                    user_answer="ALT-BARRIER",
+                    session_id=sid,
+                )
+            except ClarificationResumeError as exc:  # surfaced as a value, not a crash
+                return exc
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(_resume, range(2)))
+
+        errors = [r for r in results if isinstance(r, ClarificationResumeError)]
+        assert not errors, (
+            f"round {round_index}: concurrent resume raised "
+            f"{[e.reason for e in errors]}; expected an idempotent replay"
+        )
+        assert {r.record.handoff_version for r in results} == {2}
+        assert sum(1 for r in results if r.idempotent_replay) == 1
+        assert sum(1 for r in results if not r.idempotent_replay) == 1
+        stored_third = get_handoff(handoff_id, 3)
+        assert stored_third is None, "race must not advance past a single next version"
 
 
 def test_postgres_cross_process_restart_then_resume(postgres_migrated: str) -> None:

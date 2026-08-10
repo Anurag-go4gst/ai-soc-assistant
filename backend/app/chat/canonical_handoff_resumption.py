@@ -131,16 +131,24 @@ async def _merge_clarification_answer_db(
     session_id: str | None,
     trace_id: str | None,
 ) -> ClarificationResumeResult:
+    from app.chat.canonical_handoff_repository import handoff_record_from_row
+
     next_version = handoff_version + 1
+
+    # Take the pending row lock BEFORE looking for a successor. A concurrent
+    # resume supersedes v(n) and writes v(n+1) in one transaction, so a
+    # successor lookup made outside this lock can observe the window between
+    # those two writes and mistake a completed peer for a stale handoff.
+    pending = await load_pending_for_update(conn, handoff_id, handoff_version)
+
     existing_next = await fetch_handoff_record(conn, handoff_id, next_version)
     if existing_next:
-        from app.chat.canonical_handoff_repository import handoff_record_from_row
-
         record = handoff_record_from_row(existing_next)
-        pending = await load_pending_for_update(conn, handoff_id, handoff_version)
         if pending is None:
-            pending = await fetch_handoff_record(conn, handoff_id, handoff_version)
-            pending = handoff_record_from_row(pending) if pending else None
+            # load_pending_for_update filters on expiry, so a TTL-lapsed prior
+            # version still has to be readable to describe the replay.
+            pending_row = await fetch_handoff_record(conn, handoff_id, handoff_version)
+            pending = handoff_record_from_row(pending_row) if pending_row else None
         if pending is None:
             raise ClarificationResumeError("handoff_not_found")
         return ClarificationResumeResult(
@@ -150,7 +158,6 @@ async def _merge_clarification_answer_db(
             idempotent_replay=True,
         )
 
-    pending = await load_pending_for_update(conn, handoff_id, handoff_version)
     validate_pending_for_resume(pending, session_id=session_id)
     assert pending is not None
 
@@ -181,9 +188,16 @@ def _merge_clarification_answer_memory(
     trace_id: str | None,
 ) -> ClarificationResumeResult:
     next_version = handoff_version + 1
+
+    # Mirrors the DB path: read the pending version first, then look for a
+    # successor. Callers must already hold `memory_handoff_lock(handoff_id)`
+    # (see `merge_clarification_answer`) — that lock, not this ordering, is
+    # what serializes concurrent resumes here. The ordering is kept identical
+    # so both backends fail the same way if their mutual exclusion regresses.
+    pending = load_handoff_record(handoff_id, handoff_version)
+
     existing_next = load_handoff_record(handoff_id, next_version)
     if existing_next is not None:
-        pending = load_handoff_record(handoff_id, handoff_version)
         if pending is None:
             raise ClarificationResumeError("handoff_not_found")
         return ClarificationResumeResult(
@@ -193,7 +207,6 @@ def _merge_clarification_answer_memory(
             idempotent_replay=True,
         )
 
-    pending = load_handoff_record(handoff_id, handoff_version)
     validate_pending_for_resume(pending, session_id=session_id)
     assert pending is not None
 
