@@ -584,7 +584,7 @@ def rp_node_mcp_execution_gate(state: ResourcePlannerGraphState) -> ResourcePlan
         state,
         node="mcp_execution_gate",
         reason="evaluate_mcp_execution",
-        inputs_ref=["spl_validation", "normalized_spl"],
+        inputs_ref=["spl_validation", "spl_validation.normalized_spl"],
         outputs_ref=["execution", "human_review"],
         authority="deterministic",
     )
