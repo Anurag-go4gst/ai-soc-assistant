@@ -5016,5 +5016,26 @@
       "backend/app/tests/test_live_action_proposals.py"
     ],
     "risk_note": "Default false \u2014 surfaces pending action proposals on /chat; approve/deny via authenticated /api/actions."
+  },
+  {
+    "batch": null,
+    "classification": "b_posture",
+    "config_field": "ai_soc_resource_plan_execution_enabled",
+    "default_env": "false",
+    "disposition": "keep_group",
+    "env_key": "AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED",
+    "evidence": "rg: backend/app/planner/executor.py; git: d7c4d62 2026-08-11 wire ResourcePlan-driven execution order behind a default-false flag (C1-E4)",
+    "git_intro": "d7c4d62 2026-08-11 wire ResourcePlan-driven execution order behind a default-false flag (C1-E4)",
+    "profile_values": {
+      "coe": "false",
+      "development": "false",
+      "production": "false"
+    },
+    "read_sites": [
+      "backend/app/planner/executor.py",
+      "backend/app/tests/test_resource_plan_execution_activation.py",
+      "backend/app/tests/test_resource_plan_execution_wiring.py"
+    ],
+    "risk_note": "Plan 2 C0 EXECUTION-DRIVEN activation flag; default false through implementation and proof."
   }
 ]
