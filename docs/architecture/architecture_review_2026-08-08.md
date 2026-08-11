@@ -318,3 +318,77 @@ schedule on every composed plan, in both composed and reversed step order.
 
 Guided-hybrid and session-SPL-refine dispatch bypass this seam entirely, so the execution-driven
 path never applies to them.
+
+---
+
+## Plan 3 outcomes (2026-08-11)
+
+Plan 3 charted the adoption path rather than rewiring it. One decision, one correctness
+fix, one inventory, one capability wired. See
+`plans/2026-08-11_0915_execution-driven-adoption-and-guided-refinement.md`.
+
+### A0 — scheduling authority: `PHASE_POLICY_PLUS_RESOURCE_PLAN_SCHEDULING`
+
+Measured first. Across 5 probes × 4 postures: the legacy predicate schedule returned the
+dispatch-v2 projection unchanged in **10/10** v2-on rows, so it is a pass-through rather
+than a third authority; the execution-driven compiler stood down (`dispatch_v2_projected_schedule`)
+in every v2-on row; and dispatch-v2 emitted `spl_postprocessor` on every SPL probe and
+`reference_finalize` on the MITRE probe, hooks the compiler's `SCHEDULABLE_HOOKS` excludes.
+Making the compiler authoritative as-is would therefore have **dropped a stage on 4 of 5
+probes**.
+
+The decision rejects both "v2 wins" and "compiler wins". The two producers answer different
+questions and get different authority:
+
+- **Phase Policy** owns mandatory lifecycle/answer-shape phases — SPL chain integrity,
+  `spl_postprocessor`, `reference_finalize`, MITRE/CVE finalization. System-owned; the
+  planner may never add, remove or reorder them.
+- **ResourcePlan** owns investigation/evidence work — resources, dependencies, handoffs,
+  bounded attempts, safe parallelism. It must never express lifecycle hooks.
+- A deterministic **merge seam** is the single producer of the runnable schedule.
+
+`predicate_hook_disposition: SYSTEM_OWNED_LIFECYCLE_HOOKS` closes the stage-drop risk by
+construction: the two hooks never become plan steps, so the compiler cannot omit them.
+Dispatch-v2 is **not** disabled — its long-term role is phase-policy derivation, and any
+adapter over its current `stage_schedule` is a migration mechanism, not the target.
+
+**Decided, not built.** No Plan 3 item constructs the phase contract. This fixes the target
+and the boundaries; the implementation is a separate plan.
+
+### A1 — seam coverage: inventory only
+
+Ten production-reachable paths were inventoried and pinned by structural test. Only
+`composed_dispatch` (graph) and the imperative composed-plan branch reach
+`execute_plan_dispatch`; `rag_only`, `workflow_spl`, guided-hybrid and session-SPL-refine do
+not, and there is no guided-hybrid branch in the graph at all. Classification: 2 `SEAM`,
+4 `DECISION_REQUIRED`, 4 `KEEP_SEPARATE`, **0 adopted** — every adopt candidate would change
+production-default execution authority.
+
+Beyond the expected list: `_run_legacy_dispatch_fallback` does not merely bypass the seam,
+it holds its own `hook_nodes` map and executes the v2 projection itself — a **second
+execution engine**. It is the strongest adopt candidate on merit and is pinned by test so it
+can neither spread nor silently disappear.
+
+### B0 — guided refinement is live and bounded
+
+Guided investigation had been permanently one-round: the loop gated on
+`refinement_recommended`, hardcoded false since the LLM proposer was retired, so
+`MAX_GUIDED_INVESTIGATION_ROUNDS` was unreachable rather than enforced. The gate now runs on
+evidence actually collected — produced-evidence keys before/after collection against the
+guided rail's own `validated_resource_plan` — plus a plan fingerprint so a round that would
+re-plan identically never runs. The cap is checked first, empty channels never count as
+produced, and side-effect replay protection is the existing `HookReplayEnvelope` machinery.
+Every outcome is traced in `plan_dispatch_trace.guided_refinement_reasons`.
+
+### B1 — flag evaluation: neutral, default unchanged
+
+With dispatch-v2 forced off so the compiler could activate (7 of 9 composed probes),
+flag ON produced **zero** schedule differences. `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED`
+remains default **false**; the evidence supports no default change.
+
+The evaluation surfaced a more important inconsistency: on two probes the EvidencePlan
+booleans say `needs_spl=True` while the composed ResourcePlan carries only `narration` (or
+only a contract-blocked `mcp_execution`). Plan-derived scheduling concludes "nothing
+schedulable" while predicate-derived scheduling builds a full SPL lane. The downgrade to
+legacy currently masks the disagreement; under a compiler-authoritative model it would
+become dropped work. Recorded as a known gap for the phase-contract plan.

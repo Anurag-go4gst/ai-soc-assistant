@@ -31,6 +31,17 @@
 >   `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` (default **false**) the dispatch schedule is
 >   compiled from the plan's execution contract instead; see the ordering note in
 >   `docs/architecture/architecture_review_2026-08-08.md`.
+>
+> **Update (2026-08-11, Plan 3).** Scheduling authority is now decided:
+> `PHASE_POLICY_PLUS_RESOURCE_PLAN_SCHEDULING`. Phase Policy owns mandatory lifecycle
+> phases (`spl_postprocessor`, `reference_finalize`, SPL-chain integrity, MITRE/CVE
+> finalization) and the planner may never touch them; ResourcePlan owns evidence work; a
+> deterministic merge seam is the single producer of the runnable schedule. **Decided, not
+> yet built** — dispatch-v2 still projects the schedule on hosts where it is enabled.
+> Measured today: only `composed_dispatch` and the imperative composed-plan branch reach
+> `execute_plan_dispatch`; `rag_only`, `workflow_spl`, guided-hybrid and session-SPL-refine
+> bypass it, and `_run_legacy_dispatch_fallback` runs its own hook loop. Pinned by
+> `backend/app/tests/test_execution_seam_coverage.py`.
 
 
 > Slice **S1b** (work items **C1** + **C9**) of `plans/AI_SOC_MASTER_PLAN.md`.

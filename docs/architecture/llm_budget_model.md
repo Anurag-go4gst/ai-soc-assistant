@@ -34,6 +34,13 @@ Complexity bonus (out-of-registry / investigation-shaped) adds up to +50s on top
 > retired; guided planning is deterministic on every posture of this flag. Any older text
 > implying it "enables guided LLM planning" is wrong. For the same reason the dispatch-step
 > label `guided_investigation_plan_llm` no longer denotes a model hop and is not emitted.
+>
+> **Update (2026-08-11, Plan 3 B0).** Guided investigation is no longer one-round, and it
+> regained multi-round behavior **without** any model hop. The round gate now runs on
+> evidence actually collected — produced-evidence keys before/after collection, plus a plan
+> fingerprint — so `MAX_GUIDED_INVESTIGATION_ROUNDS` (3) is enforced rather than merely
+> unreachable. Refinement costs no LLM budget; every round's reason is traced in
+> `plan_dispatch_trace.guided_refinement_reasons`.
 
 ## Skip order under pressure (deterministic)
 
