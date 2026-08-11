@@ -857,14 +857,37 @@ Run `.claude/skills/invariant-check/SKILL.md` manually before every runtime comm
   - **Commit boundary:** Pure scheduler only.
   - **Stop:** Scheduler must infer dependencies from node names/booleans; unsupported plan cannot fall back exactly.
 
-- [ ] **C1-E3 — EXECUTION-DRIVEN: define step output→input handoffs**
+- [x] **C1-E3 — EXECUTION-DRIVEN: define step output→input handoffs**
   - **Do:** Add bounded typed handoffs for current real dependencies: RAG→SPL slot fill, dispatch-v2 pre-SPL discovery→SPL compiler/preference, SPL candidate→source resolve→validation, approved normalized SPL→MCP gate, evidence→finalization. Missing/empty outputs produce declared skip/block/fallback states; no arbitrary state-key interpolation.
   - **Why:** Execution order matters only if downstream inputs are explicit and validated.
   - **Surfaces:** pipeline state contracts, dispatch context/handoffs, scheduler result; `test_resource_plan_execution_handoffs.py` (**NEW**).
   - **Depends on:** C1-E2.
   - **Failing-first / observation:** Missing key, wrong type, empty RAG, failed discovery, unapproved SPL, and fabricated key tests first.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_plan_execution_handoffs.py app/tests/test_langgraph_spl_source_resolve_parity.py app/tests/test_pipeline_dispatch_phase4.py app/tests/test_pipeline_dispatch_phase5.py app/tests/test_mcp_execution_gate.py -q`; manifest check.
-  - **Evidence:** _(handoff table, failure outcomes, pre-SPL distinction, pytest/manifest/invariant, commit)_
+  - **Evidence:** **COMPLETE 2026-08-11; runtime commit `e0bada3`.** New `backend/app/planner/resource_plan_execution_handoffs.py` + `backend/app/tests/test_resource_plan_execution_handoffs.py` (23 tests). Failing-first: written before the module (collection error), then **22 passed, 1 failed** on a genuine module defect — a completely absent `spl_validation` produced the generic `missing_spl_validation` instead of the gate's single honest reason; fixed so every unusable gate input (absent, unapproved, empty) reports `missing_approved_normalized_spl`.
+
+    **Handoff table (declared keys only; every root is a real state channel, asserted by test):**
+
+    | Handoff | State key | Producer → consumer | Required | Missing/empty outcome |
+    |---|---|---|---|---|
+    | `rag_to_spl_slot_fill` | `soc_kb_retrieval` | `rag_early` → `spl_source_resolve` | no | `SKIPPED` (`empty_soc_kb_retrieval`) |
+    | `pre_spl_discovery_to_spl` | `pipeline_dispatch.runtime_context.mcp_discovery_context` | `pre_spl_mcp_discovery` → `workflow_spl` | no | `SKIPPED` |
+    | `spl_candidate_to_source_resolve` | `candidate_spl` | `workflow_spl` → `spl_source_resolve` | no | `FALLBACK` |
+    | `source_resolve_to_validation` | `spl_validation` | `spl_source_resolve` → `spl_validate` | yes | `BLOCKED` |
+    | `approved_spl_to_mcp_gate` | `spl_validation.normalized_spl` | `spl_validate` → `mcp_execution_gate` | yes | `BLOCKED` (`missing_approved_normalized_spl`) |
+    | `evidence_to_finalization` | `source_evidence` | `execution` → `finalize` | no | `SKIPPED` (`empty_source_evidence`) |
+
+    **Failure outcomes proven:** absent required input blocks its consumer; a wrong-typed root is refused rather than coerced (`wrong_type_spl_validation`); empty RAG is an optional skip, not a block; failed pre-SPL discovery is an optional skip; missing candidate SPL falls back rather than blocking; empty evidence still finalizes with a declared limitation.
+
+    **Executability invariant, tested three ways:** candidate SPL alone never satisfies the gate handoff; unapproved validation *carrying* a normalized SPL still blocks; only `approved=true` plus non-empty `normalized_spl` yields `SATISFIED`. Approval is the authority, not the presence of SPL text.
+
+    **No arbitrary state-key interpolation:** `read_handoff_value` raises `UndeclaredHandoffKey` for any key outside the table; nested reads resolve only along declared dotted paths. A test asserts no handoff key contains `prompt`, `completion`, `token`, `secret`, `credential`, or `api_key`.
+
+    **Pre-SPL distinction:** `pre_spl_discovery_to_spl` declares `producer_stage="pre_spl_mcp_discovery"` and reads the live dispatch-v2 runtime context (`pipeline_dispatch.runtime_context.mcp_discovery_context`, written at `pipeline.py:2734`), never the fenced legacy evidence loop. Asserted by test, and the module source is asserted free of `propose_investigation_plan_llm`, `run_resource_plan_shadow`, and `llm_plan_bridge` so no retired rail can return through this door.
+
+    **Carried-in C0 refinement requirement, discharged with round-varying data.** `evaluate_unresolved_gaps(contract, produced_keys)` derives open gaps from the contract's *reachable* produced-evidence keys — a blocked step's outputs are explicitly not gaps, since nothing in the plan can produce them and counting them would manufacture endless refinement. `refinement_decision(...)` authorizes another round only when the produced-key set actually grew **and** a reachable gap remains, inside a hard round bound: identical produced keys → `refine=False, reason="no_new_evidence"` (the B2-R2 idempotent no-op, now explicit rather than accidental); growth with an open gap → `refine=True` listing `["candidate_spl","spl_validation","execution"]`; growth that closes every gap → `evidence_satisfied`; `rounds_used >= max_rounds` → `round_bound_reached` regardless of evidence. A test asserts `collected_count` appears nowhere in the module, closing the C0 prohibition on a simple count heuristic. This is the mechanism only — wiring it to guided investigation is not part of C1-E3 and no LLM planning authority is reintroduced.
+
+    **Gates.** Exact Verify slice: **60 passed** (`test_resource_plan_execution_handoffs.py`, `test_langgraph_spl_source_resolve_parity.py`, `test_pipeline_dispatch_phase4.py`, `test_pipeline_dispatch_phase5.py`, `test_mcp_execution_gate.py`). Manifest `protected artifacts unchanged (13 checked)`. Invariant check **7/7 PASS**. No new state key was needed — every handoff reads an already-declared channel — so the item's "all new state keys declared on LangGraph state" requirement is satisfied vacuously and verifiably. Zero production importers; nothing is wired.
   - **Invariant / manifest:** Full invariant check; all new state keys declared on LangGraph state.
   - **Commit boundary:** Typed handoffs only; no live scheduler switch.
   - **Stop:** Handoff can carry raw prompt/credentials; candidate SPL reaches execution; undeclared state key needed.
