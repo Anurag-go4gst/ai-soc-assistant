@@ -1,12 +1,12 @@
 ---
 name: execution-driven-adoption-and-guided-refinement
 overview: "Establish the adoption path for all production-reachable execution paths, reconcile scheduling authority, and make bounded guided refinement live where its existing contract supports it."
-status: draft
+status: done
 date: 2026-08-11
 canonical_plan: plans/2026-08-11_0915_execution-driven-adoption-and-guided-refinement.md
 source_plan: plans/2026-08-10_1103_architecture-resource-plan-execution-and-adaptive-planning.md
 baseline_head: 9ee21fd
-implementation_readiness: "READY_FOR_P0_H0_A1_B0; STOPS_AT_A0_AND_B1_DECISION_GATES"
+implementation_readiness: COMPLETE
 ---
 
 # Plan 3 — Execution-driven adoption and guided refinement
@@ -370,14 +370,44 @@ If B1's evidence supports changing the flag default, record the proposal and **S
   - **Commit boundary:** Documentation only.
   - **Stop:** Historical evidence would need rewriting; the selected posture is ambiguous.
 
-- [ ] **G1 — Final Plan 3 closure gate**
+- [x] **G1 — Final Plan 3 closure gate**
   - **Do:** Re-audit every checkmark. Each executed item must carry observed evidence; each rejected conditional must carry an explicit N/A with its decision reference. Review the cumulative diff for secrets, authority expansion, baseline noise and unrelated dirt. Run the full gate set and record exact counts. Set frontmatter `status: done` and `implementation_readiness: COMPLETE` only after all pass, and update the `CLAUDE.md` Plans row.
   - **Why:** Adoption is not closed until implementation and evidence agree.
   - **Surfaces:** whole Plan 3 diff and this plan.
   - **Depends on:** G0.
   - **Failing-first / observation:** Re-walk inherited checkmarks skeptically; a missing or undecided N/A fails closure.
   - **Verify:** From root with the host DB export: `.cursor/hooks/audit-plan-discipline.sh plans/2026-08-11_0915_execution-driven-adoption-and-guided-refinement.md`; `python3 scripts/freeze_execution_baseline.py --check --in /tmp/plan3-execution-baseline.json`; `TELEMETRY_MODE=none PYTHONPATH=backend:. python3 scripts/audit_reference_probes.py --check`; `PYTHONPATH=backend:. python3 scripts/run_production_parity_eval.py --out-dir /tmp/plan3-final-parity --check`; `PYTHONPATH=backend:. python3 scripts/eval_out_of_set_intent_probe.py --check`; `./scripts/run_stage3_governance_regression.sh`; `cd backend && PYTHONPATH=../backend:.. python3 -m pytest`; frontend build if G0 changed served docs; re-run the manifest check.
-  - **Evidence:** _(item disposition, decisions, targeted/full counts, probe rows, parity tuple, governance counts, manifest before/after, cumulative invariant verdict, commits, known gaps)_
+  - **Evidence:** **COMPLETE 2026-08-11. Plan 3 closed 9/9, 0 gaps.**
+
+    **Final observed gate results (all re-run at closure, none assumed):**
+
+    | Gate | Observed |
+    |---|---|
+    | Governance regression | **`stage3_governance_regression: PASS`** — harness 6/6, dual parity `total=120 exact=120 approved=0 critical=0`, clean-answer `120 pass / 0 review / 0 fail / 0 critical / 0 major / 0 display`, Cisco power grid `PASS=50 / REVIEW=0 / FAIL=0 / CRITICAL=0` |
+    | Full backend pytest | **`5046 passed, 2 skipped, 6 xfailed`**, 0 failed (inside the governance run, 481.85s) |
+    | Production parity `--check` | **`total=120 base_105=105 exact=120 approved=0 critical=0`** |
+    | Reference probes `--check` | **`all probes match the frozen baseline`** (10/10) |
+    | Out-of-set intent probe `--check` | **`PASS (11/11 probes match baseline)`** |
+    | Targeted Plan 3 tests | **97 passed** (`test_query_signals_degrade`, `test_execution_seam_coverage`, `test_guided_bounded_refinement`, `test_skill_intent_compatibility`, `test_resource_plan_execution_wiring`, `test_resource_plan_execution_activation`, `test_guided_hybrid_refinement`) |
+    | Protected manifest | **`protected artifacts unchanged (13 checked)`** |
+    | Invariant check | **7/7 PASS** cumulative across `9ee21fd..HEAD` |
+    | Plan-discipline audit | **9 checked / 0 unchecked / 0 gaps** |
+    | Frontend build | **N/A** — G0 changed only markdown; `details.html` and both mirrors are unchanged and byte-identical, so no served copy changed |
+
+    **Final architecture checks, explicitly confirmed:** `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` still defaults **`false`** (`config.py:410`, `.env.example:47`); retired LLM planning rails remain retired with **zero** production call paths to `propose_investigation_plan_llm` / `run_resource_plan_shadow`; no MCP/SPL/HIL/RBAC authority expansion anywhere in the cumulative diff; no automatic retry of uncertain or side-effecting work (`retry_step_ids` stays unconditionally empty, and guided collection reuses existing replay protection); **no** baseline, golden answer or governed registry appears in the diff; and no unrelated user-owned dirt was committed — the pre-existing `.claude/settings.local.json`, `.playwright-mcp/`, two G0 PNGs and `output/` remain untouched. Governance regenerated five `docs/evals/` reports twice; row-level verdict projections and summary counts were byte-equal (only `generated_at` differed) and both times the files were reverted.
+
+    **B1 / compatibility disposition, preserved:** the T1 alert-summary finding was a **`PROBE_ARTIFACT`** and is **retracted** — the harness forced a routed skill the real router never selects. The canonical alert-summary/no-SPL protection **remains intact**, enforced by `canonical_answer_mode_policy`'s `alert_summary_spl_contradiction`. The novel-OT case was a real **`ROUTE_INTENT_CONTRADICTION`** (secondary `VALIDATION_POLICY_CONFLICT`). The compatibility contract now resolves `routed_skill + intent_family + capability contract`; capability contradictions **deny the forbidden capability** rather than failing an otherwise safe turn; Phase Policy and ResourcePlan composition consume the **same** capability authority; and the composer veto remains defense-in-depth. This decision is closed and was not reopened during G1.
+
+    **Item disposition: 9/9 executed with observed evidence, 0 rejected-branch N/As** (Plan 3 had no conditional branches — its two decision gates, A0 and B1, were both decided and executed rather than selecting between alternative item sets).
+
+    **Commits:** `728bd76` plan · `fbb6f76` P0 · `8a3073b` H0 fix · `136c31b` H0 evidence · `078fad0` A0 decision · `cec729a` A0 evidence · `97b43dd` A1 tests · `452b97d` A1 evidence · `5426956` B0 · `b141453` B0 evidence · `bd64291` B1 evidence · `70c3090` B2 · `0f0f5f5` B2 evidence · `0f4332a` G0.
+
+    **Known gaps carried forward, none blocking:**
+    1. **`UNDERSTANDING_ROUTER_ON_LOW_CONFIDENCE` is deferred and UNAPPROVED** — the keyword router's unmatched default is `knowledge_recall` at 0.2 confidence, which manufactures the contradiction class. 99/105 goldens hit that default; 91/99 get a different understanding-router route (`attack_discovery` 83 / `alert_summary` 8 / `knowledge_recall` 8). Requires its own OFF/ON routing matrix plus parity and answer-quality evaluation. Router-default semantics were **not** changed in G1.
+    2. **A0's target architecture is decided, not built** — no Plan 3 item constructs the phase contract; it needs its own plan.
+    3. **A1 classified 4 paths `DECISION_REQUIRED`** (`graph:rag_only`, `graph:workflow_spl`, `imperative:guided_hybrid`, `imperative:session_spl_refine`) with **0 adopted**; each would change production-default execution authority.
+    4. **`_run_legacy_dispatch_fallback` remains a second execution engine** — pinned by test, strongest adopt candidate, unadopted.
+    5. **Finalize's nine hard `state[...]` reads** raise rather than degrade when canonical planning is incomplete — the same class as H0, outside its brief, needs its own correctness item.
   - **Invariant / manifest:** Cumulative invariant check across `9ee21fd`→HEAD; all seven groups PASS.
   - **Commit boundary:** Final test/evidence/plan-closure commit only.
   - **Stop:** Any unchecked or undecided item; invariant FAIL; protected drift; baseline refresh; unapproved authority; same valid gate failing twice.
@@ -428,6 +458,7 @@ Because this would change routing for **~94%** of the golden set, it requires it
 | 2026-08-11 | Research found the graph spine bypasses the seam on `rag_only`, `workflow_spl` and `non_planned_finalize`; only `composed_dispatch` reaches `execute_plan_dispatch`, and no guided-hybrid branch exists in the graph. This materially expands the brief's assumed A1 scope. |
 | 2026-08-11 | **User decision: A1 is inventory + structural test only.** No rewiring of `rag_only`, `workflow_spl`, guided-hybrid or session-refine in A1; each bypass is classified `ADOPT_CANDIDATE` / `KEEP_SEPARATE` / `DECISION_REQUIRED`, and adoption that would change production-default execution authority stops for an architecture decision. |
 | 2026-08-11 | **Correction to a Plan 2 note:** Plan 2's C0 evidence recorded "guided composes no ResourcePlan". That was a test-harness artifact (`compose_resource_plan_testutil.py:31-35`); production composes guided steps, and guided-hybrid holds a real `validated_resource_plan`. B0's contract source therefore exists and needs no invention. |
+| 2026-08-11 | **PLAN 3 CLOSED at G1 — 9/9, 0 gaps.** Governance PASS (harness 6/6, dual parity 120 exact, clean-answer 120 pass, Cisco 50 PASS), full backend `5046 passed / 0 failed`, parity `120 exact / 0 approved / 0 critical`, reference probes 10/10, out-of-set 11/11, targeted 97 passed, manifest 13/13, invariant 7/7, audit 9/9. Frontend build N/A — no served copy changed. Flag still default false; retired rails still retired; no authority expansion; no baseline refreshed; no user-owned dirt committed. Five known gaps recorded, headed by the deferred and unapproved `UNDERSTANDING_ROUTER_ON_LOW_CONFIDENCE`. |
 | 2026-08-11 | **B2 COMPLETE at `70c3090` — capability contradiction closed at the capability layer.** A deterministic `routed_skill × intent_family × contract` resolution now feeds **both** Phase Policy and composition, failing closed so a contradiction can never widen capability. Phase Policy stopped being contract-blind: it drops SPL/MCP lanes the contract forbids and can only remove stages. Capability lookup delegates to the composer's `_skill_permits` so there is one implementation, not two. Answer-neutral by measurement — 14/105 goldens already sat in this class with **no SPL in any accepted answer**, so parity stayed `120 exact`; full backend `5046 passed`. The router default was deliberately left alone. |
 | 2026-08-11 | **B1 finding dispositioned.** T1 alert-summary **retracted as `PROBE_ARTIFACT`** (harness forced a skill the real router does not choose; the locked alert-summary/no-SPL boundary is intact and enforced by `canonical_answer_mode_policy`'s `alert_summary_spl_contradiction`). Novel-OT confirmed a real `ROUTE_INTENT_CONTRADICTION` + secondary `VALIDATION_POLICY_CONFLICT`, root-caused to the keyword router's 0.2-confidence `knowledge_recall` default. Shape advisor cleared: its promotion guard returns `reference_taxonomy_partial_signal_missing`, so `pipeline.py:1384` never fires here. B1 re-run after B2: unchanged, 0 differences. |
 | 2026-08-11 | **B1 COMPLETE — no default change proposed.** 10 probes × 2 arms, dispatch-v2 forced off in both so the compiler could activate (7 of 9 composed probes activated). **Zero schedule differences**; flag ON is neutral. Recorded caveat: production runs v2 ON, where the compiler never activates, so this measures the two schedulers rather than production impact. **Finding beyond the deltas:** the two non-activating probes downgraded `no_schedulable_step` and exposed a real inconsistency — `needs_spl=True` while the composed plan carries only `narration` (T1 alert summary) or only a contract-blocked `mcp_execution` plus `narration` (novel OT). EvidencePlan booleans and the composed ResourcePlan disagree about the turn's work; the downgrade currently masks it, but it would become dropped work under a compiler-authoritative model. Carried to G0/G1 as a known gap, `DECISION_REQUIRED` for the A0 target. Flag stays default false. |
