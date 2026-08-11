@@ -777,14 +777,48 @@ Run `.claude/skills/invariant-check/SKILL.md` manually before every runtime comm
   - **Commit boundary:** Small docs/test/seam-hardening commit only.
   - **Stop:** Existing consumer treats step order as authority; trace rename breaks a public contract.
 
-- [ ] **C1-E1 — EXECUTION-DRIVEN: define and validate the dependency contract**
+- [x] **C1-E1 — EXECUTION-DRIVEN: define and validate the dependency contract**
   - **Do:** Decide, from the C0 record, whether to extend live `ResourcePlan` or promote a bounded subset of `ResourcePlanV2`; define unique IDs, acyclic `depends_on`, allowed parallel groups, declared produced/required evidence keys, fallback targets, max attempts, blocked/skipped semantics, and deterministic downgrade to the current schedule. Do not wire execution yet.
   - **Why:** A list order is insufficient to govern dependent or parallel work.
   - **Surfaces:** resource-plan contracts, validators, registry/composer; `test_resource_plan_execution_contract.py` (**NEW**).
   - **Depends on:** C0=`EXECUTION-DRIVEN` and selected B2 closure.
   - **Failing-first / observation:** Cycles, missing dependencies, unknown evidence keys, unsafe retries, and invalid fallback targets fail first.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_plan_execution_contract.py app/tests/test_recipe_registry_contract.py app/tests/test_resource_plan_authority.py app/tests/test_planner_hierarchy_contracts.py -q`; manifest check.
-  - **Evidence:** _(schema decision, invalid matrix, downgrade contract, pytest/manifest/invariant, commit)_
+  - **Evidence:** **COMPLETE 2026-08-11; runtime commit `78bd76c`.**
+
+    **Schema decision (executes the C0 `v1_v2_posture`):** extend the live `ResourcePlan`. `PlanStep` gains exactly one optional typed field, `execution: StepExecutionSpec | None = None`; all V1 wire fields are unchanged. `ResourcePlanV2` and `orchestration_scheduler.py` are **not imported** — only their *data vocabulary* is reused, re-declared in fresh code, one line of boundary justification each: `depends_on` (data-shaped adjacency, no authority — the fenced version's authority lived in `schedule_next`, which is not reused); produced/required evidence keys (descriptive key lists, validated here against real state channels rather than the fenced recipe's own key space); failover target `step_id | "terminal" | "hil"` (an enum of edge targets, no handler behavior attached); `max_attempts` (a bound, made stricter here — pinned to 1 for side-effecting steps). New module `backend/app/planner/resource_plan_execution.py`; new test `backend/app/tests/test_resource_plan_execution_contract.py` (38 tests).
+
+    **Failing-first, in two recorded stages.** Stage 1, before any module existed: the suite failed at collection — `ModuleNotFoundError: No module named 'app.planner.resource_plan_execution'`, `1 error in 0.23s`. Stage 2, against a symbols-only stub whose validators returned "valid" and whose builder returned `None`: **22 failed, 6 passed, 1 skipped**, i.e. every rule below was proven absent before it was written. Stage 3 after implementation: 2 failed → both were defects in the *new test's* expectations, corrected and recorded rather than silently fixed: (a) `test_contract_module_performs_no_io_and_reads_no_flag` matched the word "settings" inside the module docstring, so it was rewritten as an AST scan of imports/calls/attributes instead of a substring scan of source text — strictly stronger; (b) the wave assertion expected `narration` in a final wave, but `narration` has no dependency and inventing one would fabricate ordering the fixed schedule does not have, so the assertion now pins the honest `[["rag","spl","narration"],["mcp"]]`. No existing test was weakened or deleted.
+
+    **Invalid matrix (each row is one failing-first test, now green):**
+
+    | Rule | Error code |
+    |---|---|
+    | Duplicate step id | `duplicate_step_id` |
+    | Dependency on an unknown step | `unknown_dependency` |
+    | Step depends on itself | `self_dependency` |
+    | Dependency cycle (`a→b→a`) | `dependency_cycle` |
+    | Evidence key whose root is not a declared state channel | `unknown_evidence_key` |
+    | Fallback target that is neither a step id nor `terminal`/`hil` | `invalid_fallback_target` |
+    | Fallback target pointing at the step itself | `self_fallback_target` |
+    | `max_attempts != 1` on a side-effecting step | `unsafe_retry_side_effecting` |
+    | `max_attempts` outside `[1, MAX_STEP_ATTEMPTS=3]` | `attempts_out_of_bounds` |
+    | Parallel group containing a side-effecting step | `parallel_group_side_effecting` |
+    | Parallel group containing an intra-group dependency | `parallel_group_internal_dependency` |
+
+    Positive controls also pin the accepted cases: a read-only parallel group validates, `spl_validation.normalized_spl` validates as a nested key against a real root channel, and both `terminal` and `hil` are accepted fallback targets.
+
+    **Bounded side effects.** `SIDE_EFFECTING_PURPOSES == frozenset({"mcp_execution"})`, asserted by test; a side-effecting step's `max_attempts` is both rejected at validation and force-pinned to 1 at build time. Nothing in the contract can express an unbounded, cyclic, or retrying side effect — the item's Stop condition is closed by construction.
+
+    **Default derivation is the parity anchor for C1-E2/C1-E4.** With no declarations anywhere, the derived contract reproduces current fixed-schedule semantics: the MCP step `depends_on` the SPL **step id** (not merely an evidence key), it requires `spl_validation`, RAG/SPL/narration are dependency-free, and the whole plan resolves to waves `[["rag","spl","narration"],["mcp"]]`. A separate test proves an MCP step in a plan with **no** SPL step declares **no** phantom dependency. An explicit `execution` declaration overrides derivation (`spl depends_on rag` → waves `[["rag"],["spl"]]`).
+
+    **Blocked/skipped semantics.** `blocked_policy` yields `executable=False` with the preserved `status_reason` (observed `skill_contract`); `not_onboarded` yields `resource_not_onboarded`; dependents of a non-executable step propagate to `dependency_blocked:<step_id>`.
+
+    **Downgrade contract (deterministic, fail-closed):** `execution_contract_or_downgrade()` returns `(None, "no_resource_plan")`, `(None, "empty_resource_plan")`, `(None, "contract_invalid:<first_error_code>")`, or `(None, "unsupported_purpose:<purpose>")`; a valid plan returns a contract and `None`. `SUPPORTED_EXECUTION_PURPOSES` was enumerated from `composer.py` — not from the executor's narrower `_DISPATCHABLE_PURPOSES` — and a test asserts it covers all ten composer-emitted purposes, so a real composed plan (which always carries `narration`) can never downgrade for an unknown purpose.
+
+    **No wiring, proven.** The module reads no setting and performs no I/O (AST-scanned test: no `requests`/`httpx`/`app.config`/`app.connectors`/`app.mcp`/`app.llm` import, no `load_resource_registry`/`call_tool`/`generate`/`evaluate_mcp_execution` call, no `settings` attribute). `grep` confirms zero production importers other than pydantic's model resolution in `resource_plan.py`. The approved `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` flag is deliberately **not** introduced here — it belongs to C1-E4.
+
+    **Gates.** Exact Verify slice: **73 passed** (`test_resource_plan_execution_contract.py`, `test_recipe_registry_contract.py`, `test_resource_plan_authority.py`, `test_planner_hierarchy_contracts.py`). Additional blast-radius check for the new `PlanStep` field: **87 passed** (`test_resource_plan_step_dispatch.py`, `test_planner_executor.py`, `test_dispatch_authority_wiring.py`, `test_dual_runtime_single_orchestration.py`, `test_state_channel_parity.py`, `test_skill_contract_planning.py`, `test_control_plane_trace.py`). No existing test pins `PlanStep`'s exact field set, so the additive field required no test edit. Manifest `protected artifacts unchanged (13 checked)`. Invariant check **7/7 PASS** — no LLM↔MCP path, no SPL executability change, `app/demo/` untouched, no secrets, no new state channel, no flag/port change, no test weakened.
   - **Invariant / manifest:** Full invariant check; no live wiring.
   - **Commit boundary:** Contract/validation only.
   - **Stop:** C0 does not resolve V1/V2 posture; contract permits unbounded/cyclic/retrying side effects.
