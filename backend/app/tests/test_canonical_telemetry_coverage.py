@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,7 @@ from app.chat.canonical_telemetry_catalog import (
 )
 from app.chat.contracts.canonical_planning_outcome import outcome_from_state
 from app.chat.planning_telemetry import (
+    emit_planning_event,
     emit_request_completed,
     planning_events,
     reset_planning_telemetry_for_tests,
@@ -31,6 +33,8 @@ from app.chat.planning_telemetry import (
 from app.chat.planning_telemetry_policy import (
     AUDIT_CRITICAL_PLANNING_EVENTS,
     DIAGNOSTIC_PLANNING_EVENTS,
+    TelemetryEventClassificationError,
+    classify_canonical_planning_event,
     is_audit_critical_planning_event,
 )
 from app.chat.response_validation import (
@@ -87,6 +91,62 @@ def test_catalog_partitions_all_28_events_with_item_21b_classification() -> None
         )
         assert spec.required_payload
         assert spec.node_name
+
+
+def _literal_production_emissions() -> set[str]:
+    """Discover literal event names, including the three bounded wrapper forms."""
+    events: set[str] = set()
+    app_root = REPO_ROOT / "backend" / "app"
+    for path in app_root.rglob("*.py"):
+        if "tests" in path.parts:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            function_name = node.func.id if isinstance(node.func, ast.Name) else None
+            keyword_values = {item.arg: item.value for item in node.keywords if item.arg}
+            if function_name in {"emit_planning_event", "emit_execution_event"}:
+                value = keyword_values.get("event")
+                if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                    events.add(value.value)
+            elif function_name == "emit_detail_tool_event":
+                value = keyword_values.get("event_suffix")
+                if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                    events.add(f"detail_tool.{value.value}")
+            elif path.name == "canonical_execution_idempotency.py" and function_name == "_emit_step":
+                if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                    events.add(node.args[0].value)
+    return events
+
+
+def test_literal_production_emissions_equal_closed_catalog() -> None:
+    assert _literal_production_emissions() == CANONICAL_TELEMETRY_EVENTS
+
+
+def test_unknown_event_is_rejected_before_memory_log_or_persistence() -> None:
+    with pytest.raises(TelemetryEventClassificationError, match="unclassified"):
+        emit_planning_event(
+            {"trace_id": "unknown-event"},
+            event="not.catalogued",
+            node_name="test",
+            decision_reason="test",
+            payload={"status": "completed"},
+        )
+    assert planning_events() == []
+    assert telemetry.persisted_events() == []
+
+
+def test_duplicate_classification_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.chat import planning_telemetry_policy as policy
+
+    monkeypatch.setattr(
+        policy,
+        "DIAGNOSTIC_PLANNING_EVENTS",
+        policy.DIAGNOSTIC_PLANNING_EVENTS | {"handoff.persisted"},
+    )
+    with pytest.raises(TelemetryEventClassificationError, match="duplicate"):
+        classify_canonical_planning_event("handoff.persisted")
 
 
 def test_production_emitter_wiring_covers_all_catalog_events() -> None:

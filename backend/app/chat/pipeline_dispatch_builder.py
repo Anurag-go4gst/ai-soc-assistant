@@ -207,7 +207,13 @@ def _needs_pre_spl_mcp_discovery(
 
 
 def _needs_mcp_execution(plan: EvidencePlan) -> bool:
-    return bool(plan.needs_mcp and plan.mcp_allowed)
+    resource_plan = plan.resource_plan if isinstance(plan.resource_plan, dict) else {}
+    planned_steps = resource_plan.get("steps") if isinstance(resource_plan, dict) else []
+    has_committed_execution_step = any(
+        isinstance(step, dict) and step.get("purpose") == "mcp_execution"
+        for step in (planned_steps or [])
+    )
+    return bool(plan.needs_mcp and (plan.mcp_allowed or has_committed_execution_step))
 
 
 def _spl_subgraph(

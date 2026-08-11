@@ -115,3 +115,28 @@ def test_workflow_spl_always_followed_by_postprocessor_across_spl_modes() -> Non
         if PipelineStage.workflow_spl in d.stage_schedule:
             i = d.stage_schedule.index(PipelineStage.workflow_spl)
             assert d.stage_schedule[i + 1] == PipelineStage.spl_postprocessor, family
+
+
+def test_committed_mcp_execution_step_keeps_gate_stage_when_plan_is_blocked() -> None:
+    plan = _plan(
+        answer_mode="live_investigation",
+        needs_spl=True,
+        spl_allowed=True,
+        needs_mcp=True,
+        mcp_allowed=False,
+        normalized_slot_summary={"normalized_slots": {}},
+        resource_plan={
+            "steps": [
+                {
+                    "step_id": "mcp",
+                    "purpose": "mcp_execution",
+                    "resource_id": "mcp_tool:splunk_run_query",
+                    "status": "blocked_policy",
+                }
+            ]
+        },
+    )
+
+    decision = _dispatch(plan, "spl_generation_only")
+
+    assert PipelineStage.mcp_execution in decision.stage_schedule

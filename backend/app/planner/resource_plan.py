@@ -13,6 +13,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+# Runtime import: pydantic resolves `PlanStep.execution` against this model.
+# `resource_plan_execution` never imports this module at runtime, so there is
+# no cycle.
+from app.planner.resource_plan_execution import StepExecutionSpec
+
 PlanSource = Literal["deterministic", "llm_proposed_validated"]
 
 StepStatus = Literal[
@@ -43,6 +48,12 @@ class PlanStep(BaseModel):
     policy_checks: list[str] = Field(default_factory=list)
     status: StepStatus = "planned"
     status_reason: str | None = None
+    # C1-E1: optional execution semantics (dependencies, parallel group,
+    # evidence keys, fallback, attempts). `None` means "derive the defaults",
+    # which reproduce the current fixed schedule. Rules live in
+    # `app.planner.resource_plan_execution`; nothing consumes this for
+    # scheduling until the C1-E4 wiring behind its default-false flag.
+    execution: "StepExecutionSpec | None" = None
 
 
 class ResourcePlan(BaseModel):

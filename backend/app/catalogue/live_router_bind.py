@@ -9,7 +9,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.catalogue.match_tiers import CatalogueMatchResult, match_catalogue_tier
+from app.catalogue.match_tiers import (
+    CatalogueBindingCandidate,
+    build_catalogue_binding_candidate,
+)
+from app.chat.query_signals import extract_query_signals
 from app.use_cases.models import UseCaseSelection
 from app.use_cases.registry import get_use_case
 
@@ -22,13 +26,13 @@ _EXACT_AUTHORITY_PATHS = frozenset(
 )
 
 
-def _selection_from_catalogue(match: CatalogueMatchResult) -> UseCaseSelection | None:
+def _selection_from_catalogue(match: CatalogueBindingCandidate) -> UseCaseSelection | None:
     if not match.use_case_id:
         return None
     definition = get_use_case(match.use_case_id)
     if definition is None:
         return None
-    confidence = 0.88 if match.tier in {"T1", "T2"} else 0.74
+    confidence = 0.88 if match.binding_candidate_tier in {"T1", "T2"} else 0.74
     if match.alias_applied:
         confidence = 0.72
     return UseCaseSelection(
@@ -57,19 +61,68 @@ def should_apply_catalogue_bind(
     *,
     query_understanding: Any | None,
     selected_use_case: UseCaseSelection | None,
-    catalogue: CatalogueMatchResult,
+    catalogue: CatalogueBindingCandidate,
 ) -> bool:
-    if catalogue.tier == "T4" or not catalogue.use_case_id:
+    if not catalogue.accepted:
         return False
-    if catalogue.tier == "T0":
+    if catalogue.binding_candidate_tier == "T4" or not catalogue.use_case_id:
         return False
     if _has_exact_catalogue_authority(query_understanding):
         return False
-    if selected_use_case is not None and selected_use_case.use_case_id == catalogue.use_case_id:
+    if selected_use_case is not None:
         return False
-    if selected_use_case is not None and not catalogue.alias_applied:
-        return False
-    return selected_use_case is None or catalogue.alias_applied
+    return True
+
+
+def reconcile_catalogue_binding_candidate(
+    *,
+    query: str,
+    query_understanding: Any | None,
+    selected_use_case: UseCaseSelection | None = None,
+) -> CatalogueBindingCandidate:
+    """Apply canonical guards before a candidate may alter the effective path."""
+    candidate = build_catalogue_binding_candidate(
+        query,
+        understanding=query_understanding,
+    )
+    observed = candidate.observed_match_path
+    effective = observed
+    accepted = candidate.binding_candidate_tier in {"T1", "T2"}
+    decision_reason = "observed_catalogue_authority" if accepted else "no_catalogue_bind"
+
+    if candidate.candidate_match_path == "fuzzy_alias_catalog":
+        signals = extract_query_signals(query, query_understanding)
+        ambiguity_flags = list(
+            getattr(query_understanding, "ambiguity_flags", None) or []
+        )
+        if _has_exact_catalogue_authority(query_understanding):
+            decision_reason = "exact_authority_preserved"
+        elif signals.get("non_soc_or_out_of_scope"):
+            decision_reason = "non_soc_candidate_rejected"
+        elif any(
+            signals.get(key)
+            for key in ("block_or_contain", "explicit_run_spl", "run_execution")
+        ):
+            decision_reason = "unsafe_candidate_rejected"
+        elif ambiguity_flags or signals.get("ambiguous_t2_query"):
+            decision_reason = "ambiguous_candidate_rejected"
+        elif (
+            selected_use_case is not None
+            and selected_use_case.use_case_id != candidate.use_case_id
+        ):
+            decision_reason = "selected_use_case_authority_preserved"
+        else:
+            effective = "fuzzy_alias_catalog"
+            accepted = True
+            decision_reason = "bounded_alias_accepted"
+
+    return candidate.model_copy(
+        update={
+            "effective_match_path": effective,
+            "accepted": accepted,
+            "decision_reason": decision_reason,
+        }
+    )
 
 
 def apply_live_catalogue_bind(
@@ -79,20 +132,34 @@ def apply_live_catalogue_bind(
     selected_use_case: UseCaseSelection | None,
     routed: dict[str, Any],
     candidate_mappings: dict[str, Any] | None,
-) -> tuple[UseCaseSelection | None, dict[str, Any], dict[str, Any]]:
-    """Return updated selected use case, routed payload, and candidate mappings."""
+) -> tuple[
+    UseCaseSelection | None,
+    dict[str, Any],
+    dict[str, Any],
+    CatalogueBindingCandidate,
+]:
+    """Return fill-blank routing updates plus the typed binding candidate."""
     mappings = dict(candidate_mappings or {})
     routed_out = dict(routed)
-    catalogue = match_catalogue_tier(query, understanding=query_understanding)
+    catalogue = reconcile_catalogue_binding_candidate(
+        query=query,
+        query_understanding=query_understanding,
+        selected_use_case=selected_use_case,
+    )
 
     provenance = routed_out.get("routing_provenance")
     provenance_dict = dict(provenance) if isinstance(provenance, dict) else {}
     provenance_dict.update(
         {
-            "catalogue_tier": catalogue.tier,
-            "catalogue_match_path": catalogue.match_path,
+            "catalogue_tier": catalogue.binding_candidate_tier,
+            "binding_candidate_tier": catalogue.binding_candidate_tier,
+            "catalogue_match_path": catalogue.candidate_match_path,
+            "observed_match_path": catalogue.observed_match_path,
+            "effective_catalogue_match_path": catalogue.effective_match_path,
             "catalogue_alias_applied": catalogue.alias_applied,
             "catalogue_entry_id": catalogue.entry_id,
+            "catalogue_bind_accepted": catalogue.accepted,
+            "catalogue_bind_decision_reason": catalogue.decision_reason,
         }
     )
     if catalogue.use_case_id:
@@ -101,9 +168,13 @@ def apply_live_catalogue_bind(
             provenance_dict["mapped_use_case_ids"] = [catalogue.use_case_id]
     routed_out["routing_provenance"] = provenance_dict
 
-    mappings.setdefault("catalogue_tier", catalogue.tier)
-    mappings.setdefault("catalogue_match_path", catalogue.match_path)
+    mappings.setdefault("catalogue_tier", catalogue.binding_candidate_tier)
+    mappings.setdefault("binding_candidate_tier", catalogue.binding_candidate_tier)
+    mappings.setdefault("catalogue_match_path", catalogue.candidate_match_path)
+    mappings["observed_match_path"] = catalogue.observed_match_path
+    mappings["effective_catalogue_match_path"] = catalogue.effective_match_path
     mappings["catalogue_alias_applied"] = catalogue.alias_applied
+    mappings["catalogue_bind_accepted"] = catalogue.accepted
     if catalogue.use_case_id and not mappings.get("use_case_ids"):
         mappings["use_case_ids"] = [catalogue.use_case_id]
     if catalogue.question_ref and not mappings.get("question_ref"):
@@ -121,4 +192,4 @@ def apply_live_catalogue_bind(
             mappings["use_case_ids"] = [bound.use_case_id]
             mappings["catalogue_bind_reason"] = catalogue.match_reason
 
-    return use_case_out, routed_out, mappings
+    return use_case_out, routed_out, mappings, catalogue

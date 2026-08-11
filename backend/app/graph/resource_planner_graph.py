@@ -6,17 +6,15 @@ Callable from tests always; wired to ``/chat`` when ``LANGGRAPH_ORCHESTRATION_EN
 from __future__ import annotations
 
 import logging
-import operator
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Annotated, Any, Iterator, Literal
 
 from langgraph.graph import END, StateGraph
 from langgraph.types import Send
-
-from app.catalogue.match_tiers import match_catalogue_tier
 
 from app.chat.control_plane_trace import patch_control_plane_trace_decision_log
 from app.chat.decision_record import emit_decision_record
@@ -31,7 +29,6 @@ from app.chat.pipeline import (
     graph_node_init_routing,
     graph_node_prepare_rag_only,
     graph_node_rag_early,
-    graph_node_shadow_enrichment,
     graph_node_shadow_tail,
     graph_node_spl_source_resolve,
     graph_node_workflow_spl,
@@ -56,6 +53,8 @@ from app.planner.planner_hierarchy import (
     new_decision_record_id,
 )
 from app.planner.knowledge_specialist import build_knowledge_audit_report
+from app.planner.mcp_specialist import build_mcp_audit_report
+from app.planner.spl_specialist import build_spl_audit_report
 from app.planner.resource_plan import ResourcePlan
 from app.planner.specialist_registry import load_specialist_registry
 from app.schemas.requests import ChatRequest
@@ -130,9 +129,35 @@ def _reject_validated_work_bundle(
         node="work_bundle.apply",
         reason=reason,
         inputs_ref=["validated_work_bundle"],
-        outputs_ref=["evidence_plan"],
+        outputs_ref=[],
         authority="resource_planner",
     )
+
+
+def _reduce_specialist_reports(
+    current: list[dict[str, Any]],
+    update: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Merge parallel specialist reports without amplifying identical replays."""
+    reports_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for report in [*current, *update]:
+        if not isinstance(report, dict):
+            raise TypeError("specialist report must be a mapping")
+        delegation_id = report.get("delegation_id")
+        specialist_id = report.get("specialist_id")
+        if not isinstance(delegation_id, str) or not delegation_id:
+            raise ValueError("specialist report requires delegation_id")
+        if not isinstance(specialist_id, str) or not specialist_id:
+            raise ValueError("specialist report requires specialist_id")
+        key = (delegation_id, specialist_id)
+        existing = reports_by_key.get(key)
+        if existing is not None and existing != report:
+            raise ValueError(
+                "conflicting specialist reports for "
+                f"delegation_id={delegation_id!r}, specialist_id={specialist_id!r}"
+            )
+        reports_by_key[key] = report
+    return [reports_by_key[key] for key in sorted(reports_by_key)]
 
 
 class ResourcePlannerGraphState(ChatPipelineState, total=False):
@@ -140,7 +165,7 @@ class ResourcePlannerGraphState(ChatPipelineState, total=False):
     planner_iteration: dict[str, Any]
     work_bundle: dict[str, Any]
     validated_work_bundle: dict[str, Any] | None
-    specialist_reports: Annotated[list[dict[str, Any]], operator.add]
+    specialist_reports: Annotated[list[dict[str, Any]], _reduce_specialist_reports]
     specialist_delegations: list[dict[str, Any]]
     policy_veto: dict[str, Any]
 
@@ -222,39 +247,36 @@ def _record_parallel_specialist_decisions(state: ResourcePlannerGraphState) -> R
     """Emit specialist audit records in stable order after parallel fan-in."""
     routed = state.get("routed") if isinstance(state.get("routed"), dict) else {}
     skill_id = str(routed.get("skill") or "")
-    knowledge_reason = next(
-        (
-            str(report.get("decision_reason") or "")
-            for report in state.get("specialist_reports") or []
-            if isinstance(report, dict) and report.get("specialist_id") == "knowledge"
-        ),
-        "knowledge_lane_idle",
-    )
+    report_reasons = {
+        str(report.get("specialist_id") or ""): str(report.get("decision_reason") or "")
+        for report in state.get("specialist_reports") or []
+        if isinstance(report, dict)
+    }
     decisions = [
         (
             "specialist.skill",
             "skill_lane_advisory",
             "specialist:skill",
-            ["routed"],
+            ["routed", "canonical_planning_input"],
             ["specialist_reports"],
         ),
         (
             "specialist.knowledge",
-            knowledge_reason,
+            report_reasons.get("knowledge") or "knowledge_lane_idle",
             "specialist:knowledge",
-            ["evidence_plan"],
+            ["intent_classification", "evidence_plan"],
             ["specialist_reports"],
         ),
         (
             "specialist.mcp",
-            "mcp_lane_advisory",
+            report_reasons.get("mcp") or "mcp_unavailable",
             "specialist:mcp",
             ["evidence_plan"],
             ["specialist_reports"],
         ),
         (
             "specialist.spl",
-            "spl_lane_advisory",
+            report_reasons.get("spl") or "spl_unavailable",
             "specialist:spl",
             ["evidence_plan"],
             ["specialist_reports"],
@@ -326,21 +348,13 @@ def rp_node_route_resolution(state: ResourcePlannerGraphState) -> ResourcePlanne
         state,
         node="route_resolution",
         reason="route_contract_and_planning_decision_ready",
-        inputs_ref=["routed", "evidence_plan"],
-        outputs_ref=["route_contract", "planning_decision"],
-        authority="deterministic",
-    )
-
-
-def rp_node_route_setup(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
-    state = graph_node_shadow_enrichment(state)
-    state = _with_trace(state, "route_setup")
-    return _record(
-        state,
-        node="route_setup",
-        reason="route_contract_and_skill_chain_ready",
-        inputs_ref=["routed", "evidence_plan"],
-        outputs_ref=["route_contract", "selected_skill_chain"],
+        inputs_ref=["routed", "route_plan_shadow"],
+        outputs_ref=[
+            "route_plan_shadow",
+            "llm_plan_validation",
+            "skill_selection",
+            "selected_skill_chain",
+        ],
         authority="deterministic",
     )
 
@@ -362,20 +376,27 @@ def rp_node_resource_planner_delegate(state: ResourcePlannerGraphState) -> Resou
         state,
         node="resource_planner.delegate",
         reason="fan_out_specialists",
-        inputs_ref=["evidence_plan"],
+        inputs_ref=[],
         outputs_ref=["specialist_delegations"],
     )
 
 
 def rp_node_specialist_skill(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
     routed = state.get("routed") if isinstance(state.get("routed"), dict) else {}
-    query = state.get("effective_query") or state["request"].message
-    tier = match_catalogue_tier(query, understanding=state.get("query_understanding"))
+    canonical = (
+        state.get("canonical_planning_input")
+        if isinstance(state.get("canonical_planning_input"), dict)
+        else {}
+    )
+    routing = canonical.get("routing") if isinstance(canonical.get("routing"), dict) else {}
+    catalogue_tier = routing.get("catalogue_tier")
+    warnings = [] if catalogue_tier is not None else ["canonical_routing_unavailable"]
     report = SkillSpecialistReport(
         delegation_id="del:skill",
         decision_reason="route_lane",
         skill_id=str(routed.get("skill") or ""),
-        catalogue_tier=tier.tier,
+        catalogue_tier=str(catalogue_tier) if catalogue_tier is not None else None,
+        warnings=warnings,
     ).model_dump()
     return {"specialist_reports": [report]}
 
@@ -390,20 +411,12 @@ def rp_node_specialist_knowledge(state: ResourcePlannerGraphState) -> ResourcePl
 
 
 def rp_node_specialist_mcp(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
-    report = McpSpecialistReport(
-        delegation_id="del:mcp",
-        decision_reason="mcp_lane_advisory",
-        hop_count=0,
-    ).model_dump()
+    report = build_mcp_audit_report(evidence_plan=_evidence_plan(state)).model_dump()
     return {"specialist_reports": [report]}
 
 
 def rp_node_specialist_spl(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
-    report = SplSpecialistReport(
-        delegation_id="del:spl",
-        decision_reason="spl_lane_advisory",
-        spl_source="template_or_fallback",
-    ).model_dump()
+    report = build_spl_audit_report(evidence_plan=_evidence_plan(state)).model_dump()
     return {"specialist_reports": [report]}
 
 
@@ -450,8 +463,17 @@ def rp_node_resource_planner_merge(state: ResourcePlannerGraphState) -> Resource
         state,
         node="resource_planner.merge",
         reason="fan_in_work_bundle",
-        inputs_ref=["specialist_reports", "evidence_plan.resource_plan"],
-        outputs_ref=["work_bundle", "planner_iteration"],
+        inputs_ref=[
+            "specialist_reports",
+            "specialist_delegations",
+            "evidence_plan.resource_plan",
+        ],
+        outputs_ref=[
+            "work_bundle",
+            "validated_work_bundle",
+            "planner_iteration",
+            "evidence_plan",
+        ],
     )
 
 
@@ -508,8 +530,8 @@ def rp_node_prepare_rag_only(state: ResourcePlannerGraphState) -> ResourcePlanne
         state,
         node="prepare_rag_only",
         reason="rag_only_path",
-        inputs_ref=["evidence_plan"],
-        outputs_ref=["execution"],
+        inputs_ref=["validated_work_bundle", "evidence_plan"],
+        outputs_ref=["evidence_plan", "execution"],
         authority="deterministic",
     )
 
@@ -521,8 +543,8 @@ def rp_node_rag_early(state: ResourcePlannerGraphState) -> ResourcePlannerGraphS
         state,
         node="rag_early",
         reason="governed_rag_retrieval",
-        inputs_ref=["evidence_plan"],
-        outputs_ref=["soc_kb_retrieval", "source_evidence"],
+        inputs_ref=["workflow_plan"],
+        outputs_ref=["soc_kb_retrieval"],
         authority="deterministic",
     )
 
@@ -536,7 +558,7 @@ def rp_node_composed_dispatch(state: ResourcePlannerGraphState) -> ResourcePlann
         node="composed_dispatch",
         reason="resource_plan_step_walk",
         inputs_ref=["validated_work_bundle", "evidence_plan.resource_plan"],
-        outputs_ref=["candidate_spl", "spl_validation", "execution"],
+        outputs_ref=["evidence_plan", "candidate_spl", "spl_validation", "execution"],
         authority="deterministic",
     )
 
@@ -549,8 +571,8 @@ def rp_node_workflow_spl(state: ResourcePlannerGraphState) -> ResourcePlannerGra
         state,
         node="workflow_spl",
         reason="spl_worker",
-        inputs_ref=["validated_work_bundle"],
-        outputs_ref=["candidate_spl", "spl_validation"],
+        inputs_ref=["validated_work_bundle", "evidence_plan"],
+        outputs_ref=["evidence_plan", "candidate_spl", "spl_validation"],
         authority="deterministic",
     )
 
@@ -562,7 +584,7 @@ def rp_node_spl_source_resolve(state: ResourcePlannerGraphState) -> ResourcePlan
         state,
         node="spl_source_resolve",
         reason="placeholder_slot_resolution",
-        inputs_ref=["candidate_spl"],
+        inputs_ref=["candidate_spl", "spl_validation"],
         outputs_ref=["spl_validation"],
         authority="deterministic",
     )
@@ -576,7 +598,7 @@ def rp_node_mcp_execution_gate(state: ResourcePlannerGraphState) -> ResourcePlan
         state,
         node="mcp_execution_gate",
         reason="evaluate_mcp_execution",
-        inputs_ref=["spl_validation", "normalized_spl"],
+        inputs_ref=["spl_validation", "spl_validation.normalized_spl"],
         outputs_ref=["execution", "human_review"],
         authority="deterministic",
     )
@@ -592,7 +614,7 @@ def rp_node_spl_validate(state: ResourcePlannerGraphState) -> ResourcePlannerGra
         state,
         node="spl_validate",
         reason="candidate_only_gate",
-        inputs_ref=["candidate_spl"],
+        inputs_ref=["spl_validation"],
         outputs_ref=["spl_validation"],
         authority="deterministic",
     )
@@ -607,7 +629,7 @@ def rp_node_context_sufficiency(state: ResourcePlannerGraphState) -> ResourcePla
         {**state, "context_sufficiency": sufficiency},
         node="context_sufficiency",
         reason="pre_finalize_sufficiency_surface",
-        inputs_ref=["source_evidence"],
+        inputs_ref=["context_sufficiency"],
         outputs_ref=["context_sufficiency"],
         authority="deterministic",
     )
@@ -619,8 +641,8 @@ def rp_node_decide_facts(state: ResourcePlannerGraphState) -> ResourcePlannerGra
         state,
         node="decide_facts",
         reason="severity_mitre_authority_pending_finalize",
-        inputs_ref=["mitre_decision", "severity_decision"],
-        outputs_ref=["severity_decision", "mitre_mappings"],
+        inputs_ref=[],
+        outputs_ref=[],
         authority="deterministic",
     )
 
@@ -678,8 +700,8 @@ def rp_node_answer_guard(state: ResourcePlannerGraphState) -> ResourcePlannerGra
         state,
         node="answer_guard",
         reason="answer_guard_pending_finalize",
-        inputs_ref=["answer_contract"],
-        outputs_ref=["answer_guard"],
+        inputs_ref=[],
+        outputs_ref=[],
         authority="deterministic",
     )
 
@@ -692,7 +714,7 @@ def rp_node_finalize(state: ResourcePlannerGraphState) -> ResourcePlannerGraphSt
         state,
         node="finalize",
         reason="context_finalize_compose_response",
-        inputs_ref=["structured_context", "source_evidence"],
+        inputs_ref=["evidence_plan", "execution", "soc_kb_retrieval", "spl_validation"],
         outputs_ref=["response", "context_sufficiency", "severity_decision"],
         authority="deterministic",
     )
@@ -727,8 +749,15 @@ def rp_node_validate_final_answer(state: ResourcePlannerGraphState) -> ResourceP
         state,
         node="validate_final_answer",
         reason="final_answer_validator",
-        inputs_ref=["response", "answer_contract"],
-        outputs_ref=["final_answer_validation"],
+        inputs_ref=[
+            "response",
+            "answer_contract",
+            "evidence_plan",
+            "mitre_decision",
+            "human_review",
+            "planning_decision",
+        ],
+        outputs_ref=["final_answer_validation", "response"],
         authority="deterministic",
     )
     response = state.get("response")
@@ -747,7 +776,7 @@ def rp_node_human_review(state: ResourcePlannerGraphState) -> ResourcePlannerGra
         state,
         node="human_review",
         reason="hil_gate_surface",
-        inputs_ref=["execution"],
+        inputs_ref=["human_review"],
         outputs_ref=["human_review"],
         authority="deterministic",
     )
@@ -760,8 +789,8 @@ def rp_node_policy_veto(state: ResourcePlannerGraphState) -> ResourcePlannerGrap
         state,
         node="policy_veto",
         reason="evidence_plan_policy_checks",
-        inputs_ref=["evidence_plan"],
-        outputs_ref=["policy_veto", "execution", "human_review", "spl_validation"],
+        inputs_ref=["evidence_plan", "execution", "spl_validation"],
+        outputs_ref=["policy_veto", "execution", "spl_validation"],
         authority="deterministic",
     )
 
@@ -783,7 +812,6 @@ def _compiled_resource_planner_graph() -> Any:
     graph: StateGraph = StateGraph(ResourcePlannerGraphState)
     graph.add_node("bootstrap", rp_node_bootstrap)
     graph.add_node("route_resolution", rp_node_route_resolution)
-    graph.add_node("route_setup", rp_node_route_setup)
     graph.add_node("resource_planner_delegate", rp_node_resource_planner_delegate)
     graph.add_node("specialist_skill", rp_node_specialist_skill)
     graph.add_node("specialist_knowledge", rp_node_specialist_knowledge)
@@ -917,13 +945,153 @@ def resource_planner_graph_node_names() -> list[str]:
     return []
 
 
+GRAPH_START_SENTINEL = "__start__"
+GRAPH_END_SENTINEL = "__end__"
+
+
+@dataclass(frozen=True)
+class TopologyReconciliation:
+    """Result of comparing documented topology against runtime-derived topology."""
+
+    matched: frozenset[tuple[str, str]]
+    documented_only: frozenset[tuple[str, str]]
+    runtime_only: frozenset[tuple[str, str]]
+
+    @property
+    def is_consistent(self) -> bool:
+        return not self.documented_only and not self.runtime_only
+
+
+def _strip_sentinel_edges(edges: set[tuple[str, str]]) -> set[tuple[str, str]]:
+    sentinels = {GRAPH_START_SENTINEL, GRAPH_END_SENTINEL}
+    return {(src, dst) for src, dst in edges if src not in sentinels and dst not in sentinels}
+
+
+def reconcile_topology(
+    *,
+    fixed: set[tuple[str, str]],
+    mapped: set[tuple[str, str]],
+    dynamic: set[tuple[str, str]],
+    documented: set[tuple[str, str]],
+) -> TopologyReconciliation:
+    """Compare a documented edge set against runtime-derived edges.
+
+    Pure so mutation controls can inject topology instead of rebuilding the
+    ``lru_cache``d compiled graph. Sentinel start/end edges are normalized away
+    because the documented set describes node-to-node wiring only.
+    """
+    runtime = _strip_sentinel_edges(fixed | mapped | dynamic)
+    documented_normalized = _strip_sentinel_edges(documented)
+    return TopologyReconciliation(
+        matched=frozenset(runtime & documented_normalized),
+        documented_only=frozenset(documented_normalized - runtime),
+        runtime_only=frozenset(runtime - documented_normalized),
+    )
+
+
+def unreachable_nodes(
+    *,
+    nodes: set[str],
+    edges: set[tuple[str, str]],
+    entry: str = GRAPH_START_SENTINEL,
+) -> set[str]:
+    """Registered nodes that no path from ``entry`` can reach.
+
+    Pure for the same reason ``reconcile_topology`` is: an orphan must be
+    provable by injecting a topology, not only by compiling the live graph.
+    """
+    outbound: dict[str, set[str]] = {}
+    for source, target in edges:
+        outbound.setdefault(source, set()).add(target)
+
+    reached: set[str] = set()
+    frontier = [entry]
+    while frontier:
+        current = frontier.pop()
+        for target in outbound.get(current, set()):
+            if target not in reached:
+                reached.add(target)
+                frontier.append(target)
+    return {node for node in nodes if node not in reached}
+
+
+def resource_planner_fixed_edges() -> set[tuple[str, str]]:
+    """Unconditional ``add_edge`` wiring, including start/end sentinels."""
+    builder = _compiled_resource_planner_graph().builder
+    return {(str(source), str(target)) for source, target in builder.edges}
+
+
+def resource_planner_mapped_conditional_edges() -> set[tuple[str, str]]:
+    """Conditional destinations declared with an explicit path map."""
+    builder = _compiled_resource_planner_graph().builder
+    edges: set[tuple[str, str]] = set()
+    for source, branches in builder.branches.items():
+        for branch in branches.values():
+            for target in (branch.ends or {}).values():
+                edges.add((str(source), str(target)))
+    return edges
+
+
+def resource_planner_dynamic_send_targets() -> list[str]:
+    """Fan-out targets of the delegate's unmapped ``Send`` branch.
+
+    Resolved by invoking the fan-out contract directly. The branch is located by
+    name so a rename or an accidentally *mapped* delegate branch fails loudly
+    rather than silently reporting the wrong source of truth; reading the
+    callable back out of LangGraph's ``BranchSpec`` wrapper would be framework
+    internals, which this contract deliberately avoids.
+    """
+    builder = _compiled_resource_planner_graph().builder
+    branches = builder.branches.get("resource_planner_delegate") or {}
+    if list(branches) != ["_fan_out_specialists"]:
+        raise RuntimeError(f"unexpected delegate branch registration: {sorted(branches)}")
+    if branches["_fan_out_specialists"].ends is not None:
+        raise RuntimeError("delegate fan-out is mapped; dynamic Send contract no longer holds")
+    return [str(send.node) for send in _fan_out_specialists({})]
+
+
+def resource_planner_dynamic_send_edges() -> set[tuple[str, str]]:
+    return {("resource_planner_delegate", target) for target in resource_planner_dynamic_send_targets()}
+
+
+def resource_planner_registered_node_names() -> set[str]:
+    """Node names the builder actually registered (no start/end sentinels)."""
+    return {str(name) for name in _compiled_resource_planner_graph().builder.nodes}
+
+
+def resource_planner_topology_reconciliation() -> TopologyReconciliation:
+    return reconcile_topology(
+        fixed=resource_planner_fixed_edges(),
+        mapped=resource_planner_mapped_conditional_edges(),
+        dynamic=resource_planner_dynamic_send_edges(),
+        documented=_documented_resource_planner_edges(),
+    )
+
+
+def resource_planner_unreachable_nodes() -> set[str]:
+    return unreachable_nodes(
+        nodes=resource_planner_registered_node_names(),
+        edges=resource_planner_fixed_edges()
+        | resource_planner_mapped_conditional_edges()
+        | resource_planner_dynamic_send_edges(),
+    )
+
+
 def _documented_resource_planner_edges() -> set[tuple[str, str]]:
-    """Static edges LangGraph ``Send`` fan-out does not surface via ``get_graph()``."""
+    """Human-readable topology, pinned to runtime by ``reconcile_topology``.
+
+    This set is documentation, never a truth source. ``resource_planner_graph_edges()``
+    used to union it into the introspected edges, so an invented pair here became a
+    member of the set the assertions checked; the reconciliation contract now requires
+    exact equality with builder-derived fixed, mapped-conditional, and dynamic ``Send``
+    edges instead.
+    """
     edges: set[tuple[str, str]] = {
-        ("bootstrap", "route_setup"),
-        ("route_setup", "resource_planner_delegate"),
+        ("bootstrap", "route_resolution"),
+        ("route_resolution", "resource_planner_delegate"),
     }
     for node in _SPECIALIST_NODE_NAMES:
+        edges.add(("resource_planner_delegate", node))
         edges.add((node, "resource_planner_merge"))
     for target in ("prepare_rag_only", "composed_dispatch", "workflow_spl", "non_planned_finalize"):
         edges.add(("resource_planner_merge", target))
@@ -951,10 +1119,17 @@ def _documented_resource_planner_edges() -> set[tuple[str, str]]:
 
 
 def resource_planner_graph_edges() -> set[tuple[str, str]]:
-    compiled = _compiled_resource_planner_graph()
-    graph = compiled.get_graph()
-    introspected = {(edge.source, edge.target) for edge in graph.edges}
-    return introspected | _documented_resource_planner_edges()
+    """Runtime-derived topology only.
+
+    ``get_graph()`` is not used: it omits every conditional destination and
+    reports a phantom ``resource_planner_delegate -> __end__`` for the unmapped
+    fan-out branch.
+    """
+    return (
+        resource_planner_fixed_edges()
+        | resource_planner_mapped_conditional_edges()
+        | resource_planner_dynamic_send_edges()
+    )
 
 
 def resource_planner_governance_inbound_targets() -> dict[str, set[str]]:

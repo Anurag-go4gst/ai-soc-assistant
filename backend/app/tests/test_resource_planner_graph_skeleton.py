@@ -111,13 +111,18 @@ def test_resource_planner_specialists_fan_out_in_parallel(monkeypatch: pytest.Mo
     assert ("specialist_knowledge", "specialist_mcp") not in edges
     assert ("specialist_mcp", "specialist_spl") not in edges
     for node in _SPECIALIST_NODE_NAMES:
+        assert ("resource_planner_delegate", node) in edges
         assert (node, "resource_planner_merge") in edges
-    assert ("resource_planner_delegate", "specialist_skill") not in edges
 
     reports = state.get("specialist_reports") or []
-    assert len(reports) >= len(_SPECIALIST_NODE_NAMES)
+    assert len(reports) == len(_SPECIALIST_NODE_NAMES)
     specialist_ids = {str(item.get("specialist_id") or "") for item in reports if isinstance(item, dict)}
-    assert len(specialist_ids) >= len(_SPECIALIST_NODE_NAMES), "parallel fan-in must deliver every specialist lane"
+    assert len(specialist_ids) == len(_SPECIALIST_NODE_NAMES), "parallel fan-in must deliver every specialist lane"
+
+    iteration_reports = state.get("planner_iteration", {}).get("reports") or []
+    assert len(iteration_reports) == len(_SPECIALIST_NODE_NAMES)
+    bundle_reports = state.get("work_bundle", {}).get("specialist_reports") or []
+    assert len(bundle_reports) == len(_SPECIALIST_NODE_NAMES)
 
     validated = state.get("validated_work_bundle")
     if isinstance(validated, dict):

@@ -13,6 +13,7 @@ from app.chat.planning_telemetry_policy import (
     AUDIT_CRITICAL_PLANNING_EVENTS,
     DIAGNOSTIC_PLANNING_EVENTS,
     AuditCriticalTelemetryPersistenceError,
+    TelemetryEventClassificationError,
     is_audit_critical_planning_event,
     is_diagnostic_planning_event,
 )
@@ -36,6 +37,16 @@ def test_event_catalog_partitions_all_twenty_eight_events() -> None:
     assert is_audit_critical_planning_event("execution.started")
     assert is_diagnostic_planning_event("lane_router.decided")
     assert not is_audit_critical_planning_event("planner_handoff.created")
+
+
+def test_direct_persistence_rejects_unknown_event_before_capture() -> None:
+    telemetry.use_test_event_store(True)
+    with pytest.raises(TelemetryEventClassificationError, match="unclassified"):
+        telemetry.persist_planning_event(
+            {"event": "unknown.direct_persist", "trace_id": "t-unknown"},
+            immediate=True,
+        )
+    assert telemetry.persisted_events() == []
 
 
 def test_audit_critical_db_unavailable_raises(monkeypatch: pytest.MonkeyPatch) -> None:

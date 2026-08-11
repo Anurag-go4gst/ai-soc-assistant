@@ -117,8 +117,8 @@ def test_buffered_events_flush_in_one_unit_of_work(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(telemetry, "canonical_db_disabled", lambda: False)
 
     with canonical_db.planning_turn_scope(turn_id="turn-budget"):
-        for idx in range(12):
-            telemetry.persist_planning_event({"event": f"lane_router.decided.{idx}", "trace_id": "t-1"})
+        for _idx in range(12):
+            telemetry.persist_planning_event({"event": "lane_router.decided", "trace_id": "t-1"})
 
     assert conn.transaction.call_count == 1
     assert conn.execute.await_count == 12
@@ -134,8 +134,8 @@ def test_connections_per_turn_stays_within_budget(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(telemetry, "canonical_db_disabled", lambda: False)
 
     with canonical_db.planning_turn_scope(turn_id="turn-budget-2"):
-        for idx in range(20):
-            telemetry.persist_planning_event({"event": f"detail_tool.completed.{idx}", "trace_id": "t-2"})
+        for _idx in range(20):
+            telemetry.persist_planning_event({"event": "detail_tool.completed", "trace_id": "t-2"})
 
         async def _one(active: Any) -> None:
             if active is not None:

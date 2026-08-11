@@ -4,6 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+from app.chat.contracts.pipeline_dispatch import (
+    PipelineDispatchContract,
+    PipelineDispatchState,
+    PipelineStage,
+)
+from app.config import settings
+
 CanonicalFailureOutcome = Literal[
     "clarification_required",
     "resolution_failed",
@@ -163,7 +170,7 @@ def build_non_planned_dispatch_state(state: dict[str, Any], *, status: str) -> d
     failures — labelling them ``planning_failed`` misreports them to every downstream
     surface and to telemetry.
     """
-    return {
+    next_state = {
         **state,
         "plan_dispatch_trace": {
             "dispatch_source": "canonical_non_planned",
@@ -171,3 +178,32 @@ def build_non_planned_dispatch_state(state: dict[str, Any], *, status: str) -> d
             "canonical_status": status,
         },
     }
+    if (
+        status == "clarification_required"
+        and settings.ai_soc_pipeline_dispatch_v2_enabled
+        and not isinstance(state.get("pipeline_dispatch"), dict)
+    ):
+        mitre_mapping = _is_mitre_mapping_request(state)
+        decision = PipelineDispatchContract(
+            request_mode="mitre_knowledge" if mitre_mapping else "clarification",
+            stage_schedule=[PipelineStage.mitre_finalize] if mitre_mapping else [],
+            dispatch_reasons=[
+                "canonical_non_planned:clarification_required",
+                "requested_output:mitre_mapping" if mitre_mapping else "request_mode:clarification",
+            ],
+        )
+        next_state["pipeline_dispatch"] = PipelineDispatchState(
+            decision=decision
+        ).model_dump(mode="json")
+    return next_state
+
+
+def _is_mitre_mapping_request(state: dict[str, Any]) -> bool:
+    intent = state.get("intent_classification")
+    requested = intent.get("requested_output_type") if isinstance(intent, dict) else None
+    query_understanding = state.get("query_understanding")
+    if not requested and isinstance(query_understanding, dict):
+        requested = query_understanding.get("requested_output_type")
+    elif not requested and query_understanding is not None:
+        requested = getattr(query_understanding, "requested_output_type", None)
+    return str(requested or "").lower() == "mitre_mapping"

@@ -201,9 +201,7 @@ from app.llm.mitre_risk_rationale import (
     build_deterministic_severity_rationale,
     run_mitre_risk_rationale,
 )
-from app.planner.plan_promotion_merge import apply_llm_primary_resource_plan, record_planner_sidecar
 from app.planner.resource_plan import ResourcePlan
-from app.planner.resource_plan_shadow import run_resource_plan_shadow
 from app.connectors.mcp.mcp_tool_chronology import deterministic_default_chronology
 from app.connectors.mcp.mcp_tool_planner import plan_tool_chronology
 from app.chat.evidence_loop import (
@@ -306,7 +304,6 @@ from app.chat.guided_hybrid_refinement import (
 )
 from app.chat.guided_hybrid_dispatch import uses_guided_hybrid_dispatch_from_state
 from app.chat.guided_hybrid_collection import collect_guided_hybrid_evidence
-from app.chat.guided_investigation_plan_llm import propose_investigation_plan_llm
 from app.chat.guided_investigation_synthesizer import (
     build_guided_llm_degraded_message,
     build_guided_llm_trace,
@@ -467,6 +464,9 @@ class ChatPipelineState(TypedDict, total=False):
     processing_lane: str | None
     initial_tier: str | None
     resolved_tier: str | None
+    catalogue_binding_candidate: dict[str, Any] | None
+    observed_catalogue_match_path: str | None
+    effective_catalogue_match_path: str | None
     handoff_resume: dict[str, Any] | None
     pending_handoff_id: str | None
     pending_handoff_version: int | None
@@ -637,8 +637,11 @@ def _run_live_chat_pipeline(
     from app.chat.canonical_planning_orchestrator import run_canonical_planning
 
     state = _timed_node(state, "canonical_planning", run_canonical_planning)
-    if not _uses_guided_hybrid_dispatch(state):
-        state = _timed_node(state, "discovery_loop", _run_discovery_loop_imperative)
+    # B2-R3 (B1=RETIRE): the imperative discovery drain ran here on every
+    # non-guided turn but could never do work — the evidence loop's only
+    # initializer is `graph_node_evidence_planning`, which is fenced off
+    # canonical turns, so `loop_initialized` was always False and the drain
+    # returned immediately.
     state = _timed_node(state, "shadow_tail", graph_node_shadow_tail)
     if _session_spl_refine_active(state):
         state = _timed_node(
@@ -680,8 +683,9 @@ def _run_live_chat_pipeline(
                     reason=r,
                 ),
             )
-    if loop_initialized(state):
-        state = _timed_node(state, "evidence_planning_loop", graph_node_evidence_planning)
+    # B2-R3: same reasoning — a canonical turn never initializes the loop, so
+    # this re-entry into the fenced legacy hub was unreachable. The node itself
+    # is retained: the legacy harness graph and unit tests still consume it.
     state = _timed_node(state, "context_finalize", graph_node_context_finalize)
     return state
 
@@ -788,6 +792,18 @@ def _resolve_trace_answer_mode(payload: dict[str, Any]) -> str | None:
     ):
         return "spl_utility_authoring"
     return None
+
+
+def _response_answer_mode(state: ChatPipelineState) -> str | None:
+    evidence_plan = state.get("evidence_plan")
+    if isinstance(evidence_plan, dict) and evidence_plan.get("answer_mode"):
+        return str(evidence_plan["answer_mode"])
+    outcome = state.get("canonical_planning_outcome")
+    if not isinstance(outcome, dict) or outcome.get("status") != "clarification_required":
+        return None
+    intent = state.get("intent_classification")
+    requested = intent.get("requested_output_type") if isinstance(intent, dict) else None
+    return "live_investigation" if str(requested or "").lower() == "mitre_mapping" else "clarification"
 
 
 def _strip_rag_from_workflow_plan(workflow_plan: dict[str, Any]) -> dict[str, Any]:
@@ -1004,6 +1020,22 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
             request.message,
             routed.get("routing_provenance") or {},
         )
+    candidate_mappings = {
+        "match_path": getattr(query_understanding, "deterministic_match_path", None),
+        "question_ref": getattr(query_understanding, "mapped_question_ref", None),
+        "use_case_ids": list(
+            getattr(query_understanding, "mapped_use_case_ids", None) or []
+        ),
+    }
+    selected_use_case, routed, _candidate_mappings, catalogue_binding = (
+        apply_live_catalogue_bind(
+            query=query_text,
+            query_understanding=query_understanding,
+            selected_use_case=selected_use_case,
+            routed=routed,
+            candidate_mappings=candidate_mappings,
+        )
+    )
     route_plan_shadow = _route_plan_shadow_stage(
         query_text,
         deterministic_primary_skill=str(routed["skill"]),
@@ -1023,6 +1055,9 @@ def graph_node_init_routing(state: ChatPipelineState) -> ChatPipelineState:
         "query_understanding": query_understanding,
         "selected_use_case": selected_use_case,
         "routed": routed,
+        "catalogue_binding_candidate": catalogue_binding.model_dump(),
+        "observed_catalogue_match_path": catalogue_binding.observed_match_path,
+        "effective_catalogue_match_path": catalogue_binding.effective_match_path,
         "route_plan_shadow": route_plan_shadow,
         "llm_turn_budget": llm_budget,
     }
@@ -1347,7 +1382,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
             routed_skill = "knowledge_recall"
 
     if isinstance(routed, dict):
-        _pre_use_case, routed, candidate_mappings = apply_live_catalogue_bind(
+        _pre_use_case, routed, candidate_mappings, _pre_catalogue_binding = apply_live_catalogue_bind(
             query=query_text,
             query_understanding=query_understanding,
             selected_use_case=None,
@@ -1371,7 +1406,7 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         selected_use_case = None
     else:
         selected_use_case = _selected_use_case(query_text, query_signals=signals)
-    selected_use_case, routed, candidate_mappings = apply_live_catalogue_bind(
+    selected_use_case, routed, candidate_mappings, catalogue_binding = apply_live_catalogue_bind(
         query=query_text,
         query_understanding=query_understanding,
         selected_use_case=selected_use_case,
@@ -1396,6 +1431,9 @@ def graph_node_query_to_intent(state: ChatPipelineState) -> ChatPipelineState:
         "routed": routed,
         "intent_classification": payload.get("intent_classification"),
         "selected_use_case": selected_use_case,
+        "catalogue_binding_candidate": catalogue_binding.model_dump(),
+        "observed_catalogue_match_path": catalogue_binding.observed_match_path,
+        "effective_catalogue_match_path": catalogue_binding.effective_match_path,
         "llm_turn_budget": budget,
     }
 
@@ -1834,22 +1872,10 @@ def graph_node_evidence_planning(state: ChatPipelineState) -> ChatPipelineState:
         user_query=getattr(_req_for_evidence, "message", None) if _req_for_evidence is not None else None,
     )
     evidence_payload = plan.model_dump()
-    if isinstance(evidence_payload.get("resource_plan"), dict):
-        floor_plan = ResourcePlan.model_validate(evidence_payload["resource_plan"])
-        _match_path = getattr(state.get("query_understanding"), "deterministic_match_path", None)
-        _budget = state.get("llm_turn_budget")
-        _planner_started = time.monotonic()
-        merged_plan, llm_planner_called = apply_llm_primary_resource_plan(
-            floor_plan,
-            query=str(getattr(_req_for_evidence, "message", "") or ""),
-            match_path=str(_match_path) if _match_path is not None else None,
-            action_mode=str(evidence_payload.get("action_mode") or "") or None,
-            mcp_allowed=bool(evidence_payload.get("mcp_allowed")),
-            budget=_budget if isinstance(_budget, TurnLlmBudget) else None,
-        )
-        evidence_payload["resource_plan"] = merged_plan.model_dump()
-        if llm_planner_called and isinstance(_budget, TurnLlmBudget):
-            record_planner_sidecar(_budget, started_at=_planner_started)
+    # B2-R2 (B1=RETIRE): the inline LLM plan-bridge promotion was applied here.
+    # This whole node is fenced off canonical turns, so the bridge was already
+    # unreachable in production; retiring it removes the second planning
+    # authority rather than changing any reachable behavior.
     evidence_payload["mcp_allowed_normalized"] = _mcp_allowed_decision_from_plan(evidence_payload)
     workflow_plan = state.get("workflow_plan")
     if (
@@ -2240,21 +2266,6 @@ def _target_index_from_spl_validation(spl_validation: dict[str, Any] | None) -> 
     normalized = str(spl_validation.get("normalized_spl") or "")
     match = re.search(r"\bindex\s*=\s*([^\s|]+)", normalized, re.IGNORECASE)
     return match.group(1).strip() if match else None
-
-
-def _run_discovery_loop_imperative(state: ChatPipelineState) -> ChatPipelineState:
-    """Imperative twin: drain discovery hops before the linear chain when CP is on."""
-    if not loop_initialized(state):
-        return state
-    hops = 0
-    while hops < MAX_MCP_HOPS:
-        route = (state.get("mcp_loop") or {}).get("route")
-        if route != ROUTE_DISCOVERY_HOP:
-            break
-        state = graph_node_mcp_call(state)
-        state = graph_node_evidence_planning(state)
-        hops += 1
-    return state
 
 
 def graph_node_composed_dispatch(state: ChatPipelineState) -> ChatPipelineState:
@@ -3608,6 +3619,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     session_alert_context = bool(
         isinstance(session_resolution, SessionContextResolution) and session_resolution.session_alert_context
     )
+    mitre_query_signals = _query_signals_from_state(state)
     branch_mappings, branch_decision, mitre_branch = run_mitre_evidence_branch(
         query=state.get("effective_query") or request.message,
         question_ref=question_ref,
@@ -3620,12 +3632,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         intent_classification=state.get("intent_classification"),
         evidence_plan=state.get("evidence_plan"),
         planning_decision=state.get("planning_decision"),
-        query_signals=_query_signals_from_state(state),
+        query_signals=mitre_query_signals,
         source_evidence=source_evidence,
         structured_context=structured_context,
-        alert_context_present=_mitre_alert_context_present(
-            state.get("effective_query") or request.message,
-            session_alert_context=session_alert_context,
+        alert_context_present=(
+            _mitre_alert_context_present(
+                state.get("effective_query") or request.message,
+                session_alert_context=session_alert_context,
+            )
+            or bool(mitre_query_signals.get("alert_context_present"))
         ),
         execution=execution,
     )
@@ -3649,7 +3664,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             intent_classification=state.get("intent_classification"),
             evidence_plan=state.get("evidence_plan"),
             planning_decision=state.get("planning_decision"),
-            query_signals=_query_signals_from_state(state),
+            query_signals=mitre_query_signals,
             source_evidence=source_evidence,
             structured_context=structured_context,
             session_alert_context=session_alert_context,
@@ -4491,67 +4506,17 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             if llm_turn_budget_trace is not None:
                 llm_turn_budget_trace = budget.to_trace_dict()
 
-        evidence_plan_payload = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None
-        live_plan_source = None
-        if isinstance(evidence_plan_payload, dict):
-            live_resource_plan = evidence_plan_payload.get("resource_plan")
-            if isinstance(live_resource_plan, dict):
-                live_plan_source = live_resource_plan.get("plan_source")
-        if draft_preview_active:
-            resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": "draft_spl_preview_active"}
-        elif hybrid_role_plan is None or not hybrid_role_plan.role_enabled("route_plan_candidate_generator"):
-            resource_plan_shadow_trace = {
-                "llm_called": False,
-                "skipped_reason": (
-                    hybrid_role_plan.skip_reason("route_plan_candidate_generator")
-                    if hybrid_role_plan is not None
-                    else "hybrid_plan_unavailable"
-                ),
-            }
-        elif (hop_block := budget.sidecar_hop_blocked(role="route_plan_candidate_generator")):
-            resource_plan_shadow_trace = {"llm_called": False, "skipped_reason": hop_block}
-        else:
-            _inline_bridge = None
-            if isinstance(evidence_plan_payload, dict):
-                live_resource_plan = evidence_plan_payload.get("resource_plan")
-                if isinstance(live_resource_plan, dict):
-                    _inline_bridge = (live_resource_plan.get("provenance") or {}).get("llm_bridge")
-            if _inline_bridge == "promoted":
-                live_steps = (
-                    (evidence_plan_payload.get("resource_plan") or {}).get("steps")
-                    if isinstance(evidence_plan_payload, dict)
-                    else None
-                )
-                resource_plan_shadow_trace = {
-                    "shadow_only": True,
-                    "promotion_blocked": False,
-                    "llm_called": True,
-                    "deterministic_plan_source": live_plan_source or "deterministic",
-                    "skipped_reason": "promoted_inline",
-                    "shadow_plan_source": (evidence_plan_payload or {}).get("resource_plan", {}).get("plan_source"),
-                    "shadow_step_count": len(live_steps or []),
-                    "shadow_provenance": (evidence_plan_payload or {}).get("resource_plan", {}).get("provenance"),
-                    "live_plan_source_unchanged": False,
-                }
-            else:
-                _t0 = time.monotonic()
-                shadow_result = run_resource_plan_shadow(
-                    query=request.message,
-                    match_path=_match_path_from_state(state),
-                    evidence_plan=evidence_plan_payload,
-                )
-                resource_plan_shadow_trace = shadow_result.to_trace_dict()
-                if shadow_result.llm_called:
-                    budget.record_sidecar(
-                        role="route_plan_candidate_generator",
-                        provider_label="local_or_failover",
-                        outcome="completed",
-                        latency_ms=int((time.monotonic() - _t0) * 1000),
-                    )
-                if isinstance(evidence_plan_payload, dict):
-                    after_source = (evidence_plan_payload.get("resource_plan") or {}).get("plan_source")
-                    if live_plan_source is not None:
-                        resource_plan_shadow_trace["live_plan_source_unchanged"] = after_source == live_plan_source
+        # B2-R2 (B1=RETIRE): the ResourcePlan shadow runner is retired. It spent a
+        # model hop on a plan that was discarded by construction, so no planning
+        # model call is made here any more. The trace key is retained with an
+        # explicit posture because live consumers read it — llm_role_scorecard and
+        # run_out_of_catalogue_scorecard — and the EC path builds its own sidecar.
+        resource_plan_shadow_trace = {
+            "llm_called": False,
+            "shadow_status": "retired",
+            "skipped_reason": "retired_not_called",
+            "live_plan_source_unchanged": True,
+        }
         if llm_turn_budget_trace is not None:
             llm_turn_budget_trace = budget.to_trace_dict()
     composer_trace: dict[str, Any] = build_composer_runtime_status()
@@ -5230,11 +5195,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         session_context_status = SessionContextStatusEnvelope(**session_resolution.status.model_dump())
 
     partial_fallback = synthesis_status.status == "partial_timeout"
-    answer_mode = (
-        state.get("evidence_plan", {}).get("answer_mode")
-        if isinstance(state.get("evidence_plan"), dict)
-        else None
-    )
+    answer_mode = _response_answer_mode(state)
     if not answer_mode and _is_universal_spl_authoring_review(
         candidate_spl if isinstance(candidate_spl, dict) else None,
         spl_validation if isinstance(spl_validation, dict) else None,
@@ -5902,7 +5863,6 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
     pre_plan = None
     validation = None
     validated_resource: ResourcePlan | None = committed_resource
-    llm_result = None
     refinement_round = 0
 
     while True:
@@ -5916,25 +5876,16 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
             if isinstance(state.get("soc_kb_retrieval"), dict)
             else None,
         ).model_copy(update={"refinement_round": refinement_round})
-        if settings.ai_soc_guided_llm_enabled:
-            from app.chat.guided_investigation_plan_llm import InvestigationPlanLlmResult
-
-            llm_result = InvestigationPlanLlmResult(
-                raw_llm=None,
-                proposal=None,
-                attempted=False,
-                timed_out=False,
-                provider_label=None,
-                dropped_reasons=["guided_finalize_composer_reserved"],
-            )
-        else:
-            llm_result = propose_investigation_plan_llm(query=query, baseline=baseline)
-        if refinement_round == 0 and llm_result.attempted:
-            dispatch_steps.append("guided_investigation_plan_llm")
+        # B2-R2 (B1=RETIRE, guided_hybrid_llm_rail_disposition=RETIRE_PROPOSER):
+        # the imperative guided proposer was a second planning authority beside
+        # canonical planning. Guided planning is now deterministic-only; the
+        # baseline plan goes straight to the unchanged Validator A contract.
+        # The `guided_investigation_plan_llm` dispatch-step label is removed with
+        # its producer, and pinned absent by the B2-R1 contract.
         validated_plan = validate_investigation_plan(
             baseline,
-            llm_result.proposal,
-            llm_attempted=llm_result.attempted,
+            None,
+            llm_attempted=False,
         )
         if refinement_round == 0:
             dispatch_steps.extend(
@@ -6007,13 +5958,14 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
     assert pre_plan is not None
     assert validation is not None
     assert validated_resource is not None
-    assert llm_result is not None
     handoff_trace = build_guided_handoff_trace(
         investigation_plan_validated=validated_plan,
         resource_plan_pre_validation=pre_plan,
         resource_plan_validated=validated_resource,
         blocked_resources=blocked_resources_wire(validation),
-        investigation_plan_raw_llm=llm_result.raw_llm,
+        # Retired proposer: no raw LLM plan exists on this rail any more. The
+        # field stays in the trace because consumers assert it is None.
+        investigation_plan_raw_llm=None,
         evidence_collected=collected_count,
         refinement_rounds=refinement_rounds,
     )
@@ -6268,7 +6220,12 @@ def _mitre_outputs_for_finalize(
         query_signals=query_signals,
         source_evidence=source_evidence,
         structured_context=structured_context,
-        alert_context_present=_mitre_alert_context_present(query or "", session_alert_context=session_alert_context),
+        alert_context_present=(
+            _mitre_alert_context_present(
+                query or "", session_alert_context=session_alert_context
+            )
+            or bool((query_signals or {}).get("alert_context_present"))
+        ),
         execution=execution,
     )
     if branch.ran:
@@ -6299,9 +6256,15 @@ def _mitre_outputs_for_finalize(
         source_refs=source_refs,
         intent_classification=intent_classification,
         evidence_plan=evidence_plan,
-        alert_context_present=_mitre_alert_context_present(query or "", session_alert_context=session_alert_context),
+        alert_context_present=(
+            _mitre_alert_context_present(
+                query or "", session_alert_context=session_alert_context
+            )
+            or bool((query_signals or {}).get("alert_context_present"))
+        ),
         negative_evidence=negative_evidence,
         use_case_review_guidance=bool((query_signals or {}).get("use_case_review_guidance")),
+        explicit_mitre_request=bool((query_signals or {}).get("mitre_map")),
         source_evidence=source_evidence,
         execution=execution,
         source_profile_missing=_source_profile_missing(evidence_plan),

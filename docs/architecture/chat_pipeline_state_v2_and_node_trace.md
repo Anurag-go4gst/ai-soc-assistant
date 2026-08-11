@@ -1,5 +1,38 @@
 # Chat Pipeline State v2 and Per-Node Trace — Specification
 
+> **Stale as a runtime description (2026-08-10).** This document describes the nine-node
+> imperative pipeline and states that `langgraph_orchestration_enabled` and
+> `control_plane_enabled` default to `False`. Both statements are now wrong:
+> `langgraph_orchestration_enabled` defaults **true** (`app/config.py`), the production spine is
+> the Resource Planner graph (`app/graph/resource_planner_graph.py`), and canonical planning runs
+> unconditionally — the control-plane flag gate was removed at the canonical cutover.
+> The imperative path is rollback-only.
+>
+> The **field inventory and the `node_trace` record schema below remain the C1/C9 reference**
+> and are unaffected. Use `docs/architecture/details.html` for the current node topology.
+>
+> Two runtime notes that change how the branch table below reads: the legacy multi-hop MCP
+> discovery loop is fenced off under canonical mode, while bounded **pre-SPL** MCP discovery
+> runs inline on the SPL path when **dispatch-v2** (`AI_SOC_PIPELINE_DISPATCH_V2_ENABLED`) is
+> enabled — see `docs/architecture/mcp_tool_routing.md` for which is which.
+>
+> **Update (2026-08-11, Plan 2).** Three things below changed:
+> - **Topology truth source.** `resource_planner_graph_edges()` now returns *runtime-derived*
+>   topology only — fixed edges from `compiled.builder.edges`, mapped conditional destinations
+>   from `compiled.builder.branches`, and dynamic fan-out from direct `Send` inspection — and
+>   reconciles it against the documented set by exact equality. `get_graph()` is no longer used
+>   for edges (it exposes only four). The orphan node `route_setup` was proven unreachable and
+>   removed.
+> - **Decision-record refs are descriptive only.** Every Resource Planner record's declared
+>   inputs/outputs were validated against real state channels and then corrected to what the
+>   node actually reads and writes; trace-only nodes now carry empty lists. Nothing consumes
+>   these refs for scheduling, and they must not become a dataflow authority.
+> - **ResourcePlan order.** Step order is lineage by default. With
+>   `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` (default **false**) the dispatch schedule is
+>   compiled from the plan's execution contract instead; see the ordering note in
+>   `docs/architecture/architecture_review_2026-08-08.md`.
+
+
 > Slice **S1b** (work items **C1** + **C9**) of `plans/AI_SOC_MASTER_PLAN.md`.
 > **Batch 4 runtime:** additive top-level visibility + `node_trace` ship in
 > `app/chat/pipeline_visibility.py` (control-plane gated). The field inventory and schema

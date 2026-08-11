@@ -6,6 +6,7 @@ Postgres concurrency cases are extended in item 24 under ``app/tests/integration
 from __future__ import annotations
 
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -176,6 +177,46 @@ def test_concurrent_resume_creates_single_next_version() -> None:
     replay_count = sum(1 for result in results if result.idempotent_replay)
     assert replay_count == 1
     assert get_handoff("cpi:race", 2) is not None
+
+
+def test_barrier_synchronized_resume_replays_instead_of_raising() -> None:
+    """Memory backend must give the same race guarantee as PostgreSQL.
+
+    The DB path orders its successor lookup behind the pending-row `FOR UPDATE`
+    lock; here `merge_clarification_answer` holds `memory_handoff_lock` around
+    the whole merge. Both must produce one writer and one idempotent replay, so
+    a regression in either backend's mutual exclusion fails a matching test.
+    """
+    for round_index in range(5):
+        handoff_id = f"cpi:barrier-{round_index}"
+        session_id = f"sess-barrier-{round_index}"
+        _save_pending_clarification(handoff_id=handoff_id, session_id=session_id)
+        barrier = threading.Barrier(2)
+
+        def _resume(_: int, *, hid: str = handoff_id, sid: str = session_id) -> Any:
+            barrier.wait(timeout=10)
+            try:
+                return merge_clarification_answer(
+                    handoff_id=hid,
+                    handoff_version=1,
+                    user_answer="ALT-BARRIER",
+                    session_id=sid,
+                )
+            except ClarificationResumeError as exc:  # surfaced as a value, not a crash
+                return exc
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(_resume, range(2)))
+
+        errors = [r for r in results if isinstance(r, ClarificationResumeError)]
+        assert not errors, (
+            f"round {round_index}: concurrent resume raised "
+            f"{[e.reason for e in errors]}; expected an idempotent replay"
+        )
+        assert {r.record.handoff_version for r in results} == {2}
+        assert sum(1 for r in results if r.idempotent_replay) == 1
+        assert sum(1 for r in results if not r.idempotent_replay) == 1
+        assert get_handoff(handoff_id, 3) is None
 
 
 @pytest.mark.integration

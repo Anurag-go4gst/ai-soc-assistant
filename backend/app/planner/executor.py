@@ -184,11 +184,65 @@ def build_step_walk_dispatch_schedule(
 ) -> list[str]:
   """Derive the stage-node schedule from a walked plan.
 
-  Composition order (e.g. pre_mcp RAG before SPL in the ResourcePlan) is
-  preserved in ``walk.step_walk_order`` for lineage, but dispatch still follows
-  the legacy stage pipeline until parity proves a safe reorder.
+  The ladder, in order (Plan 2, C1-E4):
+
+  1. ``ai_soc_resource_plan_execution_enabled`` is false (the default) — return
+     the fixed predicate schedule immediately. No execution-contract code runs
+     at all, so flag-off is byte-identical by construction, not by agreement.
+  2. Dispatch v2 already projected a schedule for this turn — that projection
+     owns stage ordering (including live pre-SPL MCP discovery), so the
+     execution-driven path stands down and records the downgrade.
+  3. Otherwise compile the committed ResourcePlan's execution contract. Any
+     downgrade (absent/invalid/unsupported/unschedulable plan) falls back to
+     the same fixed predicate schedule.
+
+  Composition order stays lineage in ``walk.step_walk_order``; the compiler
+  never reorders the governed lane, so SPL validation still precedes the
+  execution stage that owns the MCP gate and HIL.
   """
+  compiled, _ = _execution_driven_schedule(state, walk)
+  if compiled is not None:
+    return compiled
   return _legacy_predicate_dispatch_schedule(state, hooks, walk.blocked_step_ids)
+
+
+def _execution_driven_schedule(
+  state: State,
+  walk: PlanStepWalkResult,
+) -> tuple[list[str] | None, str | None]:
+  """Compiled schedule, or ``(None, reason)`` explaining the fixed-schedule fallback.
+
+  Returns ``(None, None)`` when the flag is off: there is nothing to report,
+  because nothing was attempted.
+  """
+  if not bool(getattr(settings, "ai_soc_resource_plan_execution_enabled", False)):
+    return None, None
+
+  if imperative_hook_schedule_from_state(state) is not None:
+    return None, "dispatch_v2_projected_schedule"
+
+  from app.planner.resource_plan import ResourcePlan
+  from app.planner.resource_plan_execution_scheduler import (
+    ScheduleInputs,
+    compile_execution_schedule,
+  )
+
+  raw_plan = _resource_plan(state)
+  try:
+    plan = ResourcePlan.model_validate(raw_plan) if raw_plan is not None else None
+  except Exception:  # noqa: BLE001 - an unparseable plan must degrade, never raise
+    return None, "plan_parse_failed"
+
+  schedule, reason = compile_execution_schedule(
+    plan,
+    ScheduleInputs(
+      blocked_step_ids=frozenset(walk.blocked_step_ids),
+      has_workflow_plan=bool(state.get("workflow_plan")),
+    ),
+  )
+  if schedule is None:
+    return None, reason
+  return list(schedule.hooks), None
 
 
 def _legacy_predicate_dispatch_schedule(
@@ -270,6 +324,15 @@ def build_plan_dispatch_trace(
   if projected is not None:
     trace["dispatch_authority"] = "pipeline_dispatch_v2"
     trace["projected_flags"] = projected
+  if walk is not None and bool(
+    getattr(settings, "ai_soc_resource_plan_execution_enabled", False)
+  ):
+    # Flag-on only: a flag-off turn's trace must stay byte-identical.
+    compiled, downgrade_reason = _execution_driven_schedule(state, walk)
+    trace["execution_order"] = {
+      "active": compiled is not None,
+      "downgrade_reason": downgrade_reason,
+    }
   if walk is not None:
     trace["step_walk_order"] = list(walk.step_walk_order)
     trace["skipped_step_reasons"] = dict(walk.skipped_step_reasons)

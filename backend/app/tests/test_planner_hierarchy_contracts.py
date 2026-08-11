@@ -190,7 +190,7 @@ def test_build_planner_iteration_wires_delegations_and_bundle() -> None:
         SplSpecialistReport(
             delegation_id="del:spl",
             decision_reason="fallback_template",
-            spl_source="template",
+            spl_source="governed_template",
         ),
     ]
     iteration = build_planner_iteration(

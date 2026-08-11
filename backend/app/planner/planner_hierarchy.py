@@ -8,15 +8,90 @@ blocked statuses without failing validation.
 
 from __future__ import annotations
 
+import re
 import uuid
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.planner.resource_plan import PlanStep, ResourcePlan, StepStatus
 
 SpecialistId = Literal["skill", "mcp", "knowledge", "spl"]
 SpecialistAuthority = Literal["advisory", "proposed_validated"]
+McpRegistryMode = Literal["mock", "registry", "unavailable"]
+McpExecutionPosture = Literal[
+    "not_needed",
+    "discovery_only",
+    "gate_required",
+    "blocked_by_plan",
+    "unavailable",
+]
+SplSource = Literal[
+    "not_needed",
+    "governed_template",
+    "review_only_fallback",
+    "blocked",
+    "unavailable",
+]
+SplSlotBindingStatus = Literal[
+    "not_required",
+    "ready",
+    "missing_required_slots",
+    "unknown",
+]
+SplCandidateSource = Literal[
+    "governed_template",
+    "deterministic_fallback",
+    "review_only_fallback",
+    "lab_draft_preview",
+    "llm_review_only",
+]
+
+_SAFE_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$")
+_FORBIDDEN_PROPOSAL_KEYS = frozenset(
+    {
+        "candidate_spl",
+        "normalized_spl",
+        "validator_approved",
+        "validation_approved",
+        "approved",
+        "execution_enabled",
+        "execution_eligible",
+        "policy_checks",
+        "status",
+        "status_reason",
+        "endpoint",
+        "url",
+        "auth",
+        "auth_mode",
+        "credentials",
+        "credential",
+        "password",
+        "secret",
+        "token",
+        "api_key",
+        "query",
+        "raw_query",
+        "user_query",
+        "prompt",
+        "raw_prompt",
+        "rag",
+        "rag_text",
+        "rag_chunks",
+    }
+)
+_FORBIDDEN_PROPOSAL_KEY_FRAGMENTS = (
+    "credential",
+    "password",
+    "secret",
+    "token",
+    "api_key",
+    "endpoint",
+    "prompt",
+    "raw_query",
+    "rag_text",
+    "rag_chunk",
+)
 
 _SPECIALIST_OWNERSHIP: dict[SpecialistId, frozenset[str]] = {
     "skill": frozenset({"route", "catalogue_tier", "skill_id", "use_case_id"}),
@@ -58,17 +133,17 @@ class SpecialistProposal(BaseModel):
     proposal_id: str
     purpose: str
     resource_id: str | None = None
-    args_template: dict[str, Any] = Field(default_factory=dict)
-    rationale: str = ""
+    args_template: dict[str, Any] = Field(default_factory=dict, max_length=16)
+    rationale: str = Field(default="", max_length=240)
 
 
 class SpecialistReport(BaseModel):
     specialist_id: SpecialistId
     delegation_id: str
-    proposals: list[SpecialistProposal] = Field(default_factory=list)
-    decision_reason: str
+    proposals: list[SpecialistProposal] = Field(default_factory=list, max_length=16)
+    decision_reason: str = Field(max_length=160)
     authority: SpecialistAuthority = "advisory"
-    warnings: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list, max_length=16)
 
 
 class SkillSpecialistReport(SpecialistReport):
@@ -79,7 +154,39 @@ class SkillSpecialistReport(SpecialistReport):
 
 class McpSpecialistReport(SpecialistReport):
     specialist_id: Literal["mcp"] = "mcp"
-    hop_count: int = 0
+    plan_needs_mcp: bool = False
+    plan_mcp_allowed: bool = False
+    discovery_allowed: bool = False
+    planned_hop_count: int = Field(default=0, ge=0, le=32)
+    hop_count: int = Field(default=0, ge=0, le=32)
+    registry_mode: McpRegistryMode = "unavailable"
+    global_execution_enabled: bool = False
+    configured_server_count: int = Field(default=0, ge=0, le=1024)
+    available_server_count: int = Field(default=0, ge=0, le=1024)
+    candidate_server_ids: list[str] = Field(default_factory=list, max_length=16)
+    candidate_tool_names: list[str] = Field(default_factory=list, max_length=16)
+    execution_posture: McpExecutionPosture = "not_needed"
+    requires_execution_gate: bool = False
+    blockers: list[str] = Field(default_factory=list, max_length=16)
+
+    @field_validator("candidate_server_ids", "candidate_tool_names", "blockers")
+    @classmethod
+    def _bounded_safe_identifiers(cls, values: list[str]) -> list[str]:
+        if any(not _SAFE_IDENTIFIER_RE.fullmatch(value) for value in values):
+            raise ValueError("MCP report identifiers must be bounded safe identifiers")
+        return values
+
+    @model_validator(mode="after")
+    def _synchronize_hop_counts(self) -> McpSpecialistReport:
+        if self.planned_hop_count and self.hop_count and self.planned_hop_count != self.hop_count:
+            raise ValueError("planned_hop_count and compatibility hop_count disagree")
+        if self.planned_hop_count == 0 and self.hop_count:
+            self.planned_hop_count = self.hop_count
+        elif self.hop_count == 0 and self.planned_hop_count:
+            self.hop_count = self.planned_hop_count
+        if self.available_server_count > self.configured_server_count:
+            raise ValueError("available_server_count cannot exceed configured_server_count")
+        return self
 
 
 class KnowledgeSpecialistReport(SpecialistReport):
@@ -89,7 +196,44 @@ class KnowledgeSpecialistReport(SpecialistReport):
 
 class SplSpecialistReport(SpecialistReport):
     specialist_id: Literal["spl"] = "spl"
-    spl_source: str | None = None
+    plan_needs_spl: bool = False
+    plan_spl_allowed: bool = False
+    planned_resource_id: str | None = Field(default=None, max_length=128)
+    template_id: str | None = Field(default=None, max_length=128)
+    template_status: Literal[
+        "active",
+        "sample",
+        "planned",
+        "missing",
+        "unavailable",
+        "unknown",
+        "sop_only",
+    ] | None = None
+    template_production_executable: bool | None = None
+    fallback_resource_id: str | None = Field(default=None, max_length=128)
+    candidate_source_options: list[SplCandidateSource] = Field(default_factory=list, max_length=8)
+    spl_source: SplSource = "not_needed"
+    slot_binding_status: SplSlotBindingStatus = "not_required"
+    missing_required_slots: list[str] = Field(default_factory=list, max_length=16)
+    validation_required: bool = False
+    execution_eligible: Literal[False] = False
+    blockers: list[str] = Field(default_factory=list, max_length=16)
+
+    @field_validator("missing_required_slots", "blockers")
+    @classmethod
+    def _bounded_safe_identifiers(cls, values: list[str]) -> list[str]:
+        if any(not _SAFE_IDENTIFIER_RE.fullmatch(value) for value in values):
+            raise ValueError("SPL report identifiers must be bounded safe identifiers")
+        return values
+
+
+SpecialistReportPayload = Annotated[
+    SkillSpecialistReport
+    | McpSpecialistReport
+    | KnowledgeSpecialistReport
+    | SplSpecialistReport,
+    Field(discriminator="specialist_id"),
+]
 
 
 class WorkTask(BaseModel):
@@ -111,13 +255,13 @@ class WorkBundle(BaseModel):
     tasks: list[WorkTask] = Field(default_factory=list)
     source_plan: ResourcePlan
     merge_decision_reason: str = ""
-    specialist_reports: list[SpecialistReport] = Field(default_factory=list)
+    specialist_reports: list[SpecialistReportPayload] = Field(default_factory=list)
 
 
 class PlannerIteration(BaseModel):
     iteration: int
     delegations: list[SpecialistDelegation] = Field(default_factory=list)
-    reports: list[SpecialistReport] = Field(default_factory=list)
+    reports: list[SpecialistReportPayload] = Field(default_factory=list)
     bundle: WorkBundle | None = None
     resource_plan: ResourcePlan
     decision_log: list[DecisionRecord] = Field(default_factory=list)
@@ -218,8 +362,9 @@ def apply_specialist_reports(
 ) -> WorkBundle:
     """Merge advisory specialist output into an existing bundle.
 
-  Specialists may enrich ``args_template`` on steps they own; they cannot add
-  steps, remove policy checks, or relax blocked statuses.
+    Specialists may fill blank ``args_template`` fields on existing steps they
+    own; they cannot add steps, overwrite authority, remove policy checks, or
+    relax blocked statuses.
     """
     task_by_step = {task.step_id: task.model_copy(deep=True) for task in bundle.tasks}
     merged_reports = list(bundle.specialist_reports)
@@ -227,19 +372,50 @@ def apply_specialist_reports(
     for report in reports:
         owner = report.specialist_id
         for proposal in report.proposals:
+            purpose_owner = _specialist_for_purpose(proposal.purpose)
+            if purpose_owner != owner:
+                raise ValueError(
+                    "cross-lane specialist proposal: "
+                    f"{owner} cannot propose for {proposal.purpose}"
+                )
+            forbidden = _forbidden_proposal_fields(proposal.args_template)
+            if forbidden:
+                raise ValueError(
+                    f"forbidden specialist proposal field: {sorted(forbidden)}"
+                )
             matching = [
                 task
                 for task in task_by_step.values()
                 if task.purpose == proposal.purpose
-                and _specialist_for_purpose(task.purpose) == owner
+                and (proposal.resource_id is None or task.resource_id == proposal.resource_id)
             ]
             if not matching:
-                continue
+                raise ValueError(
+                    "no existing specialist proposal target: "
+                    f"{proposal.proposal_id}"
+                )
+            if len(matching) != 1:
+                raise ValueError(
+                    "ambiguous specialist proposal target: "
+                    f"{proposal.proposal_id}"
+                )
             task = matching[0]
             enriched_args = dict(task.args_template)
-            enriched_args.update(proposal.args_template)
+            changed = False
+            for key, value in proposal.args_template.items():
+                existing = enriched_args.get(key)
+                if not _is_blank(existing):
+                    if existing != value:
+                        raise ValueError(
+                            "non-blank specialist proposal target: "
+                            f"{task.step_id}.{key}"
+                        )
+                    continue
+                enriched_args[key] = value
+                changed = True
             task.args_template = enriched_args
-            task.source_specialist = owner
+            if changed:
+                task.source_specialist = owner
         merged_reports.append(report)
 
     candidate = bundle.model_copy(
@@ -286,7 +462,7 @@ def _specialist_for_purpose(purpose: str) -> SpecialistId | None:
         return "knowledge"
     if purpose == "spl_artifact":
         return "spl"
-    if purpose == "mcp_execution":
+    if purpose in {"mcp_execution", "mcp_discovery"}:
         return "mcp"
     if purpose in {
         "evidence_collection",
@@ -296,3 +472,24 @@ def _specialist_for_purpose(purpose: str) -> SpecialistId | None:
     }:
         return "skill"
     return None
+
+
+def _is_blank(value: Any) -> bool:
+    return value is None or value == "" or value == [] or value == {}
+
+
+def _forbidden_proposal_fields(payload: dict[str, Any]) -> set[str]:
+    forbidden: set[str] = set()
+    for key, value in payload.items():
+        normalized = str(key).strip().lower()
+        if normalized in _FORBIDDEN_PROPOSAL_KEYS or any(
+            fragment in normalized for fragment in _FORBIDDEN_PROPOSAL_KEY_FRAGMENTS
+        ):
+            forbidden.add(normalized)
+        if isinstance(value, dict):
+            forbidden.update(_forbidden_proposal_fields(value))
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    forbidden.update(_forbidden_proposal_fields(item))
+    return forbidden

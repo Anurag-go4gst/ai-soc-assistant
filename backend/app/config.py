@@ -403,6 +403,11 @@ class Settings(BaseSettings):
     ai_soc_pipeline_dispatch_v2_enabled: bool = False
     # Guided hybrid investigation execution rail (committed ResourcePlan only).
     ai_soc_guided_hybrid_investigation_enabled: bool = False
+    # Plan 2 C0 (`EXECUTION-DRIVEN`, approved 2026-08-11): compile the dispatch
+    # schedule from the committed ResourcePlan's execution contract instead of
+    # the fixed predicate schedule. Default false; the exact name was approved
+    # in the C0 decision record and may not be renamed or defaulted on.
+    ai_soc_resource_plan_execution_enabled: bool = False
     # Canonical handoff durable store TTL (PostgreSQL).
     ai_soc_handoff_store_ttl_minutes: int = 60
     # Item 28 — bounded retention purge for canonical_handoffs / canonical_planning_events.

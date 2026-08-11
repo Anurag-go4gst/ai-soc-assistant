@@ -92,7 +92,7 @@ def resolve_mitre_decision(
         )
 
     use_case_review_guidance = bool(_kwargs.get("use_case_review_guidance"))
-    if requires_clarification or (
+    if (requires_clarification and not alert_context_present) or (
         meta.mitre_requires_alert_context and not alert_context_present and not use_case_review_guidance
     ):
         return MitreDecision(
@@ -122,7 +122,10 @@ def resolve_mitre_decision(
             registry_metadata=meta,
         )
 
-    explicitly_requested = bool(_MITRE_VISIBLE_GOALS.intersection(answer_goal))
+    explicitly_requested = bool(
+        _MITRE_VISIBLE_GOALS.intersection(answer_goal)
+        or _kwargs.get("explicit_mitre_request")
+    )
     live_supported = intent_family in _LIVE_INTENT_FAMILIES or answer_mode in {"live_investigation", "hybrid"}
     if not explicitly_requested and not live_supported:
         return MitreDecision(

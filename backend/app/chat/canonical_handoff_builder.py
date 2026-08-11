@@ -41,8 +41,14 @@ def build_canonical_planning_input(
     gap: GapResolutionResult | None = None,
     reference_ids: list[str] | None = None,
     route_reason: str = "",
+    observed_match_path: str | None = None,
+    effective_match_path: str | None = None,
 ) -> CanonicalPlanningInput:
-    match_path = str(getattr(query_understanding, "deterministic_match_path", "") or "out_of_registry")
+    observed_path = observed_match_path or str(
+        getattr(query_understanding, "deterministic_match_path", "")
+        or "out_of_registry"
+    )
+    match_path = effective_match_path or observed_path
     initial, resolved, default_lane = lane_for_match_path(match_path, resolved_tier=resolved_tier)  # type: ignore[arg-type]
     lane = processing_lane or default_lane
     skill = str(routed.get("skill") or intent_classification.get("primary_intent") or "knowledge_recall")
@@ -123,6 +129,8 @@ def build_canonical_planning_input(
             initial_tier=initial,
             resolved_tier=resolved if resolved_tier else initial,
             match_path=match_path,
+            observed_match_path=observed_path,
+            effective_match_path=match_path,
             catalogue_tier=resolved if resolved_tier else initial,
             processing_lane=lane,  # type: ignore[arg-type]
             route_reason=route_reason or str(routed.get("reasons", ["route"])[0] if routed.get("reasons") else "route"),

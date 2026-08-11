@@ -5,9 +5,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import uuid
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import asyncpg
 import pytest
@@ -26,10 +29,67 @@ from app.chat.planning_telemetry_policy import (
     AUDIT_CRITICAL_PLANNING_EVENTS,
     DIAGNOSTIC_PLANNING_EVENTS,
 )
+from app.config import settings
 from app.db.migration_runner import apply_pending_migrations, required_migration_versions
 from app.tests.integration.conftest import new_integration_handoff_id
 
 pytestmark = pytest.mark.integration
+
+
+def _with_search_path(url: str, schema: str) -> str:
+    """Return an asyncpg DSN pinned to one isolated PostgreSQL schema."""
+    parsed = urlsplit(url)
+    query = [
+        (key, value)
+        for key, value in parse_qsl(parsed.query)
+        if key != "search_path"
+    ]
+    query.append(("search_path", schema))
+    return urlunsplit(parsed._replace(query=urlencode(query)))
+
+
+@pytest.fixture(scope="module")
+def postgres_migrated(postgres_database_url: str) -> Iterator[str]:
+    """Run destructive retention probes in a disposable migrated schema.
+
+    The canonical purge is intentionally global and bounded. Running these tests
+    against a populated shared schema can consume the batch on unrelated older
+    rows before reaching the test fixture, and can delete data the test did not
+    create. A module-local schema makes both the assertions and cleanup exact.
+    """
+    schema = f"retention_test_{uuid.uuid4().hex}"
+    isolated_url = _with_search_path(postgres_database_url, schema)
+
+    async def create_and_migrate() -> None:
+        admin = await asyncpg.connect(postgres_database_url, timeout=5.0)
+        try:
+            await admin.execute(f'CREATE SCHEMA "{schema}"')
+        finally:
+            await admin.close()
+
+        isolated = await asyncpg.connect(isolated_url, timeout=5.0)
+        try:
+            await apply_pending_migrations(isolated)
+        finally:
+            await isolated.close()
+
+    async def drop_schema() -> None:
+        admin = await asyncpg.connect(postgres_database_url, timeout=5.0)
+        try:
+            await admin.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
+        finally:
+            await admin.close()
+
+    try:
+        asyncio.run(create_and_migrate())
+        os.environ["DATABASE_URL"] = isolated_url
+        settings.database_url = isolated_url
+        yield isolated_url
+    finally:
+        reset_canonical_db_for_tests()
+        asyncio.run(drop_schema())
+        os.environ["DATABASE_URL"] = postgres_database_url
+        settings.database_url = postgres_database_url
 
 
 @pytest.fixture(autouse=True)
