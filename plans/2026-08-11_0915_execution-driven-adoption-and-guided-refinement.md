@@ -70,6 +70,22 @@ No unification work is executable until this block is filled by the user/COE.
 | `predicate_hook_disposition` | Explicit disposition of `spl_postprocessor` and `reference_finalize` — the two hooks v2 emits and the compiler excludes |
 | `dispatch_v2_disposition` | Confirm dispatch-v2 is **not** disabled, and state what remains authoritative on hosts where it is enabled |
 
+**Options, from measured A0 evidence (2026-08-11). The executor does not choose; all three are presented with the nine required fields.**
+
+| Field | `V2_AUTHORITATIVE_WHERE_PRESENT` | `COMPILER_CONSUMES_V2_PROJECTION` | `COMPILER_AUTHORITATIVE_AFTER_HOOK_PARITY` |
+|---|---|---|---|
+| **Scheduling authority** | dispatch-v2 wherever it projects; legacy predicates only when v2 is off | The compiler, but it *ingests* the v2 projection as an input instead of standing down | The compiler, once it can emit the two predicate hooks |
+| **Role of dispatch-v2** | Primary authority; unchanged behavior | Demoted to a **stage-source**, not a scheduler | Demoted to a projection the compiler validates against, then retired as an authority |
+| **Role of legacy predicate schedule** | Pass-through when v2 on (proven 10/10); real fallback when v2 off | Same, plus the compiler's declared downgrade target | Fallback only |
+| **Role of ResourcePlan compiler** | Stays dormant on dispatch-v2 hosts — effectively shelf-ware there | Becomes the single seam that *produces* the schedule from plan + projection | Sole producer |
+| **Compatibility with existing gates** | Full — nothing moves; SPL-before-gate and HIL untouched | Full **if** the projection's stage order is preserved; the compiler already fixes the governed lane order in code | Full **only after** `spl_postprocessor` / `reference_finalize` are representable; until then it drops stages |
+| **Migration complexity** | None | Moderate — one new input path plus parity proof per posture | High — needs a plan-step or append-rule design for the two predicate hooks, then full parity |
+| **Risk of dual authority** | Low today, but the precedence stays implicit and undocumented | **Lowest** — one producer by construction, v2 becomes data | Low after migration; elevated during it |
+| **Effect on `rag_only` / `workflow_spl` / other graph paths** | None — they bypass this seam entirely regardless (A1 inventories them) | None directly; adoption of those paths remains a separate A1-gated decision | None directly; same |
+| **Creates default-on behavior?** | No | **Only if** the compiler is allowed to act while `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` is false — must stay behind the flag, so no | No, provided the flag still gates it |
+
+**Measured constraint binding all three:** adopting the compiler as authoritative *without* first resolving `spl_postprocessor` / `reference_finalize` drops a stage on 4 of 5 probes. Any option that ends with the compiler producing the schedule must name its predicate-hook mechanism before implementation.
+
 ### B1 — default posture
 
 If B1's evidence supports changing the flag default, record the proposal and **STOP**; the default change is not authorized by this plan.
@@ -137,7 +153,36 @@ If B1's evidence supports changing the flag default, record the proposal and **S
   - **Depends on:** H0.
   - **Failing-first / observation:** Observation and decision only. If the matrix contradicts the three-producer premise, that is drift and stops the gate.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_pipeline_dispatch_phase6b.py app/tests/test_dispatch_authority_wiring.py app/tests/test_resource_plan_execution_wiring.py -q`; then `rg -n 'selected_authority_model|approved_by|approved_at|predicate_hook_disposition|dispatch_v2_disposition'` on this plan; plan audit; manifest `--check`.
-  - **Evidence:** _(three-producer matrix, same/different stage encoding, dual-authority verdict, predicate-hook disposition, selected model, approver/date)_
+  - **Evidence:** **OBSERVATION COMPLETE 2026-08-11 — awaiting the user/COE authority decision.** No runtime change; manifest `protected artifacts unchanged (13 checked)`; targeted tests **35 passed** (`test_pipeline_dispatch_phase6b.py`, `test_dispatch_authority_wiring.py`, `test_resource_plan_execution_wiring.py`). Matrix produced by a non-committed `/tmp` script driving all three producers as pure functions over the same state, across four postures (`v2 off/on` × `exec-driven off/on`), five probes. No connector, LLM, or graph call.
+
+    **Same-state hook-diff matrix** (`v2` = `imperative_hook_schedule_from_state`, `legacy` = `_legacy_predicate_dispatch_schedule`, `compiled` = `_execution_driven_schedule`):
+
+    | Probe | Posture | v2 producer | legacy producer | compiled | authoritative |
+    |---|---|---|---|---|---|
+    | T0 SMB / T1 SPL / novel identity | `v2 off, exec off` | `None` | `workflow_spl, spl_source_resolve, execution` | `None` | legacy predicates |
+    | " | `v2 off, exec on` | `None` | same | **same** | **compiler** |
+    | " | `v2 on, exec off` | `workflow_spl, spl_postprocessor, spl_source_resolve, execution` | **identical to v2** | `None` | v2 projection via legacy |
+    | " | `v2 on, exec on` | same | **identical to v2** | `None` (`dispatch_v2_projected_schedule`) | v2 projection via legacy |
+    | T1 knowledge SOP | all four | `prepare_rag_only, rag_early` (v2 on) | `prepare_rag_only, rag_early` | matches when reached | as above |
+    | T2 MITRE | `v2 on` | `prepare_rag_only, rag_early, reference_finalize` | **identical to v2** | `None` | v2 projection via legacy |
+
+    **Finding 1 — the legacy predicate schedule is not an independent producer.** In **10/10** v2-on rows `legacy_equals_v2 == True`: `_legacy_predicate_dispatch_schedule` returns the v2 projection unchanged (its first branch at `executor.py:199` consumes it, and the blocked-filter/append rules did not alter it on any probe). So there are three *code paths* but only **two authorities**: dispatch-v2 and the execution-driven compiler, with legacy acting as pass-through when v2 is present and as the genuine fallback only when v2 is off.
+
+    **Finding 2 — this is not dual authority today, but it is dual authority waiting to happen.** Exactly one schedule is authoritative per posture, under a deterministic precedence: **v2 > compiler > legacy predicates**. Nothing arbitrates that precedence explicitly; it emerges from the order of guards in `_execution_driven_schedule` and `_legacy_predicate_dispatch_schedule`. Two independent producers plus an unstated precedence is the structural risk A1's tests are meant to pin.
+
+    **Finding 3 — the vocabulary delta is material, not cosmetic.** `SCHEDULABLE_HOOKS` = `{ensure_workflow_plan, execution, prepare_rag_only, rag_early, spl_source_resolve, workflow_spl}`. v2 additionally emits `spl_postprocessor` on every SPL probe (T0 SMB, T1 SPL, novel identity) and `reference_finalize` on the MITRE probe. Measured `v2_only` minus `compiler_only` per probe: `['spl_postprocessor']`, `['spl_postprocessor']`, `[]`, `['reference_finalize']`, `['spl_postprocessor']` — and `compiler_only` is empty everywhere. **Consequence: making the compiler authoritative *today* would silently drop a stage on 4 of 5 probes.** That is a regression, not a migration, and it is why the predicate-hook disposition below is a precondition of any unification rather than a footnote.
+
+    **Decision-evidence fields, filled except the model itself:**
+
+    | Field | Value |
+    |---|---|
+    | `authority_evidence` | The matrix above: 5 probes × 4 postures; `legacy_equals_v2` true in 10/10 v2-on rows; compiler downgrades with `dispatch_v2_projected_schedule` in every v2-on row; `v2_only` hooks non-empty on 4/5 probes. |
+    | `predicate_hook_disposition` | **Unresolved by design — this is the decision's precondition.** `spl_postprocessor` and `reference_finalize` are stage-predicate-driven, not plan-step-driven, so the compiler cannot emit them from a `ResourcePlan` without either (a) new plan steps whose purposes map to them, or (b) an explicit post-compile append rule mirroring today's predicates. Neither may be adopted silently; whichever the decision picks must be named in the record. |
+    | `dispatch_v2_disposition` | Dispatch-v2 is **not** disabled under any option. On hosts where it is enabled (including COE) it currently determines every composed-turn schedule, and the execution-driven compiler never activates there. |
+    | `selected_authority_model` | **BLANK — user/COE decision.** |
+    | `approved_by` / `approved_at` | **BLANK — user/COE decision.** |
+
+    **Options, each with the nine required fields, are recorded in the A0 decision block above. STOP: the authority model is not chosen by the executor.**
   - **Invariant / manifest:** No runtime change; manifest check.
   - **Commit boundary:** Optional plan-only decision commit.
   - **Stop:** **Always stops for the decision.** Also stops if the matrix contradicts the premise or an option would weaken a locked gate.
@@ -237,6 +282,7 @@ Tests marked **NEW** are created in their owning item. A0's and B1's observation
 | 2026-08-11 | Research found the graph spine bypasses the seam on `rag_only`, `workflow_spl` and `non_planned_finalize`; only `composed_dispatch` reaches `execute_plan_dispatch`, and no guided-hybrid branch exists in the graph. This materially expands the brief's assumed A1 scope. |
 | 2026-08-11 | **User decision: A1 is inventory + structural test only.** No rewiring of `rag_only`, `workflow_spl`, guided-hybrid or session-refine in A1; each bypass is classified `ADOPT_CANDIDATE` / `KEEP_SEPARATE` / `DECISION_REQUIRED`, and adoption that would change production-default execution authority stops for an architecture decision. |
 | 2026-08-11 | **Correction to a Plan 2 note:** Plan 2's C0 evidence recorded "guided composes no ResourcePlan". That was a test-harness artifact (`compose_resource_plan_testutil.py:31-35`); production composes guided steps, and guided-hybrid holds a real `validated_resource_plan`. B0's contract source therefore exists and needs no invention. |
+| 2026-08-11 | **A0 OBSERVATION COMPLETE — STOPPED for the authority decision.** Three findings from a 5-probe × 4-posture matrix. (1) The legacy predicate schedule is **not** an independent producer: `legacy_equals_v2` in 10/10 v2-on rows, so there are three code paths but two authorities, with legacy acting as pass-through. (2) Not dual authority today — exactly one schedule is authoritative per posture under an **implicit** precedence `v2 > compiler > legacy` that nothing arbitrates explicitly. (3) The vocabulary delta is material: v2 emits `spl_postprocessor` on every SPL probe and `reference_finalize` on the MITRE probe, and `compiler_only` is empty everywhere — so making the compiler authoritative today would **drop a stage on 4 of 5 probes**. Predicate-hook disposition is therefore a precondition of any compiler-authoritative option, not a footnote. Three options recorded with all nine fields; `selected_authority_model`, `approved_by`, `approved_at` deliberately left blank. |
 | 2026-08-11 | **H0 COMPLETE at `8a3073b`, with a premise correction.** The plan claimed the enclosing `or` "does not protect" the unguarded read. Measurement showed `or` **does** short-circuit within the argument expression, so true reachability is narrower than recorded: a query with **no** alert markers **and** a missing/non-dict `query_to_intent`. Still live and production-reachable; the corrected condition is now pinned by two tests. `pipeline.py:3622` was the only unguarded assignment of eight; the four kwarg pass-throughs are correct as-is because every callee accepts `None`. Three hand-rolled state fixtures were discarded in favour of the production seam (`run_canonical_flow` + `graph_node_shadow_tail`) after finalize's nine hard `state[...]` reads defeated each one. |
 | 2026-08-11 | H0 observation, deliberately **not** fixed: finalize's nine direct `state[...]` reads raise rather than degrade when canonical planning is incomplete — the same defect class as H0 but outside its brief. Needs its own correctness item plus a decision on whether finalize should degrade or fail closed. Also recorded: the plan's Verify named `test_mitre_branch_contract.py`, which does not exist; `test_mitre_evidence_branch_phase5b.py` + `test_mitre_decision_runtime.py` were substituted. |
 | 2026-08-11 | **P0 COMPLETE at HEAD `728bd76`.** Baseline→HEAD is plan/docs only, so runtime content equals `9ee21fd`. Manifest 13/13 before and after, reference probes 10/10, parity `120 exact / 0 approved / 0 critical`. Host posture confirms the A0 premise: `ai_soc_pipeline_dispatch_v2_enabled=True` with `ai_soc_resource_plan_execution_enabled=False`. The known import-time stray newline in `backend/app/chat/detail_tools/__init__.py` reappeared during research and was reverted before capture — third occurrence, always the same one-blank-line append to an empty file, never a code change. |
