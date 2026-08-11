@@ -80,14 +80,24 @@ If B1's evidence supports changing the flag default, record the proposal and **S
 
 ## Loop-ready checklist
 
-- [ ] **P0 — Freeze the Plan 3 baseline**
+- [x] **P0 — Freeze the Plan 3 baseline**
   - **Do:** With no runtime edits, record HEAD, prove the runtime-scoped worktree is clean, re-read safe host posture without secret values, capture a fresh protected manifest, and confirm inherited gate counts still hold. Do not refresh any baseline and do not absorb existing user-owned dirt (`.claude/settings.local.json`, `.playwright-mcp/`, two G0 PNGs, `output/`).
   - **Why:** Every later result must compare against a measured `9ee21fd` baseline, not inherited prose.
   - **Surfaces:** `/tmp/plan3-execution-baseline.json`; plan Evidence only.
   - **Depends on:** none.
   - **Failing-first / observation:** Observation only. Runtime worktree dirt, protected drift, or a contradicted inherited count stops the item.
   - **Verify:** `git rev-parse HEAD`; `git status --short -- backend frontend scripts docker-compose.yml` must be empty; `python3 scripts/freeze_execution_baseline.py --capture --out /tmp/plan3-execution-baseline.json` then `--check`; export the host DB URL (`127.0.0.1:5434`, never echoed); `TELEMETRY_MODE=none PYTHONPATH=backend:. python3 scripts/audit_reference_probes.py --check`; `PYTHONPATH=backend:. python3 scripts/run_production_parity_eval.py --out-dir /tmp/plan3-p0-parity --check`.
-  - **Evidence:** _(HEAD, manifest 13/13, probes 10/10, parity tuple, safe host posture, worktree state)_
+  - **Evidence:** **COMPLETE 2026-08-11 at HEAD `728bd76`, runtime baseline `9ee21fd`.** `git diff --name-only 9ee21fd..HEAD` returned only `CLAUDE.md` and this plan file — no runtime, config, script, registry, frontend or backend path, so the runtime content is exactly the merged `9ee21fd` baseline. Runtime-scoped worktree (`backend frontend scripts docker-compose.yml .env.example`) was empty after one revert (below) and empty again at item close. Pre-existing user-owned dirt was left untouched and excluded: `.claude/settings.local.json`, `.playwright-mcp/`, two G0 PNGs, `output/`.
+
+    **One stray artifact reverted, not a code change:** `backend/app/chat/detail_tools/__init__.py` again carried the known import-time appended newline (a `+` of one blank line to a previously empty file), produced by read-only python imports during research. Same artifact recorded twice in Plan 2's drift log; reverted with `git checkout --` before capture.
+
+    Protected manifest captured fresh (`captured 13 artifacts -> /tmp/plan3-execution-baseline.json`) and passed before and after the item: `protected artifacts unchanged (13 checked)`.
+
+    Host-reachable gates, `DATABASE_URL` rewritten to `127.0.0.1:5434` for the whole chain and never echoed: reference probes P1–P6/N1–N4 **`all probes match the frozen baseline` (10/10)**; production parity **`total=120 base_105=105 exact=120 approved=0 critical=0`**. Both match the inherited post-merge counts; nothing was refreshed.
+
+    Safe host posture re-read as booleans only, no secret values: `ai_soc_resource_plan_execution_enabled=False` (the Plan 2 flag still default-off), `ai_soc_pipeline_dispatch_v2_enabled=True`, `langgraph_orchestration_enabled=True`, `ai_soc_guided_hybrid_investigation_enabled=True`, `ai_soc_guided_llm_enabled=True`, `ai_soc_llm_final_synthesis_enabled=True`, `ai_soc_llm_live_synthesis_enabled=True`, `ai_soc_llm_spl_fallback_enabled=True`, `mcp_discovery_enabled=True`, `ai_soc_planner_mitre_branch_enabled=True`, `routing_mode=llm_assisted_semantic`. **This posture confirms the A0 premise directly:** dispatch-v2 is on and the execution flag is off, so on this host the execution-driven compiler stands down wherever a v2 projection exists.
+
+    Full backend (4978) is inherited from the merge and re-run at G1, not here. No runtime diff, so the invariant check is N/A for this item. H0 was not started.
   - **Invariant / manifest:** Manifest before and after; no runtime diff means invariant check is N/A.
   - **Commit boundary:** Evidence-only plan edit.
   - **Stop:** Runtime worktree dirt, protected drift, or any inherited count contradicted.
@@ -211,4 +221,5 @@ Tests marked **NEW** are created in their owning item. A0's and B1's observation
 | 2026-08-11 | Research found the graph spine bypasses the seam on `rag_only`, `workflow_spl` and `non_planned_finalize`; only `composed_dispatch` reaches `execute_plan_dispatch`, and no guided-hybrid branch exists in the graph. This materially expands the brief's assumed A1 scope. |
 | 2026-08-11 | **User decision: A1 is inventory + structural test only.** No rewiring of `rag_only`, `workflow_spl`, guided-hybrid or session-refine in A1; each bypass is classified `ADOPT_CANDIDATE` / `KEEP_SEPARATE` / `DECISION_REQUIRED`, and adoption that would change production-default execution authority stops for an architecture decision. |
 | 2026-08-11 | **Correction to a Plan 2 note:** Plan 2's C0 evidence recorded "guided composes no ResourcePlan". That was a test-harness artifact (`compose_resource_plan_testutil.py:31-35`); production composes guided steps, and guided-hybrid holds a real `validated_resource_plan`. B0's contract source therefore exists and needs no invention. |
+| 2026-08-11 | **P0 COMPLETE at HEAD `728bd76`.** Baseline→HEAD is plan/docs only, so runtime content equals `9ee21fd`. Manifest 13/13 before and after, reference probes 10/10, parity `120 exact / 0 approved / 0 critical`. Host posture confirms the A0 premise: `ai_soc_pipeline_dispatch_v2_enabled=True` with `ai_soc_resource_plan_execution_enabled=False`. The known import-time stray newline in `backend/app/chat/detail_tools/__init__.py` reappeared during research and was reverted before capture — third occurrence, always the same one-blank-line append to an empty file, never a code change. |
 | 2026-08-11 | B1 method assumption recorded without asking back: in-process matrix only, latency/call counts coarse secondary evidence, because this host's LLM throughput is bound by shared-VPS CPU steal. |
