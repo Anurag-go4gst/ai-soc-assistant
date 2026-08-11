@@ -920,14 +920,37 @@ Run `.claude/skills/invariant-check/SKILL.md` manually before every runtime comm
   - **Commit boundary:** Live wiring only.
   - **Stop:** C0 activation posture is incomplete; dedicated-flag posture lacks the exact approved default-false flag; canonical-default posture becomes authoritative before C1-E6 proof; runtimes require divergent schedulers; a safety gate moves later/bypasses.
 
-- [ ] **C1-E5 — EXECUTION-DRIVEN: harden failure, skip, fallback, and finalization**
+- [x] **C1-E5 — EXECUTION-DRIVEN: harden failure, skip, fallback, and finalization**
   - **Do:** Test and implement dependency failure propagation, skipped/blocked downstream steps, empty evidence, timeout/denied/uncertain side effects, fallback target, HIL stop, partial evidence finalization, and deterministic rollback. Ensure answer/evidence assembly runs once with honest limitations and step statuses are stable/idempotent.
   - **Why:** Multi-step execution must fail closed without losing available evidence or repeating side effects.
   - **Surfaces:** scheduler reconcile/status annotation, idempotency, finalization; `test_resource_plan_execution_failures.py` (**NEW**).
   - **Depends on:** C1-E4.
   - **Failing-first / observation:** Full outcome matrix first, including uncertain execution reconciliation.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_plan_execution_failures.py app/tests/test_execution_idempotency.py app/tests/test_per_step_hook_idempotency.py app/tests/test_resource_plan_step_dispatch.py app/tests/test_context_sufficiency_stage3j.py app/tests/test_final_evidence_gate.py app/tests/test_final_answer_validator.py -q`; manifest check.
-  - **Evidence:** _(outcome matrix, one-finalize/one-side-effect proof, statuses, pytest/manifest/invariant, commit)_
+  - **Evidence:** **COMPLETE 2026-08-11; runtime commit `b2ccf64`.** New `backend/app/planner/resource_plan_execution_outcomes.py` + `backend/app/tests/test_resource_plan_execution_failures.py` (24 tests). Failing-first: the full outcome matrix was written before the module (collection error), then **23 passed, 1 failed**; the single failure was a wrong expectation in the *new* test, corrected to the truer behavior — a dependent of a composition-blocked step arrives already non-executable from the C1-E1 contract and keeps that provenance (`BLOCKED` / `dependency_blocked:spl`) instead of being reclassified as a runtime `SKIPPED`.
+
+    **Outcome matrix:**
+
+    | Outcome | Disposition | Downstream | Review |
+    |---|---|---|---|
+    | `ok` | `completed` | dependents runnable | no |
+    | `empty` | `completed_empty` | dependents runnable (empty is honest negative evidence, not failure) | no |
+    | `failed` | `failed` | dependents `skipped` (`dependency_failed:<id>`) | via `hil` fallback |
+    | `timeout` | `failed` | dependents skipped | via `hil` fallback |
+    | `denied` | `blocked` | dependents skipped | yes |
+    | `uncertain` | `uncertain` | dependents skipped | **always**, `stop_reason=uncertain_side_effect` |
+    | composition-blocked step | `blocked` (reason preserved, e.g. `skill_contract`) | dependents blocked with `dependency_blocked:<id>` | no |
+    | no outcome yet | `pending` | runnable when every dependency completed | no |
+
+    `HARD_FAILURE_OUTCOMES` is declared, not inferred, and asserted by test.
+
+    **One-side-effect proof:** `retry_step_ids` is unconditionally empty, and three tests pin it — an uncertain side effect, a failed side-effecting step, and a failed read-only step all yield zero retries. A step that may already have changed something is reported and escalated, never repeated. A declared `max_attempts > 1` bounds an in-stage retry the stage itself owns; it can never authorize the reconcile pass to re-run a step, and that is stated at the field.
+
+    **One-finalize proof:** `finalization_decision(..., already_finalized=False)` finalizes; the same reconciliation with `already_finalized=True` returns `finalize=False, reason="already_finalized"`. Partial runs finalize **with** declared limitations (`["step_failed:spl", "step_skipped:mcp"]`, `partial=True`), a fully successful run finalizes with none, and an all-empty run finalizes with `step_returned_no_results:*` rather than claiming results. Partial evidence therefore never becomes an unsupported claim.
+
+    **Statuses are stable:** reconciling identical outcomes twice returns equal results (frozen dataclass equality), so replay is idempotent. Rollback: a `None` contract yields empty dispositions with `stop_reason="no_execution_contract"` and no review demand, leaving the caller on the fixed deterministic schedule.
+
+    **Gates.** Exact Verify slice: **120 passed** (`test_resource_plan_execution_failures.py`, `test_execution_idempotency.py`, `test_per_step_hook_idempotency.py`, `test_resource_plan_step_dispatch.py`, `test_context_sufficiency_stage3j.py`, `test_final_evidence_gate.py`, `test_final_answer_validator.py`). Manifest `protected artifacts unchanged (13 checked)`. Invariant check **7/7 PASS** — pure module, AST-pinned free of connector/LLM/settings imports, no state channel, no existing behavior changed.
   - **Invariant / manifest:** Full invariant check.
   - **Commit boundary:** Failure/finalization only.
   - **Stop:** Any uncertain side effect is retried automatically; partial evidence becomes unsupported claim; finalization duplicates.
