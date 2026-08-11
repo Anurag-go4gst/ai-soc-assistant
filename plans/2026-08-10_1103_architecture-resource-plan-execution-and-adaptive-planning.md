@@ -955,14 +955,51 @@ Run `.claude/skills/invariant-check/SKILL.md` manually before every runtime comm
   - **Commit boundary:** Failure/finalization only.
   - **Stop:** Any uncertain side effect is retried automatically; partial evidence becomes unsupported claim; finalization duplicates.
 
-- [ ] **C1-E6 — EXECUTION-DRIVEN: parity and novel-query proof**
+- [x] **C1-E6 — EXECUTION-DRIVEN: parity and novel-query proof**
   - **Do:** Run a tier/intent/order matrix and novel SOC queries; compare selected schedule against current fixed fallback, confirm only approved order differences, and run reference/parity/governance/full backend gates. If C0 selected `CANONICAL_DEFAULT_AFTER_PROOF`, only after C1-E1 through C1-E5 and this proof are green, make the separately reviewable activation-only default change, then repeat every C1-E6 gate and record both pre- and post-activation results. If C0 selected `DEDICATED_DEFAULT_FALSE_FLAG`, retain the false default.
   - **Why:** Execution-driven ordering is a stage boundary and needs broad proof.
   - **Surfaces:** execution test family/evals/evidence only.
   - **Depends on:** C1-E5.
   - **Failing-first / observation:** No new feature work; fix only C1-E scope failures. The sole permitted runtime edit here is the C0-authorized activation-only default change after an initial fully green proof.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_plan_execution_contract.py app/tests/test_resource_plan_execution_scheduler.py app/tests/test_resource_plan_execution_handoffs.py app/tests/test_resource_plan_execution_wiring.py app/tests/test_resource_plan_execution_failures.py -q`; from root use P0's host DB export, then run `PYTHONPATH=backend:. python3 scripts/eval_out_of_set_intent_probe.py --check`; `TELEMETRY_MODE=none PYTHONPATH=backend:. python3 scripts/audit_reference_probes.py --check`; `PYTHONPATH=backend:. python3 scripts/run_production_parity_eval.py --out-dir /tmp/plan2-execution-driven-parity --check`; `./scripts/run_stage3_governance_regression.sh`; `cd backend && PYTHONPATH=../backend:.. python3 -m pytest`; return to root and run the manifest check.
-  - **Evidence:** _(matrix, novel queries, allowed deltas, activation posture/default, exact pre/post-activation counts when applicable, manifest, cumulative invariant, commit)_
+  - **Evidence:** **COMPLETE 2026-08-11. Activation posture is `DEDICATED_DEFAULT_FALSE_FLAG`, so the default stays false and there is no activation commit and no pre/post-activation pair** — the `CANONICAL_DEFAULT_AFTER_PROOF` clause does not apply.
+
+    **Tier/intent/order matrix — 12 probes, run flag-off and flag-on, each also with its ResourcePlan steps reversed** (non-committed `/tmp` observation script; no connector, LLM, or graph call). 9 probes composed a ResourcePlan; 3 (`novel egress`, `novel saas`, `novel dns`) classified `clarification` and compose none, so dispatch never runs for them.
+
+    | Probe | Answer mode | Fixed schedule | Flag-on schedule | Order-independent |
+    |---|---|---|---|---|
+    | T0 catalogue SMB | `live_investigation` | `workflow_spl, spl_source_resolve, execution` | identical | yes |
+    | T0 catalogue auth | `live_investigation` | same | identical | yes |
+    | T1 SPL ask | `live_investigation` | same | identical | yes |
+    | T1 knowledge SOP | `rag_only` | `prepare_rag_only, rag_early` | identical | yes |
+    | T1 alert summary | `live_investigation` | `workflow_spl, spl_source_resolve, execution` | identical | yes |
+    | T2 MITRE | `rag_only` | `prepare_rag_only, rag_early` | identical | yes |
+    | T2 CVE | `rag_only` | same | identical | yes |
+    | novel OT Modbus | `live_investigation` | `workflow_spl, spl_source_resolve, execution` | identical | yes |
+    | novel identity (impossible travel) | `live_investigation` | same | identical | yes |
+    | novel egress / novel SaaS / novel DNS | `clarification` | no composed plan | n/a | n/a |
+
+    Summary: `with_composed_plan=9`, `flag_off_matches_fixed=9/9`, `flag_on_matches_fixed=9/9`, `order_independent=9/9`, **`deltas=[]`**. **Allowed order differences: none were taken.** Activation moves ordering *authority* to the ResourcePlan execution contract without changing the order any turn actually runs, which is the safest possible first posture and makes any future intentional reorder a visible, reviewable delta against this baseline.
+
+    **Gate failure found and fixed inside C1-E scope (first governance run).** `test_flag_rightsizing_audit.py::test_every_env_example_key_in_disposition_table` failed: `missing: ['AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED']`. The repo requires every `.env.example` key to carry a disposition row; C1-E4 added the flag without one. Fixed by appending a row (`classification: b_posture`, `disposition: keep_group`, default `false` in all three profiles, read sites + `git_intro` recorded) in commit `9e41c4e`. This is a governance-metadata omission from C1-E4, not a behavior change, and no test was weakened to accommodate it. First run result for the record: `1 failed, 4977 passed, 2 skipped, 6 xfailed` — the single failure was exactly that row check.
+
+    **Gates after the fix (all green):**
+
+    | Gate | Result |
+    |---|---|
+    | Targeted execution suite (5 C1-E files) | **126 passed** |
+    | `scripts/eval_out_of_set_intent_probe.py --check` | **PASS, 11/11 probes match baseline** |
+    | `scripts/audit_reference_probes.py --check` | **10/10, all probes match the frozen baseline** |
+    | `scripts/run_production_parity_eval.py --check` | `total=120 base_105=105 exact=120 approved=0 critical=0` |
+    | `./scripts/run_stage3_governance_regression.sh` | **`stage3_governance_regression: PASS`** — backend pytest `4978 passed, 2 skipped, 6 xfailed`, harness 6/6, dual parity `total=120 exact=120 approved=0 critical=0`, clean-answer `total=120 pass=120 review=0 fail=0 critical=0 major=0 display=0`, Cisco power grid `PASS=50 REVIEW=0 FAIL=0 CRITICAL=0`, SPL template audit 17/17 no drift, OT probes 6/6, sentinel/Tier-D 17/17 |
+    | Independent full backend pytest | **`4978 passed, 2 skipped, 6 xfailed, 2 warnings in 578.44s`**, 0 failed |
+    | Protected manifest | `protected artifacts unchanged (13 checked)` before and after |
+
+    Suite growth `4846 → 4978` is exactly the 132 tests added by C1-E1 through C1-E5 plus this item's fix; no pre-existing test changed result.
+
+    **Baseline hygiene:** governance regenerated five tracked `docs/evals/` reports. Verdict/classification row projections were byte-equal and summary verdict counts unchanged (only `generated_at` differed), so the files were reverted — no baseline, golden, or registry was refreshed. Final worktree carries no runtime dirt; only the pre-existing user-owned files remain.
+
+    **Cumulative C1-E invariant check: 7/7 PASS.** No LLM→MCP path exists anywhere in the C1-E surface (every new module is AST-pinned free of `app.connectors`/`app.mcp`/`app.llm`/`httpx`/`requests`); candidate SPL still cannot reach the gate and only approved non-empty `normalized_spl` satisfies the gate handoff; `app/demo/` untouched; no secrets and no handoff key naming a credential-shaped field; no new state channel, and the one new trace key is flag-on only; the single new flag is default-false and C0-approved by exact name; no test weakened or deleted.
   - **Invariant / manifest:** Full cumulative invariant check for C1-E.
   - **Commit boundary:** Regression/test-only commit if needed; for `CANONICAL_DEFAULT_AFTER_PROOF`, a separate activation-only commit after initial green proof, followed by the repeated full gates.
   - **Stop:** Unapproved answer/route changes; baseline refresh; full gate fails twice.
@@ -1059,5 +1096,6 @@ None at authoring time. Tests marked **NEW** are created in the owning item. B0'
 | 2026-08-10 | **A1.1 COMPLETE at `a435d8a`.** The complete post-A0 inventory contains 24 decision-record shapes. Failing-first isolated one vocabulary defect, root `normalized_spl`; it is now the descriptive nested ref `spl_validation.normalized_spl`. All roots/dotted paths validate, refs have zero scheduling consumers, targeted tests are 32 passed, manifest 13/13, and invariants 7/7. Semantic overclaims remain explicit for A1.2. |
 | 2026-08-10 | **A1.2 COMPLETE at `7f9121a`.** All 24 record shapes are now semantically grounded; every direct wrapper and four specialist producers have representative differential coverage, trace-only nodes carry empty output lists, and a nonexistent-output mutation fails. Exact valid host gate: 47 passed; manifest 13/13; invariants 7/7. Two accidentally concurrent restricted-sandbox copies stalled after 25 tests without an assertion result; both exact PIDs were terminated and one host-reachable rerun with the already-proven DB override passed in 8.77s. This was execution-environment noise, not a valid gate failure. |
 | 2026-08-11 | **C0 DECIDED: `EXECUTION-DRIVEN`, approved by Anurag at `2026-08-11T05:53:15Z`.** Activation posture `DEDICATED_DEFAULT_FALSE_FLAG` with approved flag `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` (default false); `v1_v2_posture: EXTEND_LIVE_RESOURCE_PLAN` — no wholesale `ResourcePlanV2`/`orchestration_scheduler` promotion, concept reuse only after per-concept authority-boundary verification. Parallelism limited to genuinely independent safe/read-only steps; SPL validation stays before the MCP gate; HIL/RBAC/policy stay authoritative; invalid/unsupported plans downgrade deterministically to the fixed schedule; uncertain/side-effecting operations are never auto-retried. The opposite-order matrix confirmed the lineage-only premise (4/5 probes composed; reversing steps changed `step_walk_order` but not the schedule, and `step_walk == legacy` both directions). The guided probe composed no ResourcePlan at all under this host's `guided_hybrid` posture — recorded and carried into C1-E3 alongside the B2-R2 `FOLLOW_UP_REFINEMENT_DESIGN` requirement. `C1-L` dispositioned N/A (1 item). Next: `C1-E1`. |
+| 2026-08-11 | **Phase C1-E complete (E1→E6).** Contract `78bd76c`, compiler `4b10fc3`, handoffs `e0bada3`, wiring `d7c4d62`, failure/finalization `b2ccf64`, flag-disposition fix `9e41c4e`. Final posture: `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` default **false**; flag-off runs zero execution-contract code, so parity is structural rather than coincidental. Flag-on changes ordering *authority* only — the compiled schedule equals the fixed schedule on all 9 composed matrix probes, with zero approved order deltas. One real gate failure was found at E6 (the new flag lacked a row in the flag-rightsizing disposition table) and fixed in scope. Governance PASS, backend `4978 passed / 0 failed` twice, probes 10/10 and 11/11, parity `120 exact`, manifest 13/13. On dispatch-v2 hosts (including COE) the execution-driven path stands down wherever a v2 projected schedule exists; guided-hybrid and session-SPL-refine bypass this seam entirely. Next: `G0`. |
 | 2026-08-11 | Before the C0 edit, `backend/app/chat/detail_tools/__init__.py` again carried the known import-time stray-newline artifact (same as the A0 run); reverted, leaving the runtime-scoped worktree clean. Not a code change. |
 | 2026-08-10 | **B0 COMPLETE with one full graph call.** Preflight was `out_of_registry` / T4 / `guided`, bridge-eligible, and non-executing/non-action-shaped. Shadow-specific generate attempts were **0** because finalize reported `draft_spl_preview_active`; deterministic plan source remained `deterministic`, no plan was returned/promoted/discarded, graph elapsed 954 ms, and manifest stayed 13/13. The JSON artifact passed required-key and sensitive-field scans. Existing non-shadow client logging exposed a credential-free local endpoint on stderr only; this was excluded from the JSON evidence. B0 therefore does not price `qu_unavailable` or any posture in which the shadow runner actually enters. |
