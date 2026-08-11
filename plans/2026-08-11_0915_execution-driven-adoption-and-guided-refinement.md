@@ -36,7 +36,7 @@ Explicitly **not** in this plan: redesigning the scheduler; **rewiring any bypas
 | Surface | Observation at `9ee21fd` |
 |---|---|
 | H0 defect | **Live.** `pipeline.py:3622` assigns `mitre_query_signals = _query_signals_from_state(state)`, which returns `None` when `query_to_intent` is missing/non-dict; `:3643` calls `.get("alert_context_present")` on it. Recorded in Plan 2 as `:3669` — lines shifted, defect unchanged. Ten sibling call sites already guard with `or {}`; four pass the raw value on (`:3635`, `:3667`, `:3990`, `:4205`, `:6906`), and those callees accept `None` safely. |
-| H0 reachability | The `.get()` is an **argument expression** to `run_mitre_evidence_branch`, so it evaluates before the call. Any finalize turn with missing/non-dict `query_to_intent` raises `AttributeError`. The enclosing `or` does not protect it. |
+| H0 reachability | **Corrected during H0 execution — this row's original claim was wrong.** The `.get()` is an argument expression to `run_mitre_evidence_branch`, so it evaluates before the call is entered, but `or` **does** still short-circuit within it. Measured true condition: a query with **no** alert markers **and** a missing/non-dict `query_to_intent` — a knowledge-style turn whose canonical planning did not complete. Narrower than first recorded, still live and production-reachable; both halves are now pinned by test. |
 | Schedule producers | **Three, not two.** (1) dispatch-v2 `stage_schedule` — `build_pipeline_dispatch` (`pipeline_dispatch_builder.py:342`, called `pipeline.py:1500`), projected by `imperative_hook_schedule_from_state` (`contracts/pipeline_dispatch.py:182`). (2) legacy predicate schedule (`executor.py:194`) whose **first branch consumes the v2 projection** (`:199`), then applies blocked-step filtering and append rules. (3) the flag-gated compiler, which stands down with `dispatch_v2_projected_schedule`. |
 | Consequence | On this host `.env` has `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED=true`, so the "fixed fallback schedule" **is** the v2 schedule wherever a projection exists, and the execution-driven path is near-vacuous. |
 | Vocabulary overlap | v2 maps stages to the *same* hook names the compiler emits, and additionally emits `spl_postprocessor` and `reference_finalize`, which `SCHEDULABLE_HOOKS` deliberately excludes as predicate-driven. Any unification must disposition those two. |
@@ -60,7 +60,39 @@ Exactly four Resource Planner specialists (`skill`, `knowledge`, `mcp`, `spl`) �
 
 ### A0 — scheduling authority
 
-No unification work is executable until this block is filled by the user/COE.
+**DECIDED 2026-08-11 — `selected_authority_model: PHASE_POLICY_PLUS_RESOURCE_PLAN_SCHEDULING`.** Recorded values below; this is the "other named model" branch of the field spec, chosen over both `V2_AUTHORITATIVE_WHERE_PRESENT` and `COMPILER_CONSUMES_V2_PROJECTION` after the A0 evidence showed the two producers answer different questions.
+
+| Decided field | Value |
+|---|---|
+| `selected_authority_model` | **`PHASE_POLICY_PLUS_RESOURCE_PLAN_SCHEDULING`** |
+| `approved_by` | **Anurag** |
+| `approved_at` | **`2026-08-11T15:01:05Z`** |
+| `authority_evidence` | A0's 5-probe × 4-posture hook-diff matrix in the A0 item Evidence: `legacy_equals_v2` true in 10/10 v2-on rows; compiler downgrades `dispatch_v2_projected_schedule` in every v2-on row; `v2_only` hooks non-empty on 4/5 probes with `compiler_only` empty everywhere. |
+| `predicate_hook_disposition` | **`SYSTEM_OWNED_LIFECYCLE_HOOKS`.** `spl_postprocessor` and `reference_finalize` stay system-owned. They must **not** become normal ResourcePlan steps merely to reach hook-list parity. Their presence and order come from Phase Policy / request-mode predicates, and the canonical scheduling seam must preserve them structurally. |
+| `dispatch_v2_disposition` | **Not disabled.** Long-term role is request-shape / phase-policy derivation, **not** permanent independent final-schedule authority. A compatibility adapter over the existing v2 `stage_schedule` is permitted as a *migration mechanism* while the phase-contract abstraction is introduced; that adapter must never be mistaken for the target. Target is `dispatch-v2 policy logic → phase contract`, not permanently `v2 flat hook schedule → second scheduler → reconciliation`. |
+| `legacy_disposition` | Compatibility/fallback infrastructure only — A0 proved it is not a genuine third authority when v2 is present. Do not expand it. |
+| `flag_posture` | `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` remains default **`false`**. A0 does **not** authorize a production-default scheduling change; no default-on behavior without later explicit approval. |
+
+**Target architecture.** The problem was never a choice between two rival schedulers. Dispatch-v2 and the ResourcePlan compiler answer different questions and need separate authority boundaries:
+
+- **Phase Policy owns** which mandatory lifecycle/answer-shape phases a request requires — SPL chain integrity, `spl_postprocessor`, `reference_finalize`, MITRE/CVE finalization, and other request-mode/predicate-driven lifecycle requirements. System-owned; the planner may never add, remove or arbitrarily reorder them.
+- **ResourcePlan owns** which investigation/evidence work is required — resources, dependencies, handoffs, evidence needs, bounded attempts, safe parallelism. It must not express system lifecycle hooks.
+
+Canonical seam:
+
+```
+route / request mode → Phase Policy → Phase Contract
+                                          ↘
+                                           deterministic merge / compiler seam
+                                          ↗            ↓
+              deterministic ResourcePlan     one validated runnable schedule → executor
+```
+
+Only the deterministic merge/compiler seam produces the final executable schedule. **Invariants:** Phase Policy does not micro-order ResourcePlan work; ResourcePlan does not control mandatory lifecycle hooks.
+
+**Implementation status — decided, not built.** No remaining Plan 3 item constructs the phase contract: A1 is inventory-only, B0 is guided refinement, B1 is measurement, G0/G1 are documentation and closure. This decision therefore fixes the *target* and the *boundaries*; building it is a separate plan, which G0 must state explicitly so the decision does not decay into aspiration.
+
+Original requirement table, retained for reference:
 
 | Field | Required value |
 |---|---|
@@ -146,7 +178,7 @@ If B1's evidence supports changing the flag default, record the proposal and **S
   - **Commit boundary:** One correctness commit; never mixed with adoption work.
   - **Stop:** The correct fix would require changing MITRE decision behavior or widening authority.
 
-- [ ] **A0 — Reconcile dispatch-v2 and execution-driven scheduling authority → DECISION, STOP**
+- [x] **A0 — Reconcile dispatch-v2 and execution-driven scheduling authority → DECISION, STOP**
   - **Do:** Inventory the three schedule producers named in the starting-architecture table and prove which is authoritative on each posture. Produce a same-state **hook-diff matrix** across all three, reusing the Plan 2 C1-E6 matrix harness pattern. Determine whether both encode the same stages, and disposition the known vocabulary delta (`spl_postprocessor`, `reference_finalize`). State plainly whether maintaining both constitutes dual scheduling authority. Present the authority-model options and fill every A0 decision field. Do not disable dispatch-v2, do not make the compiler authoritative without parity proof, and do not implement any unification in this item.
   - **Why:** With dispatch-v2 enabled the execution-driven path stands down almost everywhere, so "which scheduler is authoritative" is currently answered by precedence accident rather than by decision.
   - **Surfaces:** plan evidence; `executor.py`; `contracts/pipeline_dispatch.py`; `pipeline_dispatch_builder.py`; observation script under `/tmp` (not committed).
@@ -182,7 +214,9 @@ If B1's evidence supports changing the flag default, record the proposal and **S
     | `selected_authority_model` | **BLANK — user/COE decision.** |
     | `approved_by` / `approved_at` | **BLANK — user/COE decision.** |
 
-    **Options, each with the nine required fields, are recorded in the A0 decision block above. STOP: the authority model is not chosen by the executor.**
+    **Options, each with the nine required fields, are recorded in the A0 decision block above.**
+
+    **DECISION RECORDED 2026-08-11T15:01:05Z (Anurag): `PHASE_POLICY_PLUS_RESOURCE_PLAN_SCHEDULING`** — the fourth, "other named model" branch. It accepts neither producer as authoritative in its current form: dispatch-v2's stage logic becomes Phase Policy (system-owned lifecycle), the ResourcePlan compiler keeps evidence-work scheduling, and a deterministic merge seam is the single producer of the runnable schedule. `predicate_hook_disposition: SYSTEM_OWNED_LIFECYCLE_HOOKS` closes the measured stage-drop risk by construction — the two hooks never become plan steps, so the compiler can never omit them. Flag stays default false; no default-on behavior authorized. Full decision block above.
   - **Invariant / manifest:** No runtime change; manifest check.
   - **Commit boundary:** Optional plan-only decision commit.
   - **Stop:** **Always stops for the decision.** Also stops if the matrix contradicts the premise or an option would weaken a locked gate.
@@ -282,6 +316,8 @@ Tests marked **NEW** are created in their owning item. A0's and B1's observation
 | 2026-08-11 | Research found the graph spine bypasses the seam on `rag_only`, `workflow_spl` and `non_planned_finalize`; only `composed_dispatch` reaches `execute_plan_dispatch`, and no guided-hybrid branch exists in the graph. This materially expands the brief's assumed A1 scope. |
 | 2026-08-11 | **User decision: A1 is inventory + structural test only.** No rewiring of `rag_only`, `workflow_spl`, guided-hybrid or session-refine in A1; each bypass is classified `ADOPT_CANDIDATE` / `KEEP_SEPARATE` / `DECISION_REQUIRED`, and adoption that would change production-default execution authority stops for an architecture decision. |
 | 2026-08-11 | **Correction to a Plan 2 note:** Plan 2's C0 evidence recorded "guided composes no ResourcePlan". That was a test-harness artifact (`compose_resource_plan_testutil.py:31-35`); production composes guided steps, and guided-hybrid holds a real `validated_resource_plan`. B0's contract source therefore exists and needs no invention. |
+| 2026-08-11 | **A0 DECIDED: `PHASE_POLICY_PLUS_RESOURCE_PLAN_SCHEDULING`, approved by Anurag at `2026-08-11T15:01:05Z`.** The "other named model" branch: neither producer is authoritative in its current form. Dispatch-v2's stage logic becomes **Phase Policy** (system-owned lifecycle/answer-shape phases), the ResourcePlan compiler keeps evidence-work scheduling, and a deterministic merge seam is the single producer of the runnable schedule. `predicate_hook_disposition: SYSTEM_OWNED_LIFECYCLE_HOOKS` — `spl_postprocessor` and `reference_finalize` never become plan steps, which closes the measured stage-drop risk by construction rather than by parity work. Dispatch-v2 is not disabled; a compatibility adapter over its `stage_schedule` is permitted as a migration mechanism only. Legacy stays fallback-only. Flag remains default false; no production-default scheduling change authorized. **Decided, not built:** no remaining Plan 3 item constructs the phase contract, so the target lands in a follow-up plan and G0 must say so. |
+| 2026-08-11 | Plan self-consistency fix: the starting-architecture **H0 reachability** row still asserted that the enclosing `or` does not protect the unguarded read. H0 execution disproved that. Row corrected in place so the plan does not contradict its own evidence. |
 | 2026-08-11 | **A0 OBSERVATION COMPLETE — STOPPED for the authority decision.** Three findings from a 5-probe × 4-posture matrix. (1) The legacy predicate schedule is **not** an independent producer: `legacy_equals_v2` in 10/10 v2-on rows, so there are three code paths but two authorities, with legacy acting as pass-through. (2) Not dual authority today — exactly one schedule is authoritative per posture under an **implicit** precedence `v2 > compiler > legacy` that nothing arbitrates explicitly. (3) The vocabulary delta is material: v2 emits `spl_postprocessor` on every SPL probe and `reference_finalize` on the MITRE probe, and `compiler_only` is empty everywhere — so making the compiler authoritative today would **drop a stage on 4 of 5 probes**. Predicate-hook disposition is therefore a precondition of any compiler-authoritative option, not a footnote. Three options recorded with all nine fields; `selected_authority_model`, `approved_by`, `approved_at` deliberately left blank. |
 | 2026-08-11 | **H0 COMPLETE at `8a3073b`, with a premise correction.** The plan claimed the enclosing `or` "does not protect" the unguarded read. Measurement showed `or` **does** short-circuit within the argument expression, so true reachability is narrower than recorded: a query with **no** alert markers **and** a missing/non-dict `query_to_intent`. Still live and production-reachable; the corrected condition is now pinned by two tests. `pipeline.py:3622` was the only unguarded assignment of eight; the four kwarg pass-throughs are correct as-is because every callee accepts `None`. Three hand-rolled state fixtures were discarded in favour of the production seam (`run_canonical_flow` + `graph_node_shadow_tail`) after finalize's nine hard `state[...]` reads defeated each one. |
 | 2026-08-11 | H0 observation, deliberately **not** fixed: finalize's nine direct `state[...]` reads raise rather than degrade when canonical planning is incomplete — the same defect class as H0 but outside its brief. Needs its own correctness item plus a decision on whether finalize should degrade or fail closed. Also recorded: the plan's Verify named `test_mitre_branch_contract.py`, which does not exist; `test_mitre_evidence_branch_phase5b.py` + `test_mitre_decision_runtime.py` were substituted. |
