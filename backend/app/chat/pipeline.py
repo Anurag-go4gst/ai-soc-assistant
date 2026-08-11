@@ -3619,7 +3619,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     session_alert_context = bool(
         isinstance(session_resolution, SessionContextResolution) and session_resolution.session_alert_context
     )
-    mitre_query_signals = _query_signals_from_state(state)
+    # `_query_signals_from_state` returns None when canonical planning did not
+    # complete, and the read below is the right operand of an `or`, so it is
+    # reached exactly when the query carries no alert context. Guard like the
+    # other assignment sites; the MITRE callee treats {} and None identically.
+    mitre_query_signals = _query_signals_from_state(state) or {}
     branch_mappings, branch_decision, mitre_branch = run_mitre_evidence_branch(
         query=state.get("effective_query") or request.message,
         question_ref=question_ref,
