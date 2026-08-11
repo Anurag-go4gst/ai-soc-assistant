@@ -318,3 +318,121 @@ schedule on every composed plan, in both composed and reversed step order.
 
 Guided-hybrid and session-SPL-refine dispatch bypass this seam entirely, so the execution-driven
 path never applies to them.
+
+---
+
+## Plan 3 outcomes (2026-08-11)
+
+Plan 3 charted the adoption path rather than rewiring it. One decision, one correctness
+fix, one inventory, one capability wired. See
+`plans/2026-08-11_0915_execution-driven-adoption-and-guided-refinement.md`.
+
+### A0 — scheduling authority: `PHASE_POLICY_PLUS_RESOURCE_PLAN_SCHEDULING`
+
+Measured first. Across 5 probes × 4 postures: the legacy predicate schedule returned the
+dispatch-v2 projection unchanged in **10/10** v2-on rows, so it is a pass-through rather
+than a third authority; the execution-driven compiler stood down (`dispatch_v2_projected_schedule`)
+in every v2-on row; and dispatch-v2 emitted `spl_postprocessor` on every SPL probe and
+`reference_finalize` on the MITRE probe, hooks the compiler's `SCHEDULABLE_HOOKS` excludes.
+Making the compiler authoritative as-is would therefore have **dropped a stage on 4 of 5
+probes**.
+
+The decision rejects both "v2 wins" and "compiler wins". The two producers answer different
+questions and get different authority:
+
+- **Phase Policy** owns mandatory lifecycle/answer-shape phases — SPL chain integrity,
+  `spl_postprocessor`, `reference_finalize`, MITRE/CVE finalization. System-owned; the
+  planner may never add, remove or reorder them.
+- **ResourcePlan** owns investigation/evidence work — resources, dependencies, handoffs,
+  bounded attempts, safe parallelism. It must never express lifecycle hooks.
+- A deterministic **merge seam** is the single producer of the runnable schedule.
+
+`predicate_hook_disposition: SYSTEM_OWNED_LIFECYCLE_HOOKS` closes the stage-drop risk by
+construction: the two hooks never become plan steps, so the compiler cannot omit them.
+Dispatch-v2 is **not** disabled — its long-term role is phase-policy derivation, and any
+adapter over its current `stage_schedule` is a migration mechanism, not the target.
+
+**Decided, not built.** No Plan 3 item constructs the phase contract. This fixes the target
+and the boundaries; the implementation is a separate plan.
+
+### A1 — seam coverage: inventory only
+
+Ten production-reachable paths were inventoried and pinned by structural test. Only
+`composed_dispatch` (graph) and the imperative composed-plan branch reach
+`execute_plan_dispatch`; `rag_only`, `workflow_spl`, guided-hybrid and session-SPL-refine do
+not, and there is no guided-hybrid branch in the graph at all. Classification: 2 `SEAM`,
+4 `DECISION_REQUIRED`, 4 `KEEP_SEPARATE`, **0 adopted** — every adopt candidate would change
+production-default execution authority.
+
+Beyond the expected list: `_run_legacy_dispatch_fallback` does not merely bypass the seam,
+it holds its own `hook_nodes` map and executes the v2 projection itself — a **second
+execution engine**. It is the strongest adopt candidate on merit and is pinned by test so it
+can neither spread nor silently disappear.
+
+### B0 — guided refinement is live and bounded
+
+Guided investigation had been permanently one-round: the loop gated on
+`refinement_recommended`, hardcoded false since the LLM proposer was retired, so
+`MAX_GUIDED_INVESTIGATION_ROUNDS` was unreachable rather than enforced. The gate now runs on
+evidence actually collected — produced-evidence keys before/after collection against the
+guided rail's own `validated_resource_plan` — plus a plan fingerprint so a round that would
+re-plan identically never runs. The cap is checked first, empty channels never count as
+produced, and side-effect replay protection is the existing `HookReplayEnvelope` machinery.
+Every outcome is traced in `plan_dispatch_trace.guided_refinement_reasons`.
+
+### B1 — flag evaluation: neutral, default unchanged
+
+With dispatch-v2 forced off so the compiler could activate (7 of 9 composed probes),
+flag ON produced **zero** schedule differences. `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED`
+remains default **false**; the evidence supports no default change.
+
+The evaluation surfaced a more important inconsistency. Two probes downgraded with
+`no_schedulable_step`; end-to-end tracing dispositioned them differently:
+
+- **The alert-summary probe was a probe artifact and is retracted.** Its harness forced
+  `routed_skill="alert_summary"`; the real router sends that query to `attack_discovery`,
+  where the plan is consistent and no contradiction exists. The locked alert-summary/no-SPL
+  boundary is intact and enforced by `canonical_answer_mode_policy`'s
+  `alert_summary_spl_contradiction` rule, which keys on intent family.
+- **The OT hunt probe is a real, router-reachable `ROUTE_INTENT_CONTRADICTION`**, with a
+  secondary `VALIDATION_POLICY_CONFLICT`. The keyword router matches no rule and falls back
+  to `knowledge_recall` at 0.2 confidence, whose contract forbids SPL and MCP, while the
+  intent classifier resolves `spl_generation_only`. Composition vetoed every matching step;
+  Phase Policy, being contract-blind, emitted the full SPL lane anyway.
+
+Measured across the 105-question golden set, 14 turns already sit in this contradiction
+class (8 `knowledge_recall`, 6 `alert_summary`, all with `spl_generation_only`), and **none
+of their accepted answers contains SPL** — the lane ran and contributed nothing. Closed by
+the capability compatibility contract below; the router over-capture itself is deferred to a
+separate evaluation.
+
+### B2 — routed-skill × intent-family capability compatibility
+
+The two surfaces now resolve capability from one contract
+(`app/chat/skill_intent_compatibility.py`) instead of disagreeing silently. It classifies a
+`routed_skill × intent_family` pair as `COMPATIBLE`, `CAPABILITY_CONTRADICTION`,
+`PROTECTED_CONTRADICTION` (the pre-existing alert-summary rule keeps its own identity) or
+`UNRESOLVED`, and it **fails closed**: a contradiction never widens capability, so an intent
+that wants SPL cannot rescue itself past a contract that forbids it.
+
+Failing closed here constrains the **capability**, not the turn. The 14 golden turns already
+in this class answer correctly today without SPL, so denying the capability removes wasted
+work; erroring them would have regressed 14 accepted answers for no safety gain.
+
+Phase Policy is no longer contract-blind — `_apply_capability_constraints` drops SPL/MCP
+lanes the resolved contract forbids, and can only ever remove stages, never add one.
+Capability lookup delegates to the composer's own `_skill_permits`, so both surfaces answer
+"does this skill allow SPL?" from a single implementation rather than two copies. Composer
+and validator vetoes remain in place as defense-in-depth, and the MCP execution gate, HIL,
+RBAC and SPL validator are untouched.
+
+### Deferred: `UNDERSTANDING_ROUTER_ON_LOW_CONFIDENCE`
+
+Not approved and not implemented. The keyword router's unmatched default is
+`knowledge_recall` at 0.2 confidence, which is what manufactures the contradiction class.
+Measured: **99/105** golden questions hit that default, and **91 of those 99** receive a
+different route from the understanding router (`attack_discovery` 83, `alert_summary` 8,
+`knowledge_recall` 8). The hypothesis to test — keep the keyword route when a rule matches
+with sufficient confidence, otherwise use the existing deterministic understanding-router
+result — would change routing for ~94% of the golden set and therefore requires its own
+OFF/ON routing matrix plus parity and quality evaluation before adoption.

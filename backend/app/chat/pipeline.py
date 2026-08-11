@@ -299,9 +299,11 @@ from app.chat.guided_hybrid_refinement import (
     MAX_GUIDED_INVESTIGATION_ROUNDS,
     apply_refinement_cap_warning,
     count_collected_guided_hops,
-    refinement_cap_reached,
-    should_run_refinement_pass,
+    evaluate_guided_refinement,
+    guided_plan_fingerprint,
+    produced_evidence_keys_from_state,
 )
+from app.planner.resource_plan_execution import build_execution_contract
 from app.chat.guided_hybrid_dispatch import uses_guided_hybrid_dispatch_from_state
 from app.chat.guided_hybrid_collection import collect_guided_hybrid_evidence
 from app.chat.guided_investigation_synthesizer import (
@@ -3619,7 +3621,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     session_alert_context = bool(
         isinstance(session_resolution, SessionContextResolution) and session_resolution.session_alert_context
     )
-    mitre_query_signals = _query_signals_from_state(state)
+    # `_query_signals_from_state` returns None when canonical planning did not
+    # complete, and the read below is the right operand of an `or`, so it is
+    # reached exactly when the query carries no alert context. Guard like the
+    # other assignment sites; the MITRE callee treats {} and None identically.
+    mitre_query_signals = _query_signals_from_state(state) or {}
     branch_mappings, branch_decision, mitre_branch = run_mitre_evidence_branch(
         query=state.get("effective_query") or request.message,
         question_ref=question_ref,
@@ -5858,6 +5864,7 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
 
     dispatch_steps = ["committed_resource_plan"]
     refinement_rounds: list[int] = []
+    refinement_reasons: list[str] = []
     collection_state: ChatPipelineState = dict(state)
     validated_plan: InvestigationPlan | None = None
     pre_plan = None
@@ -5921,6 +5928,17 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
                 rbac_role=state.get("session_role"),
             )
 
+        # Plan 3 B0: the refinement gate is driven by evidence actually collected,
+        # not by a plan-declared boolean. `refinement_recommended` has been
+        # hardcoded False since the guided proposer was retired, so the legacy
+        # gate could never fire and guided investigation was permanently
+        # one-round. Produced-key state before/after collection is the
+        # round-varying input; the plan fingerprint stops a round that would
+        # re-plan identically.
+        execution_contract = build_execution_contract(validated_resource)
+        keys_before = produced_evidence_keys_from_state(execution_contract, collection_state)
+        fingerprint_before = guided_plan_fingerprint(validated_resource)
+
         collection_state, _ = collect_guided_hybrid_evidence(
             collection_state,
             validated_resource=validated_resource,
@@ -5933,16 +5951,19 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
             if "guided_hybrid_collection" not in dispatch_steps:
                 dispatch_steps.append("guided_hybrid_collection")
 
-        if refinement_cap_reached(
-            refinement_round=refinement_round,
-            refinement_recommended=validated_plan.refinement_recommended,
-        ):
+        keys_after = produced_evidence_keys_from_state(execution_contract, collection_state)
+        refinement_outcome = evaluate_guided_refinement(
+            contract=execution_contract,
+            previous_produced_keys=keys_before,
+            current_produced_keys=keys_after,
+            rounds_used=refinement_round,
+            previous_fingerprint=fingerprint_before,
+            current_fingerprint=guided_plan_fingerprint(validated_resource),
+        )
+        refinement_reasons.append(refinement_outcome.reason)
+        if refinement_outcome.reason == "round_bound_reached":
             validated_plan = apply_refinement_cap_warning(validated_plan)
-            break
-        if not should_run_refinement_pass(
-            refinement_round=refinement_round,
-            refinement_recommended=validated_plan.refinement_recommended,
-        ):
+        if not refinement_outcome.refine:
             break
         refinement_round += 1
         if refinement_round >= MAX_GUIDED_INVESTIGATION_ROUNDS:
@@ -6002,6 +6023,9 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
     trace = {
         "dispatch_source": "guided_hybrid_dispatch",
         "dispatch_schedule": dispatch_steps,
+        # B0: why each round ran or stopped, in order. Always populated, so a
+        # one-round turn is explained rather than merely short.
+        "guided_refinement_reasons": list(refinement_reasons),
     }
     updated: ChatPipelineState = {
         **collection_state,

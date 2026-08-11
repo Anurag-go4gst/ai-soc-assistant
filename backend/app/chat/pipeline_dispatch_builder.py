@@ -6,6 +6,11 @@ from typing import Any
 
 from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.contracts.intent_classification import IntentClassification
+from app.chat.skill_intent_compatibility import (
+    CompatibilityResolution,
+    resolve_capability_compatibility,
+    skill_contract_for,
+)
 from app.chat.contracts.pipeline_dispatch import (
     LlmHop,
     PipelineDispatchContract,
@@ -274,6 +279,36 @@ def _build_llm_hops(
     return hops
 
 
+
+_SPL_CAPABILITY_STAGES: frozenset[PipelineStage] = frozenset(
+    {
+        PipelineStage.workflow_spl,
+        PipelineStage.spl_postprocessor,
+        PipelineStage.spl_source_resolve,
+        PipelineStage.pre_spl_mcp_discovery,
+    }
+)
+
+_MCP_CAPABILITY_STAGES: frozenset[PipelineStage] = frozenset(
+    {PipelineStage.mcp_execution, PipelineStage.pre_spl_mcp_discovery}
+)
+
+
+def _apply_capability_constraints(
+    stage_schedule: list[PipelineStage],
+    compatibility: CompatibilityResolution,
+) -> list[PipelineStage]:
+    """Drop lanes the resolved capability contract forbids. Never adds a lane."""
+    if not compatibility.is_contradiction:
+        return stage_schedule
+    denied: set[PipelineStage] = set()
+    if not compatibility.spl_permitted:
+        denied |= _SPL_CAPABILITY_STAGES
+    if not compatibility.mcp_permitted:
+        denied |= _MCP_CAPABILITY_STAGES
+    return [stage for stage in stage_schedule if stage not in denied]
+
+
 def _build_stage_schedule(
     *,
     request_mode: RequestMode,
@@ -394,6 +429,18 @@ def build_pipeline_dispatch(
         query_to_intent=query_to_intent,
         intent_classification=intent_classification,
     )
+    # Plan 3 B2: Phase Policy is no longer contract-blind. When the routed skill's
+    # capability contract forbids SPL/MCP, the lifecycle schedule must not emit
+    # those lanes just because the intent family asked for them. Composition
+    # already vetoed the matching plan steps; this makes the two surfaces agree
+    # instead of disagreeing silently. Capability only fails closed here - it is
+    # never widened, and the MCP gate/HIL/RBAC/validator remain authoritative.
+    compatibility = resolve_capability_compatibility(
+        routed_skill=str((routed or {}).get("skill") or "") or None,
+        intent_family=family,
+        skill_contract=skill_contract_for(str((routed or {}).get("skill") or "") or None),
+    )
+    stage_schedule = _apply_capability_constraints(stage_schedule, compatibility)
     include_pre_mcp = PipelineStage.pre_spl_mcp_discovery in stage_schedule
     llm_hops = _build_llm_hops(
         request_mode=request_mode,
