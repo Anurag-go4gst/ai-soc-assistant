@@ -386,9 +386,53 @@ With dispatch-v2 forced off so the compiler could activate (7 of 9 composed prob
 flag ON produced **zero** schedule differences. `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED`
 remains default **false**; the evidence supports no default change.
 
-The evaluation surfaced a more important inconsistency: on two probes the EvidencePlan
-booleans say `needs_spl=True` while the composed ResourcePlan carries only `narration` (or
-only a contract-blocked `mcp_execution`). Plan-derived scheduling concludes "nothing
-schedulable" while predicate-derived scheduling builds a full SPL lane. The downgrade to
-legacy currently masks the disagreement; under a compiler-authoritative model it would
-become dropped work. Recorded as a known gap for the phase-contract plan.
+The evaluation surfaced a more important inconsistency. Two probes downgraded with
+`no_schedulable_step`; end-to-end tracing dispositioned them differently:
+
+- **The alert-summary probe was a probe artifact and is retracted.** Its harness forced
+  `routed_skill="alert_summary"`; the real router sends that query to `attack_discovery`,
+  where the plan is consistent and no contradiction exists. The locked alert-summary/no-SPL
+  boundary is intact and enforced by `canonical_answer_mode_policy`'s
+  `alert_summary_spl_contradiction` rule, which keys on intent family.
+- **The OT hunt probe is a real, router-reachable `ROUTE_INTENT_CONTRADICTION`**, with a
+  secondary `VALIDATION_POLICY_CONFLICT`. The keyword router matches no rule and falls back
+  to `knowledge_recall` at 0.2 confidence, whose contract forbids SPL and MCP, while the
+  intent classifier resolves `spl_generation_only`. Composition vetoed every matching step;
+  Phase Policy, being contract-blind, emitted the full SPL lane anyway.
+
+Measured across the 105-question golden set, 14 turns already sit in this contradiction
+class (8 `knowledge_recall`, 6 `alert_summary`, all with `spl_generation_only`), and **none
+of their accepted answers contains SPL** — the lane ran and contributed nothing. Closed by
+the capability compatibility contract below; the router over-capture itself is deferred to a
+separate evaluation.
+
+### B2 — routed-skill × intent-family capability compatibility
+
+The two surfaces now resolve capability from one contract
+(`app/chat/skill_intent_compatibility.py`) instead of disagreeing silently. It classifies a
+`routed_skill × intent_family` pair as `COMPATIBLE`, `CAPABILITY_CONTRADICTION`,
+`PROTECTED_CONTRADICTION` (the pre-existing alert-summary rule keeps its own identity) or
+`UNRESOLVED`, and it **fails closed**: a contradiction never widens capability, so an intent
+that wants SPL cannot rescue itself past a contract that forbids it.
+
+Failing closed here constrains the **capability**, not the turn. The 14 golden turns already
+in this class answer correctly today without SPL, so denying the capability removes wasted
+work; erroring them would have regressed 14 accepted answers for no safety gain.
+
+Phase Policy is no longer contract-blind — `_apply_capability_constraints` drops SPL/MCP
+lanes the resolved contract forbids, and can only ever remove stages, never add one.
+Capability lookup delegates to the composer's own `_skill_permits`, so both surfaces answer
+"does this skill allow SPL?" from a single implementation rather than two copies. Composer
+and validator vetoes remain in place as defense-in-depth, and the MCP execution gate, HIL,
+RBAC and SPL validator are untouched.
+
+### Deferred: `UNDERSTANDING_ROUTER_ON_LOW_CONFIDENCE`
+
+Not approved and not implemented. The keyword router's unmatched default is
+`knowledge_recall` at 0.2 confidence, which is what manufactures the contradiction class.
+Measured: **99/105** golden questions hit that default, and **91 of those 99** receive a
+different route from the understanding router (`attack_discovery` 83, `alert_summary` 8,
+`knowledge_recall` 8). The hypothesis to test — keep the keyword route when a rule matches
+with sufficient confidence, otherwise use the existing deterministic understanding-router
+result — would change routing for ~94% of the golden set and therefore requires its own
+OFF/ON routing matrix plus parity and quality evaluation before adoption.
