@@ -22,11 +22,18 @@ Complexity bonus (out-of-registry / investigation-shaped) adds up to +50s on top
 | Hop | Role / entry | Hard cap | Reserve rule | Skipped when |
 |-----|----------------|----------|--------------|--------------|
 | Intent advisor | `intent_advisor` sidecar | 2s on frozen T0 rows; else `hop_reserve_seconds` | `AI_SOC_LLM_INTENT_ADVISOR_RESERVE_SECONDS` must remain before start | Guided route locked; budget exhausted |
-| Resource planner | `llm_plan_bridge` | 20s (`_BRIDGE_TIMEOUT_SECONDS_CAP`) | Remaining ≥ 20s + composer reserve (item 1.3) | Flags off; budget `<` bridge + synthesis reserve → `skipped:budget` |
+| Resource planner | ~~`llm_plan_bridge`~~ **retired 2026-08-11** | — | — | Always: canonical planning is deterministic; there is no planning-model hop |
 | SPL plan compiler | `spl_detection_plan` sidecar | `AI_SOC_LLM_TIMEOUT_SECONDS` capped to remaining turn | Sidecar slot + `max_sidecar_calls` (default 2) | SPL not on path; relevance gate |
 | MITRE rationale / misc sidecars | various | Same sidecar cap | `TurnLlmBudget.sidecar_hop_blocked` | Role skip policy |
 | Final synthesis | `governed_composer` narration | `composer_reserve_seconds()` = min(timeout, remaining) | Must fit inside remaining turn after reserves | `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` off |
 | Guided investigation | `build_guided_turn_budget()` | `AI_SOC_GUIDED_LLM_TIMEOUT_SECONDS` | `max_narration_calls` from `AI_SOC_GUIDED_LLM_MAX_CALLS` | `AI_SOC_GUIDED_LLM_ENABLED` off |
+
+> **`AI_SOC_GUIDED_LLM_ENABLED` scope (2026-08-11, Plan 2 B1 = `RETIRE`).** This flag is now a
+> **budget/deadline control only** — it sizes the guided turn budget and narration caps. It does
+> **not** gate any planning-model call, because the imperative guided-hybrid LLM proposer was
+> retired; guided planning is deterministic on every posture of this flag. Any older text
+> implying it "enables guided LLM planning" is wrong. For the same reason the dispatch-step
+> label `guided_investigation_plan_llm` no longer denotes a model hop and is not emitted.
 
 ## Skip order under pressure (deterministic)
 

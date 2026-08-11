@@ -20,6 +20,17 @@
 > So "MCP discovery never runs" is wrong, and "the discovery loop runs" is also wrong. The
 > accurate statement is: *the legacy multi-hop loop is fenced; bounded pre-SPL discovery runs
 > under dispatch-v2.* Gated execution via `evaluate_mcp_execution` is unaffected either way.
+>
+> **Update (2026-08-11, Plan 2 B1 = `RETIRE`).** The fenced lane is no longer merely unreachable:
+> its unreachable call sites were removed (`55ae6a7`). `graph_node_evidence_planning` remains the
+> evidence loop's only initializer and still fails closed under canonical mode, so `loop_initialized`
+> is permanently false on a canonical turn. **`MAX_MCP_HOPS` was deliberately kept**, because it is
+> *not* inert: it still bounds recipe call budgets at `evidence_loop.py:639`. Read it as a recipe
+> budget bound, not as live hop semantics on `/chat`. The retired LLM planning rails (inline bridge,
+> discard-only shadow runner, imperative guided-hybrid proposer) are gone as planning authorities;
+> deterministic guided dispatch, validators and evidence collection remain. Bounded pre-SPL
+> discovery under dispatch-v2 is untouched and stays live — it is a different mechanism from the
+> retired legacy loop, and the two must not be conflated.
 
 
 **Status:** Dev-facing reference for intent → MCP tool routing on the existing evidence-loop spine.  

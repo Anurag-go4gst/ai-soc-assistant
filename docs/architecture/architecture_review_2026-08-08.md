@@ -261,3 +261,60 @@ Two lessons worth keeping:
   host with no reachable database: persistence failed closed, planning never reached `planned`,
   and the run took a much shorter path through the graph. The same probe against a live database
   returned 16,384. A reachable database is part of the measurement, not an optimisation of it.
+
+---
+
+## Plan 2 outcomes (2026-08-11)
+
+Two decisions were taken after this review and are now implemented. Both were user/COE gates;
+this section records what changed, not the deliberation (see
+`plans/2026-08-10_1103_architecture-resource-plan-execution-and-adaptive-planning.md`).
+
+### B1 — planning/discovery posture: `RETIRE`
+
+Canonical plan creation is deterministic and stays that way. The three fragmented LLM planning
+rails were retired as planning authorities: the fenced inline `llm_plan_bridge`, the discard-only
+shadow planner (its trace already hard-blocked promotion), and the imperative guided-hybrid
+`propose_investigation_plan_llm` proposer. What was **kept**: deterministic guided dispatch, its
+validators and evidence collection; the four advisory Resource Planner specialists; and live
+bounded pre-SPL MCP discovery under dispatch-v2. What was **kept for a stated reason**:
+`MAX_MCP_HOPS`, which still bounds recipe call budgets and was therefore not deletable; and
+`AI_SOC_GUIDED_LLM_ENABLED`, now scoped to budget/deadline only with no planning-call gate.
+
+Retiring the proposer surfaced a real limitation, recorded rather than papered over: deterministic
+guided planning had no round-varying input, so a second refinement round was an idempotent no-op.
+No heuristic was added to fake one.
+
+### Resource Planner topology and decision records
+
+`resource_planner_graph_edges()` no longer unions documented topology into its own answer — it
+returns runtime-derived edges (builder fixed edges, mapped conditional destinations, dynamic
+`Send` fan-out) and reconciles the documented set by exact equality. The union had been masking
+two fabricated edges through the orphan `route_setup`, which was proven unreachable and removed.
+Every decision record's declared inputs/outputs was validated against real state channels and
+then corrected to what the node actually reads and writes; trace-only nodes carry empty lists.
+Refs remain descriptive — nothing consumes them for scheduling, and they must not become a
+dataflow authority.
+
+### C0 — ResourcePlan order semantics: `EXECUTION-DRIVEN`, default off
+
+Measured first: reversing a composed plan's steps changed `step_walk_order` but left the dispatch
+schedule byte-identical, so step order was lineage, not authority.
+
+The execution contract now exists on the live `ResourcePlan` — one optional typed `execution`
+block per step carrying dependencies, parallel group, produced/required evidence keys, a failover
+target and bounded attempts — with validation that rejects cycles, dangling dependencies, unknown
+evidence keys, invalid fallback targets, and any retry on a side-effecting step. A pure compiler
+turns a validated contract into the executor's existing hook schedule, and typed handoffs make
+each stage's inputs explicit, including the rule that only approved, non-empty
+`spl_validation.normalized_spl` satisfies the MCP gate.
+
+Activation is `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED`, **default false**. Flag-off returns the
+fixed predicate schedule before any execution-contract code runs, so parity is structural. Where
+dispatch-v2 has already projected a schedule, that projection wins and the execution-driven path
+stands down. Flag-on today changes *which component holds ordering authority*, not the order any
+turn runs: across a 12-probe tier/intent/order matrix the compiled schedule equalled the fixed
+schedule on every composed plan, in both composed and reversed step order.
+
+Guided-hybrid and session-SPL-refine dispatch bypass this seam entirely, so the execution-driven
+path never applies to them.
