@@ -258,14 +258,44 @@ If B1's evidence supports changing the flag default, record the proposal and **S
   - **Commit boundary:** Inventory tests only; no rewiring.
   - **Stop:** Adopting the LangGraph branches would change production-default execution authority — surface as an architecture decision instead of folding it into a later item.
 
-- [ ] **B0 — Wire bounded guided refinement onto real gap state**
+- [x] **B0 — Wire bounded guided refinement onto real gap state**
   - **Do:** Replace the dead gate; do not redesign the mechanism. Build an `ExecutionContract` from `validation.validated_resource_plan` and drive Plan 2's `refinement_decision(contract, previous_produced_keys=…, current_produced_keys=…, rounds_used=…, max_rounds=MAX_GUIDED_INVESTIGATION_ROUNDS)` from the real produced-evidence delta returned by `collect_guided_hybrid_evidence`, replacing `validated_plan.refinement_recommended` as the round gate. Add the plan-fingerprint stop that Plan 2's mechanism does not have: re-plan, compare fingerprints, stop when the next deterministic plan equals the previous one. Reuse the existing idempotency machinery (`plan_step_operation_identity`, `HookReplayEnvelope`, `build_safe_catalog_fingerprint`) so completed steps never rerun. Emit a trace reason for every outcome: `new_evidence_with_open_gap`, `no_new_evidence`, `evidence_satisfied`, `round_bound_reached`, `plan_unchanged`. No retired LLM proposer, no `collected_count`-only heuristic, no extra round merely because evidence is empty.
   - **Why:** The refinement mechanism exists and is tested but is unreachable, so guided investigation is permanently one-round — the capability gap B2-R2 recorded and C0 deferred here.
   - **Surfaces:** `backend/app/chat/pipeline.py` (guided-hybrid loop); `backend/app/chat/guided_hybrid_refinement.py`; `backend/app/planner/resource_plan_execution_handoffs.py` (consumed, not modified); `backend/app/tests/test_guided_bounded_refinement.py` (**NEW**).
   - **Depends on:** A1.
   - **Failing-first / observation:** Write the round matrix first — it must prove today's loop is one-round before the wiring makes multi-round possible.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_guided_bounded_refinement.py app/tests/test_guided_hybrid_refinement.py app/tests/test_guided_hybrid_collection.py app/tests/test_resource_plan_execution_handoffs.py app/tests/test_execution_idempotency.py -q`; manifest `--check`.
-  - **Evidence:** _(round matrix: new evidence changes next plan · unresolved gap adds a genuinely new step · identical fingerprint stops · no new evidence stops · cap reached stops · side effects never repeat · empty evidence buys no round; runtime-scope note; pytest/manifest/invariant, commit)_
+  - **Evidence:** **COMPLETE 2026-08-11; runtime commit `5426956`.** New `backend/app/tests/test_guided_bounded_refinement.py` (21 tests); helper functions added to `guided_hybrid_refinement.py`; the loop gate in `_run_guided_hybrid_dispatch` swapped. Failing-first: the suite failed at collection (absent symbols), then **20 passed / 1 failed** with the helper implemented but the loop unwired — the single failure being the wiring pin — then 21 green after the swap.
+
+    **What was actually wrong:** the loop gated on `validated_plan.refinement_recommended`, hardcoded `False` at `investigation_plan_builder.py:159` since the proposer retired, so `refinement_cap_reached` / `should_run_refinement_pass` could never fire. The cap was unreachable rather than enforced.
+
+    **Round matrix (all pinned by test):**
+
+    | Situation | Outcome | Reason |
+    |---|---|---|
+    | New produced keys, reachable gap remains, plan differs | **refine** | `new_evidence_with_open_gap` |
+    | Produced-key set unchanged | stop | `no_new_evidence` |
+    | New evidence closes every reachable gap | stop | `evidence_satisfied` |
+    | New evidence but the re-plan fingerprint is identical | stop | `plan_unchanged` |
+    | `rounds_used >= MAX_GUIDED_INVESTIGATION_ROUNDS` | stop | `round_bound_reached` |
+    | No execution contract | stop | `no_execution_contract` |
+    | Empty channels only (`[]`, `{}`) | stop | counted as *not produced*, so empty evidence buys no round |
+
+    **Cap precedence is explicit:** the round bound is evaluated **first**, and a test drives `rounds_used = cap + 5` with new evidence and a changed fingerprint to prove no signal can talk past it. `MAX_GUIDED_INVESTIGATION_ROUNDS` stays 3.
+
+    **Round-varying input is real.** `produced_evidence_keys_from_state(contract, state)` reads the contract's `produces_evidence_keys` against actual state channels, treating empty containers as unpopulated. The contract comes from the guided rail's own `validated_resource_plan` — the source confirmed during research, so nothing was invented to make the wiring fit.
+
+    **Fingerprint deliberately excludes status and provenance** (`step_id:purpose:resource_id` only): a re-plan that changes only bookkeeping is the same plan and must not buy a round.
+
+    **Side effects never repeat:** collection continues through the existing `HookReplayEnvelope` / `plan_step_operation_identity` / `build_safe_catalog_fingerprint` machinery; B0 added no retry and no new execution path.
+
+    **Trace:** `plan_dispatch_trace.guided_refinement_reasons` records why every round ran or stopped, in order — so a one-round turn is now *explained* rather than merely short. This is a key inside the existing trace dict, not a new state channel.
+
+    **Runtime-scope note (recorded, not chased):** guided-hybrid is imperative-only — A1's `test_graph_has_no_guided_hybrid_branch` pins that the graph has no such branch — so "both runtimes" means where guided actually runs. No graph coverage was manufactured for a branch that does not exist.
+
+    **Governance:** tests assert the module contains no `propose_investigation_plan_llm`, `run_resource_plan_shadow`, `llm_plan_bridge` or `collected_count`, and imports nothing from `app.llm` / `app.connectors` / `app.mcp` / `httpx` / `requests`.
+
+    **Gates.** Item slice **74 passed**; broader guided sweep **216 passed, 4822 deselected**. Manifest `protected artifacts unchanged (13 checked)`. Invariant **7/7 PASS**.
   - **Invariant / manifest:** Full invariant check; no LLM planning authority, no MCP/HIL/RBAC change, cap remains hard.
   - **Commit boundary:** Refinement wiring only.
   - **Stop:** The contract source cannot carry collection targets without inventing a mapping; a round could repeat a side effect; the cap could be exceeded.
@@ -341,6 +371,7 @@ Tests marked **NEW** are created in their owning item. A0's and B1's observation
 | 2026-08-11 | Research found the graph spine bypasses the seam on `rag_only`, `workflow_spl` and `non_planned_finalize`; only `composed_dispatch` reaches `execute_plan_dispatch`, and no guided-hybrid branch exists in the graph. This materially expands the brief's assumed A1 scope. |
 | 2026-08-11 | **User decision: A1 is inventory + structural test only.** No rewiring of `rag_only`, `workflow_spl`, guided-hybrid or session-refine in A1; each bypass is classified `ADOPT_CANDIDATE` / `KEEP_SEPARATE` / `DECISION_REQUIRED`, and adoption that would change production-default execution authority stops for an architecture decision. |
 | 2026-08-11 | **Correction to a Plan 2 note:** Plan 2's C0 evidence recorded "guided composes no ResourcePlan". That was a test-harness artifact (`compose_resource_plan_testutil.py:31-35`); production composes guided steps, and guided-hybrid holds a real `validated_resource_plan`. B0's contract source therefore exists and needs no invention. |
+| 2026-08-11 | **B0 COMPLETE at `5426956` — guided investigation is no longer permanently one-round.** The dead gate (`refinement_recommended`, hardcoded False since the proposer retired) is replaced by an evidence-driven decision over produced-key deltas from the guided rail's own `validated_resource_plan`, plus a new plan-fingerprint stop so an identical re-plan never runs. Cap is checked first and stays 3, so no evidence signal can talk past it; empty channels count as unproduced, so empty evidence buys no round; side-effect replay protection is the existing `HookReplayEnvelope` machinery, unchanged. Every outcome is traced via `plan_dispatch_trace.guided_refinement_reasons`. Guided sweep 216 passed. |
 | 2026-08-11 | **A1 COMPLETE at `97b43dd` — inventory only, nothing rewired.** Ten production-reachable paths classified: 2 `SEAM`, 4 `DECISION_REQUIRED` (`graph:rag_only`, `graph:workflow_spl`, `imperative:guided_hybrid`, `imperative:session_spl_refine`), 4 `KEEP_SEPARATE`. **New finding beyond the planned candidate list:** `_run_legacy_dispatch_fallback` (`pipeline.py:5744`) does not merely bypass the seam — it holds its own `hook_nodes` map and executes the v2 projection itself, i.e. a **second execution engine**, not just a scheduler bypass. Strongest adopt candidate on merit, but classified `DECISION_REQUIRED` because collapsing it changes production-default behavior. All four `DECISION_REQUIRED` entries would change production-default execution authority, which is the item's stop condition, so none was adopted. 14 structural pins added; proven real by two live mutations (second compiler entry point; graph guided-hybrid branch), each detected and reverted. |
 | 2026-08-11 | **A0 DECIDED: `PHASE_POLICY_PLUS_RESOURCE_PLAN_SCHEDULING`, approved by Anurag at `2026-08-11T15:01:05Z`.** The "other named model" branch: neither producer is authoritative in its current form. Dispatch-v2's stage logic becomes **Phase Policy** (system-owned lifecycle/answer-shape phases), the ResourcePlan compiler keeps evidence-work scheduling, and a deterministic merge seam is the single producer of the runnable schedule. `predicate_hook_disposition: SYSTEM_OWNED_LIFECYCLE_HOOKS` — `spl_postprocessor` and `reference_finalize` never become plan steps, which closes the measured stage-drop risk by construction rather than by parity work. Dispatch-v2 is not disabled; a compatibility adapter over its `stage_schedule` is permitted as a migration mechanism only. Legacy stays fallback-only. Flag remains default false; no production-default scheduling change authorized. **Decided, not built:** no remaining Plan 3 item constructs the phase contract, so the target lands in a follow-up plan and G0 must say so. |
 | 2026-08-11 | Plan self-consistency fix: the starting-architecture **H0 reachability** row still asserted that the enclosing `or` does not protect the unguarded read. H0 execution disproved that. Row corrected in place so the plan does not contradict its own evidence. |
