@@ -823,14 +823,36 @@ Run `.claude/skills/invariant-check/SKILL.md` manually before every runtime comm
   - **Commit boundary:** Contract/validation only.
   - **Stop:** C0 does not resolve V1/V2 posture; contract permits unbounded/cyclic/retrying side effects.
 
-- [ ] **C1-E2 — EXECUTION-DRIVEN: build a pure schedule compiler**
+- [x] **C1-E2 — EXECUTION-DRIVEN: build a pure schedule compiler**
   - **Do:** Compile validated step dependencies into deterministic waves/stages without calling workers. Map purposes to existing governed hooks, preserve stable tie-breaking, prevent duplicate execution, and fall back to the fixed schedule for absent/invalid/unsupported contracts. No connector/LLM call.
   - **Why:** Scheduling logic must be independently testable before live wiring.
   - **Surfaces:** `executor.py` or a new pure scheduler module; dormant scheduler reused only if authority boundaries match; `test_resource_plan_execution_scheduler.py` (**NEW**).
   - **Depends on:** C1-E1.
   - **Failing-first / observation:** Reorder, parallel, blocked, cycle, duplicate, unsupported-purpose, and fallback cases first.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_plan_execution_scheduler.py app/tests/test_orchestration_scheduler.py app/tests/test_resource_plan_step_dispatch.py app/tests/test_planner_executor.py -q`; manifest check.
-  - **Evidence:** _(schedule matrix, deterministic order, fallback, no-I/O proof, pytest/manifest/invariant, commit)_
+  - **Evidence:** **COMPLETE 2026-08-11; runtime commit `4b10fc3`.** New `backend/app/planner/resource_plan_execution_scheduler.py` + `backend/app/tests/test_resource_plan_execution_scheduler.py` (25 tests). Dormant `orchestration_scheduler.py` was **not** reused: its `schedule_next` is a per-call recipe loop over `McpCallRecord` outcomes bound to the fenced recipe rail, a different unit of work from stage hooks, so reusing it would import fenced authority for no gain. Failing-first: all 25 tests were written before the module and failed at collection (`ModuleNotFoundError`); after implementation **24 passed, 1 failed**, the single failure being a defect in the *new* test (it substring-scanned source and matched `DispatchHooks` in the docstring) — rewritten as an AST import scan, which is strictly stronger. No existing test was touched.
+
+    **Schedule matrix (compiled hooks by plan content):**
+
+    | Plan content | Compiled hooks |
+    |---|---|
+    | SPL + MCP + narration | `workflow_spl`, `spl_source_resolve`, `execution` |
+    | RAG + narration (no SPL, no MCP) | `prepare_rag_only`, `rag_early` |
+    | RAG + SPL + MCP | `workflow_spl`, `rag_early`, `spl_source_resolve`, `execution` |
+    | SPL blocked + MCP, no workflow plan | `ensure_workflow_plan`, `execution` |
+    | SPL blocked + MCP, workflow plan present | `execution` |
+    | RAG blocked + SPL + MCP | `workflow_spl`, `spl_source_resolve`, `execution` |
+    | MCP step `blocked_policy` | still ends at `execution` — the stage node owns the gate and the honest blocked outcome; the step maps to no hook |
+
+    **Deterministic order, and order authority stays with the lane, not the plan.** The governed sequence is fixed in code (`_compile_hooks`), so plan content *selects* hooks and never reorders them: a plan composed `[mcp, spl]` compiles identically to `[spl, mcp]`, and `spl_source_resolve` still precedes `execution`; an explicitly declared empty `depends_on` on the MCP step cannot place `execution` before `workflow_spl`. Tie-breaking inside a dependency wave follows composed order and is stable across repeated compiles (`[rag, cve, mitre]` both runs). Each hook is emitted at most once even for plans carrying two SPL and two MCP steps. Parallelism is exposed only as read-only contract `waves`; the hook list itself is never parallelized.
+
+    **Fallback:** `(None, "no_resource_plan")`, `(None, "empty_resource_plan")`, `(None, "contract_invalid:unknown_dependency")`, `(None, "unsupported_purpose:teleport_the_analyst")`, and `(None, "no_schedulable_step")` for a plan whose only step is narration. Every downgrade leaves the caller on the existing fixed schedule.
+
+    **Parity with the current fixed schedule** is asserted directly, not asserted-by-description: for four live composed probes (`Which users have excessive failed logins?`, `Generate SPL for failed logins`, `What is our password policy for contractor accounts?`, `Which hosts are generating the most SMB traffic?`) the compiled `hooks` list equals `_legacy_predicate_dispatch_schedule` computed on the same state, including the `spl_generation` probe whose MCP step is composition-blocked by skill contract.
+
+    **No-I/O proof:** AST scan asserts no `app.config`, `app.connectors`, `app.mcp`, `app.llm`, `httpx`, or `requests` import, and that neither `DispatchHooks` nor `_HOOK_BY_NAME` is imported — the compiler names hooks and never holds a callable. `SCHEDULABLE_HOOKS ⊆ executor._HOOK_BY_NAME` is asserted so the vocabulary cannot drift. A separate test proves compiling does not mutate the plan (`model_dump()` identical before/after). `grep` confirms zero production importers.
+
+    **Gates.** Exact Verify slice: **64 passed** (`test_resource_plan_execution_scheduler.py`, `test_orchestration_scheduler.py`, `test_resource_plan_step_dispatch.py`, `test_planner_executor.py`). Manifest `protected artifacts unchanged (13 checked)`. Invariant check **7/7 PASS** — no connector/LLM path, SPL-before-gate order pinned by test, `app/demo/` untouched, no secrets, no state read or write, no flag read (the C0-approved flag arrives in C1-E4), no test weakened.
   - **Invariant / manifest:** Full invariant check.
   - **Commit boundary:** Pure scheduler only.
   - **Stop:** Scheduler must infer dependencies from node names/booleans; unsupported plan cannot fall back exactly.
