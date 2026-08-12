@@ -697,7 +697,7 @@ R2.1's hint correction is applied in the working tree and improves every routing
 
 **Recommendation: RF-a**, with the two test edits declared as de-hardcoding rather than weakening, and each artifact diff recorded row-by-row before refresh. Not taken — this is a frozen-baseline decision and stops here.
 
-### `CROSSWALK_DERIVED_ARTIFACT_REFRESH` — OPEN, blocks G1 closure (raised 2026-08-12)
+### `CROSSWALK_DERIVED_ARTIFACT_REFRESH` — **RESOLVED: user approved `CW-a` 2026-08-12. Applied as a derived-artifact synchronization, not a baseline refresh.**
 
 The governance regression umbrella fails at its **second section**: `build_soc_capability_crosswalk.py --check` → `REGRESSION FAILED: soc capability crosswalk stale`. `docs/evals/soc_capability_crosswalk.json` is a fourth artifact derived from `legacy_router_intent_hint`, and it was **not** in the approved `RF-a` set — because it was not known then. Nothing has been absorbed: the file was regenerated only to measure, then reverted, and the working tree is clean.
 
@@ -717,6 +717,18 @@ The governance regression umbrella fails at its **second section**: `build_soc_c
 - **CW-b — revert R2.1.** Disproportionate: this is a derived report, not a behavior contract.
 
 **Recommendation: CW-a.** Same reasoning and same evidence shape as the coverage-matrix refresh the user already approved inside `RF-a`; the artifact has no gating semantics of its own beyond staleness.
+
+**Applied and verified 2026-08-12.** Regenerated through its canonical generator `scripts/build_soc_capability_crosswalk.py`. Five assertions, all passed:
+
+1. **key/row set unchanged** — 4631 leaves, `question_rows` 105 → 105;
+2. **leaf diffs = 10**: 9 × `live_execution_skill` + `generated_at`; **no other leaf changed**;
+3. the 9 rows are **exactly** the approved R2.1 set — `q0.q001/005/045/058/084/085/090/091/105`, each `alert_summary`/`knowledge_recall` → `attack_discovery`;
+4. **no capability, execution-eligibility or validation field changed** (`execution_eligib*`, `approved`, `permit`, `allow`, `capab`, `mcp`, `spl_status`, `spl_template_status`, `runtime_support_status`, `validation_status` — all clean);
+5. **no golden, protected baseline or governed registry touched**; protected manifest `14 checked, unchanged`.
+
+Recorded as a **derived-artifact synchronization**: the crosswalk carries no independent contract, it restates `legacy_router_intent_hint` under `live_execution_skill`, so leaving it stale would have meant a generated report disagreeing with the registry it is generated from. It is *not* a baseline refresh, and nothing about evaluation policy changed.
+
+**Verification-script correction, recorded for honesty:** the first check run reported `row mismatch` and looked like a second STOP. The data was fine — my assertion read `question_ref`, which does not exist on `question_rows`; the field is `question_id`. Fixed the check, not the data. Every substantive assertion (key set, leaf count, no-other-leaf) had already passed on that same run.
 
 ### `ROUTING_CHANGE_FORECAST_METHOD` — process finding, adopt for any future routing change
 
