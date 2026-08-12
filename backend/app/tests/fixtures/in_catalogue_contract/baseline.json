@@ -2861,7 +2861,7 @@
       "match_path": "exact_105_plus_use_case_catalog",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
-      "route": "attack_discovery",
+      "route": "spl_generation",
       "severity_label": "P3 Medium",
       "spl_approved": true
     },
@@ -3170,39 +3170,51 @@
     },
     "cisco50:cisco.ot.030": {
       "analyst_enabled_sections": [
-        "draft_spl_preview"
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
       ],
       "answer_shape": "hunt",
       "contract_answer_mode": "live_investigation",
-      "enabled_sections": [],
-      "execution_eligible": null,
-      "execution_status": "skipped",
-      "human_review_required": false,
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
       "mapped_question_ref": "cisco.ot.030",
       "match_path": "exact_105_plus_use_case_catalog",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
-      "route": "knowledge_recall",
+      "route": "spl_generation",
       "severity_label": "Not assigned from this question alone",
-      "spl_approved": null
+      "spl_approved": true
     },
     "cisco50:cisco.perim.001": {
       "analyst_enabled_sections": [
-        "draft_spl_preview"
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
       ],
       "answer_shape": "hunt",
       "contract_answer_mode": "live_investigation",
-      "enabled_sections": [],
-      "execution_eligible": null,
-      "execution_status": "skipped",
-      "human_review_required": false,
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
       "mapped_question_ref": "cisco.perim.001",
       "match_path": "exact_105_plus_use_case_catalog",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
-      "route": "alert_summary",
+      "route": "spl_generation",
       "severity_label": "Not assigned from this question alone",
-      "spl_approved": null
+      "spl_approved": true
     },
     "cisco50:cisco.perim.002": {
       "analyst_enabled_sections": [
@@ -3227,21 +3239,27 @@
     },
     "cisco50:cisco.perim.003": {
       "analyst_enabled_sections": [
-        "draft_spl_preview"
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
       ],
       "answer_shape": "hunt",
       "contract_answer_mode": "live_investigation",
-      "enabled_sections": [],
-      "execution_eligible": null,
-      "execution_status": "skipped",
-      "human_review_required": false,
+      "enabled_sections": [
+        "analyst_action_guidance",
+        "severity_assessment",
+        "spl_artifact"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
       "mapped_question_ref": "cisco.perim.003",
       "match_path": "exact_105_plus_use_case_catalog",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
-      "route": "knowledge_recall",
+      "route": "spl_generation",
       "severity_label": "Not assigned from this question alone",
-      "spl_approved": null
+      "spl_approved": true
     },
     "cisco50:cisco.perim.004": {
       "analyst_enabled_sections": [
@@ -3339,7 +3357,7 @@
       "match_path": "exact_105_plus_use_case_catalog",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
-      "route": "attack_discovery",
+      "route": "spl_generation",
       "severity_label": "P3 Medium",
       "spl_approved": true
     },
