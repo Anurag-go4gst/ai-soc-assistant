@@ -274,17 +274,25 @@ def write_operation_map_report(
 def write_all_question_maps(
     *,
     taxonomy_path: Path | None = None,
+    runtime_path: Path | None = None,
+    report_path: Path | None = None,
 ) -> tuple[Path, Path]:
-    """Regenerate S6.1 runtime map and S6.2 report from one builder pass."""
+    """Regenerate S6.1 runtime map and S6.2 report from one builder pass.
+
+    Both targets are overridable so callers that only need to exercise the writer — tests, above all
+    — can direct it somewhere disposable. Writing the committed artifacts is a deliberate act; it
+    should not be the only thing this function can do.
+    """
     runtime_payload = build_question_runtime_map(taxonomy_path=taxonomy_path)
-    runtime_path = OUTPUT_PATH
-    runtime_path.parent.mkdir(parents=True, exist_ok=True)
-    runtime_path.write_text(json.dumps(runtime_payload, indent=2) + "\n", encoding="utf-8")
-    report_path = write_operation_map_report(
+    target = runtime_path or OUTPUT_PATH
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(runtime_payload, indent=2) + "\n", encoding="utf-8")
+    written_report = write_operation_map_report(
+        report_path,
         taxonomy_path=taxonomy_path,
         runtime_payload=runtime_payload,
     )
-    return runtime_path, report_path
+    return target, written_report
 
 
 def main() -> int:

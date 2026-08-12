@@ -302,11 +302,11 @@ Phase boundaries (full-gate checkpoints): after **A5**, after **B6**, after **C4
   - **Depends on:** A2
   - **Evidence:** _(fill when done)_
 
-- [ ] **A3** — Isolate the destructive test
+- [x] **A3** — Isolate the destructive test
   - **Do:** Change `tools/coverage_authoring/tests/test_question_operation_map_stage3l_s6_2.py:37-56` to write into `tmp_path` instead of the real `OUTPUT_PATH`; remove the snapshot/restore `finally`.
   - **Verify:** `python3 -m pytest tools/coverage_authoring/tests -q` passes; assert during the run that `git status --porcelain backend/app/coverage/` stays empty; kill-mid-test simulation leaves the committed file intact.
   - **Depends on:** A2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-08-12. `write_all_question_maps` gained optional `runtime_path` / `report_path` targets — writing the committed artifacts is now a deliberate act rather than the only thing the function can do. `test_emit_maps_writes_both_artifacts` writes to `tmp_path`, audits via `audit_operation_map(runtime_path=…, report_path=…)` (which already accepted paths), and **asserts the committed map is byte-unchanged**; the snapshot/restore `finally` is deleted. Added `test_emit_maps_cannot_touch_committed_artifacts_when_it_fails`, which monkeypatches the report writer to raise mid-run and proves the interrupted case the old restore could not survive. `python3 -m pytest tools/coverage_authoring/tests -q` → **`56 passed`**; `git status --porcelain backend/app/coverage/ docs/stage3l_s6_105_question_operation_map.json` **empty** after the full suite. Swept the repo: the only remaining bare `write_all_question_maps()` is the CLI at `coverage_drafter.py:212`, which is the intentional authoring path.
 
 - [ ] **A4** — Prove no unrelated map field moved, and no consumer broke
   - **Do:** Field-by-field diff of regenerated vs committed across all 105 rows and all top-level keys. Run every MITRE consumer identified in the audit.
