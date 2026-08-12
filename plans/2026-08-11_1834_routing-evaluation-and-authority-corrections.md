@@ -65,12 +65,15 @@ Production **routing** remains deterministic and governed — no LLM enters a ro
 | Gate | Item | Nature |
 |---|---|---|
 | `ROUTING_LABEL_AMBIGUITY` | R1.3 | STOP if a row cannot be labelled without first deciding an architecture question (e.g. "is a notable-index lookup an `alert_summary` capability?"). Record the row as `ambiguous` with options; do not invent a label. |
+| `ADVISORY_PROMOTION_REQUIRED_CLASS` | D3.0 | STOP and present the class if some query class genuinely requires advisory promotion (an existing test asserts it, or a measured class routes correctly only via promotion), or if the smallest correction would need a new flag, classifier, or any widening of LLM authority. |
 | `D2_FALLBACK_RULE` | R3.0 | STOP if the narrowest safe rule cannot be expressed from existing deterministic signals and would require a new classifier, a new flag, or an LLM hop. |
 | `D1_SKILL_OWNERSHIP` | R2.0 | STOP with options if correcting a pattern class requires deciding which skill *owns* a capability (all `alert_summary` rows are presumed to be in this class until proven otherwise). |
 
 ## Dependency order
 
-`P0 → R1.1 → R1.2 → R1.3 (STOP on ambiguity) → R1.4 → R1.5 → R1.6 → R3.0 (STOP on rule) → R3.1 → R3.2 → R2.0 (STOP on ownership) → R2.1 → R2.2 → E0 → G0 → G1`
+`P0 → R1.1 → R1.2 → R1.3 (STOP on ambiguity) → R1.4 → R1.5 → R1.6 → D3.0 (STOP on required class) → D3.1 → D3.2 → R3.0 (STOP on rule) → R3.1 → R3.2 → R2.0 (STOP on ownership) → R2.1 → R2.2 → E0 → G0 → G1`
+
+**R3 may not start while the deterministic layer it modifies is not production-final.** D3 is a blocking routing-authority defect, inserted by user decision on 2026-08-12 (`D3-c`), not an optional observation.
 
 ## What this plan does NOT close
 
@@ -253,11 +256,40 @@ Stated up front so closure is not read as more than it is:
 
     This item existed separately from R2.1 precisely so a withheld golden-refresh approval could not leave the circularity in place indefinitely — and that separation paid off, since R2.1 is still gated on a decision.
 
+- [ ] **D3.0 — Determine the smallest correction to routing authority — STOP gate `ADVISORY_PROMOTION_REQUIRED_CLASS`**
+  - **Do:** No runtime change. (a) Add a **live arm** to `scripts/eval_routing_truth_set.py` (`--arm deterministic|live|both`) that additionally routes each row through `route_skill` — the production-final path — and reports `selected_by`, the deterministic-vs-live delta, and capability downgrade/upgrade per row, so every later claim states which layer it measured. (b) Classify all **10** measured degradations by mechanism, separating *capability downgrades* (`spl_generation → knowledge_recall/alert_summary`) from *lateral or widening* replacements. (c) Establish the smallest correction satisfying the user's contract: deterministic/query-understanding routing stays authoritative; the advisory may enrich or confirm but may **not** independently replace the authoritative route nor reduce required capabilities; registry-backed behavior unchanged; unsafe containment identical; **no new LLM authority**. Anchor it at the measured root cause — `_deterministic_uncertain` (`governance.py:397-414`) returns `True` for **every** `out_of_registry` row via the blanket `match_path in {"near_105_question","out_of_registry"}` clause, so a *reasoned* floor decision (e.g. `out_of_registry_detection_family_floor → spl_generation`) is classed "uncertain" and replaced at `governance.py:251`. (d) Predict the per-row effect on all **77** gating rows before implementing. (e) Enumerate every existing test that asserts a promotion occurs.
+  - **Why:** R3 modifies the deterministic layer. While that layer is not production-final on out-of-registry paths — exactly where D2 lives — an R3 measurement would forecast a layer the host does not obey.
+  - **Surfaces:** `scripts/eval_routing_truth_set.py` (live arm); plan Evidence + options table. No runtime file.
+  - **Depends on:** R1.6.
+  - **Failing-first / observation:** The live-arm evidence **is** the failing-first artifact and must be reproduced by the committed evaluator, not quoted from a scratch run: advisory selects the final route on **49/77**; **10** deterministic divergences; **10** degradations; **0** improvements.
+  - **STOP:** If preserving advisory promotion is genuinely required for some class of queries — an existing test asserts it, or a measured class routes correctly *only* via promotion — **stop and present that class with its rationale** before implementing. Also stop if the smallest correction would need a new flag, a new classifier, or any widening of LLM authority.
+  - **Verify:** `PYTHONPATH=backend:. python3 scripts/eval_routing_truth_set.py --arm both --json /tmp/plan4-d3-before.json` reproduces 49/77 · 10 · 10 · 0; options table records per-row predictions for all 77; the promotion-asserting test inventory is complete (`grep -rn "llm_advisory_validated\|apply_advisory_promotion" backend/app/tests`).
+  - **Evidence:** _(fill when done)_
+
+- [ ] **D3.1 — Restore deterministic finality by the smallest measured correction**
+  - **Do:** Implement exactly the D3.0 correction. It may only **narrow** when the advisory can replace a route; it may not add a capability, a flag, an authority, or a model call. Registry-backed paths must be untouched by construction (they already skip the advisory via `_qu_route_retains_authority`). The advisory keeps its enrich/confirm roles — `llm_assisted_semantic_normalized` agreement, warnings, candidate metadata, telemetry — none of which select a skill.
+  - **Why:** The documented invariant ("final route selection stays deterministic") and the runtime disagree; the runtime is what ships.
+  - **Surfaces:** `backend/app/routing/governance.py`; `backend/app/tests/test_advisory_route_authority.py` (NEW).
+  - **Depends on:** D3.0.
+  - **Failing-first / observation:** New tests must fail before the change on at least one capability-downgrade row (`rt.ot.002` `spl_generation → knowledge_recall`) and one non-downgrade replacement, and must pin that unsafe rows are unaffected. Record pre- and post-change output.
+  - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_advisory_route_authority.py app/tests/test_route_governance.py app/tests/test_skill_router.py app/tests/test_llm_intent_advisor.py -q`; `python3 scripts/freeze_execution_baseline.py --check --in /tmp/plan4-routing-baseline.json`; `/invariant-check` across the item's diff.
+  - **Evidence:** _(fill when done)_
+
+- [ ] **D3.2 — Measure D3 before/after on all 77 rows and accept or revert**
+  - **Do:** Re-run both arms and compare against the D3.0 before-state and the R1.5 baseline. **Acceptance, all required:** (1) **0** advisory-caused capability downgrades; (2) **no** previously-correct deterministic route becomes wrong; (3) unsafe containment **identical** (13/13, no row gains `execution_enabled`); (4) deterministic and live-arm routing differences **explicitly reported**, including any that remain. Revert if any condition fails. Run answer parity and the frozen probe gates as **secondary** regression evidence, labelled as such.
+  - **Why:** A routing-authority change is only acceptable against measurement on the same rows that exposed it.
+  - **Surfaces:** Plan Evidence; `/tmp` comparison artifacts.
+  - **Depends on:** D3.1.
+  - **Failing-first / observation:** Record the observed per-row delta against D3.0's prediction; an unpredicted change must be explained before acceptance, never absorbed.
+  - **Verify:** `PYTHONPATH=backend:. python3 scripts/eval_routing_truth_set.py --arm both --json /tmp/plan4-d3-after.json` plus an explicit diff against `/tmp/plan4-d3-before.json` and `docs/evals/routing_truth_set_baseline_v1.json`; `PYTHONPATH=backend:. python3 scripts/eval_routing_truth_set.py --check --baseline docs/evals/routing_truth_set_baseline_v1.json`; `TELEMETRY_MODE=none PYTHONPATH=backend:. python3 scripts/audit_reference_probes.py --check`; `PYTHONPATH=backend:. python3 scripts/eval_out_of_set_soc.py --check`; `PYTHONPATH=backend:. python3 scripts/run_production_parity_eval.py --out-dir /tmp/plan4-d3-parity --check` (secondary).
+  - **Evidence:** _(fill when done)_
+
 - [ ] **R3.0 — Decide the D2 rule — STOP gate `D2_FALLBACK_RULE`**
   - **Do:** Inventory the deterministic signals already available at the terminal fallback in `_route_out_of_registry` (the eight floors above it, `extract_query_signals`, `classify_answer_shape`, `detect_spl_artifact_request`, `_detection_family_match`, `is_unsafe_execution`, `soc_investigation_shaped`). For each of the 39 D2 rows, record which signals are present and which of the eight floors declined it and why. Propose the **narrowest** rule that rescues hunt/detection-shaped misses only. Record explicitly why a blanket `attack_discovery` default is rejected. **Disposition the non-hunt residue explicitly:** rows that keep `knowledge_recall @ 0.20 / tool_plan=["needs_clarification"]` after the fix — including rows where `knowledge_recall` is the *correct* skill but `0.20` and `needs_clarification` still misrepresent a confident answer downstream — must be either accepted with a written reason or covered by a second narrow rule. Leaving the residue unmentioned is not a disposition. **STOP** if the rule cannot be expressed from existing signals without a new classifier, a new flag, or an LLM hop.
 
     **Also required output — frozen-baseline collision forecast.** The 39 D2 rows overlap `docs/evals/intent_out_of_set_probes.json`, whose frozen baseline `intent_out_of_set_probes_baseline.json` sits in `PROTECTED["eval_baselines"]`, and R3.2's Verify runs `eval_out_of_set_soc.py --check`. The D2 fix is *designed* to change routes on exactly those rows. Before implementing, measure and record the predicted impact on that frozen baseline and on the reference probes (the reference-taxonomy floor fires before the new branch, so probes are expected safe — **prove it, do not assume it**). If any pinned row would change, that is a foreseen re-baseline decision surfaced **here**, for the user, not drift discovered at R3.2.
   - **Why:** Replacing a universal default with a different universal default trades one blunt instrument for another; the 39 rows are heterogeneous (hunt, guidance, out-of-scope, unsafe).
+  - **Uses the production-final route, not the deterministic floor.** D3 must be resolved and measured first; R3.0's per-row signal analysis, predictions and OFF/ON acceptance all read the **live arm** as the authority, with the deterministic arm reported alongside. Predicting against a layer the host overrides was the defect D3 exists to remove.
   - **Surfaces:** Plan Evidence + an options table; no runtime edit in this item.
   - **Depends on:** R1.5.
   - **Failing-first / observation:** Observation only. The rule must be stated with its predicted per-row effect on all 39 rows **before** implementation, so R3.2 can falsify it.
@@ -374,7 +406,7 @@ Tests marked **NEW** are created in their owning item. R3.0's and R2.0's observa
 
 ## Deferred decisions (recorded, not approved)
 
-### `D3_LLM_ADVISORY_HOLDS_FINAL_ROUTE` — OPEN, blocks R3.0 framing (raised at R1.5, 2026-08-12)
+### `D3_LLM_ADVISORY_HOLDS_FINAL_ROUTE` — **DECIDED `D3-c` by user, 2026-08-12. Scoped as blocking items D3.0/D3.1/D3.2 above; R3 may not start until D3 is resolved and measured.**
 
 **Measured on this host, all 77 gating truth-set rows, `routing_mode=llm_assisted_semantic`:**
 
@@ -391,12 +423,11 @@ Degraded rows: `rt.ot.001`, `rt.ot.002`, `rt.ot.004`, `rt.ot.005` (concrete SCAD
 
 **Why it blocks R3.0's framing rather than just being noted.** D2 lives entirely on out-of-registry paths — exactly where the advisory holds authority. A deterministic fix to the terminal fallback can therefore be silently overridden, or amplified, by the advisory on the same rows (5 of the 39 D2 rows already diverge). R3.0's per-row predictions and its OFF/ON acceptance would be measuring a layer that is not the final authority on this host.
 
-**Options (none taken):**
-- **D3-a** — treat the deterministic floor as the gate and the advisory as out of scope; R3 proceeds, and the report states plainly that the gated layer is not the production-final layer.
-- **D3-b** — extend the evaluator to a second arm over `route_skill`, gate on the deterministic floor and *report* the live arm; R3.0 then predicts both.
-- **D3-c** — treat advisory-over-deterministic authority on out-of-registry paths as its own defect and scope a correction (restore deterministic finality, or constrain the advisory to promote-only-when-the-floor-is-weak). Larger than Plan 4 as written.
+**Decision: `D3-c`.** Treated as a blocking routing-authority defect and corrected inside Plan 4, ahead of R3. My recommendation had been `D3-b` (report the divergence, fix it later); the user chose to fix it, and the subsequent root-cause measurement supports that call — see below.
 
-**Recommendation: D3-b now, D3-c as its own plan.** D3-b costs one evaluator arm and makes every later claim honest about which layer it measures; D3-c changes routing authority and must not be smuggled into a plan scoped to D1/D2.
+**Root cause, measured after the decision.** `_deterministic_uncertain` (`governance.py:397-414`) returns `True` for **every** `out_of_registry` row through the blanket clause `match_path in {"near_105_question", "out_of_registry"}` — independent of the deterministic route's own confidence or of *which* floor produced it. So a reasoned decision from one of the eight out-of-registry floors (e.g. `out_of_registry_detection_family_floor → spl_generation`, confidence 0.5) is labelled "uncertain" and replaced at `governance.py:251`. The advisory is not overriding a weak guess; it is overriding a specific deterministic conclusion.
+
+**Correction contract set by the user, encoded in D3.0–D3.2:** deterministic/query-understanding routing stays authoritative · the advisory may enrich or confirm but may not independently replace the authoritative route nor reduce required capabilities · registry-backed behavior unchanged · unsafe containment identical · no new LLM authority · all 77 rows measured before and after. Acceptance requires **0** advisory-caused capability downgrades, **no** previously-correct deterministic route becoming wrong, unchanged containment, and an explicit report of any remaining deterministic-vs-live difference.
 
 Not a safety finding: unsafe containment stayed **13/13** in the deterministic arm, and no divergence enabled execution.
 
