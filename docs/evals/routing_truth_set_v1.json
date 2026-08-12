@@ -1526,14 +1526,21 @@
    "expected_answer_shape": "clarification",
    "acceptable_skills": [
     "knowledge_recall",
-    "guided_investigation"
+    "guided_investigation",
+    "alert_summary",
+    "attack_discovery"
    ],
    "required_capabilities": [],
    "forbidden_capabilities": [],
-   "ambiguous": false,
-   "label_confidence": "high",
-   "rationale": "'This specific notable event' with no identifier supplied cannot be resolved; clarification is correct.",
-   "labeled_without_registry_hint": true
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "'This specific notable event' supplies no identifier, so the authoritative outcome is clarification and the routed skill is not semantically meaningful for this row. Scoring it route_wrong measured skill ownership that does not matter; it is non-gating for route correctness, and the clarification outcome is asserted instead.",
+   "labeled_without_registry_hint": true,
+   "candidate_readings": [
+    "the clarification outcome is authoritative and any review-only skill may carry it, so route correctness is not a meaningful axis for this row",
+    "the routed skill still matters because it selects which surface renders the clarification"
+   ],
+   "non_gating_reason": "clarification_outcome_authoritative_skill_immaterial"
   },
   {
    "row_id": "rt.know.001",
@@ -2115,6 +2122,22 @@
     "rt.para.013",
     "rt.para.014"
    ]
+  },
+  {
+   "date": "2026-08-12",
+   "prior_sha256": "a957931c1722f19a035db9ab4e9635dfbf39240637954ee7a16160958ad151a9",
+   "reason": "User correction: rt.alert.003 (q0.q045) ends in clarification_required regardless of routed skill, so scoring it route_wrong was misleading. Marked ambiguous/non-gating for route correctness with the clarification outcome recorded as authoritative. No label was changed to improve a measured number: the row scored route_wrong before and is simply no longer counted, which lowers the gating denominator rather than raising the pass rate.",
+   "rows_relabelled": [
+    "rt.alert.003"
+   ],
+   "prior_values": {
+    "ambiguous": false,
+    "label_confidence": "high",
+    "acceptable_skills": [
+     "knowledge_recall",
+     "guided_investigation"
+    ]
+   }
   }
  ]
 }

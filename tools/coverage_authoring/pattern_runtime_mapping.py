@@ -113,6 +113,20 @@ PATTERN_TO_RUNTIME: Final[dict[str, dict[str, Any]]] = {
     },
 }
 
+# Plan 4 R2.1 (2026-08-12). Three classes were corrected from measured evidence:
+# notable_risk_lookup, case_state_lookup and threat_intel_enrichment are live-data
+# retrieval ("which hosts/users/alerts ...") whose independently-adjudicated labels
+# require SPL, while alert_summary and knowledge_recall both deny it -- so the routed
+# skill's contract was suppressing the very artifact the question asks for. Ownership
+# of the notable/risk/case-state classes was settled by explicit user decision B.
+#
+# asset_identity_context and data_source_health are deliberately NOT corrected: their
+# ownership is unresolved and their truth-set labels are marked ambiguous.
+#
+# This table is per-pattern-class, so case_state_lookup also moves q0.q045 ("this
+# specific notable event"). Measured: q045 keeps intent_family/path_type
+# clarification_required either way, because its clarification comes from the missing
+# entity rather than from the hint, so only its route label moves.
 LEGACY_ROUTER_INTENT_BY_PATTERN: Final[dict[str, str]] = {
     "top_n_aggregation": "attack_discovery",
     "threshold_anomaly": "attack_discovery",
@@ -120,9 +134,9 @@ LEGACY_ROUTER_INTENT_BY_PATTERN: Final[dict[str, str]] = {
     "new_or_unusual_source": "attack_discovery",
     "success_after_failure": "attack_discovery",
     "ioc_correlation": "attack_discovery",
-    "threat_intel_enrichment": "knowledge_recall",
-    "notable_risk_lookup": "alert_summary",
-    "case_state_lookup": "alert_summary",
+    "threat_intel_enrichment": "attack_discovery",
+    "notable_risk_lookup": "attack_discovery",
+    "case_state_lookup": "attack_discovery",
     "asset_identity_context": "knowledge_recall",
     "dns_beaconing_dga_behavior": "attack_discovery",
     "lateral_movement": "attack_discovery",

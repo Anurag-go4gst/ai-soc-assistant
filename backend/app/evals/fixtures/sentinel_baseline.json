@@ -167,28 +167,31 @@
     },
     "q0.q001": {
       "analyst_enabled_sections": [
+        "analyst_action_guidance",
         "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
-      "candidate_spl_present": false,
+      "candidate_spl_present": true,
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [],
-      "execution_eligible": null,
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
       "execution_status": "skipped",
-      "human_review_required": false,
+      "human_review_required": true,
       "intent_family": "spl_generation_only",
       "mapped_question_ref": "q0.q001",
       "match_path": "exact_105_question",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "requires_clarification": false,
-      "response_mode": "insufficient_evidence",
-      "route_final": "alert_summary",
-      "selected_skill": "alert_summary",
+      "response_mode": "clarification_required",
+      "route_final": "attack_discovery",
+      "selected_skill": "attack_discovery",
       "severity_label": "Not assigned from this question alone",
-      "spl_approved": null,
+      "spl_approved": false,
       "spl_template_status": null
     },
     "q0.q002": {
@@ -230,28 +233,31 @@
     },
     "q0.q005": {
       "analyst_enabled_sections": [
+        "analyst_action_guidance",
         "draft_spl_preview"
       ],
       "answer_mode": "live_investigation",
-      "candidate_spl_present": false,
+      "candidate_spl_present": true,
       "contract_answer_mode": "live_investigation",
       "draft_spl_present": true,
       "draft_status": "draft_preview_not_governed",
-      "enabled_sections": [],
-      "execution_eligible": null,
-      "execution_status": "skipped",
-      "human_review_required": false,
+      "enabled_sections": [
+        "analyst_action_guidance"
+      ],
+      "execution_eligible": false,
+      "execution_status": "requires_human_review",
+      "human_review_required": true,
       "intent_family": "spl_generation_only",
       "mapped_question_ref": "q0.q005",
       "match_path": "exact_105_question",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "requires_clarification": false,
-      "response_mode": "insufficient_evidence",
-      "route_final": "knowledge_recall",
-      "selected_skill": "knowledge_recall",
+      "response_mode": "clarification_required",
+      "route_final": "attack_discovery",
+      "selected_skill": "attack_discovery",
       "severity_label": "Not assigned from this question alone",
-      "spl_approved": null,
+      "spl_approved": false,
       "spl_template_status": null
     },
     "q0.q006": {

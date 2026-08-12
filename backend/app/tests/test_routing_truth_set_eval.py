@@ -68,9 +68,16 @@ def test_route_ok_and_capability_inconsistent_can_coexist() -> None:
     these rows would score as clean passes and the benchmark would be blind to
     exactly the defect it was built to measure.
     """
+    # Plan 4 R2.1 corrected `threat_intel_enrichment`, so the query this test
+    # originally used ("Which hosts contacted suspicious external domains?") now
+    # routes attack_discovery and no longer exhibits the contradiction. That is the
+    # fix working, not the property disappearing: the example moved to an
+    # `asset_identity_context` row, whose ownership is still deferred and which
+    # therefore still routes knowledge_recall against a label requiring SPL. The
+    # assertion is unchanged in strength.
     row = {
         "row_id": "synthetic.d1",
-        "query": "Which hosts contacted suspicious external domains?",
+        "query": "Did anyone get added to Administrators?",
         "acceptable_skills": ["knowledge_recall", "attack_discovery", "spl_generation"],
         "required_capabilities": ["spl"],
         "ambiguous": False,
