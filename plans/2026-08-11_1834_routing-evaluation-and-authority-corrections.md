@@ -579,14 +579,20 @@ Stated up front so closure is not read as more than it is:
 
     **Verify:** deferral recorded in *Deferred decisions* with both options and measured cost; `git status` shows no registry file touched by this item.
 
-- [ ] **E0 — Full routing evaluation, baseline vs proposed**
+- [x] **E0 — Full routing evaluation, baseline vs proposed**
   - **Do:** Produce `docs/evals/routing_evaluation_report_v1.md`: baseline vs proposed across correct/acceptable route rate, capability-contradiction rate, knowledge-only false escalation, hunt/detection under-routing, unsafe-action containment, ambiguous rows, and answer parity **labelled explicitly as secondary regression evidence**. State plainly which of D1/D2 was closed, which was deferred, and what the truth set still cannot measure.
   - **Why:** The plan's deliverable is a defensible routing verdict, not a diff.
   - **Surfaces:** `docs/evals/routing_evaluation_report_v1.md` (NEW).
   - **Depends on:** R2.2.
   - **Failing-first / observation:** Every number in the report must be traceable to a committed artifact or a recorded command; any number that is not is removed.
   - **Verify:** Each reported figure re-derivable by re-running the named command; the report states the truth set's own limits (size, label confidence distribution, ambiguous count).
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **COMPLETE 2026-08-12.** `docs/evals/routing_evaluation_report_v1.md`, measured at `a0dca6a`, every figure reproducible by a named command.
+
+    **Reported:** D3's fix (advisory capability downgrades **5 → 0**, divergences **10 → 5**); R2.1's fix (`d1` quota **0/8 → 8/8** route-ok, `capability_inconsistent` **8 → 0**); the disproved D2 premise (**38/39** already `route_ok`; a 3-row defect, not 39); deterministic **64/76** vs live **59/76** with the 5-row gap explained; `capability_inconsistent` **21 → 13**; hunt under-routing **21 → 13**; knowledge-only false escalation **0**; unsafe containment **12/12**; ambiguous/non-gating **11**; parity labelled runtime-equivalence only.
+
+    **The report leads with a defect Plan 4 did not set out to find and did not fix.** Paraphrases are now the dominant residue: **2/12** route-ok, **10** `route_wrong`, **10** `capability_inconsistent` — i.e. **10 of the 13 remaining capability inconsistencies and 10 of the 12 remaining wrong routes are paraphrased hunt questions** collapsing to `knowledge_recall`. Only 1 of 15 paraphrases reaches a near/semantic-105 path. This was surfaced *by* the truth set and is invisible to the 105 goldens by construction, since those are the exact strings.
+
+    **§8 states what the report does not claim**, per instruction: D2 is not fixed; the 10 deferred ownership rows are not asserted correct; paraphrase routing is not fixed; the gate is the deterministic floor.
 
 - [ ] **G0 — Align documentation with what was proven**
   - **Do:** Update `CLAUDE.md`, `plans/README.md` and the relevant `docs/architecture/` page for the routing changes actually made. Add to `docs/evals/EVAL_CONTRACT.md` that **production parity measures answer stability, not routing correctness** — `spl_status` is `none` on 113/120 frozen rows, so parity cannot observe D1 or D2 — and name the routing truth set as the gate that can. Without this, `120 exact` keeps being cited as routing evidence, which is the misreading that let D1 sit unmeasured. Record `UNDERSTANDING_ROUTER_ON_LOW_CONFIDENCE` as **retired with evidence**, not deferred. If `docs/architecture/details.html` changes, update all three published mirrors identically and rebuild `frontend/dist`.
