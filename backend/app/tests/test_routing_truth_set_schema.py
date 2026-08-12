@@ -136,6 +136,15 @@ def test_duplicate_row_ids_are_rejected() -> None:
     assert any("duplicate row_id" in " | ".join(r.errors) for r in results)
 
 
+def test_duplicate_query_text_across_rows_is_rejected() -> None:
+    """Distinct row_ids are not enough — a repeated query double-weights that question."""
+    first = _valid_row()
+    second = _valid_row()
+    second["row_id"] = "rt.example.dup"
+    results = validate_rows([first, second], stage=STAGE_LABELED)
+    assert any("duplicate query text" in " | ".join(r.errors) for r in results)
+
+
 # --------------------------------------------------------------------------- #
 # Vocabularies are pinned to the runtime, not copied and left to rot.
 # --------------------------------------------------------------------------- #

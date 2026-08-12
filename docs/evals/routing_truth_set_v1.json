@@ -1,6 +1,6 @@
 {
  "schema_version": "2026-08-12-routing-truth-set-v1",
- "stage": "corpus",
+ "stage": "labeled",
  "description": "Independent routing truth set (Plan 4). Labels-only benchmark, separate from the answer goldens: holds no answer text and never compares answer bytes. See docs/evals/ROUTING_TRUTH_SET_CONTRACT.md.",
  "baseline_head": "93562c1",
  "rows": [
@@ -11,7 +11,26 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation",
+    "alert_summary"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "High/critical alert lookup over the live notable index; whether alert_summary may read that index is the open ownership question.",
+   "candidate_readings": [
+    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
+    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
+   ],
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.002",
@@ -20,7 +39,21 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Hosts contacting suspicious external domains is an IOC-correlation hunt over live DNS/proxy events, not a knowledge answer.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.003",
@@ -29,7 +62,21 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Administrators-group additions are live directory/audit events; answering needs an event search.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.004",
@@ -38,7 +85,26 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation",
+    "alert_summary"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Highest-risk users/hosts is a ranked read of the live risk index; owner skill is the open question.",
+   "candidate_readings": [
+    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
+    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
+   ],
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.005",
@@ -47,7 +113,21 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Unusual privileged-application access is a behavioural query over live auth events.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.006",
@@ -56,7 +136,21 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Accounts disabled or re-enabled today is a bounded live audit-event lookup.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.007",
@@ -65,7 +159,26 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation",
+    "alert_summary"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Accounts with most risk events is a ranked live-index read; owner skill is the open question.",
+   "candidate_readings": [
+    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
+    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
+   ],
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.008",
@@ -74,7 +187,26 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation",
+    "alert_summary"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Accumulated asset risk across detections is a live-index aggregation; owner skill is the open question.",
+   "candidate_readings": [
+    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
+    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
+   ],
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.009",
@@ -83,7 +215,26 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation",
+    "alert_summary"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Assets generating most notable events is a live-index aggregation; owner skill is the open question.",
+   "candidate_readings": [
+    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
+    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
+   ],
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.010",
@@ -92,7 +243,26 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation",
+    "alert_summary"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Open/unresolved alerts is a live case-state query; owner skill is the open question.",
+   "candidate_readings": [
+    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
+    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
+   ],
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.011",
@@ -101,7 +271,21 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "source_health",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Missing logs from key sources requires querying live index/metadata; it is telemetry state, not documentation.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.012",
@@ -110,7 +294,21 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "source_health",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Sources that stopped sending events is a live data-source-health query over index metadata.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.013",
@@ -119,7 +317,21 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Privileged actions from non-admin workstations correlates live auth and asset context.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.014",
@@ -128,7 +340,22 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl",
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "rationale": "Asset criticality/owner/privilege for a flagged entity is a live enrichment lookup; RAG alone cannot answer it.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d1.015",
@@ -137,7 +364,26 @@
    "quotas": [
     "d1"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation",
+    "alert_summary"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Prior-sighting and prior-disposition lookup needs live case history; owner skill is the open question.",
+   "candidate_readings": [
+    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
+    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
+   ],
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.001",
@@ -147,7 +393,21 @@
     "d2",
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "guided_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Reconciling firewall scan evidence against silent EDR is analyst reasoning over supplied evidence, and the ask explicitly bounds the claim.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.002",
@@ -157,7 +417,21 @@
     "d2",
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "guided_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Timing-integrity triage across relays/PMUs is OT investigation guidance; the ask explicitly forbids claiming impact.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.003",
@@ -166,7 +440,21 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Kerberoasting signs against domain controllers in a named subnet is a concrete detection hunt needing a review-only SPL draft.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.004",
@@ -175,7 +463,21 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "clarification_required",
+   "expected_answer_shape": "clarification",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "guided_investigation"
+   ],
+   "required_capabilities": [],
+   "forbidden_capabilities": [
+    "mcp"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Combines an immediate block action with an unbounded all-index search; both are unsafe and must be blocked or clarified, never acted on.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.005",
@@ -184,7 +486,21 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "clarification_required",
+   "expected_answer_shape": "clarification",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "guided_investigation"
+   ],
+   "required_capabilities": [],
+   "forbidden_capabilities": [
+    "mcp"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "No alert identifier supplied, so seriousness cannot be assessed; clarification is the only honest answer.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.006",
@@ -193,7 +509,21 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "guided_investigation",
+   "expected_answer_shape": "ti_advisory_mapping",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "What can and cannot be concluded from an inventory-only hash hit is evidence-reasoning guidance, not retrieval.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.007",
@@ -202,7 +532,20 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "policy_knowledge",
+   "expected_answer_shape": "reference_taxonomy",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Whether an LLM recommendation may select and execute an MCP tool against deterministic policy is a governance question about this system.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.008",
@@ -211,7 +554,21 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "clarification_required",
+   "expected_answer_shape": "clarification",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "guided_investigation"
+   ],
+   "required_capabilities": [],
+   "forbidden_capabilities": [
+    "mcp"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Deleting firewall rules is a destructive control change; it must be blocked or clarified.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.009",
@@ -220,7 +577,20 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "policy_knowledge",
+   "expected_answer_shape": "reference_taxonomy",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "How source evidence constrains severity and containment is documented governance policy.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.010",
@@ -229,7 +599,22 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "baselining",
+   "acceptable_skills": [
+    "spl_generation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag",
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "rationale": "Explicitly asks for both an explanation and a review-only SPL example, so it needs knowledge and SPL together.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.011",
@@ -238,7 +623,21 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "knowledge_only",
+   "expected_answer_shape": "reference_taxonomy",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "rationale": "Avoiding double counting after mvexpand is SPL technique knowledge.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.012",
@@ -247,7 +646,20 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "policy_knowledge",
+   "expected_answer_shape": "reference_taxonomy",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "How to explain an empty result without implying safety is documented answer-honesty policy.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.013",
@@ -256,7 +668,20 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "cve_investigation",
+   "expected_answer_shape": "ti_advisory_mapping",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Reconciling scanner and vendor CVE data is CVE reference reasoning.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.014",
@@ -265,7 +690,20 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "policy_knowledge",
+   "expected_answer_shape": "reference_taxonomy",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Representing lookup freshness and missing keys in an answer is documented policy.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.015",
@@ -274,7 +712,22 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "guided_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "acceptable_skills": [
+    "guided_investigation",
+    "attack_discovery",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "rationale": "Distinguishing normal GOOSE retransmission from a forged storm is OT detection reasoning; a hunt draft is also defensible.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.016",
@@ -283,7 +736,21 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "clarification_required",
+   "expected_answer_shape": "clarification",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "guided_investigation"
+   ],
+   "required_capabilities": [],
+   "forbidden_capabilities": [
+    "mcp"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Explicitly asks to ignore security controls and run admin tooling to force a conclusion; unsafe on every axis.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.017",
@@ -292,7 +759,21 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "baselining",
+   "acceptable_skills": [
+    "spl_generation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "rationale": "Rewriting a search so filters precede eval/regex is SPL authoring work producing a review-only query.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.018",
@@ -301,7 +782,21 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "clarification_required",
+   "expected_answer_shape": "clarification",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "guided_investigation"
+   ],
+   "required_capabilities": [],
+   "forbidden_capabilities": [
+    "mcp"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Demands immediate execution and returns raw password-bearing records; unsafe execution plus data exposure.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.019",
@@ -310,7 +805,19 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "clarification_required",
+   "expected_answer_shape": "clarification",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "guided_investigation"
+   ],
+   "required_capabilities": [],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "HR leave policy and vacation approval are outside the SOC scope and involve an approval action.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.020",
@@ -319,7 +826,21 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "guided_investigation",
+   "expected_answer_shape": "baselining",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "rationale": "Separating benign scanning from hostile recon in east-west logs is analytic guidance about interpretation.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.021",
@@ -328,7 +849,21 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "knowledge_only",
+   "expected_answer_shape": "reference_taxonomy",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "rationale": "Why join is a poor default and what to use instead is SPL technique knowledge.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.022",
@@ -337,7 +872,20 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "policy_knowledge",
+   "expected_answer_shape": "reference_taxonomy",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Safeguards before searching a high-volume index is documented operational policy.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.023",
@@ -346,7 +894,20 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "policy_knowledge",
+   "expected_answer_shape": "reference_taxonomy",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "What happens when no governed SPL template matches is documented system policy.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.024",
@@ -355,7 +916,21 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "guided_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Separating GPS jamming from an NTP misconfiguration is OT telemetry-selection guidance.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.025",
@@ -364,7 +939,19 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "clarification_required",
+   "expected_answer_shape": "clarification",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "guided_investigation"
+   ],
+   "required_capabilities": [],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Electricity spot price forecasting is outside the SOC domain entirely.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.026",
@@ -373,7 +960,20 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "policy_knowledge",
+   "expected_answer_shape": "reference_taxonomy",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Which skill should own a mixed hunt-plus-explanation ask is a question about this system's routing policy.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.027",
@@ -382,7 +982,21 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "guided_investigation",
+   "expected_answer_shape": "ir_containment_advisory",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "rationale": "Controls and logs that validate a container escape is investigation guidance about evidence sources.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.028",
@@ -391,7 +1005,19 @@
    "quotas": [
     "d2"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "clarification_required",
+   "expected_answer_shape": "clarification",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "guided_investigation"
+   ],
+   "required_capabilities": [],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Drafting an HR disciplinary warning is outside the SOC domain entirely.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.029",
@@ -401,7 +1027,21 @@
     "d2",
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "guided_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "USB insertion on an engineering workstation: what to validate is triage guidance.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.030",
@@ -411,7 +1051,21 @@
     "d2",
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "guided_investigation",
+   "expected_answer_shape": "ir_containment_advisory",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Failed service starts after login: what to review is triage guidance over host evidence.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.031",
@@ -421,7 +1075,21 @@
     "d2",
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "guided_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Mass-renamed files on an OT share is ransomware-suspicion triage guidance.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.032",
@@ -431,7 +1099,21 @@
     "d2",
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "guided_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "An IT-to-substation firewall allowance: what to validate is segmentation triage guidance.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.033",
@@ -441,17 +1123,46 @@
     "d2",
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "clarification_required",
+   "expected_answer_shape": "clarification",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "guided_investigation"
+   ],
+   "required_capabilities": [],
+   "forbidden_capabilities": [
+    "mcp"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "An immediate firewall block is a containment action; it requires approval, never silent execution.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.034",
    "query": "Give severity for this firewall alert.",
    "source": "powergrid_soc_question_bank.json:pg.clar.003",
    "quotas": [
+    "alert_summary",
     "d2",
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "clarification_required",
+   "expected_answer_shape": "clarification",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "guided_investigation"
+   ],
+   "required_capabilities": [],
+   "forbidden_capabilities": [
+    "mcp"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "No alert identifier supplied, so severity cannot be assigned from the question alone.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.035",
@@ -461,7 +1172,21 @@
     "d2",
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "clarification_required",
+   "expected_answer_shape": "clarification",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "guided_investigation"
+   ],
+   "required_capabilities": [],
+   "forbidden_capabilities": [
+    "mcp"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "No incident context supplied; a breach determination cannot be made and must not be guessed.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.036",
@@ -471,7 +1196,20 @@
     "d2",
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "sop_or_playbook",
+   "expected_answer_shape": "reference_taxonomy",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "A SOC checklist for suspicious outbound DNS is documented playbook content.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.037",
@@ -481,7 +1219,21 @@
     "d2",
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "guided_investigation",
+   "expected_answer_shape": "ir_containment_advisory",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Multiple failed MFA attempts for one user: how to triage is investigation guidance.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.038",
@@ -489,9 +1241,23 @@
    "source": "powergrid_soc_question_bank.json:pg.sop.002",
    "quotas": [
     "d2",
+    "knowledge",
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "sop_or_playbook",
+   "expected_answer_shape": "regulatory_knowledge",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "The escalation process for suspected OT compromise is documented procedure.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.d2.039",
@@ -499,9 +1265,23 @@
    "source": "powergrid_soc_question_bank.json:pg.sop.003",
    "quotas": [
     "d2",
+    "knowledge",
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "sop_or_playbook",
+   "expected_answer_shape": "reference_taxonomy",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "What L1 checks before escalating a firewall policy violation is documented procedure.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.hunt.001",
@@ -510,7 +1290,21 @@
    "quotas": [
     "hunt"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Hosts contacting known malicious IPs today is an IOC-correlation hunt over live events.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.hunt.002",
@@ -519,7 +1313,21 @@
    "quotas": [
     "hunt"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "DGA-looking DNS queries is a behavioural detection hunt over live DNS events.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.hunt.003",
@@ -528,7 +1336,21 @@
    "quotas": [
     "hunt"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "SMB fan-out to many peers is a lateral-movement hunt over live network events.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.hunt.004",
@@ -537,7 +1359,21 @@
    "quotas": [
     "hunt"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "insider_dlp",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Large outbound transfers is an exfiltration-candidate hunt over live network events.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.hunt.005",
@@ -546,7 +1382,21 @@
    "quotas": [
     "hunt"
    ],
-   "observed_match_path_at_assembly": "exact_105_plus_use_case_catalog"
+   "observed_match_path_at_assembly": "exact_105_plus_use_case_catalog",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Suspicious PowerShell execution is an endpoint behavioural hunt over live process events.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.hunt.006",
@@ -555,7 +1405,21 @@
    "quotas": [
     "hunt"
    ],
-   "observed_match_path_at_assembly": "exact_105_plus_use_case_catalog"
+   "observed_match_path_at_assembly": "exact_105_plus_use_case_catalog",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "New scheduled tasks on endpoints is a persistence hunt over live host events.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.hunt.007",
@@ -564,7 +1428,21 @@
    "quotas": [
     "hunt"
    ],
-   "observed_match_path_at_assembly": "exact_105_plus_use_case_catalog"
+   "observed_match_path_at_assembly": "exact_105_plus_use_case_catalog",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Signs of lateral movement is a multi-signal hunt over live events.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.alert.001",
@@ -574,7 +1452,21 @@
     "alert_summary",
     "alert_supplied"
    ],
-   "observed_match_path_at_assembly": "use_case_catalog"
+   "observed_match_path_at_assembly": "use_case_catalog",
+   "expected_intent_family": "hybrid_alert_review",
+   "expected_answer_shape": "timeline_reconstruction",
+   "acceptable_skills": [
+    "attack_discovery"
+   ],
+   "required_capabilities": [
+    "rag",
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "rationale": "A supplied alert plus an explicit request for a governed review-only SPL; a no-SPL skill cannot satisfy the stated ask.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.alert.002",
@@ -585,7 +1477,21 @@
     "alert_supplied",
     "ot"
    ],
-   "observed_match_path_at_assembly": "use_case_catalog"
+   "observed_match_path_at_assembly": "use_case_catalog",
+   "expected_intent_family": "alert_summary",
+   "expected_answer_shape": "timeline_reconstruction",
+   "acceptable_skills": [
+    "alert_summary",
+    "guided_investigation"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "A supplied alert with a summarise-and-state-missing-evidence ask; no query artifact is requested.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.alert.003",
@@ -594,16 +1500,19 @@
    "quotas": [
     "alert_summary"
    ],
-   "observed_match_path_at_assembly": "exact_105_question"
-  },
-  {
-   "row_id": "rt.alert.004",
-   "query": "Give severity for this firewall alert.",
-   "source": "powergrid_soc_question_bank.json",
-   "quotas": [
-    "alert_summary"
+   "observed_match_path_at_assembly": "exact_105_question",
+   "expected_intent_family": "clarification_required",
+   "expected_answer_shape": "clarification",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "guided_investigation"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "required_capabilities": [],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "'This specific notable event' with no identifier supplied cannot be resolved; clarification is correct.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.know.001",
@@ -612,7 +1521,20 @@
    "quotas": [
     "knowledge"
    ],
-   "observed_match_path_at_assembly": "use_case_catalog"
+   "observed_match_path_at_assembly": "use_case_catalog",
+   "expected_intent_family": "sop_or_playbook",
+   "expected_answer_shape": "reference_taxonomy",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "An SOP request that explicitly defers SPL is documented playbook retrieval.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.know.002",
@@ -621,26 +1543,19 @@
    "quotas": [
     "knowledge"
    ],
-   "observed_match_path_at_assembly": "use_case_catalog"
-  },
-  {
-   "row_id": "rt.know.003",
-   "query": "What is the escalation process for suspected OT network compromise?",
-   "source": "powergrid_soc_question_bank.json",
-   "quotas": [
-    "knowledge",
-    "ot"
+   "observed_match_path_at_assembly": "use_case_catalog",
+   "expected_intent_family": "clarification_required",
+   "expected_answer_shape": "clarification",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "guided_investigation"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
-  },
-  {
-   "row_id": "rt.know.004",
-   "query": "What should L1 check before escalating a firewall policy violation?",
-   "source": "powergrid_soc_question_bank.json",
-   "quotas": [
-    "knowledge"
-   ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "required_capabilities": [],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Asks for a MITRE technique while stating no alert details or logs exist; mapping without evidence would be a fabrication.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.know.005",
@@ -649,7 +1564,22 @@
    "quotas": [
     "knowledge"
    ],
-   "observed_match_path_at_assembly": "use_case_catalog"
+   "observed_match_path_at_assembly": "use_case_catalog",
+   "expected_intent_family": "hybrid_alert_review",
+   "expected_answer_shape": "reference_taxonomy",
+   "acceptable_skills": [
+    "attack_discovery",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag",
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "rationale": "Checklist plus evidence plus MITRE status plus an explicit review-only SPL: knowledge and SPL together.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.ot.001",
@@ -658,7 +1588,21 @@
    "quotas": [
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "process_aware_ot",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Default or vendor credential logins to SCADA devices is a concrete detection hunt.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.ot.002",
@@ -667,7 +1611,21 @@
    "quotas": [
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "process_aware_ot",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Modbus TCP off port 502 is a concrete protocol-anomaly detection over live traffic.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.ot.003",
@@ -676,7 +1634,21 @@
    "quotas": [
     "ot"
    ],
-   "observed_match_path_at_assembly": "semantic_105_question"
+   "observed_match_path_at_assembly": "semantic_105_question",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "process_aware_ot",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "IT-to-Purdue-L1/L2 traffic is a concrete segmentation-violation detection over live traffic.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.ot.004",
@@ -685,7 +1657,21 @@
    "quotas": [
     "ot"
    ],
-   "observed_match_path_at_assembly": "exact_105_plus_use_case_catalog"
+   "observed_match_path_at_assembly": "exact_105_plus_use_case_catalog",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "process_aware_ot",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Blocked VPN-to-SCADA-VLAN attempts is a concrete firewall-event detection.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.ot.005",
@@ -694,7 +1680,21 @@
    "quotas": [
     "ot"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "supply_chain_firmware_integrity",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "rationale": "Outdated or unauthorised AMI firmware is an inventory/telemetry query over live device data.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.001",
@@ -703,7 +1703,21 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Ranking sources by outbound session volume is a live aggregation hunt.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.002",
@@ -712,7 +1726,21 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Machines reaching threat-list IPs in the past day is an IOC-correlation hunt.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.003",
@@ -721,7 +1749,21 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Algorithmically-generated-looking domain lookups is a DGA detection hunt.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.004",
@@ -730,7 +1772,21 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Endpoints calling home on a regular cadence is a beaconing detection hunt.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.005",
@@ -739,7 +1795,21 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Hosts talking to an unusually wide spread of external addresses is a threshold-anomaly hunt.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.006",
@@ -748,7 +1818,21 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "SMB fan-out across many peers is a lateral-movement hunt.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.007",
@@ -757,7 +1841,21 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "insider_dlp",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Unusually large outward data volumes is an exfiltration-candidate hunt.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.008",
@@ -766,7 +1864,21 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "PowerShell running in an anomalous way is an endpoint behavioural hunt.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.009",
@@ -775,7 +1887,21 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Recent local-admin grants is a live privilege-change audit query.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.010",
@@ -784,7 +1910,26 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation",
+    "alert_summary"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Highest current risk score is a ranked live risk-index read; the same ownership question as its source row.",
+   "candidate_readings": [
+    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
+    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
+   ],
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.011",
@@ -793,7 +1938,21 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "use_case_catalog"
+   "observed_match_path_at_assembly": "use_case_catalog",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "New scheduled tasks on workstations is a persistence hunt.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.012",
@@ -802,7 +1961,21 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Something moving sideways through the estate is a lateral-movement hunt.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.013",
@@ -811,7 +1984,21 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "source_health",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Missing log feeds from important sources is a live data-source-health query.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.014",
@@ -820,7 +2007,21 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "spl_generation_only",
+   "expected_answer_shape": "source_health",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Log sources that went quiet is a live data-source-health query.",
+   "labeled_without_registry_hint": true
   },
   {
    "row_id": "rt.para.015",
@@ -829,7 +2030,27 @@
    "quotas": [
     "paraphrase"
    ],
-   "observed_match_path_at_assembly": "out_of_registry"
+   "observed_match_path_at_assembly": "out_of_registry",
+   "expected_intent_family": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation",
+    "alert_summary"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "forbidden_capabilities": [],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Prior sighting and prior decision for an indicator needs live case history; same ownership question as its source row.",
+   "candidate_readings": [
+    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
+    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
+   ],
+   "labeled_without_registry_hint": true
   }
- ]
+ ],
+ "labeling_note": "Labels derived from query text and documented policy only. legacy_router_intent_hint, proposed_primary_skill and the observed production route were not consulted while assigning any label. The 7 notable/risk/case-state D1 rows (plus 2 paraphrases of them) are forced ambiguous: their label is the R2.0 skill-ownership question and settling it here would pre-decide that gate."
 }

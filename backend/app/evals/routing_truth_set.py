@@ -247,6 +247,20 @@ def validate_rows(rows: Iterable[Mapping[str, Any]], *, stage: str = STAGE_LABEL
     duplicates = sorted(row_id for row_id, count in seen.items() if count > 1)
     if duplicates:
         results.append(RowValidation(row_id="<corpus>", errors=[f"duplicate row_id: {duplicates}"]))
+
+    # Distinct row_ids are not enough: the same query appearing twice under two
+    # ids double-weights that question in every rate the evaluator reports.
+    # Caught in R1.3 when three control rows turned out to restate D2 rows.
+    queries: dict[str, list[str]] = {}
+    for row in rows:
+        text = str(row.get("query") or "").strip().casefold()
+        if text:
+            queries.setdefault(text, []).append(str(row.get("row_id")))
+    repeated = sorted(ids for ids in queries.values() if len(ids) > 1)
+    if repeated:
+        results.append(
+            RowValidation(row_id="<corpus>", errors=[f"duplicate query text across rows: {repeated}"])
+        )
     return results
 
 
