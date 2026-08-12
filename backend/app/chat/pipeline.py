@@ -2340,8 +2340,11 @@ def graph_node_route_resolution(state: ChatPipelineState) -> ChatPipelineState:
     route_adjudication_payload: dict[str, Any] | None = None
     if isinstance(state.get("intent_classification"), dict):
         llm_advisory = comparison.get("llm_shadow") if isinstance(comparison, dict) else None
+        deterministic_route = str(routed.get("skill") or "knowledge_recall")
+        if str(state.get("resolved_tier") or "") == "T0":
+            deterministic_route = "knowledge_recall"
         adjudication = adjudicate_control_plane_route(
-            deterministic_route=str(routed.get("skill") or "knowledge_recall"),
+            deterministic_route=deterministic_route,
             llm_advisory=llm_advisory if isinstance(llm_advisory, dict) else None,
             route_plan_shadow=route_plan_shadow,
             evidence_plan=_provisional_evidence_plan_for_adjudication(state),

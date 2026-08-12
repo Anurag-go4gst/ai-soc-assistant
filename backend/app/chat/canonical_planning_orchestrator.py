@@ -25,6 +25,7 @@ from app.chat.contracts.canonical_planning_outcome import (
 from app.chat.contracts.gap_resolution import FieldProvenance
 from app.chat.guided_detail_resolution import run_guided_detail_resolution
 from app.chat.intent_classifier import build_query_to_intent
+from app.chat.resolved_query_builder import build_resolved_query_contract
 from app.chat.intent_family_defaults import build_known_path_intent_stub, build_t0_knowledge_stub
 from app.chat.known_detail_completion import evaluate_known_detail_completion
 from app.chat.lane_router import is_known_catalogue_match, lane_for_match_path
@@ -445,7 +446,6 @@ def _resolve_lane_intent_and_details(
         known_q2i = build_query_to_intent(
             query=query,
             query_understanding=qu,
-            routed_skill=str(routed.get("skill") or None),
             routing_provenance=routed.get("routing_provenance")
             if isinstance(routed.get("routing_provenance"), dict)
             else None,
@@ -472,11 +472,8 @@ def _resolve_lane_intent_and_details(
             # The known lane's contract is "no model hop", which this records honestly.
             known_intent.setdefault("answer_goal_primary", _primary_goal(known_intent))
             known_intent["llm_intent_status"] = "skipped"
-            # Deterministic routing stays the authority for *which skill runs*; the
-            # classifier only supplies the intent family and answer goals that shape the
-            # answer. Letting the classifier's primary_intent through would override the
-            # selected skill on the known lane, which routing owns.
-            known_intent["primary_intent"] = skill
+            # Deterministic routing owns the selected skill; the classifier supplies
+            # intent family and answer goals only — do not overwrite primary_intent.
         else:
             known_intent = build_known_path_intent_stub(skill=skill, use_case_id=use_case_id)
         if completeness.clarification_required and not completeness.divert_to_guided:
@@ -518,7 +515,6 @@ def _resolve_lane_intent_and_details(
         q2i = build_query_to_intent(
             query=query,
             query_understanding=qu,
-            routed_skill=str(routed.get("skill") or None),
             routing_provenance=routed.get("routing_provenance")
             if isinstance(routed.get("routing_provenance"), dict)
             else None,
@@ -550,7 +546,6 @@ def _resolve_lane_intent_and_details(
         if qualification.resolves_to_t0:
             resolved_tier = "T0"
             processing_lane = "knowledge_short_circuit"
-            routed["skill"] = "knowledge_recall"
             intent_classification = build_t0_knowledge_stub(reference_ids=reference_ids)
             state = emit_tier_resolved(
                 state,
@@ -654,6 +649,7 @@ def _persist_clarification_outcome(
     canonical: Any,
     intent_classification: dict[str, Any],
     query_to_intent: dict[str, Any] | None,
+    resolved_query_contract: dict[str, Any] | None = None,
 ) -> ChatPipelineState:
     """Stage 4 — persist the clarification handoff and return its terminal state."""
     handoff_id = intake.handoff_id
@@ -721,6 +717,8 @@ def _persist_clarification_outcome(
         "routed": lane.routed,
         "intent_classification": intent_classification,
         "query_to_intent": query_to_intent,
+        "resolved_query_contract": resolved_query_contract,
+        "resolved_query_contract": resolved_query_contract,
         "canonical_planning_input": canonical.model_dump(),
         "canonical_planning_outcome": outcome.model_dump(),
         "gap_resolution": gap.model_dump() if gap else None,
@@ -743,6 +741,7 @@ def _commit_planned_outcome(
     canonical: Any,
     intent_classification: dict[str, Any],
     query_to_intent: dict[str, Any] | None,
+    resolved_query_contract: dict[str, Any] | None = None,
 ) -> ChatPipelineState:
     """Stage 5 — persist the in-progress handoff and commit the planned outcome.
 
@@ -837,6 +836,7 @@ def _commit_planned_outcome(
         "routed": routed,
         "intent_classification": intent_classification,
         "query_to_intent": query_to_intent,
+        "resolved_query_contract": resolved_query_contract,
         "canonical_planning_input": canonical.model_dump(),
         "canonical_planning_outcome": outcome.model_dump(),
         "gap_resolution": gap.model_dump() if gap else None,
@@ -883,6 +883,15 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     if lane.known_query_to_intent_built and isinstance(query_to_intent, dict):
         query_to_intent = {**query_to_intent, "intent_classification": intent_classification}
 
+    resolved_query_contract = build_resolved_query_contract(
+        query=intake.query,
+        query_understanding=state.get("query_understanding"),
+        qualification_tier=lane.resolved_tier,  # type: ignore[arg-type]
+        qualification_source=intake.match_path,
+        query_to_intent=query_to_intent,
+        provenance={"route_reason": lane.route_reason},
+    ).model_dump(mode="json")
+
     canonical = build_canonical_planning_input(
         query=intake.query,
         query_understanding=state.get("query_understanding"),
@@ -923,6 +932,7 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
             "routed": lane.routed,
             "intent_classification": intent_classification,
             "query_to_intent": query_to_intent,
+            "resolved_query_contract": resolved_query_contract,
             "canonical_planning_input": canonical.model_dump(),
             "canonical_planning_outcome": outcome.model_dump(),
             "gap_resolution": lane.gap.model_dump() if lane.gap else None,
@@ -942,6 +952,7 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
             canonical=canonical,
             intent_classification=intent_classification,
             query_to_intent=query_to_intent,
+            resolved_query_contract=resolved_query_contract,
         )
 
     return _commit_planned_outcome(
@@ -951,4 +962,5 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         canonical=canonical,
         intent_classification=intent_classification,
         query_to_intent=query_to_intent,
+        resolved_query_contract=resolved_query_contract,
     )

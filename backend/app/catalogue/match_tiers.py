@@ -17,6 +17,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.chat.lane_router import T1_PATHS, T2_PATHS, T3_PATHS
 from app.query_understanding.parser import understand_query
 from app.use_cases.registry import match_use_cases
 
@@ -28,9 +29,10 @@ _REFERENCE_ID_RE = re.compile(
     re.IGNORECASE,
 )
 
-_T1_PATHS = frozenset({"exact_105_question", "exact_105_plus_use_case_catalog"})
-_T2_PATHS = frozenset({"use_case_catalog"})
-_T3_PATHS = frozenset({"near_105_question", "semantic_105_question"})
+# Compatibility aliases — live-path tier vocabulary is owned by lane_router (Plan 5 B2).
+_T1_PATHS = T1_PATHS
+_T2_PATHS = T2_PATHS
+_T3_PATHS = T3_PATHS
 
 _TYPO_ALIASES: dict[str, str] = {
     "lgon": "login",

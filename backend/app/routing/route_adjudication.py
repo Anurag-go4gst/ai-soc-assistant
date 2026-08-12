@@ -208,6 +208,14 @@ def adjudicate_route(
             reason="Intent requires clarification or human review before tool execution.",
         )
 
+    if intent.intent_family == "reference_knowledge":
+        return finish(
+            final_route="knowledge_recall",
+            final_use_case_id=_first_use_case_id(mappings),
+            authority_source="reference_knowledge_t0",
+            reason="Reference-knowledge qualification resolves to knowledge_recall without provisional-route contamination.",
+        )
+
     if intent.intent_family == "github_investigation":
         return finish(
             final_route="guided_investigation",
