@@ -1,13 +1,13 @@
 ---
 name: routing-evaluation-and-authority-corrections
 overview: "Build an independent routing truth set, then correct the out-of-registry terminal fallback (D2) and the legacy pattern→skill contradictions (D1) against measured evidence rather than against the answer goldens."
-status: draft
+status: done
 date: 2026-08-11
 canonical_plan: plans/2026-08-11_1834_routing-evaluation-and-authority-corrections.md
 source_plan: plans/2026-08-11_0915_execution-driven-adoption-and-guided-refinement.md
 source_audit: docs/evals/golden_routing_audit_2026-08-11.md
 baseline_head: 93562c1
-implementation_readiness: READY
+implementation_readiness: COMPLETE
 ---
 
 # Plan 4 — Routing Evaluation and Authority Corrections
@@ -611,17 +611,53 @@ Stated up front so closure is not read as more than it is:
 
     **Nothing overstated:** D2 is described as disproved-and-unfixed, the deferred ownership rows as unresolved rather than correct, and paraphrase routing as an open defect. `docs/architecture/details.html` and its two mirrors were **not** touched — no architecture-page claim changed — so no `frontend/dist` rebuild is required.
 
-- [ ] **G1 — Close Plan 4**
+- [x] **G1 — Close Plan 4**
   - **Do:** Re-audit every checkbox against its recorded evidence, run the full gate chain, record the item disposition, commits, and any gaps carried forward.
   - **Why:** A plan is closed by measurement, not by assertion.
   - **Surfaces:** This plan file; `plans/README.md`.
   - **Depends on:** G0.
   - **Failing-first / observation:** Any unchecked or undecided item is a stop condition.
   - **Verify:** `./scripts/run_stage3_governance_regression.sh`; `cd backend && PYTHONPATH=../backend:.. python3 -m pytest -q`; `PYTHONPATH=backend:. python3 scripts/run_production_parity_eval.py --out-dir /tmp/plan4-g1-parity --check`; `TELEMETRY_MODE=none PYTHONPATH=backend:. python3 scripts/audit_reference_probes.py --check`; `PYTHONPATH=backend:. python3 scripts/eval_out_of_set_soc.py --check`; `PYTHONPATH=backend:. python3 scripts/eval_routing_truth_set.py --check --baseline docs/evals/routing_truth_set_baseline_v1.json`; `python3 scripts/freeze_execution_baseline.py --check --in /tmp/plan4-routing-baseline.json`; `.cursor/hooks/audit-plan-discipline.sh plans/2026-08-11_1834_routing-evaluation-and-authority-corrections.md`; `/invariant-check` across `93562c1`→HEAD.
-  - **Invariant / manifest:** Cumulative invariant check, all seven groups must PASS.
-  - **Commit boundary:** Final evidence/closure commit only.
+  - **Evidence:** **PLAN 4 CLOSED 2026-08-12 — 19/19, 0 audit gaps.** Every gate re-run fresh at closure.
+
+    | Gate | Observed |
+    |---|---|
+    | `./scripts/run_stage3_governance_regression.sh` | **`stage3_governance_regression: PASS`** |
+    | ↳ test harness | **6/6 probes** |
+    | ↳ sentinel selection / value | **17/17 no drift** / **17/17** |
+    | ↳ dual-runtime parity | `total=120 exact=120 approved=0 critical=0` |
+    | ↳ Cisco power-grid | `PASS=50 REVIEW=0 FAIL=0 CRITICAL=0` |
+    | ↳ pipeline dispatch matrix | `total=5 pass=5 fail=0` |
+    | Full backend pytest | **`5119 passed, 3 skipped, 6 xfailed, 0 failed`** |
+    | Production parity | `total=120 base_105=105 exact=120 approved=0 critical=0` |
+    | Reference probes | `all probes match the frozen baseline` (10/10) |
+    | Out-of-set eval | `RESULT: PASS (16/36 pass, 20 review, 0 fail-critical)` |
+    | Routing truth-set `--check` | `RESULT: PASS (64/76 route_ok, 0 regressions vs baseline)` |
+    | 105 path honoring | `RESULT: PASS (105/105 rows)` |
+    | Protected manifest | `protected artifacts unchanged (14 checked)` |
+    | Plan audit | **19 checked, 0 unchecked, 0 gaps** |
+    | Cumulative invariant `93562c1`→HEAD | **7/7 PASS** |
+
+    **Closure invariants, each verified rather than asserted:** 105 answer goldens **UNCHANGED**; `use_cases/catalog.json`, `skills/catalog.json`, `spl/templates.json` all **UNCHANGED**; all six pre-existing protected eval baselines **UNCHANGED** (`routing_truth_set_baseline_v1.json` reads as changed against `93562c1` only because it **did not exist** then — created by R1.5 at `cdeea34`, confirmed an addition and not a refresh); no capability widening — the only capability-adjacent change strictly *narrows* when the LLM advisory may act; unsafe/action containment unchanged; retired LLM planning rails have **0 production callers** (verified excluding their own defining modules); `ai_soc_resource_plan_execution_enabled: bool = False` still in `config.py` and `.env.example`; no unrelated user-owned dirt committed (`.claude/settings.local.json`, `.playwright-mcp/`, two G0 PNGs and `output/` left untouched throughout).
+
+    **Test honesty, inspected file by file:** 5 new test files (+1188 lines) and 3 modified — the in-catalogue fixture (approved `RF-a`), `test_qu_route_bridge.py` (approved de-hardcoding) and `test_query_understanding_stage3je.py` (R1.6 de-circularization). **No test was deleted or weakened**; both edited assertions gained strength (they now fail if registry and router disagree, where before they compared against a literal).
+
+    **Approved artifact changes, all scoped and proven:** `BR-a` (in-catalogue fixture, 5 Cisco rows), `RF-a` (sentinel 2 rows / in-catalogue 8 rows / coverage matrix 9 leaves + 2 test de-hardcodings), `CW-a` (crosswalk, 9 leaves + timestamp). Each verified by assertion that only the approved rows moved and that no row anywhere gained `execution_eligible=True`.
+
+    **Item disposition: 19/19.** Two items closed **N/A with evidence** rather than implemented — R3.1 (`DEFERRED_NO_SAFE_PREDICATE`) and R3.2 (no ON arm exists) — under the user's recorded `C3` decision.
+
+    **Known gaps carried forward, all recorded and none silently closed:**
+    1. **Paraphrase routing** — the largest remaining defect. 2/12 route-ok; carries 10 of 13 remaining capability inconsistencies and 10 of 12 remaining wrong routes. Surfaced *by* the truth set; invisible to the 105 goldens.
+    2. **`rt.d2.003` / `rt.d2.010` / `rt.d2.017`** — SPL-routing semantic misses with no safe deterministic discriminator. Must not be approximated by heuristic.
+    3. **`asset_identity_context` + `data_source_health` ownership** — 10 rows, all `capability_inconsistent`, all ambiguous and non-gating. **Not asserted correct.**
+    4. **`UNDERSTANDING_BEFORE_FINAL_ROUTE`** — future architecture candidate, unapproved.
+    5. **`RUNTIME_MAP_BUILDER_IDEMPOTENCY`** — the map authoring tool nulls all 11 MITRE fields on all 105 rows when re-run.
+    6. **`ROUTING_CHANGE_FORECAST_METHOD`** — forecast with the backend suite **and** the governance umbrella inside the temporary arm; three misses in this plan came from narrower instruments.
+
+    **D2 is explicitly NOT fixed.** Its 39-row premise was disproved (38/39 already correctly routed) and its correction was blocked twice for measured reasons.
+  - **Invariant / manifest:** cumulative check `93562c1`→HEAD, all seven groups **PASS**; manifest `14 checked, unchanged`.
+  - **Commit boundary:** final closure commit only.
   - **Stop:** Any unchecked or undecided item; invariant FAIL; protected drift; baseline refresh; unapproved authority; same valid gate failing twice.
-  - **Evidence:** _(fill when done)_
 
 ## Protected artifacts and baseline policy
 
@@ -734,7 +770,7 @@ Recorded as a **derived-artifact synchronization**: the crosswalk carries no ind
 
 R2.0 forecast the golden impact as **empty** and it was wrong. The instruments used — golden `selected_skill` assertions and production parity — are both blind to answer *sections*, so the forecast was true of what it measured and false of what mattered. Eight backend tests then failed at R2.1.
 
-**Rule going forward:** a routing change must run the **full backend suite *and* `./scripts/run_stage3_governance_regression.sh`** inside the temporary in-memory arm before approval — not parity plus golden-route checks, and not the backend suite alone. Corrected 2026-08-12 after a third miss: `soc_capability_crosswalk.json` is generator-gated by the umbrella and invisible to pytest, so the suite-only rule still let a stale derived artifact through. And state plainly, wherever parity is cited: **`120 exact` is dual-runtime equivalence between the imperative and ResourcePlanner spines — it is not answer correctness, and it does not mean either runtime matches the frozen 105-answer file.** This is the second forecast miss of the same shape (D3.2 was the first, against the in-catalogue fixture); the arm exists precisely so misses are cheap, and it was under-used twice.
+**Rule going forward:** a routing change must run the **full backend suite *and* `./scripts/run_stage3_governance_regression.sh`** inside the temporary in-memory arm before approval — not parity plus golden-route checks, and not the backend suite alone. Corrected 2026-08-12 after a third miss: `soc_capability_crosswalk.json` is generator-gated by the umbrella and invisible to pytest, so the suite-only rule still let a stale derived artifact through. And state plainly, wherever parity is cited: **`120 exact` is dual-runtime equivalence between the imperative and ResourcePlanner spines — it is not answer correctness, and it does not mean either runtime matches the frozen 105-answer file.** Three misses of the same shape landed in this plan: **D3.2** (in-catalogue fixture, caught by pytest), **R2.1** (sentinel + in-catalogue + coverage matrix, caught by pytest), and **G1** (`soc_capability_crosswalk.json`, caught only by the umbrella). Each was a hidden artifact derived from something the change touched, and each was found *after* approval rather than in the forecast. The arm exists precisely so these are cheap; running the umbrella inside it is what makes the forecast complete.
 
 ### `RUNTIME_MAP_BUILDER_IDEMPOTENCY` — carried forward as a separate correctness item, NOT fixed here
 
@@ -807,3 +843,4 @@ Affected: `rt.d1.001/004/007/008/009` (`notable_risk_lookup`), `rt.d1.010/015` (
 | 2026-08-11 | **Two user corrections applied after P0, before R1.1.** (1) The locked invariant "Deterministic planning remains the routing authority" **conflated two distinct authorities** and is split: production *routing* stays deterministic/governed (this plan's subject), and Plan 2's deterministic *ResourcePlan planning* authority is unchanged and out of scope. (2) R2.0's golden-refresh gate assumed a route correction **will** change answer bytes. It is now **measurement-first**: apply the proposed hints in a temporary in-memory arm, diff parity per row against the frozen goldens, and request approval only for rows that actually move — scoped per pattern class, so answer-neutral classes proceed without any approval. Plan 3's B2 is the precedent: a capability change measured `120 exact`. Stop-condition 8, R2.1's precondition and the residuals section were realigned to match. |
 | 2026-08-11 | **Second pre-execution review — "will this remove all the issues?" Answer: no, and the plan now says so.** Six patches, none changing scope: (a) new item **R1.6** pulls the de-circularization of `test_query_understanding_stage3je.py:84` out of R2.1, so a withheld golden-refresh approval can no longer leave the circular pin in place forever; (b) R1.2 gains a quota for `_keyword_fallback` / `_qu_failover_route` — the only two production paths where the keyword router actually decides, previously unmeasured by a benchmark built to measure routing; (c) R1.3 gains three checkable independence mechanisms (label-file SHA256 order commitment, blind second-labeller agreement on a ~20-row subset, and forced `ambiguous=true` on the 7 `alert_summary` rows so R1.3 cannot pre-decide R2.0's gate); (d) R3.0 must now disposition the non-hunt D2 residue explicitly, including rows where `knowledge_recall` is right but `0.20 / needs_clarification` still misrepresents it; (e) R1.5 records the deterministic-only coverage limit plus a 10-row live-arm observation, since production runs `llm_assisted_semantic`; (f) G0 must record in `EVAL_CONTRACT.md` that parity measures answer stability, not routing correctness. A new **"What this plan does NOT close"** section states the four residual limits, headed by the fact that D1 can legitimately close at 0/15 corrected. |
 | 2026-08-11 | **Pre-execution review found four content deadlocks in the first draft; all patched before P0.** (A) R2.1 changes routing on golden rows, whose answers are compared byte-exact by `run_production_parity_eval.py` against a PROTECTED golden file — the plan as drafted could not both apply R2.1 and close G1. A golden-refresh **forecast + separate approval** is now a required R2.0 output and an R2.1 precondition; without approval R2.1 closes `NOT_AUTHORIZED`. Stop-condition 8 amended to admit only forecast, approved, row-scoped refreshes. (B) Same collision, smaller, between the 39 D2 rows and the PROTECTED `intent_out_of_set_probes_baseline.json`; a collision forecast is now a required R3.0 output, with the reference-probe safety claim required to be *proven*, not assumed. (C) `eval_routing_truth_set.py --check` was implicitly identity-against-baseline, which passes trivially at R1.5 and fails by construction at G1 since R3/R2 exist to improve on it; `--check` is now defined as **no-regression** (no `route_ok`→`route_wrong` flips, no new `capability_inconsistent`). (D) R1.2's coverage minimums summed to 89 against a `[60,80]` gate; quotas are now explicitly overlapping and the bound is `[60,95]`. Also clarified that `resolve_capability_compatibility` has no labelled-capability parameter, so the evaluator checks labelled capabilities through the same permit primitive rather than contorting that call. |
+| 2026-08-12 | **PLAN 4 CLOSED at G1 — 19/19, 0 gaps.** Governance regression PASS; backend `5119 passed / 0 failed`; parity `120 exact`; Cisco 50/50; harness 6/6; probes 10/10; out-of-set PASS 0 fail-critical; truth-set `--check` 0 regressions; path-honoring 105/105; manifest 14/14; invariants 7/7. Route-correct **56/77 → 64/76**, `capability_inconsistent` **21 → 13**, live route-correct **51 → 59/76**, advisory capability downgrades **5 → 0**, unsafe containment unchanged. Three artifact refreshes approved and scoped (`BR-a`, `RF-a`, `CW-a`); no golden, protected baseline or governed registry changed. Six gaps carried forward, headed by paraphrase routing. D2 disproved and unfixed. |
