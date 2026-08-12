@@ -152,7 +152,7 @@ Stated up front so closure is not read as more than it is:
 
     **Manifest / scope.** `protected artifacts unchanged (13 checked)`. Additive only; no routing, capability, SPL, MCP or LLM surface touched.
 
-- [ ] **R1.3 — Adjudicate labels independently — STOP gate `ROUTING_LABEL_AMBIGUITY`**
+- [x] **R1.3 — Adjudicate labels independently — STOP gate `ROUTING_LABEL_AMBIGUITY` — FIRED, awaiting decision**
   - **Do:** Label every row's expected fields **without consulting** `legacy_router_intent_hint`, `proposed_primary_skill`, or the observed route; derive each label from the query text plus documented policy (`HUNT_PATTERNS`, the analytics severity guard, skill capability contracts, the unsafe/action lane). Use `acceptable_skills` sets wherever more than one route is legitimately valid. Set `ambiguous=true` + `label_confidence=low` and record both candidate readings for any row whose label depends on an unresolved architecture question — do **not** guess. **STOP and present options** if any row's label cannot be settled without a skill-ownership or capability-ownership decision.
 
     **Label independence is procedural, not structural — three mechanisms make it checkable.** The labeller has already seen production routes for many of these rows in the audit that produced this plan, so `labeled_without_registry_hint=true` is a self-attestation and nothing more. (1) **Order commitment:** write the completed label file, record its SHA256 in Evidence, and only then run the evaluator; any later label edit must be recorded as an explicit relabel with its reason, never as a silent correction. (2) **Blind second labeller:** have an independent labeller (a subagent given the queries and the contract, but **not** this plan, the audit report, or any observed route) label a ~20-row subset; record inter-labeller agreement as a number. Disagreements are findings to adjudicate, not rows to overwrite. (3) **Forced ambiguity:** the 7 `alert_summary` D1 rows (`notable_risk_lookup` ×5, `case_state_lookup` ×2) are set `ambiguous=true` **by rule**, because their label *is* the R2.0 ownership question — labelling them confidently here would pre-decide the gate that R2.0 exists to escalate.
@@ -161,7 +161,32 @@ Stated up front so closure is not read as more than it is:
   - **Depends on:** R1.2.
   - **Failing-first / observation:** Record, before labelling, that observed routes were not read for the rows being labelled. After labelling, compute and record agreement with the current production route — as an **observation**, never as a correction step; a low agreement rate is a finding, not a reason to relabel.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_routing_truth_set_schema.py -q` (all rows now complete); every `ambiguous=true` row carries two documented readings; the 7 `alert_summary` D1 rows are `ambiguous=true`; label-file SHA256, blind-subset inter-labeller agreement, and the count of `label_confidence=low` rows recorded in Evidence.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **LABELS COMPLETE 2026-08-12; commit `d3e3033`. STOP gate `ROUTING_LABEL_AMBIGUITY` FIRED — 9 rows require the skill-ownership decision and are presented to the user; the item does not close until that decision is recorded.**
+
+    **87 rows labelled from query text and documented policy only.** `legacy_router_intent_hint`, `proposed_primary_skill` and the observed production route were not consulted while assigning any label. Schema suite **28 passed**. Families: `spl_generation_only` 36, `clarification_required` 13, `guided_investigation` 12, `live_investigation` 9, `policy_knowledge` 7, `sop_or_playbook` 4, `knowledge_only` 2, `hybrid_alert_review` 2, `cve_investigation` 1, `alert_summary` 1. Confidence **67 high / 11 med / 9 low**. **74 of 87** rows carry more than one acceptable skill — multi-validity is the norm, and forcing a single exact skill would have manufactured failures.
+
+    **(1) Order commitment.** Label file written, committed, and hashed **before** any evaluator run: `sha256 = 2877e3444dc65da3c8182c444f00c3a2596713b83c3455cde54ea46b6ad3c76e`. Any later change must be recorded as an explicit relabel.
+
+    **(2) Blind second labeller — 20-row stratified subset** (`d2` 9, `d1` 3, `paraphrase` 3, `hunt` 2, `alert_summary` 1, `knowledge` 1, `ot` 1). The labeller was given the queries and the contract, and explicitly denied `plans/`, the audit report, the truth set, `question_runtime_map_v1.json`, `pattern_runtime_mapping.py`, and any router execution. Measured agreement:
+
+    | Axis | Agreement |
+    |---|---|
+    | `acceptable_skills` overlap (**the gating axis**) | **20/20 (100%)** |
+    | contract-gated capabilities `spl`/`mcp` (**the gating axis**) | **20/20 (100%)** |
+    | `expected_answer_shape` | 17/20 (85%) |
+    | `required_capabilities` incl. non-gated `rag` | 17/20 (85%) |
+    | `ambiguous` | 18/20 (90%) |
+    | `expected_intent_family` (raw) | **9/20 (45%)** |
+
+    **The 45% family figure is not a disagreement about routing, and the measurement says so.** All 11 family differences are **within a capability-equivalence class — 0 of 11 cross a capability boundary.** Eight are the single systematic axis `spl_generation_only` (mine) vs `live_investigation` (blind) on rows where both labellers picked the same acceptable skills and the same gated capabilities; the other three (`policy_knowledge` vs `knowledge_only`, `guided_investigation` vs `knowledge_only`) sit entirely inside the no-capability families. The three `required_capabilities` differences are all "blind additionally listed `rag`", which is not contract-gated.
+
+    **Design consequence for R1.4, recorded here so it is not re-litigated:** two independent labellers agree **perfectly** on the two axes the evaluator gates and diverge on the descriptive ones. `expected_intent_family` and `expected_answer_shape` must therefore be **reported, never gated** — gating family would have scored a 55% "failure" rate that contains no routing information at all.
+
+    **(3) Forced ambiguity held, and the blind labeller independently widened it.** All 7 notable/risk/case-state D1 rows plus the 2 paraphrases of them are `ambiguous=true` / `label_confidence=low` with both readings recorded. The two ambiguity disagreements are both the blind labeller marking **more** rows ambiguous than the rule required — `rt.d1.005` (`asset_identity_context`, "users who accessed privileged applications unusually") and `rt.d1.012` (`data_source_health`, "sources that stopped sending events"), each with the same two readings: an already-scored-state lookup owned by `alert_summary`, versus a fresh live query owned by an SPL-capable skill. It did **not** extend the doubt to `rt.d1.002`, agreeing that a fresh IOC hunt is clear-cut.
+
+    **This is a scope finding for R2.0, not a labelling error:** the ownership question may reach beyond the 7 notable/case-state rows into `asset_identity_context` and `data_source_health`, which would shrink the "clear-cut `knowledge_recall`" group the plan assumed for R2.1. Recorded, not resolved — resolving it here is exactly what the forced-ambiguity rule forbids.
+
+    **Assembly defect found while labelling, and fixed.** Three control rows (`rt.alert.004`, `rt.know.003`, `rt.know.004`) restated D2 queries verbatim under different `row_id`s, which would have double-weighted those questions in every rate the evaluator reports. Their quotas were merged onto the D2 rows that already held the query and the duplicates dropped — **90 → 87 rows**, all quotas still met (`d1` 15, `d2` 39, `ot` 19, `paraphrase` 15, `hunt` 7, `knowledge` 5, `alert_summary` 4, `alert_supplied` 2). Duplicate query text is now a validation error (`test_duplicate_query_text_across_rows_is_rejected`), so it cannot recur.
 
 - [ ] **R1.4 — Build the routing evaluator**
   - **Do:** Add `scripts/eval_routing_truth_set.py` — in-process, deterministic, no LLM, no live backend. Per row: `understand_query` → `select_route_from_understanding` → `build_query_to_intent` → `plan_evidence` → `plan_path_and_tools`; then score `route_ok` against `acceptable_skills`. Evaluate the capability invariant against the **labelled** `required_capabilities` (not the classifier's intent family) by asking the selected skill's contract, per capability, through the same permit primitive Plan 3 B2 uses — `skill_intent_compatibility._contract_grants` / `composer._skill_permits`. Note the API shape: `resolve_capability_compatibility(routed_skill, intent_family, skill_contract)` has **no** parameter for labelled capabilities, so call it for the *observed* pairing (to report the runtime's own resolution) and check the labelled capabilities separately through the permit primitive. Do not create a second capability table. Emit per-row JSON and the `EVAL_CONTRACT.md` verdict line `RESULT: PASS (n/m rows, …)`, and `--json <path>` for per-row results.
@@ -314,6 +339,17 @@ Do not silently adapt, skip, weaken a test, or change a recorded decision.
 Tests marked **NEW** are created in their owning item. R3.0's and R2.0's observation tables are intentionally not prewritten; their exact contents are recorded in the owning item's Evidence before any implementation follows.
 
 ## Deferred decisions (recorded, not approved)
+
+### `ALERT_SUMMARY_NOTABLE_OWNERSHIP` — OPEN, blocking R2.0/R2.1 scope (raised at R1.3, 2026-08-12)
+
+Nine rows cannot be labelled without deciding whether a notable/risk/case-state lookup is an `alert_summary` capability. Both readings are recorded per row; neither is encoded.
+
+- **Reading A** — it *is* an `alert_summary` capability. Current routing is right; but `alert_summary` grants neither `spl` nor `mcp` today, so those questions have **no** route to the notable index at all. Closing A means adding a retrieval capability to the skill contract, i.e. widening a contract.
+- **Reading B** — it is live-data retrieval like any other, so an SPL-capable hunt skill owns it. Current routing is wrong on those rows; the fix is the pattern→skill table only, no contract change.
+
+Affected: `rt.d1.001/004/007/008/009` (`notable_risk_lookup`), `rt.d1.010/015` (`case_state_lookup`), `rt.para.010/015`.
+
+**Scope may be wider than 7 rows.** The blind labeller independently applied the same doubt to `rt.d1.005` (`asset_identity_context`) and `rt.d1.012` (`data_source_health`) — rows this plan assumed clear-cut. If the user's decision extends there, R2.1's "clear-cut `knowledge_recall`" group shrinks from 8 rows.
 
 _(R2.2 writes here if the `alert_summary` disposition is deferred.)_
 
