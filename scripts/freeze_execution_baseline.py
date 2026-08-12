@@ -45,6 +45,11 @@ PROTECTED: dict[str, tuple[str, ...]] = {
         "backend/app/use_cases/catalog.json",
         "backend/app/skills/catalog.json",
         "backend/app/spl/templates.json",
+        # Plan 5 A5. Carries the governed MITRE registry block that decides whether a question's
+        # technique claims are suppressed at runtime. Regenerating it used to broaden those claims
+        # on 11 of 105 questions; the builder is idempotent now, but the artifact is governed
+        # metadata rather than a derived convenience, so drift on it must be a visible decision.
+        "backend/app/coverage/question_runtime_map_v1.json",
     ),
     "published_doc_mirrors": (
         "docs/architecture/details.html",

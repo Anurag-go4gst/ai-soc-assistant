@@ -13,6 +13,7 @@
       "backend/app/evals/golden_answers/question_105_golden.jsonl": "8eade9f5898fa986f7417f02825e1e32f365bbf3c1002ebedc7841a23c8e8122"
     },
     "governed_registries": {
+      "backend/app/coverage/question_runtime_map_v1.json": "621232b2a97b40b2944fede12e3a42723aaef1494367cb80c8ca2c3decb20c28",
       "backend/app/skills/catalog.json": "9c29cea26a283b2019e3aee66113441e87377cc65c06db421c6f63b4a22ba3e7",
       "backend/app/spl/templates.json": "d2aea8235dbf1b6cec034864c09c253ea074617e3c155c1566e640f5d3cdf348",
       "backend/app/use_cases/catalog.json": "2d66a82e2ce8a4e5f257cdc5dacd2a0cce58b2c5a7b18dd86eee7f5b44f85cfa"
