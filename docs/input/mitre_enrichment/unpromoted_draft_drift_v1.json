@@ -1,0 +1,168 @@
+{
+  "schema_version": "plan5_a2_unpromoted_draft_drift_v1",
+  "purpose": "Rows where the MITRE DRAFT enrichment is ahead of the promoted runtime map. The builder reproduces the deployed promoted state for these rows so a regeneration cannot broaden analyst-visible technique claims; the drift is recorded here rather than hidden.",
+  "promoted_by_commit": "56b48d9",
+  "draft_advanced_by_commit": "7ee7a34",
+  "reconciliation_item": "Plan 5 A2.5 MITRE_DRAFT_RUNTIME_PROMOTION_RECONCILIATION",
+  "resolution": "Emptying `rows` requires promoting the DRAFT into the runtime map (A2.5) \u2014 a governed MITRE change, not a builder change. This ledger must never be edited to silence a newly-appearing divergence; the drift detector asserts it matches reality exactly.",
+  "rows": {
+    "q0.q021": {
+      "promoted_mitre_candidate": [],
+      "draft_mitre_candidate": [
+        "T1071"
+      ],
+      "promoted_registry_candidate": [],
+      "draft_registry_candidate": [
+        "T1071"
+      ],
+      "draft_registry_candidate_provenance": {
+        "T1071": "llm_catalogue_audit_2026-06-16:candidate_promotion"
+      },
+      "promoted_registry_candidate_provenance": null
+    },
+    "q0.q028": {
+      "promoted_mitre_candidate": [],
+      "draft_mitre_candidate": [
+        "T1071"
+      ],
+      "promoted_registry_candidate": [],
+      "draft_registry_candidate": [
+        "T1071"
+      ],
+      "draft_registry_candidate_provenance": {
+        "T1071": "llm_catalogue_audit_2026-06-16:candidate_promotion"
+      },
+      "promoted_registry_candidate_provenance": null
+    },
+    "q0.q040": {
+      "promoted_mitre_candidate": [],
+      "draft_mitre_candidate": [
+        "T1071"
+      ],
+      "promoted_registry_candidate": [],
+      "draft_registry_candidate": [
+        "T1071"
+      ],
+      "draft_registry_candidate_provenance": {
+        "T1071": "llm_catalogue_audit_2026-06-16:candidate_promotion"
+      },
+      "promoted_registry_candidate_provenance": null
+    },
+    "q0.q046": {
+      "promoted_mitre_candidate": [],
+      "draft_mitre_candidate": [
+        "T1110"
+      ],
+      "promoted_registry_candidate": [],
+      "draft_registry_candidate": [
+        "T1110"
+      ],
+      "draft_registry_candidate_provenance": {
+        "T1110": "llm_catalogue_audit_2026-06-16:candidate_promotion"
+      },
+      "promoted_registry_candidate_provenance": null
+    },
+    "q0.q047": {
+      "promoted_mitre_candidate": [],
+      "draft_mitre_candidate": [
+        "T1110"
+      ],
+      "promoted_registry_candidate": [],
+      "draft_registry_candidate": [
+        "T1110"
+      ],
+      "draft_registry_candidate_provenance": {
+        "T1110": "llm_catalogue_audit_2026-06-16:candidate_promotion"
+      },
+      "promoted_registry_candidate_provenance": null
+    },
+    "q0.q050": {
+      "promoted_mitre_candidate": [],
+      "draft_mitre_candidate": [
+        "T1059.001"
+      ],
+      "promoted_registry_candidate": [],
+      "draft_registry_candidate": [
+        "T1059.001"
+      ],
+      "draft_registry_candidate_provenance": {
+        "T1059.001": "llm_catalogue_audit_2026-06-16:candidate_promotion"
+      },
+      "promoted_registry_candidate_provenance": null
+    },
+    "q0.q060": {
+      "promoted_mitre_candidate": [],
+      "draft_mitre_candidate": [
+        "T1110"
+      ],
+      "promoted_registry_candidate": [],
+      "draft_registry_candidate": [
+        "T1110"
+      ],
+      "draft_registry_candidate_provenance": {
+        "T1110": "llm_catalogue_audit_2026-06-16:candidate_promotion"
+      },
+      "promoted_registry_candidate_provenance": null
+    },
+    "q0.q062": {
+      "promoted_mitre_candidate": [],
+      "draft_mitre_candidate": [
+        "T1110"
+      ],
+      "promoted_registry_candidate": [],
+      "draft_registry_candidate": [
+        "T1110"
+      ],
+      "draft_registry_candidate_provenance": {
+        "T1110": "llm_catalogue_audit_2026-06-16:candidate_promotion"
+      },
+      "promoted_registry_candidate_provenance": null
+    },
+    "q0.q063": {
+      "promoted_mitre_candidate": [],
+      "draft_mitre_candidate": [
+        "T1059.001"
+      ],
+      "promoted_registry_candidate": [],
+      "draft_registry_candidate": [
+        "T1059.001"
+      ],
+      "draft_registry_candidate_provenance": {
+        "T1059.001": "llm_catalogue_audit_2026-06-16:candidate_promotion"
+      },
+      "promoted_registry_candidate_provenance": null
+    },
+    "q0.q083": {
+      "promoted_mitre_candidate": [],
+      "draft_mitre_candidate": [
+        "T1059.001"
+      ],
+      "promoted_registry_candidate": [],
+      "draft_registry_candidate": [
+        "T1059.001"
+      ],
+      "draft_registry_candidate_provenance": {
+        "T1059.001": "llm_catalogue_audit_2026-06-16:candidate_promotion"
+      },
+      "promoted_registry_candidate_provenance": null
+    },
+    "q0.q089": {
+      "promoted_mitre_candidate": [],
+      "draft_mitre_candidate": [
+        "T1110"
+      ],
+      "promoted_registry_candidate": [],
+      "draft_registry_candidate": [
+        "T1110"
+      ],
+      "draft_registry_candidate_provenance": {
+        "T1110": "llm_catalogue_audit_2026-06-16:candidate_promotion"
+      },
+      "promoted_registry_candidate_provenance": null
+    }
+  },
+  "drifted_registry_fields": [
+    "candidate",
+    "candidate_provenance"
+  ]
+}

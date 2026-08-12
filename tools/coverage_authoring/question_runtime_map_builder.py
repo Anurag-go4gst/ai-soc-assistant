@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from app.threat.mitre_registry_enrichment import load_mitre_enrichment_drafts
+from app.threat.mitre_runtime_promotion import runtime_patch_for_draft_item
 from mitre_permitted import build_mitre_permitted_for_row, load_taxonomy_mitre_by_ref
 from registries import MANIFEST_PATH, REPO_ROOT, TAXONOMY_PATH
 from taxonomy_lookup import TaxonomyRow, load_taxonomy_rows
@@ -128,6 +130,63 @@ def _map_supplemental_row(raw: dict[str, Any], manifest_by_ref: dict[str, dict[s
     return record
 
 
+#: Rows where the MITRE DRAFT is ahead of what was actually promoted into the runtime map. See the
+#: file's own `purpose` field and Plan 5 A2.5. Never edit it to silence new drift — the detector test
+#: `test_question_runtime_map_draft_drift.py` asserts it matches the measured divergence exactly.
+UNPROMOTED_DRAFT_DRIFT_PATH = (
+    REPO_ROOT / "docs" / "input" / "mitre_enrichment" / "unpromoted_draft_drift_v1.json"
+)
+
+
+def load_unpromoted_draft_drift() -> dict[str, dict[str, Any]]:
+    """Rows whose promoted candidate tier is behind the DRAFT, keyed by question_ref."""
+    if not UNPROMOTED_DRAFT_DRIFT_PATH.is_file():
+        return {}
+    payload = json.loads(UNPROMOTED_DRAFT_DRIFT_PATH.read_text(encoding="utf-8"))
+    rows = payload.get("rows")
+    return rows if isinstance(rows, dict) else {}
+
+
+def _apply_governed_mitre_registry(entries: list[dict[str, Any]]) -> None:
+    """Merge the governed MITRE registry metadata onto each row, in place.
+
+    The taxonomy and the Q4 manifest do not carry this metadata; the COE DRAFT enrichment export is
+    its source of truth, and `runtime_patch_for_draft_item` is the same derivation the promoter CLI
+    uses. Without this step a regeneration drops the `mitre_registry` block, which re-routes those
+    rows to the unsuppressed draft fallback in `registry_mitre_metadata_for_runtime` and broadens
+    analyst-visible technique claims (Plan 5 A1: 11 of 105 rows).
+
+    `update` is deliberate: fields the row already carries (`mitre_permitted`,
+    `mitre_runtime_kb_overlap`, `mitre_runtime_kb_match_count`) keep their original position and take
+    the DRAFT value, while the governed fields append in patch order. That ordering is what keeps a
+    regenerated artifact byte-identical to the committed one.
+    """
+    drafts = load_mitre_enrichment_drafts()["questions_by_id"]
+    drift = load_unpromoted_draft_drift()
+    for entry in entries:
+        ref = str(entry["question_ref"])
+        draft_item = drafts.get(ref)
+        if not isinstance(draft_item, dict):
+            continue
+        patch = runtime_patch_for_draft_item(draft_item, question_ref=ref, use_case_id=None)
+        drifted = drift.get(ref)
+        if drifted is not None:
+            # The builder derives from the DRAFT, but the DRAFT's candidate tier has advanced past
+            # what was promoted. Emitting the newer value here would broaden analyst-visible MITRE
+            # claims as a side effect of regenerating a file — so the promoted state wins, and the
+            # gap is carried explicitly in the ledger until A2.5 reconciles it.
+            patch["mitre_candidate"] = list(drifted["promoted_mitre_candidate"])
+            patch["mitre_registry"]["candidate"] = list(drifted["promoted_registry_candidate"])
+            promoted_provenance = drifted.get("promoted_registry_candidate_provenance")
+            if promoted_provenance is None:
+                # The DRAFT carries provenance for the unpromoted candidate; keeping it would assert
+                # a promotion that never reached runtime.
+                patch["mitre_registry"].pop("candidate_provenance", None)
+            else:
+                patch["mitre_registry"]["candidate_provenance"] = promoted_provenance
+        entry.update(patch)
+
+
 def build_question_runtime_map(
     *,
     taxonomy_path: Path | None = None,
@@ -147,6 +206,7 @@ def build_question_runtime_map(
         entries.append(_map_supplemental_row(raw, manifest_by_ref))
         existing_refs.add(ref)
     entries.sort(key=lambda item: int(str(item["question_ref"]).split(".")[-1].lstrip("q")))
+    _apply_governed_mitre_registry(entries)
     in_manifest = sum(1 for item in entries if item["promotion_status"] == "in_manifest")
     supplemental_count = len(_load_supplemental_rows())
     return {
