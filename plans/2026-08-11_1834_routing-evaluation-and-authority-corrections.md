@@ -548,6 +548,28 @@ Tests marked **NEW** are created in their owning item. R3.0's and R2.0's observa
 
 ## Deferred decisions (recorded, not approved)
 
+### `R3A_TERMINAL_CONTRACT_PREDICATE` — OPEN, blocks R3-A implementation (raised 2026-08-12, user approved R3-A)
+
+R3-A was approved: correct the terminal fallback contract only, no ninth routing rule, no deterministic skill change. The **confidence convention exists and needs no invention** — `_route_reference_knowledge` (`select_route_from_understanding.py:442-450`) already defines the repo's resolved-knowledge contract: `knowledge_recall` + `_tool_plan_for_skill("knowledge_recall")` + **0.82** + `["…", "execution_disabled"]`.
+
+**The blocker is the predicate, not the confidence.** Applying that contract requires separating the rows that are a settled knowledge answer (28) from those that genuinely need clarification (11). Measured over all 112 signal keys plus `QueryUnderstandingResult`:
+
+- **5 clarification-labelled rows have an empty signal set**: `rt.d2.016`, `rt.d2.018`, `rt.d2.025`, `rt.d2.028`, `rt.d2.035` ("Is this a breach?", "Run a Splunk search now for every event containing a password…", …).
+- **13 resolved-knowledge rows have an empty signal set too**: `rt.d2.006/007/010/011/012/013/014/015/017/022/024/026/027`.
+
+Both classes contain rows with **identical deterministic input state**, so no predicate over existing signals can separate them. This is a proof by indistinguishable inputs, not a failed search.
+
+Confirming the same conclusion from the other end: those 5 rows reach `clarification_required` through the intent classifier's **own terminal default** — `confidence 0.45`, reason *"Insufficient deterministic intent signals; clarification recommended."* The classifier lands there by the same absence of signal that sends them to the routing terminal fallback. The discriminator does not exist anywhere in the deterministic layer.
+
+**Contract options:**
+
+- **C1 — blanket resolved contract at the terminal fallback.** All 39 get `knowledge_recall @ 0.82` + a real tool plan. Live `route_ok` 33 → 38/39 and the 5 D3 divergences do disappear — but **for the wrong reason**: every terminal row becomes non-replaceable, including genuinely unresolved ones, which removes the advisory's last legitimate role. It also presents 5 rows — two unsafe-shaped, one "Is this a breach?" — as confident knowledge answers. Downstream containment is unaffected (`clarification_required`, `execution_enabled=False`), so this is misrepresentation rather than a safety failure, but it fails the approved acceptance criterion "5 residual D3 advisory replacements disappear **for the correct reason**".
+- **C2 — apply the contract correction downstream of intent classification**, where `intent_family` already separates the 11 from the 28 deterministically. Discriminates correctly and invents nothing. **Does not deliver the D3 benefit**: the advisory acts before intent classification, so the 5 residual divergences remain. Fails that acceptance criterion by construction.
+- **C3 — defer R3-A.** Close D2 as measured: 38/39 deterministic `route_ok`, contract residue and the 3 SPL rows carried as explicit known gaps.
+- **C4 — reorder so the clarification determination precedes routing.** `build_query_to_intent` consumes `routed_skill`, so this is a real architectural change and needs its own plan.
+
+**Recommendation: C3, or C2 if the contract cleanup is wanted independently of the D3 benefit.** C1 is not recommended — it buys the target metric by blanket-suppressing the advisory and by misrepresenting five rows, which is the same class of dishonesty D3 was raised to remove.
+
 ### `IN_CATALOGUE_CONTRACT_BASELINE_REFRESH` — **RESOLVED: user approved `BR-a` 2026-08-12, scoped to the 5 measured rows. Applied surgically and verified; D3 closed green at `a66540c`.**
 
 D3.1's correction changes 5 `cisco50` rows in the frozen fixture `backend/app/tests/fixtures/in_catalogue_contract/baseline.json` (23 field diffs; the 105 are untouched). Every D3.2 acceptance condition passed; this is the only blocker.
