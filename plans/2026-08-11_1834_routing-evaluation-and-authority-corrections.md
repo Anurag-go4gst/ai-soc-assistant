@@ -188,7 +188,7 @@ Stated up front so closure is not read as more than it is:
 
     **Assembly defect found while labelling, and fixed.** Three control rows (`rt.alert.004`, `rt.know.003`, `rt.know.004`) restated D2 queries verbatim under different `row_id`s, which would have double-weighted those questions in every rate the evaluator reports. Their quotas were merged onto the D2 rows that already held the query and the duplicates dropped — **90 → 87 rows**, all quotas still met (`d1` 15, `d2` 39, `ot` 19, `paraphrase` 15, `hunt` 7, `knowledge` 5, `alert_summary` 4, `alert_supplied` 2). Duplicate query text is now a validation error (`test_duplicate_query_text_across_rows_is_rejected`), so it cannot recur.
 
-- [ ] **R1.4 — Build the routing evaluator**
+- [x] **R1.4 — Build the routing evaluator**
   - **Do:** Add `scripts/eval_routing_truth_set.py` — in-process, deterministic, no LLM, no live backend. Per row: `understand_query` → `select_route_from_understanding` → `build_query_to_intent` → `plan_evidence` → `plan_path_and_tools`; then score `route_ok` against `acceptable_skills`. Evaluate the capability invariant against the **labelled** `required_capabilities` (not the classifier's intent family) by asking the selected skill's contract, per capability, through the same permit primitive Plan 3 B2 uses — `skill_intent_compatibility._contract_grants` / `composer._skill_permits`. Note the API shape: `resolve_capability_compatibility(routed_skill, intent_family, skill_contract)` has **no** parameter for labelled capabilities, so call it for the *observed* pairing (to report the runtime's own resolution) and check the labelled capabilities separately through the permit primitive. Do not create a second capability table. Emit per-row JSON and the `EVAL_CONTRACT.md` verdict line `RESULT: PASS (n/m rows, …)`, and `--json <path>` for per-row results.
 
     **`--check` semantics are NO-REGRESSION, not identity.** `--check --baseline <file>` passes when, relative to the baseline: no row flips `route_ok` → `route_wrong`, and no row gains `capability_inconsistent`. Improvements pass. Identity-checking would make the gate pass trivially at R1.5 and fail by construction at G1, since R3/R2 exist to improve on the baseline. `ambiguous` rows report but never gate.
@@ -197,9 +197,17 @@ Stated up front so closure is not read as more than it is:
   - **Depends on:** R1.3.
   - **Failing-first / observation:** Unit-test the invariant against a synthetic row whose labelled `required_capabilities={spl}` meets a `knowledge_recall` contract — must report `capability_inconsistent` **while** `route_ok` is true, proving the two axes are independent. Record that output.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_routing_truth_set_eval.py -q`; `PYTHONPATH=backend:. python3 scripts/eval_routing_truth_set.py --json /tmp/plan4-r1-baseline.json` prints a conforming `RESULT:` line; running it twice produces byte-identical per-row verdicts.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **COMPLETE 2026-08-12; commit `a57e4e9`.** New `scripts/eval_routing_truth_set.py` + `backend/app/tests/test_routing_truth_set_eval.py` (**11 passed**). Deterministic, in-process, no LLM, no live backend. Two runs produced **byte-identical per-row verdicts and summary**.
 
-- [ ] **R1.5 — Record the OFF (baseline) routing measurement**
+    **Failing-first / independence, on a real routed query.** `test_route_ok_and_capability_inconsistent_can_coexist` routes "Which hosts contacted suspicious external domains?" with `knowledge_recall` deliberately inside `acceptable_skills`: the evaluator returns `route_verdict=route_ok` **and** `capability_inconsistent=True, denied=['spl']` at the same time. That is the D1 defect class scoring as a route pass and a capability failure simultaneously — if the axes were ever collapsed the benchmark would be blind to exactly what it was built to measure.
+
+    **Family and shape are reported, never gated — enforced, not just intended.** `test_family_mismatch_does_not_affect_any_gating_number` asserts every gating figure is identical for `family_match=True` and `False`. This encodes R1.3's measurement: two independent labellers agreed 20/20 on both gating axes and 9/20 on family, with **0 of 11** family differences crossing a capability boundary. Gating family would have manufactured a ~55% failure rate carrying no routing information.
+
+    **`--check` semantics implemented as no-regression** (`compare()`): a row may not flip `route_ok → route_wrong` and may not gain `capability_inconsistent`; improvements pass; ambiguous rows cannot trigger a regression. **Deleting a row is itself a regression** (`test_a_dropped_row_is_a_regression`), so an inconvenient row cannot be removed to make the gate pass. Verdict line conforms to `EVAL_CONTRACT.md`.
+
+    **One capability authority.** The evaluator calls `routing_truth_set.capability_consistency`, which delegates to `skill_intent_compatibility._contract_grants` → `composer._skill_permits`. No second table.
+
+- [x] **R1.5 — Record the OFF (baseline) routing measurement**
   - **Do:** Run the evaluator at unmodified `93562c1` runtime and freeze the result as `docs/evals/routing_truth_set_baseline_v1.json` — this is a **new** baseline for a new artifact, not a refresh of a protected one. Record the full matrix: route-correct rate, capability-contradiction rate, knowledge-only false-escalation count, hunt/detection under-routing count, unsafe-containment count, ambiguous count.
 
     **Record the benchmark's coverage limit in the baseline file itself.** The evaluator is deterministic-only, but production runs `routing_mode=llm_assisted_semantic`, where the consumer-gated intent advisory can promote a route live. A green truth-set run is therefore evidence about the **deterministic floor**, not about production routing. Additionally run a ~10-row **live-arm observation** through the production routing mode and record the delta as observation only — never a gate, never a reason to relabel. If the live arm diverges materially from the deterministic arm, that is a finding for E0, not a blocker here.
@@ -208,16 +216,42 @@ Stated up front so closure is not read as more than it is:
   - **Depends on:** R1.4.
   - **Failing-first / observation:** Confirm the baseline reproduces D1 (≥14 `capability_inconsistent` rows among the D1 subset) and D2 (≥1 hunt row terminating on `knowledge_recall @ 0.20`). If it does not, the evaluator is wrong — stop and fix it before proceeding.
   - **Verify:** `PYTHONPATH=backend:. python3 scripts/eval_routing_truth_set.py --check --baseline docs/evals/routing_truth_set_baseline_v1.json`; `python3 scripts/freeze_execution_baseline.py --capture --out /tmp/plan4-routing-baseline.json` re-captured to include the new artifact (14 artifacts) and `--check` passes.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **COMPLETE 2026-08-12; commit `cdeea34`.** Frozen `docs/evals/routing_truth_set_baseline_v1.json` at unmodified `93562c1` runtime.
 
-- [ ] **R1.6 — De-circularize the 105 routing pin (independent of any hint change)**
+    | Metric | Baseline |
+    |---|---|
+    | gating rows / ambiguous | **77 / 10** |
+    | `route_ok` / `route_wrong` | **56 / 21** (route-correct rate **0.727**) |
+    | `capability_inconsistent` | **21** (rate 0.273) |
+    | hunt/detection under-routing | **21** |
+    | knowledge-only false escalation | **0** |
+    | unsafe containment | **13/13** |
+    | family match (reported, non-gating) | 41/77 |
+
+    **Both sanity gates hold.** D1 reproduces — **all 8 gating D1 rows are `capability_inconsistent` on `spl`** (`rt.d1.001/004/007/008/009/010/015` routed `alert_summary`, `rt.d1.002` routed `knowledge_recall`). D2 reproduces — **all 39 D2 rows sit on the 0.20 terminal fallback**, 3 of them (`rt.d2.003` Kerberoasting, `rt.d2.010`, `rt.d2.017`) requiring SPL the routed skill cannot provide.
+
+    **Recorded deviation from the plan's stated gate.** The plan expected "≥14 `capability_inconsistent` rows among the D1 subset". The measured figure is **8**, and that is correct rather than a miss: the user's recorded decision deferred the `asset_identity_context` and `data_source_health` ownership question to R2.0, which marks those 7 rows ambiguous and therefore non-gating. The deferral costs gating power on exactly those rows — stated here rather than papered over.
+
+    **Baseline added to `PROTECTED["eval_baselines"]`.** The evaluator can rewrite it with `--freeze`, so guarding it makes a re-baseline a visible decision rather than a side effect of a run. Manifest re-captured: **14 artifacts**, `--check` passes.
+
+    **Live-arm observation — see the D3 finding recorded under Deferred decisions.** The 10-row sample the plan asked for was expanded to all 77 gating rows once the first sample showed a divergence. Result: the LLM advisory selects the final route on **49/77** rows, diverges from the deterministic floor on **10**, and **all 10 divergences are degradations, 0 improvements**. This is observation only — no gate, no relabel — but it materially affects R3.0 and is raised as a stop.
+
+- [x] **R1.6 — De-circularize the 105 routing pin (independent of any hint change)**
   - **Do:** Rewrite `backend/app/tests/test_query_understanding_stage3je.py:84` so it asserts a **contract** — the resolved route is a valid skill and, for rows present in the truth set, is a member of that row's `acceptable_skills` — instead of asserting identity with `legacy_router_intent_hint`, the label the same file supplies. Keep whatever coverage the existing assertion legitimately provides (registry match source, match path) and record what the identity assertion was actually protecting.
   - **Why:** The circularity is a defect on its own: it makes the router unfalsifiable against its own registry. In the first draft this fix lived inside R2.1, so a withheld golden-refresh approval would have left the circular pin in place indefinitely. It does not depend on any hint value changing, so it is its own item.
   - **Surfaces:** `backend/app/tests/test_query_understanding_stage3je.py`.
   - **Depends on:** R1.5.
   - **Failing-first / observation:** Prove the new assertion has teeth: mutate one row's `legacy_router_intent_hint` in memory to an out-of-set skill and confirm the rewritten test fails. Record the output, then revert the mutation.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_query_understanding_stage3je.py -q`; `PYTHONPATH=backend:. python3 scripts/eval_105_path_honoring.py --check`; `python3 scripts/freeze_execution_baseline.py --check --in /tmp/plan4-routing-baseline.json`.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **COMPLETE 2026-08-12; commit `d2da614`.** `test_query_understanding_uses_question_registry_as_intent_fallback` no longer asserts `result.primary_intent == entry["legacy_router_intent_hint"]`.
+
+    **What the old assertion was protecting, recorded before replacing it:** the *mechanism* — with no use-case match (`mapped_use_case_ids == []`) the intent still resolves, and it carries the registry-fallback confidence `0.55`. That is preserved. What was dropped is the circularity: asking the router to agree with the label supplied by the very file it reads, which cannot fail for any reason worth knowing. The route's *correctness* is now measured against independently-adjudicated labels instead.
+
+    **Replacement asserts:** `primary_intent ∈ SKILL_ENUM`, `confidence == 0.55`, `question_registry_match_source == "question_runtime_map_105_exact"`, plus a new contract test over non-ambiguous golden-sourced truth-set rows.
+
+    **Teeth proven by mutation, not assumed.** `q0.q001`'s `legacy_router_intent_hint` was set to `not_a_real_skill` in the committed map: the rewritten test **failed** (`1 failed, 17 passed`). Mutation reverted with `git checkout --`; suite back to **18 passed**; `protected artifacts unchanged (14 checked)`.
+
+    This item existed separately from R2.1 precisely so a withheld golden-refresh approval could not leave the circularity in place indefinitely — and that separation paid off, since R2.1 is still gated on a decision.
 
 - [ ] **R3.0 — Decide the D2 rule — STOP gate `D2_FALLBACK_RULE`**
   - **Do:** Inventory the deterministic signals already available at the terminal fallback in `_route_out_of_registry` (the eight floors above it, `extract_query_signals`, `classify_answer_shape`, `detect_spl_artifact_request`, `_detection_family_match`, `is_unsafe_execution`, `soc_investigation_shaped`). For each of the 39 D2 rows, record which signals are present and which of the eight floors declined it and why. Propose the **narrowest** rule that rescues hunt/detection-shaped misses only. Record explicitly why a blanket `attack_discovery` default is rejected. **Disposition the non-hunt residue explicitly:** rows that keep `knowledge_recall @ 0.20 / tool_plan=["needs_clarification"]` after the fix — including rows where `knowledge_recall` is the *correct* skill but `0.20` and `needs_clarification` still misrepresent a confident answer downstream — must be either accepted with a written reason or covered by a second narrow rule. Leaving the residue unmentioned is not a disposition. **STOP** if the rule cannot be expressed from existing signals without a new classifier, a new flag, or an LLM hop.
@@ -339,6 +373,32 @@ Do not silently adapt, skip, weaken a test, or change a recorded decision.
 Tests marked **NEW** are created in their owning item. R3.0's and R2.0's observation tables are intentionally not prewritten; their exact contents are recorded in the owning item's Evidence before any implementation follows.
 
 ## Deferred decisions (recorded, not approved)
+
+### `D3_LLM_ADVISORY_HOLDS_FINAL_ROUTE` — OPEN, blocks R3.0 framing (raised at R1.5, 2026-08-12)
+
+**Measured on this host, all 77 gating truth-set rows, `routing_mode=llm_assisted_semantic`:**
+
+| Observation | Value |
+|---|---|
+| rows whose final route is chosen by `selected_by=llm_advisory_validated` | **49 / 77 (64%)** |
+| rows where the full router diverges from the deterministic floor | **10** |
+| divergences that **degrade** the route (deterministic acceptable → live unacceptable) | **10** |
+| divergences that improve the route | **0** |
+
+Degraded rows: `rt.ot.001`, `rt.ot.002`, `rt.ot.004`, `rt.ot.005` (concrete SCADA/Modbus/AMI detections demoted `spl_generation → knowledge_recall`/`alert_summary`, losing SPL); `rt.para.002` (IOC hunt demoted `spl_generation → knowledge_recall`); `rt.d2.012`, `rt.d2.023` (`knowledge_recall → spl_generation` on documentation asks); `rt.d2.030`, `rt.d2.037` (`knowledge_recall → attack_discovery`); `rt.d2.034` (`knowledge_recall → alert_summary`).
+
+**This contradicts a documented architecture claim.** `CLAUDE.md` states LLM route suggestions are "advisory only, normalized through deterministic registries; **final route selection stays deterministic**". Measured, final route selection is *not* deterministic on out-of-registry paths: `_qu_route_retains_authority` returns false there, so the validated advisory wins. Registry-backed paths are unaffected (13 rows kept `query_understanding_105`).
+
+**Why it blocks R3.0's framing rather than just being noted.** D2 lives entirely on out-of-registry paths — exactly where the advisory holds authority. A deterministic fix to the terminal fallback can therefore be silently overridden, or amplified, by the advisory on the same rows (5 of the 39 D2 rows already diverge). R3.0's per-row predictions and its OFF/ON acceptance would be measuring a layer that is not the final authority on this host.
+
+**Options (none taken):**
+- **D3-a** — treat the deterministic floor as the gate and the advisory as out of scope; R3 proceeds, and the report states plainly that the gated layer is not the production-final layer.
+- **D3-b** — extend the evaluator to a second arm over `route_skill`, gate on the deterministic floor and *report* the live arm; R3.0 then predicts both.
+- **D3-c** — treat advisory-over-deterministic authority on out-of-registry paths as its own defect and scope a correction (restore deterministic finality, or constrain the advisory to promote-only-when-the-floor-is-weak). Larger than Plan 4 as written.
+
+**Recommendation: D3-b now, D3-c as its own plan.** D3-b costs one evaluator arm and makes every later claim honest about which layer it measures; D3-c changes routing authority and must not be smuggled into a plan scoped to D1/D2.
+
+Not a safety finding: unsafe containment stayed **13/13** in the deterministic arm, and no divergence enabled execution.
 
 ### `ALERT_SUMMARY_NOTABLE_OWNERSHIP` — OPEN, blocking R2.0/R2.1 scope (raised at R1.3, 2026-08-12)
 
