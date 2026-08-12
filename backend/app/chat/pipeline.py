@@ -2353,6 +2353,7 @@ def graph_node_route_resolution(state: ChatPipelineState) -> ChatPipelineState:
             query_understanding=state.get("query_understanding"),
             message=request.message,
             query_to_intent=state.get("query_to_intent"),
+            resolved_query_contract=state.get("resolved_query_contract"),
         )
         route_adjudication_payload = adjudication.model_dump()
         routing_skill_resolution = {

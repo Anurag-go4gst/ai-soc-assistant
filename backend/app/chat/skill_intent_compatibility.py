@@ -190,3 +190,32 @@ def skill_contract_for(routed_skill: str | None) -> Mapping[str, Any] | None:
     from app.planner.resource_registry import load_resource_registry
 
     return _skill_contract(str(routed_skill), load_resource_registry())
+
+
+def enforce_route_capabilities(
+    *,
+    final_route: str,
+    intent_family: str | None,
+    required_capabilities: frozenset[str] | None = None,
+) -> tuple[str, CompatibilityResolution, str]:
+    """Apply fail-closed capability enforcement to an already-chosen route.
+
+    Never promotes to a more capable skill. If the selected skill denies a required
+    capability, demote to ``knowledge_recall`` (veto) or keep ``knowledge_recall``
+    (unsatisfied). Status is ``compatible``, ``veto``, or ``unsatisfied``.
+    """
+    skill = str(final_route or "").strip() or "knowledge_recall"
+    family = str(intent_family or "")
+    contract = skill_contract_for(skill)
+    resolution = resolve_capability_compatibility(
+        routed_skill=skill,
+        intent_family=family or None,
+        skill_contract=contract,
+    )
+    required = frozenset(required_capabilities or ()) | resolution.required_capabilities
+    denied = frozenset(required - resolution.granted_capabilities)
+    if not denied:
+        return skill, resolution, "compatible"
+    if skill != "knowledge_recall":
+        return "knowledge_recall", resolution, "veto"
+    return skill, resolution, "unsatisfied"

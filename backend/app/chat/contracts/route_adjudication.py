@@ -16,3 +16,5 @@ class RouteAdjudication(BaseModel):
     row_authority_applied: bool = False
     row_authority_note: str | None = None
     row_authority_fallback_reason: str | None = None
+    capability_enforcement: str | None = None
+    capability_denied: list[str] = []

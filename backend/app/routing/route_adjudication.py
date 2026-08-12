@@ -6,7 +6,9 @@ from typing import Any
 
 from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.contracts.intent_classification import IntentClassification
+from app.chat.contracts.resolved_query import ResolvedQueryContract
 from app.chat.contracts.route_adjudication import RouteAdjudication
+from app.chat.skill_intent_compatibility import enforce_route_capabilities
 from app.config import settings
 from app.coverage.row_authority import AUTHORITY_READY
 from app.routing.route_authority_allowlist import (
@@ -97,6 +99,7 @@ def adjudicate_route(
     query_understanding: Any | None = None,
     message: str = "",
     query_to_intent: dict[str, Any] | None = None,
+    resolved_query_contract: dict[str, Any] | ResolvedQueryContract | None = None,
 ) -> RouteAdjudication:
     """Apply tie-breaker precedence; never re-classify intent from raw keywords."""
     _ = message
@@ -116,13 +119,14 @@ def adjudicate_route(
         row_trace["row_authority_applied"] = True
 
     def finish(**kwargs: Any) -> RouteAdjudication:
-        return _result(
+        result = _result(
             deterministic_route=deterministic_route,
             llm_suggested_route=llm_route,
             shadow_plan_status=shadow_status,
             **row_trace,
             **kwargs,
         )
+        return _apply_capability_enforcement(result, resolved_query_contract)
 
     signals = _query_signals(query_to_intent)
     spl_trace = signals.get("spl_authoring_trace") if isinstance(signals.get("spl_authoring_trace"), dict) else {}
@@ -711,6 +715,8 @@ def _result(
     row_authority_applied: bool = False,
     row_authority_note: str | None = None,
     row_authority_fallback_reason: str | None = None,
+    capability_enforcement: str | None = None,
+    capability_denied: list[str] | None = None,
 ) -> RouteAdjudication:
     return RouteAdjudication(
         deterministic_route=deterministic_route,
@@ -725,4 +731,49 @@ def _result(
         row_authority_applied=row_authority_applied,
         row_authority_note=row_authority_note,
         row_authority_fallback_reason=row_authority_fallback_reason,
+        capability_enforcement=capability_enforcement,
+        capability_denied=list(capability_denied or []),
     )
+
+
+def _apply_capability_enforcement(
+    result: RouteAdjudication,
+    resolved_query_contract: dict[str, Any] | ResolvedQueryContract | None,
+) -> RouteAdjudication:
+    if not settings.ai_soc_live_capability_enforcement_enabled:
+        return result
+    contract: ResolvedQueryContract | None
+    if isinstance(resolved_query_contract, ResolvedQueryContract):
+        contract = resolved_query_contract
+    elif isinstance(resolved_query_contract, dict):
+        try:
+            contract = ResolvedQueryContract.model_validate(resolved_query_contract)
+        except Exception:  # noqa: BLE001 — malformed contract must not break routing
+            return result.model_copy(
+                update={"capability_enforcement": "unresolved_contract"}
+            )
+    else:
+        return result.model_copy(update={"capability_enforcement": "no_contract"})
+
+    enforced_route, resolution, status = enforce_route_capabilities(
+        final_route=result.final_route,
+        intent_family=contract.intent_family,
+        required_capabilities=contract.required_capabilities,
+    )
+    denied = sorted(resolution.denied_capabilities | (contract.required_capabilities - resolution.granted_capabilities))
+    updates: dict[str, Any] = {
+        "capability_enforcement": status,
+        "capability_denied": denied,
+    }
+    if status == "veto" and enforced_route != result.final_route:
+        updates["final_route"] = enforced_route
+        updates["authority_source"] = "capability_enforcement_veto"
+        updates["reason"] = (
+            f"Selected skill {result.final_route!r} denies required capabilities "
+            f"{denied}; demoted to knowledge_recall. Never widened."
+        )
+    elif status == "unsatisfied":
+        updates["reason"] = (
+            f"{result.reason} | capability_enforcement_unsatisfied denied={denied}"
+        )
+    return result.model_copy(update=updates)
