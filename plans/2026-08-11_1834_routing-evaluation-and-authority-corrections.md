@@ -438,23 +438,33 @@ Stated up front so closure is not read as more than it is:
 
     **Recommendation: R3-A**, scoped as a contract correction, with R3-B's 3 rows carried as an explicit known gap. R3-A is the only option that improves a measured number without inventing a classifier, and it composes with D3 rather than fighting it. It is **not** implemented — the item stops here for the decision.
 
-- [ ] **R3.1 — Implement the D2 correction**
+- [x] **R3.1 — Implement the D2 correction — N/A, DEFERRED (no safe predicate)**
   - **Do:** Implement the R3.0 rule in `select_route_from_understanding.py` as an additional narrow branch **before** the terminal `LOW_CONFIDENCE_ROUTE`, reusing an existing route builder (`_route_detection_spl` or `_route_guided_investigation_rescue`) — do not introduce a new route shape. Preserve every earlier floor's precedence unchanged. Unsafe/action asks must be unreachable by the new branch by construction, not by ordering luck.
   - **Why:** The residue after eight floors is the only safe place to intervene without disturbing measured behavior.
   - **Surfaces:** `backend/app/routing/select_route_from_understanding.py`; `backend/app/tests/test_out_of_registry_terminal_fallback.py` (NEW).
   - **Depends on:** R3.0.
   - **Failing-first / observation:** New tests must fail before the change: at least one hunt-shaped D2 row asserting a non-`knowledge_recall@0.20` route, and at least three unsafe rows asserting containment is **unchanged**. Record both pre- and post-change outputs.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_out_of_registry_terminal_fallback.py app/tests/test_select_route_from_understanding.py app/tests/test_skill_router.py -q`; `python3 scripts/freeze_execution_baseline.py --check --in /tmp/plan4-routing-baseline.json`.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **N/A — closed as `DEFERRED_NO_SAFE_PREDICATE` by user decision `C3` on 2026-08-12. No runtime change was made.**
 
-- [ ] **R3.2 — Measure D2 OFF/ON and accept or revert**
+    R3.0 disproved the item's own premise. A ninth routing rule cannot isolate the 3 SPL-needing rows: `rt.d2.010` and `rt.d2.017` have an **empty** deterministic signal set, and `rt.d2.003`'s only distinguishing signal (`soc_detection_intent`) fires on 9 rows of which 1 needs SPL — precision **1/9**. The narrowest refinement tried (`soc_detection_intent AND NOT explicit_search_intent`) fixes one row and breaks one: **net zero**.
+
+    The approved alternative — R3-A, a contract-only correction — was then investigated and is also blocked, for a **different and stronger** reason: **5 clarification-labelled rows and 13 resolved-knowledge rows have identical (empty) deterministic input state**, so no predicate over existing signals can separate them. That is a proof by indistinguishable inputs, not a failed search. Options C1/C2/C4 are recorded under Deferred decisions and are explicitly **not** implemented in Plan 4.
+
+    Implementing anything here would have required a new classifier, which is this item's stop condition and a locked boundary.
+
+- [x] **R3.2 — Measure D2 OFF/ON and accept or revert — N/A, no ON arm exists**
   - **Do:** Re-run the routing evaluator and compare against the frozen R1.5 baseline. Accept only if hunt under-routing falls, unsafe containment is **byte-identical**, and no previously-`route_ok` row regresses. Run the answer-parity gate as **secondary** regression evidence and record it as such — a `120 exact` result is not evidence the routing change is correct. Revert if any acceptance condition fails.
   - **Why:** The rule's predicted effect from R3.0 must be falsifiable against measurement.
   - **Surfaces:** Plan Evidence; `/tmp` comparison artifacts only.
   - **Depends on:** R3.1.
   - **Failing-first / observation:** Record the observed per-row delta against R3.0's prediction; an unpredicted change is a finding that must be explained before acceptance, not a rounding error.
   - **Verify:** `PYTHONPATH=backend:. python3 scripts/eval_routing_truth_set.py --json /tmp/plan4-r3-on.json` plus an explicit diff against `docs/evals/routing_truth_set_baseline_v1.json`; `TELEMETRY_MODE=none PYTHONPATH=backend:. python3 scripts/audit_reference_probes.py --check`; `PYTHONPATH=backend:. python3 scripts/eval_out_of_set_soc.py --check`; `PYTHONPATH=backend:. python3 scripts/run_production_parity_eval.py --out-dir /tmp/plan4-r3-parity --check` (secondary).
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **N/A — there is no ON arm to measure. R3.1 was deferred, so no D2 correction exists to accept or revert.**
+
+    The OFF measurement stands as Plan 4's D2 record, from `docs/evals/routing_truth_set_baseline_v1.json` and the post-D3 live arm: **38/39** D2 rows are already `route_ok` on the deterministic arm; **1** is `route_wrong` (`rt.d2.003`); **3** are `capability_inconsistent` (`rt.d2.003`, `rt.d2.010`, `rt.d2.017`). On the live arm (post-D3, the authority) **33/39** are `route_ok`, the 6 failures being `rt.d2.003` plus the 5 D3 residual advisory replacements.
+
+    Because no change was made, the collision forecasts R3.0 produced were never spent: the frozen `intent_out_of_set_probes_baseline.json`, the reference probes and the in-catalogue contract are all untouched by R3.
 
 - [ ] **R2.0 — Classify the D1 rows — STOP gate `D1_SKILL_OWNERSHIP`**
   - **Do:** For each of the 15 D1 rows, classify the ask as `summarize_or_explain_a_supplied_alert` / `investigate_or_find_activity` / `knowledge_or_reference_lookup`, using the R1.3 labels (which were adjudicated independently) as the truth. Separate the `knowledge_recall` rows (`asset_identity_context` ×5, `data_source_health` ×2, `threat_intel_enrichment` ×1) from the `alert_summary` rows (`notable_risk_lookup` ×5, `case_state_lookup` ×2). **STOP with options** for any pattern class whose correction requires deciding which skill *owns* a capability — specifically whether a notable/risk-index lookup is an `alert_summary` capability or belongs to a hunt skill. Do not change registry semantics silently.
@@ -548,7 +558,7 @@ Tests marked **NEW** are created in their owning item. R3.0's and R2.0's observa
 
 ## Deferred decisions (recorded, not approved)
 
-### `R3A_TERMINAL_CONTRACT_PREDICATE` — OPEN, blocks R3-A implementation (raised 2026-08-12, user approved R3-A)
+### `R3A_TERMINAL_CONTRACT_PREDICATE` — **RESOLVED by user decision `C3` (2026-08-12): `R3-A disposition: DEFERRED_NO_SAFE_PREDICATE`. C1/C2/C4 are NOT implemented in Plan 4.**
 
 R3-A was approved: correct the terminal fallback contract only, no ninth routing rule, no deterministic skill change. The **confidence convention exists and needs no invention** — `_route_reference_knowledge` (`select_route_from_understanding.py:442-450`) already defines the repo's resolved-knowledge contract: `knowledge_recall` + `_tool_plan_for_skill("knowledge_recall")` + **0.82** + `["…", "execution_disabled"]`.
 
@@ -569,6 +579,12 @@ Confirming the same conclusion from the other end: those 5 rows reach `clarifica
 - **C4 — reorder so the clarification determination precedes routing.** `build_query_to_intent` consumes `routed_skill`, so this is a real architectural change and needs its own plan.
 
 **Recommendation: C3, or C2 if the contract cleanup is wanted independently of the D3 benefit.** C1 is not recommended — it buys the target metric by blanket-suppressing the advisory and by misrepresenting five rows, which is the same class of dishonesty D3 was raised to remove.
+
+### Carried forward from R3 (recorded, not approved, not implemented)
+
+1. **`rt.d2.003`, `rt.d2.010`, `rt.d2.017` — unresolved SPL-routing semantic misses.** Their labels require `spl`; the routed `knowledge_recall` contract denies it. No existing deterministic signal identifies them, and they must **not** be approximated with a heuristic. They need better semantic/classification signals, in a future item.
+
+2. **`UNDERSTANDING_BEFORE_FINAL_ROUTE` — future architecture candidate, NOT approved.** Query understanding, intent, ambiguity and required capabilities would be resolved *before* final skill selection. This is the structural reason R3-A had no predicate: the clarification determination exists only in `build_query_to_intent`, which consumes `routed_skill` and therefore cannot run before routing. Any future attempt at the D2 contract, or at a hunt-discriminating rule, depends on this ordering change and needs its own plan.
 
 ### `IN_CATALOGUE_CONTRACT_BASELINE_REFRESH` — **RESOLVED: user approved `BR-a` 2026-08-12, scoped to the 5 measured rows. Applied surgically and verified; D3 closed green at `a66540c`.**
 
