@@ -466,7 +466,7 @@ Stated up front so closure is not read as more than it is:
 
     Because no change was made, the collision forecasts R3.0 produced were never spent: the frozen `intent_out_of_set_probes_baseline.json`, the reference probes and the in-catalogue contract are all untouched by R3.
 
-- [ ] **R2.0 — Classify the D1 rows — STOP gate `D1_SKILL_OWNERSHIP`**
+- [x] **R2.0 — Classify the D1 rows — STOP gate `D1_SKILL_OWNERSHIP` did NOT fire; golden impact measured EMPTY**
   - **Do:** For each of the 15 D1 rows, classify the ask as `summarize_or_explain_a_supplied_alert` / `investigate_or_find_activity` / `knowledge_or_reference_lookup`, using the R1.3 labels (which were adjudicated independently) as the truth. Separate the `knowledge_recall` rows (`asset_identity_context` ×5, `data_source_health` ×2, `threat_intel_enrichment` ×1) from the `alert_summary` rows (`notable_risk_lookup` ×5, `case_state_lookup` ×2). **STOP with options** for any pattern class whose correction requires deciding which skill *owns* a capability — specifically whether a notable/risk-index lookup is an `alert_summary` capability or belongs to a hunt skill. Do not change registry semantics silently.
 
     **Also required output — a measured golden-answer impact set, and the approval (if any) that R2.1 depends on.** `run_production_parity_eval.py` compares live output against the frozen `backend/app/evals/golden_answers/question_105_golden.jsonl`, which is in `PROTECTED["golden_answers"]`; `exact=120` means byte-identical to those answers. A route change *may* change a row's answer bytes — but **do not assume it does**. Answer text is skill-dependent in general, yet these 15 rows already produce SPL-absent answers (`spl_status=none` on 113/120), so some corrections may be answer-neutral exactly as Plan 3's B2 turned out to be.
@@ -483,7 +483,38 @@ Stated up front so closure is not read as more than it is:
   - **Depends on:** R3.2.
   - **Failing-first / observation:** Observation only. Record per row: R1.3 label, current hint, classification, and confidence.
   - **Verify:** All 15 rows classified with rationale; every `alert_summary` row either has an evidence-backed classification or is escalated as a decision with both options stated; the golden impact set is **measured** (temporary arm, per-row parity diff) rather than predicted, and the working tree is unchanged at item close (`git status --short -- backend tools` empty, `python3 scripts/freeze_execution_baseline.py --check --in /tmp/plan4-routing-baseline.json` passes).
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **COMPLETE 2026-08-12. Impact set measured **EMPTY**, so per this item's own rule R2.1 needs no golden-refresh approval and may proceed. `D1_SKILL_OWNERSHIP` did not fire — the ownership question was already settled by the user's decision B, and the two classes that remain open are deliberately excluded from the change.**
+
+    **Classification of all 15 D1 rows** (using the R1.3 independent labels as truth):
+
+    | Class | Rows | Classification | Disposition |
+    |---|---|---|---|
+    | `notable_risk_lookup` | `q0.q001/058/084/085/090` | `investigate_or_find_activity` | correct — decision B |
+    | `case_state_lookup` | `q0.q091/105` | `investigate_or_find_activity` | correct — decision B |
+    | `threat_intel_enrichment` | `q0.q005` | `investigate_or_find_activity` | correct — clear-cut, label `high` confidence, shape-identical to the `ioc_correlation` rows |
+    | `asset_identity_context` | `q0.q055/069/071/096/103` | **unsettled** | deferred by user; label `ambiguous`, `low` confidence |
+    | `data_source_health` | `q0.q094/095` | **unsettled** | deferred by user; label `ambiguous`, `low` confidence |
+
+    **The hint table is per-pattern-class, so the change necessarily sweeps 9 rows, not 8.** `case_state_lookup` also contains **`q0.q045`** ("What happened for this specific notable event?") — the row where clarification is the *correct* answer and which `eval_105_path_honoring.py` pins through `CLARIFICATION_BASELINE = 1`. A per-row correction is not expressible in `LEGACY_ROUTER_INTENT_BY_PATTERN`. Measured before spending anything: q045 keeps `intent_family=clarification_required` and `path_type=clarification_required` in the arm — its clarification derives from the missing entity, not from the hint — so only its (immaterial) route label moves. Recorded rather than assumed.
+
+    **Temporary in-memory arm, nothing tracked written.** A patched copy of the map went to a scratch path and `question_runtime_map._MAP_PATH` was repointed at it for one process. Asserted in-run: the deferred classes are byte-identical (**7 rows**), and the set of differing map rows equals **exactly** the 9 staged refs. Working tree clean at item close.
+
+    **CORRECTION to a claim this plan made twice, and stated to the user — recorded because later reasoning depended on it.** R2.0's original text and the D3.2 write-up both asserted that `run_production_parity_eval.py` "compares live output against the frozen `question_105_golden.jsonl`" and that `exact=120` means byte-identical to those goldens. **That is false.** Parity compares **two runtimes against each other** — `runtime_a: imperative_canonical` vs `runtime_b: resource_planner_graph` (metadata confirms; the module never reads a golden file). `exact_match=120` means the two spines agree, which is dual-runtime consistency, not golden agreement. This does not weaken §4 of the source audit — it strengthens it: parity is even further from measuring routing correctness than recorded.
+
+    **What the 105 goldens actually assert, measured.** Every one of the 105 cases asserts `expected.selected_skill`, and the file self-describes as *"Auto-generated shallow expectation"* with tags `auto_matrix`, `shallow`. Against production routing **at unmodified baseline they match 1 of 105**. One expectation (`q105.q0.q005` → `lookup_correlation`) is not even a routable skill — it is an operation type, so the file mixes vocabularies. The file is **tier 2**, and the governance regression runs **`--tier 0`** (`run_stage3_governance_regression.sh:117`); the only test that reads it (`test_answer_expectation_matrix.py:19-30`) asserts existence and a 105-line count, never content.
+
+    **Measured golden impact of the proposed hint change: EMPTY.**
+
+    | | baseline | arm |
+    |---|---|---|
+    | golden `selected_skill` matches | **1 / 105** | **1 / 105** |
+    | cases whose routed skill changes | — | **9** |
+    | cases flipping pass → fail | — | **0** |
+    | cases flipping fail → pass | — | **0** |
+
+    All 9 changed cases were already failing and remain failing (`both-fail`). No golden case changes verdict, so there is nothing to approve and no protected artifact needs refreshing. Parity in the arm additionally returned `exact_match=120, approved_difference=0, critical_mismatch=0` — dual-runtime agreement is preserved under the change.
+
+    **No skill contract was widened to make a route fit**; the change moves a hint between existing skills only.
 
 - [ ] **R2.1 — Correct the clear-cut `knowledge_recall` contradictions**
   - **Do:** **Precondition, per pattern class:** the class is answer-neutral in R2.0's measured impact set, **or** a scoped golden-refresh approval covering its rows is recorded. Classes meeting neither close `NOT_AUTHORIZED` without touching the registry, while answer-neutral classes proceed. For the pattern classes R2.0 classified as clear-cut **and** cleared by this precondition, change `LEGACY_ROUTER_INTENT_BY_PATTERN` and regenerate `backend/app/coverage/question_runtime_map_v1.json` through its authoring tool (`tools/coverage_authoring/question_runtime_map_builder.py`) — never by hand-editing the JSON. Update any assertion that R1.6 left referencing the changed hint values.
