@@ -256,7 +256,7 @@ Stated up front so closure is not read as more than it is:
 
     This item existed separately from R2.1 precisely so a withheld golden-refresh approval could not leave the circularity in place indefinitely — and that separation paid off, since R2.1 is still gated on a decision.
 
-- [ ] **D3.0 — Determine the smallest correction to routing authority — STOP gate `ADVISORY_PROMOTION_REQUIRED_CLASS`**
+- [x] **D3.0 — Determine the smallest correction to routing authority — STOP gate `ADVISORY_PROMOTION_REQUIRED_CLASS`**
   - **Do:** No runtime change. (a) Add a **live arm** to `scripts/eval_routing_truth_set.py` (`--arm deterministic|live|both`) that additionally routes each row through `route_skill` — the production-final path — and reports `selected_by`, the deterministic-vs-live delta, and capability downgrade/upgrade per row, so every later claim states which layer it measured. (b) Classify all **10** measured degradations by mechanism, separating *capability downgrades* (`spl_generation → knowledge_recall/alert_summary`) from *lateral or widening* replacements. (c) Establish the smallest correction satisfying the user's contract: deterministic/query-understanding routing stays authoritative; the advisory may enrich or confirm but may **not** independently replace the authoritative route nor reduce required capabilities; registry-backed behavior unchanged; unsafe containment identical; **no new LLM authority**. Anchor it at the measured root cause — `_deterministic_uncertain` (`governance.py:397-414`) returns `True` for **every** `out_of_registry` row via the blanket `match_path in {"near_105_question","out_of_registry"}` clause, so a *reasoned* floor decision (e.g. `out_of_registry_detection_family_floor → spl_generation`) is classed "uncertain" and replaced at `governance.py:251`. (d) Predict the per-row effect on all **77** gating rows before implementing. (e) Enumerate every existing test that asserts a promotion occurs.
   - **Why:** R3 modifies the deterministic layer. While that layer is not production-final on out-of-registry paths — exactly where D2 lives — an R3 measurement would forecast a layer the host does not obey.
   - **Surfaces:** `scripts/eval_routing_truth_set.py` (live arm); plan Evidence + options table. No runtime file.
@@ -264,7 +264,42 @@ Stated up front so closure is not read as more than it is:
   - **Failing-first / observation:** The live-arm evidence **is** the failing-first artifact and must be reproduced by the committed evaluator, not quoted from a scratch run: advisory selects the final route on **49/77**; **10** deterministic divergences; **10** degradations; **0** improvements.
   - **STOP:** If preserving advisory promotion is genuinely required for some class of queries — an existing test asserts it, or a measured class routes correctly *only* via promotion — **stop and present that class with its rationale** before implementing. Also stop if the smallest correction would need a new flag, a new classifier, or any widening of LLM authority.
   - **Verify:** `PYTHONPATH=backend:. python3 scripts/eval_routing_truth_set.py --arm both --json /tmp/plan4-d3-before.json` reproduces 49/77 · 10 · 10 · 0; options table records per-row predictions for all 77; the promotion-asserting test inventory is complete (`grep -rn "llm_advisory_validated\|apply_advisory_promotion" backend/app/tests`).
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **COMPLETE 2026-08-12; commit `6864267`. STOP gate `ADVISORY_PROMOTION_REQUIRED_CLASS` did NOT fire** — no test and no measured class requires advisory promotion to route correctly (inventory below).
+
+    **Failing-first evidence reproduced by committed code**, not quoted from a scratch run: `--arm both` reports `advisory_selected=49/77 diverges=10 degraded=10 improved=0 lateral=0 capability_downgrades=5`, `live_route_ok=46/77` against deterministic `56/77`. The live arm is **10 rows worse** than the layer Plan 4 modifies.
+
+    **Two root causes, not one. The second was found during this item and is worse than the recorded one.**
+
+    | | Root cause | Effect |
+    |---|---|---|
+    | **RC1** (recorded in the plan) | `_deterministic_uncertain` (`governance.py:409-414`) returns `True` for **every** `out_of_registry` row via the blanket `match_path in {"near_105_question","out_of_registry"}` clause | A reasoned floor decision (`out_of_registry_detection_family_floor → spl_generation`, conf 0.5) is classed "uncertain" and replaced at `:251` |
+    | **RC2** (**new**) | On registry-backed paths, `llm_advisory_recommended` alone satisfies uncertainty (`governance.py:404-408`) | `rt.ot.004` is an **`exact_105_plus_use_case_catalog` match at confidence 0.75** — not low, not clarification — yet `_qu_route_retains_authority` returns `False` and the advisory replaces `spl_generation` with `alert_summary` |
+
+    **RC2 corrects a claim made in this plan's own D3 write-up.** R1.5's evidence said "registry-backed paths are unaffected (13 rows kept `query_understanding_105`)". True of those 13, false as a general statement: a 14th registry-backed row was overridden. So the user's constraint "registry-backed behavior remains unchanged" is **already violated today** — the correction restores it rather than preserving it.
+
+    **Options compared, with measured per-row predictions over all 77 gating rows.**
+
+    | | Option 1 — downgrade-only guard | Option 2 — resolved deterministic route retains authority |
+    |---|---|---|
+    | Rule | advisory may not swap in a skill granting strictly fewer capabilities | once any resolved deterministic authority produced the route, the advisory may not replace the skill |
+    | Divergences fixed | **5 / 10** | **5 / 10** |
+    | Promotions blocked (of 49) | **5** | **5** |
+    | Rows fixed | `rt.ot.001/002/004/005`, `rt.para.002` | *identical set* |
+    | Leaves unfixed | `rt.d2.012/023` (→`spl_generation`), `rt.d2.030/037` (→`attack_discovery`), `rt.d2.034` (→`alert_summary`) | identical |
+
+    **The two options are measurably identical on this corpus** — the same 5 rows, the same 5 blocked promotions, zero rows where they differ. The tie breaks on principle and on interaction with R3:
+
+    - Option 1 permits an LLM to **widen** capability: `rt.d2.030/037` gain `spl`+`mcp` purely on advisory say-so. That is the wrong direction for a governance boundary, and Plan 3's B2 contract is explicitly fail-closed against exactly this.
+    - Option 2 states the invariant the architecture already documents ("final route selection stays deterministic") and leaves only *genuinely unresolved* routes promotable.
+    - **Option 2 composes with R3.** All 5 unfixed rows are D2 rows whose deterministic route is the terminal `query_understanding_weak` 0.20 fallback. Once R3 gives those rows a resolved floor, the same guard protects them **automatically**, with no further advisory work.
+
+    **Selected: Option 2, implemented at the narrowest possible seam.** The advisory still *runs* — semantic understanding is not disabled globally (explicit user constraint). It keeps agreement (`llm_assisted_semantic_normalized`), warnings, candidate metadata, adjudication reporting and telemetry. Only the **skill-replacement** branch at `governance.py:251` is narrowed, via a predicate distinct from `_deterministic_uncertain`, whose other two call sites (`skill_router.py:259` deciding whether to *run* the advisory, `governance.py:488` adjudication reporting) are deliberately left alone.
+
+    **Predicted effect on all 77:** 5 rows change (advisory blocked, deterministic route retained), **72 unchanged**. All 5 capability downgrades eliminated; 5 non-downgrade divergences remain and are classified as R3-owned.
+
+    **Promotion-dependency inventory — nothing requires promotion.** `grep -rn "llm_advisory_validated\|apply_advisory_promotion" backend/app/tests` returns exactly one file, `test_advisory_promotion.py`, which exercises **a different mechanism**: `llm_intent_advisor.apply_advisory_promotion` promotes candidate *use-case mappings* inside `build_query_to_intent`, not the routed skill. D3 does not touch it. The only tests on the actual seam (`normalize_assisted_selection`, in `test_live_efficacy_p1_routing.py`) assert promotion is **blocked** for unsafe rows `eff.072`/`eff.098` — they constrain the same direction as this correction. **No test, and no measured row, routes correctly only via promotion**, so the STOP gate does not fire.
+
+    **No new flag, classifier, LLM hop, or authority** — the change strictly removes conditions under which the advisory may act.
 
 - [ ] **D3.1 — Restore deterministic finality by the smallest measured correction**
   - **Do:** Implement exactly the D3.0 correction. It may only **narrow** when the advisory can replace a route; it may not add a capability, a flag, an authority, or a model call. Registry-backed paths must be untouched by construction (they already skip the advisory via `_qu_route_retains_authority`). The advisory keeps its enrich/confirm roles — `llm_assisted_semantic_normalized` agreement, warnings, candidate metadata, telemetry — none of which select a skill.
