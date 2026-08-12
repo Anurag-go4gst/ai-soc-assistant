@@ -12,25 +12,21 @@
     "d1"
    ],
    "observed_match_path_at_assembly": "exact_105_question",
-   "expected_intent_family": "live_investigation",
+   "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
     "attack_discovery",
-    "spl_generation",
-    "alert_summary"
+    "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": true,
-   "label_confidence": "low",
-   "rationale": "High/critical alert lookup over the live notable index; whether alert_summary may read that index is the open ownership question.",
-   "candidate_readings": [
-    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
-    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
-   ],
-   "labeled_without_registry_hint": true
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "High/critical alert lookup over the live notable index. Ownership resolved by recorded user decision B (2026-08-12): a notable/risk/case-state lookup is live-data retrieval, so an SPL-capable skill owns it.",
+   "labeled_without_registry_hint": true,
+   "ownership_decision": "B"
   },
   {
    "row_id": "rt.d1.002",
@@ -66,17 +62,24 @@
    "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
+    "alert_summary",
     "attack_discovery",
+    "knowledge_recall",
     "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": false,
-   "label_confidence": "high",
-   "rationale": "Administrators-group additions are live directory/audit events; answering needs an event search.",
-   "labeled_without_registry_hint": true
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Administrators-group additions: held unresolved by user decision (2026-08-12) — the asset_identity_context and data_source_health ownership question is deferred to R2.0.",
+   "labeled_without_registry_hint": true,
+   "candidate_readings": [
+    "the ask is a lookup/summary of already-scored or already-monitored state (identity posture, source health), owned by a no-SPL summary skill",
+    "the ask needs a fresh query over live audit/index data, so an SPL-capable skill owns it"
+   ],
+   "ownership_decision": "DEFERRED_TO_R2_0"
   },
   {
    "row_id": "rt.d1.004",
@@ -86,25 +89,21 @@
     "d1"
    ],
    "observed_match_path_at_assembly": "exact_105_question",
-   "expected_intent_family": "live_investigation",
+   "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
     "attack_discovery",
-    "spl_generation",
-    "alert_summary"
+    "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": true,
-   "label_confidence": "low",
-   "rationale": "Highest-risk users/hosts is a ranked read of the live risk index; owner skill is the open question.",
-   "candidate_readings": [
-    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
-    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
-   ],
-   "labeled_without_registry_hint": true
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Ranked read of the live risk index across users and hosts. Ownership resolved by recorded user decision B (2026-08-12): a notable/risk/case-state lookup is live-data retrieval, so an SPL-capable skill owns it.",
+   "labeled_without_registry_hint": true,
+   "ownership_decision": "B"
   },
   {
    "row_id": "rt.d1.005",
@@ -117,17 +116,24 @@
    "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
+    "alert_summary",
     "attack_discovery",
+    "knowledge_recall",
     "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": false,
-   "label_confidence": "high",
-   "rationale": "Unusual privileged-application access is a behavioural query over live auth events.",
-   "labeled_without_registry_hint": true
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Unusual privileged-application access: held unresolved by user decision (2026-08-12) — the asset_identity_context and data_source_health ownership question is deferred to R2.0.",
+   "labeled_without_registry_hint": true,
+   "candidate_readings": [
+    "the ask is a lookup/summary of already-scored or already-monitored state (identity posture, source health), owned by a no-SPL summary skill",
+    "the ask needs a fresh query over live audit/index data, so an SPL-capable skill owns it"
+   ],
+   "ownership_decision": "DEFERRED_TO_R2_0"
   },
   {
    "row_id": "rt.d1.006",
@@ -140,17 +146,24 @@
    "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
+    "alert_summary",
     "attack_discovery",
+    "knowledge_recall",
     "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": false,
-   "label_confidence": "high",
-   "rationale": "Accounts disabled or re-enabled today is a bounded live audit-event lookup.",
-   "labeled_without_registry_hint": true
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Accounts disabled or re-enabled today: held unresolved by user decision (2026-08-12) — the asset_identity_context and data_source_health ownership question is deferred to R2.0.",
+   "labeled_without_registry_hint": true,
+   "candidate_readings": [
+    "the ask is a lookup/summary of already-scored or already-monitored state (identity posture, source health), owned by a no-SPL summary skill",
+    "the ask needs a fresh query over live audit/index data, so an SPL-capable skill owns it"
+   ],
+   "ownership_decision": "DEFERRED_TO_R2_0"
   },
   {
    "row_id": "rt.d1.007",
@@ -160,25 +173,21 @@
     "d1"
    ],
    "observed_match_path_at_assembly": "exact_105_question",
-   "expected_intent_family": "live_investigation",
+   "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
     "attack_discovery",
-    "spl_generation",
-    "alert_summary"
+    "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": true,
-   "label_confidence": "low",
-   "rationale": "Accounts with most risk events is a ranked live-index read; owner skill is the open question.",
-   "candidate_readings": [
-    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
-    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
-   ],
-   "labeled_without_registry_hint": true
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Ranked aggregation of risk events per account over live data. Ownership resolved by recorded user decision B (2026-08-12): a notable/risk/case-state lookup is live-data retrieval, so an SPL-capable skill owns it.",
+   "labeled_without_registry_hint": true,
+   "ownership_decision": "B"
   },
   {
    "row_id": "rt.d1.008",
@@ -188,25 +197,21 @@
     "d1"
    ],
    "observed_match_path_at_assembly": "exact_105_question",
-   "expected_intent_family": "live_investigation",
+   "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
     "attack_discovery",
-    "spl_generation",
-    "alert_summary"
+    "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": true,
-   "label_confidence": "low",
-   "rationale": "Accumulated asset risk across detections is a live-index aggregation; owner skill is the open question.",
-   "candidate_readings": [
-    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
-    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
-   ],
-   "labeled_without_registry_hint": true
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Aggregation of accumulated asset risk across live detections. Ownership resolved by recorded user decision B (2026-08-12): a notable/risk/case-state lookup is live-data retrieval, so an SPL-capable skill owns it.",
+   "labeled_without_registry_hint": true,
+   "ownership_decision": "B"
   },
   {
    "row_id": "rt.d1.009",
@@ -216,25 +221,21 @@
     "d1"
    ],
    "observed_match_path_at_assembly": "exact_105_question",
-   "expected_intent_family": "live_investigation",
+   "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
     "attack_discovery",
-    "spl_generation",
-    "alert_summary"
+    "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": true,
-   "label_confidence": "low",
-   "rationale": "Assets generating most notable events is a live-index aggregation; owner skill is the open question.",
-   "candidate_readings": [
-    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
-    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
-   ],
-   "labeled_without_registry_hint": true
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Aggregation of notable-event volume per asset over live data. Ownership resolved by recorded user decision B (2026-08-12): a notable/risk/case-state lookup is live-data retrieval, so an SPL-capable skill owns it.",
+   "labeled_without_registry_hint": true,
+   "ownership_decision": "B"
   },
   {
    "row_id": "rt.d1.010",
@@ -244,25 +245,21 @@
     "d1"
    ],
    "observed_match_path_at_assembly": "exact_105_question",
-   "expected_intent_family": "live_investigation",
+   "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
     "attack_discovery",
-    "spl_generation",
-    "alert_summary"
+    "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": true,
-   "label_confidence": "low",
-   "rationale": "Open/unresolved alerts is a live case-state query; owner skill is the open question.",
-   "candidate_readings": [
-    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
-    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
-   ],
-   "labeled_without_registry_hint": true
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Live case-state query for open and unresolved alerts. Ownership resolved by recorded user decision B (2026-08-12): a notable/risk/case-state lookup is live-data retrieval, so an SPL-capable skill owns it.",
+   "labeled_without_registry_hint": true,
+   "ownership_decision": "B"
   },
   {
    "row_id": "rt.d1.011",
@@ -275,17 +272,24 @@
    "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "source_health",
    "acceptable_skills": [
+    "alert_summary",
     "attack_discovery",
+    "knowledge_recall",
     "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": false,
-   "label_confidence": "high",
-   "rationale": "Missing logs from key sources requires querying live index/metadata; it is telemetry state, not documentation.",
-   "labeled_without_registry_hint": true
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Logs missing from key security sources: held unresolved by user decision (2026-08-12) — the asset_identity_context and data_source_health ownership question is deferred to R2.0.",
+   "labeled_without_registry_hint": true,
+   "candidate_readings": [
+    "the ask is a lookup/summary of already-scored or already-monitored state (identity posture, source health), owned by a no-SPL summary skill",
+    "the ask needs a fresh query over live audit/index data, so an SPL-capable skill owns it"
+   ],
+   "ownership_decision": "DEFERRED_TO_R2_0"
   },
   {
    "row_id": "rt.d1.012",
@@ -298,17 +302,24 @@
    "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "source_health",
    "acceptable_skills": [
+    "alert_summary",
     "attack_discovery",
+    "knowledge_recall",
     "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": false,
-   "label_confidence": "high",
-   "rationale": "Sources that stopped sending events is a live data-source-health query over index metadata.",
-   "labeled_without_registry_hint": true
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Sources that stopped sending events: held unresolved by user decision (2026-08-12) — the asset_identity_context and data_source_health ownership question is deferred to R2.0.",
+   "labeled_without_registry_hint": true,
+   "candidate_readings": [
+    "the ask is a lookup/summary of already-scored or already-monitored state (identity posture, source health), owned by a no-SPL summary skill",
+    "the ask needs a fresh query over live audit/index data, so an SPL-capable skill owns it"
+   ],
+   "ownership_decision": "DEFERRED_TO_R2_0"
   },
   {
    "row_id": "rt.d1.013",
@@ -321,17 +332,24 @@
    "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
+    "alert_summary",
     "attack_discovery",
+    "knowledge_recall",
     "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": false,
-   "label_confidence": "high",
-   "rationale": "Privileged actions from non-admin workstations correlates live auth and asset context.",
-   "labeled_without_registry_hint": true
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Privileged actions from non-admin workstations: held unresolved by user decision (2026-08-12) — the asset_identity_context and data_source_health ownership question is deferred to R2.0.",
+   "labeled_without_registry_hint": true,
+   "candidate_readings": [
+    "the ask is a lookup/summary of already-scored or already-monitored state (identity posture, source health), owned by a no-SPL summary skill",
+    "the ask needs a fresh query over live audit/index data, so an SPL-capable skill owns it"
+   ],
+   "ownership_decision": "DEFERRED_TO_R2_0"
   },
   {
    "row_id": "rt.d1.014",
@@ -344,7 +362,9 @@
    "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
+    "alert_summary",
     "attack_discovery",
+    "knowledge_recall",
     "spl_generation"
    ],
    "required_capabilities": [
@@ -352,10 +372,15 @@
     "rag"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": false,
-   "label_confidence": "med",
-   "rationale": "Asset criticality/owner/privilege for a flagged entity is a live enrichment lookup; RAG alone cannot answer it.",
-   "labeled_without_registry_hint": true
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Asset criticality, owner and privilege status for a flagged entity: held unresolved by user decision (2026-08-12) — the asset_identity_context and data_source_health ownership question is deferred to R2.0.",
+   "labeled_without_registry_hint": true,
+   "candidate_readings": [
+    "the ask is a lookup/summary of already-scored or already-monitored state (identity posture, source health), owned by a no-SPL summary skill",
+    "the ask needs a fresh query over live audit/index data, so an SPL-capable skill owns it"
+   ],
+   "ownership_decision": "DEFERRED_TO_R2_0"
   },
   {
    "row_id": "rt.d1.015",
@@ -365,25 +390,21 @@
     "d1"
    ],
    "observed_match_path_at_assembly": "exact_105_question",
-   "expected_intent_family": "live_investigation",
+   "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
     "attack_discovery",
-    "spl_generation",
-    "alert_summary"
+    "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": true,
-   "label_confidence": "low",
-   "rationale": "Prior-sighting and prior-disposition lookup needs live case history; owner skill is the open question.",
-   "candidate_readings": [
-    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
-    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
-   ],
-   "labeled_without_registry_hint": true
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Prior-sighting and prior-disposition lookup over live case history. Ownership resolved by recorded user decision B (2026-08-12): a notable/risk/case-state lookup is live-data retrieval, so an SPL-capable skill owns it.",
+   "labeled_without_registry_hint": true,
+   "ownership_decision": "B"
   },
   {
    "row_id": "rt.d2.001",
@@ -1891,17 +1912,24 @@
    "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
+    "alert_summary",
     "attack_discovery",
+    "knowledge_recall",
     "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": false,
-   "label_confidence": "high",
-   "rationale": "Recent local-admin grants is a live privilege-change audit query.",
-   "labeled_without_registry_hint": true
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Recent local-admin grants: held unresolved by user decision (2026-08-12) — the asset_identity_context and data_source_health ownership question is deferred to R2.0.",
+   "labeled_without_registry_hint": true,
+   "candidate_readings": [
+    "the ask is a lookup/summary of already-scored or already-monitored state (identity posture, source health), owned by a no-SPL summary skill",
+    "the ask needs a fresh query over live audit/index data, so an SPL-capable skill owns it"
+   ],
+   "ownership_decision": "DEFERRED_TO_R2_0"
   },
   {
    "row_id": "rt.para.010",
@@ -1911,25 +1939,21 @@
     "paraphrase"
    ],
    "observed_match_path_at_assembly": "out_of_registry",
-   "expected_intent_family": "live_investigation",
+   "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
     "attack_discovery",
-    "spl_generation",
-    "alert_summary"
+    "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": true,
-   "label_confidence": "low",
-   "rationale": "Highest current risk score is a ranked live risk-index read; the same ownership question as its source row.",
-   "candidate_readings": [
-    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
-    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
-   ],
-   "labeled_without_registry_hint": true
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Ranked read of the current live risk index. Ownership resolved by recorded user decision B (2026-08-12): a notable/risk/case-state lookup is live-data retrieval, so an SPL-capable skill owns it.",
+   "labeled_without_registry_hint": true,
+   "ownership_decision": "B"
   },
   {
    "row_id": "rt.para.011",
@@ -1988,17 +2012,24 @@
    "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "source_health",
    "acceptable_skills": [
+    "alert_summary",
     "attack_discovery",
+    "knowledge_recall",
     "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": false,
-   "label_confidence": "high",
-   "rationale": "Missing log feeds from important sources is a live data-source-health query.",
-   "labeled_without_registry_hint": true
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Missing log feeds from important sources: held unresolved by user decision (2026-08-12) — the asset_identity_context and data_source_health ownership question is deferred to R2.0.",
+   "labeled_without_registry_hint": true,
+   "candidate_readings": [
+    "the ask is a lookup/summary of already-scored or already-monitored state (identity posture, source health), owned by a no-SPL summary skill",
+    "the ask needs a fresh query over live audit/index data, so an SPL-capable skill owns it"
+   ],
+   "ownership_decision": "DEFERRED_TO_R2_0"
   },
   {
    "row_id": "rt.para.014",
@@ -2011,17 +2042,24 @@
    "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "source_health",
    "acceptable_skills": [
+    "alert_summary",
     "attack_discovery",
+    "knowledge_recall",
     "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": false,
-   "label_confidence": "high",
-   "rationale": "Log sources that went quiet is a live data-source-health query.",
-   "labeled_without_registry_hint": true
+   "ambiguous": true,
+   "label_confidence": "low",
+   "rationale": "Log sources that went quiet: held unresolved by user decision (2026-08-12) — the asset_identity_context and data_source_health ownership question is deferred to R2.0.",
+   "labeled_without_registry_hint": true,
+   "candidate_readings": [
+    "the ask is a lookup/summary of already-scored or already-monitored state (identity posture, source health), owned by a no-SPL summary skill",
+    "the ask needs a fresh query over live audit/index data, so an SPL-capable skill owns it"
+   ],
+   "ownership_decision": "DEFERRED_TO_R2_0"
   },
   {
    "row_id": "rt.para.015",
@@ -2031,26 +2069,52 @@
     "paraphrase"
    ],
    "observed_match_path_at_assembly": "out_of_registry",
-   "expected_intent_family": "live_investigation",
+   "expected_intent_family": "spl_generation_only",
    "expected_answer_shape": "hunt",
    "acceptable_skills": [
     "attack_discovery",
-    "spl_generation",
-    "alert_summary"
+    "spl_generation"
    ],
    "required_capabilities": [
     "spl"
    ],
    "forbidden_capabilities": [],
-   "ambiguous": true,
-   "label_confidence": "low",
-   "rationale": "Prior sighting and prior decision for an indicator needs live case history; same ownership question as its source row.",
-   "candidate_readings": [
-    "notable/risk/case-state lookup is an alert_summary capability, and alert_summary should be able to read the notable index without SPL",
-    "notable/risk/case-state lookup is live-data retrieval like any other, so it belongs to an SPL-capable hunt skill and alert_summary is the wrong owner"
-   ],
-   "labeled_without_registry_hint": true
+   "ambiguous": false,
+   "label_confidence": "high",
+   "rationale": "Prior-sighting and prior-decision lookup over live case history. Ownership resolved by recorded user decision B (2026-08-12): a notable/risk/case-state lookup is live-data retrieval, so an SPL-capable skill owns it.",
+   "labeled_without_registry_hint": true,
+   "ownership_decision": "B"
   }
  ],
- "labeling_note": "Labels derived from query text and documented policy only. legacy_router_intent_hint, proposed_primary_skill and the observed production route were not consulted while assigning any label. The 7 notable/risk/case-state D1 rows (plus 2 paraphrases of them) are forced ambiguous: their label is the R2.0 skill-ownership question and settling it here would pre-decide that gate."
+ "labeling_note": "Labels derived from query text and documented policy only. legacy_router_intent_hint, proposed_primary_skill and the observed production route were not consulted while assigning any label. The 7 notable/risk/case-state D1 rows (plus 2 paraphrases of them) are forced ambiguous: their label is the R2.0 skill-ownership question and settling it here would pre-decide that gate.",
+ "relabel_log": [
+  {
+   "date": "2026-08-12",
+   "prior_sha256": "2877e3444dc65da3c8182c444f00c3a2596713b83c3455cde54ea46b6ad3c76e",
+   "reason": "User decision on ALERT_SUMMARY_NOTABLE_OWNERSHIP. Reading B adopted for notable_risk_lookup and case_state_lookup (9 rows resolved to SPL-capable ownership); asset_identity_context and data_source_health (10 rows) explicitly held unresolved for R2.0 and therefore marked ambiguous, which makes them non-gating. No label was changed to improve any measured number — the evaluator had not yet been run against this file.",
+   "rows_resolved_b": [
+    "rt.d1.001",
+    "rt.d1.004",
+    "rt.d1.007",
+    "rt.d1.008",
+    "rt.d1.009",
+    "rt.d1.010",
+    "rt.d1.015",
+    "rt.para.010",
+    "rt.para.015"
+   ],
+   "rows_held_ambiguous": [
+    "rt.d1.003",
+    "rt.d1.005",
+    "rt.d1.006",
+    "rt.d1.011",
+    "rt.d1.012",
+    "rt.d1.013",
+    "rt.d1.014",
+    "rt.para.009",
+    "rt.para.013",
+    "rt.para.014"
+   ]
+  }
+ ]
 }
