@@ -1,0 +1,27 @@
+{
+  "protected": {
+    "eval_baselines": {
+      "docs/evals/baseline_pre_final_resolution.json": "cecf43ec79c100c634bc7ff9bd21a9cf2512216abb5000b169760b6497affe17",
+      "docs/evals/intent_out_of_set_probes_baseline.json": "e6c38153a1f9a7f236bccc7fe75a8f9c22e90b2ca4f3c00fbce3e897ac3ec162",
+      "docs/evals/out_of_catalog_ot_probe_baseline.json": "876b7867e8109f7a40f52b75d5d9610e66fdbec74cdf7f4dd60bc5b55e5f19b4",
+      "docs/evals/paraphrase_baseline.md": "15f7cb4bd35342569377a2758bc247f8ba6a0a44fbce9978a7f2618c5a92d45f",
+      "docs/evals/reference_knowledge_baseline.md": "ce142eea3137ad71d0bc679387f6a45d595415c25d6b8ce41ed8a965b39b9021",
+      "docs/evals/regression_baseline.md": "e9963cfc34e189760153559d6b93960369c91d23515e324580c35192fbc23cdb",
+      "docs/evals/routing_truth_set_baseline_v1.json": "b0fb10e0bea2e4be733e8786b26b06c08739566cc6aa8ad7bff9fff9449e4dae"
+    },
+    "golden_answers": {
+      "backend/app/evals/golden_answers/question_105_golden.jsonl": "8eade9f5898fa986f7417f02825e1e32f365bbf3c1002ebedc7841a23c8e8122"
+    },
+    "governed_registries": {
+      "backend/app/skills/catalog.json": "9c29cea26a283b2019e3aee66113441e87377cc65c06db421c6f63b4a22ba3e7",
+      "backend/app/spl/templates.json": "d2aea8235dbf1b6cec034864c09c253ea074617e3c155c1566e640f5d3cdf348",
+      "backend/app/use_cases/catalog.json": "2d66a82e2ce8a4e5f257cdc5dacd2a0cce58b2c5a7b18dd86eee7f5b44f85cfa"
+    },
+    "published_doc_mirrors": {
+      "docs/architecture/details.html": "d33b274e68d0dd8f01e9b718a4078613c5518d088c3b25d54a360f64d99f9cd3",
+      "frontend/dist/docs/architecture/details.html": "d33b274e68d0dd8f01e9b718a4078613c5518d088c3b25d54a360f64d99f9cd3",
+      "frontend/public/docs/architecture/details.html": "d33b274e68d0dd8f01e9b718a4078613c5518d088c3b25d54a360f64d99f9cd3"
+    }
+  },
+  "root": "/var/www/ai-soc-assistant"
+}
