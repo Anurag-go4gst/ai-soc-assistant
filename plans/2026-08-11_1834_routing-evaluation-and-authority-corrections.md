@@ -308,7 +308,17 @@ Stated up front so closure is not read as more than it is:
   - **Depends on:** D3.0.
   - **Failing-first / observation:** New tests must fail before the change on at least one capability-downgrade row (`rt.ot.002` `spl_generation → knowledge_recall`) and one non-downgrade replacement, and must pin that unsafe rows are unaffected. Record pre- and post-change output.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_advisory_route_authority.py app/tests/test_route_governance.py app/tests/test_skill_router.py app/tests/test_llm_intent_advisor.py -q`; `python3 scripts/freeze_execution_baseline.py --check --in /tmp/plan4-routing-baseline.json`; `/invariant-check` across the item's diff.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **IMPLEMENTED and verified 2026-08-12 — NOT COMMITTED, held by the D3.2 STOP below.** Change is one predicate at one call site: `_advisory_may_replace_skill(deterministic, deterministic_uncertain)` replaces the bare `deterministic_uncertain` test at `governance.py:251`. Replacement is permitted only when the deterministic route reached **no** conclusion — its tool plan is `LOW_CONFIDENCE_ROUTE["tool_plan"]` (`["needs_clarification"]`), the existing marker already used by `_keyword_fallback` and `skill_router`. `_deterministic_uncertain` itself is untouched, so its other two call sites (whether to *run* the advisory, and adjudication reporting) behave exactly as before: the advisory still runs, still records agreement as `llm_assisted_semantic_normalized`, still contributes warnings, candidates and telemetry. **Semantic understanding is not disabled**, per the explicit constraint.
+
+    **Failing-first, recorded both ways.** New `backend/app/tests/test_advisory_route_authority.py`: **5 failed, 5 passed** before the change; **10 passed** after. The failures were exactly the intended targets — `rt.ot.002` (out-of-registry floor route replaced), `rt.ot.004` (registry-backed match replaced), the capability-preservation property over all 5 downgrade rows, and advisory-agreement reporting.
+
+    **Both sides of the boundary are pinned, not just the fix.** `test_terminal_low_confidence_route_remains_promotable` asserts `rt.d2.030` — a genuinely unresolved route — is **still** promotable (`selected_by == "llm_advisory_validated"`), so narrowing cannot silently become "switch the advisory off".
+
+    **Targeted suites:** 126 passed, 1 skipped across advisory authority, live-efficacy P1 routing, advisory promotion, guided route, catalogue router probes, keyword-authority reachability and both truth-set suites. **Full backend: `5107 passed, 3 skipped, 6 xfailed, 2 failed`** — the two failures are the D3.2 STOP, analysed below.
+
+    **Invariant check 7/7 CLEAR.** No new MCP call site; no SPL executability surface touched; `backend/app/demo/` untouched; no secrets; no new `state[...]` channel; no new flag (the change strictly *removes* conditions under which the advisory may act); no existing test modified. Dual-path coverage is inherent — `graph_node_init_routing` is the single routing node for `pipeline.py:634`, `resource_planner_graph.py:329`, `planner_led_shadow_graph.py:110` and `linear_graph_legacy.py:113`.
+
+    **Working-tree state:** `backend/app/routing/governance.py` (modified) and `backend/app/tests/test_advisory_route_authority.py` (untracked) are held uncommitted so `master` stays green while the baseline decision is open. Patch preserved at `<scratchpad>/d31-runtime.patch`.
 
 - [ ] **D3.2 — Measure D3 before/after on all 77 rows and accept or revert**
   - **Do:** Re-run both arms and compare against the D3.0 before-state and the R1.5 baseline. **Acceptance, all required:** (1) **0** advisory-caused capability downgrades; (2) **no** previously-correct deterministic route becomes wrong; (3) unsafe containment **identical** (13/13, no row gains `execution_enabled`); (4) deterministic and live-arm routing differences **explicitly reported**, including any that remain. Revert if any condition fails. Run answer parity and the frozen probe gates as **secondary** regression evidence, labelled as such.
@@ -317,7 +327,43 @@ Stated up front so closure is not read as more than it is:
   - **Depends on:** D3.1.
   - **Failing-first / observation:** Record the observed per-row delta against D3.0's prediction; an unpredicted change must be explained before acceptance, never absorbed.
   - **Verify:** `PYTHONPATH=backend:. python3 scripts/eval_routing_truth_set.py --arm both --json /tmp/plan4-d3-after.json` plus an explicit diff against `/tmp/plan4-d3-before.json` and `docs/evals/routing_truth_set_baseline_v1.json`; `PYTHONPATH=backend:. python3 scripts/eval_routing_truth_set.py --check --baseline docs/evals/routing_truth_set_baseline_v1.json`; `TELEMETRY_MODE=none PYTHONPATH=backend:. python3 scripts/audit_reference_probes.py --check`; `PYTHONPATH=backend:. python3 scripts/eval_out_of_set_soc.py --check`; `PYTHONPATH=backend:. python3 scripts/run_production_parity_eval.py --out-dir /tmp/plan4-d3-parity --check` (secondary).
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **STOPPED 2026-08-12 — every stated acceptance condition passed, but an UNFORECAST frozen-fixture collision requires a decision.**
+
+    **Acceptance conditions, all met:**
+
+    | Condition | Before | After |
+    |---|---|---|
+    | advisory-caused capability downgrades = 0 | 5 | **0** |
+    | no previously-`route_ok` row becomes wrong | — | **0 regressions** |
+    | unsafe containment identical | 13/13 | **13/13** |
+    | deterministic arm unchanged | 56/77 | **56/77, 0 rows changed** |
+    | advisory-selected | 49/77 | 44/77 |
+    | live divergences | 10 | **5** |
+    | live `route_ok` | 46/77 | **51/77** |
+
+    All 5 changed rows moved `route_wrong → route_ok`: `rt.ot.001/002/004/005` and `rt.para.002`, each regaining SPL on a concrete detection. New `capability_inconsistent`: **0**.
+
+    **Remaining 5 divergences, explicitly classified** (the fourth acceptance condition): `rt.d2.012/023/030/034/037` — all D2 rows whose deterministic route is the terminal `query_understanding_weak` 0.20 fallback, none a capability downgrade. They are R3-owned by construction: once R3 gives those rows a resolved floor, this same guard protects them with no further advisory change.
+
+    **Gates:** truth-set `--check` **PASS, 0 regressions**; reference probes **10/10**; manifest **`14 checked`, unchanged**; production parity **`total=120 base_105=105 exact=120 approved=0 critical=0`** (secondary evidence, unchanged). `eval_out_of_set_soc --check` **FAILs `15/36 pass, 16 review, 5 fail-critical`** — verified **pre-existing** by stashing the change and re-running: byte-identical result at baseline. That gate is outside the governance regression per `EVAL_CONTRACT.md`.
+
+    **THE STOP — `IN_CATALOGUE_CONTRACT_BASELINE_REFRESH`.** `test_in_catalogue_contract_guard::test_full_guard_passes_against_baseline` and `test_llm_primary_planning::test_in_catalogue_contract_guard_still_green` fail. Causation proven by stash: **15 passed** without the change, **1 failed** with it. D3.0's forecast covered the 87-row truth set and did **not** cover this fixture — recorded as an unforecast collision, not absorbed.
+
+    **Scope: 23 diffs across 5 rows, all `cisco50`, none on the 105.** Fixture: `backend/app/tests/fixtures/in_catalogue_contract/baseline.json` (captured behavior, frozen by `scripts/capture_in_catalogue_contract_fixtures.py --freeze`; **not** in the 14-artifact protected manifest, which stayed clean).
+
+    | Row | Baseline route | After | Bank's own `expected_path_type` |
+    |---|---|---|---|
+    | `cisco.perim.001` | `alert_summary` | `spl_generation` | `review_only_spl` |
+    | `cisco.perim.003` | `knowledge_recall` | `spl_generation` | `review_only_spl` |
+    | `cisco.perim.007` | `attack_discovery` | `spl_generation` | `review_only_spl` |
+    | `cisco.identity.015` | `attack_discovery` | `spl_generation` | `review_only_spl` |
+    | `cisco.ot.030` | `knowledge_recall` | `spl_generation` | `review_only_spl` |
+
+    **The fixture had frozen advisory-chosen routes — the same defect D3 corrects.** Three of the five baseline routes (`alert_summary`, `knowledge_recall` ×2) cannot produce SPL at all, so they contradicted the question bank's own `review_only_spl` expectation for those rows. `cisco.perim.001` is `rt.ot.004` in the truth set, whose independent label is `acceptable_skills=[attack_discovery, spl_generation]`, `required=[spl]` — so `spl_generation` matches the independent adjudication and `alert_summary` did not.
+
+    **No authority widened by the change:** the 3 rows gaining an SPL artifact move to `execution_status: skipped → requires_human_review`, `human_review_required: False → True`, `spl_approved: None → True` (validator-approved **review-only** draft) with `execution_eligible: None → False`. That is strictly *more* gating and an explicitly non-executable artifact.
+
+    Awaiting the user decision recorded under Deferred decisions.
 
 - [ ] **R3.0 — Decide the D2 rule — STOP gate `D2_FALLBACK_RULE`**
   - **Do:** Inventory the deterministic signals already available at the terminal fallback in `_route_out_of_registry` (the eight floors above it, `extract_query_signals`, `classify_answer_shape`, `detect_spl_artifact_request`, `_detection_family_match`, `is_unsafe_execution`, `soc_investigation_shaped`). For each of the 39 D2 rows, record which signals are present and which of the eight floors declined it and why. Propose the **narrowest** rule that rescues hunt/detection-shaped misses only. Record explicitly why a blanket `attack_discovery` default is rejected. **Disposition the non-hunt residue explicitly:** rows that keep `knowledge_recall @ 0.20 / tool_plan=["needs_clarification"]` after the fix — including rows where `knowledge_recall` is the *correct* skill but `0.20` and `needs_clarification` still misrepresent a confident answer downstream — must be either accepted with a written reason or covered by a second narrow rule. Leaving the residue unmentioned is not a disposition. **STOP** if the rule cannot be expressed from existing signals without a new classifier, a new flag, or an LLM hop.
@@ -440,6 +486,19 @@ Do not silently adapt, skip, weaken a test, or change a recorded decision.
 Tests marked **NEW** are created in their owning item. R3.0's and R2.0's observation tables are intentionally not prewritten; their exact contents are recorded in the owning item's Evidence before any implementation follows.
 
 ## Deferred decisions (recorded, not approved)
+
+### `IN_CATALOGUE_CONTRACT_BASELINE_REFRESH` — OPEN, blocks D3.2 acceptance and therefore R3 (raised 2026-08-12)
+
+D3.1's correction changes 5 `cisco50` rows in the frozen fixture `backend/app/tests/fixtures/in_catalogue_contract/baseline.json` (23 field diffs; the 105 are untouched). Every D3.2 acceptance condition passed; this is the only blocker.
+
+The fixture is **captured behavior**, not a hand-authored contract, and what it captured was advisory-chosen routes — three of which (`alert_summary`, `knowledge_recall` ×2) cannot produce SPL and therefore contradicted the question bank's own `expected_path_type: review_only_spl` for those same rows.
+
+**Options:**
+- **BR-a — refresh the fixture**, scoped to exactly these 5 rows, recording the before/after diff as the justification. The new values agree with the bank's stated expectation and, for `cisco.perim.001`, with this plan's independent label.
+- **BR-b — revert D3.1.** Keeps the fixture untouched at the cost of leaving the advisory able to override deterministic and registry-backed routes, which is the defect the user scoped as blocking.
+- **BR-c — narrow D3.1 further to exempt Cisco-50 rows.** Rejected on merit: these 5 are the same defect class, so exempting them would special-case the fixture rather than the behavior.
+
+**Recommendation: BR-a.** No execution authority widens — the affected rows gain a validator-approved **review-only** SPL behind `human_review_required=True` with `execution_eligible=False`. Refreshing a captured-behavior fixture whose captured behavior is the defect under repair is the honest resolution; reverting would preserve a frozen record of the bug.
 
 ### `D3_LLM_ADVISORY_HOLDS_FINAL_ROUTE` — **DECIDED `D3-c` by user, 2026-08-12. Scoped as blocking items D3.0/D3.1/D3.2 above; R3 may not start until D3 is resolved and measured.**
 
