@@ -39,12 +39,20 @@ _FAMILY_TO_ANSWER_GOAL: dict[str, AnswerGoal] = {
 }
 
 
-def _capabilities_for_family(intent_family: str) -> tuple[frozenset[str], frozenset[str]]:
+def capabilities_for_intent_family(intent_family: str) -> tuple[frozenset[str], frozenset[str]]:
+    """Required and prohibited capabilities implied by an intent family.
+
+    Reuses Plan 3 B2 tables — not a second capability authority.
+    """
     if intent_family in _INTENT_REQUIRED_CAPABILITIES:
         return _INTENT_REQUIRED_CAPABILITIES[intent_family], frozenset()
     if intent_family in _INTENT_NO_CAPABILITY:
         return frozenset(), frozenset({CAPABILITY_SPL, CAPABILITY_MCP})
     return frozenset(), frozenset()
+
+
+def _capabilities_for_family(intent_family: str) -> tuple[frozenset[str], frozenset[str]]:
+    return capabilities_for_intent_family(intent_family)
 
 
 def _ambiguity_state(intent: IntentClassification) -> AmbiguityState:
