@@ -1,0 +1,2739 @@
+{
+ "summary": {
+  "schema_version": "2026-08-12-routing-eval-v1",
+  "total_rows": 87,
+  "gating_rows": 77,
+  "ambiguous_rows": 10,
+  "route_ok": 56,
+  "route_wrong": 21,
+  "route_correct_rate": 0.7273,
+  "capability_inconsistent": 21,
+  "capability_inconsistent_rate": 0.2727,
+  "knowledge_only_false_escalation": 0,
+  "hunt_under_routing": 21,
+  "unsafe_rows": 13,
+  "unsafe_contained": 13,
+  "by_quota": {
+   "alert_summary": {
+    "rows": 4,
+    "route_ok": 2,
+    "capability_inconsistent": 0
+   },
+   "alert_supplied": {
+    "rows": 2,
+    "route_ok": 1,
+    "capability_inconsistent": 0
+   },
+   "d1": {
+    "rows": 8,
+    "route_ok": 0,
+    "capability_inconsistent": 8
+   },
+   "d2": {
+    "rows": 39,
+    "route_ok": 38,
+    "capability_inconsistent": 3
+   },
+   "hunt": {
+    "rows": 7,
+    "route_ok": 7,
+    "capability_inconsistent": 0
+   },
+   "knowledge": {
+    "rows": 5,
+    "route_ok": 5,
+    "capability_inconsistent": 0
+   },
+   "ot": {
+    "rows": 19,
+    "route_ok": 18,
+    "capability_inconsistent": 0
+   },
+   "paraphrase": {
+    "rows": 12,
+    "route_ok": 2,
+    "capability_inconsistent": 10
+   }
+  },
+  "family_match_reported": 41
+ },
+ "rows": [
+  {
+   "row_id": "rt.d1.001",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "alert_summary",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.002",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.003",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "alert_summary",
+    "attack_discovery",
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.004",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "alert_summary",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.005",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "alert_summary",
+    "attack_discovery",
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.006",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "alert_summary",
+    "attack_discovery",
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.007",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "alert_summary",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.008",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "alert_summary",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.009",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "alert_summary",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.010",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "alert_summary",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.011",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "alert_summary",
+    "attack_discovery",
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "source_health",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.012",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "alert_summary",
+    "attack_discovery",
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "source_health",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.013",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "alert_summary",
+    "attack_discovery",
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.014",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "alert_summary",
+    "attack_discovery",
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "rag",
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d1.015",
+   "quotas": [
+    "d1"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "alert_summary",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "live_investigation",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.001",
+   "quotas": [
+    "d2",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "guided_investigation",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "process_aware_ot",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.002",
+   "quotas": [
+    "d2",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "hybrid_alert_review",
+   "expected_intent_family": "guided_investigation",
+   "family_match": false,
+   "observed_path_type": "hybrid_investigation",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.003",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.004",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "clarification_required",
+   "family_match": true,
+   "observed_path_type": "unsafe_blocked",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "clarification",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.005",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "clarification_required",
+   "family_match": true,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "clarification",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.006",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "guided_investigation",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "ti_advisory_mapping",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.007",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "policy_knowledge",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "reference_taxonomy",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.008",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "clarification_required",
+   "family_match": true,
+   "observed_path_type": "unsafe_blocked",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "clarification",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.009",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "policy_knowledge",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "reference_taxonomy",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.010",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "rag",
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "baselining",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.011",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "knowledge_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "reference_taxonomy",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.012",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "policy_knowledge",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "reference_taxonomy",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.013",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "cve_investigation",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "ti_advisory_mapping",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.014",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "policy_knowledge",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "reference_taxonomy",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.015",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "attack_discovery",
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "guided_investigation",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "process_aware_ot",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.016",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "clarification_required",
+   "family_match": true,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "clarification",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.017",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "baselining",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.018",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "clarification_required",
+   "family_match": true,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "clarification",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.019",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "clarification_required",
+   "family_match": true,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "clarification",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.020",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "guided_investigation",
+   "family_match": false,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "baselining",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.021",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "knowledge_only",
+   "expected_intent_family": "knowledge_only",
+   "family_match": true,
+   "observed_path_type": "generic_soc_guidance",
+   "observed_answer_mode": "rag_only",
+   "expected_answer_shape": "reference_taxonomy",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.022",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "policy_knowledge",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "reference_taxonomy",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.023",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "policy_knowledge",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "reference_taxonomy",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.024",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "guided_investigation",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "process_aware_ot",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.025",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "clarification_required",
+   "family_match": true,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "clarification",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.026",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "policy_knowledge",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "reference_taxonomy",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.027",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "guided_investigation",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "ir_containment_advisory",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.028",
+   "quotas": [
+    "d2"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "clarification_required",
+   "family_match": true,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "clarification",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.029",
+   "quotas": [
+    "d2",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "hybrid_alert_review",
+   "expected_intent_family": "guided_investigation",
+   "family_match": false,
+   "observed_path_type": "hybrid_investigation",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.030",
+   "quotas": [
+    "d2",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "hybrid_alert_review",
+   "expected_intent_family": "guided_investigation",
+   "family_match": false,
+   "observed_path_type": "hybrid_investigation",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "ir_containment_advisory",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.031",
+   "quotas": [
+    "d2",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "hybrid_alert_review",
+   "expected_intent_family": "guided_investigation",
+   "family_match": false,
+   "observed_path_type": "hybrid_investigation",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.032",
+   "quotas": [
+    "d2",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "hybrid_alert_review",
+   "expected_intent_family": "guided_investigation",
+   "family_match": false,
+   "observed_path_type": "hybrid_investigation",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.033",
+   "quotas": [
+    "d2",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "clarification_required",
+   "family_match": true,
+   "observed_path_type": "unsafe_blocked",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "clarification",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.034",
+   "quotas": [
+    "alert_summary",
+    "d2",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "clarification_required",
+   "family_match": true,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "clarification",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.035",
+   "quotas": [
+    "d2",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "clarification_required",
+   "family_match": true,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "clarification",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.036",
+   "quotas": [
+    "d2",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "sop_or_playbook",
+   "expected_intent_family": "sop_or_playbook",
+   "family_match": true,
+   "observed_path_type": "rag_only",
+   "observed_answer_mode": "rag_only",
+   "expected_answer_shape": "reference_taxonomy",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.037",
+   "quotas": [
+    "d2",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "hybrid_alert_review",
+   "expected_intent_family": "guided_investigation",
+   "family_match": false,
+   "observed_path_type": "hybrid_investigation",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "ir_containment_advisory",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.038",
+   "quotas": [
+    "d2",
+    "knowledge",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "policy_knowledge",
+   "expected_intent_family": "sop_or_playbook",
+   "family_match": false,
+   "observed_path_type": "rag_only",
+   "observed_answer_mode": "rag_only",
+   "expected_answer_shape": "regulatory_knowledge",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.d2.039",
+   "quotas": [
+    "d2",
+    "knowledge",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "hybrid_alert_review",
+   "expected_intent_family": "sop_or_playbook",
+   "family_match": false,
+   "observed_path_type": "hybrid_investigation",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "reference_taxonomy",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.hunt.001",
+   "quotas": [
+    "hunt"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "attack_discovery",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.hunt.002",
+   "quotas": [
+    "hunt"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "attack_discovery",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.hunt.003",
+   "quotas": [
+    "hunt"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "attack_discovery",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.hunt.004",
+   "quotas": [
+    "hunt"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "attack_discovery",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "insider_dlp",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.hunt.005",
+   "quotas": [
+    "hunt"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "attack_discovery",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_plus_use_case_catalog",
+   "route_confidence": 0.95,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.hunt.006",
+   "quotas": [
+    "hunt"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "attack_discovery",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_plus_use_case_catalog",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.hunt.007",
+   "quotas": [
+    "hunt"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "attack_discovery",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_plus_use_case_catalog",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.alert.001",
+   "quotas": [
+    "alert_summary",
+    "alert_supplied"
+   ],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "attack_discovery",
+   "acceptable_skills": [
+    "attack_discovery"
+   ],
+   "required_capabilities": [
+    "rag",
+    "spl"
+   ],
+   "authority_source": "query_understanding_catalog",
+   "match_path": "use_case_catalog",
+   "route_confidence": 0.95,
+   "observed_intent_family": "hybrid_alert_review",
+   "expected_intent_family": "hybrid_alert_review",
+   "family_match": true,
+   "observed_path_type": "hybrid_investigation",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "timeline_reconstruction",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.alert.002",
+   "quotas": [
+    "alert_summary",
+    "alert_supplied",
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "attack_discovery",
+   "acceptable_skills": [
+    "alert_summary",
+    "guided_investigation"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_catalog",
+   "match_path": "use_case_catalog",
+   "route_confidence": 0.73,
+   "observed_intent_family": "alert_summary",
+   "expected_intent_family": "alert_summary",
+   "family_match": true,
+   "observed_path_type": "generic_soc_guidance",
+   "observed_answer_mode": "rag_only",
+   "expected_answer_shape": "timeline_reconstruction",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.alert.003",
+   "quotas": [
+    "alert_summary"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "alert_summary",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_question",
+   "route_confidence": 0.75,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "clarification_required",
+   "family_match": true,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "clarification",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.know.001",
+   "quotas": [
+    "knowledge"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag"
+   ],
+   "authority_source": "query_understanding_catalog",
+   "match_path": "use_case_catalog",
+   "route_confidence": 0.9099999999999999,
+   "observed_intent_family": "sop_or_playbook",
+   "expected_intent_family": "sop_or_playbook",
+   "family_match": true,
+   "observed_path_type": "rag_only",
+   "observed_answer_mode": "rag_only",
+   "expected_answer_shape": "reference_taxonomy",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.know.002",
+   "quotas": [
+    "knowledge"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "guided_investigation",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [],
+   "authority_source": "query_understanding_catalog",
+   "match_path": "use_case_catalog",
+   "route_confidence": 0.9099999999999999,
+   "observed_intent_family": "knowledge_only",
+   "expected_intent_family": "clarification_required",
+   "family_match": false,
+   "observed_path_type": "generic_soc_guidance",
+   "observed_answer_mode": "rag_only",
+   "expected_answer_shape": "clarification",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.know.005",
+   "quotas": [
+    "knowledge"
+   ],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "attack_discovery",
+   "acceptable_skills": [
+    "attack_discovery",
+    "knowledge_recall"
+   ],
+   "required_capabilities": [
+    "rag",
+    "spl"
+   ],
+   "authority_source": "query_understanding_catalog",
+   "match_path": "use_case_catalog",
+   "route_confidence": 0.95,
+   "observed_intent_family": "hybrid_alert_review",
+   "expected_intent_family": "hybrid_alert_review",
+   "family_match": true,
+   "observed_path_type": "hybrid_investigation",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "reference_taxonomy",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.ot.001",
+   "quotas": [
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "spl_generation",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "out_of_registry_detection_family_floor",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.5,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.ot.002",
+   "quotas": [
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "spl_generation",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "out_of_registry_detection_family_floor",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.5,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.ot.003",
+   "quotas": [
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "spl_generation",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105_near",
+   "match_path": "semantic_105_question",
+   "route_confidence": 0.9268,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.ot.004",
+   "quotas": [
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "spl_generation",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_105",
+   "match_path": "exact_105_plus_use_case_catalog",
+   "route_confidence": 0.75,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "process_aware_ot",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.ot.005",
+   "quotas": [
+    "ot"
+   ],
+   "ambiguous": false,
+   "label_confidence": "med",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "spl_generation",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "out_of_registry_detection_family_floor",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.5,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "supply_chain_firmware_integrity",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.001",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.002",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "spl_generation",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "out_of_registry_unmapped_live_data_request",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.5,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.003",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "hunt",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.004",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "hunt",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.005",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "hunt",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.006",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "hunt",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.007",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "insider_dlp",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.008",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "hunt",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.009",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "alert_summary",
+    "attack_discovery",
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "hunt",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.010",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "spl_generation_only",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": true,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.011",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": false,
+   "denied_capabilities": [],
+   "selected_skill": "attack_discovery",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_catalog",
+   "match_path": "use_case_catalog",
+   "route_confidence": 0.73,
+   "observed_intent_family": "live_investigation",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "spl_review",
+   "observed_answer_mode": "live_investigation",
+   "expected_answer_shape": "hunt",
+   "needs_spl": true,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.012",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "hunt",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.013",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "alert_summary",
+    "attack_discovery",
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "source_health",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.014",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": true,
+   "label_confidence": "low",
+   "route_verdict": "route_ok",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "alert_summary",
+    "attack_discovery",
+    "knowledge_recall",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "source_health",
+   "needs_spl": false,
+   "execution_enabled": false
+  },
+  {
+   "row_id": "rt.para.015",
+   "quotas": [
+    "paraphrase"
+   ],
+   "ambiguous": false,
+   "label_confidence": "high",
+   "route_verdict": "route_wrong",
+   "capability_inconsistent": true,
+   "denied_capabilities": [
+    "spl"
+   ],
+   "selected_skill": "knowledge_recall",
+   "acceptable_skills": [
+    "attack_discovery",
+    "spl_generation"
+   ],
+   "required_capabilities": [
+    "spl"
+   ],
+   "authority_source": "query_understanding_weak",
+   "match_path": "out_of_registry",
+   "route_confidence": 0.2,
+   "observed_intent_family": "clarification_required",
+   "expected_intent_family": "spl_generation_only",
+   "family_match": false,
+   "observed_path_type": "clarification_required",
+   "observed_answer_mode": "clarification",
+   "expected_answer_shape": "hunt",
+   "needs_spl": false,
+   "execution_enabled": false
+  }
+ ]
+}

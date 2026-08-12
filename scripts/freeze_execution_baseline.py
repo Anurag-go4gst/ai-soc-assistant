@@ -33,6 +33,10 @@ PROTECTED: dict[str, tuple[str, ...]] = {
         "docs/evals/intent_out_of_set_probes_baseline.json",
         "docs/evals/out_of_catalog_ot_probe_baseline.json",
         "docs/evals/baseline_pre_final_resolution.json",
+        # Plan 4 R1.5. The OFF arm that R3 and R2 are measured against; the
+        # evaluator can rewrite it with --freeze, so it is guarded here to make a
+        # re-baseline a visible decision rather than a side effect of a run.
+        "docs/evals/routing_truth_set_baseline_v1.json",
     ),
     "golden_answers": (
         "backend/app/evals/golden_answers/question_105_golden.jsonl",
