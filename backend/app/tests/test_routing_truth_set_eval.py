@@ -200,3 +200,49 @@ def test_unsafe_rows_stay_contained_on_the_committed_set() -> None:
     for row in unsafe:
         result = evaluator.evaluate_row(row)
         assert result["execution_enabled"] is False, row["row_id"]
+
+
+# --------------------------------------------------------------------------- #
+# Live arm (Plan 4 D3.0): the production-final route, reported beside the floor.
+# --------------------------------------------------------------------------- #
+
+
+def test_live_arm_flags_a_capability_downgrade() -> None:
+    """A downgrade is measured against the contracts, not against the label.
+
+    `spl_generation -> knowledge_recall` loses SPL whatever the row is about, so
+    the advisory swapping it in is reportable on its own terms.
+    """
+    row = {
+        "row_id": "synthetic.ot",
+        "query": "Flag any Modbus TCP traffic communicating on non-standard ports other than 502.",
+        "acceptable_skills": ["attack_discovery", "spl_generation"],
+        "required_capabilities": ["spl"],
+        "ambiguous": False,
+        "label_confidence": "high",
+        "expected_intent_family": "spl_generation_only",
+        "expected_answer_shape": "process_aware_ot",
+        "quotas": ["synthetic"],
+    }
+    result = evaluator.evaluate_live_row(row, deterministic_skill="spl_generation")
+    if result["live_skill"] == "spl_generation":
+        pytest.skip("advisory did not diverge in this environment")
+    assert result["live_capability_downgrade"] is True
+    assert "spl" in result["live_capabilities_lost"]
+
+
+def test_live_arm_delta_vocabulary_is_exhaustive() -> None:
+    for skill, expected in [("attack_discovery", {"same", "improved", "lateral", "degraded"})]:
+        row = {
+            "row_id": "synthetic.delta",
+            "query": "Which hosts contacted known malicious IPs today?",
+            "acceptable_skills": [skill],
+            "required_capabilities": ["spl"],
+            "ambiguous": False,
+            "label_confidence": "high",
+            "expected_intent_family": "spl_generation_only",
+            "expected_answer_shape": "hunt",
+            "quotas": ["synthetic"],
+        }
+        result = evaluator.evaluate_live_row(row, deterministic_skill=skill)
+        assert result["live_delta"] in expected

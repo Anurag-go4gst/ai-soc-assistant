@@ -47,6 +47,76 @@ DEFAULT_BASELINE = REPO_ROOT / "docs" / "evals" / "routing_truth_set_baseline_v1
 SCHEMA_VERSION = "2026-08-12-routing-eval-v1"
 
 
+ARM_DETERMINISTIC = "deterministic"
+ARM_LIVE = "live"
+ARM_BOTH = "both"
+
+
+def _granted_capabilities(skill: str | None) -> frozenset[str]:
+    """Capabilities a skill's contract grants, via the one permit primitive."""
+    from app.chat.skill_intent_compatibility import _contract_grants, skill_contract_for
+
+    contract = skill_contract_for(skill)
+    return frozenset(cap for cap in ("spl", "mcp") if _contract_grants(contract, cap))
+
+
+def evaluate_live_row(row: dict[str, Any], deterministic_skill: str | None) -> dict[str, Any]:
+    """Route one row through `route_skill` — the production-final path.
+
+    The deterministic arm measures `select_route_from_understanding`, which is the
+    layer Plan 4's corrections modify. It is not what the host obeys on
+    out-of-registry paths, where a validated LLM advisory can replace the skill.
+    Reporting both is what keeps every later claim honest about which layer it
+    measured.
+    """
+    from app.routing.skill_router import route_skill
+
+    try:
+        live = route_skill(str(row["query"]))
+    except Exception as exc:  # noqa: BLE001 - an unroutable row is data, not a crash
+        return {
+            "live_skill": None,
+            "live_selected_by": f"<error {type(exc).__name__}>",
+            "live_error": str(exc),
+            "live_route_verdict": "route_wrong",
+            "live_diverges": True,
+            "live_delta": "error",
+        }
+
+    live_skill = live.get("skill")
+    acceptable = set(row["acceptable_skills"])
+    det_ok = deterministic_skill in acceptable
+    live_ok = live_skill in acceptable
+
+    det_caps = _granted_capabilities(deterministic_skill)
+    live_caps = _granted_capabilities(live_skill)
+    lost = det_caps - live_caps
+
+    if live_skill == deterministic_skill:
+        delta = "same"
+    elif det_ok and not live_ok:
+        delta = "degraded"
+    elif live_ok and not det_ok:
+        delta = "improved"
+    else:
+        delta = "lateral"
+
+    return {
+        "live_skill": live_skill,
+        "live_selected_by": live.get("selected_by"),
+        "live_confidence": live.get("confidence"),
+        "live_route_verdict": "route_ok" if live_ok else "route_wrong",
+        "live_diverges": live_skill != deterministic_skill,
+        "live_delta": delta,
+        # A capability downgrade is measured against the *contracts*, not against
+        # the label: the advisory swapped in a skill that grants strictly less.
+        "live_capability_downgrade": bool(lost),
+        "live_capabilities_lost": sorted(lost),
+        "live_capabilities_gained": sorted(live_caps - det_caps),
+        "advisory_selected": live.get("selected_by") == "llm_advisory_validated",
+    }
+
+
 def evaluate_row(row: dict[str, Any]) -> dict[str, Any]:
     from app.chat.evidence_planner import plan_evidence
     from app.chat.intent_classifier import build_query_to_intent
@@ -124,7 +194,7 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     unsafe_rows = [r for r in gating if r["expected_answer_shape"] == "clarification"]
     contained = [r for r in unsafe_rows if not r["execution_enabled"]]
 
-    return {
+    summary: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "total_rows": len(rows),
         "gating_rows": len(gating),
@@ -149,6 +219,27 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         # reported only
         "family_match_reported": sum(1 for r in gating if r["family_match"]),
     }
+    if any("live_skill" in r for r in gating):
+        live = [r for r in gating if "live_skill" in r]
+        summary["live_arm"] = {
+            "rows": len(live),
+            "advisory_selected": sum(1 for r in live if r.get("advisory_selected")),
+            "diverges_from_deterministic": sum(1 for r in live if r.get("live_diverges")),
+            "degraded": sum(1 for r in live if r.get("live_delta") == "degraded"),
+            "improved": sum(1 for r in live if r.get("live_delta") == "improved"),
+            "lateral": sum(1 for r in live if r.get("live_delta") == "lateral"),
+            "capability_downgrades": sum(1 for r in live if r.get("live_capability_downgrade")),
+            "live_route_ok": sum(1 for r in live if r.get("live_route_verdict") == "route_ok"),
+            "selected_by": _count_by(live, "live_selected_by"),
+        }
+    return summary
+
+
+def _count_by(rows: list[dict[str, Any]], key: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        counts[str(row.get(key))] = counts.get(str(row.get(key)), 0) + 1
+    return dict(sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
 
 
 def compare(current: list[dict[str, Any]], baseline: list[dict[str, Any]]) -> list[str]:
@@ -181,6 +272,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--truth-set", type=Path, default=DEFAULT_TRUTH_SET)
     parser.add_argument("--baseline", type=Path, default=DEFAULT_BASELINE)
+    parser.add_argument(
+        "--arm",
+        choices=[ARM_DETERMINISTIC, ARM_LIVE, ARM_BOTH],
+        default=ARM_DETERMINISTIC,
+        help="deterministic = the layer Plan 4 modifies (default, and the gated arm); "
+        "live = production-final route_skill; both = report the delta",
+    )
     parser.add_argument("--check", action="store_true", help="exit 1 on any regression vs baseline")
     parser.add_argument("--json", dest="json_out", type=Path, default=None)
     parser.add_argument("--freeze", type=Path, default=None, help="write this run as a new baseline")
@@ -199,7 +297,12 @@ def main() -> int:
         print(f"RESULT: FAIL (0/{len(payload['rows'])} rows, truth set failed schema validation)")
         return 1
 
-    rows = [evaluate_row(row) for row in payload["rows"]]
+    rows = []
+    for row in payload["rows"]:
+        result = evaluate_row(row)
+        if args.arm in (ARM_LIVE, ARM_BOTH):
+            result.update(evaluate_live_row(row, result["selected_skill"]))
+        rows.append(result)
     summary = summarize(rows)
     report = {"summary": summary, "rows": rows}
 
@@ -218,6 +321,16 @@ def main() -> int:
         f"unsafe_contained={summary['unsafe_contained']}/{summary['unsafe_rows']} "
         f"family_match_reported={summary['family_match_reported']}/{summary['gating_rows']}"
     )
+
+    live = summary.get("live_arm")
+    if live:
+        print(
+            f"  live_arm: advisory_selected={live['advisory_selected']}/{live['rows']} "
+            f"diverges={live['diverges_from_deterministic']} degraded={live['degraded']} "
+            f"improved={live['improved']} lateral={live['lateral']} "
+            f"capability_downgrades={live['capability_downgrades']} "
+            f"live_route_ok={live['live_route_ok']}/{live['rows']}"
+        )
 
     failures: list[str] = []
     if args.check:
