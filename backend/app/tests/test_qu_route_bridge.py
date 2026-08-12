@@ -165,7 +165,13 @@ def test_exact_105_keeps_query_understanding_selected_by_in_assisted_mode(monkey
     understanding = understand_query(entry["question"])
     routed = route_skill(entry["question"], query_understanding=understanding)
 
-    assert routed["skill"] == "alert_summary"
+    # The contract this test exists for is *authority*, not the specific skill:
+    # an exact-105 match keeps query-understanding authority in assisted mode and
+    # the LLM is never consulted. Plan 4 R2.1 corrected q0.q001's registry hint
+    # (notable_risk_lookup is live retrieval, not an alert summary), so the skill
+    # is asserted against the registry rather than hardcoded to the old value.
+    assert routed["skill"] == entry["legacy_router_intent_hint"]
+    assert routed["skill"] in SKILL_ENUM
     assert routed["selected_by"] == "query_understanding_105"
     assert routed["routing_provenance"]["authority_source"] == "query_understanding_105"
     assert routed["llm_adjudication"]["status"] == "not_needed"
@@ -176,5 +182,12 @@ def test_q0_q001_notable_risk_not_selected_skill() -> None:
     understanding = understand_query(entry["question"])
     base, provenance = select_route_from_understanding(understanding, entry["question"])
 
-    assert base["skill"] == "alert_summary"
+    # As the test name says: the *planning-level* operation `notable_risk_lookup`
+    # must never become the routed skill — the route must be a routable legacy
+    # skill while the operation survives in provenance. R2.1 changed which legacy
+    # skill that is (alert_summary -> attack_discovery); the property is unchanged,
+    # so it is now asserted directly instead of via the old literal.
+    assert base["skill"] != "notable_risk_lookup"
+    assert base["skill"] in SKILL_ENUM
+    assert base["skill"] == entry["legacy_router_intent_hint"]
     assert provenance.get("operation_type") == "risk_lookup" or provenance.get("mapped_primary_skill") == "notable_risk_lookup"

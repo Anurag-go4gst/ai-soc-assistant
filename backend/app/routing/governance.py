@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.coverage.question_runtime_map import question_runtime_entry
+from app.routing.deterministic_router import LOW_CONFIDENCE_ROUTE
 from app.query_understanding.models import QueryUnderstandingResult
 from app.routing.skills import valid_skill
 from app.use_cases.registry import get_use_case, match_use_cases
@@ -248,7 +249,7 @@ def normalize_assisted_selection(
         guard_checks.append(promotion_guard)
 
     validated = _validated_llm_route_candidate(advisory)
-    if deterministic_uncertain and validated and not promotion_blocked:
+    if _advisory_may_replace_skill(deterministic, deterministic_uncertain) and validated and not promotion_blocked:
         selected = {
             "skill": validated["skill"],
             "tool_plan": _tool_plan_for_skill(validated["skill"]),
@@ -392,6 +393,41 @@ def _registry_paraphrase_authoritative(understanding: Any) -> bool:
     score = getattr(understanding, "question_registry_match_score", None)
     return score is None or float(score) >= 0.75
 
+
+
+def _advisory_may_replace_skill(deterministic: dict[str, Any], deterministic_uncertain: bool) -> bool:
+    """May a validated advisory candidate *replace* the deterministic skill?
+
+    Plan 4 D3. `_deterministic_uncertain` answers a broader question — "would an
+    advisory add value here?" — and three call sites rely on it: whether to run
+    the advisory at all (`skill_router._qu_route_retains_authority`), adjudication
+    reporting, and this one. Reusing it here conflated "an advisory may help" with
+    "an advisory may overrule", and measurement showed the cost: on 77 truth-set
+    rows the advisory selected the final route 49 times and, on 10, replaced a
+    deterministic route with a worse one — 5 of them dropping a capability the
+    deterministic skill had. Zero of the 10 were improvements.
+
+    Two paths were reachable that should never have been. An `out_of_registry`
+    route is classed uncertain purely by match path, so a *specific* decision from
+    one of the eight deterministic floors (e.g. the detection-family floor
+    choosing `spl_generation`) was replaceable. And on registry-backed paths
+    `llm_advisory_recommended` alone satisfies uncertainty, so an `exact_105`
+    match at 0.75 confidence was replaceable too.
+
+    Replacement is therefore restricted to a route that reached **no** conclusion:
+    the low-confidence fallback, whose `["needs_clarification"]` tool plan is the
+    existing marker for exactly that (`deterministic_router.LOW_CONFIDENCE_ROUTE`,
+    also used by `_keyword_fallback` and `skill_router`). Anything a floor or the
+    registry resolved keeps its skill.
+
+    This narrows only replacement. The advisory still runs, still records
+    agreement as `llm_assisted_semantic_normalized`, still contributes warnings,
+    candidates, adjudication and telemetry — enrichment and confirmation are
+    untouched, and no new authority is granted anywhere.
+    """
+    if not deterministic_uncertain:
+        return False
+    return list(deterministic.get("tool_plan") or []) == list(LOW_CONFIDENCE_ROUTE["tool_plan"])
 
 
 def _deterministic_uncertain(deterministic: dict[str, Any], understanding: Any) -> bool:
