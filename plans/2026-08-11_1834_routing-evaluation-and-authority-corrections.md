@@ -546,14 +546,38 @@ Stated up front so closure is not read as more than it is:
 
     **Gates:** full backend **`5109 passed, 3 skipped, 6 xfailed, 0 failed`**; sentinel value **17/17**; sentinel **selection** drift gate **17/17, no drift** (worth noting — `build_sentinel_set.py` selects on `legacy_router_intent_hint == "knowledge_recall"`, so the corrected classes could have changed set membership and did not); path-honoring **105/105**; truth-set `--check` **0 regressions**; reference probes **10/10**; Cisco **50/50**; manifest **14/14**.
 
-- [ ] **R2.2 — Dispose of the `alert_summary` rows**
+- [x] **R2.2 — Dispose of the `alert_summary` rows — DEFERRED by recorded user decision**
   - **Do:** Either apply the correction the user authorized at R2.0's stop gate, or — if no authorization was given — record the rows as an explicit deferred decision with both options, their measured cost, and the reason no change was made. Both outcomes close the item; silently changing them does not.
   - **Why:** Skill ownership is a product decision, not an engineering inference.
   - **Surfaces:** Plan Evidence; registry files only if authorized.
   - **Depends on:** R2.1.
   - **Failing-first / observation:** If a change is applied, the same field-level diff discipline as R2.1 applies.
   - **Verify:** If changed, the R2.1 Verify chain re-run; if deferred, the deferral is recorded in this plan's *Deferred decisions* section with both options and measured cost.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **COMPLETE 2026-08-12 as an explicit deferral. No registry change was made, and none was authorized.**
+
+    **The item's original framing is superseded and that matters for reading it.** R2.2 was written expecting the `alert_summary` rows to be the open question. They are not: the user settled them at R1.3 with **decision B** (a notable/risk/case-state lookup is live retrieval, so an SPL-capable skill owns it), and R2.1 has now applied that — the 7 `notable_risk_lookup` + `case_state_lookup` rows are corrected and no longer `capability_inconsistent`.
+
+    **What is actually deferred is the class the blind labeller surfaced at R1.3:** `asset_identity_context` (5 rows) and `data_source_health` (2 rows), which the user explicitly held for R2.0 and which no evidence gathered since has settled.
+
+    **Measured cost of the deferral, as the item requires:**
+
+    | | |
+    |---|---|
+    | rows affected | **10** — `rt.d1.003/005/006/011/012/013/014` + paraphrases `rt.para.009/013/014` |
+    | current route | `knowledge_recall` on all 10 |
+    | labelled requirement | `spl` on all 10 (`rt.d1.014` also `rag`) |
+    | `capability_inconsistent` | **10 of 10** |
+    | effect on the gate | **none** — all 10 are `ambiguous=true`, therefore non-gating by construction |
+
+    So the deferral costs exactly this: ten questions that ask "which users/accounts/sources…" over live audit and index data are routed to a skill whose contract denies SPL, and the benchmark does not score it because the label is honestly marked unresolved. The defect is visible and measured; it is simply not counted.
+
+    **Both options, unchanged and still open:**
+    - **Reading A** — these are lookups of already-scored or already-monitored state (identity posture, source health), correctly owned by a no-SPL summary skill. Closing A means giving that skill a retrieval capability it does not have, i.e. **widening a skill contract** — which this plan's locked invariants forbid without separate approval.
+    - **Reading B** — they are fresh queries over live audit/index data, so an SPL-capable skill owns them, exactly as decision B concluded for the notable/risk rows. Closing B needs only a hint-table correction, and R2.1 has now demonstrated that path end-to-end including its derived-artifact cost.
+
+    **No recommendation is recorded here on purpose.** The evidence that would settle it — whether "which accounts were disabled today" is a posture lookup or a live query — is a product judgement about what those skills own, and R1.3's blind labeller independently flagged the same two classes as genuinely ambiguous. Inventing a tie-break would be the over-reach the forced-ambiguity rule exists to prevent.
+
+    **Verify:** deferral recorded in *Deferred decisions* with both options and measured cost; `git status` shows no registry file touched by this item.
 
 - [ ] **E0 — Full routing evaluation, baseline vs proposed**
   - **Do:** Produce `docs/evals/routing_evaluation_report_v1.md`: baseline vs proposed across correct/acceptable route rate, capability-contradiction rate, knowledge-only false escalation, hunt/detection under-routing, unsafe-action containment, ambiguous rows, and answer parity **labelled explicitly as secondary regression evidence**. State plainly which of D1/D2 was closed, which was deferred, and what the truth set still cannot measure.
@@ -726,7 +750,7 @@ Affected: `rt.d1.001/004/007/008/009` (`notable_risk_lookup`), `rt.d1.010/015` (
 
 **Scope may be wider than 7 rows.** The blind labeller independently applied the same doubt to `rt.d1.005` (`asset_identity_context`) and `rt.d1.012` (`data_source_health`) — rows this plan assumed clear-cut. If the user's decision extends there, R2.1's "clear-cut `knowledge_recall`" group shrinks from 8 rows.
 
-_(R2.2 writes here if the `alert_summary` disposition is deferred.)_
+**R2.2 DEFERRAL, recorded 2026-08-12.** The `alert_summary` classes the item was written for (`notable_risk_lookup`, `case_state_lookup`) were **settled** by decision B and corrected in R2.1. What remains deferred is `asset_identity_context` (5 rows) + `data_source_health` (2 rows), plus 3 paraphrases of them — **10 rows, all `capability_inconsistent`, all `ambiguous` and therefore non-gating**. Reading A closes it by widening a skill contract (forbidden without separate approval); Reading B closes it with a hint-table correction alone. Left open deliberately: the tie-break is a product judgement, and R1.3's blind labeller independently flagged the same two classes.
 
 ## Drift log
 
