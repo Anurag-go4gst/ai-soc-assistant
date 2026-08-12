@@ -516,14 +516,35 @@ Stated up front so closure is not read as more than it is:
 
     **No skill contract was widened to make a route fit**; the change moves a hint between existing skills only.
 
-- [ ] **R2.1 — Correct the clear-cut `knowledge_recall` contradictions**
+- [x] **R2.1 — Correct the clear-cut `knowledge_recall` contradictions (+ approved `RF-a` artifact refresh)**
   - **Do:** **Precondition, per pattern class:** the class is answer-neutral in R2.0's measured impact set, **or** a scoped golden-refresh approval covering its rows is recorded. Classes meeting neither close `NOT_AUTHORIZED` without touching the registry, while answer-neutral classes proceed. For the pattern classes R2.0 classified as clear-cut **and** cleared by this precondition, change `LEGACY_ROUTER_INTENT_BY_PATTERN` and regenerate `backend/app/coverage/question_runtime_map_v1.json` through its authoring tool (`tools/coverage_authoring/question_runtime_map_builder.py`) — never by hand-editing the JSON. Update any assertion that R1.6 left referencing the changed hint values.
   - **Why:** The map is a generated artifact; hand-editing it creates drift that the next regeneration silently reverts.
   - **Surfaces:** `tools/coverage_authoring/pattern_runtime_mapping.py`; `backend/app/coverage/question_runtime_map_v1.json` (regenerated); `backend/app/tests/test_query_understanding_stage3je.py`.
   - **Depends on:** R2.0.
   - **Failing-first / observation:** Confirm the regenerated map differs from the committed one **only** in the intended `legacy_router_intent_hint` fields — diff the JSON and record the field-level delta. Any other change is a stop condition.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_query_understanding_stage3je.py app/tests/test_cisco_question_runtime_map.py -q`; `PYTHONPATH=backend:. python3 scripts/eval_105_path_honoring.py --check`; `PYTHONPATH=backend:. python3 scripts/eval_routing_truth_set.py --json /tmp/plan4-r2-on.json`.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **COMPLETE 2026-08-12.** Three pattern classes corrected in `LEGACY_ROUTER_INTENT_BY_PATTERN`: `notable_risk_lookup` and `case_state_lookup` (user decision B) and `threat_intel_enrichment` (clear-cut, `high`-confidence label) → `attack_discovery`. `asset_identity_context` and `data_source_health` deliberately untouched — their ownership is deferred.
+
+    **Measured improvement (truth set, deterministic arm):** `route_ok` **56/77 → 64/76**; `capability_inconsistent` **21 → 13**; hunt under-routing **21 → 13**; live-arm `route_ok` **51 → 59/76**; capability downgrades **0**; `--check` vs the frozen baseline **PASS, 0 regressions**. The gating denominator moved 77→76 and unsafe rows 13→12 solely because `rt.alert.003` became non-gating (below), not through any containment loss — containment is **12/12**.
+
+    **The plan's stated method was a data-loss trap, and is recorded as such.** R2.1 said to regenerate the map through the authoring tool and never hand-edit. Doing that changed **105 rows**, nulling all 11 MITRE registry fields on every row (see `RUNTIME_MAP_BUILDER_IDEMPOTENCY`). The regeneration was reverted and **only** the `legacy_router_intent_hint` field was taken from the regenerated output onto the committed map. Proof: **9 rows changed, single field `legacy_router_intent_hint`**, all non-entry keys unchanged, and a direct comparison of all 11 MITRE fields across all 105 rows reports **zero changes**.
+
+    **`rt.alert.003` (q0.q045) relabelled at user instruction** to `ambiguous=true` / `label_confidence=low` / `non_gating_reason: clarification_outcome_authoritative_skill_immaterial`, with both readings recorded and logged in `relabel_log` against the prior hash `a957931c…`. The row ends in `clarification_required` regardless of routed skill, so scoring it `route_wrong` measured something immaterial. Recorded explicitly: this **lowers the gating denominator** rather than raising the pass rate.
+
+    **Forecast miss, owned.** R2.0 predicted an empty impact set; the full suite then failed **8 tests**. See `ROUTING_CHANGE_FORECAST_METHOD`. User approved `RF-a` with boundaries; each was verified rather than asserted:
+
+    | Boundary | Proof |
+    |---|---|
+    | `sentinel_baseline.json`: only q0.q001/q0.q005, membership unchanged | membership asserted equal (17 rows); differing set == `{q0.q001, q0.q005}`; `UNEXPECTED: none`; 15 rows untouched |
+    | `in_catalogue_contract/baseline.json`: only the 8 measured rows | differing set == the 8 approved; `UNEXPECTED: none`; **147 rows untouched**; no row anywhere gains `execution_eligible=True` |
+    | `skill_coverage_matrix.json`: derived only | **9 leaf diffs, single field `live_execution_skill`**, exactly the corrected rows — no unrelated change, so no second STOP |
+    | Two tests de-hardcoded, not weakened | `test_q0_q001_notable_risk_not_selected_skill` now asserts the property its name states (`skill != "notable_risk_lookup"`, `in SKILL_ENUM`, `== legacy_router_intent_hint`) plus the original provenance check — three assertions replacing one literal. `test_exact_105_keeps_query_understanding_selected_by_in_assisted_mode` keeps `selected_by`, `authority_source` and `llm_adjudication.status == "not_needed"` and asserts the skill against the registry. Both now fail if registry and router disagree. |
+    | 105 goldens, governed registries, truth-set baseline | `git status` over all of them **empty** |
+    | MITRE metadata | 11 fields × 105 rows, **zero changes** |
+
+    **Direction of the refreshed behavior is more constrained, not more permissive:** the affected rows move `execution_eligible None → False`, `human_review_required False → True`, `execution_status skipped → requires_human_review`, and gain a validator-checked review-only artifact (`spl_approved None → False`, `candidate_spl_present False → True`) — i.e. the SPL the question asks for now appears, behind human review and explicitly non-executable.
+
+    **Gates:** full backend **`5109 passed, 3 skipped, 6 xfailed, 0 failed`**; sentinel value **17/17**; sentinel **selection** drift gate **17/17, no drift** (worth noting — `build_sentinel_set.py` selects on `legacy_router_intent_hint == "knowledge_recall"`, so the corrected classes could have changed set membership and did not); path-honoring **105/105**; truth-set `--check` **0 regressions**; reference probes **10/10**; Cisco **50/50**; manifest **14/14**.
 
 - [ ] **R2.2 — Dispose of the `alert_summary` rows**
   - **Do:** Either apply the correction the user authorized at R2.0's stop gate, or — if no authorization was given — record the rows as an explicit deferred decision with both options, their measured cost, and the reason no change was made. Both outcomes close the item; silently changing them does not.
@@ -611,7 +632,7 @@ Confirming the same conclusion from the other end: those 5 rows reach `clarifica
 
 **Recommendation: C3, or C2 if the contract cleanup is wanted independently of the D3 benefit.** C1 is not recommended — it buys the target metric by blanket-suppressing the advisory and by misrepresenting five rows, which is the same class of dishonesty D3 was raised to remove.
 
-### `R21_DERIVED_ARTIFACT_REFRESH` — OPEN, blocks R2.1 acceptance (raised 2026-08-12)
+### `R21_DERIVED_ARTIFACT_REFRESH` — **RESOLVED: user approved `RF-a` 2026-08-12 with boundaries. Applied scoped and verified.**
 
 R2.1's hint correction is applied in the working tree and improves every routing measure — but the **full backend suite fails 8 tests**, and my R2.0 forecast did not predict any of them. Nothing has been refreshed or committed.
 
@@ -637,6 +658,18 @@ R2.1's hint correction is applied in the working tree and improves every routing
 - **RF-c — narrow R2.1.** Rejected on measurement: `q0.q005` alone still touches the sentinel baseline and the in-catalogue fixture, so narrowing does not avoid the decision.
 
 **Recommendation: RF-a**, with the two test edits declared as de-hardcoding rather than weakening, and each artifact diff recorded row-by-row before refresh. Not taken — this is a frozen-baseline decision and stops here.
+
+### `ROUTING_CHANGE_FORECAST_METHOD` — process finding, adopt for any future routing change
+
+R2.0 forecast the golden impact as **empty** and it was wrong. The instruments used — golden `selected_skill` assertions and production parity — are both blind to answer *sections*, so the forecast was true of what it measured and false of what mattered. Eight backend tests then failed at R2.1.
+
+**Rule going forward:** a routing change must run the **full backend suite inside the temporary in-memory arm** before approval, not parity plus golden-route checks. And state plainly, wherever parity is cited: **`120 exact` is dual-runtime equivalence between the imperative and ResourcePlanner spines — it is not answer correctness, and it does not mean either runtime matches the frozen 105-answer file.** This is the second forecast miss of the same shape (D3.2 was the first, against the in-catalogue fixture); the arm exists precisely so misses are cheap, and it was under-used twice.
+
+### `RUNTIME_MAP_BUILDER_IDEMPOTENCY` — carried forward as a separate correctness item, NOT fixed here
+
+`tools/coverage_authoring/question_runtime_map_builder.py` is **not idempotent against its own committed artifact**. Re-running it regenerates `question_runtime_map_v1.json` with **all 11 MITRE registry fields nulled on all 105 rows** — `mitre_registry`, `mitre_blocked`, `mitre_candidate`, `mitre_requires_evidence`, `mitre_requires_alert_context`, `mitre_visibility_policy`, `mitre_registry_schema_version`, `mitre_runtime_kb_overlap`, `mitre_runtime_kb_match_count` — because commit `56b48d9` ("promote MITRE registry metadata into runtime 105/42 JSON") was a later, separate promotion the builder does not reproduce.
+
+This is a live data-loss trap: the plan's own R2.1 instruction ("regenerate through the authoring tool, never hand-edit the JSON") walks straight into it. R2.1 therefore regenerated to a scratch path and applied **only** the `legacy_router_intent_hint` field onto the committed map, proving 9 rows / 1 field changed and MITRE preserved byte-for-byte. Fixing the builder is deliberately **out of R2.1's scope** and needs its own item.
 
 ### Carried forward from R3 (recorded, not approved, not implemented)
 
