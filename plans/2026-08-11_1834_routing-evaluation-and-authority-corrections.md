@@ -594,14 +594,22 @@ Stated up front so closure is not read as more than it is:
 
     **§8 states what the report does not claim**, per instruction: D2 is not fixed; the 10 deferred ownership rows are not asserted correct; paraphrase routing is not fixed; the gate is the deterministic floor.
 
-- [ ] **G0 — Align documentation with what was proven**
+- [x] **G0 — Align documentation with what was proven**
   - **Do:** Update `CLAUDE.md`, `plans/README.md` and the relevant `docs/architecture/` page for the routing changes actually made. Add to `docs/evals/EVAL_CONTRACT.md` that **production parity measures answer stability, not routing correctness** — `spl_status` is `none` on 113/120 frozen rows, so parity cannot observe D1 or D2 — and name the routing truth set as the gate that can. Without this, `120 exact` keeps being cited as routing evidence, which is the misreading that let D1 sit unmeasured. Record `UNDERSTANDING_ROUTER_ON_LOW_CONFIDENCE` as **retired with evidence**, not deferred. If `docs/architecture/details.html` changes, update all three published mirrors identically and rebuild `frontend/dist`.
   - **Why:** Plan 3 closed with a known gap that this plan resolves; leaving the old framing in place invites its re-proposal.
   - **Surfaces:** `CLAUDE.md`; `plans/README.md`; `docs/architecture/*`; mirrors if touched.
   - **Depends on:** E0.
   - **Failing-first / observation:** Documentation only. No claim may exceed E0's measured evidence.
   - **Verify:** `git diff --stat` limited to docs; if mirrors changed, all three byte-identical and `cd frontend && npm run build` passes.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **COMPLETE 2026-08-12.** Docs updated only to what Plan 4 measured.
+
+    **`CLAUDE.md`** — the LLM-assisted-routing bullet now records that its own "final route selection stays deterministic" claim **was violated in practice until D3**, with the measured numbers and the corrective predicate. Seven new bullets: the routing truth set as the routing-quality gate; parity as **runtime equivalence only** (with the 1/105 golden-match measurement and the tier-2 vs tier-0 fact); `UNDERSTANDING_ROUTER_ON_LOW_CONFIDENCE` **retired**, including that neither keyword-authority path is reachable at all; the R2.1 hint corrections **and** the two deliberately-unresolved classes with "do not settle by widening a skill contract"; the **disproved** D2 39-row framing; paraphrase routing named as the largest known defect; and the runtime-map builder idempotency warning as an operator-facing "do not regenerate" note.
+
+    **`docs/evals/EVAL_CONTRACT.md`** — new section *"What each gate does and does not prove"*, so the parity misreading that cost this plan two forecast misses cannot be repeated from the contract doc.
+
+    **`plans/README.md`** — Plan 4 row added to Active work with outcomes and every open gap.
+
+    **Nothing overstated:** D2 is described as disproved-and-unfixed, the deferred ownership rows as unresolved rather than correct, and paraphrase routing as an open defect. `docs/architecture/details.html` and its two mirrors were **not** touched — no architecture-page claim changed — so no `frontend/dist` rebuild is required.
 
 - [ ] **G1 — Close Plan 4**
   - **Do:** Re-audit every checkbox against its recorded evidence, run the full gate chain, record the item disposition, commits, and any gaps carried forward.

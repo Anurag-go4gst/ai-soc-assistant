@@ -43,6 +43,29 @@ No eval may end on a fuzzy score without a threshold and a verdict.
 | `scripts/eval_out_of_set_soc.py --check` | in-process | on demand / WS5 reporting (NOT in governance regression) | ~1 s | 36-row out-of-set corpus; critical rules gate, REVIEW rows report findings; `--llm-judge` adds the offline judge (eval-only, never gating) |
 | `./scripts/run_stage3_governance_regression.sh` | umbrella | workstream end / pre-PR | minutes | generators `--check` + full pytest + harness 6/6 + Tier 0 |
 
+## What each gate does and does not prove (Plan 4)
+
+- **`scripts/run_production_parity_eval.py`** compares the **imperative** and
+  **ResourcePlanner** runtimes *against each other*. `exact=120` is runtime
+  equivalence. It is **not** answer correctness, **not** routing correctness, and
+  **not** agreement with `backend/app/evals/golden_answers/question_105_golden.jsonl`
+  — that file is never read by this evaluator. Never cite parity as evidence that a
+  route or an answer is right.
+- **`question_105_golden.jsonl`** cases assert `expected.selected_skill`, are
+  self-described auto-generated shallow expectations, and are **tier 2**; the
+  governance regression runs `--tier 0`. Measured 2026-08-12: they matched production
+  routing on **1 of 105** rows.
+- **`scripts/eval_routing_truth_set.py`** is the routing-quality gate. Labels-only,
+  independently adjudicated, `acceptable_skills` is a set, and route correctness and
+  capability consistency are independent verdicts. `--check` is **no-regression**
+  against the frozen baseline, not identity; dropping a row counts as a regression.
+  Intent family and answer shape are reported, never gated.
+- **`scripts/eval_out_of_set_soc.py`** classifies behavior against corpus rules and
+  has no frozen baseline. Its execution-marker check is negation-aware (an honest
+  "Execution: Not executed" is not a claim) and guardrail keys such as
+  `unsupported_claims_avoid` are excluded from the scanned prose; both corrected as
+  instrumentation in Plan 4 without touching runtime or corpus expectations.
+
 ## Command-name notes
 
 - The Tier-D answer-quality runner is `scripts/eval_answer_quality.py`. There
