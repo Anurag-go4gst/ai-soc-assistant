@@ -697,11 +697,32 @@ R2.1's hint correction is applied in the working tree and improves every routing
 
 **Recommendation: RF-a**, with the two test edits declared as de-hardcoding rather than weakening, and each artifact diff recorded row-by-row before refresh. Not taken — this is a frozen-baseline decision and stops here.
 
+### `CROSSWALK_DERIVED_ARTIFACT_REFRESH` — OPEN, blocks G1 closure (raised 2026-08-12)
+
+The governance regression umbrella fails at its **second section**: `build_soc_capability_crosswalk.py --check` → `REGRESSION FAILED: soc capability crosswalk stale`. `docs/evals/soc_capability_crosswalk.json` is a fourth artifact derived from `legacy_router_intent_hint`, and it was **not** in the approved `RF-a` set — because it was not known then. Nothing has been absorbed: the file was regenerated only to measure, then reverted, and the working tree is clean.
+
+**Measured diff — identical in class to the already-approved `skill_coverage_matrix.json` refresh:**
+
+| | |
+|---|---|
+| leaf diffs | **10** |
+| `live_execution_skill` | **9** — exactly the 9 corrected rows, `alert_summary`/`knowledge_recall` → `attack_discovery` |
+| `generated_at` | 1 — timestamp, changes on every regeneration |
+| anything else | **none** |
+
+**Why it was missed, and why that is the same miss a third time.** RF-a's boundary check ran the full backend suite, which passes — this generator is gated by the **governance umbrella**, not by pytest. `ROUTING_CHANGE_FORECAST_METHOD` said "run the full backend suite inside the arm"; that was still too narrow. The rule is corrected below to name the umbrella explicitly.
+
+**Options:**
+- **CW-a — regenerate the crosswalk.** Purely derived; the 9 changes are the corrected hints propagating. Carries an unavoidable `generated_at` churn.
+- **CW-b — revert R2.1.** Disproportionate: this is a derived report, not a behavior contract.
+
+**Recommendation: CW-a.** Same reasoning and same evidence shape as the coverage-matrix refresh the user already approved inside `RF-a`; the artifact has no gating semantics of its own beyond staleness.
+
 ### `ROUTING_CHANGE_FORECAST_METHOD` — process finding, adopt for any future routing change
 
 R2.0 forecast the golden impact as **empty** and it was wrong. The instruments used — golden `selected_skill` assertions and production parity — are both blind to answer *sections*, so the forecast was true of what it measured and false of what mattered. Eight backend tests then failed at R2.1.
 
-**Rule going forward:** a routing change must run the **full backend suite inside the temporary in-memory arm** before approval, not parity plus golden-route checks. And state plainly, wherever parity is cited: **`120 exact` is dual-runtime equivalence between the imperative and ResourcePlanner spines — it is not answer correctness, and it does not mean either runtime matches the frozen 105-answer file.** This is the second forecast miss of the same shape (D3.2 was the first, against the in-catalogue fixture); the arm exists precisely so misses are cheap, and it was under-used twice.
+**Rule going forward:** a routing change must run the **full backend suite *and* `./scripts/run_stage3_governance_regression.sh`** inside the temporary in-memory arm before approval — not parity plus golden-route checks, and not the backend suite alone. Corrected 2026-08-12 after a third miss: `soc_capability_crosswalk.json` is generator-gated by the umbrella and invisible to pytest, so the suite-only rule still let a stale derived artifact through. And state plainly, wherever parity is cited: **`120 exact` is dual-runtime equivalence between the imperative and ResourcePlanner spines — it is not answer correctness, and it does not mean either runtime matches the frozen 105-answer file.** This is the second forecast miss of the same shape (D3.2 was the first, against the in-catalogue fixture); the arm exists precisely so misses are cheap, and it was under-used twice.
 
 ### `RUNTIME_MAP_BUILDER_IDEMPOTENCY` — carried forward as a separate correctness item, NOT fixed here
 
