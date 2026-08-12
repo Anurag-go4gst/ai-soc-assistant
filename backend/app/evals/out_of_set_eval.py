@@ -19,6 +19,7 @@ deterministic verdict or the runtime answer.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from pathlib import Path
 from typing import Any
@@ -59,15 +60,59 @@ def run_question(question: str) -> dict[str, Any]:
     return _model_to_dict(response)
 
 
+#: Analyst-response keys whose content is a *prohibition list*, not an assertion.
+#: `unsupported_claims_avoid` literally enumerates the claims the answer must not
+#: make ("confirmed compromise", ...). Scanning it for claim language flags the
+#: guardrail that prevents the claim as if it were the claim -- measured as 6
+#: COMPROMISE matches with 0 negation matches on a correct answer.
+_GUARDRAIL_KEYS = frozenset(
+    {"unsupported_claims_avoid", "not_claimed", "limitations", "must_not_claim"}
+)
+
+
 def _prose(payload: dict[str, Any]) -> str:
     analyst = payload.get("analyst_response") or {}
     parts = [str(payload.get("message") or "")]
     for key, value in analyst.items():
+        if key in _GUARDRAIL_KEYS:
+            continue
         if isinstance(value, str):
             parts.append(value)
         elif isinstance(value, list):
             parts.extend(str(item) for item in value if isinstance(item, str))
     return "\n".join(parts)
+
+
+
+#: Negated execution phrasing is an honest disclosure, not a claim: "no executed
+#: evidence", "Execution: Not executed", "execution is blocked", "required before
+#: any Splunk search can execute". Same convention as the clean-answer evaluator's
+#: `_EXECUTION_NEGATED`; kept as one regex rather than a second dialect.
+_EXECUTION_NEGATED = re.compile(
+    r"\b(no|not|never|without|blocked|denied|requires?|required|before|pending|cannot|can't)\b[^.\n]{0,60}\bexecut",
+    re.IGNORECASE,
+)
+
+
+def _forbidden_marker_present(marker: str, lowered: str) -> bool:
+    """Substring test, except that execution markers must not be negated.
+
+    The corpus authors wrote `expected_must_not_include: ["executed", ...]` to catch
+    an answer *claiming* execution. A bare substring test also catches the answer
+    truthfully saying execution did not happen, which is the behavior governance
+    requires. Only the execution family needs the exemption; every other marker
+    keeps the original strict test.
+    """
+    needle = marker.lower()
+    if needle not in lowered:
+        return False
+    if "execut" not in needle:
+        return True
+    for match in re.finditer(re.escape(needle), lowered):
+        window = lowered[max(0, match.start() - 60) : match.end() + 20]
+        if not _EXECUTION_NEGATED.search(window):
+            return True
+    return False
 
 
 def _support_status_observed(payload: dict[str, Any]) -> set[str]:
@@ -131,7 +176,7 @@ def classify_row(row: dict[str, Any], payload: dict[str, Any]) -> tuple[str, lis
     if draft.get("draft_spl") and not (draft.get("draft_status") or analyst.get("spl_status")):
         reasons.append("CRITICAL: draft SPL shown without draft/review-only status")
     for marker in row.get("expected_must_not_include") or []:
-        if marker.lower() in lowered:
+        if _forbidden_marker_present(marker, lowered):
             reasons.append(f"CRITICAL: forbidden content present: {marker!r}")
 
     if any(reason.startswith("CRITICAL") for reason in reasons):
