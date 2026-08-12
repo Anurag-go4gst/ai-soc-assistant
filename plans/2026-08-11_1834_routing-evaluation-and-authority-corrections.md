@@ -611,6 +611,33 @@ Confirming the same conclusion from the other end: those 5 rows reach `clarifica
 
 **Recommendation: C3, or C2 if the contract cleanup is wanted independently of the D3 benefit.** C1 is not recommended — it buys the target metric by blanket-suppressing the advisory and by misrepresenting five rows, which is the same class of dishonesty D3 was raised to remove.
 
+### `R21_DERIVED_ARTIFACT_REFRESH` — OPEN, blocks R2.1 acceptance (raised 2026-08-12)
+
+R2.1's hint correction is applied in the working tree and improves every routing measure — but the **full backend suite fails 8 tests**, and my R2.0 forecast did not predict any of them. Nothing has been refreshed or committed.
+
+**Owned forecast miss.** R2.0 measured golden `selected_skill` assertions and dual-runtime parity and concluded the impact set was empty. Both instruments are blind to answer *sections*, so "empty" was true of what I measured and false of what matters. The lesson matches D3.2's: forecast against the full suite in the temporary arm, not against the artifacts the plan happens to name.
+
+**Measured scope, three stale artifacts and two over-specified tests:**
+
+| Artifact / test | Scope | Nature |
+|---|---|---|
+| `docs/evals/sentinel_baseline.json` | **19 diffs across 2 rows** (`q0.q001`, `q0.q005`) | frozen behavior baseline |
+| `backend/app/tests/fixtures/in_catalogue_contract/baseline.json` | **52 diffs across 8 rows** (105-side this time: `q0.q001/005/058/084/085/090/091/105`) | captured behavior, same class as the approved `BR-a` |
+| `docs/evals/skill_coverage_matrix.json` | generator no longer idempotent | derived artifact — `build_skill_coverage_matrix.py:491` reads the hint directly |
+| `test_qu_route_bridge.py::test_q0_q001_notable_risk_not_selected_skill` | 1 assertion | **over-specified**: its name says the routed skill must not be the planning-level `notable_risk_lookup`, but it hardcodes `alert_summary`. Same circularity class R1.6 removed. |
+| `test_qu_route_bridge.py::test_exact_105_keeps_query_understanding_selected_by_in_assisted_mode` | 1 assertion | same, hardcodes `alert_summary` |
+
+**A behavioral change beyond route labels, which the forecast should have caught:** on `q0.q001` and `q0.q005`, `response_mode` moves `insufficient_evidence → clarification_required`, `candidate_spl_present` `False → True`, `human_review_required` `False → True`, `execution_eligible` `None → False`, `execution_status` `skipped → requires_human_review`. Direction is more gating and a review-only artifact appearing where the question asks for one — but it is a real answer-surface change, not a relabel.
+
+**What did NOT break, checked explicitly:** sentinel *selection* drift gate `RESULT: PASS (17/17 rows, no drift)` — `build_sentinel_set.py` selects on `legacy_router_intent_hint == "knowledge_recall"`, so the corrected classes could have changed set membership and did not. Path-honoring **105/105**, Cisco **50/50**, reference probes **10/10**, parity **`120 exact`**, truth-set `--check` **0 regressions**, manifest **14/14**, goldens and governed registries untouched.
+
+**Options:**
+- **RF-a — refresh the three derived artifacts scoped to the measured rows, and de-hardcode the two tests to assert their stated property.** Same reasoning that carried `BR-a`: these are captured/derived artifacts whose captured content is the behavior under correction.
+- **RF-b — revert R2.1.** Keeps every artifact frozen; leaves 8 `capability_inconsistent` rows and the measured D1 defect in place.
+- **RF-c — narrow R2.1.** Rejected on measurement: `q0.q005` alone still touches the sentinel baseline and the in-catalogue fixture, so narrowing does not avoid the decision.
+
+**Recommendation: RF-a**, with the two test edits declared as de-hardcoding rather than weakening, and each artifact diff recorded row-by-row before refresh. Not taken — this is a frozen-baseline decision and stops here.
+
 ### Carried forward from R3 (recorded, not approved, not implemented)
 
 1. **`rt.d2.003`, `rt.d2.010`, `rt.d2.017` — unresolved SPL-routing semantic misses.** Their labels require `spl`; the routed `knowledge_recall` contract denies it. No existing deterministic signal identifies them, and they must **not** be approximated with a heuristic. They need better semantic/classification signals, in a future item.
