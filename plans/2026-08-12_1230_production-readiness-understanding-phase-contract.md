@@ -236,7 +236,7 @@ except `generated_at`).
 | `C_SEAM_ADOPTION` | C3 | **Proof required. No adoption or retirement pre-approved.** | C3 produces the equivalence proof only. `_run_legacy_dispatch_fallback` is not retired and no `DECISION_REQUIRED` seam is adopted in Plan 5. Inventory stays 2 SEAM / 4 DECISION_REQUIRED / 4 KEEP_SEPARATE, 0 adopted. |
 | `D_RESIDUAL_ROUTING_OWNERSHIP` | D1 | **Deferred until post-B+C measurement** | D0 measures; D1 reports. Ownership is decided only against the measured post-architecture result, never before. STOP at D1 stands. |
 | `A2_DRAFT_VS_RUNTIME_CANDIDATE_AUTHORITY` | A2 → A2.5 | **RESOLVED for A2 by option 3 (approved 2026-08-12); the promotion question moves to A2.5.** The MITRE DRAFT is one curation commit (`7ee7a34`) ahead of the committed runtime map on **11 rows**: `q0.q021/028/040`→`T1071`, `q0.q046/047/060/062/089`→`T1110`, `q0.q050/063/083`→`T1059.001`, all `[]` in the runtime map. `56b48d9` promoted the earlier DRAFT (`1106dd3`); the promoter was never re-run after `7ee7a34`. A2's two acceptance criteria are mutually exclusive at these rows. Full analysis + 3 options: `docs/evals/plan5/a2_draft_runtime_divergence.md`. Option 3 approved: A2 reproduces the deployed promoted state and records the gap in an audited ledger; **the 11 rows are deliberately NOT promoted in A2**. |
-| `MITRE_DRAFT_RUNTIME_PROMOTION_RECONCILIATION` | A2.5 | **OPEN.** Decide whether `7ee7a34`'s candidate-anchor promotions (11 rows) should reach the runtime map. Promoting widens analyst-visible MITRE candidates on 11 of 105 questions and rewrites a governed artifact — it needs the scrutiny any MITRE widening gets, and it is not a builder concern. **STOP for decision.** |
+| `MITRE_DRAFT_RUNTIME_PROMOTION_RECONCILIATION` | A2.5 | **`DEFERRED_SEPARATE_GOVERNED_PROMOTION`** (recorded 2026-08-12). DRAFT stays authoring source; runtime map stays deployed state; 11-row ledger persists; promotion requires separate MITRE governance review. | **No promotion in Plan 5.** Ledger: `docs/input/mitre_enrichment/unpromoted_draft_drift_v1.json`. Decision doc: `docs/evals/plan5/a2_5_deferred_promotion_decision.md`. |
 | `STALE_REPORT_REFRESH` | — | Out of scope by instruction | The six reports stay stale and attributed to Plans 2–4 drift. Any refresh is a separately scoped decision. |
 
 **Remaining live STOP conditions:** B5 (only on a proposal to default the veto ON), C3 (only on a proposal to adopt a
@@ -296,11 +296,11 @@ Phase boundaries (full-gate checkpoints): after **A5**, after **B6**, after **C4
     **Drift detection:** `docs/input/mitre_enrichment/unpromoted_draft_drift_v1.json` records the 11 unpromoted rows (candidate **and** `candidate_provenance`, which `7ee7a34` also added). `tools/coverage_authoring/tests/test_question_runtime_map_draft_drift.py` asserts the ledger equals measured drift **in both directions**, forbids a ledger entry wider than the DRAFT, and requires the ledger to document its own reconciliation. Tamper-proved: removing a real drift row and adding a fake widening row → `2 failed`; restored → `5 passed`. **The 11 rows are deliberately NOT promoted here** — that is A2.5.
     **Gates:** `tools/coverage_authoring/tests` **55 passed**; operation-map audit `entries=105 drift=0`; path honoring **105/105**; MITRE/coverage consumers **84 passed**; promoter `--dry-run` unchanged (`questions 105/105, use_cases 42/65`); full backend pytest **`5119 passed, 3 skipped, 6 xfailed`** — baseline held.
 
-- [ ] **A2.5** — `MITRE_DRAFT_RUNTIME_PROMOTION_RECONCILIATION` (**STOP — decision required**)
+- [x] **A2.5** — `MITRE_DRAFT_RUNTIME_PROMOTION_RECONCILIATION` (**DEFERRED — no promotion**)
   - **Do:** Decide whether the 11 candidate-anchor promotions `7ee7a34` added to the DRAFT should be promoted into `question_runtime_map_v1.json`. Present, per row, the technique, the promotion rationale recorded in `mitre_registry.candidate_provenance` (`llm_catalogue_audit_2026-06-16:candidate_promotion`), and the analyst-visible effect of promoting. Do **not** run the promoter as part of this item — `scripts/promote_mitre_registry_to_runtime.py` also writes `backend/app/use_cases/catalog.json`, which is a protected governed registry, so a promotion is a protected-artifact change requiring its own approval and re-capture.
   - **Verify:** decision recorded with the 11-row table; if promotion is approved, the ledger's `rows` is emptied, `test_ledger_rows_match_measured_drift_exactly` passes with zero drift, the map diff is exactly the 11 rows, and the protected manifest is re-captured deliberately; if declined, `7ee7a34` is recorded as deliberately un-promoted and the ledger persists as the audited record.
   - **Depends on:** A2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-08-12. **Decision: `DEFERRED_SEPARATE_GOVERNED_PROMOTION`.** DRAFT stays authoring source; runtime map stays deployed state; 11 rows **not** promoted. Record: `docs/evals/plan5/a2_5_deferred_promotion_decision.md`. Drift: `q0.q021/028/040`→T1071, `q0.q046/047/060/062/089`→T1110, `q0.q050/063/083`→T1059.001. Ledger + `test_question_runtime_map_draft_drift.py` remain the audit gate.
 
 - [x] **A3** — Isolate the destructive test
   - **Do:** Change `tools/coverage_authoring/tests/test_question_operation_map_stage3l_s6_2.py:37-56` to write into `tmp_path` instead of the real `OUTPUT_PATH`; remove the snapshot/restore `finally`.
@@ -330,29 +330,29 @@ Phase boundaries (full-gate checkpoints): after **A5**, after **B6**, after **C4
 
 ### Phase B — understanding before final route
 
-- [ ] **B0** — Authority audit and written call-order map (no code change)
+- [x] **B0** — Authority audit and written call-order map (no code change)
   - **Do:** Commit `docs/architecture/routing_authority_map.md`: the ordered live call graph, all four `routed["skill"]` writers, every clarification production point, the answer-shape leakage into routing (3 live sites), and the dead-node warning for `graph_node_query_to_intent`. Classify each surface: **preserve / move / adapt / retire / defer**.
   - **Verify:** every claim carries a `file:line` anchor that `grep` confirms; a reviewer can trace query→final skill without reading code.
   - **Depends on:** A5
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-08-12. `docs/architecture/routing_authority_map.md` — live call order, `routed["skill"]` writers, `build_query_to_intent` contamination sites, clarification table, answer-shape leakage, tier authority (`lane_router` vs `match_tiers`), dead nodes. Anchors grep-verified.
 
-- [ ] **B1** — Define `ResolvedQueryContract` (typed, inert)
+- [x] **B1** — Define `ResolvedQueryContract` (typed, inert)
   - **Do:** New `backend/app/chat/contracts/resolved_query.py`, pydantic, modelled on `QueryUnderstandingSnapshot` (`canonical_planning_input.py:58`). Fields: `normalized_goal`, `intent_family`, `answer_goal`, `ambiguity_state`, `clarification_required` + `clarification_reason`, `required_capabilities`, `prohibited_capabilities`, `evidence_requirements`, `entities`, `time_scope`, `understanding_source` (`deterministic_qualification` | `semantic_t4`), `confidence`, `provenance`. **Do not** reuse `RouteContract.intent_family` or `RoutingContext.answer_goal` — both are populated after routing from a route-contaminated intent. Contract carries **no** execution authority and **no** skill.
   - **Verify:** unit tests for construction/validation/fail-closed defaults; `grep` proves the module imports nothing from `run_contract.py`; not yet referenced by any pipeline node.
   - **Depends on:** B0
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-08-12. `backend/app/chat/contracts/resolved_query.py` + `test_resolved_query_contract.py` → **8 passed**. Fail-closed capabilities; no `run_contract` import; not wired to pipeline.
 
-- [ ] **B2** — `B_TIER_AUTHORITY_UNIFICATION` (**STOP** only if live-impacting)
+- [x] **B2** — `B_TIER_AUTHORITY_UNIFICATION` (**STOP** only if live-impacting)
   - **Do:** Measure the T3/T0 disagreement between `catalogue/match_tiers.py:23` and `chat/lane_router.py:26` across the 105 + truth-set corpora. Adopt the live-path authority (`lane_router`), retire the duplicate literal, and have `ResolvedQueryContract` carry exactly one tier vocabulary.
   - **Verify:** measured disagreement table committed; after unification `live_router_bind` outcomes are unchanged on 105/105; full backend pytest green.
   - **Depends on:** B1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-08-12. `docs/evals/plan5/tier_unification_measurement.md` — only path diff `fuzzy_alias_catalog`; **0/105** tier disagreements. `match_tiers.py` imports path sets from `lane_router`. `test_catalogue_match_tiers.py` + `test_canonical_catalogue_tier_authority.py` → **17 passed**. No live bind change.
 
-- [ ] **B3** — Decontaminate the understanding input (the real `UNDERSTANDING_BEFORE_FINAL_ROUTE`)
+- [x] **B3** — Decontaminate the understanding input (the real `UNDERSTANDING_BEFORE_FINAL_ROUTE`)
   - **Do:** Remove `routed_skill` from the `build_query_to_intent` inputs at `canonical_planning_orchestrator.py:447` and `:520`; stop overwriting `IntentClassification.primary_intent` with the routed skill (`:481`); move the T0 `routed["skill"]` write out of the intent stage (`:540-551`) into an explicit pre-route qualification step. Produce the `ResolvedQueryContract` here.
   - **Verify:** failing-first test asserting `build_query_to_intent` output is identical for the same query under two different provisional skills; then full backend pytest; truth set `--arm both`; parity; path honoring `105/105`.
   - **Depends on:** B2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-08-12. Removed `routed_skill` from live `build_query_to_intent` calls (`canonical_planning_orchestrator.py`, `canonical_query_to_intent_resume.py`); stopped known-lane `primary_intent` overwrite; T0 no longer mutates `routed["skill"]` — `reference_knowledge` adjudication rule + `resolved_tier==T0` deterministic_route override in `graph_node_route_resolution`. Added `resolved_query_builder.py`; `ResolvedQueryContract` emitted on canonical planning state. `test_understanding_route_invariance.py` → **4 passed**; `test_canonical_catalogue_tier_authority.py` → **8/8** (incl. CVE T4→T0). Truth set `--arm both --check` **0 regressions** (`64/76`); path honoring **105/105**; manifest **15/15**. Full governance re-run deferred to B6 phase boundary.
 
 - [ ] **B4** — Bounded T4 semantic understanding behind deterministic validation
   - **Do:** For T4 only, allow an optional bounded semantic understanding hop that fills `ResolvedQueryContract` fields, advisory, deterministically validated, behind a **default-off** flag. Hard wall-clock bound (~2s, per the q046 precedent — the VPS instruct model runs 30–120s) with no failover. T1–T3 keep the trusted deterministic qualification path untouched and pay no LLM cost.
