@@ -1,0 +1,298 @@
+[
+  {
+    "row_id": "rt.para.003",
+    "query": "any domain lookups that look algorithmically generated",
+    "elapsed_s": 2.01,
+    "off": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {}
+    },
+    "on": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {
+        "semantic_t4": {
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 2005,
+          "timeout_seconds": 2.0,
+          "rejected_reasons": [
+            "timed_out"
+          ],
+          "notes": [
+            "llm_assist_timed_out"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "row_id": "rt.para.004",
+    "query": "do we have endpoints calling home on a regular cadence",
+    "elapsed_s": 0.0,
+    "off": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {}
+    },
+    "on": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {
+        "semantic_t4": {
+          "invoked": true,
+          "accepted": false,
+          "timed_out": false,
+          "elapsed_ms": 0,
+          "timeout_seconds": 2.0,
+          "rejected_reasons": [
+            "empty_output"
+          ],
+          "notes": [
+            "llm_model_slot_busy"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "row_id": "rt.para.005",
+    "query": "hosts talking to an unusually wide spread of external addresses",
+    "elapsed_s": 2.01,
+    "off": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {}
+    },
+    "on": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {
+        "semantic_t4": {
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 2003,
+          "timeout_seconds": 2.0,
+          "rejected_reasons": [
+            "timed_out"
+          ],
+          "notes": [
+            "llm_assist_timed_out"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "row_id": "rt.para.006",
+    "query": "machines opening SMB sessions against a lot of different peers",
+    "elapsed_s": 2.0,
+    "off": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {}
+    },
+    "on": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {
+        "semantic_t4": {
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 2000,
+          "timeout_seconds": 2.0,
+          "rejected_reasons": [
+            "timed_out"
+          ],
+          "notes": [
+            "llm_assist_timed_out"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "row_id": "rt.para.007",
+    "query": "anyone shipping unusually large volumes of data outward",
+    "elapsed_s": 0.0,
+    "off": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {}
+    },
+    "on": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {
+        "semantic_t4": {
+          "invoked": true,
+          "accepted": false,
+          "timed_out": false,
+          "elapsed_ms": 0,
+          "timeout_seconds": 2.0,
+          "rejected_reasons": [
+            "empty_output"
+          ],
+          "notes": [
+            "llm_model_slot_busy"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "row_id": "rt.para.008",
+    "query": "endpoints where PowerShell ran in a way that looks off",
+    "elapsed_s": 2.01,
+    "off": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {}
+    },
+    "on": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {
+        "semantic_t4": {
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 2003,
+          "timeout_seconds": 2.0,
+          "rejected_reasons": [
+            "timed_out"
+          ],
+          "notes": [
+            "llm_assist_timed_out"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "row_id": "rt.para.012",
+    "query": "signs that something is moving sideways through the estate",
+    "elapsed_s": 2.01,
+    "off": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {}
+    },
+    "on": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {
+        "semantic_t4": {
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 2005,
+          "timeout_seconds": 2.0,
+          "rejected_reasons": [
+            "timed_out"
+          ],
+          "notes": [
+            "llm_assist_timed_out"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "row_id": "rt.para.015",
+    "query": "have we run into this indicator before and what did we decide last time",
+    "elapsed_s": 2.0,
+    "off": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {}
+    },
+    "on": {
+      "family": "clarification_required",
+      "goal": "clarification",
+      "amb": "clarification_required",
+      "caps": [],
+      "src": "deterministic_qualification",
+      "conf": 0.45,
+      "provenance": {
+        "semantic_t4": {
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 2000,
+          "timeout_seconds": 2.0,
+          "rejected_reasons": [
+            "timed_out"
+          ],
+          "notes": [
+            "llm_assist_timed_out"
+          ]
+        }
+      }
+    }
+  }
+]
