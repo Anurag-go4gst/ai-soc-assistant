@@ -1,7 +1,7 @@
 ---
 name: production-readiness-understanding-phase-contract
 overview: "Fix the runtime-map builder, resolve query understanding into a typed contract before the final route, build the Phase Contract + deterministic merge seam, then re-measure the residual routing defects instead of patching them."
-status: active
+status: done
 date: 2026-08-12
 canonical_plan: plans/2026-08-12_1230_production-readiness-understanding-phase-contract.md
 source_plan: plans/2026-08-11_1834_routing-evaluation-and-authority-corrections.md
@@ -491,11 +491,18 @@ Phase boundaries (full-gate checkpoints): after **A5**, after **B6**, after **C4
   - **Depends on:** E0
   - **Evidence:** 2026-08-13. Docs aligned: `CLAUDE.md` (ResolvedQueryContract flow, PhaseRegistry/PhasePolicy/PhaseContract, B5 default-OFF + `cisco.ot.029`, D1 ratification + paraphrase deferral, COE dispatch-v2, protected manifest 15/15, parity semantics, Plan 5 table row); `plans/README.md` Active-work row; `docs/architecture/routing_authority_map.md` current-flow section; new `docs/architecture/phase_contract_and_schedule.md`; E0 report. **AGENTS.md not edited** — no operating rule changed (LLM still never calls MCP; candidate SPL still never executable; D3 advisory-finality unchanged). Anchors: `config.py:410/413/417` still default false; `canonical_planning_orchestrator.py:447/:516` still omit `routed_skill`; `executor.py:286` still the single `merge_schedule(` site. Audit: `.cursor/hooks/audit-plan-discipline.sh` → **0 gaps** (26 checked / 2 unchecked G0+G1 before this check-off). Six stale governance reports intentionally unrefreshed.
 
-- [ ] **G1** — Final closure gates
+- [x] **G1** — Final closure gates
   - **Do:** Re-run the complete forecast-rule gate set twice. Re-audit every checked item's evidence. Confirm the six stale governance reports are still stale and uncommitted.
   - **Verify:** governance PASS ×2; backend pytest ≥ `5119 passed / 0 failed`; truth set `--check` 0 regressions; parity `120 exact / 0 critical`; Cisco `50/0/0`; probes `10/10`; sentinel `17/17`; path honoring `105/105`; manifest `15/15` from the durable committed manifest (14 declared + runtime map, per A4.5 and A5); invariants `7/7`; `git status` shows no `docs/evals/` report drift committed; `/invariant-check` clean.
   - **Depends on:** G0
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-08-13, HEAD before this check-off `104144f` (D1/E0/G0 docs). Fresh gates:
+    - Governance regression **PASS ×2** (`G1_GOV1_EXIT=0`, `G1_GOV2_EXIT=0`); each run `5247 passed, 3 skipped, 6 xfailed`; dual-parity `exact=120`; Cisco `PASS=50 REVIEW=0 FAIL=0 CRITICAL=0`; dispatch matrix 5/5; harness 6/6.
+    - Truth set `--arm both --check` **PASS, 0 regressions** (`route_ok=64/76`, `capability_inconsistent=13`, live `59/76`, `capability_downgrades=0`, `unsafe_contained=12/12`).
+    - Production parity `total=120 exact=120 approved=0 critical=0`.
+    - Sentinel **17/17 no drift**; path honoring **105/105**; reference probes **10/10** (`audit_reference_probes.py --check`, all match frozen baseline); protected manifest **15/15**.
+    - Plan-discipline audit **0 gaps**. Invariant check **7/7 PASS**: no LLM→MCP path (`mcp_execution_gate.py` / `spl_validator.py` / `governance.py` empty vs `2f678b9`); candidate SPL still non-executable; `app/demo/` untouched; no secrets; `resolved_query_contract` already declared; execution/T4/enforcement flags still default false; no test weakened (the one test-line deletion vs `2f678b9` is the C3 stale-anchor comment).
+    - After each governance run: `git checkout -- docs/evals/`; six stale reports remain uncommitted (`langgraph_dual_parity_report.json`/`.md`, `soc_clean_answer_eval_report.json`/`.csv`/`.summary.md`, `llm_template_audit_report.md`). Unrelated dirt preserved (`.claude/settings.local.json`, `detail_tools/__init__.py`, `.playwright-mcp/`, `g0-*.png`, `output/`).
+    105 goldens, frozen truth-set baseline, governed registries, and the six stale reports were **not** refreshed. No new STOP fired.
 
 ---
 
@@ -578,3 +585,4 @@ both decisions are now recorded. No remaining Plan 5 decision gate.
   this correction — only the header number moved.
 - 2026-08-13 — **`D_RESIDUAL_ROUTING_OWNERSHIP` closed.** User recorded `D1_LIVE_POSTURE_ROUTE = RATIFIED_FOR_MEASURED_ROWS` (7 measured ownership rows that commit `spl_generation`; not a family-wide ownership rule) and `D1_PARAPHRASE_RESIDUE = DEFERRED_T4_SEMANTIC_SERVING_LIMIT` (8 T4 paraphrases; no heuristic, no contract widening, no timeout/serving change in Plan 5). STOP at D1 is closed. Residual routing is no longer a Plan 5 decision gate.
 - 2026-08-13 — **E0/G0 docs.** Architecture+routing report at `docs/evals/plan5_architecture_and_routing_report.md`. `CLAUDE.md`, `plans/README.md`, `docs/architecture/routing_authority_map.md`, and new `docs/architecture/phase_contract_and_schedule.md` aligned to current flow. `AGENTS.md` unchanged (no operating-rule delta). Plan-discipline audit 0 gaps.
+- 2026-08-13 — **G1 closed. Plan 5 Done (28/28).** Governance PASS ×2; pytest `5247 passed / 0 failed`; truth set 0 regressions; parity 120 exact; Cisco 50/0/0; probes 10/10; sentinel 17/17; path 105/105; manifest 15/15; invariants 7/7; audit 0 gaps. Stale reports reverted, not committed. Ready to merge.

@@ -4,7 +4,9 @@
 **Authoritative baseline:** `2f678b9` (Plan 4, PR #130)
 **Branch at report:** `plan5/phase-a-runtime-map-correctness`
 **D0 measurement head:** `9b23b20`
+**D1/E0/G0 docs:** `104144f`
 **Date:** 2026-08-13
+**G1:** governance PASS ×2; pytest `5247 passed / 0 failed`; truth set 0 regressions; parity `120 exact`; Cisco `50/0/0`; probes `10/10`; sentinel `17/17`; path `105/105`; manifest `15/15`; invariants `7/7`. Checklist **28/28**.
 
 Every routing number below is traceable to a committed artifact. This report does **not** claim that routing fully generalized. Frozen truth-set `--arm both` still reports the Plan 4 floor (`route_ok=64/76`, live `59/76`) because those arms stop at layers 1–2 by construction.
 
