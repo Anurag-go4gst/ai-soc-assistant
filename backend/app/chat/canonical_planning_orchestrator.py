@@ -719,7 +719,6 @@ def _persist_clarification_outcome(
         "intent_classification": intent_classification,
         "query_to_intent": query_to_intent,
         "resolved_query_contract": resolved_query_contract,
-        "resolved_query_contract": resolved_query_contract,
         "canonical_planning_input": canonical.model_dump(),
         "canonical_planning_outcome": outcome.model_dump(),
         "gap_resolution": gap.model_dump() if gap else None,

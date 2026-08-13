@@ -69,6 +69,27 @@ phases must surround that work?" · one deterministic compiler produces one exec
    PhasePolicy has resolved a phase into the per-run PhaseContract, neither the planner nor any advisory may add,
    remove, reorder or downgrade it. The planner proposes work; PhasePolicy proposes nothing and decides lifecycle.
 
+**Amendment 5, added 2026-08-13 from the measured B5 evidence (binding on Phase C):**
+
+5. **Required capabilities are satisfied by the complete governed executable schedule, not necessarily by one routed
+   skill.** B5 measured what happens when the opposite reading is enforced at route level: `live_investigation`
+   requires SPL+MCP, `spl_generation` grants SPL only, so the veto demoted a legitimately SPL-authoring in-catalogue
+   hunt (`cisco.ot.029`) to `knowledge_recall` and destroyed its candidate SPL and HIL gate — with **zero** routing
+   improvements anywhere in the truth set. The target model is:
+
+   ```
+   ResolvedQueryContract.required_capabilities
+        → ResourcePlan (several capability-bearing steps) + PhaseContract
+        → deterministic merge → ONE governed executable schedule
+        → capability satisfaction evaluated at SCHEDULE level
+   ```
+
+   A plan whose primary skill is `spl_generation` may legitimately satisfy `{spl, mcp}` as
+   `spl → validate_spl → mcp read/evidence → synthesis`. Capability compatibility therefore remains a **diagnostic
+   and a constraint** — a skill-capability contradiction is real and may **deny** — but its automatic consequence
+   must **not** be `veto → knowledge_recall`. No capability may be widened because an LLM proposes it, and
+   deterministic policy stays the authority.
+
 ## Stop conditions
 
 - All checklist items checked with recorded evidence, **or**
@@ -232,15 +253,16 @@ except `generated_at`).
 | `A_KB_OVERLAP_AUTHORITY` | A1 | **`DRAFT_AUTHORITATIVE_CLOSED`** (measured and closed 2026-08-12) | The builder adopts the promoter DRAFT values for `mitre_runtime_kb_overlap` / `_match_count`. Byte-idempotent against the committed map, zero behaviour change. **No STOP at A1** — A1 becomes a measurement item that records the 61-row diff as evidence and proceeds. The recompute-against-`mitre_attack_subset.json` option is recorded as a separately-scoped future decision, not actioned here. **Re-opens only if** A1's measurement contradicts the decision — i.e. the DRAFT value is shown to produce a *wrong* live MITRE visibility outcome. |
 | `A_MAP_PROTECTION` | A5 | **APPROVED** — `question_runtime_map_v1.json` joins `PROTECTED` **after** builder correctness is proven | A5 adds the map to `scripts/freeze_execution_baseline.py` `PROTECTED`; manifest moves **14 → 15**. Every later evidence line reads 15/15. Ordering is binding: protection lands after A2–A4 pass, never before. |
 | `B_TIER_AUTHORITY_UNIFICATION` | B2 | **`lane_router` live-path vocabulary** | `chat/lane_router.py:26` is the single tier authority; the duplicate literal in `catalogue/match_tiers.py:23` is retired. **No STOP at B2** unless the measurement shows retirement changes a live `live_router_bind` outcome. |
-| `B_LIVE_CAPABILITY_ENFORCEMENT` | B5 | **Implementation + measurement approved, default-OFF. Production activation NOT approved.** | B5 builds the fail-closed veto and produces the OFF/ON delta. The flag ships **default false**. Turning it on is a separate future decision — **STOP remains** at any proposal to default it on. |
+| `B_LIVE_CAPABILITY_ENFORCEMENT` | B5 | **`DEFAULT_OFF_ARCHITECTURALLY_DEFERRED`** (decided 2026-08-13 on the measured B5 evidence; supersedes the 2026-08-12 "default-OFF, activation undecided" wording) | `ai_soc_live_capability_enforcement_enabled` stays **default false** for all of Plan 5 and may not be defaulted ON in Phase B or C without a new explicit approval. Measured basis: OFF is fully green; ON produced **0** truth-set route improvements, resolved **none** of `rt.d2.003/010/017`, the `asset_identity_context`/`data_source_health` ownership rows or paraphrase under-routing, and **regressed `cisco.ot.029`** (`spl_generation`→`knowledge_recall`, candidate SPL and `requires_human_review` lost). Root cause: route-level enforcement read "the one selected skill must grant every required capability", so `live_investigation` (requires SPL+MCP) vetoed `spl_generation` (grants SPL only). That is **not** the target architecture — see the binding amendment 5 in the Objective. `cisco.ot.029` must **not** be patched with a special-case route rule. |
 | `C_SEAM_ADOPTION` | C3 | **Proof required. No adoption or retirement pre-approved.** | C3 produces the equivalence proof only. `_run_legacy_dispatch_fallback` is not retired and no `DECISION_REQUIRED` seam is adopted in Plan 5. Inventory stays 2 SEAM / 4 DECISION_REQUIRED / 4 KEEP_SEPARATE, 0 adopted. |
 | `D_RESIDUAL_ROUTING_OWNERSHIP` | D1 | **Deferred until post-B+C measurement** | D0 measures; D1 reports. Ownership is decided only against the measured post-architecture result, never before. STOP at D1 stands. |
 | `A2_DRAFT_VS_RUNTIME_CANDIDATE_AUTHORITY` | A2 → A2.5 | **RESOLVED for A2 by option 3 (approved 2026-08-12); the promotion question moves to A2.5.** The MITRE DRAFT is one curation commit (`7ee7a34`) ahead of the committed runtime map on **11 rows**: `q0.q021/028/040`→`T1071`, `q0.q046/047/060/062/089`→`T1110`, `q0.q050/063/083`→`T1059.001`, all `[]` in the runtime map. `56b48d9` promoted the earlier DRAFT (`1106dd3`); the promoter was never re-run after `7ee7a34`. A2's two acceptance criteria are mutually exclusive at these rows. Full analysis + 3 options: `docs/evals/plan5/a2_draft_runtime_divergence.md`. Option 3 approved: A2 reproduces the deployed promoted state and records the gap in an audited ledger; **the 11 rows are deliberately NOT promoted in A2**. |
 | `MITRE_DRAFT_RUNTIME_PROMOTION_RECONCILIATION` | A2.5 | **`DEFERRED_SEPARATE_GOVERNED_PROMOTION`** (recorded 2026-08-12). DRAFT stays authoring source; runtime map stays deployed state; 11-row ledger persists; promotion requires separate MITRE governance review. | **No promotion in Plan 5.** Ledger: `docs/input/mitre_enrichment/unpromoted_draft_drift_v1.json`. Decision doc: `docs/evals/plan5/a2_5_deferred_promotion_decision.md`. |
 | `STALE_REPORT_REFRESH` | — | Out of scope by instruction | The six reports stay stale and attributed to Plans 2–4 drift. Any refresh is a separately scoped decision. |
 
-**Remaining live STOP conditions:** B5 (only on a proposal to default the veto ON), C3 (only on a proposal to adopt a
-seam or retire the fallback), D1 (residual routing ownership). A1, A5 and B2 no longer stop execution.
+**Remaining live STOP conditions:** C3 (only on a proposal to adopt a seam or retire the fallback), D1 (residual
+routing ownership). A1, A5, B2 and B5 no longer stop execution — B5's gate was answered on 2026-08-13 with
+`DEFAULT_OFF_ARCHITECTURALLY_DEFERRED`; a *new* STOP fires only if some later item proposes defaulting the veto ON.
 
 ---
 
@@ -261,7 +283,7 @@ Phase boundaries (full-gate checkpoints): after **A5**, after **B6**, after **C4
 
 ---
 
-## Checklist — 27 items
+## Checklist — 28 items
 
 ### P0 — baseline freeze
 
@@ -366,11 +388,17 @@ Phase boundaries (full-gate checkpoints): after **A5**, after **B6**, after **C4
   - **Depends on:** B4
   - **Evidence:** 2026-08-12. Flag `ai_soc_live_capability_enforcement_enabled` remains **default false**. `adjudicate_route` consumes `ResolvedQueryContract`; `enforce_route_capabilities` reuses `resolve_capability_compatibility` (never promotes). `test_capability_enforcement.py` → **11 passed**. Adjudication truth-set table: **0/87 route changes**, 87 compatible. ON pytest: **3 failed / 5158 passed** — real delta is **cisco.ot.029** (`spl_generation`→`knowledge_recall`) because `live_investigation` requires MCP and `spl_generation` does not grant it. D2/paraphrase/ownership rows: observation only, no rescue. OFF gates: pytest **5161 passed**; truth set `--arm both --check` **0 regressions** (`64/76`, live `59/76`); path **105/105**; governance **PASS** (parity **120 exact**, Cisco **50/0/0**, sentinel **17/17**); reference probes **10/10**; manifest **15/15**. Stale reports reverted. **STOP: recommend remain OFF.** Artifact: `docs/evals/plan5/b5_capability_enforcement_off_on.md`.
 
-- [ ] **B6** — Confirm which truth-set arm observes the change, and Phase-B full gates
+- [x] **B6** — Confirm which truth-set arm observes the change, and Phase-B full gates
   - **Do:** The deterministic arm calls `select_route_from_understanding` **directly** (`eval_routing_truth_set.py:66`), so B3–B5 changes landing in adjudication/contract layers may be **invisible** to it. Determine and document which arm observes each change; if the evaluator must be extended, measure the exact affected rows first — the frozen baseline is protected.
   - **Verify:** written arm-observability matrix; if the evaluator changes, the frozen-baseline diff is measured and **STOP** if any frozen expectation moves; full gate set green; `git checkout -- docs/evals/`.
   - **Depends on:** B5
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-08-13. Matrix: `docs/evals/plan5/b6_evaluator_observability_matrix.md` — 6 layers × 14 evaluators, every layer anchored and grep-verified (`select_route_from_understanding.py:28` · `skill_router.py:50` · `resolved_query_builder.py:95` + `canonical_planning_orchestrator.py:888` · `route_adjudication.py:92` live at `pipeline.py:2347` · `graph_node_route_contract` `pipeline.py:2380` · `executor.py:180`).
+    **Conclusion: nothing in the frozen truth set observes layers 3–5 by construction** — the deterministic arm stops at `select_route_from_understanding` (`eval_routing_truth_set.py:126,130`), the live arm at `route_skill` (`:72,75`), and neither calls `adjudicate_route`. `scripts/eval_b5_capability_enforcement.py` is the layer 3–5 arm. The only instrument that caught the B5 `cisco.ot.029` delta was the full-pipeline in-catalogue contract guard (`in_catalogue_contract.py:10`, entering through `routes_chat.chat`); the Cisco *eval script* did not, because `--profile deterministic` never reaches routing adjudication (`cisco_powergrid_soc_question_eval.py:14-16`). Three further findings recorded: layer 6 is thinly covered at repo default (both dispatch-v2 and execution flags false, so Phase C must bring its own probes); layer-4 coverage is **conditional** — on the `handoff_load_failed` degrade path `route_adjudication` is absent and a full-pipeline evaluator silently measures layer 2; and the truth-set evaluator still builds its *reported* (never-gated) family/shape columns from a route-contaminated `build_query_to_intent(routed_skill=…)` (`:133`), left unchanged deliberately.
+    **Evaluator NOT extended, no frozen semantics touched.** The separate-arm option was taken, so B6's STOP never fired: `routing_truth_set_baseline_v1.json` (itself a `PROTECTED` member) and the in-catalogue fixture baseline are byte-unchanged. Pin: `backend/app/tests/test_evaluator_observability_matrix.py` (5 tests) asserts call reachability per layer — deterministic arm reaches select-route and **never** adjudication, live arm reaches `route_skill`, the B5 arm reaches contract **and** adjudication, the full-pipeline guard still enters via `routes_chat`, and enforcement is not left ON by the measurement arm. Also removed a duplicate `resolved_query_contract` key in a `canonical_planning_orchestrator.py` clarification-state dict literal (same value both times — no behaviour change).
+    **Phase-B full gate set:** governance regression **PASS** (exit 0); backend pytest **`5166 passed, 3 skipped, 6 xfailed`** (5161 at B5 + the 5 new pins), and again `5166 passed` inside governance; truth set `--arm both --check` **PASS, 0 regressions**, numerically identical to baseline (`route_ok=64/76`, `capability_inconsistent=13`, `unsafe_contained=12/12`, live `59/76`, `capability_downgrades=0`); parity **`total=120 exact=120 approved=0 critical=0`**; Cisco **`PASS=50 REVIEW=0 FAIL=0 CRITICAL=0`**; sentinel **17/17 no drift**; path honoring **105/105**; reference probes **9 passed**; OT probe **6/6**; harness 6/6; dispatch matrix gate PASS; protected manifest **15/15**; plan-discipline audit **0 gaps**. Governance rewrote the 6 stale reports under `--check`; all reverted with `git checkout --`, `docs/evals/` clean afterwards.
+    **Phase-B closure invariants:** `ai_soc_live_capability_enforcement_enabled=False` (`config.py:417`) and `ai_soc_t4_semantic_understanding_enabled=False` (`config.py:413`) both default off; `ai_soc_resource_plan_execution_enabled=False` (`:410`); T1–T3 invoke no semantic hop (pinned by `test_semantic_t4_understanding.py`); Plan 4 D3 finality untouched — `git diff 2f678b9 -- backend/app/routing/governance.py` is **empty**; no LLM→MCP/SPL authority path created — `git diff 2f678b9` over `orchestration/mcp_execution_gate.py`, `mcp/` and `safeguards/spl_validator.py` is **empty**.
+
+**Phase B is COMPLETE** (B0–B6). Understanding is decontaminated and typed, tier vocabulary is unified, the T4 semantic hop and the capability veto both ship default-off and measured, and the observability of every routing layer is documented and pinned.
 
 ### Phase C — phase contract + canonical execution
 
@@ -517,3 +545,13 @@ A1's decision is already recorded, so only D1 still ends in a decision.
   before Plan 4 R1.5 added `routing_truth_set_baseline_v1.json`, so that file is declared protected but **unguarded**,
   and `--check` reports **13**, not the 14 recorded in Plan 4's closure. New item **A4.5** makes the manifest durable
   and fail-closed before A5 adds the runtime map. Checklist **25 → 26**.
+- 2026-08-13 — **`B_LIVE_CAPABILITY_ENFORCEMENT` decided = `DEFAULT_OFF_ARCHITECTURALLY_DEFERRED`** on the measured B5
+  evidence (`docs/evals/plan5/b5_capability_enforcement_off_on.md`, option 1). The flag stays default false through
+  Phases B, C and D; changing that default needs a new explicit approval. `cisco.ot.029` is **not** to be patched with
+  a special-case route rule. Binding **amendment 5** added to the Objective: required capabilities are satisfied at
+  **schedule** level, not by a single routed skill — capability compatibility remains a diagnostic/deny constraint,
+  never an automatic `veto → knowledge_recall`. This constrains C1's schedule-level satisfaction function.
+- 2026-08-13 — **Checklist header corrected 27 → 28.** The count was stale: the drift log records the growth 23 → 25
+  (C0 split) and 25 → 26 (A4.5), but the header was never updated past 27 while the file has always listed 28 items
+  (P0 · A0 A1 A2 A2.5 A3 A4 A4.5 A5 · B0–B6 · C0 C0.1 C0.2 C1–C4 · D0 D1 · E0 G0 G1). No item was added or removed by
+  this correction — only the header number moved.
