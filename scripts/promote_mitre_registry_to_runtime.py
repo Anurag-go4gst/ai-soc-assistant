@@ -7,7 +7,6 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "backend"))
@@ -15,68 +14,14 @@ sys.path.insert(0, str(REPO_ROOT / "backend"))
 from app.threat.mitre_registry_enrichment import (  # noqa: E402
     clear_mitre_enrichment_cache,
     load_mitre_enrichment_drafts,
-    normalize_legacy_mitre_fields,
 )
-from app.threat.mitre_registry_schema import MitreRegistryMetadata  # noqa: E402
+
+# Shared with tools/coverage_authoring/question_runtime_map_builder.py so the promoter and the
+# builder cannot drift apart — a divergence here silently changes governed MITRE visibility.
+from app.threat.mitre_runtime_promotion import runtime_patch_for_draft_item  # noqa: E402
 
 QUESTION_RUNTIME_PATH = REPO_ROOT / "backend/app/coverage/question_runtime_map_v1.json"
 CATALOG_PATH = REPO_ROOT / "backend/app/use_cases/catalog.json"
-
-
-def _registry_block_from_draft(draft_item: dict[str, Any], meta: MitreRegistryMetadata) -> dict[str, Any]:
-    raw = draft_item.get("mitre_registry")
-    block = dict(raw) if isinstance(raw, dict) else {}
-    block["schema_version"] = meta.schema_version
-    block["registry_role"] = meta.registry_role
-    block["permitted"] = list(meta.mitre_permitted)
-    block["candidate"] = list(meta.mitre_candidate)
-    block["blocked"] = list(meta.mitre_blocked)
-    block["requires_evidence"] = meta.mitre_requires_evidence
-    block["requires_alert_context"] = meta.mitre_requires_alert_context
-    block["answer_visibility_policy"] = meta.mitre_visibility_policy.value
-    if meta.mapping_rationale:
-        block["mapping_rationale"] = meta.mapping_rationale
-    blocked_rationale = block.get("blocked_rationale")
-    if isinstance(blocked_rationale, dict):
-        block["blocked_rationale"] = blocked_rationale
-    return block
-
-
-def runtime_patch_for_draft_item(
-    draft_item: dict[str, Any],
-    *,
-    question_ref: str | None,
-    use_case_id: str | None,
-) -> dict[str, Any]:
-    meta = normalize_legacy_mitre_fields(
-        draft_item,
-        question_ref=question_ref,
-        use_case_id=use_case_id,
-    )
-    registry = _registry_block_from_draft(draft_item, meta)
-    patch: dict[str, Any] = {
-        "mitre_registry": registry,
-        "mitre_registry_schema_version": meta.schema_version,
-        "mitre_requires_evidence": meta.mitre_requires_evidence,
-        "mitre_requires_alert_context": meta.mitre_requires_alert_context,
-        "mitre_visibility_policy": meta.mitre_visibility_policy.value,
-    }
-    if question_ref:
-        patch["mitre_permitted"] = list(meta.mitre_permitted)
-        patch["mitre_candidate"] = list(meta.mitre_candidate)
-        patch["mitre_blocked"] = list(meta.mitre_blocked)
-        overlap = draft_item.get("kb_references")
-        if isinstance(overlap, dict):
-            kb_overlap = overlap.get("mitre_runtime_kb_overlap")
-            if isinstance(kb_overlap, list):
-                patch["mitre_runtime_kb_overlap"] = [str(x).upper() for x in kb_overlap if x]
-                patch["mitre_runtime_kb_match_count"] = len(patch["mitre_runtime_kb_overlap"])
-    if use_case_id:
-        patch["mitre_candidates"] = list(meta.mitre_candidate) or list(meta.mitre_permitted)
-        if meta.mitre_permitted:
-            patch["mitre_permitted"] = list(meta.mitre_permitted)
-        patch["mitre_blocked"] = list(meta.mitre_blocked)
-    return patch
 
 
 def promote_questions(*, dry_run: bool) -> tuple[int, int, list[str]]:

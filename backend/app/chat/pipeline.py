@@ -391,6 +391,7 @@ class ChatPipelineState(TypedDict, total=False):
     note: str
     governance_trace: Any
     query_to_intent: dict[str, Any] | None
+    resolved_query_contract: dict[str, Any] | None
     llm_intent_advisory: LLMIntentAdvisory | None
     # LangGraph silently drops any state key not declared here (see executor
     # guide). shape_advisory was set by graph_node_query_understanding but
@@ -2340,8 +2341,11 @@ def graph_node_route_resolution(state: ChatPipelineState) -> ChatPipelineState:
     route_adjudication_payload: dict[str, Any] | None = None
     if isinstance(state.get("intent_classification"), dict):
         llm_advisory = comparison.get("llm_shadow") if isinstance(comparison, dict) else None
+        deterministic_route = str(routed.get("skill") or "knowledge_recall")
+        if str(state.get("resolved_tier") or "") == "T0":
+            deterministic_route = "knowledge_recall"
         adjudication = adjudicate_control_plane_route(
-            deterministic_route=str(routed.get("skill") or "knowledge_recall"),
+            deterministic_route=deterministic_route,
             llm_advisory=llm_advisory if isinstance(llm_advisory, dict) else None,
             route_plan_shadow=route_plan_shadow,
             evidence_plan=_provisional_evidence_plan_for_adjudication(state),
@@ -2349,6 +2353,7 @@ def graph_node_route_resolution(state: ChatPipelineState) -> ChatPipelineState:
             query_understanding=state.get("query_understanding"),
             message=request.message,
             query_to_intent=state.get("query_to_intent"),
+            resolved_query_contract=state.get("resolved_query_contract"),
         )
         route_adjudication_payload = adjudication.model_dump()
         routing_skill_resolution = {

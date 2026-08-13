@@ -408,6 +408,13 @@ class Settings(BaseSettings):
     # the fixed predicate schedule. Default false; the exact name was approved
     # in the C0 decision record and may not be renamed or defaulted on.
     ai_soc_resource_plan_execution_enabled: bool = False
+    # Plan 5 B4: bounded T4 semantic understanding hop. Default false. T1–T3 never
+    # invoke it. Timeout/error keeps the deterministic ResolvedQueryContract.
+    ai_soc_t4_semantic_understanding_enabled: bool = False
+    ai_soc_t4_semantic_understanding_timeout_seconds: float = 2.0
+    # Plan 5 B5: live fail-closed capability enforcement from ResolvedQueryContract.
+    # Default false. Activation is a named STOP gate (B_LIVE_CAPABILITY_ENFORCEMENT).
+    ai_soc_live_capability_enforcement_enabled: bool = False
     # Canonical handoff durable store TTL (PostgreSQL).
     ai_soc_handoff_store_ttl_minutes: int = 60
     # Item 28 — bounded retention purge for canonical_handoffs / canonical_planning_events.

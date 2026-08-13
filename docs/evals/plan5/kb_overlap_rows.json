@@ -1,0 +1,562 @@
+[
+  {
+    "ref": "q0.q004",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071",
+      "T1041"
+    ],
+    "rebuilt_count": 2
+  },
+  {
+    "ref": "q0.q005",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071.004"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q006",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1568"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q007",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1568"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q008",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q009",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q010",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1021.002"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q011",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1021.002"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q013",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1041",
+      "T1048"
+    ],
+    "rebuilt_count": 2
+  },
+  {
+    "ref": "q0.q014",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1048"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q015",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q016",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q017",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071.004"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q018",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071.004"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q019",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1568"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q022",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q023",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q024",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071.004"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q026",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q027",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1568"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q030",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q031",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q032",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071.004"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q033",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q035",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071.004"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q036",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071.004"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q037",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1090"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q039",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1105"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q041",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071.001"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q042",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q043",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q049",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1059.001"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q050",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1059"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q051",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1059"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q052",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q053",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071.004",
+      "T1568"
+    ],
+    "rebuilt_count": 2
+  },
+  {
+    "ref": "q0.q054",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1041",
+      "T1048"
+    ],
+    "rebuilt_count": 2
+  },
+  {
+    "ref": "q0.q055",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1098"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q063",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1059"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q064",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1059.001"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q066",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q067",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071.004"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q068",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071.004"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q070",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1098"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q071",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1098"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q072",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1021"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q073",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1543.003"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q074",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1021.002"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q076",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1048"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q079",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1105"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q080",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1059"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q081",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1566.001"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q082",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1071.004"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q083",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1059"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q086",
+    "committed_overlap": [
+      "T1110.001"
+    ],
+    "committed_count": 1,
+    "rebuilt_overlap": [
+      "T1110.001",
+      "T1098"
+    ],
+    "rebuilt_count": 2
+  },
+  {
+    "ref": "q0.q088",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1543"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q092",
+    "committed_overlap": [
+      "T1078"
+    ],
+    "committed_count": 1,
+    "rebuilt_overlap": [
+      "T1078",
+      "T1048"
+    ],
+    "rebuilt_count": 2
+  },
+  {
+    "ref": "q0.q093",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1059",
+      "T1071.004"
+    ],
+    "rebuilt_count": 2
+  },
+  {
+    "ref": "q0.q096",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1098"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q097",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1505.003"
+    ],
+    "rebuilt_count": 1
+  },
+  {
+    "ref": "q0.q098",
+    "committed_overlap": [],
+    "committed_count": 0,
+    "rebuilt_overlap": [
+      "T1105"
+    ],
+    "rebuilt_count": 1
+  }
+]

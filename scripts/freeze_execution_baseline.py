@@ -45,6 +45,11 @@ PROTECTED: dict[str, tuple[str, ...]] = {
         "backend/app/use_cases/catalog.json",
         "backend/app/skills/catalog.json",
         "backend/app/spl/templates.json",
+        # Plan 5 A5. Carries the governed MITRE registry block that decides whether a question's
+        # technique claims are suppressed at runtime. Regenerating it used to broaden those claims
+        # on 11 of 105 questions; the builder is idempotent now, but the artifact is governed
+        # metadata rather than a derived convenience, so drift on it must be a visible decision.
+        "backend/app/coverage/question_runtime_map_v1.json",
     ),
     "published_doc_mirrors": (
         "docs/architecture/details.html",
@@ -56,6 +61,10 @@ PROTECTED: dict[str, tuple[str, ...]] = {
 #: Groups whose members must all hash identically to each other, not merely be
 #: unchanged — the published doc is deployed from three paths.
 MIRROR_GROUPS: tuple[str, ...] = ("published_doc_mirrors",)
+
+#: The manifest is committed rather than written to /tmp. A gate whose baseline evaporates on reboot
+#: — and is simply absent on a fresh host — cannot be cited as evidence that anything was protected.
+DEFAULT_MANIFEST_PATH = ROOT / "docs" / "evals" / "protected_execution_baseline.json"
 
 
 def _sha256(path: Path) -> str | None:
@@ -114,6 +123,17 @@ def check(src: Path) -> int:
     after = _collect()
     drift: list[str] = []
 
+    # A member added to PROTECTED but never re-captured would otherwise be skipped silently, and the
+    # gate would report green while guarding less than it declares. That is how
+    # docs/evals/routing_truth_set_baseline_v1.json went unguarded from Plan 4 R1.5 to Plan 5.
+    for group, members in PROTECTED.items():
+        for rel in members:
+            if rel not in before.get(group, {}):
+                drift.append(
+                    f"[{group}] {rel}: declared protected but absent from the manifest — "
+                    "re-capture deliberately, do not ignore"
+                )
+
     for group, members in before.items():
         for rel, old in members.items():
             new = after.get(group, {}).get(rel)
@@ -148,8 +168,8 @@ def main() -> int:
     mode = ap.add_mutually_exclusive_group(required=True)
     mode.add_argument("--capture", action="store_true", help="write a manifest of protected artifacts")
     mode.add_argument("--check", action="store_true", help="compare current artifacts against a manifest")
-    ap.add_argument("--out", type=Path, default=Path("/tmp/exec-baseline.json"))
-    ap.add_argument("--in", dest="src", type=Path, default=Path("/tmp/exec-baseline.json"))
+    ap.add_argument("--out", type=Path, default=DEFAULT_MANIFEST_PATH)
+    ap.add_argument("--in", dest="src", type=Path, default=DEFAULT_MANIFEST_PATH)
     args = ap.parse_args()
     if args.capture:
         return capture(args.out)

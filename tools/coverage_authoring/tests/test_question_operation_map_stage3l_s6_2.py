@@ -5,6 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+import question_runtime_map_builder as builder
 from check_question_operation_map import audit_operation_map
 from question_runtime_map_builder import (
     OPERATION_REPORT_PATH,
@@ -34,26 +37,59 @@ def test_build_report_has_105_entries() -> None:
     assert len(report["entries"]) == 105
 
 
-def test_emit_maps_writes_both_artifacts() -> None:
-    before_runtime = OUTPUT_PATH.read_text(encoding="utf-8")
+def test_emit_maps_writes_both_artifacts(tmp_path) -> None:
+    """Exercise the writer against disposable targets, never the committed artifacts.
+
+    This test used to call `write_all_question_maps()` bare — writing the real
+    `question_runtime_map_v1.json` and restoring it in a `finally`. An interrupted run left the
+    regenerated file on disk, and a regeneration silently drops governed MITRE metadata and broadens
+    analyst-visible technique claims on 11 questions (Plan 5 A1/A2). Snapshot-and-restore is not
+    containment; not writing the file is.
+    """
+    runtime_target = tmp_path / "question_runtime_map_v1.json"
+    report_target = tmp_path / "stage3l_s6_105_question_operation_map.json"
+    committed_runtime_before = OUTPUT_PATH.read_bytes()
+
+    write_all_question_maps(runtime_path=runtime_target, report_path=report_target)
+
+    audit = audit_operation_map(runtime_path=runtime_target, report_path=report_target)
+    assert audit["ok"], audit["errors"]
+    payload = json.loads(report_target.read_text(encoding="utf-8"))
+    assert payload["report_version"] == "stage3l_s6_2_v1"
+    for entry in payload["entries"]:
+        assert entry["provisional_status"].startswith("likely_")
+        if not entry["promoted_to_manifest"]:
+            assert "manifest_readiness" not in entry or entry.get("manifest_readiness") is None
+
+    assert OUTPUT_PATH.read_bytes() == committed_runtime_before, (
+        "the writer touched the committed runtime map despite being given an explicit target"
+    )
+
+
+def test_emit_maps_cannot_touch_committed_artifacts_when_it_fails(tmp_path, monkeypatch) -> None:
+    """The containment property: a writer that dies mid-run leaves the committed map intact.
+
+    Simulates the interrupted-run case the old snapshot/restore could not survive.
+    """
+    committed_runtime_before = OUTPUT_PATH.read_bytes()
     report_existed = OPERATION_REPORT_PATH.exists()
-    before_report = OPERATION_REPORT_PATH.read_text(encoding="utf-8") if report_existed else None
-    write_all_question_maps()
-    try:
-        audit = audit_operation_map()
-        assert audit["ok"], audit["errors"]
-        payload = json.loads(OPERATION_REPORT_PATH.read_text(encoding="utf-8"))
-        assert payload["report_version"] == "stage3l_s6_2_v1"
-        for entry in payload["entries"]:
-            assert entry["provisional_status"].startswith("likely_")
-            if not entry["promoted_to_manifest"]:
-                assert "manifest_readiness" not in entry or entry.get("manifest_readiness") is None
-    finally:
-        OUTPUT_PATH.write_text(before_runtime, encoding="utf-8")
-        if before_report is not None:
-            OPERATION_REPORT_PATH.write_text(before_report, encoding="utf-8")
-        elif OPERATION_REPORT_PATH.exists() and not report_existed:
-            OPERATION_REPORT_PATH.unlink(missing_ok=True)
+    committed_report_before = OPERATION_REPORT_PATH.read_bytes() if report_existed else None
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("simulated interruption partway through authoring")
+
+    monkeypatch.setattr(builder, "write_operation_map_report", _boom)
+
+    with pytest.raises(RuntimeError):
+        write_all_question_maps(
+            runtime_path=tmp_path / "runtime.json",
+            report_path=tmp_path / "report.json",
+        )
+
+    assert OUTPUT_PATH.read_bytes() == committed_runtime_before
+    assert OPERATION_REPORT_PATH.exists() == report_existed
+    if committed_report_before is not None:
+        assert OPERATION_REPORT_PATH.read_bytes() == committed_report_before
 
 
 def test_promoted_rows_reference_manifest() -> None:

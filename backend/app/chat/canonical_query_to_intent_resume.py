@@ -141,7 +141,6 @@ def reconstruct_query_to_intent_for_resume(
     resume_q2i = build_query_to_intent(
         query=query,
         query_understanding=query_understanding,
-        routed_skill=str(routed.get("skill") or intent_classification.get("primary_intent")),
         routing_provenance=routed.get("routing_provenance")
         if isinstance(routed.get("routing_provenance"), dict)
         else None,
