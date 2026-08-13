@@ -255,14 +255,12 @@ except `generated_at`).
 | `B_TIER_AUTHORITY_UNIFICATION` | B2 | **`lane_router` live-path vocabulary** | `chat/lane_router.py:26` is the single tier authority; the duplicate literal in `catalogue/match_tiers.py:23` is retired. **No STOP at B2** unless the measurement shows retirement changes a live `live_router_bind` outcome. |
 | `B_LIVE_CAPABILITY_ENFORCEMENT` | B5 | **`DEFAULT_OFF_ARCHITECTURALLY_DEFERRED`** (decided 2026-08-13 on the measured B5 evidence; supersedes the 2026-08-12 "default-OFF, activation undecided" wording) | `ai_soc_live_capability_enforcement_enabled` stays **default false** for all of Plan 5 and may not be defaulted ON in Phase B or C without a new explicit approval. Measured basis: OFF is fully green; ON produced **0** truth-set route improvements, resolved **none** of `rt.d2.003/010/017`, the `asset_identity_context`/`data_source_health` ownership rows or paraphrase under-routing, and **regressed `cisco.ot.029`** (`spl_generation`→`knowledge_recall`, candidate SPL and `requires_human_review` lost). Root cause: route-level enforcement read "the one selected skill must grant every required capability", so `live_investigation` (requires SPL+MCP) vetoed `spl_generation` (grants SPL only). That is **not** the target architecture — see the binding amendment 5 in the Objective. `cisco.ot.029` must **not** be patched with a special-case route rule. |
 | `C_SEAM_ADOPTION` | C3 | **Proof required. No adoption or retirement pre-approved.** | C3 produces the equivalence proof only. `_run_legacy_dispatch_fallback` is not retired and no `DECISION_REQUIRED` seam is adopted in Plan 5. Inventory stays 2 SEAM / 4 DECISION_REQUIRED / 4 KEEP_SEPARATE, 0 adopted. |
-| `D_RESIDUAL_ROUTING_OWNERSHIP` | D1 | **Deferred until post-B+C measurement** | D0 measures; D1 reports. Ownership is decided only against the measured post-architecture result, never before. STOP at D1 stands. |
+| `D_RESIDUAL_ROUTING_OWNERSHIP` | D1 | **CLOSED 2026-08-13.** Two recorded decisions: `D1_LIVE_POSTURE_ROUTE = RATIFIED_FOR_MEASURED_ROWS`; `D1_PARAPHRASE_RESIDUE = DEFERRED_T4_SEMANTIC_SERVING_LIMIT`. | **Live-posture ratification** applies only to the 7 measured `asset_identity_context` / `data_source_health` rows that now commit `spl_generation` (`rt.d1.003/005/006/011/012/013/014`). It does **not** generalize those families to always-`spl_generation`, and no skill contract is widened. **Paraphrase residue** (`para.003/004/005/006/007/008/012/015`) is a T4 semantic-understanding serving/latency/generalization limit, out of scope for Plan 5: no keyword heuristic, no contract widening, no "clarification-by-design" relabel, no T4 timeout raise, no serving/model posture change. |
 | `A2_DRAFT_VS_RUNTIME_CANDIDATE_AUTHORITY` | A2 → A2.5 | **RESOLVED for A2 by option 3 (approved 2026-08-12); the promotion question moves to A2.5.** The MITRE DRAFT is one curation commit (`7ee7a34`) ahead of the committed runtime map on **11 rows**: `q0.q021/028/040`→`T1071`, `q0.q046/047/060/062/089`→`T1110`, `q0.q050/063/083`→`T1059.001`, all `[]` in the runtime map. `56b48d9` promoted the earlier DRAFT (`1106dd3`); the promoter was never re-run after `7ee7a34`. A2's two acceptance criteria are mutually exclusive at these rows. Full analysis + 3 options: `docs/evals/plan5/a2_draft_runtime_divergence.md`. Option 3 approved: A2 reproduces the deployed promoted state and records the gap in an audited ledger; **the 11 rows are deliberately NOT promoted in A2**. |
 | `MITRE_DRAFT_RUNTIME_PROMOTION_RECONCILIATION` | A2.5 | **`DEFERRED_SEPARATE_GOVERNED_PROMOTION`** (recorded 2026-08-12). DRAFT stays authoring source; runtime map stays deployed state; 11-row ledger persists; promotion requires separate MITRE governance review. | **No promotion in Plan 5.** Ledger: `docs/input/mitre_enrichment/unpromoted_draft_drift_v1.json`. Decision doc: `docs/evals/plan5/a2_5_deferred_promotion_decision.md`. |
 | `STALE_REPORT_REFRESH` | — | Out of scope by instruction | The six reports stay stale and attributed to Plans 2–4 drift. Any refresh is a separately scoped decision. |
 
-**Remaining live STOP conditions:** C3 (only on a proposal to adopt a seam or retire the fallback), D1 (residual
-routing ownership). A1, A5, B2 and B5 no longer stop execution — B5's gate was answered on 2026-08-13 with
-`DEFAULT_OFF_ARCHITECTURALLY_DEFERRED`; a *new* STOP fires only if some later item proposes defaulting the veto ON.
+**Remaining live STOP conditions:** C3 (only on a proposal to adopt a seam or retire the fallback). A1, A5, B2, B5 and D1 no longer stop execution — B5 was answered on 2026-08-13 with `DEFAULT_OFF_ARCHITECTURALLY_DEFERRED`; D1 was answered on 2026-08-13 with `RATIFIED_FOR_MEASURED_ROWS` + `DEFERRED_T4_SEMANTIC_SERVING_LIMIT`. A *new* STOP fires only if some later item proposes defaulting the capability veto ON, adopting a seam, retiring the fallback, promoting the 11-row MITRE DRAFT, raising the T4 timeout, or widening a skill contract.
 
 ---
 
@@ -273,7 +271,7 @@ P0
  → A0 → A1 → A2 → A2.5(STOP) → A3 → A4 → A4.5 → A5
  → B0 → B1 → B2 → B3 → B4 → B5(STOP only on activation) → B6
  → C0 → C0.1 → C0.2 → C1 → C2 → C3(STOP only on adoption/retirement) → C4
- → D0 → D1(STOP)
+ → D0 → D1(CLOSED)
  → E0 → G0 → G1
 ```
 
@@ -470,25 +468,28 @@ Phase boundaries (full-gate checkpoints): after **A5**, after **B6**, after **C4
     **B4 side probe (does the semantic hop expose better inputs?): measured NO at its current bound.** Run inside the backend container where the model endpoint resolves, flag toggled in-process only (`.env` untouched): hop **invoked 8/8, accepted 0/8** — 6 `timed_out` at the 2.0 s wall-clock bound, 2 `empty_output` with `llm_model_slot_busy`; contract byte-identical OFF vs ON on every row. The bound behaved exactly as designed (no widening, no skill, deterministic degrade), but the single-slot 8B model cannot answer in 2 s on this host. Artifact: `docs/evals/plan5/d0_t4_semantic_side_probe.json`.
     **Unratified side effect found:** the ownership class (`asset_identity_context` / `data_source_health`) is no longer routed as knowledge in production — 7 rows now commit `spl_generation` as a consequence of B3's decontamination, not of any ownership decision. Inside the labels' acceptable sets, so it scores correct, but it is a live behaviour change that D1 should ratify or object to explicitly.
 
-- [ ] **D1** — `D_RESIDUAL_ROUTING_OWNERSHIP` (**STOP**)
+- [x] **D1** — `D_RESIDUAL_ROUTING_OWNERSHIP` (**CLOSED** — user decision 2026-08-13)
   - **Do:** For rows the architecture did not resolve, state whether a deterministic discriminator now exists (Plan 4 measured none — two of the three D2 rows have an empty signal set). If ownership or product intent is genuinely undecided, **STOP with options**. Do not widen `knowledge_recall`, `alert_summary` or any skill contract to move a metric.
   - **Verify:** each unresolved row has either a proposed deterministic rule with a measured OFF/ON delta, or an explicit recorded STOP with options.
   - **Depends on:** D0
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-08-13. User closed D1 with two recorded decisions; no code change, no heuristic, no contract widening. Source measurement: `docs/evals/plan5/residual_routing_after_architecture.md` + `d0_t4_semantic_side_probe.json`.
+    **`D1_LIVE_POSTURE_ROUTE = RATIFIED_FOR_MEASURED_ROWS`.** The 7 measured live-query/posture rows that now commit `spl_generation` are ratified as the production outcome: `rt.d1.003/005/006/011/012/013/014`. Rationale recorded: decontaminated `ResolvedQueryContract` requires `{spl}`; L4 adjudication and L5 full `/chat` agree row-for-row; those rows clear prior `capability_inconsistent`; D0 measured 0 regressions; reversing them would need a new exception or reintroducing route-contaminated understanding. **Not generalized:** `asset_identity_context` / `data_source_health` are **not** always owned by `spl_generation`. The remaining 3 ownership-class rows (`para.009/013/014`) stay `knowledge_recall` and are already route-correct. No capability contract widening.
+    **`D1_PARAPHRASE_RESIDUE = DEFERRED_T4_SEMANTIC_SERVING_LIMIT`.** Genuine unresolved residue is the 8 paraphrases `para.003/004/005/006/007/008/012/015`. D0/B4: all 8 reach T4; semantic hop invoked 8/8, accepted 0/8 (6 timeout at 2.0s, 2 `empty_output`/`llm_model_slot_busy`); OFF and ON `ResolvedQueryContract` identical; no safe deterministic discriminator; 0 regressions. Explicitly **not** done: keyword heuristic, skill-contract widening, "clarification-by-design" relabel, T4 timeout raise, serving/model posture change. Classified as a T4 semantic-understanding serving/latency/generalization limitation, **not** a routing-table defect. Future work (latency/SLO, serving capacity, alternate model/classifier) is **out of scope for Plan 5**.
+    Already-correct unchanged rows need no rule: `rt.d2.010`, `rt.d2.017`, `para.002/009/011/013/014`. STOP at D1 is closed.
 
 ### E / G — report, docs, closure
 
-- [ ] **E0** — Architecture + evaluation report
+- [x] **E0** — Architecture + evaluation report
   - **Do:** `docs/evals/plan5_architecture_and_routing_report.md`: what the architecture resolved, what it did not, the OFF/ON deltas, what remains default-off, and the honest statement that parity `120 exact` is runtime equivalence only.
   - **Verify:** every number traceable to a committed artifact; no claim without a gate output.
   - **Depends on:** D1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-08-13. Report committed at `docs/evals/plan5_architecture_and_routing_report.md`. Numbers traced to D0 residual report/JSON, B5 OFF/ON measurement, B6 observability matrix, C0/C2/C3 phase artifacts, A2.5 promotion deferral, `config.py:410-417` defaults. Layer tally L1 0/25/0 · L4 10/15/0 · L5 10/15/0; L4=L5 row-for-row; residue 8 paraphrases; regressions 0. Explicitly does not claim routing fully generalized. Frozen `--arm both` 64/76 and parity 120 exact are documented as non-observers of L4/L5.
 
-- [ ] **G0** — Docs alignment
+- [x] **G0** — Docs alignment
   - **Do:** Update `CLAUDE.md` (Phase-A note correction, phase contract, `ResolvedQueryContract`, capability-enforcement posture, COE dispatch-v2 warning), `AGENTS.md` if operating rules moved, `plans/README.md` Active-work row, and `docs/architecture/` for the new seam.
   - **Verify:** `.cursor/hooks/audit-plan-discipline.sh plans/2026-08-12_1230_production-readiness-understanding-phase-contract.md` → zero `GAP:`; every doc claim anchored.
   - **Depends on:** E0
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** 2026-08-13. Docs aligned: `CLAUDE.md` (ResolvedQueryContract flow, PhaseRegistry/PhasePolicy/PhaseContract, B5 default-OFF + `cisco.ot.029`, D1 ratification + paraphrase deferral, COE dispatch-v2, protected manifest 15/15, parity semantics, Plan 5 table row); `plans/README.md` Active-work row; `docs/architecture/routing_authority_map.md` current-flow section; new `docs/architecture/phase_contract_and_schedule.md`; E0 report. **AGENTS.md not edited** — no operating rule changed (LLM still never calls MCP; candidate SPL still never executable; D3 advisory-finality unchanged). Anchors: `config.py:410/413/417` still default false; `canonical_planning_orchestrator.py:447/:516` still omit `routed_skill`; `executor.py:286` still the single `merge_schedule(` site. Audit: `.cursor/hooks/audit-plan-discipline.sh` → **0 gaps** (26 checked / 2 unchecked G0+G1 before this check-off). Six stale governance reports intentionally unrefreshed.
 
 - [ ] **G1** — Final closure gates
   - **Do:** Re-run the complete forecast-rule gate set twice. Re-audit every checked item's evidence. Confirm the six stale governance reports are still stale and uncommitted.
@@ -502,9 +503,11 @@ Phase boundaries (full-gate checkpoints): after **A5**, after **B6**, after **C4
 
 - The six stale governance reports stay stale (out of scope by instruction).
 - `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` stays **default false**. Plan 5 proves the architecture; it does not activate it.
-- Live capability enforcement stays **default off** unless `B_LIVE_CAPABILITY_ENFORCEMENT` is approved.
+- Live capability enforcement stays **default off** (`B_LIVE_CAPABILITY_ENFORCEMENT = DEFAULT_OFF_ARCHITECTURALLY_DEFERRED`). Defaulting it ON needs a new explicit approval.
 - No `DECISION_REQUIRED` seam is adopted and `_run_legacy_dispatch_fallback` is not retired unless `C_SEAM_ADOPTION` is approved with proof.
-- Paraphrase routing may remain open — Plan 4 measured that it needs a new classifier, and Plan 5 forbids keyword patches.
+- Paraphrase routing of the 8 residual T4 rows (`para.003/004/005/006/007/008/012/015`) remains open as `D1_PARAPHRASE_RESIDUE = DEFERRED_T4_SEMANTIC_SERVING_LIMIT`. Plan 5 forbids keyword patches, contract widening, timeout raises, and serving-posture changes. Future T4 serving/SLO/classifier work is a separate plan.
+- The 7 measured live-posture rows are ratified (`D1_LIVE_POSTURE_ROUTE = RATIFIED_FOR_MEASURED_ROWS`) without generalizing `asset_identity_context` / `data_source_health` family ownership.
+- The 11-row MITRE DRAFT→runtime promotion remains deferred (`DEFERRED_SEPARATE_GOVERNED_PROMOTION`).
 - No live unsafe execution is enabled to prove architecture.
 
 ---
@@ -531,8 +534,8 @@ and no unexpected LLM hop.
 
 ## Verification gaps (flag before coding)
 
-None — every item carries a concrete Verify. A1 and D1 are measurement items whose Verify is a committed measurement;
-A1's decision is already recorded, so only D1 still ends in a decision.
+None — every item carries a concrete Verify. A1 and D1 were measurement items whose Verify is a committed measurement;
+both decisions are now recorded. No remaining Plan 5 decision gate.
 
 ## Drift log
 
@@ -573,3 +576,5 @@ A1's decision is already recorded, so only D1 still ends in a decision.
   (C0 split) and 25 → 26 (A4.5), but the header was never updated past 27 while the file has always listed 28 items
   (P0 · A0 A1 A2 A2.5 A3 A4 A4.5 A5 · B0–B6 · C0 C0.1 C0.2 C1–C4 · D0 D1 · E0 G0 G1). No item was added or removed by
   this correction — only the header number moved.
+- 2026-08-13 — **`D_RESIDUAL_ROUTING_OWNERSHIP` closed.** User recorded `D1_LIVE_POSTURE_ROUTE = RATIFIED_FOR_MEASURED_ROWS` (7 measured ownership rows that commit `spl_generation`; not a family-wide ownership rule) and `D1_PARAPHRASE_RESIDUE = DEFERRED_T4_SEMANTIC_SERVING_LIMIT` (8 T4 paraphrases; no heuristic, no contract widening, no timeout/serving change in Plan 5). STOP at D1 is closed. Residual routing is no longer a Plan 5 decision gate.
+- 2026-08-13 — **E0/G0 docs.** Architecture+routing report at `docs/evals/plan5_architecture_and_routing_report.md`. `CLAUDE.md`, `plans/README.md`, `docs/architecture/routing_authority_map.md`, and new `docs/architecture/phase_contract_and_schedule.md` aligned to current flow. `AGENTS.md` unchanged (no operating-rule delta). Plan-discipline audit 0 gaps.

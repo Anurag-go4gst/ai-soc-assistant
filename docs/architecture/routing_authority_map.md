@@ -1,6 +1,46 @@
-# Routing authority map (Plan 5 B0)
+# Routing authority map (Plan 5)
 
-Live `/chat` routing authority as of baseline `2f678b9` + Phase A (`b9ec0cc`). Runtime code is authoritative; classifications guide Phase B/C work: **PRESERVE** · **MOVE** · **ADAPT** · **RETIRE** · **DEFER**.
+B0 wrote this as a pre-change audit at baseline `2f678b9` + Phase A. **The sections below that audit remain as the B0 snapshot.** Live authority after Phases B–D is the current-state section first.
+
+Related: [`phase_contract_and_schedule.md`](phase_contract_and_schedule.md), [`docs/evals/plan5_architecture_and_routing_report.md`](../evals/plan5_architecture_and_routing_report.md).
+
+## Current live flow (post Plan 5 B–D)
+
+```
+POST /chat
+  → understand_query → route_skill (provisional; not understanding input)
+  → run_canonical_planning
+       build_query_to_intent(query, understanding, provenance)   ← no routed_skill
+       qualify_reference_query (T0 promotion; does not write routed["skill"])
+       build_resolved_query_contract                             ← no skill, no execution authority
+       optional T4 semantic hop (default OFF, 2.0s, degrade to deterministic)
+  → adjudicate_route(ResolvedQueryContract, …)                   ← L4; production final route
+  → graph_node_route_contract                                    ← last writer of routed["skill"]
+  → ResourcePlan + PhaseContract → merge_schedule                ← flag-gated; default OFF
+  → knowledge / SPL / MCP / validation / HIL ordered by dependencies
+```
+
+Authoritative seams:
+
+| Concern | Authority | Default |
+|---|---|---|
+| Understanding | `ResolvedQueryContract` (`chat/contracts/resolved_query.py`), built `resolved_query_builder.py:95`, emitted `canonical_planning_orchestrator.py` | Always on canonical turns |
+| Final skill | `adjudicate_route` (`routing/route_adjudication.py:92`) committed at `graph_node_route_contract` | Always |
+| Route-level capability veto | `ai_soc_live_capability_enforcement_enabled` | **false** (`DEFAULT_OFF_ARCHITECTURALLY_DEFERRED`; `cisco.ot.029`) |
+| T4 semantic hop | `ai_soc_t4_semantic_understanding_enabled` | **false**; timeout 2.0s |
+| Schedule merge | `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` | **false**; dispatch-v2 projection still wins when present |
+| Capability satisfaction | schedule-level (`phase_schedule_merge.evaluate_capability_satisfaction`), not "one skill grants everything" | Diagnostic/deny only |
+| Plan 4 D3 advisory finality | `governance.py::_advisory_may_replace_skill` | Unchanged |
+
+Live `build_query_to_intent` at `canonical_planning_orchestrator.py:447` and `:516` does **not** pass `routed_skill`. Known-lane `primary_intent` is not overwritten with the routed skill. Frozen truth-set arms still call `select_route_from_understanding` / `route_skill` and therefore do **not** observe L4/L5.
+
+D1 (closed): the 7 measured live-posture rows that commit `spl_generation` are `RATIFIED_FOR_MEASURED_ROWS` — not a family-wide ownership rule. Eight T4 paraphrases (`para.003/004/005/006/007/008/012/015`) are `DEFERRED_T4_SEMANTIC_SERVING_LIMIT`.
+
+---
+
+# B0 audit snapshot (pre-change)
+
+Live `/chat` routing authority as of baseline `2f678b9` + Phase A (`b9ec0cc`). Runtime code is authoritative; classifications guided Phase B/C work: **PRESERVE** · **MOVE** · **ADAPT** · **RETIRE** · **DEFER**.
 
 ## Canonical call order (query → final skill)
 
@@ -118,18 +158,22 @@ Three distinct tier names — do not conflate:
 | `graph_node_evidence_planning` | `pipeline.py:1795+` | Fenced when canonical on | **DEFER** |
 | Split routing trace nodes | `routing_skill_nodes.py:16-80` | Trace-only flag | **PRESERVE** |
 
-## Phase B target shape
+## Phase B target shape (B0; now shipped)
 
 ```
 QUERY
-  ↓ deterministic qualification / bounded semantic (T4 only)
+  ↓ deterministic qualification / bounded semantic (T4 only, default OFF)
 ResolvedQueryContract   ← no skill, no execution authority
   ↓ route adjudication
 primary skill (route/ownership signal, not sole capability enumerator)
+  ↓ ResourcePlan + PhaseContract → merge_schedule (default OFF)
+one governed executable schedule
 ```
 
-Contamination to remove in B3: provisional `routed_skill` as input to understanding; `primary_intent` overwrite; T0 `routed["skill"]` write inside intent stage.
+B3 removed: provisional `routed_skill` as input to understanding; `primary_intent` overwrite; T0 `routed["skill"]` write inside intent stage.
 
 ## Capability compatibility (current posture)
 
-`resolve_capability_compatibility` (`skill_intent_compatibility.py:119`) — fail-closed, correct. Production consumer: `pipeline_dispatch_builder.py:438` via dispatch-v2 path only (**default off**). Eval instrument: `evals/routing_truth_set.py:300`. **DEFER** live enforcement to B5 (default-off).
+`resolve_capability_compatibility` (`skill_intent_compatibility.py:119`) — fail-closed, correct. Reused by `adjudicate_route` behind `ai_soc_live_capability_enforcement_enabled` (**default false**). Dispatch-v2 still consumes it at `pipeline_dispatch_builder.py:438` (also default off). Eval instrument: `evals/routing_truth_set.py:300`.
+
+B5 measured ON: 0 truth-set route improvements, `cisco.ot.029` demoted `spl_generation`→`knowledge_recall`. Decision: `DEFAULT_OFF_ARCHITECTURALLY_DEFERRED`. Required capabilities are satisfied at **schedule** level; see [`phase_contract_and_schedule.md`](phase_contract_and_schedule.md).
