@@ -107,8 +107,9 @@ def test_execute_plan_dispatch_has_exactly_the_known_call_sites() -> None:
         for number, line in enumerate(_source(path).splitlines(), start=1):
             if "execute_plan_dispatch(" in line and not line.strip().startswith(("#", "def ", "from ")):
                 hits.append(f"{path.name}:{number}")
-    # pipeline.py:655 (imperative composed-plan) and pipeline.py:2273
+    # pipeline.py:658 (imperative composed-plan) and pipeline.py:2276
     # (graph_node_composed_dispatch, which the graph node delegates to).
+    # Anchors re-measured at Plan 5 C3; they were stale at 655/2273.
     assert len(hits) == 2, hits
 
 

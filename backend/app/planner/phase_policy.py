@@ -145,8 +145,11 @@ def resolve_phase_policy(
 
     if knowledge_required:
         mark("rag_early", "knowledge evidence required")
-        if not spl_required and not mcp_required:
-            mark("prepare_rag_only", "knowledge-only lane")
+        # `prepare_rag_only` sets the RAG lane up; dispatch-v2 emits it whenever
+        # `rag_early` leads the schedule, including a RAG+SPL hybrid. Measured at
+        # C2: scoping it to knowledge-only turns is what made the merged schedule
+        # drop a stage on the hybrid probe.
+        mark("prepare_rag_only", "knowledge lane preparation")
 
     if spl_required and inputs.pre_spl_discovery_enabled:
         mark("pre_spl_mcp_discovery", "bounded pre-SPL discovery enabled for this run")

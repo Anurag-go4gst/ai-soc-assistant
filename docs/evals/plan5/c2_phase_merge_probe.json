@@ -1,0 +1,143 @@
+{
+  "schema_version": "plan5_c2_phase_merge_probe_v1",
+  "probe_count": 5,
+  "compiler_only_stage_drops": 4,
+  "merged_stage_drops": 0,
+  "rows": [
+    {
+      "probe_id": "t0_smb_spl",
+      "v2_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "compiler_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "compiler_downgrade": null,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_downgrade": null,
+      "compiler_dropped": [
+        "spl_postprocessor"
+      ],
+      "merged_dropped": [],
+      "inline_phases": [],
+      "capability_satisfied": true
+    },
+    {
+      "probe_id": "t1_spl_artifact",
+      "v2_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve"
+      ],
+      "compiler_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "compiler_downgrade": null,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_downgrade": null,
+      "compiler_dropped": [
+        "spl_postprocessor"
+      ],
+      "merged_dropped": [],
+      "inline_phases": [],
+      "capability_satisfied": true
+    },
+    {
+      "probe_id": "novel_identity_hunt",
+      "v2_hooks": [
+        "prepare_rag_only",
+        "rag_early",
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "compiler_hooks": [
+        "workflow_spl",
+        "rag_early",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "compiler_downgrade": null,
+      "merged_hooks": [
+        "prepare_rag_only",
+        "workflow_spl",
+        "spl_postprocessor",
+        "rag_early",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_downgrade": null,
+      "compiler_dropped": [
+        "prepare_rag_only",
+        "spl_postprocessor"
+      ],
+      "merged_dropped": [],
+      "inline_phases": [],
+      "capability_satisfied": true
+    },
+    {
+      "probe_id": "mitre_reference",
+      "v2_hooks": [
+        "prepare_rag_only",
+        "rag_early",
+        "reference_finalize"
+      ],
+      "compiler_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "compiler_downgrade": null,
+      "merged_hooks": [
+        "reference_finalize",
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "merge_downgrade": null,
+      "compiler_dropped": [
+        "reference_finalize"
+      ],
+      "merged_dropped": [],
+      "inline_phases": [],
+      "capability_satisfied": true
+    },
+    {
+      "probe_id": "knowledge_only",
+      "v2_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "compiler_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "compiler_downgrade": null,
+      "merged_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "merge_downgrade": null,
+      "compiler_dropped": [],
+      "merged_dropped": [],
+      "inline_phases": [],
+      "capability_satisfied": true
+    }
+  ]
+}

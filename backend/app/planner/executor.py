@@ -206,20 +206,49 @@ def build_step_walk_dispatch_schedule(
   return _legacy_predicate_dispatch_schedule(state, hooks, walk.blocked_step_ids)
 
 
+def _resolved_query_contract(state: State) -> Any | None:
+  """Parse the pre-route understanding contract, or ``None`` when absent/invalid."""
+  raw = state.get("resolved_query_contract")
+  if not isinstance(raw, Mapping) or not raw:
+    return None
+  from app.chat.contracts.resolved_query import ResolvedQueryContract
+
+  try:
+    return ResolvedQueryContract.model_validate(dict(raw))
+  except Exception:  # noqa: BLE001 - an unparseable contract degrades, never raises
+    return None
+
+
 def _execution_driven_schedule(
   state: State,
   walk: PlanStepWalkResult,
 ) -> tuple[list[str] | None, str | None]:
-  """Compiled schedule, or ``(None, reason)`` explaining the fixed-schedule fallback.
+  """Schedule + downgrade reason. The merge trace is available separately."""
+  compiled, reason, _ = _execution_driven_schedule_detailed(state, walk)
+  return compiled, reason
 
-  Returns ``(None, None)`` when the flag is off: there is nothing to report,
-  because nothing was attempted.
+
+def _execution_driven_schedule_detailed(
+  state: State,
+  walk: PlanStepWalkResult,
+) -> tuple[list[str] | None, str | None, dict[str, Any] | None]:
+  """Compiled schedule, or ``(None, reason, None)`` explaining the fixed-schedule fallback.
+
+  Returns ``(None, None, None)`` when the flag is off: there is nothing to
+  report, because nothing was attempted.
+
+  When a `ResolvedQueryContract` is present, the Plan 5 C1 merge seam owns the
+  result: PhasePolicy resolves the run's lifecycle, the PhaseContract freezes
+  it, and the merge re-inserts any contracted phase the compiler cannot
+  schedule. Plan 3 A0 measured the alternative — a compiler made authoritative
+  without lifecycle hooks dropped a stage on 4 of 5 probes. Without a contract
+  the behaviour is exactly the pre-C1 compiler path.
   """
   if not bool(getattr(settings, "ai_soc_resource_plan_execution_enabled", False)):
-    return None, None
+    return None, None, None
 
   if imperative_hook_schedule_from_state(state) is not None:
-    return None, "dispatch_v2_projected_schedule"
+    return None, "dispatch_v2_projected_schedule", None
 
   from app.planner.resource_plan import ResourcePlan
   from app.planner.resource_plan_execution_scheduler import (
@@ -231,18 +260,48 @@ def _execution_driven_schedule(
   try:
     plan = ResourcePlan.model_validate(raw_plan) if raw_plan is not None else None
   except Exception:  # noqa: BLE001 - an unparseable plan must degrade, never raise
-    return None, "plan_parse_failed"
+    return None, "plan_parse_failed", None
 
-  schedule, reason = compile_execution_schedule(
-    plan,
-    ScheduleInputs(
-      blocked_step_ids=frozenset(walk.blocked_step_ids),
-      has_workflow_plan=bool(state.get("workflow_plan")),
-    ),
+  inputs = ScheduleInputs(
+    blocked_step_ids=frozenset(walk.blocked_step_ids),
+    has_workflow_plan=bool(state.get("workflow_plan")),
   )
+
+  contract = _resolved_query_contract(state)
+  if contract is not None:
+    from app.planner.phase_contract import resolve_and_freeze
+    from app.planner.phase_policy import PhasePolicyInputs
+    from app.planner.phase_schedule_merge import merge_schedule
+
+    phase_contract = resolve_and_freeze(
+      contract,
+      plan,
+      PhasePolicyInputs(
+        has_workflow_plan=inputs.has_workflow_plan,
+        pre_spl_discovery_enabled=bool(
+          getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)
+        ),
+      ),
+    )
+    merged, merge_reason = merge_schedule(contract, plan, phase_contract, inputs)
+    if merged is None:
+      return None, merge_reason, None
+    return (
+      list(merged.hooks),
+      None,
+      {
+        "phase_contract": phase_contract.trace_payload(),
+        "inserted_phases": list(merged.inserted_phases),
+        "inline_phases": list(merged.inline_phases),
+        "capability_satisfied": merged.capability.satisfied,
+        "capability_missing": sorted(merged.capability.missing),
+      },
+    )
+
+  schedule, reason = compile_execution_schedule(plan, inputs)
   if schedule is None:
-    return None, reason
-  return list(schedule.hooks), None
+    return None, reason, None
+  return list(schedule.hooks), None, None
 
 
 def _legacy_predicate_dispatch_schedule(
@@ -328,11 +387,14 @@ def build_plan_dispatch_trace(
     getattr(settings, "ai_soc_resource_plan_execution_enabled", False)
   ):
     # Flag-on only: a flag-off turn's trace must stay byte-identical.
-    compiled, downgrade_reason = _execution_driven_schedule(state, walk)
+    compiled, downgrade_reason, merge_trace = _execution_driven_schedule_detailed(state, walk)
     trace["execution_order"] = {
       "active": compiled is not None,
       "downgrade_reason": downgrade_reason,
     }
+    if merge_trace is not None:
+      # Observability only — the phase contract holds no execution authority.
+      trace["execution_order"]["phase_merge"] = merge_trace
   if walk is not None:
     trace["step_walk_order"] = list(walk.step_walk_order)
     trace["skipped_step_reasons"] = dict(walk.skipped_step_reasons)
