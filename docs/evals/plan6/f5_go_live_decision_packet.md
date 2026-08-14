@@ -20,6 +20,13 @@ PR **#132** (draft), head `22b7055`. Not merged to `master`.
 Repo `config.py` defaults were **not** changed. Reference: `production_flag_profile.md`,
 `runs/f2_persistence.md`, `rollback_runbook.md`.
 
+**Disclosure (found during the F4 drill):** this host sets `AI_SOC_ENV_PROFILE=development`
+(`.env:7`), so the committed profile actually in effect is `env/profiles/development.env.example`,
+**not** `coe.env.example` — despite the standing "COE host" framing in `CLAUDE.md`. Effective
+flags are still correct, because the F2 commit pinned the KEEP-OFF posture in **both** profiles.
+This is an ops-hygiene/naming disclosure, not a defect, but a rollback that edits only `.env`
+will not reach Arm A. Any go-live decision should absorb it consciously.
+
 ## Evidence matrix
 
 | Category | Verdict | Evidence |
