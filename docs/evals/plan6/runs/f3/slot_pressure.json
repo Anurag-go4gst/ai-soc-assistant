@@ -1,0 +1,92 @@
+{
+  "class": "model_slot_pressure",
+  "concurrency": 3,
+  "wall_ms": 3832,
+  "results": [
+    {
+      "exit_code": 0,
+      "wall_ms": 3460,
+      "trace_id": "ebad359c-2969-47fc-bc03-3051e50cc3c5",
+      "route": "attack_discovery",
+      "answer_mode": "live_investigation",
+      "execution_enabled": false,
+      "stderr_excerpt": "",
+      "debug": {
+        "trace_id": "ebad359c-2969-47fc-bc03-3051e50cc3c5",
+        "qualification_tier": "T2",
+        "semantic_t4": null,
+        "degrade_reason": null,
+        "phase_names": [],
+        "inline_executed": [],
+        "mcp": {
+          "status": "requires_human_review",
+          "allowed": true,
+          "block_reason": "precondition_eval_failed"
+        },
+        "hil": {
+          "kind": "precondition_review",
+          "required": true,
+          "reason": "precondition_eval_failed"
+        },
+        "execution_eligible": null
+      }
+    },
+    {
+      "exit_code": 0,
+      "wall_ms": 3531,
+      "trace_id": "fef77608-b0d8-4681-bd8c-930d3331db8f",
+      "route": "attack_discovery",
+      "answer_mode": "live_investigation",
+      "execution_enabled": false,
+      "stderr_excerpt": "",
+      "debug": {
+        "trace_id": "fef77608-b0d8-4681-bd8c-930d3331db8f",
+        "qualification_tier": "T2",
+        "semantic_t4": null,
+        "degrade_reason": null,
+        "phase_names": [],
+        "inline_executed": [],
+        "mcp": {
+          "status": "requires_human_review",
+          "allowed": true,
+          "block_reason": "precondition_eval_failed"
+        },
+        "hil": {
+          "kind": "precondition_review",
+          "required": true,
+          "reason": "precondition_eval_failed"
+        },
+        "execution_eligible": null
+      }
+    },
+    {
+      "exit_code": 0,
+      "wall_ms": 3634,
+      "trace_id": "dfea1146-1028-421a-a330-131a8468702a",
+      "route": "attack_discovery",
+      "answer_mode": "live_investigation",
+      "execution_enabled": false,
+      "stderr_excerpt": "",
+      "debug": {
+        "trace_id": "dfea1146-1028-421a-a330-131a8468702a",
+        "qualification_tier": "T2",
+        "semantic_t4": null,
+        "degrade_reason": null,
+        "phase_names": [],
+        "inline_executed": [],
+        "mcp": {
+          "status": "requires_human_review",
+          "allowed": true,
+          "block_reason": "precondition_eval_failed"
+        },
+        "hil": {
+          "kind": "precondition_review",
+          "required": true,
+          "reason": "precondition_eval_failed"
+        },
+        "execution_eligible": null
+      }
+    }
+  ],
+  "captured_at": "2026-08-14T03:47:22Z"
+}
