@@ -77,7 +77,7 @@ Flags stay independently controllable for testing and rollback **after** activat
 
 ## P0 — environment authority (do this before trusting any flag)
 
-- [ ] **P0.1** — Identify the effective configuration chain
+- [x] **P0.1** — Identify the effective configuration chain
   - **Do:** Trace exactly what the running backend consumes: `docker-compose.yml` `env_file`
     order, the value of `AI_SOC_ENV_PROFILE`, which `env/profiles/*.env.example` that selects,
     and which keys `.env` overrides. Do **not** assume `coe.env.example`. Surface: LOCAL+VPS.
@@ -85,15 +85,15 @@ Flags stay independently controllable for testing and rollback **after** activat
     order with the observed `AI_SOC_ENV_PROFILE`; every target flag is traced to the file that
     supplies it.
   - **Depends on:** —
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/env_authority_chain.md`. Chain: compose `env_file` = `env/profiles/${AI_SOC_ENV_PROFILE:-coe}.env.example` **then** `.env` (later wins); `.env:7` and `env/active.profile` both say **`development`**, so `development.env.example` is selected — `coe.env.example`, `development.env`, `coe.env`, `production.env` are **not read**. Service-level `environment:` sets only `PYTHONPATH`, `AI_SOC_REPO_ROOT`, `AI_SOC_ENV_PROFILES_DIR` — **no target flag is overridden there** (`docker compose config`). Per-flag winning source traced: LangGraph/exec/v2/live-cap/`MCP_MODE` from `.env` with the profile agreeing; `AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED` from **`.env` only** (absent from the profile); `AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS` **unset in both files → `config.py:414` default 2.0**. Host recorded as `vps-development-profile`; **not** assumed COE. No flag changed.
 
-- [ ] **P0.2** — Capture current effective values
+- [x] **P0.2** — Capture current effective values
   - **Do:** `docker compose exec -T backend printenv` for the six target flags plus
     `MCP_MODE`, `LANGGRAPH_ORCHESTRATION_ENABLED`. Booleans/names only. Surface: VPS.
   - **Verify:** capture passes `app.evals.plan6_env_capture.validate_env_capture` (no
     secret-shaped keys); stored under `docs/evals/plan7/runs/<ts>/env_capture.json`.
   - **Depends on:** P0.1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/runs/20260814T125151Z/env_capture.json`, produced with `eval_plan6_vps_harness.capture_env()` and **validated** by `app.evals.plan6_env_capture.validate_env_capture` (secret-shaped keys rejected). Pre-change effective: exec `false`, T4 `false`, T4 timeout `2.0` (**presence `unset`** — code default), live-cap `false`, v2 `true`, LangGraph `true`, `MCP_MODE=mock`; `db_reachable=true`, `mcp_connectivity=true`; `git_sha=dae51eb`. No secrets. Flags unchanged — this is the Plan 6 recorded production profile.
 
 - [ ] **P0.3** — Apply the remediation posture through the real configuration path
   - **Do:** Set exec **ON**, v2 **OFF**, T4 **ON** @ 2.0 s, live capability enforcement **OFF**,
