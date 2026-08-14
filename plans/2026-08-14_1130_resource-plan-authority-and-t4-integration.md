@@ -107,19 +107,19 @@ Flags stay independently controllable for testing and rollback **after** activat
   - **Depends on:** P0.2
   - **Evidence:** Applied through the P0.1-proven path — repo-root `.env` (last `env_file`, wins over the profile). Host profile **not** switched (`AI_SOC_ENV_PROFILE=development` unchanged); pre-change `.env` backed up first. `docker compose up -d --force-recreate backend`; health `ok`, `db_ready=true`. Read-back from the running backend: LangGraph `true`, exec `true`, v2 `false`, **T4 `true`**, T4 timeout `2.0`, live-cap `false`, `MCP_MODE=mock` — **all six exactly as intended, P0.3 passes**. The T4 timeout was previously unset (code default) and is now written explicitly at the same `2.0`: bound unchanged, only made auditable. Repo `config.py` defaults untouched. Artifact `docs/evals/plan7/runs/remediation_profile.md`. This is a remediation/test posture, not a production profile.
 
-- [ ] **P0.4** — Baseline the target profile before any code change
+- [x] **P0.4** — Baseline the target profile before any code change
   - **Do:** Run the Plan 6 corpus (12 rows + the 8 T4 paraphrases) on the remediation posture,
     unchanged code. This is the "before" for every later claim. Surface: VPS.
   - **Verify:** `docs/evals/plan7/runs/<ts>/target_profile_baseline.md`; per row record route,
     tier, fingerprint, `degrade_reason`, `phase_names`, `inline_executed`, T4 fields, latency.
   - **Depends on:** P0.3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/runs/target_profile_baseline.md`. Arm F `docs/evals/plan6/runs/20260814T125340Z/` (12 rows) + arm D `…/20260814T130605Z/` (9 rows — 8 paraphrases plus the shared `p6.t4.out_of_registry`) = **21 row-runs / 20 distinct rows**, harness exit 0 both, `missing_qualification_tier` none, **code unchanged**. Per row: route, tier, fingerprint, `degrade_reason`, `phase_names`, `inline_executed`, T4 fields, latency. **Merge executed on 6/12**; `no_schedulable_step` on **exactly 2/12** (`p6.multi.knowledge_spl_mcp`, `p6.live_posture.d1_003`); remaining 4 are rag_only-shaped turns that never reach the seam. **T4 ON and failing visibly, not suppressed:** invoked on **12/12** T4-tier row-runs and **0** T1–T3 rows (qualification correct), **0** accepted contracts, **12/12** timeouts at 2000–2003 ms against the 2.0 s bound, **0** false capability widening, clarification preserved. Arm F p50 ≈ **55.5 s** vs Plan 6's 92.9 s — attributed to v2 being OFF (no pre-SPL discovery), **not** claimed as an improvement.
 
 ---
 
 ## Workstream A — make ResourcePlan + PhaseContract authoritative
 
-- [ ] **A0** — Reproduce the missed work structurally
+- [x] **A0** — Reproduce the missed work structurally
   - **Do:** On the P0.3 posture, capture full traces for `p6.multi.knowledge_spl_mcp` and
     `p6.live_posture.d1_003`. Establish *why* the compiler returns `no_schedulable_step` and
     what work is lost relative to the v2-ON run. Anchors: `resource_plan_execution_scheduler.py`
@@ -132,7 +132,7 @@ Flags stay independently controllable for testing and rollback **after** activat
   - **Verify:** `docs/evals/plan7/a0_missed_work_analysis.md` states the mechanism, not the
     symptom; the failing test is committed and red.
   - **Depends on:** P0.4
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/a0_missed_work_analysis.md`. Runtime: both rows show `degrade_reason=no_schedulable_step`, `phase_names=[]`, and an executed `dispatch_schedule` of `workflow_spl → spl_source_resolve → execution` — **`spl_postprocessor` absent** though `workflow_spl` ran, so a candidate SPL exists that never passed the mandatory deterministic post-processing. Control row `p6.spl.draft` has an **identical contract shape** (`spl_generation_only` / `spl_artifact` / `required=['spl']`, T2) and merges correctly with `spl_postprocessor` present — proving the discriminator is the **ResourcePlan's schedulable purposes**, not the query. Mechanism: `_compile_hooks` returns `[]` → `no_schedulable_step`; `merge_schedule:204-206` returns on that downgrade **before** `_apply_phase_contract` / `validate_schedule`, so the resolved contract is discarded unread; `spl_postprocessor` is excluded from `SCHEDULABLE_HOOKS` by design, making the merge its only re-inserter; `phase_policy.py:143` marks it mandatory from `required_capabilities`/`candidate_spl` **without** needing a schedulable `spl_artifact` step; with v2 OFF the predicate fallback never adds it (v2's projected schedule did, `pipeline_dispatch_builder.py:38,286`). **Failing-first test committed before any fix:** `backend/app/tests/test_plan7_a0_mandatory_phase_survives_no_schedulable_step.py` → **2 passed, 2 xfailed(strict)**; asserts the architectural invariant, names no query ID, and a second test proves the early return is **phase-agnostic**. No fix implemented.
 
 - [ ] **A1** — Enumerate every structurally equivalent case
   - **Do:** Sweep the corpus, the 105 goldens and the Cisco 50 for the same structural
@@ -227,7 +227,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
     `debug_summary.resolved_query.semantic_t4` block — no new env flag. Surface: LOCAL+VPS.
   - **Verify:** the harness emits all nine fields per row; `docs/evals/plan7/b0_t4_fields.md`.
   - **Depends on:** P0.3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/runs/target_profile_baseline.md`. Arm F `docs/evals/plan6/runs/20260814T125340Z/` (12 rows) + arm D `…/20260814T130605Z/` (9 rows — 8 paraphrases plus the shared `p6.t4.out_of_registry`) = **21 row-runs / 20 distinct rows**, harness exit 0 both, `missing_qualification_tier` none, **code unchanged**. Per row: route, tier, fingerprint, `degrade_reason`, `phase_names`, `inline_executed`, T4 fields, latency. **Merge executed on 6/12**; `no_schedulable_step` on **exactly 2/12** (`p6.multi.knowledge_spl_mcp`, `p6.live_posture.d1_003`); remaining 4 are rag_only-shaped turns that never reach the seam. **T4 ON and failing visibly, not suppressed:** invoked on **12/12** T4-tier row-runs and **0** T1–T3 rows (qualification correct), **0** accepted contracts, **12/12** timeouts at 2000–2003 ms against the 2.0 s bound, **0** false capability widening, clarification preserved. Arm F p50 ≈ **55.5 s** vs Plan 6's 92.9 s — attributed to v2 being OFF (no pre-SPL discovery), **not** claimed as an improvement.
 
 - [ ] **B1** — T4-ON diagnostic baseline
   - **Do:** Record the current expected outcome honestly — T4 invoked → ~2 s bounded failure →
