@@ -95,7 +95,7 @@ Flags stay independently controllable for testing and rollback **after** activat
   - **Depends on:** P0.1
   - **Evidence:** `docs/evals/plan7/runs/20260814T125151Z/env_capture.json`, produced with `eval_plan6_vps_harness.capture_env()` and **validated** by `app.evals.plan6_env_capture.validate_env_capture` (secret-shaped keys rejected). Pre-change effective: exec `false`, T4 `false`, T4 timeout `2.0` (**presence `unset`** — code default), live-cap `false`, v2 `true`, LangGraph `true`, `MCP_MODE=mock`; `db_reachable=true`, `mcp_connectivity=true`; `git_sha=dae51eb`. No secrets. Flags unchanged — this is the Plan 6 recorded production profile.
 
-- [ ] **P0.3** — Apply the remediation posture through the real configuration path
+- [x] **P0.3** — Apply the remediation posture through the real configuration path
   - **Do:** Set exec **ON**, v2 **OFF**, T4 **ON** @ 2.0 s, live capability enforcement **OFF**,
     LangGraph **ON** via the file the backend actually consumes (P0.1). Do **not** switch the
     host to a different profile unless P0.1 proves it is required. `--force-recreate`.
@@ -105,7 +105,7 @@ Flags stay independently controllable for testing and rollback **after** activat
   - **Verify:** post-recreate `printenv` shows all six target values; health 200;
     `docs/evals/plan7/runs/<ts>/remediation_profile.md`.
   - **Depends on:** P0.2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Applied through the P0.1-proven path — repo-root `.env` (last `env_file`, wins over the profile). Host profile **not** switched (`AI_SOC_ENV_PROFILE=development` unchanged); pre-change `.env` backed up first. `docker compose up -d --force-recreate backend`; health `ok`, `db_ready=true`. Read-back from the running backend: LangGraph `true`, exec `true`, v2 `false`, **T4 `true`**, T4 timeout `2.0`, live-cap `false`, `MCP_MODE=mock` — **all six exactly as intended, P0.3 passes**. The T4 timeout was previously unset (code default) and is now written explicitly at the same `2.0`: bound unchanged, only made auditable. Repo `config.py` defaults untouched. Artifact `docs/evals/plan7/runs/remediation_profile.md`. This is a remediation/test posture, not a production profile.
 
 - [ ] **P0.4** — Baseline the target profile before any code change
   - **Do:** Run the Plan 6 corpus (12 rows + the 8 T4 paraphrases) on the remediation posture,
