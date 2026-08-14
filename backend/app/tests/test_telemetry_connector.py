@@ -68,8 +68,10 @@ def test_slim_control_plane_trace_keeps_plan_dispatch() -> None:
         "rag_trace": {"hits": 1},
         "plan_dispatch": {"dispatch_authority": "pipeline_dispatch_v2", "dispatch_schedule": ["rag_early"]},
         "pipeline_dispatch": {"decision": {"stage_schedule": ["rag_early"]}},
+        "resolved_query": {"qualification_tier": "T1"},
         "secret_blob": "drop-me",
     }
     slim = _slim_control_plane_trace(trace)
     assert slim["plan_dispatch"]["dispatch_authority"] == "pipeline_dispatch_v2"
+    assert slim["resolved_query"]["qualification_tier"] == "T1"
     assert "secret_blob" not in slim

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.chat.debug_summary import redact_resolved_query
 from app.schemas.responses import PlaceholderResponse
 from app.planner.recipe_registry import get_recipe
 from app.spl.spl_artifact_trace_projection import build_spl_artifact_handoff_summary
@@ -108,6 +109,14 @@ def build_control_plane_trace(
         else None,
         "pipeline_dispatch": state.get("pipeline_dispatch")
         if isinstance(state.get("pipeline_dispatch"), dict)
+        else None,
+        "resolved_query": redact_resolved_query(
+            state.get("resolved_query_contract")
+            if isinstance(state.get("resolved_query_contract"), dict)
+            else None
+        ),
+        "session_role": state.get("session_role")
+        if isinstance(state.get("session_role"), str)
         else None,
         "spl_source_resolve": state.get("spl_source_resolve")
         if isinstance(state.get("spl_source_resolve"), dict)

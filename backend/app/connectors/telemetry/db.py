@@ -287,6 +287,8 @@ def _slim_control_plane_trace(control_plane_trace: dict[str, Any]) -> dict[str, 
         "intent_dispatch",
         "pipeline_dispatch",
         "plan_dispatch",
+        "resolved_query",
+        "session_role",
     )
     return {key: control_plane_trace[key] for key in keep if key in control_plane_trace}
 
