@@ -99,6 +99,9 @@ class MergedSchedule:
     inserted_phases: tuple[str, ...]
     inline_phases: tuple[str, ...]
     capability: CapabilitySatisfaction
+    # Plan 7 A3: set when the resource compiler downgraded and the schedule
+    # carries lifecycle obligations only. Provenance, not authority.
+    resource_downgrade: str | None = None
 
 
 def _insertion_index(
@@ -202,10 +205,31 @@ def merge_schedule(
     mandatory lifecycle phase is ever silently dropped.
     """
     compiled, downgrade = compile_execution_schedule(plan, inputs)
-    if compiled is None:
+
+    # Plan 7 A3 — `P7_SPL_LIFECYCLE_OWNERSHIP` = Option A. A resource-plan
+    # downgrade may remove unavailable *resource* work; it may not silently
+    # remove applicable mandatory *lifecycle* work. Returning here on the bare
+    # downgrade (the pre-A3 behaviour) discarded a resolved PhaseContract unread,
+    # and with dispatch-v2 off nothing else owned the phases it declared.
+    #
+    # The trigger is structural, not phase-specific: any mandatory hook-bound
+    # phase, whatever it is. A run owing no lifecycle still downgrades exactly as
+    # before, so benign cases stay benign.
+    #
+    # Scope is deliberately narrow in the other direction too: the lifecycle is
+    # honoured only when the plan is *valid* and merely has nothing the compiler
+    # can schedule. An invalid or unsafe plan — dependency cycle, unsupported
+    # purpose, a side-effecting step declaring a retry, no plan at all — still
+    # fails closed. Those are safety refusals, not missing resource work, and
+    # scheduling a lifecycle on top of one would discard the refusal.
+    execution_contract, contract_downgrade = execution_contract_or_downgrade(plan)
+    if compiled is None and (
+        execution_contract is None or not phase_contract.hook_bound_mandatory
+    ):
         return None, downgrade
 
-    applied = _apply_phase_contract(list(compiled.hooks), phase_contract)
+    base_hooks = list(compiled.hooks) if compiled is not None else []
+    applied = _apply_phase_contract(base_hooks, phase_contract)
     if applied is None:
         return None, "phase_contract_unplaceable"
     hooks, inserted = applied
@@ -216,7 +240,6 @@ def merge_schedule(
     except (PhaseOrderViolation, PhaseContractViolation, UnknownPhaseError):
         return None, "phase_contract_violation"
 
-    execution_contract, contract_downgrade = execution_contract_or_downgrade(plan)
     if execution_contract is None:  # pragma: no cover - compile already proved it valid
         return None, contract_downgrade
 
@@ -230,10 +253,13 @@ def merge_schedule(
         MergedSchedule(
             hooks=tuple(hooks),
             waves=tuple(tuple(wave) for wave in execution_contract.waves),
-            step_hooks=dict(compiled.step_hooks),
+            # A lifecycle-only schedule binds no step to a hook: the vetoed or
+            # unschedulable resource work does not come back through the merge.
+            step_hooks=dict(compiled.step_hooks) if compiled is not None else {},
             inserted_phases=tuple(inserted),
             inline_phases=tuple(sorted(phase_contract.inline_mandatory)),
             capability=capability,
+            resource_downgrade=downgrade if compiled is None else None,
         ),
         None,
     )

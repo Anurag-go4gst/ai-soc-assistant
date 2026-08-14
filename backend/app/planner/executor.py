@@ -293,6 +293,9 @@ def _execution_driven_schedule_detailed(
         "phase_contract": phase_contract.trace_payload(),
         "inserted_phases": list(merged.inserted_phases),
         "inline_phases": list(merged.inline_phases),
+        # Plan 7 A3: the compiler downgraded but the contract's mandatory
+        # lifecycle still had to be honoured. Provenance only.
+        "resource_downgrade": merged.resource_downgrade,
         "capability_satisfied": merged.capability.satisfied,
         "capability_missing": sorted(merged.capability.missing),
       },
