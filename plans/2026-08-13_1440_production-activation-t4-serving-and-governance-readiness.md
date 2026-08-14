@@ -671,11 +671,11 @@ Preferred single-agent walk is in the LOOP_RUNNER.
   - **Depends on:** F5, E0, E2, E3, E4
   - **Evidence:** `docs/evals/plan6_activation_and_t4_report.md` answers all twelve success questions with artifact citations. Persistent VPS profile stated separately from repo `config.py` defaults (unchanged); env-profile correction (`AI_SOC_ENV_PROFILE=development`) recorded. Honest on KEEP OFF (Q4), `V2_WINS` never called activation (Q10), `live_mcp_unproven` (Q12), deferred T4 as a **serving** limit (Q6), and 0 seams adopted (Q5). Explicit non-claims section: frozen `--arm both` did not observe L4/L5; parity 120 exact is not routing correctness.
 
-- [ ] **G1** — Docs alignment
+- [x] **G1** — Docs alignment
   - **Do:** Update `CLAUDE.md`, `docs/architecture/phase_contract_and_schedule.md`, routing authority map if needed, `plans/README.md` Active-work (Plan 6 status). Edit `AGENTS.md` only if an operating rule changed. Surface: LOCAL.
   - **Verify:** `.cursor/hooks/audit-plan-discipline.sh plans/2026-08-13_1440_production-activation-t4-serving-and-governance-readiness.md` → 0 gaps; doc claims grep-anchored.
   - **Depends on:** G0
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `plans/README.md` Active-work: Plan 6 **Done (37/37) — `F5 = DEFER`**, Plan 7 added as active. `CLAUDE.md`: Plan 6 + Plan 7 rows added; the misleading "COE host" flag claim corrected — compose loads `env/profiles/${AI_SOC_ENV_PROFILE:-coe}.env.example` then `.env`, and this host sets `AI_SOC_ENV_PROFILE=development`, so `development.env.example` is in effect. `docs/architecture/phase_contract_and_schedule.md`: E0 `inline_executed` provenance recorded next to `inline_mandatory`; Arm C measurement (merge 5/12, 7/12 not reachable, two rows lose `spl_postprocessor`) recorded as the KEEP-OFF reason and handed to Plan 7; COE warning rewritten with the profile-chain fact and the DEFER outcome. `routing_authority_map.md` needed no change (no routing authority moved). `AGENTS.md` untouched (no operating rule changed). Plan-discipline audit → **0 gaps**.
 
 - [ ] **G2** — Final closure gates
   - **Do:** Re-run the complete forecast-rule set twice if any authority/default changed; otherwise once plus targeted re-audit of every checkmark. Confirm F5 `P6_PRODUCTION_GO_LIVE` is recorded (GO LIVE / DEFER / KEEP OFF) and that the PR does not claim live MCP or Plan-5 merge activation unless F3/C0 evidence supports it. Confirm no unrelated dirt committed. Update or mark ready the Plan 6 PR per **Commit / PR / merge**. Do **not** merge to `master` in this item. Surface: LOCAL.
