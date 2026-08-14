@@ -166,7 +166,7 @@ Flags stay independently controllable for testing and rollback **after** activat
   - **Depends on:** A2
   - **Evidence:** `docs/evals/plan7/a3_ownership_fix.md`. One function changed (`phase_schedule_merge.merge_schedule`, ~20 lines) plus `MergedSchedule.resource_downgrade` provenance and its executor-trace passthrough. Trigger is structural — compiler downgraded **and** the execution contract is still valid **and** `hook_bound_mandatory` is non-empty — with **no** query ID, intent, capability name or `spl_postprocessor` special case. **Deliberate narrowing during implementation:** the first version turned safety refusals into schedules and four existing tests caught it (`test_absent_plan_downgrades_to_the_fixed_schedule`, `test_unsupported_purpose_downgrades`, `test_side_effecting_step_may_not_declare_a_retry`, `test_cyclic_plan_is_rejected_not_scheduled`); the **fix was narrowed, the tests were not edited**. All seven required properties evidenced. Failing-first test now green with strict-xfails removed: **15 passed**, covering affected `workflow_spl`, latent non-SPL phases (`execution`, `reference_finalize`), multiple mandatory phases + ordering, inline representation, both benign downgrade classes, normal merge unchanged, no duplicate insertion, and three safety-refusal fail-closed cases. A1 population re-run after the fix: **0 affected / 175** (merged 158 → 163; compiler verdicts unchanged). Gates: merge/contract/seam suites **65 passed**; planner/dispatch/executor/phase/seam slice **997 passed**; `/invariant-check` **7/7**; flag-OFF byte-identical by construction (`executor.py:247`). PhasePolicy rules unchanged, capabilities not widened, v2 not re-enabled, T4 ON at 2.0 s, live capability enforcement OFF. Open observation flagged to A4: lifecycle-only insertion orders `spl_source_resolve` before `spl_postprocessor` (registry leaves them mutually unordered) — pre-existing `_apply_phase_contract` behaviour, pinned by test, to be confirmed on the real posture.
 
-- [ ] **A4** — Re-measure authority on the target profile
+- [x] **A4** — Re-measure authority on the target profile
   - **Do:** Re-run the P0.4 corpus with exec ON, v2 OFF, T4 ON. Surface: VPS.
   - **Verify:** against the acceptance criteria below — **0** missed mandatory phases, **0**
     duplicate execution, **0** merge + old-engine double-run, SPL validation preserved,
@@ -176,9 +176,9 @@ Flags stay independently controllable for testing and rollback **after** activat
     Plan 6 Arm A either fixed or explained. Artifact
     `docs/evals/plan7/runs/<ts>/a4_authority_acceptance.md`.
   - **Depends on:** A3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/a4_authority_acceptance.md`, run `docs/evals/plan6/runs/20260814T134610Z/` on the verified target posture (exec ON, v2 OFF, **T4 ON @ 2.0 s**, live-cap OFF, LangGraph ON). 12/12 exit 0, `missing_qualification_tier` none. **All 12 acceptance criteria pass:** missed mandatory work **0** (merge authoritative 6/12 → **8/12**), duplicate execution **0**, merge+old-engine double-run **0**, SPL validation preserved, `execution_eligible` **null** on every row, MCP gate `allowed=false` with explicit `block_reason` on both fixed rows, HIL required where owed, RBAC untouched, contract phases honoured, inline `mitre_finalize` both represented and executed, **0 route/tier/fingerprint deltas**, no query-specific fixes. Both defect rows now `degrade=merge` with `resource_downgrade=no_schedulable_step` and `inserted_phases=[workflow_spl, spl_postprocessor, spl_source_resolve, execution]` — the A3 path firing exactly where measured and nowhere else. **New governed refusal** on `bb38d292`: restored `spl_postprocessor` produced `spl_validation_failed` + HIL `source_profile_slots_missing`, where before the phase never ran. **Wider finding:** `spl_postprocessor` is contract-inserted on **4 healthy rows too**, so every SPL row depends on the merge for deterministic validation. A3's ordering question answered: lifecycle-only insertion resolves source slots **before** post-processing, which matches the governed post-slot-resolution validation rule; recorded as an accepted pinned difference, no ordering code changed.
 
-- [ ] **A5** — Old-path audit
+- [x] **A5** — Old-path audit
   - **Do:** Identify any path still executing work that ResourcePlan + PhaseContract should own
     (including `_run_legacy_dispatch_fallback` and the four `DECISION_REQUIRED` seams).
     Classify each as **migration debt**, **legitimately separate**, or **regression**.
@@ -186,7 +186,7 @@ Flags stay independently controllable for testing and rollback **after** activat
   - **Verify:** `docs/evals/plan7/a5_old_path_audit.md`; `test_execution_seam_coverage.py`
     updated to reflect reality, never loosened.
   - **Depends on:** A4
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/a5_old_path_audit.md`, from `dispatch_source` on all 12 A4 traces. **8** rows `resource_plan_step_walk` with merge active (target architecture); **2** `canonical_non_planned`; **2** no `plan_dispatch` (rag-only lane); **0** `legacy_predicate`, **0** `session_spl_refine`, **0** `guided_hybrid`. **`_run_legacy_dispatch_fallback` executed zero times** — no old engine ran beside the merge. Classification: **migration debt ×1** (the fallback still skips `spl_postprocessor` and stays reachable via `session_spl_refine` — unexercised here, so unproven rather than safe); **legitimately separate ×4**; **regressions ×0**. Seam inventory unchanged at **2 SEAM / 4 DECISION_REQUIRED / 4 KEEP_SEPARATE, 0 adopted** — nothing adopted, nothing retired in A5.
 
 - [ ] **A6** — `P7_DISPATCH_V2_RETIREMENT` **STOP**
   - **Do:** Present whether dispatch-v2 can remain OFF as the normal authority: missed work
@@ -196,7 +196,7 @@ Flags stay independently controllable for testing and rollback **after** activat
   - **Verify:** decision recorded; artifact `docs/evals/plan7/a6_stop_decision.md`.
   - **Depends on:** A5
   - **STOP:** `P7_DISPATCH_V2_RETIREMENT`
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Packet presented: `docs/evals/plan7/a6_stop_decision_packet.md` — exact effective flags, remaining missed mandatory work (**0 measured**), duplicate work (**0**), post-fix structural population (**0/175**), A4 corpus result, active old paths, A5 classification, rollback cost, and five stated gaps (unexercised `session_spl_refine` fallback; coverage limited to 12 corpus rows + a planning-layer sweep rather than goldens/Cisco end-to-end; MCP still `mock`/`live_mcp_unproven`; T4 still failing at the 2.0 s bound; no measurement that bounded pre-SPL discovery is unnecessary). Options offered: `V2_OFF_IS_NORMAL_AUTHORITY` / `V2_OFF_PENDING_WIDER_EVIDENCE` / `RESTORE_V2`. **Awaiting user decision.**
 
 ### ResourcePlan authority acceptance criteria (A4 gate)
 
