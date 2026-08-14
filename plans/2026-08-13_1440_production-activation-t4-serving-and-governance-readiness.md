@@ -251,6 +251,22 @@ Plan 5 already classified this as `STALE_REPORT_REFRESH` outside activation work
 
 Artifact: `docs/evals/plan6/e3_stop_decision.md`. Inventory: `docs/evals/plan6/e3_stale_report_inventory.md`. Policy file unchanged.
 
+### F5 — `P6_PRODUCTION_GO_LIVE` (2026-08-14)
+
+**DEFER — intended architecture not yet production-authoritative.**
+
+Recorded by the user after the F5 evidence matrix was presented. `GO LIVE WITH RECORDED PROFILE` was available (critical blockers **0**) and was **not** taken.
+
+Reason: Plan 6 proved the new architecture **experimentally** but did not make it production-authoritative. Production go-live must not be declared while normal execution authority remains dispatch-v2. The intended production architecture is `ResolvedQueryContract → ResourcePlan + PhaseContract → deterministic compiler → governed executable schedule`, with bounded T4 semantic understanding for genuinely unresolved T4 queries. Go-live is deferred until that architecture is corrected and passes its own production gates.
+
+This is **not** a rollback decision and **not** a decision to stay permanently on the old architecture. `ResourcePlan OFF + dispatch-v2 ON + T4 OFF` is a safe baseline and rollback posture, **not** the destination; `exec ON + v2 ON` (`V2_WINS`) is **not** ResourcePlan activation either.
+
+Plan 6's measurements stand as correct discovery work: it found the blockers. Do not rewrite them as failures.
+
+Follow-on (user-approved, narrowly scoped — **not** a broad redesign): reopen the deferred execution-authority / `CHANGE_LADDER` work only as far as measured evidence requires, in a separate focused plan. Live capability enforcement stays OFF; no routing keyword heuristics; the rejected "one primary skill owns all capabilities" model is not resurrected.
+
+Artifact: `docs/evals/plan6/f5_go_live_decision_packet.md`. Continuation plan: `plans/2026-08-14_1130_resource-plan-authority-and-t4-integration.md`.
+
 ## Brief vs current code (do not silently absorb)
 
 1. **Dispatch-v2 beats ResourcePlan execution.** `backend/app/planner/executor.py` (`_execution_driven_schedule_detailed`): if execution is ON **and** a v2 projected schedule exists, merge stands down with `dispatch_v2_projected_schedule`. COE profile sets `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED=true` (`env/profiles/coe.env.example`). Flipping execution ON on today’s VPS does **not** exercise Plan 5 merge. **Arm C (exec ON, v2 OFF) is the only VPS arm that does.**
@@ -640,20 +656,20 @@ Preferred single-agent walk is in the LOOP_RUNNER.
   - **Depends on:** F3
   - **Evidence:** Executed, not simulated. **Finding:** compose loads `env/profiles/${AI_SOC_ENV_PROFILE:-coe}.env.example` **then** `.env`, and this host sets `AI_SOC_ENV_PROFILE=development` (`.env:7`) — so the profile in effect is `development.env.example`, not `coe`. A `.env`-only rollback did **not** reach Arm A (two keys still resolved `false` from the profile); rollback had to touch the active profile too. Rollback: all three flags **unset**, v2 `true`, health `ok`/`ready=true`; smoke `runs/20260814T100338Z/` 3/3 exit 0 with route **and** `resource_plan_fingerprint` identical to Arm A (`54643926bb51081e`, `fd65002b17c46fa0`, `99ccd9213e2f0b37`), `degrade_reason` null, `semantic_t4` null, `phase_names` empty — failing-first satisfied (no merge authority, no T4 on T1–T3). Re-apply: profile restored via `git checkout`, `.env` restored from backup, force-recreate; effective flags `exec=false`, `T4=false`, `live-cap=false`, `v2=true`, `MCP_MODE=mock`; health `ok`, `write_failures=0`; smoke `runs/20260814T104455Z/` 3/3 exit 0, same fingerprints. **Host left in the approved production profile, not the rollback state**; `env/profiles/*.env.example` clean in git. Runbook `docs/evals/plan6/rollback_runbook.md`.
 
-- [ ] **F5** — `P6_PRODUCTION_GO_LIVE` **STOP**
+- [x] **F5** — `P6_PRODUCTION_GO_LIVE` **STOP**
   - **Do:** Do **not** auto-declare production ready. Present a final matrix covering at least: Functional; Safety; Performance; Reliability; Security/RBAC; Observability; Deployment/restart; Rollback; VPS corpus; Production flags persistence; Live MCP scope (`proven` vs `live_mcp_unproven`); Critical blockers. Also cite `production_flag_profile.md`, C0 v2 precedence, D3 T4 posture, F2 persist evidence, F3, F4 re-applied intended state. Outcomes: **GO LIVE with recorded profile** / **DEFER** / **ROLL BACK AND KEEP OFF**. `GO LIVE` requires **zero critical blockers**. Do not imply live Splunk is production-ready if F3 is `live_mcp_unproven`. Do not call `exec ON + v2 ON` Plan-5 activation if C0 was `V2_WINS`. Repo defaults may remain false. Surface: DECISION.
   - **Verify:** decision recorded under Approved decisions only after the user chooses; matrix present in the F5 handoff; profile, v2, T4, live-MCP honesty, rollback runbook, and critical-blocker count (must be 0 for GO LIVE) all cited; `config.py` matches the recorded default decision.
   - **Depends on:** F4
   - **STOP:** `P6_PRODUCTION_GO_LIVE`
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Matrix presented in `docs/evals/plan6/f5_go_live_decision_packet.md` across all required categories, citing `production_flag_profile.md`, C0 v2 precedence, D3 T4 posture, `runs/f2_persistence.md`, `runs/f3_reliability.md`, `runs/f3_live_mcp.md`, `rollback_runbook.md` and the F4 re-applied intended state. Critical blockers **0**; accepted risks **3** (shared-VPS latency, deferred MITRE promotion, mock-only MCP lane). Live MCP scope stated as **`live_mcp_unproven`**; ResourcePlan merge stated as experimentally proven but **not** production-authoritative; authority remains dispatch-v2 per C0 KEEP OFF; T4 deferred for want of a viable serving posture. Also disclosed: host runs `AI_SOC_ENV_PROFILE=development`, so the effective profile is `development.env.example`, not `coe`. **User recorded `DEFER`** — see Approved decisions § F5. `config.py` defaults unchanged (repo default decision honoured).
 
 ### G — report / docs / closure
 
-- [ ] **G0** — Plan 6 report
+- [x] **G0** — Plan 6 report
   - **Do:** Write `docs/evals/plan6_activation_and_t4_report.md` answering the twelve success questions with artifact citations. State the **persistent VPS/production flag profile** separately from repo defaults. Honest about KEEP OFF, `V2_WINS`, `live_mcp_unproven`, and deferred T4. Surface: LOCAL.
   - **Verify:** every number traces to `docs/evals/plan6/`; no claim that frozen `--arm both` observed L4/L5; parity 120 exact not cited as routing correctness.
   - **Depends on:** F5, E0, E2, E3, E4
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan6_activation_and_t4_report.md` answers all twelve success questions with artifact citations. Persistent VPS profile stated separately from repo `config.py` defaults (unchanged); env-profile correction (`AI_SOC_ENV_PROFILE=development`) recorded. Honest on KEEP OFF (Q4), `V2_WINS` never called activation (Q10), `live_mcp_unproven` (Q12), deferred T4 as a **serving** limit (Q6), and 0 seams adopted (Q5). Explicit non-claims section: frozen `--arm both` did not observe L4/L5; parity 120 exact is not routing correctness.
 
 - [ ] **G1** — Docs alignment
   - **Do:** Update `CLAUDE.md`, `docs/architecture/phase_contract_and_schedule.md`, routing authority map if needed, `plans/README.md` Active-work (Plan 6 status). Edit `AGENTS.md` only if an operating rule changed. Surface: LOCAL.
