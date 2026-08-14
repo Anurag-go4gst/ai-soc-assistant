@@ -1,0 +1,18 @@
+{
+  "a": {
+    "exit_code": 0,
+    "trace_id": "1432deb5-17ec-4d23-a69d-941d74e78fb4",
+    "route": "knowledge_recall",
+    "execution_enabled": false,
+    "answer_mode": "rag_only",
+    "stdout_bytes": 270409
+  },
+  "b": {
+    "exit_code": 0,
+    "trace_id": "c0f3efc4-2fb3-484a-8ac6-07a1c8ae3733",
+    "route": "knowledge_recall",
+    "execution_enabled": false,
+    "answer_mode": "rag_only",
+    "stdout_bytes": 269155
+  }
+}

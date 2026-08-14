@@ -1,0 +1,1227 @@
+{
+  "schema_version": "plan6_t4_serving_options_v1",
+  "git_sha": "1d32ac66dd6c707789db8b44574bd566af401952",
+  "started_utc": "2026-08-13T15:50:57.093583+00:00",
+  "load_average": [
+    0.64453125,
+    0.89599609375,
+    1.59375
+  ],
+  "production_t4_timeout_seconds_unchanged": 2.0,
+  "inventory": {
+    "local_primary": {
+      "configured": true,
+      "base_url_host": "127.0.0.1:8081",
+      "model": "foundation-sec-1.1-8b-instruct-q8_0.gguf",
+      "same_as_probe_host": true
+    },
+    "foundation_sec_instruct_failover": {
+      "configured": false,
+      "base_url_host": null,
+      "model": null
+    },
+    "qwen_primary": {
+      "flag_enabled": false,
+      "configured": false,
+      "base_url_host": null,
+      "model": null
+    },
+    "llama_server": {
+      "parallel_slots": 1,
+      "cmdline_note": "llama-server -np 1 -c 4000 -t 4 --port 8081"
+    }
+  },
+  "options": {
+    "A_local_primary_foundation_sec_np1_timeout_2s": {
+      "available": true,
+      "same_as_d0": true,
+      "viable_at_production_2s": false,
+      "reason": "D0 9/9 hop timeouts at ~2.0s; this replica confirms the hop cannot return JSON inside the SLO."
+    },
+    "B_foundation_sec_instruct_failover_url": {
+      "available": false,
+      "viable_at_production_2s": false,
+      "reason": "AI_SOC_LLM_FOUNDATION_SEC_INSTRUCT_BASE_URL is unset. Local primary already is Foundation-Sec-1.1-8B-Instruct Q8 on :8081 \u2014 not a distinct serving option."
+    },
+    "C_qwen_primary": {
+      "available": false,
+      "viable_at_production_2s": false,
+      "reason": "AI_SOC_LLM_QWEN_PRIMARY_ENABLED is unset/false and QWEN_BASE_URL/MODEL are empty. No already-configured Qwen to compare."
+    },
+    "D_local_primary_concurrency_n2": {
+      "available": true,
+      "viable_at_production_2s": false,
+      "reason": "llama-server -np 1. D0 /chat N=2: 1 timed_out + 1 empty_output/llm_model_slot_busy. Raising app concurrency cannot create a second model slot."
+    }
+  },
+  "isolations": {
+    "prod_2s_cold": {
+      "name": "prod_2s_cold_para003",
+      "query": "any domain lookups that look algorithmically generated",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 2.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 2022,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      }
+    },
+    "complete_90s_cold": {
+      "name": "complete_90s_cold_para003",
+      "query": "any domain lookups that look algorithmically generated",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90094,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      }
+    },
+    "complete_90s_warm": {
+      "name": "complete_90s_warm_para003",
+      "query": "any domain lookups that look algorithmically generated",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90099,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      }
+    },
+    "prod_2s_warm": {
+      "name": "prod_2s_warm_para003",
+      "query": "any domain lookups that look algorithmically generated",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 2.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 2004,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      }
+    },
+    "complete_90s_max80": {
+      "name": "complete_90s_max80_para003",
+      "query": "any domain lookups that look algorithmically generated",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 80,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90095,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      }
+    },
+    "complete_90s_query_only": {
+      "name": "complete_90s_query_only_para003",
+      "query": "any domain lookups that look algorithmically generated",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90091,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      }
+    },
+    "tiny_classification": {
+      "name": "tiny_class_para003",
+      "query": "any domain lookups that look algorithmically generated",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 30.0,
+      "max_tokens": 10,
+      "system_prompt_kind": "variant",
+      "ok": true,
+      "timed_out": false,
+      "empty_output": false,
+      "elapsed_ms": 14007,
+      "finish_reason": "stop",
+      "prompt_tokens": 52,
+      "completion_tokens": 3,
+      "error": null,
+      "text_chars": 10,
+      "text_preview": "Suspicious",
+      "score": {
+        "parsed": false,
+        "parse_reason": "schema_invalid",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "schema_invalid"
+        ]
+      }
+    }
+  },
+  "paraphrase_complete": [
+    {
+      "name": "p6.para.003",
+      "query": "any domain lookups that look algorithmically generated",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90076,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      },
+      "truth_row_id": "rt.para.003",
+      "expected_intent_family": "spl_generation_only"
+    },
+    {
+      "name": "p6.para.004",
+      "query": "do we have endpoints calling home on a regular cadence",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90099,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      },
+      "truth_row_id": "rt.para.004",
+      "expected_intent_family": "spl_generation_only"
+    },
+    {
+      "name": "p6.para.005",
+      "query": "hosts talking to an unusually wide spread of external addresses",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90094,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      },
+      "truth_row_id": "rt.para.005",
+      "expected_intent_family": "spl_generation_only"
+    },
+    {
+      "name": "p6.para.006",
+      "query": "machines opening SMB sessions against a lot of different peers",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90096,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      },
+      "truth_row_id": "rt.para.006",
+      "expected_intent_family": "spl_generation_only"
+    },
+    {
+      "name": "p6.para.007",
+      "query": "anyone shipping unusually large volumes of data outward",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90098,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      },
+      "truth_row_id": "rt.para.007",
+      "expected_intent_family": "spl_generation_only"
+    },
+    {
+      "name": "p6.para.008",
+      "query": "endpoints where PowerShell ran in a way that looks off",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90091,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      },
+      "truth_row_id": "rt.para.008",
+      "expected_intent_family": "spl_generation_only"
+    },
+    {
+      "name": "p6.para.012",
+      "query": "signs that something is moving sideways through the estate",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90091,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      },
+      "truth_row_id": "rt.para.012",
+      "expected_intent_family": "spl_generation_only"
+    },
+    {
+      "name": "p6.para.015",
+      "query": "have we run into this indicator before and what did we decide last time",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90090,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      },
+      "truth_row_id": "rt.para.015",
+      "expected_intent_family": "spl_generation_only"
+    }
+  ],
+  "ambiguous_complete": [
+    {
+      "name": "p6.clarify",
+      "query": "Look into it.",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90093,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      },
+      "class": "ambiguous_underspecified",
+      "false_widening": false,
+      "false_widening_reasons": []
+    },
+    {
+      "name": "rt.para.009",
+      "query": "was anybody granted local admin rights recently",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90084,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      },
+      "class": "ambiguous_ownership_deferred",
+      "false_widening": false,
+      "false_widening_reasons": []
+    },
+    {
+      "name": "rt.para.013",
+      "query": "are we missing log feeds from any important security source",
+      "qualification_tier": "T4",
+      "match_path": "out_of_registry",
+      "deterministic_intent_family": "clarification_required",
+      "deterministic_clarification_required": true,
+      "deterministic_required": [],
+      "deterministic_prohibited": [
+        "mcp",
+        "spl"
+      ],
+      "timeout_s": 90.0,
+      "max_tokens": 400,
+      "system_prompt_kind": "production_t4",
+      "ok": false,
+      "timed_out": true,
+      "empty_output": true,
+      "elapsed_ms": 90097,
+      "finish_reason": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "error": "url_error:timeout",
+      "text_chars": 0,
+      "text_preview": "",
+      "score": {
+        "parsed": false,
+        "parse_reason": "empty_output",
+        "accepted_any": false,
+        "widening_rejected": false,
+        "family_change_rejected": false,
+        "clarification_dropped": false,
+        "skill_key_in_output": false,
+        "proposal_intent_family": null,
+        "proposal_required": [],
+        "merged_intent_family": "clarification_required",
+        "merged_clarification_required": true,
+        "merged_required": [],
+        "merged_prohibited": [
+          "mcp",
+          "spl"
+        ],
+        "proposal_family_matches_expected": false,
+        "rejected_reasons": [
+          "empty_output"
+        ]
+      },
+      "class": "ambiguous_ownership_deferred",
+      "false_widening": false,
+      "false_widening_reasons": []
+    }
+  ],
+  "concurrency": {
+    "n2_prod_2s": {
+      "pair_wall_ms": 2042,
+      "rows": [
+        {
+          "name": "n2_p6.para.003",
+          "query": "any domain lookups that look algorithmically generated",
+          "qualification_tier": "T4",
+          "match_path": "out_of_registry",
+          "deterministic_intent_family": "clarification_required",
+          "deterministic_clarification_required": true,
+          "deterministic_required": [],
+          "deterministic_prohibited": [
+            "mcp",
+            "spl"
+          ],
+          "timeout_s": 2.0,
+          "max_tokens": 400,
+          "system_prompt_kind": "production_t4",
+          "ok": false,
+          "timed_out": true,
+          "empty_output": true,
+          "elapsed_ms": 2003,
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "error": "url_error:timeout",
+          "text_chars": 0,
+          "text_preview": "",
+          "score": {
+            "parsed": false,
+            "parse_reason": "empty_output",
+            "accepted_any": false,
+            "widening_rejected": false,
+            "family_change_rejected": false,
+            "clarification_dropped": false,
+            "skill_key_in_output": false,
+            "proposal_intent_family": null,
+            "proposal_required": [],
+            "merged_intent_family": "clarification_required",
+            "merged_clarification_required": true,
+            "merged_required": [],
+            "merged_prohibited": [
+              "mcp",
+              "spl"
+            ],
+            "proposal_family_matches_expected": false,
+            "rejected_reasons": [
+              "empty_output"
+            ]
+          }
+        },
+        {
+          "name": "n2_p6.para.004",
+          "query": "do we have endpoints calling home on a regular cadence",
+          "qualification_tier": "T4",
+          "match_path": "out_of_registry",
+          "deterministic_intent_family": "clarification_required",
+          "deterministic_clarification_required": true,
+          "deterministic_required": [],
+          "deterministic_prohibited": [
+            "mcp",
+            "spl"
+          ],
+          "timeout_s": 2.0,
+          "max_tokens": 400,
+          "system_prompt_kind": "production_t4",
+          "ok": false,
+          "timed_out": true,
+          "empty_output": true,
+          "elapsed_ms": 2002,
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "error": "url_error:timeout",
+          "text_chars": 0,
+          "text_preview": "",
+          "score": {
+            "parsed": false,
+            "parse_reason": "empty_output",
+            "accepted_any": false,
+            "widening_rejected": false,
+            "family_change_rejected": false,
+            "clarification_dropped": false,
+            "skill_key_in_output": false,
+            "proposal_intent_family": null,
+            "proposal_required": [],
+            "merged_intent_family": "clarification_required",
+            "merged_clarification_required": true,
+            "merged_required": [],
+            "merged_prohibited": [
+              "mcp",
+              "spl"
+            ],
+            "proposal_family_matches_expected": false,
+            "rejected_reasons": [
+              "empty_output"
+            ]
+          }
+        }
+      ],
+      "summary": {
+        "n": 2,
+        "ok": 0,
+        "timed_out": 2,
+        "empty_output": 2,
+        "parsed": 0,
+        "accepted_any": 0,
+        "widening_rejected": 0,
+        "clarification_dropped": 0,
+        "skill_key_in_output": 0,
+        "proposal_family_matches_expected": 0,
+        "elapsed_ms_p50": 2002.5,
+        "elapsed_ms_p95": 2002.95,
+        "elapsed_ms_min": 2002.0,
+        "elapsed_ms_max": 2003.0,
+        "elapsed_ms_mean": 2002.5
+      },
+      "note": "Direct llama-server -np 1; app sidecar semaphore is not in this path. D0 /chat N=2 is the app-slot measurement (1/2 llm_model_slot_busy)."
+    },
+    "n2_complete_90s": {
+      "pair_wall_ms": 90086,
+      "rows": [
+        {
+          "name": "n2_p6.para.003",
+          "query": "any domain lookups that look algorithmically generated",
+          "qualification_tier": "T4",
+          "match_path": "out_of_registry",
+          "deterministic_intent_family": "clarification_required",
+          "deterministic_clarification_required": true,
+          "deterministic_required": [],
+          "deterministic_prohibited": [
+            "mcp",
+            "spl"
+          ],
+          "timeout_s": 90.0,
+          "max_tokens": 400,
+          "system_prompt_kind": "production_t4",
+          "ok": false,
+          "timed_out": true,
+          "empty_output": true,
+          "elapsed_ms": 90081,
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "error": "url_error:timeout",
+          "text_chars": 0,
+          "text_preview": "",
+          "score": {
+            "parsed": false,
+            "parse_reason": "empty_output",
+            "accepted_any": false,
+            "widening_rejected": false,
+            "family_change_rejected": false,
+            "clarification_dropped": false,
+            "skill_key_in_output": false,
+            "proposal_intent_family": null,
+            "proposal_required": [],
+            "merged_intent_family": "clarification_required",
+            "merged_clarification_required": true,
+            "merged_required": [],
+            "merged_prohibited": [
+              "mcp",
+              "spl"
+            ],
+            "proposal_family_matches_expected": false,
+            "rejected_reasons": [
+              "empty_output"
+            ]
+          }
+        },
+        {
+          "name": "n2_p6.para.004",
+          "query": "do we have endpoints calling home on a regular cadence",
+          "qualification_tier": "T4",
+          "match_path": "out_of_registry",
+          "deterministic_intent_family": "clarification_required",
+          "deterministic_clarification_required": true,
+          "deterministic_required": [],
+          "deterministic_prohibited": [
+            "mcp",
+            "spl"
+          ],
+          "timeout_s": 90.0,
+          "max_tokens": 400,
+          "system_prompt_kind": "production_t4",
+          "ok": false,
+          "timed_out": true,
+          "empty_output": true,
+          "elapsed_ms": 90079,
+          "finish_reason": null,
+          "prompt_tokens": null,
+          "completion_tokens": null,
+          "error": "url_error:timeout",
+          "text_chars": 0,
+          "text_preview": "",
+          "score": {
+            "parsed": false,
+            "parse_reason": "empty_output",
+            "accepted_any": false,
+            "widening_rejected": false,
+            "family_change_rejected": false,
+            "clarification_dropped": false,
+            "skill_key_in_output": false,
+            "proposal_intent_family": null,
+            "proposal_required": [],
+            "merged_intent_family": "clarification_required",
+            "merged_clarification_required": true,
+            "merged_required": [],
+            "merged_prohibited": [
+              "mcp",
+              "spl"
+            ],
+            "proposal_family_matches_expected": false,
+            "rejected_reasons": [
+              "empty_output"
+            ]
+          }
+        }
+      ],
+      "summary": {
+        "n": 2,
+        "ok": 0,
+        "timed_out": 2,
+        "empty_output": 2,
+        "parsed": 0,
+        "accepted_any": 0,
+        "widening_rejected": 0,
+        "clarification_dropped": 0,
+        "skill_key_in_output": 0,
+        "proposal_family_matches_expected": 0,
+        "elapsed_ms_p50": 90080.0,
+        "elapsed_ms_p95": 90080.9,
+        "elapsed_ms_min": 90079.0,
+        "elapsed_ms_max": 90081.0,
+        "elapsed_ms_mean": 90080.0
+      }
+    }
+  },
+  "paraphrase_complete_summary": {
+    "n": 8,
+    "ok": 0,
+    "timed_out": 8,
+    "empty_output": 8,
+    "parsed": 0,
+    "accepted_any": 0,
+    "widening_rejected": 0,
+    "clarification_dropped": 0,
+    "skill_key_in_output": 0,
+    "proposal_family_matches_expected": 0,
+    "elapsed_ms_p50": 90092.5,
+    "elapsed_ms_p95": 90098.65,
+    "elapsed_ms_min": 90076.0,
+    "elapsed_ms_max": 90099.0,
+    "elapsed_ms_mean": 90091.875
+  },
+  "ambiguous_complete_summary": {
+    "n": 3,
+    "ok": 0,
+    "timed_out": 3,
+    "empty_output": 3,
+    "parsed": 0,
+    "accepted_any": 0,
+    "widening_rejected": 0,
+    "clarification_dropped": 0,
+    "skill_key_in_output": 0,
+    "proposal_family_matches_expected": 0,
+    "elapsed_ms_p50": 90093.0,
+    "elapsed_ms_p95": 90096.59999999999,
+    "elapsed_ms_min": 90084.0,
+    "elapsed_ms_max": 90097.0,
+    "elapsed_ms_mean": 90091.33333333333
+  },
+  "finished_utc": "2026-08-13T16:15:19.151066+00:00",
+  "elapsed_wall_s": 1462.057511
+}

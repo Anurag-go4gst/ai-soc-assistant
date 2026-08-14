@@ -1,0 +1,34 @@
+{
+  "git_sha": "1d32ac66dd6c707789db8b44574bd566af401952",
+  "flags": {
+    "AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED": false,
+    "AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED": false,
+    "AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS": 2.0,
+    "AI_SOC_LIVE_CAPABILITY_ENFORCEMENT_ENABLED": false,
+    "AI_SOC_PIPELINE_DISPATCH_V2_ENABLED": true,
+    "LANGGRAPH_ORCHESTRATION_ENABLED": true,
+    "MCP_MODE": "mock",
+    "MCP_GLOBAL_EXECUTION_ENABLED": true,
+    "MCP_SERVER_MOCK_EXECUTION_ENABLED": true
+  },
+  "flag_presence": {
+    "AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED": "docker",
+    "AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED": "docker",
+    "AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS": "unset",
+    "AI_SOC_LIVE_CAPABILITY_ENFORCEMENT_ENABLED": "docker",
+    "AI_SOC_PIPELINE_DISPATCH_V2_ENABLED": "docker",
+    "LANGGRAPH_ORCHESTRATION_ENABLED": "docker",
+    "MCP_MODE": "docker",
+    "MCP_GLOBAL_EXECUTION_ENABLED": "docker",
+    "MCP_SERVER_MOCK_EXECUTION_ENABLED": "docker"
+  },
+  "model_endpoint_host": null,
+  "model_role": "instruct",
+  "db_reachable": true,
+  "mcp_mode": "mock",
+  "mcp_connectivity": true,
+  "environment_identity": "coe-vps",
+  "test_account_role": "demo_analyst",
+  "timestamp": "2026-08-13T19:01:18Z",
+  "corpus_version": "vps_corpus_v1"
+}

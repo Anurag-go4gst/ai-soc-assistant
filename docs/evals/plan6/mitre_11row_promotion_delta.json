@@ -1,0 +1,1969 @@
+{
+  "eleven_count": 11,
+  "runtime_patch_changed_question_refs": [
+    "q0.q021",
+    "q0.q028",
+    "q0.q040",
+    "q0.q046",
+    "q0.q047",
+    "q0.q050",
+    "q0.q060",
+    "q0.q062",
+    "q0.q063",
+    "q0.q083",
+    "q0.q089"
+  ],
+  "runtime_patch_changed_count": 11,
+  "catalog_patch_changed_use_case_ids": [
+    "auth_account_lockout_trend",
+    "auth_failed_login_spike",
+    "edr_malware_alert_summary",
+    "net_new_outbound_destination"
+  ],
+  "catalog_patch_changed_count": 4,
+  "hashes_unchanged": {
+    "runtime_map": true,
+    "catalog": true,
+    "drift_ledger": true,
+    "runtime_sha256": "621232b2a97b40b2944fede12e3a42723aaef1494367cb80c8ca2c3decb20c28",
+    "catalog_sha256": "2d66a82e2ce8a4e5f257cdc5dacd2a0cce58b2c5a7b18dd86eee7f5b44f85cfa",
+    "ledger_sha256": "c0c78e0a4edff1b7054542e06a16427a7e82ad888fcb6d2b272c9b9879a001d2"
+  },
+  "eleven": [
+    {
+      "question_ref": "q0.q021",
+      "question": "Which hosts communicated with foreign IP ranges?",
+      "pattern_type": "new_or_unusual_source",
+      "legacy_router_intent_hint": "attack_discovery",
+      "field_delta": {
+        "mitre_candidate": {
+          "before": [],
+          "after": [
+            "T1071"
+          ]
+        }
+      },
+      "committed_meta": {
+        "mitre_candidate": [],
+        "mitre_permitted": [],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_visibility_policy": "trace_only",
+        "mitre_requires_evidence": false,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies."
+      },
+      "promoted_meta": {
+        "mitre_candidate": [
+          "T1071"
+        ],
+        "mitre_permitted": [],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_visibility_policy": "trace_only",
+        "mitre_requires_evidence": false,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies."
+      },
+      "decisions": {
+        "no_intent": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          }
+        },
+        "explicit_mitre_no_alert": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [
+              "T1071"
+            ],
+            "answer_visible": false,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "explicit_mitre_with_alert": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [
+              "T1071"
+            ],
+            "answer_visible": false,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "knowledge_rag_only": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          }
+        },
+        "live_investigation_no_explicit": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        }
+      }
+    },
+    {
+      "question_ref": "q0.q028",
+      "question": "Which hosts showed peer-to-peer style communication?",
+      "pattern_type": "other_or_unclear",
+      "legacy_router_intent_hint": "attack_discovery",
+      "field_delta": {
+        "mitre_candidate": {
+          "before": [],
+          "after": [
+            "T1071"
+          ]
+        }
+      },
+      "committed_meta": {
+        "mitre_candidate": [],
+        "mitre_permitted": [],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_visibility_policy": "trace_only",
+        "mitre_requires_evidence": false,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies."
+      },
+      "promoted_meta": {
+        "mitre_candidate": [
+          "T1071"
+        ],
+        "mitre_permitted": [],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_visibility_policy": "trace_only",
+        "mitre_requires_evidence": false,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies."
+      },
+      "decisions": {
+        "no_intent": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          }
+        },
+        "explicit_mitre_no_alert": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [
+              "T1071"
+            ],
+            "answer_visible": false,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "explicit_mitre_with_alert": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [
+              "T1071"
+            ],
+            "answer_visible": false,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "knowledge_rag_only": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          }
+        },
+        "live_investigation_no_explicit": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        }
+      }
+    },
+    {
+      "question_ref": "q0.q040",
+      "question": "Which hosts initiated traffic to rare countries?",
+      "pattern_type": "new_or_unusual_source",
+      "legacy_router_intent_hint": "attack_discovery",
+      "field_delta": {
+        "mitre_candidate": {
+          "before": [],
+          "after": [
+            "T1071"
+          ]
+        }
+      },
+      "committed_meta": {
+        "mitre_candidate": [],
+        "mitre_permitted": [],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_visibility_policy": "trace_only",
+        "mitre_requires_evidence": false,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies."
+      },
+      "promoted_meta": {
+        "mitre_candidate": [
+          "T1071"
+        ],
+        "mitre_permitted": [],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_visibility_policy": "trace_only",
+        "mitre_requires_evidence": false,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "No registry-level MITRE mapping is defined for this row; runtime should mark MITRE as not_applicable unless a later evidence-backed rule applies."
+      },
+      "decisions": {
+        "no_intent": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          }
+        },
+        "explicit_mitre_no_alert": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [
+              "T1071"
+            ],
+            "answer_visible": false,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "explicit_mitre_with_alert": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [
+              "T1071"
+            ],
+            "answer_visible": false,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "knowledge_rag_only": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          }
+        },
+        "live_investigation_no_explicit": {
+          "before": {
+            "mitre_status": "no_registry_mapping",
+            "technique_ids": [],
+            "registry_candidates": [],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "No runtime MITRE registry metadata is available for this route."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1071"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        }
+      }
+    },
+    {
+      "question_ref": "q0.q046",
+      "question": "Which users have excessive failed logins?",
+      "pattern_type": "threshold_anomaly",
+      "legacy_router_intent_hint": "attack_discovery",
+      "field_delta": {
+        "mitre_candidate": {
+          "before": [],
+          "after": [
+            "T1110"
+          ]
+        }
+      },
+      "committed_meta": {
+        "mitre_candidate": [],
+        "mitre_permitted": [
+          "T1110.001"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
+        "mitre_visibility_policy": "answer_if_requested",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": true,
+        "mapping_rationale": "Registry-level MITRE candidates for Which users have excessive failed logins?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "promoted_meta": {
+        "mitre_candidate": [
+          "T1110"
+        ],
+        "mitre_permitted": [
+          "T1110.001"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
+        "mitre_visibility_policy": "answer_if_requested",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": true,
+        "mapping_rationale": "Registry-level MITRE candidates for Which users have excessive failed logins?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "decisions": {
+        "no_intent": {
+          "before": {
+            "mitre_status": "requires_alert_context",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "MITRE mapping requires grounded alert context before analyst-visible mapping."
+          },
+          "after": {
+            "mitre_status": "requires_alert_context",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "MITRE mapping requires grounded alert context before analyst-visible mapping."
+          }
+        },
+        "explicit_mitre_no_alert": {
+          "before": {
+            "mitre_status": "requires_alert_context",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "MITRE mapping requires grounded alert context before analyst-visible mapping."
+          },
+          "after": {
+            "mitre_status": "requires_alert_context",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "MITRE mapping requires grounded alert context before analyst-visible mapping."
+          }
+        },
+        "explicit_mitre_with_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "knowledge_rag_only": {
+          "before": {
+            "mitre_status": "requires_alert_context",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "MITRE mapping requires grounded alert context before analyst-visible mapping."
+          },
+          "after": {
+            "mitre_status": "requires_alert_context",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "MITRE mapping requires grounded alert context before analyst-visible mapping."
+          }
+        },
+        "live_investigation_no_explicit": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        }
+      }
+    },
+    {
+      "question_ref": "q0.q047",
+      "question": "Is one IP attacking many accounts?",
+      "pattern_type": "threshold_anomaly",
+      "legacy_router_intent_hint": "attack_discovery",
+      "field_delta": {
+        "mitre_candidate": {
+          "before": [],
+          "after": [
+            "T1110"
+          ]
+        }
+      },
+      "committed_meta": {
+        "mitre_candidate": [],
+        "mitre_permitted": [
+          "T1110.001"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Is one IP attacking many accounts?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "promoted_meta": {
+        "mitre_candidate": [
+          "T1110"
+        ],
+        "mitre_permitted": [
+          "T1110.001"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Is one IP attacking many accounts?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "decisions": {
+        "no_intent": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          }
+        },
+        "explicit_mitre_no_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "explicit_mitre_with_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "knowledge_rag_only": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          }
+        },
+        "live_investigation_no_explicit": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        }
+      }
+    },
+    {
+      "question_ref": "q0.q050",
+      "question": "Did Office apps spawn cmd or PowerShell?",
+      "pattern_type": "suspicious_process_powershell",
+      "legacy_router_intent_hint": "attack_discovery",
+      "field_delta": {
+        "mitre_candidate": {
+          "before": [],
+          "after": [
+            "T1059.001"
+          ]
+        }
+      },
+      "committed_meta": {
+        "mitre_candidate": [],
+        "mitre_permitted": [
+          "T1204",
+          "T1059"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Did Office apps spawn cmd or PowerShell?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "promoted_meta": {
+        "mitre_candidate": [
+          "T1059.001"
+        ],
+        "mitre_permitted": [
+          "T1204",
+          "T1059"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Did Office apps spawn cmd or PowerShell?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "decisions": {
+        "no_intent": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1204",
+              "T1059"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1204",
+              "T1059",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          }
+        },
+        "explicit_mitre_no_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059"
+            ],
+            "registry_candidates": [
+              "T1204",
+              "T1059"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059",
+              "T1059.001"
+            ],
+            "registry_candidates": [
+              "T1204",
+              "T1059",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "explicit_mitre_with_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059"
+            ],
+            "registry_candidates": [
+              "T1204",
+              "T1059"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059",
+              "T1059.001"
+            ],
+            "registry_candidates": [
+              "T1204",
+              "T1059",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "knowledge_rag_only": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1204",
+              "T1059"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1204",
+              "T1059",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          }
+        },
+        "live_investigation_no_explicit": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059"
+            ],
+            "registry_candidates": [
+              "T1204",
+              "T1059"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059",
+              "T1059.001"
+            ],
+            "registry_candidates": [
+              "T1204",
+              "T1059",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        }
+      }
+    },
+    {
+      "question_ref": "q0.q060",
+      "question": "Which accounts had a successful login after repeated failures?",
+      "pattern_type": "success_after_failure",
+      "legacy_router_intent_hint": "attack_discovery",
+      "field_delta": {
+        "mitre_candidate": {
+          "before": [],
+          "after": [
+            "T1110"
+          ]
+        }
+      },
+      "committed_meta": {
+        "mitre_candidate": [],
+        "mitre_permitted": [
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Which accounts had a successful login after repeated failures?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "promoted_meta": {
+        "mitre_candidate": [
+          "T1110"
+        ],
+        "mitre_permitted": [
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Which accounts had a successful login after repeated failures?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "decisions": {
+        "no_intent": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          }
+        },
+        "explicit_mitre_no_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001"
+            ],
+            "not_claimed": [
+              "T1078"
+            ],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [
+              "T1078"
+            ],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "explicit_mitre_with_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001"
+            ],
+            "not_claimed": [
+              "T1078"
+            ],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [
+              "T1078"
+            ],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "knowledge_rag_only": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          }
+        },
+        "live_investigation_no_explicit": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        }
+      }
+    },
+    {
+      "question_ref": "q0.q062",
+      "question": "Which hosts show a spike in failed logins?",
+      "pattern_type": "threshold_anomaly",
+      "legacy_router_intent_hint": "attack_discovery",
+      "field_delta": {
+        "mitre_candidate": {
+          "before": [],
+          "after": [
+            "T1110"
+          ]
+        }
+      },
+      "committed_meta": {
+        "mitre_candidate": [],
+        "mitre_permitted": [
+          "T1110.001"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Which hosts show a spike in failed logins?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "promoted_meta": {
+        "mitre_candidate": [
+          "T1110"
+        ],
+        "mitre_permitted": [
+          "T1110.001"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Which hosts show a spike in failed logins?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "decisions": {
+        "no_intent": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          }
+        },
+        "explicit_mitre_no_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "explicit_mitre_with_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "knowledge_rag_only": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          }
+        },
+        "live_investigation_no_explicit": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        }
+      }
+    },
+    {
+      "question_ref": "q0.q063",
+      "question": "Which endpoints spawned script interpreters recently?",
+      "pattern_type": "suspicious_process_powershell",
+      "legacy_router_intent_hint": "attack_discovery",
+      "field_delta": {
+        "mitre_candidate": {
+          "before": [],
+          "after": [
+            "T1059.001"
+          ]
+        }
+      },
+      "committed_meta": {
+        "mitre_candidate": [],
+        "mitre_permitted": [
+          "T1059"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Which endpoints spawned script interpreters recently?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "promoted_meta": {
+        "mitre_candidate": [
+          "T1059.001"
+        ],
+        "mitre_permitted": [
+          "T1059"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Which endpoints spawned script interpreters recently?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "decisions": {
+        "no_intent": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1059"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1059",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          }
+        },
+        "explicit_mitre_no_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059"
+            ],
+            "registry_candidates": [
+              "T1059"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059",
+              "T1059.001"
+            ],
+            "registry_candidates": [
+              "T1059",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "explicit_mitre_with_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059"
+            ],
+            "registry_candidates": [
+              "T1059"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059",
+              "T1059.001"
+            ],
+            "registry_candidates": [
+              "T1059",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "knowledge_rag_only": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1059"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1059",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          }
+        },
+        "live_investigation_no_explicit": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059"
+            ],
+            "registry_candidates": [
+              "T1059"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059",
+              "T1059.001"
+            ],
+            "registry_candidates": [
+              "T1059",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        }
+      }
+    },
+    {
+      "question_ref": "q0.q083",
+      "question": "Which hosts have suspicious parent-child process chains?",
+      "pattern_type": "suspicious_process_powershell",
+      "legacy_router_intent_hint": "attack_discovery",
+      "field_delta": {
+        "mitre_candidate": {
+          "before": [],
+          "after": [
+            "T1059.001"
+          ]
+        }
+      },
+      "committed_meta": {
+        "mitre_candidate": [],
+        "mitre_permitted": [
+          "T1059",
+          "T1204"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Which hosts have suspicious parent-child process chains?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "promoted_meta": {
+        "mitre_candidate": [
+          "T1059.001"
+        ],
+        "mitre_permitted": [
+          "T1059",
+          "T1204"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003",
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Which hosts have suspicious parent-child process chains?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "decisions": {
+        "no_intent": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1059",
+              "T1204"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1059",
+              "T1204",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          }
+        },
+        "explicit_mitre_no_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059"
+            ],
+            "registry_candidates": [
+              "T1059",
+              "T1204"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059",
+              "T1059.001"
+            ],
+            "registry_candidates": [
+              "T1059",
+              "T1204",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "explicit_mitre_with_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059"
+            ],
+            "registry_candidates": [
+              "T1059",
+              "T1204"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059",
+              "T1059.001"
+            ],
+            "registry_candidates": [
+              "T1059",
+              "T1204",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "knowledge_rag_only": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1059",
+              "T1204"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1059",
+              "T1204",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          }
+        },
+        "live_investigation_no_explicit": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059"
+            ],
+            "registry_candidates": [
+              "T1059",
+              "T1204"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1059",
+              "T1059.001"
+            ],
+            "registry_candidates": [
+              "T1059",
+              "T1204",
+              "T1059.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        }
+      }
+    },
+    {
+      "question_ref": "q0.q089",
+      "question": "Which users authenticated to VPN after repeated MFA failures?",
+      "pattern_type": "success_after_failure",
+      "legacy_router_intent_hint": "attack_discovery",
+      "field_delta": {
+        "mitre_candidate": {
+          "before": [],
+          "after": [
+            "T1110"
+          ]
+        }
+      },
+      "committed_meta": {
+        "mitre_candidate": [],
+        "mitre_permitted": [
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Which users authenticated to VPN after repeated MFA failures?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "promoted_meta": {
+        "mitre_candidate": [
+          "T1110"
+        ],
+        "mitre_permitted": [
+          "T1078",
+          "T1110.001"
+        ],
+        "mitre_blocked": [
+          "T1562.001",
+          "T1003"
+        ],
+        "mitre_visibility_policy": "answer_if_supported",
+        "mitre_requires_evidence": true,
+        "mitre_requires_alert_context": false,
+        "mapping_rationale": "Registry-level MITRE candidates for Which users authenticated to VPN after repeated MFA failures?. These are permitted/candidate mappings only; runtime mitre_decision must decide whether they are supported, candidate, trace-only, or hidden based on intent and evidence."
+      },
+      "decisions": {
+        "no_intent": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Intent does not ask for MITRE and no live investigation evidence path supports display."
+          }
+        },
+        "explicit_mitre_no_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001"
+            ],
+            "not_claimed": [
+              "T1078"
+            ],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [
+              "T1078"
+            ],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "explicit_mitre_with_alert": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001"
+            ],
+            "not_claimed": [
+              "T1078"
+            ],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [
+              "T1078"
+            ],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        },
+        "knowledge_rag_only": {
+          "before": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          },
+          "after": {
+            "mitre_status": "not_answer_visible",
+            "technique_ids": [],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": false,
+            "reason": "Policy or knowledge question; MITRE mapping was not requested and is trace-only."
+          }
+        },
+        "live_investigation_no_explicit": {
+          "before": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001"
+            ],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          },
+          "after": {
+            "mitre_status": "candidate",
+            "technique_ids": [
+              "T1110.001",
+              "T1110"
+            ],
+            "registry_candidates": [
+              "T1078",
+              "T1110.001",
+              "T1110"
+            ],
+            "not_claimed": [],
+            "answer_visible": true,
+            "reason": "Registry-permitted MITRE candidates are statused by evidence preconditions; confirmation still requires analyst validation."
+          }
+        }
+      }
+    }
+  ]
+}

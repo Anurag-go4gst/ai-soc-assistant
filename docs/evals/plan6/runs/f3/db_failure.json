@@ -1,0 +1,52 @@
+{
+  "steps": [
+    {
+      "name": "health_before",
+      "http_code": "200",
+      "wall_ms": 80,
+      "curl_exit": 0,
+      "body_excerpt": "{\"status\":\"ok\",\"service\":\"ai-soc-assistant-backend\",\"readiness\":{\"database_migrations\":{\"ready\":true,\"configured\":true,\"required_versions\":[\"0001_ai_soc_telemetry\",\"0002_answer_quality\",\"0003_ai_soc_telemetry_indexes\",\"0004_canonical_handoffs\",\"0005_canonical_planning_cutover_constraints\",\"0006_canonical_retention_indexes\"],\"missing_versions\":[],\"remediation\":\"docker compose exec backend python scripts/migrate_ai_soc_db.py\",\"detail\":\"ok\"}},\"telemetry\":{\"write_failures\":0,\"telemetry_write_failure"
+    },
+    {
+      "name": "stop_postgres",
+      "exit": 0,
+      "wall_ms": 1105,
+      "stderr": " Container ai-soc-assistant-postgres-1 Stopping \n Container ai-soc-assistant-postgres-1 Stopped \n"
+    },
+    {
+      "name": "health_during_db_down",
+      "http_code": "200",
+      "wall_ms": 55,
+      "curl_exit": 0,
+      "body_excerpt": "{\"status\":\"ok\",\"service\":\"ai-soc-assistant-backend\",\"readiness\":{\"database_migrations\":{\"ready\":false,\"configured\":true,\"required_versions\":[\"0001_ai_soc_telemetry\",\"0002_answer_quality\",\"0003_ai_soc_telemetry_indexes\",\"0004_canonical_handoffs\",\"0005_canonical_planning_cutover_constraints\",\"0006_canonical_retention_indexes\"],\"missing_versions\":[\"0001_ai_soc_telemetry\",\"0002_answer_quality\",\"0003_ai_soc_telemetry_indexes\",\"0004_canonical_handoffs\",\"0005_canonical_planning_cutover_constraints\",\"00"
+    },
+    {
+      "name": "login_during_db_down",
+      "http_code": "401",
+      "curl_exit": 0,
+      "wall_ms": 32,
+      "body_excerpt": "{\"detail\":\"Invalid credentials\"}"
+    },
+    {
+      "name": "chat_during_db_down",
+      "http_code": "401",
+      "curl_exit": 0,
+      "wall_ms": 35,
+      "body_excerpt": "{\"detail\":\"Authentication required\"}"
+    },
+    {
+      "name": "start_postgres",
+      "exit": 0,
+      "wall_ms": 388
+    },
+    {
+      "name": "health_after_db_up",
+      "attempt": 1,
+      "http_code": "200",
+      "wall_ms": 99,
+      "curl_exit": 0,
+      "body_excerpt": "{\"status\":\"ok\",\"service\":\"ai-soc-assistant-backend\",\"readiness\":{\"database_migrations\":{\"ready\":true,\"configured\":true,\"required_versions\":[\"0001_ai_soc_telemetry\",\"0002_answer_quality\",\"0003_ai_soc_telemetry_indexes\",\"0004_canonical_handoffs\",\"0005_canonical_planning_cutover_constraints\",\"0006_canonical_retention_indexes\"],\"missing_versions\":[],\"remediation\":\"docker compose exec backend python scripts/migrate_ai_soc_db.py\",\"detail\":\"ok\"}},\"telemetry\":{\"write_failures\":0,\"telemetry_write_failure"
+    }
+  ],
+  "recovered": true
+}
