@@ -1,0 +1,7770 @@
+{
+  "summary": {
+    "total_rows": 175,
+    "affected_rows": 5,
+    "affected_by_corpus": {
+      "plan6_corpus": 1,
+      "golden_105": 4
+    },
+    "affected_by_mechanism": {
+      "no_schedulable_step": 5
+    },
+    "affected_by_lost_phase": {
+      "execution": 5,
+      "spl_postprocessor": 5,
+      "spl_source_resolve": 5,
+      "workflow_spl": 5
+    },
+    "affected_by_intent_family": {
+      "spl_generation_only": 5
+    },
+    "compile_downgrade_all_rows": {
+      "null": 158,
+      "empty_resource_plan": 11,
+      "no_schedulable_step": 6
+    },
+    "merged_rows": 158,
+    "errors": 0
+  },
+  "rows": [
+    {
+      "intent_family": "sop_or_playbook",
+      "answer_goal": "procedural_steps",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "knowledge_retrieval",
+        "narration"
+      ],
+      "mandatory": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_hook_backed": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.t1.knowledge"
+    },
+    {
+      "intent_family": "policy_knowledge",
+      "answer_goal": "policy_citation",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "knowledge_retrieval",
+        "narration"
+      ],
+      "mandatory": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_hook_backed": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.t2.known_nontrivial"
+    },
+    {
+      "intent_family": "guided_investigation",
+      "answer_goal": "procedural_steps",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "guided_investigation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "context_sufficiency",
+        "evidence_collection",
+        "knowledge_retrieval",
+        "narration"
+      ],
+      "mandatory": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_hook_backed": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.t4.out_of_registry"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.spl.draft"
+    },
+    {
+      "intent_family": "hybrid_alert_review",
+      "answer_goal": "severity_assessment",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mitre_mapping",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "mitre_finalize",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [
+        "mitre_finalize"
+      ],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.spl.mcp"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "spl_postprocessor",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.multi.knowledge_spl_mcp"
+    },
+    {
+      "intent_family": "clarification_required",
+      "answer_goal": "clarification",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [],
+      "mandatory": [],
+      "mandatory_hook_backed": [],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "empty_resource_plan",
+      "compiled_hooks": null,
+      "merge_reason": "empty_resource_plan",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.clarify"
+    },
+    {
+      "intent_family": "clarification_required",
+      "answer_goal": "clarification",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [],
+      "mandatory": [],
+      "mandatory_hook_backed": [],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "empty_resource_plan",
+      "compiled_hooks": null,
+      "merge_reason": "empty_resource_plan",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.unsafe"
+    },
+    {
+      "intent_family": "alert_summary",
+      "answer_goal": "severity_assessment",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration"
+      ],
+      "mandatory": [],
+      "mandatory_hook_backed": [],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "no_schedulable_step",
+      "compiled_hooks": null,
+      "merge_reason": "no_schedulable_step",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.alert.summary"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "no_schedulable_step",
+      "compiled_hooks": null,
+      "merge_reason": "no_schedulable_step",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "affected": true,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.live_posture.d1_003"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.repeat.refinement"
+    },
+    {
+      "intent_family": "spl_generation_and_run",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.fail.degraded"
+    },
+    {
+      "intent_family": "clarification_required",
+      "answer_goal": "clarification",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [],
+      "mandatory": [],
+      "mandatory_hook_backed": [],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "empty_resource_plan",
+      "compiled_hooks": null,
+      "merge_reason": "empty_resource_plan",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.para.003"
+    },
+    {
+      "intent_family": "clarification_required",
+      "answer_goal": "clarification",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [],
+      "mandatory": [],
+      "mandatory_hook_backed": [],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "empty_resource_plan",
+      "compiled_hooks": null,
+      "merge_reason": "empty_resource_plan",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.para.004"
+    },
+    {
+      "intent_family": "clarification_required",
+      "answer_goal": "clarification",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [],
+      "mandatory": [],
+      "mandatory_hook_backed": [],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "empty_resource_plan",
+      "compiled_hooks": null,
+      "merge_reason": "empty_resource_plan",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.para.005"
+    },
+    {
+      "intent_family": "clarification_required",
+      "answer_goal": "clarification",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [],
+      "mandatory": [],
+      "mandatory_hook_backed": [],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "empty_resource_plan",
+      "compiled_hooks": null,
+      "merge_reason": "empty_resource_plan",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.para.006"
+    },
+    {
+      "intent_family": "clarification_required",
+      "answer_goal": "clarification",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [],
+      "mandatory": [],
+      "mandatory_hook_backed": [],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "empty_resource_plan",
+      "compiled_hooks": null,
+      "merge_reason": "empty_resource_plan",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.para.007"
+    },
+    {
+      "intent_family": "clarification_required",
+      "answer_goal": "clarification",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [],
+      "mandatory": [],
+      "mandatory_hook_backed": [],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "empty_resource_plan",
+      "compiled_hooks": null,
+      "merge_reason": "empty_resource_plan",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.para.008"
+    },
+    {
+      "intent_family": "clarification_required",
+      "answer_goal": "clarification",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [],
+      "mandatory": [],
+      "mandatory_hook_backed": [],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "empty_resource_plan",
+      "compiled_hooks": null,
+      "merge_reason": "empty_resource_plan",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.para.012"
+    },
+    {
+      "intent_family": "clarification_required",
+      "answer_goal": "clarification",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [],
+      "mandatory": [],
+      "mandatory_hook_backed": [],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "empty_resource_plan",
+      "compiled_hooks": null,
+      "merge_reason": "empty_resource_plan",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "plan6_corpus",
+      "row_id": "p6.para.015"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q001"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q002"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q003"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q004"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q005"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q006"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q007"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q008"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q009"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q010"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q011"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q012"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q013"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q014"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q015"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q016"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q017"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q018"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q019"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q020"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q021"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q022"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q023"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q024"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q025"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q026"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q027"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q028"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q029"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q030"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q031"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q032"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q033"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q034"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q035"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q036"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q037"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q038"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q039"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q040"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q041"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q042"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q043"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q044"
+    },
+    {
+      "intent_family": "clarification_required",
+      "answer_goal": "clarification",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [],
+      "mandatory": [],
+      "mandatory_hook_backed": [],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "empty_resource_plan",
+      "compiled_hooks": null,
+      "merge_reason": "empty_resource_plan",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q045"
+    },
+    {
+      "intent_family": "live_investigation",
+      "answer_goal": "live_results",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "mcp",
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q046"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q047"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q048"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q049"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q050"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q051"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q052"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q053"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q054"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "no_schedulable_step",
+      "compiled_hooks": null,
+      "merge_reason": "no_schedulable_step",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "affected": true,
+      "corpus": "golden_105",
+      "row_id": "q0.q055"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q056"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q057"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q058"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q059"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q060"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q061"
+    },
+    {
+      "intent_family": "live_investigation",
+      "answer_goal": "live_results",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "mcp",
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q062"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q063"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q064"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q065"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q066"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q067"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q068"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "spl_postprocessor",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q069"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q070"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "spl_postprocessor",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q071"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q072"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q073"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q074"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q075"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q076"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q077"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q078"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q079"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q080"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q081"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q082"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q083"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q084"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q085"
+    },
+    {
+      "intent_family": "live_investigation",
+      "answer_goal": "live_results",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "mcp",
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q086"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q087"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q088"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q089"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q090"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q091"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q092"
+    },
+    {
+      "intent_family": "live_investigation",
+      "answer_goal": "live_results",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "mcp",
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q093"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "no_schedulable_step",
+      "compiled_hooks": null,
+      "merge_reason": "no_schedulable_step",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "affected": true,
+      "corpus": "golden_105",
+      "row_id": "q0.q094"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "no_schedulable_step",
+      "compiled_hooks": null,
+      "merge_reason": "no_schedulable_step",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "affected": true,
+      "corpus": "golden_105",
+      "row_id": "q0.q095"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "spl_postprocessor",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q096"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q097"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q098"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q099"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q100"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q101"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q102"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "narration"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": "no_schedulable_step",
+      "compiled_hooks": null,
+      "merge_reason": "no_schedulable_step",
+      "merged": false,
+      "merged_hooks": null,
+      "mandatory_lost": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "affected": true,
+      "corpus": "golden_105",
+      "row_id": "q0.q103"
+    },
+    {
+      "intent_family": "knowledge_only",
+      "answer_goal": "procedural_steps",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "knowledge_retrieval",
+        "narration"
+      ],
+      "mandatory": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_hook_backed": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q104"
+    },
+    {
+      "intent_family": "live_investigation",
+      "answer_goal": "live_results",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "mcp",
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "golden_105",
+      "row_id": "q0.q105"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.perim.001"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.perim.002"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.perim.003"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.perim.004"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.perim.005"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.perim.006"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.perim.007"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.perim.008"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.perim.009"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.perim.010"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.identity.011"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.identity.012"
+    },
+    {
+      "intent_family": "policy_knowledge",
+      "answer_goal": "policy_citation",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "knowledge_retrieval",
+        "narration"
+      ],
+      "mandatory": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_hook_backed": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.identity.013"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.identity.014"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.identity.015"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.identity.016"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.identity.017"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.identity.018"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.identity.019"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.identity.020"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.ot.021"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.ot.022"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.ot.023"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.ot.024"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.ot.025"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.ot.026"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.ot.027"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.ot.028"
+    },
+    {
+      "intent_family": "live_investigation",
+      "answer_goal": "live_results",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "mcp",
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.ot.029"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.ot.030"
+    },
+    {
+      "intent_family": "policy_knowledge",
+      "answer_goal": "policy_citation",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "knowledge_retrieval",
+        "narration"
+      ],
+      "mandatory": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_hook_backed": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.compliance.031"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.compliance.032"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.compliance.033"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.compliance.034"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.compliance.035"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.compliance.036"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.compliance.037"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.compliance.038"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.compliance.039"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.compliance.040"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.endpoint.041"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.endpoint.042"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.endpoint.043"
+    },
+    {
+      "intent_family": "knowledge_only",
+      "answer_goal": "analyst_action_guidance",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "knowledge_retrieval",
+        "narration"
+      ],
+      "mandatory": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_hook_backed": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.endpoint.044"
+    },
+    {
+      "intent_family": "knowledge_only",
+      "answer_goal": "analyst_action_guidance",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "knowledge_retrieval",
+        "narration"
+      ],
+      "mandatory": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_hook_backed": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.endpoint.045"
+    },
+    {
+      "intent_family": "knowledge_only",
+      "answer_goal": "analyst_action_guidance",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "knowledge_retrieval",
+        "narration"
+      ],
+      "mandatory": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_hook_backed": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.endpoint.046"
+    },
+    {
+      "intent_family": "knowledge_only",
+      "answer_goal": "analyst_action_guidance",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "knowledge_retrieval",
+        "narration"
+      ],
+      "mandatory": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_hook_backed": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.endpoint.047"
+    },
+    {
+      "intent_family": "knowledge_only",
+      "answer_goal": "procedural_steps",
+      "qualification_tier": "T4",
+      "required_capabilities": [],
+      "routed_skill": "knowledge_recall",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "knowledge_retrieval",
+        "narration"
+      ],
+      "mandatory": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_hook_backed": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "prepare_rag_only",
+        "rag_early"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.endpoint.048"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "attack_discovery",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.endpoint.049"
+    },
+    {
+      "intent_family": "spl_generation_only",
+      "answer_goal": "spl_artifact",
+      "qualification_tier": "T4",
+      "required_capabilities": [
+        "spl"
+      ],
+      "routed_skill": "spl_generation",
+      "has_plan": true,
+      "plan_error": null,
+      "plan_purposes": [
+        "mcp_execution",
+        "narration",
+        "spl_artifact"
+      ],
+      "mandatory": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_hook_backed": [
+        "execution",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "workflow_spl"
+      ],
+      "mandatory_inline_only": [],
+      "compile_downgrade": null,
+      "compiled_hooks": [
+        "workflow_spl",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "merge_reason": null,
+      "merged": true,
+      "merged_hooks": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "mandatory_lost": [],
+      "affected": false,
+      "corpus": "cisco_50",
+      "row_id": "cisco.endpoint.050"
+    }
+  ]
+}

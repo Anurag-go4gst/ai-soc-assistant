@@ -134,7 +134,7 @@ Flags stay independently controllable for testing and rollback **after** activat
   - **Depends on:** P0.4
   - **Evidence:** `docs/evals/plan7/a0_missed_work_analysis.md`. Runtime: both rows show `degrade_reason=no_schedulable_step`, `phase_names=[]`, and an executed `dispatch_schedule` of `workflow_spl → spl_source_resolve → execution` — **`spl_postprocessor` absent** though `workflow_spl` ran, so a candidate SPL exists that never passed the mandatory deterministic post-processing. Control row `p6.spl.draft` has an **identical contract shape** (`spl_generation_only` / `spl_artifact` / `required=['spl']`, T2) and merges correctly with `spl_postprocessor` present — proving the discriminator is the **ResourcePlan's schedulable purposes**, not the query. Mechanism: `_compile_hooks` returns `[]` → `no_schedulable_step`; `merge_schedule:204-206` returns on that downgrade **before** `_apply_phase_contract` / `validate_schedule`, so the resolved contract is discarded unread; `spl_postprocessor` is excluded from `SCHEDULABLE_HOOKS` by design, making the merge its only re-inserter; `phase_policy.py:143` marks it mandatory from `required_capabilities`/`candidate_spl` **without** needing a schedulable `spl_artifact` step; with v2 OFF the predicate fallback never adds it (v2's projected schedule did, `pipeline_dispatch_builder.py:38,286`). **Failing-first test committed before any fix:** `backend/app/tests/test_plan7_a0_mandatory_phase_survives_no_schedulable_step.py` → **2 passed, 2 xfailed(strict)**; asserts the architectural invariant, names no query ID, and a second test proves the early return is **phase-agnostic**. No fix implemented.
 
-- [ ] **A1** — Enumerate every structurally equivalent case
+- [x] **A1** — Enumerate every structurally equivalent case
   - **Do:** Sweep the corpus, the 105 goldens and the Cisco 50 for the same structural
     condition (contract declares a mandatory lifecycle phase; compiler emits no schedulable
     step; merge therefore never re-inserts). Classify by mechanism, never by query ID.
@@ -142,7 +142,7 @@ Flags stay independently controllable for testing and rollback **after** activat
     the query set each covers; explicitly states whether the population is larger than the two
     known rows.
   - **Depends on:** A0
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/a1_structural_population.md` + `.json`, from `scripts/eval_plan7_a1_population.py` (planning layer only — no LLM, MCP or HTTP call). **175 rows swept**: Plan 6 corpus 20, goldens 105, Cisco 50. Compiler verdicts: **158** merged cleanly, **11** `empty_resource_plan`, **6** `no_schedulable_step`. **Affected: 5 offline** (1 plan6 + 4 goldens `q0.q055/094/095/103`, **0 Cisco**) **+ 1 runtime-only** (`p6.multi.knowledge_spl_mcp`, trace `4e048382…`) = **6 distinct rows, a lower bound**. Classified by mechanism, not query ID: **M1 skill-contract veto empties the plan** (5 rows — `spl_generation_only` intent routed to a skill that vetoes `spl_artifact`, leaving `narration` only → no hook → downgrade → contract discarded); **M2 no lifecycle owed** (11 clarification-lane rows — benign); **M3 narration-only `alert_summary`** (1 row — benign). **0** rows where the merge applied the contract and still dropped a phase. Every affected row loses the **same four** hook-backed phases together — `workflow_spl`, `spl_postprocessor`, `spl_source_resolve` and **`execution`** — so the defect is **not** `spl_postprocessor`-specific; inline phases (`mitre_finalize`/`cve_adapter`) are latent-but-unmeasured because the early return is phase-agnostic. Limitations stated in the artifact: the sweep routes deterministically while the runtime uses full adjudication (which is why one row is runtime-only), models `blocked_step_ids=∅`, and enters `resource_plan_authority()` to use the runtime's own composer without committing anything.
 
 - [ ] **A2** — `P7_SPL_LIFECYCLE_OWNERSHIP` **STOP**
   - **Do:** Present the ownership options with their blast radius: (a) PhaseContract lifecycle
@@ -154,7 +154,7 @@ Flags stay independently controllable for testing and rollback **after** activat
     rejected ones; artifact `docs/evals/plan7/a2_stop_decision.md`.
   - **Depends on:** A1
   - **STOP:** `P7_SPL_LIFECYCLE_OWNERSHIP`
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Packet presented: `docs/evals/plan7/a2_stop_decision_packet.md` — population, deterministic applicability condition, current ownership map, why `no_schedulable_step` prevents it, all five options (A–E) each with ownership / applicability / blast radius / population covered / effect on other lifecycle phases / flag-OFF compatibility / duplicate-execution risk / seam interaction / tests required, plus recommendation (**A, framed as E**) and reasoned rejections of B, C, D. **Awaiting user decision — A3 not implemented.**
 
 - [ ] **A3** — Implement the approved ownership fix
   - **Do:** Implement exactly the approved option. No query-ID special cases, no keyword

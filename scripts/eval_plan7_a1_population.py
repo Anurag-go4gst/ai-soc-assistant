@@ -1,26 +1,30 @@
 #!/usr/bin/env python3
 """Plan 7 A1 — structural population sweep for lost mandatory lifecycle work.
 
-Runs each corpus query through the **production** runtime — the resource-planner
-graph (`run_chat_via_resource_planner_graph`), the same entrypoint `/chat` uses,
-not the imperative re-run — with the remediation
-posture forced (ResourcePlan execution ON, dispatch-v2 OFF) and **instruments the
-merge seam** rather than guessing from answers: `merge_schedule` is wrapped so
-every call records the resolved PhaseContract, the compiler verdict and the merge
-result for that turn.
+Measures the **planning layer** directly rather than replaying `/chat`: for every
+corpus query it builds the same `ResolvedQueryContract` and `ResourcePlan` the
+runtime builds, resolves the `PhaseContract`, then runs the real compiler and the
+real merge. That is exactly the triple whose interaction produces the defect, and
+it costs no LLM call, no MCP call and no HTTP turn.
+
+Structural condition being counted:
+
+    PhaseContract declares an applicable MANDATORY lifecycle phase
+      + compiler returns a downgrade (no_schedulable_step or equivalent)
+      + merge therefore never applies the PhaseContract
+      + the mandatory work has no other owner with dispatch-v2 OFF
 
 Classification is by **mechanism and phase type**, never by query ID.
 
-    python3 scripts/eval_plan7_a1_population.py --corpus all --out docs/evals/plan7/a1_structural_population.json
+    python3 scripts/eval_plan7_a1_population.py --corpus all
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
-import time
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -30,132 +34,138 @@ for _path in (ROOT / "backend", ROOT):
     if _text not in sys.path:
         sys.path.insert(0, _text)
 
-# Offline structural audit, not a provider-availability test. Advisory/live
-# components off so local flags cannot add network noise to the sweep.
-os.environ["AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED"] = "false"
-os.environ["AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED"] = "false"
-os.environ["AI_SOC_LLM_EVIDENCE_OBSERVER_ENABLED"] = "false"
-os.environ["AI_SOC_LLM_SPL_FALLBACK_ENABLED"] = "false"
-os.environ["AI_SOC_LLM_UTILITY_SPL_DRAFT_ENABLED"] = "false"
-
-from app.config import settings  # noqa: E402
-
-for _name in (
-    "ai_soc_llm_enabled",
-    "ai_soc_llm_intent_advisor_enabled",
-    "ai_soc_llm_spl_fallback_enabled",
-    "ai_soc_llm_utility_spl_draft_enabled",
-    "ai_soc_llm_final_synthesis_enabled",
-    "ai_soc_llm_live_synthesis_enabled",
-):
-    if hasattr(settings, _name):
-        setattr(settings, _name, False)
-
-# The remediation posture under audit. T4 is left exactly as the runtime has it —
-# this script never turns T4 off.
-settings.ai_soc_resource_plan_execution_enabled = True
-settings.ai_soc_pipeline_dispatch_v2_enabled = False
-
-from app.graph.resource_planner_graph import (  # noqa: E402
-    run_chat_via_resource_planner_graph,
+from app.chat.evidence_planner import plan_evidence  # noqa: E402
+from app.chat.intent_classifier import build_query_to_intent  # noqa: E402
+from app.chat.resolved_query_builder import build_resolved_query_contract  # noqa: E402
+from app.planner.phase_contract import resolve_and_freeze  # noqa: E402
+from app.planner.phase_policy import PhasePolicyInputs  # noqa: E402
+from app.planner.phase_schedule_merge import merge_schedule  # noqa: E402
+from app.planner.composer import compose_resource_plan  # noqa: E402
+from app.planner.resource_plan_authority import resource_plan_authority  # noqa: E402
+from app.planner.resource_plan import ResourcePlan  # noqa: E402
+from app.planner.resource_plan_execution_scheduler import (  # noqa: E402
+    ScheduleInputs,
+    compile_execution_schedule,
 )
-from app.planner import phase_schedule_merge as merge_mod  # noqa: E402
-from app.planner import executor as executor_mod  # noqa: E402
-from app.schemas.requests import ChatRequest  # noqa: E402
+from app.query_understanding.parser import understand_query  # noqa: E402
+from app.routing.skill_router import route_skill  # noqa: E402
 
-_RECORDS: list[dict[str, Any]] = []
-_real_merge = merge_mod.merge_schedule
+# dispatch-v2 OFF is the posture under audit: pre-SPL discovery is not applicable
+# and there is no projected schedule for a phase to be inherited from.
+POLICY = PhasePolicyInputs(has_workflow_plan=False, pre_spl_discovery_enabled=False)
+INPUTS = ScheduleInputs(blocked_step_ids=frozenset(), has_workflow_plan=False)
 
 
-def _instrumented_merge(contract, plan, phase_contract, inputs):
-    """Record what the run owed and what the merge did with it."""
-    from app.planner.resource_plan_execution_scheduler import compile_execution_schedule
-
-    compiled, compile_downgrade = compile_execution_schedule(plan, inputs)
-    merged, reason = _real_merge(contract, plan, phase_contract, inputs)
-
-    mandatory = sorted(p.name for p in phase_contract.phases if p.mandatory)
-    applicable = sorted(p.name for p in phase_contract.phases)
-    represented: set[str] = set()
-    if merged is not None:
-        represented = set(merged.hooks) | set(merged.inline_phases)
-
-    _RECORDS.append(
-        {
-            "compile_downgrade": compile_downgrade,
-            "compiled_hooks": list(compiled.hooks) if compiled is not None else None,
-            "merge_reason": reason,
-            "merged": merged is not None,
-            "merged_hooks": list(merged.hooks) if merged is not None else None,
-            "phase_contract_applicable": applicable,
-            "phase_contract_mandatory": mandatory,
-            "mandatory_lost": sorted(set(mandatory) - represented) if merged is None else sorted(
-                set(mandatory) - represented
-            ),
-            "intent_family": getattr(contract, "intent_family", None),
-            "answer_goal": getattr(contract, "answer_goal", None),
-            "qualification_tier": getattr(contract, "qualification_tier", None),
-        }
+def _analyse(query: str) -> dict[str, Any]:
+    understanding = understand_query(query)
+    q2i = build_query_to_intent(query=query, query_understanding=understanding)
+    evidence_plan = plan_evidence(
+        q2i.intent_classification,
+        query_to_intent=q2i.model_dump(),
+        query_understanding=understanding,
     )
-    return merged, reason
+    # The routed skill's capability contract vetoes steps during composition, so
+    # a sweep that omits it measures a plan the runtime never builds.
+    try:
+        routed = route_skill(query)
+        routed_skill = str(routed.get("skill") or "") or None
+    except Exception:  # noqa: BLE001 - routing failure is data
+        routed_skill = None
 
+    payload = evidence_plan.model_dump()
+    raw_plan = payload.get("resource_plan")
+    plan = None
+    plan_error = None
+    if isinstance(raw_plan, dict):
+        try:
+            plan = ResourcePlan.model_validate(raw_plan)
+        except Exception as exc:  # noqa: BLE001 - an unparseable plan is data
+            plan_error = type(exc).__name__
+    if plan is None:
+        # `plan_evidence` decides the evidence needs; composition into a
+        # ResourcePlan happens later in the runtime. Compose it here with the
+        # same composer the graph uses, so the sweep measures a real plan rather
+        # than the absence of one.
+        try:
+            # Composition is authority-gated to the runtime's approved scope. The
+            # sweep enters that scope explicitly so it measures the same composer
+            # the runtime uses; it commits nothing and touches no state.
+            with resource_plan_authority():
+                plan = compose_resource_plan(
+                    evidence_plan,
+                    intent_family=q2i.intent_classification.intent_family,
+                    skill_id=routed_skill,
+                )
+        except Exception as exc:  # noqa: BLE001 - a composition failure is data
+            plan_error = type(exc).__name__
 
-merge_mod.merge_schedule = _instrumented_merge
-if hasattr(executor_mod, "merge_schedule"):  # imported lazily inside the executor
-    executor_mod.merge_schedule = _instrumented_merge
-
-_SEAM: list[dict[str, Any]] = []
-_real_detailed = executor_mod._execution_driven_schedule_detailed
-
-
-def _instrumented_detailed(state, walk):
-    """Record whether the execution-authority seam was reached at all."""
-    compiled, reason, trace = _real_detailed(state, walk)
-    _SEAM.append(
-        {
-            "compiled": compiled is not None,
-            "downgrade_reason": reason,
-            "had_contract": bool(state.get("resolved_query_contract")),
-            "had_plan": bool(
-                (state.get("evidence_plan") or {}).get("resource_plan")
-                if isinstance(state.get("evidence_plan"), dict)
-                else False
-            ),
-        }
+    contract = build_resolved_query_contract(
+        query=query,
+        query_understanding=understanding,
+        qualification_tier=getattr(understanding, "catalogue_tier", None) or "T4",
+        qualification_source="a1_population_sweep",
+        query_to_intent=q2i,
     )
-    return compiled, reason, trace
 
+    phase_contract = resolve_and_freeze(contract, plan, POLICY)
+    mandatory = [phase for phase in phase_contract.phases if phase.mandatory]
+    mandatory_names = sorted(phase.name for phase in mandatory)
+    hook_backed = sorted(phase.name for phase in mandatory if phase.hook_name is not None)
+    inline_only = sorted(phase.name for phase in mandatory if phase.hook_name is None)
 
-executor_mod._execution_driven_schedule_detailed = _instrumented_detailed
+    compiled, downgrade = compile_execution_schedule(plan, INPUTS)
+    merged, merge_reason = merge_schedule(contract, plan, phase_contract, INPUTS)
+    represented = set(merged.hooks) | set(merged.inline_phases) if merged is not None else set()
+
+    # The defect: the contract owes hook-backed lifecycle work, the merge produced
+    # nothing, and the reason is a bare compiler downgrade.
+    affected = merged is None and bool(hook_backed) and downgrade is not None
+
+    return {
+        "intent_family": contract.intent_family,
+        "answer_goal": contract.answer_goal,
+        "qualification_tier": contract.qualification_tier,
+        "required_capabilities": sorted(contract.required_capabilities or []),
+        "routed_skill": routed_skill,
+        "has_plan": plan is not None,
+        "plan_error": plan_error,
+        "plan_purposes": sorted({str(step.purpose) for step in plan.steps}) if plan else [],
+        "mandatory": mandatory_names,
+        "mandatory_hook_backed": hook_backed,
+        "mandatory_inline_only": inline_only,
+        "compile_downgrade": downgrade,
+        "compiled_hooks": list(compiled.hooks) if compiled is not None else None,
+        "merge_reason": merge_reason,
+        "merged": merged is not None,
+        "merged_hooks": list(merged.hooks) if merged is not None else None,
+        "mandatory_lost": sorted(set(mandatory_names) - represented),
+        "affected": affected,
+    }
 
 
 def _load_corpus(name: str) -> list[tuple[str, str, str]]:
-    """(corpus, row_id, query) triples."""
     rows: list[tuple[str, str, str]] = []
     if name in {"plan6", "all"}:
         payload = json.loads(
             (ROOT / "docs" / "evals" / "plan6" / "vps_corpus_v1.json").read_text("utf-8")
         )
-        for row in payload["rows"] if isinstance(payload, dict) else payload:
+        entries = payload["rows"] if isinstance(payload, dict) else payload
+        for row in entries:
             rows.append(("plan6_corpus", str(row["row_id"]), str(row["query"])))
     if name in {"golden105", "all"}:
-        path = ROOT / "backend" / "app" / "evals" / "golden_answers" / "question_105_golden.jsonl"
-        for line in path.read_text("utf-8").splitlines():
-            if not line.strip():
-                continue
-            row = json.loads(line)
-            query = row.get("question") or row.get("query") or row.get("prompt")
-            if query:
-                rows.append(("golden_105", str(row.get("question_id") or row.get("id")), str(query)))
+        payload = json.loads(
+            (ROOT / "backend" / "app" / "coverage" / "question_runtime_map_v1.json").read_text(
+                "utf-8"
+            )
+        )
+        for entry in payload["entries"]:
+            rows.append(("golden_105", str(entry["question_ref"]), str(entry["question"])))
     if name in {"cisco50", "all"}:
         payload = json.loads(
             (ROOT / "docs" / "evals" / "cisco_powergrid_question_bank.json").read_text("utf-8")
         )
-        entries = payload["questions"] if isinstance(payload, dict) else payload
-        for row in entries:
-            query = row.get("question") or row.get("query")
-            if query:
-                rows.append(("cisco_50", str(row.get("id") or row.get("question_id")), str(query)))
+        for row in payload["entries"]:
+            rows.append(("cisco_50", str(row["question_id"]), str(row["question"])))
     return rows
 
 
@@ -172,43 +182,38 @@ def main() -> int:
 
     results: list[dict[str, Any]] = []
     for corpus, row_id, query in rows:
-        _RECORDS.clear()
-        _SEAM.clear()
-        started = time.monotonic()
-        error = None
         try:
-            run_chat_via_resource_planner_graph(ChatRequest(message=query))
+            record = _analyse(query)
         except Exception as exc:  # noqa: BLE001 - a failing row is data, not a crash
-            error = f"{type(exc).__name__}: {exc}"[:200]
-        results.append(
-            {
-                "corpus": corpus,
-                "row_id": row_id,
-                "wall_ms": int((time.monotonic() - started) * 1000),
-                "error": error,
-                "merge_calls": list(_RECORDS),
-                "seam_calls": list(_SEAM),
-            }
-        )
-        print(
-            json.dumps(
-                {
-                    "corpus": corpus,
-                    "row_id": row_id,
-                    "seam_calls": len(_SEAM),
-                    "seam_reasons": [s["downgrade_reason"] for s in _SEAM],
-                    "merge_calls": len(_RECORDS),
-                    "downgrades": [r["compile_downgrade"] for r in _RECORDS],
-                    "lost": [r["mandatory_lost"] for r in _RECORDS],
-                }
-            ),
-            flush=True,
-        )
+            record = {"error": f"{type(exc).__name__}: {exc}"[:200], "affected": False}
+        record["corpus"] = corpus
+        record["row_id"] = row_id
+        results.append(record)
+
+    affected = [row for row in results if row.get("affected")]
+    by_phase: Counter[str] = Counter()
+    for row in affected:
+        by_phase.update(row.get("mandatory_hook_backed") or [])
+
+    summary = {
+        "total_rows": len(results),
+        "affected_rows": len(affected),
+        "affected_by_corpus": dict(Counter(row.get("corpus") for row in affected)),
+        "affected_by_mechanism": dict(Counter(row.get("compile_downgrade") for row in affected)),
+        "affected_by_lost_phase": dict(by_phase),
+        "affected_by_intent_family": dict(Counter(row.get("intent_family") for row in affected)),
+        "compile_downgrade_all_rows": dict(
+            Counter(row.get("compile_downgrade") for row in results)
+        ),
+        "merged_rows": sum(1 for row in results if row.get("merged")),
+        "errors": sum(1 for row in results if row.get("error")),
+    }
 
     out = ROOT / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"rows": results}, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"ok": True, "rows": len(results), "out": str(out.relative_to(ROOT))}))
+    out.write_text(json.dumps({"summary": summary, "rows": results}, indent=2) + "\n", "utf-8")
+    print(json.dumps(summary, indent=2))
+    print(json.dumps({"ok": True, "out": str(out.relative_to(ROOT))}))
     return 0
 
 
