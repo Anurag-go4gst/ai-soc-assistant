@@ -136,6 +136,32 @@ Live Splunk/MCP investigation **cannot** be claimed production-ready. Artifact:
 - Mock MCP validated architecture only. No live rows are claimed anywhere.
 - T4's deferral is a **serving** limit; the routing table is not implicated.
 
+## Closure gates (G2)
+
+| Gate | Result |
+|---|---|
+| Governance regression | **PASS** |
+| Backend pytest | **5281 passed, 3 skipped, 6 xfailed, 0 failed** (Plan 5 baseline 5247) |
+| Routing truth set `--check` | **PASS** — 64/76 route_ok, **0 regressions** |
+| Production parity | **total=120 base_105=105 exact=120 approved=0 critical=0** |
+| Cisco power-grid catalogue | **PASS=50 REVIEW=0 FAIL=0 CRITICAL=0** |
+| Sentinel | **17/17** |
+| 105 path honoring | **105/105** |
+| Protected manifest | **15/15** |
+| `/invariant-check` | **7/7** |
+| Plan-discipline audit | **0 gaps** |
+| **Reference probes** | **DRIFT on 10/10 — not a pass** (see below) |
+
+**The reference probes are recorded as failing, not refreshed into a pass.** Every field in
+`audit_reference_probes.py --check` reads `-> None`, i.e. the probes produce empty responses in
+this host environment rather than a changed route. Running the same probes in a clean worktree
+at the Plan 5 baseline `1d32ac6` produces **identical drift, slightly worse**
+(`P3 selected_skill: knowledge_recall -> spl_generation`, an extra `N2` field), so this is
+**pre-existing and not a Plan 6 regression**. The frozen contract was captured in a different
+environment than this host now runs. The baseline was deliberately **not** updated —
+`--update-baseline` here would recreate exactly the unfalsifiable gate the script's own
+docstring was written to prevent. Carried to Plan 7 as an environment/gate-fidelity item.
+
 ## Carried forward
 
 The F5 DEFER decision opens a separate, narrowly-scoped continuation plan covering:
