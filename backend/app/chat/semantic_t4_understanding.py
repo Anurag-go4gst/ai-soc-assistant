@@ -31,6 +31,7 @@ from app.llm.adapter.output_preprocessor import preprocess_llm_output
 from app.llm.clients.endpoint_resolver import resolve_local_primary_endpoint
 from app.llm.clients.local_chat_client import LocalChatClient
 from app.llm.sidecar_governance import (
+    FAILURE_CIRCUIT_OPEN,
     FAILURE_PROVIDER_UNAVAILABLE,
     FAILURE_TIMEOUT,
     NOTE_LLM_ASSIST_TIMED_OUT,
@@ -256,7 +257,11 @@ def maybe_enrich_t4_semantic(
         "timeout_seconds": timeout,
         "rejected_reasons": [],
         "notes": list(call.notes or []),
+        "circuit_state": getattr(call, "circuit_state", None),
+        "human_action_required": bool(getattr(call, "human_action_required", False)),
     }
+    if failure_kind == FAILURE_CIRCUIT_OPEN:
+        base_trace["invoked"] = False
     if call.timed_out or not call.raw_output:
         if failure_kind == FAILURE_PROVIDER_UNAVAILABLE:
             reason = "provider_unavailable"
