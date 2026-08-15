@@ -1,5 +1,6 @@
 ---
 canonical_plan: plans/2026-08-14_1130_resource-plan-authority-and-t4-integration.md
+canonical_architecture: architecture.md
 supersedes_open_gaps_of: plans/2026-08-13_1440_production-activation-t4-serving-and-governance-readiness.md
 baseline: Plan 5 merge SHA `3d22260`; Plan 6 evidence on branch `feat/plan6-production-activation` (PR #132, unmerged)
 ---
@@ -168,7 +169,9 @@ structured result must still pass deterministic validation/merge.
 
 Manual same-VPS evidence recorded separately in `docs/evals/plan7/c3_manual_vps_evidence.md`;
 earlier C2 evidence is **not** rewritten. Artifacts: `c2_serving_viability.md`,
-`c3_stop_decision_packet.md`.
+`c3_stop_decision_packet.md`, `c3_manual_vps_evidence.md`, `c3_remediation_evidence.md`.
+
+**C3 implementation outcome (2026-08-15): `T4_PROMPT_INTERFACE_STILL_BLOCKING`.** The remediation landed in the seam, not the prompt: a response-shape adapter (one wrapper hop, echoed scaffolding dropped, unknown non-authority keys dropped, authority keys fail closed), the three-uncertainty rule enforced deterministically (clarification only for an unresolved referent), concrete-entity and grounded-time-scope guards, and `intent_family`/`answer_goal` made genuinely immutable. Measured POST-C3: accepted **2/9** then **1/4** at 78.3 / 111.7 / 115.1 s, with host swap-thrash — not the prompt — driving the run-to-run variance (>360 s while thrashing both with and without constrained decoding; 83.4 s immediately after a model restart). T4 stays a **hard GO requirement** and therefore a CRITICAL BLOCKER until re-measured against the corrected interface. **Consequence to carry:** with locked fields now immutable, T4 can no longer re-classify a paraphrase into an SPL-capable family — upstream locked-field quality is the binding constraint, deferred to Plan 8.
 
 ## Success questions (must be answered with evidence)
 

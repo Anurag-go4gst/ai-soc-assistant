@@ -143,8 +143,20 @@ def redact_resolved_query(raw: dict[str, Any] | None) -> dict[str, Any]:
                 if isinstance(notes, list) and str(item) in _SEMANTIC_T4_NOTE_ALLOWLIST
             ][:8],
         }
+    # Which fields the semantic hop actually supplied. Field names and source
+    # labels only — never field values. This is what separates a schema-valid
+    # echo from useful semantic completion (Plan 7 C3).
+    raw_sources = provenance.get("field_sources")
+    field_sources = (
+        {str(key): str(value) for key, value in sorted(raw_sources.items())}
+        if isinstance(raw_sources, dict)
+        else {}
+    )
+    semantic_fields = sorted(key for key, value in field_sources.items() if value == "semantic_t4")
     return {
         "qualification_tier": source.get("qualification_tier"),
+        "field_sources": field_sources,
+        "semantic_t4_fields": semantic_fields,
         "intent_family": source.get("intent_family"),
         "answer_goal": source.get("answer_goal"),
         "required_capabilities": sorted(str(item) for item in required)

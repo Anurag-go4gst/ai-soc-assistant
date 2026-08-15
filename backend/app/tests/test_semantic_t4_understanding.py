@@ -160,7 +160,10 @@ def test_model_cannot_set_a_skill(monkeypatch: pytest.MonkeyPatch) -> None:
     dumped = enriched.model_dump()
     assert "skill" not in dumped
     assert enriched.normalized_goal == original.normalized_goal
-    assert "schema_invalid" in enriched.provenance["semantic_t4"]["rejected_reasons"]
+    # Plan 7 C3: an authority-bearing key is reported as such rather than as a
+    # generic schema failure. The whole hop is still rejected — a chatty model may
+    # lose unknown *non-authority* keys, but never smuggles a route through.
+    assert "authority_key_present" in enriched.provenance["semantic_t4"]["rejected_reasons"]
 
 
 def test_model_cannot_remove_clarification(monkeypatch: pytest.MonkeyPatch) -> None:

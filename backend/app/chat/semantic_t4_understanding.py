@@ -10,6 +10,7 @@ family already requires them — widening is rejected, not auto-applied.
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
@@ -66,58 +67,64 @@ _SEMANTIC_T4_SYSTEM_PROMPT = (
     "Rules:\n"
     "- Do not rewrite locked fields; repeat them unchanged.\n"
     "- Preserve competing hypotheses; do not classify something malicious prematurely.\n"
-    "- If context is missing, set clarification_required=true and say what is missing.\n"
-    "  Ask, never invent facts.\n"
+    "- Set clarification_required=true only when the query points at something that was not\n"
+    "  supplied — an unnamed event, host, alert or indicator. A broad hunting request is not\n"
+    "  missing context: resolve it and list what evidence would answer it.\n"
+    "- Never invent facts that were not supplied.\n"
     "- Do not select a skill or route. Do not generate or execute SPL. Do not call MCP.\n"
     "- Do not make RBAC, HIL or policy decisions.\n"
-    "- Return one JSON object only. No markdown, no prose."
+    "- Return one JSON object only: the resolved fields themselves. Do not repeat the input,\n"
+    "  do not wrap the answer in another key, no markdown, no prose."
 )
 
 # Compact, curated. Prompt assets — not a retrieval system and not an agent.
 _SEMANTIC_T4_FEW_SHOT: tuple[dict[str, Any], ...] = (
+    # A — hypothesis and evidence: name the objective, keep lateral movement a
+    # hypothesis rather than a finding, state what evidence would settle it.
     {
-        "query": "signs that something is moving sideways through the estate",
-        "unresolved": ["intent_family", "answer_goal", "evidence_requirements"],
+        "query": "repeated failed admin logons on a server then one that succeeded",
+        "unresolved": ["normalized_goal", "evidence_requirements"],
         "output": {
-            "normalized_goal": "find host-to-host lateral movement across internal systems",
-            "intent_family": "live_investigation",
-            "answer_goal": "live_results",
+            "normalized_goal": "determine whether the successful admin logon after repeated "
+            "failures represents account compromise",
             "ambiguity_state": "unambiguous",
             "clarification_required": False,
             "evidence_requirements": [
-                "internal authentication sequences across multiple hosts",
-                "remote service or admin share access between peers",
-            ],
-            "confidence": 0.7,
-        },
-    },
-    {
-        "query": "do we have endpoints calling home on a regular cadence",
-        "unresolved": ["intent_family", "evidence_requirements"],
-        "output": {
-            "normalized_goal": "find endpoints with periodic outbound connections",
-            "intent_family": "live_investigation",
-            "answer_goal": "live_results",
-            "ambiguity_state": "unambiguous",
-            "clarification_required": False,
-            "evidence_requirements": [
-                "outbound connection intervals per host",
-                "destination reputation and registration age",
-                "legitimate updater or telemetry software as a competing explanation",
+                "failure-then-success sequence for that account and source",
+                "whether the source host normally authenticates to this server",
+                "subsequent authentications from the same account to other hosts "
+                "(lateral movement remains a hypothesis, not a finding)",
             ],
             "confidence": 0.6,
         },
     },
+    # B — competing hypotheses: benign and malicious both stay on the table.
     {
-        "query": "have we run into this indicator before and what did we decide last time",
-        "unresolved": ["entities", "time_scope"],
+        "query": "powershell running on a few endpoints with outbound dns to new domains",
+        "unresolved": ["normalized_goal", "evidence_requirements"],
         "output": {
-            "normalized_goal": "recall prior disposition of an indicator the analyst has not named",
-            "intent_family": "clarification_required",
-            "answer_goal": "clarification",
+            "normalized_goal": "assess whether scripted activity with new-domain lookups is "
+            "malicious or routine administration",
+            "ambiguity_state": "unambiguous",
+            "clarification_required": False,
+            "evidence_requirements": [
+                "parent process and command line for the PowerShell activity",
+                "domain registration age and query cadence",
+                "competing explanation: software updater, admin script or telemetry",
+            ],
+            "confidence": 0.5,
+        },
+    },
+    # C — clarification: the referenced event is not available, so ask.
+    {
+        "query": "compare this with what happened last week and tell me if it is getting worse",
+        "unresolved": ["entities", "time_scope", "clarification_required"],
+        "output": {
+            "normalized_goal": "compare a prior event with a current one the analyst has not named",
             "ambiguity_state": "clarification_required",
             "clarification_required": True,
-            "clarification_reason": "which indicator, and which prior case or time range",
+            "clarification_reason": "which event does 'this' refer to, and which prior "
+            "time range should it be compared against",
             "confidence": 0.3,
         },
     },
@@ -143,20 +150,29 @@ def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContr
     # only when the deterministic verdict is not already the strictest.
     if _AMBIGUITY_RANK.get(str(deterministic.ambiguity_state), 0) < _AMBIGUITY_RANK["policy_blocked"]:
         unresolved.extend(["ambiguity_state", "clarification_required", "clarification_reason"])
-    return json.dumps(
+    # Examples are rendered as flat input→output pairs rather than nested objects.
+    # A nested `{"query":…,"output":{…}}` example teaches the model to emit that
+    # same wrapper, which `SemanticT4Proposal(extra="forbid")` then rejects as
+    # schema_invalid — measured in C3 before this format was adopted.
+    example_lines: list[str] = []
+    for index, example in enumerate(_SEMANTIC_T4_FEW_SHOT, start=1):
+        example_lines.append(f"EXAMPLE {index} QUERY: {example['query']}")
+        example_lines.append(
+            f"EXAMPLE {index} ANSWER: {json.dumps(example['output'], separators=(',', ':'))}"
+        )
+    task = json.dumps(
         {
             "query": query,
             "locked_fields_do_not_change": locked,
             "unresolved_fields_to_resolve": unresolved,
-            "vocabulary": {
-                "intent_family": sorted(_KNOWN_FAMILIES),
-                "capabilities": sorted(ALLOWED_CAPABILITIES),
-                "ambiguity_state": sorted(_AMBIGUITY_RANK),
-            },
-            "examples": list(_SEMANTIC_T4_FEW_SHOT),
+            # Only for fields this stage may actually resolve. Offering the full
+            # intent_family / capability vocabulary invited the model to argue with
+            # a locked value, which is conflict a small model does not need.
+            "allowed_values": {"ambiguity_state": sorted(_AMBIGUITY_RANK)},
         },
         separators=(",", ":"),
     )
+    return "\n".join([*example_lines, f"TASK: {task}", "ANSWER:"])
 
 
 def maybe_enrich_t4_semantic(
@@ -203,7 +219,7 @@ def maybe_enrich_t4_semantic(
         return _with_semantic_trace(
             deterministic, {**base_trace, "rejected_reasons": [parse_reason or "schema_invalid"]}
         )
-    return _merge_proposal(deterministic, proposal, base_trace)
+    return _merge_proposal(deterministic, proposal, base_trace, query=query)
 
 
 def _bounded_injected_call(provider: Callable[[], str], timeout_seconds: float) -> SidecarLlmCallResult:
@@ -222,10 +238,87 @@ def _bounded_injected_call(provider: Callable[[], str], timeout_seconds: float) 
         executor.shutdown(wait=False, cancel_futures=True)
 
 
+# Wrappers a model plausibly puts the answer under. Measured: Cisco 8B echoed the
+# whole input envelope and nested its answer under "output".
+_PROPOSAL_WRAPPER_KEYS = ("output", "answer", "result", "proposal", "response")
+
+# Echoed prompt scaffolding. Present because the model repeated its input; dropping
+# it is normalization, not permission — it carries no authority.
+_ECHOED_PROMPT_KEYS = frozenset(
+    {
+        "query",
+        "locked_fields_do_not_change",
+        "unresolved_fields_to_resolve",
+        "vocabulary",
+        "examples",
+        "deterministic_contract",
+        "task",
+    }
+)
+
+# Keys that would assert authority this stage does not have. Their presence is a
+# governance signal, not noise: fail closed rather than quietly strip them.
+_FORBIDDEN_AUTHORITY_KEYS = frozenset(
+    {
+        "skill",
+        "selected_skill",
+        "route",
+        "routed_skill",
+        "spl",
+        "candidate_spl",
+        "normalized_spl",
+        "tool",
+        "tools",
+        "mcp",
+        "mcp_tool",
+        "execute",
+        "execution",
+        "execution_eligible",
+        "rbac",
+        "hil",
+        "human_review",
+        "approved",
+        "verdict",
+    }
+)
+
+
+def _unwrap_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Follow a single answer wrapper, then drop echoed prompt scaffolding.
+
+    Deliberately shallow: one wrapper hop. A deeper nest is not a shape this stage
+    recognises, and guessing would be inventing structure the model did not commit to.
+    """
+    for key in _PROPOSAL_WRAPPER_KEYS:
+        inner = payload.get(key)
+        if isinstance(inner, dict):
+            payload = inner
+            break
+    return {key: value for key, value in payload.items() if key not in _ECHOED_PROMPT_KEYS}
+
+
 def _parse_proposal(raw_output: str) -> tuple[SemanticT4Proposal | None, str | None]:
+    """Normalize a tolerated response shape into the closed proposal schema.
+
+    Shape tolerance is an adapter concern, not a governance relaxation: unknown
+    *authority* keys still fail closed, and every accepted field still goes through
+    `SemanticT4Proposal` and the deterministic merge.
+    """
     pre = preprocess_llm_output(raw_output, _SEMANTIC_T4_SCHEMA)
     payload = pre.payload
     if not isinstance(payload, dict):
+        return None, "schema_invalid"
+
+    payload = _unwrap_payload(payload)
+    forbidden = sorted(_FORBIDDEN_AUTHORITY_KEYS & set(payload))
+    if forbidden:
+        return None, "authority_key_present"
+
+    # Unknown non-authority keys are dropped rather than failing the whole hop —
+    # a chatty model must not cost a valid semantic completion.
+    known = set(SemanticT4Proposal.model_fields)
+    payload = {key: value for key, value in payload.items() if key in known}
+    if not payload:
         return None, "schema_invalid"
     try:
         return SemanticT4Proposal.model_validate(payload), None
@@ -233,10 +326,75 @@ def _parse_proposal(raw_output: str) -> tuple[SemanticT4Proposal | None, str | N
         return None, "schema_invalid"
 
 
+# Deictic references: the query points at something the analyst has not supplied.
+# This — and only this — is semantic uncertainty the analyst can resolve.
+_REFERENT_PATTERNS = (
+    # Bare "that"/"it" are excluded on purpose: "lookups **that** look generated" is a
+    # relative pronoun, not a referent, and treating it as one turned a clear hunt
+    # into a clarification (measured in C3).
+    r"\bthis\b",
+    r"\bthese\b",
+    r"\bthose\b",
+    r"\bthat (host|alert|event|case|user|account|one|incident|domain|ip)\b",
+    r"\bsame (host|alert|user|account|case|incident|thing)\b",
+    r"\bearlier\b",
+    r"\bprevious(ly)?\b",
+    r"\blast time\b",
+    r"\bthe (alert|host|user|case|incident|event)\b",
+    r"\bit (again|too)\b",
+)
+
+# A concrete entity carries a value. A category ("suspicious DNS", "DGA domains")
+# does not, and must never be recorded as an observed entity.
+_CONCRETE_ENTITY_RE = re.compile(
+    r"(\d{1,3}(\.\d{1,3}){3})"  # IPv4
+    r"|(CVE-\d{4}-\d{4,})"  # CVE
+    r"|([A-Za-z0-9_-]+\.[A-Za-z]{2,})"  # domain / FQDN / file
+    r"|(\\\\[^\s]+)"  # UNC path
+    r"|([A-Za-z0-9_-]+\\[A-Za-z0-9_.-]+)"  # DOMAIN\user
+    r"|(\b[A-Za-z0-9-]*\d[A-Za-z0-9-]*\b)",  # host-like token containing a digit
+    re.IGNORECASE,
+)
+
+# Time expressions the analyst may actually have written.
+_TIME_EXPRESSION_RE = re.compile(
+    r"\b(today|yesterday|tonight|overnight|this (week|month|morning|afternoon)"
+    r"|last (hour|night|week|month|year|\d+\s*(m|min|minute|h|hour|d|day|w|week)s?)"
+    r"|past\s+\d+\s*\w+|previous\s+\w+|\d+\s*(m|min|minute|h|hour|d|day|w|week)s?\s+ago"
+    r"|since\s+\w+|between\s+\w+\s+and\s+\w+)\b",
+    re.IGNORECASE,
+)
+
+
+def _has_unresolved_referent(query: str) -> bool:
+    """True when the query points at something the analyst did not supply."""
+    lowered = query.lower()
+    return any(re.search(pattern, lowered) for pattern in _REFERENT_PATTERNS)
+
+
+def _is_concrete_entity(value: Any) -> bool:
+    text = str(value).strip()
+    if not text or len(text.split()) > 3:
+        return False
+    return bool(_CONCRETE_ENTITY_RE.search(text))
+
+
+def _time_scope_grounded(query: str, time_scope: str | None) -> bool:
+    """A time scope must come from the analyst, not from the model's habits."""
+    if not time_scope:
+        return False
+    lowered = query.lower()
+    if time_scope.strip().lower() in lowered:
+        return True
+    return bool(_TIME_EXPRESSION_RE.search(lowered))
+
+
 def _merge_proposal(
     deterministic: ResolvedQueryContract,
     proposal: SemanticT4Proposal,
     base_trace: dict[str, Any],
+    *,
+    query: str,
 ) -> ResolvedQueryContract:
     rejected: list[str] = list(base_trace.get("rejected_reasons") or [])
     field_sources = {
@@ -256,14 +414,13 @@ def _merge_proposal(
     }
     accepted_any = False
 
+    # `intent_family` and `answer_goal` are LOCKED upstream facts. This stage
+    # completes meaning; it does not repair an upstream classification error, and a
+    # contract that disagrees with the query is an upstream defect to fix there.
+    # (architecture.md §9: T4 may not override locked T1-T3 facts.)
     intent_family = deterministic.intent_family
     if proposal.intent_family and proposal.intent_family != deterministic.intent_family:
-        if _family_change_permitted(deterministic, proposal.intent_family):
-            intent_family = proposal.intent_family
-            field_sources["intent_family"] = "semantic_t4"
-            accepted_any = True
-        else:
-            rejected.append("intent_family_change_rejected")
+        rejected.append("locked_field_change_rejected:intent_family")
 
     try:
         proposed_required, proposed_prohibited = proposal.capability_sets()
@@ -304,11 +461,20 @@ def _merge_proposal(
     clarification_required = bool(deterministic.clarification_required)
     clarification_reason = deterministic.clarification_reason
     if proposal.clarification_required is True:
-        clarification_required = True
-        if proposal.clarification_reason:
-            clarification_reason = proposal.clarification_reason
-        field_sources["clarification_required"] = "semantic_t4"
-        accepted_any = True
+        # Three kinds of uncertainty are not interchangeable. Only *semantic*
+        # uncertainty — an unresolved referent — may become an analyst question.
+        # Missing evidence, thresholds or detection criteria are investigation
+        # inputs, and a model that confuses them must not be able to turn a clear
+        # hunt into a clarification prompt. Deterministic, so it holds whatever the
+        # prompt or the model does.
+        if _has_unresolved_referent(query):
+            clarification_required = True
+            if proposal.clarification_reason:
+                clarification_reason = proposal.clarification_reason
+            field_sources["clarification_required"] = "semantic_t4"
+            accepted_any = True
+        else:
+            rejected.append("clarification_without_unresolved_referent")
     if deterministic.clarification_required:
         clarification_required = True
         clarification_reason = deterministic.clarification_reason or clarification_reason
@@ -316,7 +482,17 @@ def _merge_proposal(
     ambiguity = deterministic.ambiguity_state
     if proposal.ambiguity_state:
         if _AMBIGUITY_RANK.get(proposal.ambiguity_state, 0) >= _AMBIGUITY_RANK.get(ambiguity, 0):
-            if proposal.ambiguity_state != ambiguity:
+            # Escalating to `clarification_required` is the same act as asking the
+            # analyst a question, so it answers to the same rule: only an unresolved
+            # referent qualifies. Otherwise this is evidence uncertainty wearing a
+            # different field name.
+            if (
+                proposal.ambiguity_state == "clarification_required"
+                and not _has_unresolved_referent(query)
+            ):
+                if "clarification_without_unresolved_referent" not in rejected:
+                    rejected.append("clarification_without_unresolved_referent")
+            elif proposal.ambiguity_state != ambiguity:
                 ambiguity = proposal.ambiguity_state
                 field_sources["ambiguity_state"] = "semantic_t4"
                 accepted_any = True
@@ -329,25 +505,40 @@ def _merge_proposal(
         field_sources["normalized_goal"] = "semantic_t4"
         accepted_any = True
 
+    # Locked with `intent_family`, for the same reason. The one exception is a
+    # clarification the merge itself accepted: a run that must ask the analyst
+    # answers with a clarification, whoever raised it.
     answer_goal = deterministic.answer_goal
-    if proposal.answer_goal and proposal.answer_goal != deterministic.answer_goal:
-        if not clarification_required:
-            answer_goal = proposal.answer_goal
-            field_sources["answer_goal"] = "semantic_t4"
-            accepted_any = True
+    if clarification_required and answer_goal != "clarification":
+        answer_goal = "clarification"
+    elif proposal.answer_goal and proposal.answer_goal != deterministic.answer_goal:
+        rejected.append("locked_field_change_rejected:answer_goal")
 
     entities = dict(deterministic.entities)
     for key, value in (proposal.entities or {}).items():
         if key not in entities or entities[key] in (None, "", [], {}):
+            # Only concrete observed values. A category such as "suspicious DNS" or
+            # "algorithmically generated domains" is an investigation topic, not an
+            # entity, and recording it as one would fabricate an observation.
+            if not _is_concrete_entity(value):
+                if "entity_not_concrete" not in rejected:
+                    rejected.append("entity_not_concrete")
+                continue
             entities[key] = value
             field_sources["entities"] = "semantic_t4"
             accepted_any = True
 
     time_scope = deterministic.time_scope
     if time_scope in (None, "") and proposal.time_scope:
-        time_scope = proposal.time_scope
-        field_sources["time_scope"] = "semantic_t4"
-        accepted_any = True
+        # A silent default ("last 24 hours") would narrow an investigation the
+        # analyst never scoped. Operational defaults belong to a later governed
+        # stage, not to semantic understanding.
+        if _time_scope_grounded(query, proposal.time_scope):
+            time_scope = proposal.time_scope
+            field_sources["time_scope"] = "semantic_t4"
+            accepted_any = True
+        else:
+            rejected.append("time_scope_not_grounded_in_query")
 
     evidence = list(deterministic.evidence_requirements)
     for item in proposal.evidence_requirements:
@@ -440,7 +631,11 @@ def _live_single_hop_provider(query: str, deterministic: ResolvedQueryContract) 
     result = client.generate(
         system_prompt=_SEMANTIC_T4_SYSTEM_PROMPT,
         user_prompt=_build_semantic_t4_user_prompt(query, deterministic),
-        max_tokens=400,
+        # 400 tokens at the measured 4.1-4.5 tok/s is ~90s of generation alone,
+        # which is most of the 120s VPS remediation budget (C2/C3 measurements).
+        # The proposal schema fits comfortably below this cap; a truncated payload
+        # is rejected by the parser rather than half-accepted.
+        max_tokens=220,
         temperature=0.1,
         # Constrained decoding where the serving stack supports it (C2 measured the
         # unconstrained call returning prose). Servers that ignore the field are
