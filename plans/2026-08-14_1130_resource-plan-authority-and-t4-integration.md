@@ -334,7 +334,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
 
 ---
 
-- [ ] **A7** — Prove the `session_spl_refine` / `_run_legacy_dispatch_fallback` path (required before the GO gate)
+- [x] **A7** — Prove the `session_spl_refine` / `_run_legacy_dispatch_fallback` path (required before the GO gate)
   - **Do:** Exercise that path under the target architecture, or prove deterministically that it
     cannot bypass required SPL lifecycle validation. Required by A6. Surface: LOCAL + VPS.
   - **Prove specifically:** whether PhaseContract/merge owns the lifecycle before the fallback
@@ -347,7 +347,15 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
   - **Verify:** `docs/evals/plan7/a7_fallback_lifecycle_proof.md` answers all six questions with
     observed output or a deterministic proof; targeted tests committed; `/invariant-check` 7/7.
   - **Depends on:** A6
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/a7_fallback_lifecycle_proof.md`. Disposition **B —
+    `LEGACY_FALLBACK_ROLLBACK_ONLY_RETAIN_TEMPORARILY`**. Production `/chat` on the target
+    Resource Planner graph neither imports nor calls the fallback; it has exactly one imperative
+    rollback caller. The retained branch now runs `workflow_spl → spl_postprocessor →
+    spl_source_resolve → execution`; the exercised mutation fails deterministic revalidation
+    closed (`approved=false`, `normalized_spl=null`, execution not live). ResourcePlan execution
+    fences v2 projections even if both flags are accidentally true. Focused verification: A7 /
+    topology **66 passed**, authority/lifecycle **208 passed**, compatibility/probe/profile **46
+    passed**, MCP gate/contract **43 passed**, reference probes **10/10**, invariants **7/7**.
 
 ## Workstream B — keep T4 ON and measure the real target architecture
 

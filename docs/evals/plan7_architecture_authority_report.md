@@ -10,6 +10,38 @@ This is an evidence synthesis, not a production decision. It does not approve a 
 flag or default, close a Plan 8 dependency, or declare the system production-ready. E2 remains
 the production decision gate.
 
+## Post-E0 bounded convergence amendment (2026-08-15)
+
+This amendment records the user-approved legacy-authority retirement work completed after the
+original E0 synthesis. Where the original report below says A7 is open, dispatch-v2 normal
+authority is unproven, or development-profile rebuild drift is confirmed, this amendment is the
+current Plan 7 evidence:
+
+- A7 disposition is **B — `LEGACY_FALLBACK_ROLLBACK_ONLY_RETAIN_TEMPORARILY`**. Production
+  `/chat` on the target Resource Planner graph cannot import/call the fallback. The retained
+  rollback branch now runs the mandatory postprocessor before source resolution/execution and
+  fails closed when its mutation cannot be revalidated. Evidence:
+  `docs/evals/plan7/a7_fallback_lifecycle_proof.md`.
+- Dispatch-v2 is retired/fenced from normal authority. With ResourcePlan execution enabled, its
+  flag projection and imperative schedule are refused; accidentally setting both flags true does
+  not stand down ResourcePlan/PhaseContract. Legacy graph/parity symbols remain historical/test
+  compatibility, not production selection.
+- The reference checker now compares ResourcePlan, PhaseContract/merge, current dispatch,
+  clarification/degrade, and execution fields. It does not read or reconstruct retired
+  `pipeline_dispatch.decision` values. All ten rows pass the current baseline and all ten prior
+  E1 drifts classify `EXPECTED_AUTHORITY_MIGRATION`.
+- P6's `intent_clarification → spl_source_profile_clarification` change is an expected
+  deterministic safety improvement: `spl_validation_failed`, `normalized_spl=null`, and
+  execution `not_executed` make the missing source-profile prerequisite explicit.
+- The tracked `development.env.example` now reconstructs all six approved target values while
+  global `config.py` defaults and COE/production profiles remain unchanged. Therefore
+  **`CONFIG_REBUILD_DRIFT = CLOSED` for the development profile**.
+- Rollback now distinguishes runtime feature rollback from code/release rollback. Dispatch-v2 is
+  not maintained as a second routine runtime authority; orchestration rollback deploys the last
+  proven release and that release's profile.
+
+This amendment does not mark E1 complete. One final full E1 rerun remains required before E2.
+
 ## Evidence basis
 
 The principal committed evidence used here is:

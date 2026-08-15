@@ -1,8 +1,11 @@
-# Plan 7 — rollback runbook (executed, not simulated)
+# Plan 7 — rollback runbook after dispatch-v2 authority retirement
 
-Rolls the VPS between the **approved Plan 7 target posture** and the **recorded Plan 6 rollback
-posture**, and back. Executed end-to-end 2026-08-15 (D3); evidence in
-`docs/evals/plan7/runs/20260815T151500Z/d3_rollback.md`.
+The earlier D3 drill rolled the VPS between the Plan 7 target and the recorded Plan 6 flag
+posture; its historical evidence remains in
+`docs/evals/plan7/runs/20260815T151500Z/d3_rollback.md`. After the user's A7 convergence
+decision, dispatch-v2 is no longer an approved alternative normal runtime authority. This
+runbook therefore separates reversible **runtime feature rollback** from an orchestration
+**code/release rollback**.
 
 Supersedes `docs/evals/plan6/rollback_runbook.md` for Plan 7 work. That file remains valid for
 the Plan 6 posture it documents.
@@ -26,114 +29,83 @@ env_file:
 This host sets `AI_SOC_ENV_PROFILE=development` (`.env:7`, and `env/active.profile`), so the seed
 in play is `development.env.example` — **not** `coe.env.example`.
 
-> **Editing `development.env.example` alone does NOT change the active target posture**, because
-> every Plan 7 flag is set in `.env`, which loads later and wins. Conversely, editing `.env` alone
-> does not change what a rebuilt-from-seed host would get. Both facts matter — see
-> *Config-rebuild drift*.
+> **Editing `development.env.example` alone does NOT change this already-running host** while the
+> same keys exist in `.env`, because `.env` wins. The tracked development seed now reconstructs
+> the target posture when those overrides are absent.
 
 `--force-recreate` is required: settings are read at process start, so `restart` alone can leave
 a stale environment in the container.
 
-## Postures
+## Approved target posture
 
-| Flag | Plan 7 TARGET | Plan 6 ROLLBACK (recorded) |
-|---|---|---|
-| `LANGGRAPH_ORCHESTRATION_ENABLED` | `true` | `true` |
-| `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` | `true` | `false` (from seed) |
-| `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` | `false` | `true` (from seed) |
-| `AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED` | `true` | unset → `false` |
-| `AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS` | `120` | unset → `2.0` (code default) |
-| `AI_SOC_LIVE_CAPABILITY_ENFORCEMENT_ENABLED` | `false` | `false` |
-| `MCP_MODE` | `mock` | `mock` |
+| Flag | Plan 7 target |
+|---|---|
+| `LANGGRAPH_ORCHESTRATION_ENABLED` | `true` |
+| `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` | `true` |
+| `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` | `false` |
+| `AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED` | `true` |
+| `AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS` | `120` |
+| `AI_SOC_LIVE_CAPABILITY_ENFORCEMENT_ENABLED` | `false` |
+| `MCP_MODE` | `mock` |
 
-The rollback values are the ones recorded in Plan 6 (`docs/evals/plan6/rollback_runbook.md`,
-"Arm A / pre-F2"), not values chosen here.
+`AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED=true` plus
+`AI_SOC_PIPELINE_DISPATCH_V2_ENABLED=false` is the one approved normal execution authority.
+Code also fences v2 projection whenever ResourcePlan execution is enabled, so accidentally
+setting both true cannot stand down ResourcePlan/PhaseContract.
 
-## Rollback
+## Runtime flag rollback
 
-Comment the Plan 7 override lines in `.env` — do **not** delete the file, and do not touch
-unrelated keys or secrets. With those four lines inert, the seed and the code defaults supply the
-Plan 6 posture exactly.
+Runtime rollback is limited to independently reversible features that do not select a second
+orchestrator. For example, an operator may disable T4 after preserving evidence of a serving
+incident; deterministic T1–T3 fallback remains fail-closed. MCP execution and live capability
+enforcement remain independently default-off.
 
-```bash
-cp .env /root/env.plan7_target.bak          # reversible reference (keep off git)
-
-python3 - <<'EOF'
-import pathlib
-keys = ["AI_SOC_PIPELINE_DISPATCH_V2_ENABLED",
-        "AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED",
-        "AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED",
-        "AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS"]
-p = pathlib.Path('.env')
-p.write_text("\n".join(
-    "#D3_ROLLBACK " + l if any(l.startswith(k + "=") for k in keys) else l
-    for l in p.read_text().splitlines()) + "\n")
-EOF
-
-docker compose up -d --force-recreate backend
-curl -s http://127.0.0.1:8010/health
-docker compose exec -T backend printenv AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED   # expect false
-docker compose exec -T backend printenv AI_SOC_PIPELINE_DISPATCH_V2_ENABLED      # expect true
-docker compose exec -T backend printenv AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED # expect unset
-```
+Changing the pair to `ResourcePlan=false` / `dispatch-v2=true` is **not** an approved routine
+runtime rollback. It selects the retired duplicate authority and is retained only for focused
+rollback-compatibility tests and recovery of an older release.
 
 **Do not restart `llama-server`.** Cisco model restart is human-only under the frozen
 architecture; the application recreate above never requires it.
 
-### How to tell the postures apart — `dispatch_source` will mislead you
+## Code/release rollback
 
-Under rollback, four rows still report `dispatch_source=resource_plan_step_walk`. That label is
-the step-walk dispatch name; it is **not** the execution-contract authority. With execution OFF,
-`_execution_driven_schedule_detailed` returns immediately (`planner/executor.py:247`) and the
-fixed predicate schedule is used.
+If the ResourcePlan orchestration itself must be rolled back, deploy the last fully proven
+release/commit together with that release's versioned development profile, then run that
+release's health, governance, and smoke gates. Do not synthesize an old authority by editing only
+the current release's flags. This preserves rollback capability without keeping two normal
+production orchestrators live in one release.
 
-The reliable discriminators are:
+The older Plan 6 flag posture and the executed D3 transition remain historical recovery evidence,
+not a current approval to make v2 normal authority. Keep `.env` secret-bearing and off git; back it
+up through the operator's secret/configuration process before any release rollback.
 
-| Signal | TARGET | ROLLBACK |
-|---|---|---|
-| `merge_active` | **4/6 rows** | **0 rows** |
-| `inserted_phases` | `['spl_postprocessor']` on seam rows | none |
-| `t4_invoked` | 3 rows | **0 rows** |
-| v2 path visible | never | `langgraph_v2_cursor` on the knowledge row |
+After either rollback type, recreate the backend (settings are process-start configuration),
+verify health, capture the six non-secret target flags, and prove which release/authority is
+running. Do **not** restart `llama-server` as part of an application rollback.
 
-A `langgraph_v2_cursor` / v2 path during a deliberate rollback is **EXPECTED_ROLLBACK_AUTHORITY**,
-not a defect.
+### Authority discriminators
 
-## Re-apply the target
+| Signal | Current target |
+|---|---|
+| `execution_order.active` / phase merge | present on applicable ResourcePlan rows |
+| mandatory `spl_postprocessor` | represented in PhaseContract and dispatch schedule |
+| dispatch-v2 authority | absent |
+| candidate executability | never inferred; only approved non-null `normalized_spl` reaches MCP gate |
 
-```bash
-python3 - <<'EOF'
-import pathlib
-p = pathlib.Path('.env')
-p.write_text("\n".join(
-    l[len("#D3_ROLLBACK "):] if l.startswith("#D3_ROLLBACK ") else l
-    for l in p.read_text().splitlines()) + "\n")
-EOF
+Any v2 authority trace on the current Plan 7 target is a regression. It is expected only while
+actually running the separately identified older rollback release.
 
-docker compose up -d --force-recreate backend
-```
-
-Then verify all six flags read back exactly, health is 200, `merge_active` returns on the
-ResourcePlan rows, and `execution_eligible` stays null.
-
-D3 confirmed `.env` was byte-identical to the pre-rollback backup after restore, and the
-non-secret flag block hashed identically (`9613fc2c…`) before and after.
-
-## Config-rebuild drift — the limit of this runbook
+## Config reconstruction
 
 | Flag | Current effective | Tracked seed | Repo default | Rebuild preserves target? |
 |---|---|---|---|---|
 | `LANGGRAPH_ORCHESTRATION_ENABLED` | `true` | `true` | `True` | yes |
-| `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` | `true` | `false` | `False` | **NO** |
-| `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` | `false` | `true` | `False` | **NO** |
-| `AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED` | `true` | *absent* | `False` | **NO** |
-| `AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS` | `120` | *absent* | `2.0` | **NO** |
+| `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` | `true` | `true` | `False` | yes |
+| `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` | `false` | `false` | `False` | yes |
+| `AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED` | `true` | `true` | `False` | yes |
+| `AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS` | `120` | `120` | `2.0` | yes |
 | `AI_SOC_LIVE_CAPABILITY_ENFORCEMENT_ENABLED` | `false` | `false` | `False` | yes |
 
-**`CONFIG_REBUILD_DRIFT = CONFIRMED`.** Recreate persistence is proven; **rebuild-from-seed
-resilience is not**. If `.env` were lost or regenerated from the tracked profile, the host would
-silently return to pre-Plan-7 authority — execution OFF, dispatch-v2 ON, T4 off at a 2 s bound —
-with no error and no signal.
-
-Aligning the seed would mean changing tracked deployment defaults, which Plan 7 does not
-authorize in D3. Carried to **E2** as an operational blocker, not remediated here.
+**`CONFIG_REBUILD_DRIFT = CLOSED` for the development profile.** The tracked profile plus
+unchanged repo defaults reconstructs all six target values. This does not alter global
+`config.py` defaults, the COE/production profiles, provider/model choice, or any secret.
