@@ -565,7 +565,10 @@ def _merge_proposal(
             rejected.append("ambiguity_weakening_rejected")
 
     normalized_goal = deterministic.normalized_goal
-    if proposal.normalized_goal and proposal.normalized_goal.strip():
+    if "normalized_goal" in (deterministic.locked_fields or {}) and proposal.normalized_goal:
+        if proposal.normalized_goal.strip() != deterministic.normalized_goal:
+            rejected.append("locked_field_change_rejected:normalized_goal")
+    elif proposal.normalized_goal and proposal.normalized_goal.strip():
         normalized_goal = proposal.normalized_goal.strip()
         field_sources["normalized_goal"] = "semantic_t4"
         accepted_any = True
@@ -580,7 +583,16 @@ def _merge_proposal(
         rejected.append("locked_field_change_rejected:answer_goal")
 
     entities = dict(deterministic.entities)
+    locked_entity_keys = {
+        key.split(".", 1)[1]
+        for key in (deterministic.locked_fields or {})
+        if key.startswith("entities.") and "." in key
+    }
     for key, value in (proposal.entities or {}).items():
+        if key in locked_entity_keys or f"entities.{key}" in (deterministic.locked_fields or {}):
+            if value != entities.get(key):
+                rejected.append(f"locked_field_change_rejected:entities.{key}")
+            continue
         if key not in entities or entities[key] in (None, "", [], {}):
             # Only concrete observed values. A category such as "suspicious DNS" or
             # "algorithmically generated domains" is an investigation topic, not an
@@ -594,7 +606,10 @@ def _merge_proposal(
             accepted_any = True
 
     time_scope = deterministic.time_scope
-    if time_scope in (None, "") and proposal.time_scope:
+    if "time_scope" in (deterministic.locked_fields or {}) and proposal.time_scope:
+        if proposal.time_scope != deterministic.time_scope:
+            rejected.append("locked_field_change_rejected:time_scope")
+    elif time_scope in (None, "") and proposal.time_scope:
         # A silent default ("last 24 hours") would narrow an investigation the
         # analyst never scoped. Operational defaults belong to a later governed
         # stage, not to semantic understanding.
@@ -614,6 +629,14 @@ def _merge_proposal(
 
     if clarification_required and not clarification_reason:
         clarification_reason = deterministic.clarification_reason or "semantic_t4_clarification"
+
+    family_required, family_prohibited = capabilities_for_intent_family(intent_family)
+    required = set(family_required) | set(deterministic.required_capabilities)
+    prohibited = set(family_prohibited) | set(deterministic.prohibited_capabilities)
+    locked_prohibitions = (deterministic.locked_fields or {}).get("prohibited_capabilities") or []
+    prohibited |= {str(item) for item in locked_prohibitions}
+    prohibited -= set(deterministic.required_capabilities)
+    required -= prohibited - set(deterministic.required_capabilities)
 
     merged = deterministic.model_copy(
         update={

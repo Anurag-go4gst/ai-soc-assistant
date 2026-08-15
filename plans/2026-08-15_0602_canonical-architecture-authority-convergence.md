@@ -484,11 +484,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** U0.
   - **Evidence:** `maybe_enrich_t4_semantic` now requires `understanding_sufficiency.next_action==CALL_T4`; prompt carries `unresolved_query_fragment` + locked map; JSON schema omits `intent_family`/`required_capabilities`/`answer_goal`. Verify → **18 passed**. No Cisco restart path. `architecture.md` unmodified.
 
-- [ ] **U2 — Validate and merge only unresolved T4 fields**
+- [x] **U2 — Validate and merge only unresolved T4 fields**
   - **Do:** Reject changes to authoritative/observed or locked fields, unknown semantic values, contradictions, fabricated identifiers, direct capability/tool/resource/route/action/authorization grants, and invalid time scopes. Accept a proposed clarification only when it strengthens safety; never accept clearing of deterministic clarification or prohibitions. Merge only validated unresolved semantic interpretation, then deterministically recompute capability requirements, evidence requirements, route hints, and other derived fields without weakening locked requirements.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_semantic_t4_understanding.py app/tests/test_t4_contract_merge_authority.py app/tests/test_resolved_query_contract.py -q`
   - **Depends on:** U1.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `_merge_proposal` now rejects locked `entities.*` / `time_scope` / `normalized_goal` changes, then recomputes required/prohibited capabilities from locked intent family (union locked prohibitions; never drop locked required). NEW `test_t4_contract_merge_authority.py`. Verify → **28 passed**. Neighbor T4 job-aware + C3 shapes/diagnostics + P1 baseline → **41 passed**. `architecture.md` unmodified.
 
 - [ ] **U3 — Revalidate the inherited Plan 7 T4 posture after contract changes**
   - **Do:** Re-run a reproducible read-only T4 serving/contract check after U2 and compare semantic acceptance, timeout, malformed output, clarification, locked-field integrity, and safety behavior with the final inherited Plan 7 posture. Preserve C3 `REMEDIATE_EXISTING_T4_IN_PLACE`; do not change model/provider, timeout/deadline, serving mode, flags/defaults, or deployment posture. Any new serving decision requires a separate explicit user-approved architecture/operations decision.
