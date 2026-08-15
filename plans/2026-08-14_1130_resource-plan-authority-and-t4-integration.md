@@ -173,6 +173,34 @@ earlier C2 evidence is **not** rewritten. Artifacts: `c2_serving_viability.md`,
 
 **C3 implementation outcome (2026-08-15): `T4_PROMPT_INTERFACE_STILL_BLOCKING`.** The remediation landed in the seam, not the prompt: a response-shape adapter (one wrapper hop, echoed scaffolding dropped, unknown non-authority keys dropped, authority keys fail closed), the three-uncertainty rule enforced deterministically (clarification only for an unresolved referent), concrete-entity and grounded-time-scope guards, and `intent_family`/`answer_goal` made genuinely immutable. Measured POST-C3: accepted **2/9** then **1/4** at 78.3 / 111.7 / 115.1 s, with host swap-thrash — not the prompt — driving the run-to-run variance (>360 s while thrashing both with and without constrained decoding; 83.4 s immediately after a model restart). T4 stays a **hard GO requirement** and therefore a CRITICAL BLOCKER until re-measured against the corrected interface. **Consequence to carry:** with locked fields now immutable, T4 can no longer re-classify a paraphrase into an SPL-capable family — upstream locked-field quality is the binding constraint, deferred to Plan 8.
 
+### E2 — `P7_PRODUCTION_GO_LIVE_V2` (2026-08-15)
+
+**User recorded:** `PLAN7_IMPLEMENTATION = COMPLETE`; `RESOURCEPLAN_AUTHORITY = APPROVED`;
+`PRODUCTION_GO_LIVE = DEFERRED / NO-GO`; `REASON = unresolved critical T4 serving stability
+blocker`; `PLAN8_MAY_START_AFTER_PLAN7_CLOSURE = YES`.
+
+`ResourcePlan + PhaseContract` is approved as the sole normal execution authority, with
+dispatch-v2 retired to rollback/test-only. Production go-live is **not** declared. This is a
+deferral on serving stability — not a rejection of the architecture, not a rollback, and not a
+production-ready claim.
+
+`GO LIVE` required zero critical blockers plus all three T4 conditions. Condition (1)
+(`AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED=ON`) and condition (3) (C2 semantic/safety criteria)
+hold; condition (2) — an approved **viable** serving posture — does not. **F3
+(`T4_SEMANTICALLY_VIABLE_BUT_VPS_SERVING_BLOCKER`) therefore remains a CRITICAL BLOCKER and is
+NOT recorded as an accepted risk**; per the amendment it must not be downgraded to
+`NOT IN PRODUCTION SCOPE`. Green deterministic Cisco (`50/0/0`) and parity `120 exact` do not
+resolve serving reliability.
+
+Carried forward unchanged and unaccepted: **F1** (DB-loss authority downgrade) and **F2**
+(liveness ≠ inference health) → **Plan 8**; **live Splunk/MCP remains outside proven production
+scope** (`live_mcp_unproven`); **MITRE promotion deferred**; **A7 rollback-only fallback retained
+temporarily**; `CONFIG_REBUILD_DRIFT` closed for the development profile only. **Accepted risks:
+none recorded.** Merge to `master` remains user-only and is a larger action than E2 (35 commits,
+including 11 unmerged Plan 6 commits, the `architecture.md` freeze, and the Plan 8 pre-binding).
+
+Record: `docs/evals/plan7/e2_decision.md`.
+
 ## Success questions (must be answered with evidence)
 
 1. Why are `p6.multi.knowledge_spl_mcp` and `p6.live_posture.d1_003` `no_schedulable_step`?
@@ -511,7 +539,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
     F1/F2/F3, `CONFIG_REBUILD_DRIFT=CLOSED (development)` and `live_mcp_unproven` carried
     forward unchanged; no GO/NO-GO decision.
 
-- [ ] **E2** — `P7_PRODUCTION_GO_LIVE_V2` **STOP**
+- [x] **E2** — `P7_PRODUCTION_GO_LIVE_V2` **STOP**
   - **Do:** Present the full matrix: Functional, Safety, Performance, Reliability,
     Security/RBAC, Observability, Deployment/restart persistence, Rollback, Corpus, Production
     flags, **ResourcePlan production authority**, **T4 serving posture**, **Execution seam
@@ -531,7 +559,19 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
     MCP honesty stated; merge to `master` remains user-only.
   - **Depends on:** E1
   - **STOP:** `P7_PRODUCTION_GO_LIVE_V2`
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Full matrix presented across all required dimensions with only the four allowed
+    verdicts: `docs/evals/plan7/e2_decision.md`. Result — 14 PASS (two scoped: Performance to
+    deterministic orchestration, config-rebuild resilience to the development profile only),
+    2 UNPROVEN (Observability via F1/F2; live MCP/Splunk), 1 NOT IN PRODUCTION SCOPE (MITRE),
+    **1 BLOCKER (T4 serving posture — F3)**, **0 accepted risks**. **User recorded
+    `PLAN7_IMPLEMENTATION = COMPLETE`, `RESOURCEPLAN_AUTHORITY = APPROVED`,
+    `PRODUCTION_GO_LIVE = DEFERRED / NO-GO`** on the unresolved critical T4 serving stability
+    blocker, with `PLAN8_MAY_START_AFTER_PLAN7_CLOSURE = YES`; recorded in Approved decisions
+    § E2. `GO LIVE` was unavailable — T4 condition (2), an approved viable serving posture, is
+    unmet, so F3 stays a CRITICAL BLOCKER and is **not** downgraded or accepted. Live MCP honesty
+    stated (`live_mcp_unproven`, `MCP_MODE=mock`; mock success is not live Splunk readiness).
+    F1/F2 carry to Plan 8; MITRE deferred; A7 rollback-only fallback retained temporarily. No
+    production-ready claim; merge to `master` remains user-only and was not performed.
 
 ---
 
