@@ -634,11 +634,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
 
 ### X — retirement and documentation
 
-- [ ] **X0 — Re-audit all legacy and duplicate planning/execution seams**
+- [x] **X0 — Re-audit all legacy and duplicate planning/execution seams**
   - **Do:** Trace the retired LLM plan bridge, legacy evidence loop, guided refinement rail, linear graph, dispatch-v2 switch, session SPL-refine path, and imperative fallback. Classify each as production, rollback-only, test-only, or dead before deleting or redirecting anything.
   - **Verify:** `rg -n "llm_plan_bridge|evidence_loop|guided_hybrid_refinement|linear_graph_legacy|dispatch_v2|session_spl_refine|_run_legacy_dispatch_fallback" backend/app backend/app/tests`; attach an import/call graph and classification table to the audit.
   - **Depends on:** O1A.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Table + call graph in `docs/architecture/canonical_architecture_audit_2026-08-15.md` § Plan 8 X0. Verify `rg` → **402** lines. Classes: `llm_plan_bridge` test-only; evidence-loop HUB rollback-only; `guided_hybrid_refinement` production; `linear_graph_legacy` test-only; dispatch-v2 rollback-only; `session_spl_refine` rollback-only; `_run_legacy_dispatch_fallback` rollback-only. **0 dead.** No deletion. `architecture.md` unmodified. X1 not authorized.
 
 - [ ] **X1 — CONDITIONAL: retire only explicitly authorized, proven duplicate/dead seams**
   - **Do:** If X0 proves a seam dead/duplicate and explicit retirement authorization is recorded, remove or fence only that seam. Otherwise record `NOT_REQUIRED_FOR_CURRENT_SCOPE` and retain it. Preserve rollback paths and compatibility adapters until separately authorized with parity evidence; no broad deletion by filename or age.
@@ -714,3 +714,4 @@ None at amendment time. Commands referencing new tests/harnesses name the exact 
 - **2026-08-16:** **AUTH0 complete.** Exact-call grant on existing MCP/HIL pending confirmation;
   material SPL/time/source/tool/identity/limit/timeout/expiry/consumed changes invalidate.
   Verify **61 passed**. No new auth service. F3/live MCP unproven unchanged. Next: X0.
+- **2026-08-16:** **X0 complete.** Seven seams classified; 0 dead; no deletion. Next: X1 disposition.

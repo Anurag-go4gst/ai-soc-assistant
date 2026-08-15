@@ -111,3 +111,52 @@ Verify `rg` over the listed packages returned **4715** matching lines.
 **AUTH0 implication:** extend the existing MCP/HIL/RBAC gate so a material change to normalized SPL, time/source, tool/connection, identity, or limits invalidates authorization. Do not add an authorization service.
 
 `architecture.md` unmodified. Plan 7 A2/A3 lifecycle owners unchanged.
+
+## Plan 8 X0 — legacy / duplicate planning and execution seam classification
+
+AUDIT_ONLY at Plan 8 X0 (2026-08-16). **No deletion, redirect, or runtime change.**
+Verify `rg -n "llm_plan_bridge|evidence_loop|guided_hybrid_refinement|linear_graph_legacy|dispatch_v2|session_spl_refine|_run_legacy_dispatch_fallback" backend/app backend/app/tests` → **402** matching lines.
+
+Normal production authority remains `ResourcePlan + PhaseContract` via the existing Resource Planner hub (`run_chat_via_resource_planner_graph`). No seam below is classified **dead**. None is authorized for X1 retirement.
+
+### Import / call graph
+
+```text
+production /chat
+  → resource_planner_graph.run_chat_via_resource_planner_graph
+      → canonical planning → execute_plan_dispatch          [production]
+      → _run_guided_hybrid_dispatch
+          → guided_hybrid_refinement.evaluate_guided_refinement  [production]
+      → if session SPL refine:
+            _run_legacy_dispatch_fallback(session_spl_refine)    [rollback-only]
+
+flag-gated dispatch-v2 (ai_soc_pipeline_dispatch_v2_enabled, repo default false)
+  → pipeline.dispatch_v2_route_after_* / projected hook schedule
+  → executor.py may label dispatch_authority=pipeline_dispatch_v2
+  → fenced: cannot win while ResourcePlan execution is ON (Plan 7 A6)
+
+test-only linear_graph_legacy
+  → _compiled_chat_graph_cp (tests only; not /chat)
+      → graph_node_evidence_planning
+          → evidence_loop HUB (canonical turns fail closed without harness flag)
+
+llm_plan_bridge.propose_validated_llm_plan
+  → planner.plan_promotion_merge / resource_plan_shadow / tests
+  → not a pipeline symbol on canonical turns (Plan 2 B1 RETIRE)
+```
+
+### Classification table
+
+| Seam | Class | Production importers | Notes |
+|---|---|---|---|
+| `llm_plan_bridge` | **test-only** | none on canonical `/chat`; `plan_promotion_merge.py`, `resource_plan_shadow.py`, tests | Plan 2 B1 RETIRE. `apply_llm_primary_resource_plan` / `run_resource_plan_shadow` are not pipeline symbols (`test_retired_resource_planning_surfaces.py`). Module retained as a validation library. Not dead. |
+| `evidence_loop` (HUB / `graph_node_evidence_planning`) | **rollback-only** | `pipeline.py` still defines the fenced node; `linear_graph_legacy.py` wires it | Canonical turns return `canonical_forbids_legacy_evidence_planning` unless `legacy_langgraph_harness`. Helpers (`record_hop`, `MAX_MCP_HOPS`) remain for guided collection / hop bounds. Not dead. |
+| `guided_hybrid_refinement` | **production** | `pipeline.py` `_run_guided_hybrid_dispatch` **6063**; `guided_answer_contract.py` | Plan 3 B0 bounded refinement is live, model-free, cap 3. Not a duplicate executor. |
+| `linear_graph_legacy` | **test-only** | tests only (`test_evidence_loop_graph.py`, `test_control_plane_trace.py`, `test_recipe_selection_live_wiring.py`) | Harness graph. Production chat uses Resource Planner graph. Not dead. |
+| `dispatch_v2` | **rollback-only** | `pipeline.py` route helpers; `contracts/pipeline_dispatch.py`; `executor.py` label | Repo default `ai_soc_pipeline_dispatch_v2_enabled=false`. Plan 7 A6: fenced, not normal authority. Not dead. |
+| `session_spl_refine` | **rollback-only** | `pipeline.py` **660–665**, **5942**, **6990** | Seam inventory `imperative:session_spl_refine` = `ROLLBACK_ONLY` (`test_execution_seam_coverage.py`). Enters `_run_legacy_dispatch_fallback`. Target RP graph has no caller. |
+| `_run_legacy_dispatch_fallback` | **rollback-only** | `pipeline.py` **5848** via session-SPL-refine and missing-composed-plan rollback | Plan 7 A7 `LEGACY_FALLBACK_ROLLBACK_ONLY_RETAIN_TEMPORARILY`. Own hook loop; skips `spl_postprocessor` unless the rollback path inserts it. Target graph must not enter it. X3 revalidates; do not reopen A7. |
+
+**X1 implication:** no seam is proven dead, and this audit records **no** explicit retirement authorization. X1 must record `NOT_REQUIRED_FOR_CURRENT_SCOPE` and retain all seven seams.
+
+`architecture.md` unmodified.
