@@ -46,34 +46,66 @@ ensure_docker_installed() {
     docker.io docker-compose-v2 fuse-overlayfs
 }
 
+# Write the daemon config for a given storage driver. Disabling the containerd
+# snapshotter makes the classic graphdriver honor the storage-driver choice.
+_write_daemon_json() {
+  sudo mkdir -p /etc/docker
+  printf '{ "storage-driver": "%s", "features": { "containerd-snapshotter": false } }\n' "$1" \
+    | sudo tee /etc/docker/daemon.json >/dev/null
+}
+
+# Stop dockerd precisely via its pidfile (never by process-name match).
+_stop_dockerd() {
+  local pid
+  pid="$(sudo cat /var/run/docker.pid 2>/dev/null || true)"
+  [[ -n "${pid}" ]] && sudo kill "${pid}" 2>/dev/null || true
+  sleep 2
+}
+
+_launch_dockerd_wait() {
+  local secs="$1"
+  _stop_dockerd
+  sudo bash -c 'nohup dockerd >/var/log/dockerd.log 2>&1 &'
+  for _ in $(seq 1 "${secs}"); do
+    docker info >/dev/null 2>&1 && return 0
+    sleep 1
+  done
+  return 1
+}
+
 start_dockerd() {
   if docker info >/dev/null 2>&1; then
     log "docker daemon already running"
     return 0
   fi
-  log "starting docker daemon (fuse-overlayfs storage driver)"
-  sudo mkdir -p /etc/docker
-  if [[ ! -f /etc/docker/daemon.json ]]; then
-    # fuse-overlayfs works in the nested VM where the default overlayfs graphdriver
-    # mount fails with "invalid argument". Disable the containerd snapshotter so the
-    # classic graphdriver honors the storage-driver choice.
-    echo '{ "storage-driver": "fuse-overlayfs", "features": { "containerd-snapshotter": false } }' \
-      | sudo tee /etc/docker/daemon.json >/dev/null
+  # Preferred driver: fuse-overlayfs (the default overlayfs graphdriver mount fails
+  # with "invalid argument" in the nested VM). Keep an existing daemon.json (e.g.
+  # from a snapshot) if present.
+  if [[ -f /etc/docker/daemon.json ]]; then
+    log "starting docker daemon (existing daemon.json)"
+  else
+    log "starting docker daemon (fuse-overlayfs storage driver)"
+    _write_daemon_json "fuse-overlayfs"
   fi
-  sudo bash -c 'nohup dockerd >/var/log/dockerd.log 2>&1 &'
-  # Cold-init on a fresh /var/lib/docker (first ever boot) is much slower than a
-  # warm start, so allow up to ~120s.
-  for _ in $(seq 1 120); do
-    docker info >/dev/null 2>&1 && break
-    sleep 1
-  done
-  if ! docker info >/dev/null 2>&1; then
-    log "ERROR: docker daemon failed to start"
-    sudo tail -n 60 /var/log/dockerd.log >&2 || true
-    exit 1
+  if _launch_dockerd_wait 90; then
+    sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
+    return 0
   fi
-  # Let the invoking (non-root) user reach the socket without a fresh login shell.
-  sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
+  # fuse-overlayfs can stall on graphdriver init in some pods (no usable /dev/fuse).
+  # Fall back to vfs, which always works in a nested container (plain directory
+  # copies, no overlay/fuse). Wipe the half-initialized graph so drivers don't mix.
+  log "fuse-overlayfs dockerd did not come up; falling back to vfs storage driver"
+  _stop_dockerd
+  sudo rm -rf /var/lib/docker 2>/dev/null || true
+  _write_daemon_json "vfs"
+  if _launch_dockerd_wait 120; then
+    sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
+    log "docker daemon up (vfs storage driver)"
+    return 0
+  fi
+  log "ERROR: docker daemon failed to start"
+  sudo tail -n 60 /var/log/dockerd.log >&2 || true
+  exit 1
 }
 
 fix_bridge_networking() {
