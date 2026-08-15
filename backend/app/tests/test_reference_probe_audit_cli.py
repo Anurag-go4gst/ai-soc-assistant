@@ -42,6 +42,9 @@ _OFFLINE_SETTING_NAMES: tuple[str, ...] = (
     "ai_soc_llm_final_synthesis_enabled",
     "ai_soc_llm_live_synthesis_enabled",
     "mcp_global_execution_enabled",
+    "ai_soc_resource_plan_execution_enabled",
+    "ai_soc_pipeline_dispatch_v2_enabled",
+    "ai_soc_t4_semantic_understanding_enabled",
 )
 
 
@@ -82,8 +85,13 @@ def _row(probe_id: str, **overrides: Any) -> dict[str, Any]:
         "query": f"query for {probe_id}",
         "selected_skill": "knowledge_recall",
         "answer_mode": "rag_only",
-        "request_mode": "reference_knowledge",
-        "stage_schedule": ["rag_early", "reference_finalize"],
+        "authority_owner": "resource_planner_rag_lane",
+        "resource_plan_purposes": ["knowledge_retrieval"],
+        "phase_contract": [],
+        "dispatch_schedule": ["prepare_rag_only", "rag_early", "reference_finalize"],
+        "degrade_reason": None,
+        "execution_result": "not_executed",
+        "execution_block_reason": "mcp_global_execution_disabled",
         "primary_shape": "reference_taxonomy",
         "human_review_type": None,
         "has_mitre_panel": False,
@@ -224,3 +232,11 @@ def test_timestamp_only_difference_is_not_drift(harness, monkeypatch):
     )
 
     assert _run(script, monkeypatch, ["--check"]) == 0
+
+
+def test_contract_reads_resource_plan_authority_not_retired_v2_fields(script) -> None:
+    assert "request_mode" not in script.COMPARED_FIELDS
+    assert "stage_schedule" not in script.COMPARED_FIELDS
+    assert "authority_owner" in script.COMPARED_FIELDS
+    assert "phase_contract" in script.COMPARED_FIELDS
+    assert "dispatch_schedule" in script.COMPARED_FIELDS
