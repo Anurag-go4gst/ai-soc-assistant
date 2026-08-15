@@ -598,11 +598,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
 
 ### OUT — authoritative investigation result
 
-- [ ] **OUT0 — Audit and establish the minimal InvestigationOutcome seam**
+- [x] **OUT0 — Audit and establish the minimal InvestigationOutcome seam**
   - **Do:** Audit `CanonicalFacts`, `FinalEvidenceGate`, `GovernedSynthesisPackage`, `AnswerContract`, canonical planning outcomes, DecisionRecord/audit logs, and action payload builders for an equivalent post-evidence structured result. Prefer minimally extending or projecting an existing governed final-result package; do not duplicate the pre-execution `CanonicalPlanningOutcome` or the audit-only `DecisionRecord`. Establish the smallest authoritative result after D0 and before synthesis/actions, using existing controlled vocabularies where possible for disposition (`suspicious`, `benign`, `inconclusive`, `blocked` or equivalent), findings, supported/unconfirmed hypotheses, evidence/missing-evidence refs, governed severity/risk facts, recommended actions, policy/action eligibility, and provenance/trace identity. Do not add a database, orchestration graph, decision service, or persistence layer.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_investigation_outcome.py app/tests/test_final_evidence_gate.py app/tests/test_synthesis_package_stage3k1a.py app/tests/test_decision_record.py app/tests/test_synthesis_narration_executor_safety.py -q`; tests prove synthesis inputs and action preparation read the governed outcome, free-form prose cannot change disposition/severity/policy/action eligibility, and no duplicate result authority exists.
   - **Depends on:** D0.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `InvestigationOutcome` projects EvidenceState/sufficiency/FinalEvidenceGate/CanonicalFacts/ActionCapability; attached on `ChatPipelineState` before `run_governed_synthesis_lab`. LLM proposals cannot change disposition/severity/actions. Does not duplicate `CanonicalPlanningOutcome` or `DecisionRecord`. Verify → **46 passed**. `architecture.md` unmodified.
 
 ### SEC — untrusted evidence and prompt boundary
 

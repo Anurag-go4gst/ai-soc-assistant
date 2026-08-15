@@ -574,6 +574,7 @@ class PlaceholderResponse(BaseModel):
     answer_contract: dict[str, object] | None = None
     run_contract: dict[str, object] | None = None
     canonical_facts: dict[str, object] | None = None
+    investigation_outcome: dict[str, object] | None = None
     routing_contract: dict[str, object] | None = None
     blocked_action_state: dict[str, object] | None = None
     # WS3 T3.1 — deterministic read-model scorecard (never authority).

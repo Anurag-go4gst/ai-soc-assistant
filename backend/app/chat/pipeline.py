@@ -452,6 +452,7 @@ class ChatPipelineState(TypedDict, total=False):
     final_evidence_gate: dict[str, Any] | None
     evidence_state: dict[str, Any] | None
     evidence_sufficiency: dict[str, Any] | None
+    investigation_outcome: dict[str, Any] | None
     plan_dispatch_trace: dict[str, Any] | None
     # Plan 6 E0 — names of pipeline_inline phases that actually ran this turn
     # (mitre_finalize / cve_adapter). Provenance only; not a hook schedule.
@@ -3833,6 +3834,23 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         severity_decision.severity_label,
         hil_required=run_contract.effective_hil_required,
     )
+    from app.chat.contracts.investigation_outcome import derive_investigation_outcome
+
+    investigation_outcome = derive_investigation_outcome(
+        trace_id=trace_id,
+        evidence_state=state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else None,
+        evidence_sufficiency=state.get("evidence_sufficiency")
+        if isinstance(state.get("evidence_sufficiency"), dict)
+        else None,
+        context_sufficiency=context_sufficiency if isinstance(context_sufficiency, dict) else None,
+        final_evidence_gate=gate_payload if isinstance(gate_payload, dict) else None,
+        canonical_facts=state.get("canonical_facts") if isinstance(state.get("canonical_facts"), dict) else None,
+        structured_context=structured_context if isinstance(structured_context, dict) else None,
+        human_review=human_review if isinstance(human_review, dict) else None,
+        severity_label=severity_decision.severity_label,
+        action_capability=action_capability,
+    )
+    state = {**state, "investigation_outcome": investigation_outcome.model_dump(mode="json")}
     emit_stage("generating_answer")
     close_post_planning_pipeline_phase()
     _skip_registry_warnings, _skip_catalog_row = _composer_skip_registry_context(state)
@@ -5469,6 +5487,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         session_context_status=session_context_status,
         run_contract=state.get("run_contract"),
         canonical_facts=state.get("canonical_facts"),
+        investigation_outcome=state.get("investigation_outcome"),
         routing_contract=state.get("route_contract"),
     )
     response = _apply_coe_stop_condition_gate(response, query=request.message)
