@@ -17,6 +17,7 @@ from app.llm.governed_context_package import GovernedContextPackage
 from app.llm.llm_call_context import CALL_PURPOSE_COMPOSER, llm_call_purpose_scope
 from app.synthesis import claim_patterns
 from app.synthesis.composition_confidence import qualifies_for_weak_case_composition
+from app.safeguards.trust_boundary import CONTROL_PREAMBLE, wrap_untrusted_source
 from app.chat.final_answer_readability import apply_draft_preview_readability
 from app.config import settings
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
@@ -236,7 +237,8 @@ def build_composer_prompt(
 
     header: list[str] = []
     if user_query:
-        header.append(f"ANALYST QUESTION: {user_query.strip()}")
+        header.append(CONTROL_PREAMBLE)
+        header.append(wrap_untrusted_source("user_query", user_query.strip()))
         header.append("")
     lines = [
         *header,

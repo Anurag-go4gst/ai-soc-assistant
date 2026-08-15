@@ -606,11 +606,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
 
 ### SEC — untrusted evidence and prompt boundary
 
-- [ ] **SEC0 — Enforce trust classes and prompt-injection boundaries at existing seams**
+- [x] **SEC0 — Enforce trust classes and prompt-injection boundaries at existing seams**
   - **Do:** Audit current prompt builders, governed context packages, MCP/RAG/evidence sanitizers, evidence observer, and final synthesis inputs. Keep deterministic policy/schemas/config/authorization as trusted control; classify user text/uploads as untrusted input; classify logs, RAG documents, MCP/tool results, email/ticket/CRM/retrieved content as untrusted evidence; classify prior assistant/LLM prose as non-authoritative generated content. Delimit and label untrusted evidence as data separately from control instructions. Evidence/generated text cannot grant capabilities, select routes, clear RBAC/HIL, alter policy, authorize actions, or trigger remediation. Reuse existing prompt-building/filter/validator seams; add no security service/model.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_prompt_trust_boundary.py app/tests/test_mcp_result_injection_defense.py app/tests/test_mcp_result_safeguard_p0.py app/tests/test_evidence_observer_pipeline.py app/tests/test_synthesis_narration_executor_safety.py -q`; injection cases embedded in Splunk rows, RAG text, tickets/email/CRM-like content, tool output, and prior assistant prose remain data and cannot alter route/capability/RBAC/HIL/policy/action state.
   - **Depends on:** P1. Must be complete before O0; SPL/MCP execution gates remain separately authoritative.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `app/safeguards/trust_boundary.py` labels architecture trust classes and delimits untrusted blocks. Wired into composer, live narration, and T4 user prompt. Existing MCP injection filter/safeguard/observer unchanged. Verify → **42 passed**. `architecture.md` unmodified.
 
 ### O — synthesis/output and session continuity
 
