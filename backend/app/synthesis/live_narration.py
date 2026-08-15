@@ -164,6 +164,9 @@ def _build_governed_prompt(
     if severity_label:
         priority = deterministic_draft.get("priority")
         lines.append(f"- Severity: {severity_label}" + (f" (priority {priority})" if priority else ""))
+    outcome = package.investigation_outcome if isinstance(package.investigation_outcome, dict) else {}
+    if outcome.get("disposition"):
+        lines.append(f"- Investigation disposition (deterministic): {outcome.get('disposition')}")
 
     mitre = deterministic_draft.get("mitre_mappings") or []
     if mitre:

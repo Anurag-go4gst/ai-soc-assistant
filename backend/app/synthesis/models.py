@@ -80,6 +80,11 @@ class GovernedSynthesisPackage(BaseModel):
     guard_constraints: SynthesisGuardConstraints = Field(default_factory=SynthesisGuardConstraints)
     source_evidence_refs: list[str] = Field(default_factory=list)
     advisory_observations: list["GovernedEvidenceObservation"] = Field(default_factory=list)
+    resolved_query_contract: dict[str, Any] | None = None
+    investigation_outcome: dict[str, Any] | None = None
+    evidence_state: dict[str, Any] | None = None
+    evidence_sufficiency: dict[str, Any] | None = None
+    route_plan_summary: dict[str, Any] | None = None
 
 
 class GovernedEvidenceObservation(BaseModel):
@@ -106,6 +111,11 @@ def build_governed_synthesis_package(
     source_evidence: list[dict[str, Any]],
     mitre_mappings: list[MitreMappingDecision] | list[dict[str, Any]] | None,
     action_capability: ActionCapability,
+    resolved_query_contract: dict[str, Any] | None = None,
+    investigation_outcome: dict[str, Any] | None = None,
+    evidence_state: dict[str, Any] | None = None,
+    evidence_sufficiency: dict[str, Any] | None = None,
+    route_plan_summary: dict[str, Any] | None = None,
 ) -> GovernedSynthesisPackage:
     source_refs = [str(item.get("evidence_id")) for item in source_evidence if item.get("evidence_id")]
     return GovernedSynthesisPackage(
@@ -118,7 +128,42 @@ def build_governed_synthesis_package(
         permitted_actions=_permitted_actions(action_capability),
         source_evidence_refs=source_refs,
         advisory_observations=_advisory_observations(structured_context),
+        resolved_query_contract=_rqc_summary(resolved_query_contract),
+        investigation_outcome=investigation_outcome if isinstance(investigation_outcome, dict) else None,
+        evidence_state=_evidence_state_summary(evidence_state),
+        evidence_sufficiency=evidence_sufficiency if isinstance(evidence_sufficiency, dict) else None,
+        route_plan_summary=route_plan_summary if isinstance(route_plan_summary, dict) else None,
     )
+
+
+def _rqc_summary(rqc: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(rqc, dict):
+        return None
+    caps = rqc.get("required_capabilities")
+    if isinstance(caps, (set, frozenset)):
+        caps = sorted(str(item) for item in caps)
+    return {
+        "intent_family": rqc.get("intent_family"),
+        "answer_goal": rqc.get("answer_goal"),
+        "evidence_requirements": list(rqc.get("evidence_requirements") or []),
+        "required_capabilities": list(caps or []),
+        "time_scope": rqc.get("time_scope"),
+        "clarification_required": bool(rqc.get("clarification_required")),
+    }
+
+
+def _evidence_state_summary(evidence_state: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(evidence_state, dict):
+        return None
+    return {
+        "required": list(evidence_state.get("required") or []),
+        "obtained": list(evidence_state.get("obtained") or []),
+        "missing": list(evidence_state.get("missing") or []),
+        "stale": list(evidence_state.get("stale") or []),
+        "invalidated": list(evidence_state.get("invalidated") or []),
+        "blocked": list(evidence_state.get("blocked") or []),
+        "provenance": evidence_state.get("provenance") if isinstance(evidence_state.get("provenance"), dict) else {},
+    }
 
 
 def _precomputed_aggregates(structured_context: dict[str, Any], source_refs: list[str]) -> list[PrecomputedAggregate]:

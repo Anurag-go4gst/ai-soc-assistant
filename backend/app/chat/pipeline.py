@@ -3867,6 +3867,24 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         promotion_lifecycle_summary=_promotion_lifecycle_for_composer_skip(state),
         registry_warnings=_skip_registry_warnings,
         catalog_row=_skip_catalog_row,
+        resolved_query_contract=state.get("resolved_query_contract")
+        if isinstance(state.get("resolved_query_contract"), dict)
+        else None,
+        investigation_outcome=state.get("investigation_outcome")
+        if isinstance(state.get("investigation_outcome"), dict)
+        else None,
+        evidence_state=state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else None,
+        evidence_sufficiency=state.get("evidence_sufficiency")
+        if isinstance(state.get("evidence_sufficiency"), dict)
+        else None,
+        route_plan_summary={
+            "primary_skill": (state.get("routed") or {}).get("skill")
+            if isinstance(state.get("routed"), dict)
+            else None,
+            "intent_family": (state.get("resolved_query_contract") or {}).get("intent_family")
+            if isinstance(state.get("resolved_query_contract"), dict)
+            else None,
+        },
     )
     synthesis_status = synthesis_lab.status
     context_sufficiency = apply_synthesis_allowed_to_sufficiency(

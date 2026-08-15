@@ -614,11 +614,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
 
 ### O — synthesis/output and session continuity
 
-- [ ] **O0 — Bind synthesis to final RQC, InvestigationOutcome, and governed evidence**
+- [x] **O0 — Bind synthesis to final RQC, InvestigationOutcome, and governed evidence**
   - **Do:** Pass the final RQC, InvestigationOutcome, minimal EvidenceState/supporting governed evidence, final route/plan summary, and EVIDENCE sufficiency result into the existing governed synthesis package. Keep the model narration-only/no-tools, deterministic disposition/severity/policy/action eligibility authoritative, trust delimiters mandatory, readiness/HIL gates mandatory, fallback deterministic, and final validator always-on. Free-form synthesis cannot become action authority.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_synthesis_final_contract_inputs.py app/tests/test_final_synthesis_skip_policy.py app/tests/test_final_answer_validator.py -q`
   - **Depends on:** OUT0 and SEC0.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `GovernedSynthesisPackage` now carries slim RQC/outcome/EvidenceState/sufficiency/route summary. Lab draft actions come from InvestigationOutcome; `execution_eligible` stays false. Verify → **21 passed**. `architecture.md` unmodified.
 
 - [ ] **O1 — Make safe Phase 11 session continuity a normal Phase 0/1 input**
   - **Do:** Minimally extend existing controlled session pins/handoffs so a new turn can use redacted final-RQC and InvestigationOutcome references, stable entity/time pins, evidence references plus scope/freshness/applicability status, clarification state, and trace/plan identity where needed. Resolve generic follow-up deltas such as “What about service accounts?” through deterministic Phase 1 sufficiency rather than another phrase-only special case. Preserve existing persistence, TTL, replacement/clear behavior, and Phase 10 action compatibility; do not create new session architecture.
