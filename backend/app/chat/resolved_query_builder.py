@@ -151,6 +151,120 @@ def build_resolved_query_contract(
     return attach_understanding_authority(contract)
 
 
+_ACCOUNT_CLASS_ALIASES = (
+    ("service account", "service_account"),
+    ("service-account", "service_account"),
+    ("privileged", "privileged"),
+    ("administrator", "administrator"),
+    ("admin", "administrator"),
+)
+_ACCOUNT_CLASS_USERS = frozenset({"admin", "administrator", "privileged", "service", "service_account"})
+
+
+def _account_type_from_delta(remainder: str) -> str | None:
+    text = remainder.lower().strip()
+    for needle, value in _ACCOUNT_CLASS_ALIASES:
+        if needle in text:
+            return value
+    return None
+
+
+def apply_session_continuity(
+    contract: ResolvedQueryContract,
+    *,
+    prior_rqc: dict[str, Any] | None,
+    delta_remainder: str | None = None,
+    follow_up_kind: str | None = None,
+) -> ResolvedQueryContract:
+    """Fold redacted prior RQC into Phase 1 understanding for generic scope deltas.
+
+    Retains prior entity/time pins the new message does not replace. Does not
+    rewrite the follow-up into a catalogue phrase. Capabilities stay derived.
+    """
+    if follow_up_kind != "scope_delta" or not isinstance(prior_rqc, dict):
+        return contract
+
+    prior_entities = prior_rqc.get("entities") if isinstance(prior_rqc.get("entities"), dict) else {}
+    merged_entities = {
+        key: value
+        for key, value in prior_entities.items()
+        if _is_concrete(value)
+    }
+    for key, value in (contract.entities or {}).items():
+        if _is_concrete(value):
+            merged_entities[key] = value
+
+    remainder = (delta_remainder or "").strip()
+    if remainder:
+        merged_entities["scope_delta"] = remainder
+        account_type = _account_type_from_delta(remainder)
+        if account_type:
+            merged_entities["account_type"] = account_type
+            users = merged_entities.get("user")
+            if isinstance(users, list):
+                kept = [
+                    item
+                    for item in users
+                    if str(item).strip().lower() not in _ACCOUNT_CLASS_USERS
+                ]
+                if kept:
+                    merged_entities["user"] = kept
+                else:
+                    merged_entities.pop("user", None)
+            elif isinstance(users, str) and users.strip().lower() in _ACCOUNT_CLASS_USERS:
+                merged_entities.pop("user", None)
+
+    time_scope = contract.time_scope or (
+        prior_rqc.get("time_scope") if isinstance(prior_rqc.get("time_scope"), str) else None
+    )
+    if not time_scope:
+        prior_window = prior_entities.get("time_window")
+        time_scope = prior_window if isinstance(prior_window, str) else None
+
+    intent_family = contract.intent_family
+    answer_goal = contract.answer_goal
+    clarification_required = contract.clarification_required
+    clarification_reason = contract.clarification_reason
+    ambiguity_state = contract.ambiguity_state
+    prior_family = prior_rqc.get("intent_family")
+    prior_goal = prior_rqc.get("answer_goal")
+    if (
+        ambiguity_state != "policy_blocked"
+        and isinstance(prior_family, str)
+        and prior_family not in {"clarification_required", ""}
+        and (
+            clarification_required
+            or intent_family in {"clarification_required"}
+            or ambiguity_state in {"clarification_required", "insufficient_signals"}
+        )
+    ):
+        intent_family = prior_family
+        if isinstance(prior_goal, str) and prior_goal in _VALID_ANSWER_GOALS:
+            answer_goal = prior_goal  # type: ignore[assignment]
+        clarification_required = False
+        clarification_reason = None
+        ambiguity_state = "unambiguous"
+
+    required, prohibited = capabilities_for_intent_family(intent_family)
+    provenance = dict(contract.provenance or {})
+    provenance["session_continuity"] = "scope_delta"
+    updated = contract.model_copy(
+        update={
+            "intent_family": intent_family,
+            "answer_goal": answer_goal,
+            "ambiguity_state": ambiguity_state,
+            "clarification_required": clarification_required,
+            "clarification_reason": clarification_reason,
+            "required_capabilities": required,
+            "prohibited_capabilities": prohibited,
+            "entities": merged_entities,
+            "time_scope": time_scope,
+            "provenance": provenance,
+        }
+    )
+    return attach_understanding_authority(updated)
+
+
 _DERIVED_FIELD_NAMES = (
     "required_capabilities",
     "prohibited_capabilities",

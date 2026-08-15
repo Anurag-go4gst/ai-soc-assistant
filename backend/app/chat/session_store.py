@@ -38,6 +38,12 @@ class SessionPins(BaseModel):
     pending_handoff_id: str | None = None
     pending_handoff_version: int | None = None
     original_query: str | None = None
+    last_rqc_redacted: dict[str, Any] | None = None
+    last_investigation_outcome_ref: dict[str, Any] | None = None
+    last_evidence_refs: list[str] = Field(default_factory=list)
+    last_clarification_state: dict[str, Any] | None = None
+    last_plan_identity: dict[str, Any] | None = None
+    last_evidence_scope: dict[str, Any] | None = None
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 

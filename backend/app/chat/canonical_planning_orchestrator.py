@@ -25,8 +25,9 @@ from app.chat.contracts.canonical_planning_outcome import (
 from app.chat.contracts.gap_resolution import FieldProvenance
 from app.chat.guided_detail_resolution import run_guided_detail_resolution
 from app.chat.intent_classifier import build_query_to_intent
-from app.chat.resolved_query_builder import build_resolved_query_contract
+from app.chat.resolved_query_builder import apply_session_continuity, build_resolved_query_contract
 from app.chat.semantic_t4_understanding import maybe_enrich_t4_semantic
+from app.chat.session_context import _generic_scope_delta
 from app.chat.intent_family_defaults import build_known_path_intent_stub, build_t0_knowledge_stub
 from app.chat.known_detail_completion import evaluate_known_detail_completion
 from app.chat.lane_router import is_known_catalogue_match, lane_for_match_path
@@ -956,14 +957,30 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     if lane.known_query_to_intent_built and isinstance(query_to_intent, dict):
         query_to_intent = {**query_to_intent, "intent_classification": intent_classification}
 
+    session_resolution = state.get("session_context_resolution")
+    prior_rqc = None
+    delta_remainder = None
+    follow_up_kind = None
+    pins = getattr(session_resolution, "pins", None)
+    if pins is not None:
+        follow_up_kind = getattr(session_resolution, "follow_up_kind", None)
+        prior_rqc = getattr(pins, "last_rqc_redacted", None)
+        if follow_up_kind == "scope_delta":
+            delta_remainder = _generic_scope_delta(" ".join(intake.query.lower().split()))
+
     resolved_query = maybe_enrich_t4_semantic(
-        build_resolved_query_contract(
-            query=intake.query,
-            query_understanding=state.get("query_understanding"),
-            qualification_tier=lane.resolved_tier,  # type: ignore[arg-type]
-            qualification_source=intake.match_path,
-            query_to_intent=query_to_intent,
-            provenance={"route_reason": lane.route_reason},
+        apply_session_continuity(
+            build_resolved_query_contract(
+                query=intake.query,
+                query_understanding=state.get("query_understanding"),
+                qualification_tier=lane.resolved_tier,  # type: ignore[arg-type]
+                qualification_source=intake.match_path,
+                query_to_intent=query_to_intent,
+                provenance={"route_reason": lane.route_reason},
+            ),
+            prior_rqc=prior_rqc if isinstance(prior_rqc, dict) else None,
+            delta_remainder=delta_remainder,
+            follow_up_kind=follow_up_kind if isinstance(follow_up_kind, str) else None,
         ),
         query=intake.query,
     )

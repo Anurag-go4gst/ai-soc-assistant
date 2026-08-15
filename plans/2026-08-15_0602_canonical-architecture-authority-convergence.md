@@ -620,11 +620,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** OUT0 and SEC0.
   - **Evidence:** `GovernedSynthesisPackage` now carries slim RQC/outcome/EvidenceState/sufficiency/route summary. Lab draft actions come from InvestigationOutcome; `execution_eligible` stays false. Verify → **21 passed**. `architecture.md` unmodified.
 
-- [ ] **O1 — Make safe Phase 11 session continuity a normal Phase 0/1 input**
+- [x] **O1 — Make safe Phase 11 session continuity a normal Phase 0/1 input**
   - **Do:** Minimally extend existing controlled session pins/handoffs so a new turn can use redacted final-RQC and InvestigationOutcome references, stable entity/time pins, evidence references plus scope/freshness/applicability status, clarification state, and trace/plan identity where needed. Resolve generic follow-up deltas such as “What about service accounts?” through deterministic Phase 1 sufficiency rather than another phrase-only special case. Preserve existing persistence, TTL, replacement/clear behavior, and Phase 10 action compatibility; do not create new session architecture.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_session_canonical_continuity.py app/tests/test_durable_session_store_s6d.py app/tests/test_batch5_session_context.py app/tests/test_canonical_architecture_authority_baseline.py -q`
   - **Depends on:** O0.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** SessionPins now persist redacted last RQC, InvestigationOutcome ref, evidence refs/scope, clarification state, and plan identity. Generic “what about …” deltas reuse prior RQC via `follow_up_kind=scope_delta` and `apply_session_continuity` (retain time/geo/event; replace account class) without a new phrase catalogue. TTL/replace/clear and MITRE follow-up unchanged. Verify → **28 passed**. `architecture.md` unmodified. Applicability statuses left to O1A.
 
 - [ ] **O1A — Revalidate prior evidence for a follow-up's final RQC**
   - **Do:** After deterministic session-delta resolution, evaluate prior evidence applicability against the new final RQC across relevant entity/account, host/device, IP/domain, geography, time/freshness, source/index, user/RBAC, investigation purpose, policy, and contradiction/supersession dimensions. Use existing vocabulary if equivalent; otherwise keep the minimum controlled statuses `REUSABLE`, `STALE`, `OUT_OF_SCOPE`, `SUPERSEDED`, `INVALIDATED`, `BLOCKED`. Only reusable evidence may satisfy the new EVIDENCE sufficiency result. Retain unusable historical evidence for provenance; do not delete it or solve follow-up with a phrase catalogue.
