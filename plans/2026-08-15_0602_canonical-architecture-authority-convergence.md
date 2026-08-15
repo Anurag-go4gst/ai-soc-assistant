@@ -578,11 +578,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
 
 ### D — EVIDENCE sufficiency and bounded PlanDelta loop
 
-- [ ] **D0 — Move the real EVIDENCE sufficiency decision into the graph node**
+- [x] **D0 — Move the real EVIDENCE sufficiency decision into the graph node**
   - **Do:** Replace the `pending_finalize` surface with the shared deterministic evaluator comparing final-RQC required evidence to E0A's minimal canonical EvidenceState. Return `SUFFICIENT`, `PARTIAL`, `INSUFFICIENT`, or `BLOCKED`, missing/stale/invalidated/blocked evidence, stop reason, and a deterministic next action before outcome/synthesis. Do not require detailed per-step attribution and do not turn sufficiency into new policy authority.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_planner_evidence_sufficiency.py app/tests/test_minimal_evidence_state.py app/tests/test_context_sufficiency_stage3j.py app/tests/test_canonical_architecture_authority_baseline.py -q`
   - **Depends on:** E0A.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `rp_node_context_sufficiency` calls `attach_evidence_sufficiency` / `from_evidence_state` (S0 adapter) instead of `pending_finalize`. Stage 3J `context_sufficiency` modes remain on finalize; architecture vocab lives on `state["evidence_sufficiency"]`. Next action never `CALL_T4`. Verify → **32 passed**. Neighbor I/O contract updated for new refs. `architecture.md` unmodified.
 
 - [ ] **D1 — CONDITIONAL: define and validate a targeted PlanDelta**
   - **Do:** Add an immutable targeted delta contract centered on `base_plan_fingerprint`, `target_missing_evidence`, `add_steps`, `modify_unexecuted_steps`, and deterministic rationale/reason codes. `COMPLETED` and `IN_PROGRESS` work, plus any work that has produced a side effect, is immutable; only pending/unresolved, unexecuted work may be modified, and new work may be added only for missing evidence. If future-compatible remove/reorder fields remain, restrict them to unresolved unexecuted work. Validate resource IDs, schemas, policies, dependencies, final-RQC capability bounds, max steps/cost, and fingerprints. A delta cannot change final RQC/route ownership, clear policy, replay side effects, widen capabilities, repeat the same effective plan, or mutate historical evidence.

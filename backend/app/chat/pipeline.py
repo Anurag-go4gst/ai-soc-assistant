@@ -451,6 +451,7 @@ class ChatPipelineState(TypedDict, total=False):
     canonical_facts: dict[str, Any] | None
     final_evidence_gate: dict[str, Any] | None
     evidence_state: dict[str, Any] | None
+    evidence_sufficiency: dict[str, Any] | None
     plan_dispatch_trace: dict[str, Any] | None
     # Plan 6 E0 — names of pipeline_inline phases that actually ran this turn
     # (mitre_finalize / cve_adapter). Provenance only; not a hook schedule.
@@ -3628,6 +3629,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         execution=execution if isinstance(execution, dict) else None,
     )
     state = {**state, "evidence_state": evidence_state.model_dump_view()}
+    from app.evidence.evidence_sufficiency import attach_evidence_sufficiency
+
+    state = attach_evidence_sufficiency(state)
     source_refs = [str(item.get("evidence_id")) for item in source_evidence]
     spl_template = template_summary(selected_use_case.default_spl_template if selected_use_case else None)
     if selected_use_case is not None:

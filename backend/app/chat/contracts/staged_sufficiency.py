@@ -131,6 +131,90 @@ def from_context_sufficiency(envelope: dict[str, Any]) -> StagedSufficiencyResul
     )
 
 
+def from_evidence_state(
+    evidence_state: dict[str, Any] | Any,
+    *,
+    resolved_query_contract: dict[str, Any] | None = None,
+) -> StagedSufficiencyResult:
+    """Compare final-RQC required evidence to E0A MinimalEvidenceState.
+
+    Deterministic EVIDENCE-stage projection. Not a policy engine, router, or
+    capability grant. Never requests CALL_T4.
+    """
+    if hasattr(evidence_state, "model_dump_view"):
+        view = evidence_state.model_dump_view()
+    elif isinstance(evidence_state, dict):
+        view = evidence_state
+    else:
+        view = {}
+    rqc = resolved_query_contract if isinstance(resolved_query_contract, dict) else {}
+    required = [str(item) for item in (view.get("required") or [])]
+    for item in rqc.get("evidence_requirements") or []:
+        key = str(item)
+        if key not in required:
+            required.append(key)
+    for cap in rqc.get("required_capabilities") or []:
+        key = str(cap)
+        if key not in required:
+            required.append(key)
+    obtained = [str(item) for item in (view.get("obtained") or [])]
+    missing = [str(item) for item in (view.get("missing") or [])]
+    stale = [str(item) for item in (view.get("stale") or [])]
+    invalidated = [str(item) for item in (view.get("invalidated") or [])]
+    blocked = [str(item) for item in (view.get("blocked") or [])]
+    required_set = set(required)
+    applicable_blocked = [key for key in blocked if not required_set or key in required_set]
+    applicable_stale = [key for key in stale if not required_set or key in required_set]
+    applicable_invalidated = [key for key in invalidated if not required_set or key in required_set]
+    reasons: list[str] = []
+    if applicable_blocked:
+        status: SufficiencyStatus = "BLOCKED"
+        reasons.append("evidence_blocked")
+        missing = _unique_keys([*missing, *applicable_blocked])
+    elif missing and not (set(obtained) & required_set):
+        status = "INSUFFICIENT"
+        reasons.append("evidence_missing")
+    elif missing or applicable_stale or applicable_invalidated:
+        status = "PARTIAL"
+        if missing:
+            reasons.append("evidence_missing")
+        if applicable_stale:
+            reasons.append("evidence_stale")
+        if applicable_invalidated:
+            reasons.append("evidence_invalidated")
+    else:
+        status = "SUFFICIENT"
+    next_action = derive_next_action(
+        stage="EVIDENCE",
+        status=status,
+        unresolved=(),
+        reason_codes=reasons,
+    )
+    return StagedSufficiencyResult(
+        stage="EVIDENCE",
+        status=status,
+        required=required,
+        available=obtained,
+        missing=missing,
+        locked=[],
+        unresolved=[],
+        reason_codes=sorted(set(reasons)),
+        next_action=next_action,
+    )
+
+
+def _unique_keys(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for value in values:
+        key = str(value).strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(key)
+    return out
+
+
 def from_understanding_state(
     *,
     required: list[str] | None = None,
