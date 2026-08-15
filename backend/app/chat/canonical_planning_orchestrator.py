@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from app.chat.canonical_answer_mode_policy import CanonicalAnswerModePolicyError
@@ -110,8 +110,9 @@ def run_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:
         from app.chat.canonical_outcome_gate import enforce_canonical_outcome_invariant
 
         state = enforce_canonical_outcome_invariant(state)
-        state = graph_node_route_resolution(state)
-        state = graph_node_route_contract(state)
+        if not isinstance(state.get("route_adjudication"), dict):
+            state = graph_node_route_resolution(state)
+            state = graph_node_route_contract(state)
         state = _graph_node_planning_decision_from_canonical(state)
         return state
     except HandoffPersistenceError as exc:
@@ -749,6 +750,53 @@ def _persist_clarification_outcome(
     return clarification_state
 
 
+def _bind_final_route_from_rqc(
+    state: ChatPipelineState,
+    *,
+    intake: _PlanningIntake,
+    lane: _LaneResolution,
+    canonical: Any,
+    intent_classification: dict[str, Any],
+    query_to_intent: dict[str, Any] | None,
+    resolved_query_contract: dict[str, Any] | None,
+) -> tuple[ChatPipelineState, _LaneResolution, Any]:
+    """Commit final route ownership from the final RQC before ResourcePlan creation."""
+    ready: ChatPipelineState = {
+        **state,
+        "routed": lane.routed,
+        "intent_classification": intent_classification,
+        "query_to_intent": query_to_intent,
+        "resolved_query_contract": resolved_query_contract,
+        "canonical_planning_input": canonical.model_dump(),
+        "processing_lane": lane.processing_lane,
+        "resolved_tier": lane.resolved_tier,
+        "initial_tier": intake.initial_tier,
+    }
+    if ready.get("request") is None:
+        return ready, lane, canonical
+    from app.chat.pipeline import graph_node_route_contract, graph_node_route_resolution
+
+    if ready.get("route_plan_shadow") is None:
+        ready = {**ready, "route_plan_shadow": {}}
+    ready = graph_node_route_resolution(ready)
+    ready = graph_node_route_contract(ready)
+    adjudication = ready.get("route_adjudication")
+    final_route = None
+    if isinstance(adjudication, dict):
+        final_route = adjudication.get("final_route") or adjudication.get("route")
+    if not final_route:
+        return ready, lane, canonical
+    routed = dict(ready.get("routed") or lane.routed)
+    routed["skill"] = str(final_route)
+    ready = {**ready, "routed": routed}
+    canonical = canonical.model_copy(
+        update={
+            "routing": canonical.routing.model_copy(update={"primary_skill": str(final_route)})
+        }
+    )
+    return ready, replace(lane, routed=routed), canonical
+
+
 def _commit_planned_outcome(
     state: ChatPipelineState,
     *,
@@ -764,6 +812,15 @@ def _commit_planned_outcome(
     ``plan_evidence_from_canonical`` stays the sole plan creator; this stage only
     persists around it and projects the committed plan onto the returned state.
     """
+    state, lane, canonical = _bind_final_route_from_rqc(
+        state,
+        intake=intake,
+        lane=lane,
+        canonical=canonical,
+        intent_classification=intent_classification,
+        query_to_intent=query_to_intent,
+        resolved_query_contract=resolved_query_contract,
+    )
     handoff_id = intake.handoff_id
     handoff_version = intake.handoff_version
     trace_id = state.get("trace_id")

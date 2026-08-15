@@ -510,11 +510,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** U2. Deterministic convergence must work whether T4 is unavailable, times out, is disabled, or remains unsuitable for production serving.
   - **Evidence:** Clarification now reads `resolved_query.clarification_required` (final RQC) before `_commit_planned_outcome`. Handoff JSON stores `resolved_query_contract` beside canonical input (no DB migration). `plan_evidence_from_canonical` fail-closes on RQC clarification. T4 disabled in tests. Verify → **15 passed**. Neighbor planning/dual-runtime → **44 passed**. `architecture.md` unmodified.
 
-- [ ] **R1 — Commit final route ownership before the sole plan creator**
+- [x] **R1 — Commit final route ownership before the sole plan creator**
   - **Do:** Run deterministic route adjudication and create the final route contract from the final RQC before `plan_evidence_from_canonical`. Remove any second post-plan route mutation. Keep one final owner while preserving cross-capability work.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_final_route_precedes_resource_plan.py app/tests/test_route_adjudication_resolved_query.py app/tests/test_dual_runtime_single_orchestration.py -q`
   - **Depends on:** R0.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `_bind_final_route_from_rqc` runs `graph_node_route_resolution`/`graph_node_route_contract` inside `_commit_planned_outcome` before `plan_evidence_from_canonical`; `canonical.routing.primary_skill` takes `final_route`. `run_canonical_planning` skips a second adjudication when `route_adjudication` is already present. Verify → **22 passed**. Neighbor architecture tests **36 passed** with R0. `architecture.md` unmodified.
 
 - [ ] **R2 — CONDITIONAL: provide a thin planner-facing capability view only if measured necessary**
   - **Do:** Use existing resource, skill, phase, MCP, and model registry APIs directly wherever practical. Only if the advanced-extension gate records a stable joined view as necessary, add a thin immutable read-only adapter over metadata those authoritative registries already expose, with deterministic precedence. Unknown metadata stays `unknown`/`not_declared`; never invent estimates or add telemetry, measurement work, persistence, another registry/service, or another source of truth.
