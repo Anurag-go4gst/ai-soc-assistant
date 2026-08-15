@@ -652,11 +652,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** X0. X1 is conditional and does not block documentation reconciliation once its disposition is recorded.
   - **Evidence:** _(fill when done)_
 
-- [ ] **X3 — Reconcile inherited Plan 7 A7 fallback disposition**
+- [x] **X3 — Reconcile inherited Plan 7 A7 fallback disposition**
   - **Do:** Consume and preserve the already-recorded Plan 7 A7 result; do not reopen A7. If the inherited fallback is retained, preserve its structural tests and disposition. If Plan 7 retired it with proof, do not recreate it. If Plan 7 was explicitly superseded before A7 completion, consume the explicit user-approved P0 disposition before doing anything.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_session_spl_refine_fallback_lifecycle.py app/tests/test_resource_plan_dispatch_switch.py app/tests/test_dual_runtime_single_orchestration.py -q`; `docs/evals/plan7/a7_fallback_lifecycle_proof.md` answers lifecycle ownership, postprocessing, validation, MCP eligibility, HIL/RBAC, and duplicate-execution questions.
   - **Depends on:** P0 and completed Plan 7 A7 evidence, or the explicit supersession disposition recorded by P0.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Consumed A7 `LEGACY_FALLBACK_ROLLBACK_ONLY_RETAIN_TEMPORARILY` without reopening. Proof still answers all six lifecycle questions. Named pin tests added for the plan Verify command (files were not present at Plan 8 start; they restate existing A7/A6 pins, no runtime change). Verify → **29 passed**. `architecture.md` unmodified.
 
 ### G — final gates and skeptical re-audit
 
@@ -716,3 +716,4 @@ None at amendment time. Commands referencing new tests/harnesses name the exact 
   Verify **61 passed**. No new auth service. F3/live MCP unproven unchanged. Next: X0.
 - **2026-08-16:** **X0 complete.** Seven seams classified; 0 dead; no deletion. Next: X1 disposition.
 - **2026-08-16:** **X1 complete.** `NOT_REQUIRED_FOR_CURRENT_SCOPE`; all seven seams retained. Next: X3.
+- **2026-08-16:** **X3 complete.** A7 consumed, not reopened; Verify **29 passed**. Next: X2.
