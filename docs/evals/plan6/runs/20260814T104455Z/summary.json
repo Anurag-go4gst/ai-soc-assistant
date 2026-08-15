@@ -1,0 +1,84 @@
+{
+  "arm": "F",
+  "results": [
+    {
+      "row_id": "p6.t1.knowledge",
+      "class": "t1_exact_known_knowledge",
+      "exit_code": 0,
+      "trace_id": "aa9ecde6-e8a2-4678-8732-79ef2a7a6714",
+      "wall_ms": 25030,
+      "chat": {
+        "trace_id": "aa9ecde6-e8a2-4678-8732-79ef2a7a6714",
+        "route": "knowledge_recall",
+        "answer_mode": "rag_only",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "sop_or_playbook",
+        "answer_goal": "procedural_steps",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "54643926bb51081e",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.t4.out_of_registry",
+      "class": "t4_out_of_registry_investigation",
+      "exit_code": 0,
+      "trace_id": "bddaf822-e960-4241-a8d5-ec796eadd9c9",
+      "wall_ms": 50886,
+      "chat": {
+        "trace_id": "bddaf822-e960-4241-a8d5-ec796eadd9c9",
+        "route": "guided_investigation",
+        "answer_mode": "guided_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "guided_investigation",
+        "answer_goal": "procedural_steps",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "fd65002b17c46fa0",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.spl.draft",
+      "class": "spl_only_draft_review",
+      "exit_code": 0,
+      "trace_id": "f682a3b4-2608-4acd-9195-25c36bd52f20",
+      "wall_ms": 61335,
+      "chat": {
+        "trace_id": "f682a3b4-2608-4acd-9195-25c36bd52f20",
+        "route": "attack_discovery",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "99ccd9213e2f0b37",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    }
+  ],
+  "missing_qualification_tier": []
+}

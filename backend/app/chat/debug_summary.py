@@ -6,11 +6,20 @@ without spelunking nested control_plane_trace JSON.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from app.chat.final_output_trace import build_final_output_trace
 
 _MAX_SKIPPED_ROLES = 7
+_SEMANTIC_T4_NOTE_ALLOWLIST = frozenset(
+    {
+        "llm_assist_timed_out",
+        "llm_model_slot_busy",
+        "semantic_t4_llm_disabled",
+        "semantic_t4_no_provider_configured",
+    }
+)
 
 
 def build_debug_summary(
@@ -62,6 +71,11 @@ def build_debug_summary(
     output_block = build_final_output_trace(base) if base else {}
     intent_block = _intent_block(base, cp)
     dispatch_block = _dispatch_block(base, cp)
+    contract_raw = base.get("resolved_query_contract")
+    if not isinstance(contract_raw, dict):
+        contract_raw = cp.get("resolved_query")
+    resolved_query_block = redact_resolved_query(contract_raw)
+    schedule_block = _schedule_provenance_block(base, cp)
 
     return {
         "routing": routing,
@@ -72,6 +86,8 @@ def build_debug_summary(
         "output": output_block,
         "intent": intent_block,
         "dispatch": dispatch_block,
+        "resolved_query": resolved_query_block,
+        "schedule": schedule_block,
     }
 
 
@@ -98,6 +114,152 @@ def routing_list_fields(debug_summary: dict[str, Any] | None) -> dict[str, Any]:
         "question_ref": routing.get("question_ref"),
         "matched_pattern": first_pattern,
         "spl_path": spl_path,
+    }
+
+
+def redact_resolved_query(raw: dict[str, Any] | None) -> dict[str, Any]:
+    """IDs/status only. No skill, no execution authority, no entities, no raw query."""
+    source = raw if isinstance(raw, dict) else {}
+    required = source.get("required_capabilities")
+    prohibited = source.get("prohibited_capabilities")
+    provenance = source.get("provenance") if isinstance(source.get("provenance"), dict) else {}
+    semantic = provenance.get("semantic_t4") if isinstance(provenance.get("semantic_t4"), dict) else None
+    if semantic is None and isinstance(source.get("semantic_t4"), dict):
+        semantic = source.get("semantic_t4")
+    semantic_block = None
+    if semantic is not None:
+        reasons = semantic.get("rejected_reasons")
+        notes = semantic.get("notes")
+        elapsed = semantic.get("elapsed_ms")
+        semantic_block = {
+            "invoked": bool(semantic.get("invoked")),
+            "accepted": bool(semantic.get("accepted")),
+            "timed_out": bool(semantic.get("timed_out")),
+            "elapsed_ms": int(elapsed) if isinstance(elapsed, (int, float)) else None,
+            "rejected_reasons": [str(item) for item in reasons][:8] if isinstance(reasons, list) else [],
+            "notes": [
+                str(item)
+                for item in notes
+                if isinstance(notes, list) and str(item) in _SEMANTIC_T4_NOTE_ALLOWLIST
+            ][:8],
+        }
+    return {
+        "qualification_tier": source.get("qualification_tier"),
+        "intent_family": source.get("intent_family"),
+        "answer_goal": source.get("answer_goal"),
+        "required_capabilities": sorted(str(item) for item in required)
+        if isinstance(required, (list, tuple, set, frozenset))
+        else [],
+        "prohibited_capabilities": sorted(str(item) for item in prohibited)
+        if isinstance(prohibited, (list, tuple, set, frozenset))
+        else [],
+        "ambiguity_state": source.get("ambiguity_state"),
+        "clarification_required": bool(source.get("clarification_required")),
+        "understanding_source": source.get("understanding_source"),
+        "qualification_source": source.get("qualification_source"),
+        "semantic_t4": semantic_block,
+    }
+
+
+def _schedule_provenance_block(
+    payload: dict[str, Any],
+    control_plane_trace: dict[str, Any],
+) -> dict[str, Any]:
+    """ResourcePlan / PhaseContract / dispatch schedule IDs. No SPL or MCP rows."""
+    plan_dispatch = payload.get("plan_dispatch_trace")
+    if not isinstance(plan_dispatch, dict):
+        plan_dispatch = control_plane_trace.get("plan_dispatch")
+    plan_dispatch = plan_dispatch if isinstance(plan_dispatch, dict) else {}
+    evidence = payload.get("evidence_plan")
+    if not isinstance(evidence, dict):
+        evidence = control_plane_trace.get("evidence_plan")
+    evidence = evidence if isinstance(evidence, dict) else {}
+    resource_plan = evidence.get("resource_plan")
+    resource_plan = resource_plan if isinstance(resource_plan, dict) else {}
+    provenance = resource_plan.get("provenance")
+    provenance = provenance if isinstance(provenance, dict) else {}
+    steps = resource_plan.get("steps")
+    step_ids = [
+        str(step.get("step_id"))
+        for step in steps
+        if isinstance(step, dict) and step.get("step_id")
+    ] if isinstance(steps, list) else []
+    fingerprint = None
+    if step_ids:
+        digest = hashlib.sha256(",".join(step_ids).encode("utf-8")).hexdigest()
+        fingerprint = digest[:16]
+    execution_order = plan_dispatch.get("execution_order")
+    execution_order = execution_order if isinstance(execution_order, dict) else {}
+    phase_merge = execution_order.get("phase_merge")
+    phase_merge = phase_merge if isinstance(phase_merge, dict) else {}
+    phase_contract = phase_merge.get("phase_contract")
+    phase_contract = phase_contract if isinstance(phase_contract, dict) else {}
+    phases = phase_contract.get("phases")
+    phase_names = [
+        str(phase.get("name"))
+        for phase in phases
+        if isinstance(phase, dict) and phase.get("name")
+    ] if isinstance(phases, list) else []
+    schedule = plan_dispatch.get("dispatch_schedule")
+    schedule = list(schedule) if isinstance(schedule, list) else []
+    node_trace = payload.get("node_trace")
+    duration_ms: dict[str, int] = {}
+    executed: list[str] = []
+    if isinstance(node_trace, list):
+        for row in node_trace:
+            if not isinstance(row, dict):
+                continue
+            name = row.get("node_name") or row.get("node")
+            if not name:
+                continue
+            executed.append(str(name))
+            raw_ms = row.get("duration_ms")
+            if isinstance(raw_ms, (int, float)):
+                duration_ms[str(name)] = int(raw_ms)
+    if not executed:
+        executed = list(schedule)
+    downgrade = execution_order.get("downgrade_reason")
+    if isinstance(downgrade, str) and downgrade:
+        degrade_reason = downgrade
+    elif phase_merge:
+        degrade_reason = "merge"
+    elif str(plan_dispatch.get("dispatch_source") or "") == "legacy_predicate":
+        degrade_reason = "fallback"
+    else:
+        degrade_reason = None
+    session_role = payload.get("session_role")
+    if not isinstance(session_role, str):
+        session_role = control_plane_trace.get("session_role")
+    rbac = None
+    mcp = control_plane_trace.get("mcp_execution")
+    if isinstance(mcp, dict):
+        rbac = mcp.get("rbac_decision") or mcp.get("rbac_role")
+    inline_mandatory_raw = phase_contract.get("inline_mandatory")
+    inline_mandatory = (
+        [str(name) for name in inline_mandatory_raw if name]
+        if isinstance(inline_mandatory_raw, list)
+        else []
+    )
+    inline_executed_raw = plan_dispatch.get("inline_executed")
+    if not isinstance(inline_executed_raw, list):
+        inline_executed_raw = payload.get("pipeline_inline_executed")
+    inline_executed = (
+        [str(name) for name in inline_executed_raw if name]
+        if isinstance(inline_executed_raw, list)
+        else []
+    )
+    return {
+        "resource_plan_id": provenance.get("resource_plan_id"),
+        "resource_plan_fingerprint": fingerprint,
+        "phase_names": phase_names,
+        "dispatch_schedule": [str(item) for item in schedule],
+        "executed_hooks": executed[:24],
+        "inline_mandatory": inline_mandatory[:8],
+        "inline_executed": inline_executed[:8],
+        "degrade_reason": degrade_reason,
+        "session_role": session_role if isinstance(session_role, str) else None,
+        "rbac_decision": str(rbac) if rbac is not None else None,
+        "phase_duration_ms": duration_ms,
     }
 
 

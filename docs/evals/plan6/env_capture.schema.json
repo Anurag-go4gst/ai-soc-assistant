@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-soc.local/evals/plan6/env_capture.schema.json",
+  "title": "Plan 6 VPS env capture (redacted)",
+  "description": "Booleans and names only. Keys matching token|password|secret|api_key are forbidden at every nesting level.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "git_sha",
+    "flags",
+    "mcp_mode",
+    "mcp_connectivity",
+    "db_reachable",
+    "environment_identity",
+    "timestamp",
+    "corpus_version"
+  ],
+  "properties": {
+    "git_sha": { "type": "string", "minLength": 7 },
+    "flags": {
+      "type": "object",
+      "description": "Flag name -> boolean or numeric timeout. No secret values.",
+      "additionalProperties": { "type": ["boolean", "number", "string"] }
+    },
+    "model_endpoint_host": { "type": ["string", "null"] },
+    "model_role": { "type": ["string", "null"] },
+    "db_reachable": { "type": "boolean" },
+    "mcp_mode": { "type": "string" },
+    "mcp_connectivity": { "type": "boolean" },
+    "environment_identity": { "type": "string" },
+    "test_account_role": { "type": ["string", "null"] },
+    "timestamp": { "type": "string" },
+    "corpus_version": { "type": "string" }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "schema_version": "plan6_t4_serving_baseline_v1",
+  "git_sha": "1d32ac66dd6c707789db8b44574bd566af401952",
+  "endpoint": "resolve_local_primary_endpoint (sidecar)",
+  "timeout_seconds": 2.0,
+  "flags": {
+    "AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED": true,
+    "AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS": 2.0,
+    "AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED": false,
+    "AI_SOC_PIPELINE_DISPATCH_V2_ENABLED": true
+  },
+  "load_average_at_enable": [1.60, 2.26, 1.77],
+  "serial": {
+    "run_dir": "docs/evals/plan6/runs/20260813T152947Z",
+    "t4_rows": 9,
+    "paraphrase_rows": 8,
+    "invoked": 9,
+    "accepted": 0,
+    "timed_out": 9,
+    "empty_output": 0,
+    "llm_model_slot_busy": 0,
+    "hop_elapsed_ms": [2003, 2000, 2000, 2000, 2001, 2001, 2001, 2001, 2000],
+    "paraphrase_chat_wall_ms": [39294, 41923, 40538, 38273, 37804, 42320, 32949, 37992],
+    "paraphrase_chat_p50_ms": 38784,
+    "paraphrase_chat_p95_ms": 42320,
+    "cold_first_paraphrase_wall_ms": 39294,
+    "warm_remaining_paraphrase_wall_ms": [41923, 40538, 38273, 37804, 42320, 32949, 37992]
+  },
+  "t1_t3_controls": {
+    "run_dir": "docs/evals/plan6/runs/20260813T153840Z",
+    "rows": [
+      {"row_id": "p6.t1.knowledge", "qualification_tier": "T2", "semantic_t4": null, "wall_ms": 15839},
+      {"row_id": "p6.t2.known_nontrivial", "qualification_tier": "T2", "semantic_t4": null, "wall_ms": 37936},
+      {"row_id": "p6.live_posture.d1_003", "qualification_tier": "T1", "semantic_t4": null, "wall_ms": 30347}
+    ],
+    "t4_invocations": 0
+  },
+  "concurrency_n2": {
+    "pair_wall_ms": 34786,
+    "invoked": 2,
+    "accepted": 0,
+    "timed_out": 1,
+    "empty_output": 1,
+    "llm_model_slot_busy": 1,
+    "rows": [
+      {"row_id": "p6.para.003", "wall_ms": 34641, "trace_id": "d0228af7-2c1f-49fc-9f9f-d01953913409", "rejected": "timed_out"},
+      {"row_id": "p6.para.004", "wall_ms": 1344, "trace_id": "3e9b1053-f222-4186-8e7e-cee6c5136c5b", "rejected": "empty_output", "notes": ["llm_model_slot_busy"]}
+    ]
+  },
+  "restored": {
+    "AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED": false,
+    "AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED": false,
+    "AI_SOC_PIPELINE_DISPATCH_V2_ENABLED": true
+  }
+}

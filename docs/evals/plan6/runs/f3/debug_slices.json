@@ -1,0 +1,53 @@
+[
+  {
+    "trace_id": "1432deb5-17ec-4d23-a69d-941d74e78fb4",
+    "mcp": {
+      "status": "skipped",
+      "allowed": false,
+      "block_reason": null
+    },
+    "hil": {
+      "kind": "none",
+      "reason": "knowledge_only_no_execution",
+      "required": false
+    },
+    "execution_eligible": null,
+    "degrade_reason": null,
+    "semantic_t4": null,
+    "phase_names": []
+  },
+  {
+    "trace_id": "c0f3efc4-2fb3-484a-8ac6-07a1c8ae3733",
+    "mcp": {
+      "status": "skipped",
+      "allowed": false,
+      "block_reason": null
+    },
+    "hil": {
+      "kind": "none",
+      "reason": "knowledge_only_no_execution",
+      "required": false
+    },
+    "execution_eligible": null,
+    "degrade_reason": null,
+    "semantic_t4": null,
+    "phase_names": []
+  },
+  {
+    "trace_id": "d9522312-4ef3-4f37-bd21-6723e3ef49ea",
+    "mcp": {
+      "status": "skipped",
+      "allowed": false,
+      "block_reason": "mcp_not_allowed_by_evidence_plan"
+    },
+    "hil": {
+      "kind": "spl_revision",
+      "reason": "lab_draft_preview_review_required",
+      "required": true
+    },
+    "execution_eligible": null,
+    "degrade_reason": null,
+    "semantic_t4": null,
+    "phase_names": []
+  }
+]

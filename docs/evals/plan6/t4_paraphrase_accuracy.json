@@ -1,0 +1,37 @@
+{
+  "schema_version": "plan6_t4_paraphrase_accuracy_v1",
+  "git_sha": "1d32ac66dd6c707789db8b44574bd566af401952",
+  "t4_flag": false,
+  "production_timeout_seconds": 2.0,
+  "accepted_contracts_by_option": {
+    "A_local_primary_2s": 0,
+    "B_foundation_sec_failover_url": null,
+    "C_qwen": null,
+    "D_n2": 0
+  },
+  "semantic_accuracy_eight": {
+    "parsed": 0,
+    "accepted": 0,
+    "family_match": 0,
+    "n": 8,
+    "note": "No serving option returned JSON. Accuracy of a T4 proposal is not measurable."
+  },
+  "false_widening_events": 0,
+  "capability_widening_events": 0,
+  "clarification_dropped_events": 0,
+  "l3l4_probe": "docs/evals/plan6/t4_residual_routing_l3l4.json",
+  "l4_eight": "8/8 unchanged knowledge_recall/clarification_required",
+  "l5_source": "docs/evals/plan6/runs/20260813T152947Z/summary.json (D0 VPS /chat, T4 ON, hop timed out)",
+  "l5_eight_routes": [
+    {"row_id": "rt.para.003", "l5_skill": "knowledge_recall", "answer_mode": "clarification", "wall_ms": 39294},
+    {"row_id": "rt.para.004", "l5_skill": "knowledge_recall", "answer_mode": "clarification", "wall_ms": 41923},
+    {"row_id": "rt.para.005", "l5_skill": "knowledge_recall", "answer_mode": "clarification", "wall_ms": 40538},
+    {"row_id": "rt.para.006", "l5_skill": "knowledge_recall", "answer_mode": "clarification", "wall_ms": 38273},
+    {"row_id": "rt.para.007", "l5_skill": "knowledge_recall", "answer_mode": "clarification", "wall_ms": 37804},
+    {"row_id": "rt.para.008", "l5_skill": "knowledge_recall", "answer_mode": "clarification", "wall_ms": 42320},
+    {"row_id": "rt.para.012", "l5_skill": "knowledge_recall", "answer_mode": "clarification", "wall_ms": 32949},
+    {"row_id": "rt.para.015", "l5_skill": "knowledge_recall", "answer_mode": "clarification", "wall_ms": 37992}
+  ],
+  "chat_p50_ms": 38784,
+  "chat_p95_ms": 42320
+}

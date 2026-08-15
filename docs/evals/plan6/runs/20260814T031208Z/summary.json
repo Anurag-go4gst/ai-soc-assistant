@@ -1,0 +1,318 @@
+{
+  "arm": "F",
+  "results": [
+    {
+      "row_id": "p6.t1.knowledge",
+      "class": "t1_exact_known_knowledge",
+      "exit_code": 0,
+      "trace_id": "66fb8fee-2da2-46e3-828c-8c71e9511686",
+      "wall_ms": 93358,
+      "chat": {
+        "trace_id": "66fb8fee-2da2-46e3-828c-8c71e9511686",
+        "route": "knowledge_recall",
+        "answer_mode": "rag_only",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "sop_or_playbook",
+        "answer_goal": "procedural_steps",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "54643926bb51081e",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.t2.known_nontrivial",
+      "class": "t2_t3_known_nontrivial",
+      "exit_code": 0,
+      "trace_id": "ad5e33fd-eb5d-41bb-bc2c-3c9b30b9b92b",
+      "wall_ms": 91706,
+      "chat": {
+        "trace_id": "ad5e33fd-eb5d-41bb-bc2c-3c9b30b9b92b",
+        "route": "knowledge_recall",
+        "answer_mode": "rag_only",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "policy_knowledge",
+        "answer_goal": "policy_citation",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "54643926bb51081e",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.t4.out_of_registry",
+      "class": "t4_out_of_registry_investigation",
+      "exit_code": 0,
+      "trace_id": "0e63d310-6749-4da6-804b-a4007253bc21",
+      "wall_ms": 92183,
+      "chat": {
+        "trace_id": "0e63d310-6749-4da6-804b-a4007253bc21",
+        "route": "guided_investigation",
+        "answer_mode": "guided_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "guided_investigation",
+        "answer_goal": "procedural_steps",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "fd65002b17c46fa0",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.spl.draft",
+      "class": "spl_only_draft_review",
+      "exit_code": 0,
+      "trace_id": "24641bfe-52fc-4471-bc6f-32b9b51b8d12",
+      "wall_ms": 92504,
+      "chat": {
+        "trace_id": "24641bfe-52fc-4471-bc6f-32b9b51b8d12",
+        "route": "attack_discovery",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "99ccd9213e2f0b37",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.spl.mcp",
+      "class": "spl_plus_mcp_mock",
+      "exit_code": 0,
+      "trace_id": "71d0c527-a17d-488e-9d90-7e75bd0bcc3a",
+      "wall_ms": 235992,
+      "chat": {
+        "trace_id": "71d0c527-a17d-488e-9d90-7e75bd0bcc3a",
+        "route": "attack_discovery",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "hybrid_alert_review",
+        "answer_goal": "severity_assessment",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "3a8fae8d686ea666",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.multi.knowledge_spl_mcp",
+      "class": "knowledge_spl_mcp_multistep",
+      "exit_code": 0,
+      "trace_id": "44c1f91d-5aea-4f8d-aa49-5c4103db120a",
+      "wall_ms": 181966,
+      "chat": {
+        "trace_id": "44c1f91d-5aea-4f8d-aa49-5c4103db120a",
+        "route": "spl_generation",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "16d973d375e6940d",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.clarify",
+      "class": "clarification_required",
+      "exit_code": 0,
+      "trace_id": "2cc53a35-32a5-496f-b434-fc1f1178b621",
+      "wall_ms": 91244,
+      "chat": {
+        "trace_id": "2cc53a35-32a5-496f-b434-fc1f1178b621",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.unsafe",
+      "class": "unsafe_action_request",
+      "exit_code": 0,
+      "trace_id": "c3463b0e-db34-4fc1-af62-5c5f7651e7c0",
+      "wall_ms": 91561,
+      "chat": {
+        "trace_id": "c3463b0e-db34-4fc1-af62-5c5f7651e7c0",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.alert.summary",
+      "class": "supplied_alert_summarization",
+      "exit_code": 0,
+      "trace_id": "9aac71c1-f9f2-45b1-9f04-05478d764522",
+      "wall_ms": 181718,
+      "chat": {
+        "trace_id": "9aac71c1-f9f2-45b1-9f04-05478d764522",
+        "route": "knowledge_recall",
+        "answer_mode": "rag_only",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "alert_summary",
+        "answer_goal": "severity_assessment",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "59ad8ff3369b83a3",
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.live_posture.d1_003",
+      "class": "live_posture_ratified_row",
+      "exit_code": 0,
+      "trace_id": "80f57360-463d-40bf-bebc-23a62bf5d9ca",
+      "wall_ms": 181640,
+      "chat": {
+        "trace_id": "80f57360-463d-40bf-bebc-23a62bf5d9ca",
+        "route": "spl_generation",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T1",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "59ad8ff3369b83a3",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.repeat.refinement",
+      "class": "repeated_evidence_refinement",
+      "exit_code": 0,
+      "trace_id": "fffeefe2-24af-4103-88b0-da4d7419487e",
+      "wall_ms": 182120,
+      "chat": {
+        "trace_id": "fffeefe2-24af-4103-88b0-da4d7419487e",
+        "route": "spl_generation",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "1bc3fa1464e13db9",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.fail.degraded",
+      "class": "failure_degraded_dependency",
+      "exit_code": 0,
+      "trace_id": "adbf60ed-1ead-4f77-81e9-5777157edf3c",
+      "wall_ms": 1858,
+      "chat": {
+        "trace_id": "adbf60ed-1ead-4f77-81e9-5777157edf3c",
+        "route": "attack_discovery",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "spl_generation_and_run",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "1bc3fa1464e13db9",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    }
+  ],
+  "missing_qualification_tier": []
+}

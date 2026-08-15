@@ -1,0 +1,110 @@
+{
+  "arm": "F",
+  "results": [
+    {
+      "row_id": "p6.t1.knowledge",
+      "class": "t1_exact_known_knowledge",
+      "exit_code": 0,
+      "trace_id": "80c5ff6d-29b0-49b4-9e76-bc22b5e442fe",
+      "wall_ms": 92908,
+      "chat": {
+        "trace_id": "80c5ff6d-29b0-49b4-9e76-bc22b5e442fe",
+        "route": "knowledge_recall",
+        "answer_mode": "rag_only",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "sop_or_playbook",
+        "answer_goal": "procedural_steps",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "54643926bb51081e",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.clarify",
+      "class": "clarification_required",
+      "exit_code": 0,
+      "trace_id": "79ac19b4-36c4-48d3-a93f-3556155befef",
+      "wall_ms": 91676,
+      "chat": {
+        "trace_id": "79ac19b4-36c4-48d3-a93f-3556155befef",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.unsafe",
+      "class": "unsafe_action_request",
+      "exit_code": 0,
+      "trace_id": "3ed04a64-2ed8-4362-930c-ea070ced730c",
+      "wall_ms": 91663,
+      "chat": {
+        "trace_id": "3ed04a64-2ed8-4362-930c-ea070ced730c",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.live_posture.d1_003",
+      "class": "live_posture_ratified_row",
+      "exit_code": 0,
+      "trace_id": "d9522312-4ef3-4f37-bd21-6723e3ef49ea",
+      "wall_ms": 182187,
+      "chat": {
+        "trace_id": "d9522312-4ef3-4f37-bd21-6723e3ef49ea",
+        "route": "spl_generation",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T1",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "59ad8ff3369b83a3",
+        "degrade_reason": null,
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    }
+  ],
+  "missing_qualification_tier": []
+}

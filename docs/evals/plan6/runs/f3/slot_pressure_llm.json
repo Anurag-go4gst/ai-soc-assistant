@@ -1,0 +1,93 @@
+{
+  "class": "model_slot_pressure",
+  "concurrency": 3,
+  "wall_ms": 62726,
+  "results": [
+    {
+      "exit_code": 0,
+      "wall_ms": 2699,
+      "trace_id": "e24857bc-b6fb-4adc-b536-8321fba074c1",
+      "route": "knowledge_recall",
+      "answer_mode": "rag_only",
+      "execution_enabled": false,
+      "stderr_excerpt": "",
+      "debug": {
+        "trace_id": "e24857bc-b6fb-4adc-b536-8321fba074c1",
+        "qualification_tier": "T2",
+        "semantic_t4": null,
+        "degrade_reason": null,
+        "phase_names": [],
+        "inline_executed": [],
+        "mcp": {
+          "status": "skipped",
+          "allowed": false,
+          "block_reason": null
+        },
+        "hil": {
+          "kind": "none",
+          "required": false,
+          "reason": "knowledge_only_no_execution"
+        },
+        "execution_eligible": null
+      }
+    },
+    {
+      "exit_code": 0,
+      "wall_ms": 2693,
+      "trace_id": "289ac12c-434e-4183-9ece-b8320af0fff0",
+      "route": "knowledge_recall",
+      "answer_mode": "rag_only",
+      "execution_enabled": false,
+      "stderr_excerpt": "",
+      "debug": {
+        "trace_id": "289ac12c-434e-4183-9ece-b8320af0fff0",
+        "qualification_tier": "T2",
+        "semantic_t4": null,
+        "degrade_reason": null,
+        "phase_names": [],
+        "inline_executed": [],
+        "mcp": {
+          "status": "skipped",
+          "allowed": false,
+          "block_reason": null
+        },
+        "hil": {
+          "kind": "none",
+          "required": false,
+          "reason": "knowledge_only_no_execution"
+        },
+        "execution_eligible": null
+      }
+    },
+    {
+      "exit_code": 0,
+      "wall_ms": 62548,
+      "trace_id": "b49e716b-4001-4910-b999-a4bc2049adfc",
+      "route": "knowledge_recall",
+      "answer_mode": "rag_only",
+      "execution_enabled": false,
+      "stderr_excerpt": "",
+      "debug": {
+        "trace_id": "b49e716b-4001-4910-b999-a4bc2049adfc",
+        "qualification_tier": "T2",
+        "semantic_t4": null,
+        "degrade_reason": null,
+        "phase_names": [],
+        "inline_executed": [],
+        "mcp": {
+          "status": "skipped",
+          "allowed": false,
+          "block_reason": null
+        },
+        "hil": {
+          "kind": "none",
+          "required": false,
+          "reason": "knowledge_only_no_execution"
+        },
+        "execution_eligible": null
+      }
+    }
+  ],
+  "captured_at": "2026-08-14T04:55:18Z",
+  "question_class": "llm_narrating"
+}

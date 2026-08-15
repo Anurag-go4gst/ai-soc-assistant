@@ -1,0 +1,20 @@
+[
+  {
+    "n": 1,
+    "exit_code": 0,
+    "wall_ms": 91549,
+    "trace_id": "3ba5b876-c04d-481a-b1da-ac24482b73fb",
+    "route": "knowledge_recall",
+    "execution_enabled": false,
+    "answer_mode": "rag_only"
+  },
+  {
+    "n": 2,
+    "exit_code": 0,
+    "wall_ms": 91927,
+    "trace_id": "98261ed9-067f-4f98-b054-f28fad0e7f32",
+    "route": "knowledge_recall",
+    "execution_enabled": false,
+    "answer_mode": "rag_only"
+  }
+]

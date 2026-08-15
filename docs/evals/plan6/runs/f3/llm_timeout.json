@@ -1,0 +1,45 @@
+{
+  "class": "llm_timeout",
+  "stub_delay_s": 180.0,
+  "steps": [
+    {
+      "action": "stop",
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "action": "start",
+      "exit": 0,
+      "stderr": ""
+    }
+  ],
+  "chat": {
+    "exit_code": 0,
+    "wall_ms": 181754,
+    "trace_id": "e519da99-4af6-49b9-9237-132d8d550c22",
+    "route": "attack_discovery",
+    "answer_mode": "live_investigation",
+    "execution_enabled": false,
+    "stderr_excerpt": ""
+  },
+  "debug": {
+    "trace_id": "e519da99-4af6-49b9-9237-132d8d550c22",
+    "qualification_tier": "T2",
+    "semantic_t4": null,
+    "degrade_reason": null,
+    "phase_names": [],
+    "inline_executed": [],
+    "mcp": {
+      "status": "requires_human_review",
+      "allowed": true,
+      "block_reason": "precondition_eval_failed"
+    },
+    "hil": {
+      "kind": "precondition_review",
+      "required": true,
+      "reason": "precondition_eval_failed"
+    },
+    "execution_eligible": null
+  },
+  "captured_at": "2026-08-14T03:47:12Z"
+}

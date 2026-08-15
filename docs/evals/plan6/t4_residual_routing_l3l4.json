@@ -1,0 +1,1902 @@
+{
+  "schema_version": "plan5_d0_residual_routing_v1",
+  "row_count": 25,
+  "classes": {
+    "d2_defect": 3,
+    "ownership_deferred": 10,
+    "paraphrase": 12
+  },
+  "tally_l1_select_route": {
+    "unchanged": 25
+  },
+  "tally_l4_adjudicated": {
+    "resolved_by_architecture": 10,
+    "unchanged": 15
+  },
+  "tally_l5_pipeline": {},
+  "rows": [
+    {
+      "row_id": "rt.d1.003",
+      "residual_class": "ownership_deferred",
+      "query": "Did anyone get added to Administrators?",
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_105",
+      "l1_match_path": "exact_105_question",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "query_understanding_105",
+      "l3_contract": {
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "clarification_required": false,
+        "required_capabilities": [
+          "spl"
+        ],
+        "prohibited_capabilities": [],
+        "evidence_requirements": [],
+        "qualification_tier": "T1",
+        "qualification_source": "exact_105_question",
+        "confidence": 0.9,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "spl_generation",
+      "l4_authority": "evidence_plan_live_or_hybrid",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "resolved_by_architecture",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      }
+    },
+    {
+      "row_id": "rt.d1.005",
+      "residual_class": "ownership_deferred",
+      "query": "Which users accessed privileged applications unusually?",
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_105",
+      "l1_match_path": "exact_105_question",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "query_understanding_105",
+      "l3_contract": {
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "clarification_required": false,
+        "required_capabilities": [
+          "spl"
+        ],
+        "prohibited_capabilities": [],
+        "evidence_requirements": [],
+        "qualification_tier": "T1",
+        "qualification_source": "exact_105_question",
+        "confidence": 0.9,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "spl_generation",
+      "l4_authority": "evidence_plan_live_or_hybrid",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "resolved_by_architecture",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      }
+    },
+    {
+      "row_id": "rt.d1.006",
+      "residual_class": "ownership_deferred",
+      "query": "Which accounts were disabled or re-enabled today?",
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_105",
+      "l1_match_path": "exact_105_question",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "query_understanding_105",
+      "l3_contract": {
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "clarification_required": false,
+        "required_capabilities": [
+          "spl"
+        ],
+        "prohibited_capabilities": [],
+        "evidence_requirements": [],
+        "qualification_tier": "T1",
+        "qualification_source": "exact_105_question",
+        "confidence": 0.9,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "spl_generation",
+      "l4_authority": "evidence_plan_live_or_hybrid",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "resolved_by_architecture",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      }
+    },
+    {
+      "row_id": "rt.d1.011",
+      "residual_class": "ownership_deferred",
+      "query": "Which logs are missing from key security sources?",
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_105",
+      "l1_match_path": "exact_105_question",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "query_understanding_105",
+      "l3_contract": {
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "clarification_required": false,
+        "required_capabilities": [
+          "spl"
+        ],
+        "prohibited_capabilities": [],
+        "evidence_requirements": [],
+        "qualification_tier": "T1",
+        "qualification_source": "exact_105_question",
+        "confidence": 0.9,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "spl_generation",
+      "l4_authority": "evidence_plan_live_or_hybrid",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "resolved_by_architecture",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      }
+    },
+    {
+      "row_id": "rt.d1.012",
+      "residual_class": "ownership_deferred",
+      "query": "Which sources stopped sending events recently?",
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_105",
+      "l1_match_path": "exact_105_question",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "query_understanding_105",
+      "l3_contract": {
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "clarification_required": false,
+        "required_capabilities": [
+          "spl"
+        ],
+        "prohibited_capabilities": [],
+        "evidence_requirements": [],
+        "qualification_tier": "T1",
+        "qualification_source": "exact_105_question",
+        "confidence": 0.9,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "spl_generation",
+      "l4_authority": "evidence_plan_live_or_hybrid",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "resolved_by_architecture",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      }
+    },
+    {
+      "row_id": "rt.d1.013",
+      "residual_class": "ownership_deferred",
+      "query": "Which users performed privileged actions from non-admin workstations?",
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_105",
+      "l1_match_path": "exact_105_question",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "query_understanding_105",
+      "l3_contract": {
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "clarification_required": false,
+        "required_capabilities": [
+          "spl"
+        ],
+        "prohibited_capabilities": [],
+        "evidence_requirements": [],
+        "qualification_tier": "T1",
+        "qualification_source": "exact_105_question",
+        "confidence": 0.9,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "spl_generation",
+      "l4_authority": "evidence_plan_live_or_hybrid",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "resolved_by_architecture",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      }
+    },
+    {
+      "row_id": "rt.d1.014",
+      "residual_class": "ownership_deferred",
+      "query": "For any flagged host or user, what is its asset criticality, business owner, and identity/privilege status?",
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "rag",
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_105",
+      "l1_match_path": "exact_105_question",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "query_understanding_105",
+      "l3_contract": {
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "clarification_required": false,
+        "required_capabilities": [
+          "spl"
+        ],
+        "prohibited_capabilities": [],
+        "evidence_requirements": [],
+        "qualification_tier": "T1",
+        "qualification_source": "exact_105_question",
+        "confidence": 0.9,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "spl_generation",
+      "l4_authority": "evidence_plan_live_or_hybrid",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "resolved_by_architecture",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      }
+    },
+    {
+      "row_id": "rt.d2.003",
+      "residual_class": "d2_defect",
+      "query": "Are there signs of Kerberoasting against domain controllers in the finance subnet?",
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "clarification_required": false,
+        "required_capabilities": [
+          "spl"
+        ],
+        "prohibited_capabilities": [],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.6,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "spl_generation",
+      "l4_authority": "evidence_plan_live_or_hybrid",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "resolved_by_architecture",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      }
+    },
+    {
+      "row_id": "rt.d2.010",
+      "residual_class": "d2_defect",
+      "query": "Explain when timechart is preferable to stats for tuning a threshold and provide a review-only example.",
+      "acceptable_skills": [
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "rag",
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.45,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "knowledge_recall",
+      "l4_authority": "intent_clarification",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      }
+    },
+    {
+      "row_id": "rt.d2.017",
+      "residual_class": "d2_defect",
+      "query": "Optimize a search that performs eval and regex on millions of events before applying its base filters.",
+      "acceptable_skills": [
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.45,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "knowledge_recall",
+      "l4_authority": "intent_clarification",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      }
+    },
+    {
+      "row_id": "rt.para.001",
+      "residual_class": "paraphrase",
+      "query": "which sources sent out the largest number of outbound sessions",
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "clarification_required": false,
+        "required_capabilities": [
+          "spl"
+        ],
+        "prohibited_capabilities": [],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.6,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "spl_generation",
+      "l4_authority": "evidence_plan_live_or_hybrid",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "resolved_by_architecture",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      }
+    },
+    {
+      "row_id": "rt.para.002",
+      "residual_class": "paraphrase",
+      "query": "did any of our machines reach out to IPs on the threat list in the past day",
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "spl_generation",
+      "l1_authority": "out_of_registry_unmapped_live_data_request",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "spl_generation",
+      "l2_selected_by": "deterministic",
+      "l3_contract": {
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "clarification_required": false,
+        "required_capabilities": [
+          "spl"
+        ],
+        "prohibited_capabilities": [],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.62,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "spl_generation",
+      "l4_authority": "evidence_plan_live_or_hybrid",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "spl_generation",
+        "before_capability_inconsistent": false,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "spl_generation",
+        "before_capability_inconsistent": false,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      }
+    },
+    {
+      "row_id": "rt.para.003",
+      "residual_class": "paraphrase",
+      "query": "any domain lookups that look algorithmically generated",
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.45,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "knowledge_recall",
+      "l4_authority": "intent_clarification",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      }
+    },
+    {
+      "row_id": "rt.para.004",
+      "residual_class": "paraphrase",
+      "query": "do we have endpoints calling home on a regular cadence",
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.45,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "knowledge_recall",
+      "l4_authority": "intent_clarification",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      }
+    },
+    {
+      "row_id": "rt.para.005",
+      "residual_class": "paraphrase",
+      "query": "hosts talking to an unusually wide spread of external addresses",
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.45,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "knowledge_recall",
+      "l4_authority": "intent_clarification",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      }
+    },
+    {
+      "row_id": "rt.para.006",
+      "residual_class": "paraphrase",
+      "query": "machines opening SMB sessions against a lot of different peers",
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.45,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "knowledge_recall",
+      "l4_authority": "intent_clarification",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      }
+    },
+    {
+      "row_id": "rt.para.007",
+      "residual_class": "paraphrase",
+      "query": "anyone shipping unusually large volumes of data outward",
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.45,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "knowledge_recall",
+      "l4_authority": "intent_clarification",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      }
+    },
+    {
+      "row_id": "rt.para.008",
+      "residual_class": "paraphrase",
+      "query": "endpoints where PowerShell ran in a way that looks off",
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.45,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "knowledge_recall",
+      "l4_authority": "intent_clarification",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      }
+    },
+    {
+      "row_id": "rt.para.009",
+      "residual_class": "ownership_deferred",
+      "query": "was anybody granted local admin rights recently",
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.45,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "knowledge_recall",
+      "l4_authority": "intent_clarification",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      }
+    },
+    {
+      "row_id": "rt.para.010",
+      "residual_class": "paraphrase",
+      "query": "who currently carries the highest risk score",
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "clarification_required": false,
+        "required_capabilities": [
+          "spl"
+        ],
+        "prohibited_capabilities": [],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.6,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "spl_generation",
+      "l4_authority": "evidence_plan_live_or_hybrid",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "resolved_by_architecture",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      }
+    },
+    {
+      "row_id": "rt.para.011",
+      "residual_class": "paraphrase",
+      "query": "new scheduled tasks appearing on any workstation",
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "attack_discovery",
+      "l1_authority": "query_understanding_catalog",
+      "l1_match_path": "use_case_catalog",
+      "l2_route_skill": "attack_discovery",
+      "l2_selected_by": "deterministic",
+      "l3_contract": {
+        "intent_family": "live_investigation",
+        "answer_goal": "procedural_steps",
+        "ambiguity_state": "unambiguous",
+        "clarification_required": false,
+        "required_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "prohibited_capabilities": [],
+        "evidence_requirements": [],
+        "qualification_tier": "T1",
+        "qualification_source": "use_case_catalog",
+        "confidence": 0.72,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "attack_discovery",
+      "l4_authority": "catalogue_registry_skill",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "attack_discovery",
+        "before_capability_inconsistent": false,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "attack_discovery",
+        "before_capability_inconsistent": false,
+        "after_route_ok": true,
+        "after_capability_inconsistent": false,
+        "after_denied_capabilities": []
+      }
+    },
+    {
+      "row_id": "rt.para.012",
+      "residual_class": "paraphrase",
+      "query": "signs that something is moving sideways through the estate",
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.45,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "knowledge_recall",
+      "l4_authority": "intent_clarification",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      }
+    },
+    {
+      "row_id": "rt.para.013",
+      "residual_class": "ownership_deferred",
+      "query": "are we missing log feeds from any important security source",
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.45,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "knowledge_recall",
+      "l4_authority": "intent_clarification",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      }
+    },
+    {
+      "row_id": "rt.para.014",
+      "residual_class": "ownership_deferred",
+      "query": "which log sources went quiet lately",
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.45,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "knowledge_recall",
+      "l4_authority": "intent_clarification",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_ok",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": true,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      }
+    },
+    {
+      "row_id": "rt.para.015",
+      "residual_class": "paraphrase",
+      "query": "have we run into this indicator before and what did we decide last time",
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "required_capabilities": [
+        "spl"
+      ],
+      "l1_select_route": "knowledge_recall",
+      "l1_authority": "query_understanding_weak",
+      "l1_match_path": "out_of_registry",
+      "l2_route_skill": "knowledge_recall",
+      "l2_selected_by": "llm_advisory_validated",
+      "l3_contract": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "qualification_tier": "T4",
+        "qualification_source": "out_of_registry",
+        "confidence": 0.45,
+        "understanding_source": "deterministic_qualification",
+        "entity_keys": [
+          "alert_id",
+          "asset",
+          "cve_ids",
+          "destination_ip",
+          "event_type",
+          "host",
+          "index",
+          "mitre_techniques",
+          "observation_window",
+          "port_numbers",
+          "purdue_layers",
+          "source_ip",
+          "sourcetype",
+          "time_window",
+          "user",
+          "zone_labels"
+        ],
+        "time_scope": null
+      },
+      "l4_adjudicated": "knowledge_recall",
+      "l4_authority": "intent_clarification",
+      "classification_l1": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      },
+      "classification_l4": {
+        "verdict": "unchanged",
+        "before_route_verdict": "route_wrong",
+        "before_selected_skill": "knowledge_recall",
+        "before_capability_inconsistent": true,
+        "after_route_ok": false,
+        "after_capability_inconsistent": true,
+        "after_denied_capabilities": [
+          "spl"
+        ]
+      }
+    }
+  ]
+}

@@ -176,6 +176,7 @@ from app.planner.executor import (
     execute_plan_dispatch,
     has_composed_plan,
 )
+from app.planner.inline_execution_provenance import inline_executed_names, mitre_inline_ran
 from app.chat.contracts.answer_contract import build_answer_contract
 from app.chat.contracts.investigation_plan import InvestigationPlan
 from app.chat.contracts.llm_intent_advisory import LLMIntentAdvisory
@@ -450,6 +451,9 @@ class ChatPipelineState(TypedDict, total=False):
     canonical_facts: dict[str, Any] | None
     final_evidence_gate: dict[str, Any] | None
     plan_dispatch_trace: dict[str, Any] | None
+    # Plan 6 E0 — names of pipeline_inline phases that actually ran this turn
+    # (mitre_finalize / cve_adapter). Provenance only; not a hook schedule.
+    pipeline_inline_executed: list[str]
     # Resource Planner hierarchy — append-only audit trail (item 4).
     decision_log: list[dict[str, Any]]
     # Item 5.4 — advisory grounding block assembled from the CanonicalFacts spine.
@@ -5190,6 +5194,25 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 control_plane_trace["evidence_loop"]["vulnerability_source"] = vuln_source
             else:
                 control_plane_trace["vulnerability_source"] = vuln_source
+        suppressed_mitre = (
+            bool(settings.ai_soc_planner_mitre_branch_enabled)
+            and mitre_branch.status == "not_applicable"
+        )
+        inline_executed = inline_executed_names(
+            mitre_ran=mitre_inline_ran(
+                branch_ran=bool(mitre_branch.ran),
+                suppressed_not_applicable=suppressed_mitre,
+            ),
+            cve_ran=vuln_source is not None,
+        )
+        state = {**state, "pipeline_inline_executed": inline_executed}
+        if isinstance(plan_dispatch_trace, dict):
+            plan_dispatch_trace = {**plan_dispatch_trace, "inline_executed": inline_executed}
+            control_plane_trace["plan_dispatch"] = plan_dispatch_trace
+            state = {**state, "plan_dispatch_trace": plan_dispatch_trace}
+        elif inline_executed:
+            control_plane_trace["plan_dispatch"] = {"inline_executed": inline_executed}
+            state = {**state, "plan_dispatch_trace": control_plane_trace["plan_dispatch"]}
         if path_type == "guided_investigation" and guided_grounding_block is not None:
             control_plane_trace["guided_hunt_grounding"] = guided_hunt_grounding_trace(
                 guided_grounding_block

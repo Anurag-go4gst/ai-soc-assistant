@@ -32,13 +32,18 @@ A plan whose primary skill is `spl_generation` may legitimately satisfy `{spl, m
 
 ## Known gaps (recorded, not adopted)
 
-- `mitre_finalize` / `cve_adapter` execute inside `graph_node_context_finalize` and are named `pipeline_inline` in the registry. They are not represented consistently by the hook-loop schedule surfaces. The PhaseContract lists them in `inline_mandatory` so absence from the hook schedule cannot be misread as "not owed".
+- `mitre_finalize` / `cve_adapter` execute inside `graph_node_context_finalize` and are named `pipeline_inline` in the registry. They are not represented consistently by the hook-loop schedule surfaces. The PhaseContract lists them in `inline_mandatory` so absence from the hook schedule cannot be misread as "not owed". **Plan 6 E0** added the matching *observed* side: `pipeline_inline_executed` (`planner/inline_execution_provenance.py`) names the inline phases that actually ran, surfaced as `debug_summary.schedule.inline_executed` next to `inline_mandatory`. It is provenance only — it dispatches, schedules and authorizes nothing.
 - `_run_legacy_dispatch_fallback` (`chat/pipeline.py`) does not run `spl_postprocessor`. It is **not** retired. Safety today is the MCP gate refusing unapproved/null `normalized_spl`, plus the RP-graph `spl_validate` node on the default spine. Proof: `docs/evals/plan5/c3_fallback_equivalence.md`.
 - Seam inventory stays 2 SEAM / 4 DECISION_REQUIRED / 4 KEEP_SEPARATE, **0 adopted** (`test_execution_seam_coverage.py`).
+- **Measured on the VPS (Plan 6, Arm C: exec ON + v2 OFF):** merge is genuinely reachable and executed on **5/12** corpus rows; **7/12** were legitimately `merge_not_reachable`. But two `workflow_spl` / `no_schedulable_step` rows (`p6.multi.knowledge_spl_mcp`, `p6.live_posture.d1_003`) **lose `spl_postprocessor`** that dispatch-v2 supplies today — known missed work, and the reason C0 recorded KEEP OFF. Closing this structurally (not per query ID) is Plan 7's Workstream A.
 - Flag-on probe closed Plan 3 A0's 4-of-5 stage-drop: `docs/evals/plan5/c2_phase_merge_probe.json` (`merged_stage_drops=0/5`). That probe is not an activation.
 
 ## COE warning
 
-Repo default `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED=false`. The COE host sets it true. Dispatch-v2 projected schedules beat the execution-driven compiler on that host. Changes to the dispatch builder or the fallback loop are live on COE the moment they land.
+Repo default `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED=false`. This VPS sets it true, so dispatch-v2 projected schedules beat the execution-driven compiler there. Changes to the dispatch builder or the fallback loop are live the moment they land.
+
+**Which committed profile actually supplies the flags is not `coe.env.example`.** Compose loads `env/profiles/${AI_SOC_ENV_PROFILE:-coe}.env.example` and then `.env`; this host sets `AI_SOC_ENV_PROFILE=development`, so `development.env.example` is in effect (found in the Plan 6 F4 rollback drill). Check `AI_SOC_ENV_PROFILE` before reasoning about any flag, and remember that editing only `.env` does not remove profile-supplied keys.
+
+**Plan 6 outcome:** `P6_PRODUCTION_GO_LIVE = DEFER`. The merge architecture is proven **experimentally**, not production-authoritative; authority remains dispatch-v2. `exec ON + v2 ON` is `V2_WINS` and is never ResourcePlan activation. See `docs/evals/plan6_activation_and_t4_report.md`.
 
 Related: [`routing_authority_map.md`](routing_authority_map.md) (query → contract → skill), [`docs/evals/plan5_architecture_and_routing_report.md`](../evals/plan5_architecture_and_routing_report.md).

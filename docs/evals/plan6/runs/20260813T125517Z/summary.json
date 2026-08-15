@@ -1,0 +1,306 @@
+{
+  "arm": "A",
+  "results": [
+    {
+      "row_id": "p6.t1.knowledge",
+      "class": "t1_exact_known_knowledge",
+      "exit_code": 0,
+      "trace_id": "aa6072d7-94df-48b3-a5a4-695df0b76e9a",
+      "chat": {
+        "trace_id": "aa6072d7-94df-48b3-a5a4-695df0b76e9a",
+        "route": "knowledge_recall",
+        "answer_mode": "rag_only",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "sop_or_playbook",
+        "answer_goal": "procedural_steps",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "54643926bb51081e",
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": []
+      }
+    },
+    {
+      "row_id": "p6.t2.known_nontrivial",
+      "class": "t2_t3_known_nontrivial",
+      "exit_code": 0,
+      "trace_id": "2c528449-d4ca-40d9-9f69-d9ae9421118a",
+      "chat": {
+        "trace_id": "2c528449-d4ca-40d9-9f69-d9ae9421118a",
+        "route": "knowledge_recall",
+        "answer_mode": "rag_only",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "policy_knowledge",
+        "answer_goal": "policy_citation",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "54643926bb51081e",
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": []
+      }
+    },
+    {
+      "row_id": "p6.t4.out_of_registry",
+      "class": "t4_out_of_registry_investigation",
+      "exit_code": 0,
+      "trace_id": "68ea4110-2519-4e9b-9262-d10c8cec8ada",
+      "chat": {
+        "trace_id": "68ea4110-2519-4e9b-9262-d10c8cec8ada",
+        "route": "guided_investigation",
+        "answer_mode": "guided_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "guided_investigation",
+        "answer_goal": "procedural_steps",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "fd65002b17c46fa0",
+        "degrade_reason": "merge",
+        "dispatch_schedule_present": true,
+        "phase_names": [
+          "prepare_rag_only",
+          "rag_early"
+        ]
+      }
+    },
+    {
+      "row_id": "p6.spl.draft",
+      "class": "spl_only_draft_review",
+      "exit_code": 0,
+      "trace_id": "4ca341c1-a448-4320-b5af-39c030ca9297",
+      "chat": {
+        "trace_id": "4ca341c1-a448-4320-b5af-39c030ca9297",
+        "route": "attack_discovery",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "99ccd9213e2f0b37",
+        "degrade_reason": "merge",
+        "dispatch_schedule_present": true,
+        "phase_names": [
+          "workflow_spl",
+          "spl_postprocessor",
+          "spl_source_resolve",
+          "execution"
+        ]
+      }
+    },
+    {
+      "row_id": "p6.spl.mcp",
+      "class": "spl_plus_mcp_mock",
+      "exit_code": 0,
+      "trace_id": "a0a9fadf-9de8-4cbe-ad32-1c8c8a2dbbda",
+      "chat": {
+        "trace_id": "a0a9fadf-9de8-4cbe-ad32-1c8c8a2dbbda",
+        "route": "attack_discovery",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "hybrid_alert_review",
+        "answer_goal": "severity_assessment",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "3a8fae8d686ea666",
+        "degrade_reason": "merge",
+        "dispatch_schedule_present": true,
+        "phase_names": [
+          "workflow_spl",
+          "spl_postprocessor",
+          "spl_source_resolve",
+          "mitre_finalize",
+          "execution"
+        ]
+      }
+    },
+    {
+      "row_id": "p6.multi.knowledge_spl_mcp",
+      "class": "knowledge_spl_mcp_multistep",
+      "exit_code": 0,
+      "trace_id": "303e6d63-2b48-4800-941e-e7cbb9062108",
+      "chat": {
+        "trace_id": "303e6d63-2b48-4800-941e-e7cbb9062108",
+        "route": "spl_generation",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "16d973d375e6940d",
+        "degrade_reason": "no_schedulable_step",
+        "dispatch_schedule_present": true,
+        "phase_names": []
+      }
+    },
+    {
+      "row_id": "p6.clarify",
+      "class": "clarification_required",
+      "exit_code": 0,
+      "trace_id": "beb8945e-6aeb-4410-af20-7445612134d9",
+      "chat": {
+        "trace_id": "beb8945e-6aeb-4410-af20-7445612134d9",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": []
+      }
+    },
+    {
+      "row_id": "p6.unsafe",
+      "class": "unsafe_action_request",
+      "exit_code": 0,
+      "trace_id": "f7f45491-e02c-458c-a687-9ededbc7a9ca",
+      "chat": {
+        "trace_id": "f7f45491-e02c-458c-a687-9ededbc7a9ca",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": []
+      }
+    },
+    {
+      "row_id": "p6.alert.summary",
+      "class": "supplied_alert_summarization",
+      "exit_code": 0,
+      "trace_id": "9adda047-ede2-44bc-8315-06166fde296a",
+      "chat": {
+        "trace_id": "9adda047-ede2-44bc-8315-06166fde296a",
+        "route": "knowledge_recall",
+        "answer_mode": "rag_only",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "alert_summary",
+        "answer_goal": "severity_assessment",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "59ad8ff3369b83a3",
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": []
+      }
+    },
+    {
+      "row_id": "p6.live_posture.d1_003",
+      "class": "live_posture_ratified_row",
+      "exit_code": 0,
+      "trace_id": "e3148086-a220-4b2e-9e2b-d258352fdb51",
+      "chat": {
+        "trace_id": "e3148086-a220-4b2e-9e2b-d258352fdb51",
+        "route": "spl_generation",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T1",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "59ad8ff3369b83a3",
+        "degrade_reason": "no_schedulable_step",
+        "dispatch_schedule_present": true,
+        "phase_names": []
+      }
+    },
+    {
+      "row_id": "p6.repeat.refinement",
+      "class": "repeated_evidence_refinement",
+      "exit_code": 0,
+      "trace_id": "becfe125-1402-4fe7-8ea4-e0248e02ab9b",
+      "chat": {
+        "trace_id": "becfe125-1402-4fe7-8ea4-e0248e02ab9b",
+        "route": "spl_generation",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "1bc3fa1464e13db9",
+        "degrade_reason": "merge",
+        "dispatch_schedule_present": true,
+        "phase_names": [
+          "workflow_spl",
+          "spl_postprocessor",
+          "spl_source_resolve",
+          "execution"
+        ]
+      }
+    },
+    {
+      "row_id": "p6.fail.degraded",
+      "class": "failure_degraded_dependency",
+      "exit_code": 0,
+      "trace_id": "39b085d8-66d7-44ce-8ee5-21d2ac005a2b",
+      "chat": {
+        "trace_id": "39b085d8-66d7-44ce-8ee5-21d2ac005a2b",
+        "route": "attack_discovery",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "spl_generation_and_run",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "1bc3fa1464e13db9",
+        "degrade_reason": "merge",
+        "dispatch_schedule_present": true,
+        "phase_names": [
+          "workflow_spl",
+          "spl_postprocessor",
+          "spl_source_resolve",
+          "execution"
+        ]
+      }
+    }
+  ],
+  "missing_qualification_tier": []
+}
