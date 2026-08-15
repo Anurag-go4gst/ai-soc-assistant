@@ -61,6 +61,104 @@ _SEMANTIC_T4_SCHEMA: dict[str, Any] = {
 }
 
 
+_SEMANTIC_T4_SYSTEM_PROMPT = (
+    "You complete SOC query understanding. Resolve only the unresolved semantic meaning.\n"
+    "Rules:\n"
+    "- Do not rewrite locked fields; repeat them unchanged.\n"
+    "- Preserve competing hypotheses; do not classify something malicious prematurely.\n"
+    "- If context is missing, set clarification_required=true and say what is missing.\n"
+    "  Ask, never invent facts.\n"
+    "- Do not select a skill or route. Do not generate or execute SPL. Do not call MCP.\n"
+    "- Do not make RBAC, HIL or policy decisions.\n"
+    "- Return one JSON object only. No markdown, no prose."
+)
+
+# Compact, curated. Prompt assets — not a retrieval system and not an agent.
+_SEMANTIC_T4_FEW_SHOT: tuple[dict[str, Any], ...] = (
+    {
+        "query": "signs that something is moving sideways through the estate",
+        "unresolved": ["intent_family", "answer_goal", "evidence_requirements"],
+        "output": {
+            "normalized_goal": "find host-to-host lateral movement across internal systems",
+            "intent_family": "live_investigation",
+            "answer_goal": "live_results",
+            "ambiguity_state": "unambiguous",
+            "clarification_required": False,
+            "evidence_requirements": [
+                "internal authentication sequences across multiple hosts",
+                "remote service or admin share access between peers",
+            ],
+            "confidence": 0.7,
+        },
+    },
+    {
+        "query": "do we have endpoints calling home on a regular cadence",
+        "unresolved": ["intent_family", "evidence_requirements"],
+        "output": {
+            "normalized_goal": "find endpoints with periodic outbound connections",
+            "intent_family": "live_investigation",
+            "answer_goal": "live_results",
+            "ambiguity_state": "unambiguous",
+            "clarification_required": False,
+            "evidence_requirements": [
+                "outbound connection intervals per host",
+                "destination reputation and registration age",
+                "legitimate updater or telemetry software as a competing explanation",
+            ],
+            "confidence": 0.6,
+        },
+    },
+    {
+        "query": "have we run into this indicator before and what did we decide last time",
+        "unresolved": ["entities", "time_scope"],
+        "output": {
+            "normalized_goal": "recall prior disposition of an indicator the analyst has not named",
+            "intent_family": "clarification_required",
+            "answer_goal": "clarification",
+            "ambiguity_state": "clarification_required",
+            "clarification_required": True,
+            "clarification_reason": "which indicator, and which prior case or time range",
+            "confidence": 0.3,
+        },
+    },
+)
+
+
+def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContract) -> str:
+    """Original query + locked fields + explicit unresolved fields + vocabulary + few-shot."""
+    locked = {
+        "intent_family": deterministic.intent_family,
+        "answer_goal": deterministic.answer_goal,
+        "required_capabilities": sorted(deterministic.required_capabilities),
+        "prohibited_capabilities": sorted(deterministic.prohibited_capabilities),
+    }
+    unresolved = [
+        "normalized_goal",
+        "evidence_requirements",
+        "entities",
+        "time_scope",
+        "confidence",
+    ]
+    # Ambiguity may only be raised, never lowered, so it is offered as unresolved
+    # only when the deterministic verdict is not already the strictest.
+    if _AMBIGUITY_RANK.get(str(deterministic.ambiguity_state), 0) < _AMBIGUITY_RANK["policy_blocked"]:
+        unresolved.extend(["ambiguity_state", "clarification_required", "clarification_reason"])
+    return json.dumps(
+        {
+            "query": query,
+            "locked_fields_do_not_change": locked,
+            "unresolved_fields_to_resolve": unresolved,
+            "vocabulary": {
+                "intent_family": sorted(_KNOWN_FAMILIES),
+                "capabilities": sorted(ALLOWED_CAPABILITIES),
+                "ambiguity_state": sorted(_AMBIGUITY_RANK),
+            },
+            "examples": list(_SEMANTIC_T4_FEW_SHOT),
+        },
+        separators=(",", ":"),
+    )
+
+
 def maybe_enrich_t4_semantic(
     deterministic: ResolvedQueryContract,
     *,
@@ -340,25 +438,17 @@ def _live_single_hop_provider(query: str, deterministic: ResolvedQueryContract) 
         timeout_seconds=max(1, int(timeout + 0.5)),
     )
     result = client.generate(
-        system_prompt=(
-            "Return JSON only. Do not add markdown. Do not select a skill. "
-            "Do not propose SPL or MCP execution. Propose query understanding only."
-        ),
-        user_prompt=json.dumps(
-            {
-                "query": query,
-                "deterministic_contract": {
-                    "intent_family": deterministic.intent_family,
-                    "answer_goal": deterministic.answer_goal,
-                    "ambiguity_state": deterministic.ambiguity_state,
-                    "clarification_required": deterministic.clarification_required,
-                    "required_capabilities": sorted(deterministic.required_capabilities),
-                    "prohibited_capabilities": sorted(deterministic.prohibited_capabilities),
-                },
-            }
-        ),
+        system_prompt=_SEMANTIC_T4_SYSTEM_PROMPT,
+        user_prompt=_build_semantic_t4_user_prompt(query, deterministic),
         max_tokens=400,
         temperature=0.1,
+        # Constrained decoding where the serving stack supports it (C2 measured the
+        # unconstrained call returning prose). Servers that ignore the field are
+        # unaffected — the parser still validates the payload.
+        response_format={
+            "type": "json_schema",
+            "json_schema": {"name": "semantic_t4_proposal", "schema": _SEMANTIC_T4_SCHEMA},
+        },
         timeout_seconds=timeout,
     )
     return result.text

@@ -22,7 +22,7 @@ LANGGRAPH_ORCHESTRATION_ENABLED            = ON
 AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED     = ON     (PhaseContract + compiler authoritative)
 AI_SOC_PIPELINE_DISPATCH_V2_ENABLED        = OFF    (retired from normal authority)
 AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED   = ON     (serving posture must pass its gate)
-AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS = 2.0
+AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS = 120   (VPS_T4_REMEDIATION_TIMEOUT; not a universal value)
 AI_SOC_LIVE_CAPABILITY_ENFORCEMENT_ENABLED = OFF
 ```
 
@@ -48,7 +48,9 @@ Flags stay independently controllable for testing and rollback **after** activat
 - Execution-authority / `CHANGE_LADDER` work is reopened **only** as far as measured evidence
   requires. This is not a licence for a broad redesign.
 - T4 stays **ON** through the whole remediation phase. Turning it OFF to make results green is
-  prohibited. The 2.0 s bound stays until Workstream C evidence justifies otherwise.
+  prohibited. The bound was 2.0 s until C3; C3 recorded `VPS_T4_REMEDIATION_TIMEOUT = 120 s` for
+  the VPS only. Do not raise it again automatically if 120 s fails, and do not treat it as the
+  COE/production target or as an architectural invariant.
 
 ## STOPs (user decision required; do not self-approve)
 
@@ -120,6 +122,53 @@ capability enforcement **OFF**; do not change repo defaults; do not restore v2; 
 fallback; do not claim production-normal authority.
 
 Artifact: `docs/evals/plan7/a6_stop_decision_packet.md`.
+
+### C3 — `P7_T4_SERVING_POSTURE_V2` (2026-08-15)
+
+**`REMEDIATE_EXISTING_T4_IN_PLACE`.** This supersedes the four options offered in the C3 packet,
+because additional same-VPS evidence arrived after the packet was written.
+
+Keep the existing T4 architecture and the current Cisco Foundation-Sec 8B model. **Do not** add a
+sidecar, add Redis/cache work, change provider, introduce Gemini into the production T4 path,
+download another model, redesign T4, add routing keywords, or restore dispatch-v2.
+
+Reclassification:
+
+```
+T4 semantic role                 VIABLE
+Cisco 8B semantic capability     VIABLE / PROVISIONALLY PROVEN
+current production T4 prompt     NEEDS HARDENING
+few-shot prompting               MATERIALLY BENEFICIAL
+structured output                USE CONSTRAINED JSON
+current 2-second VPS timeout     NON-VIABLE
+VPS model runtime stability      NEEDS EXISTING RELIABILITY HANDLING
+```
+
+**`VPS_T4_REMEDIATION_TIMEOUT = 120 seconds`** — deployed as
+`AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS=120` on the VPS only. It is **not** the final
+COE/production latency target and must **not** be written into the architectural invariant as a
+universal value. Repo defaults stay unchanged. Rationale is measured VPS behaviour: 2.0 s times
+out essentially every useful invocation; useful same-VPS responses were observed around **76 s**;
+earlier probes reached ~**109 s**. 120 s gives the existing model room while staying bounded.
+**Do not automatically raise it again if 120 s fails.**
+
+Minimum T4 prompt correction only — no second semantic service. T1–T3 must supply: original
+query, locked deterministic fields, explicit unresolved semantic fields, a short relevant
+semantic/capability vocabulary, 1–3 compact curated few-shot examples, and a strict
+structured-output schema. The prompt must tell the model to resolve only unresolved semantic
+meaning, not rewrite locked fields, preserve competing hypotheses, clarify instead of inventing
+facts, never generate/execute SPL, never call MCP, never make RBAC/HIL/policy decisions, and
+return structured JSON only. Few-shot examples are **prompt assets**, not a RAG system or agent.
+Use constrained JSON/schema decoding where the serving stack supports it.
+
+**Deterministic authority is unchanged.** T4 remains reasoning-only: it may not select an
+execution route, grant capabilities, invoke MCP, execute SPL, authorize remediation, change
+RBAC/HIL, clear deterministic prohibitions, or overwrite locked T1–T3 facts. Any accepted
+structured result must still pass deterministic validation/merge.
+
+Manual same-VPS evidence recorded separately in `docs/evals/plan7/c3_manual_vps_evidence.md`;
+earlier C2 evidence is **not** rewritten. Artifacts: `c2_serving_viability.md`,
+`c3_stop_decision_packet.md`.
 
 ## Success questions (must be answered with evidence)
 
@@ -350,7 +399,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
   - **Depends on:** C1, B1
   - **Evidence:** `docs/evals/plan7/c2_serving_viability.md`. **6 probes**, deliberately few (representative, not exhaustive). Accepted-contract rate on the production path **0/17**; with constrained decoding the shape is valid **3/3** but semantically empty. Semantic accuracy on **3 representative residual paraphrases: 0/3** — every response **echoes the deterministic contract** and invents out-of-vocabulary capabilities the governed normalizer discards. False widening **0**. Cold latency **50.72 s for 2 tokens** (25× the budget); warm 4.1–4.5 tok/s → **19–109 s** per contract; p50 ≈ 36 s, p95 ≈ 109 s. Concurrency not measurable (`-np 1`); slot pressure inherent. Malformed/empty: prose without constraint, valid shape with it, truncation at low caps. Bounded failure behaviour **correct** (2.0 s timeout → deterministic fallback, clarification preserved). End-to-end impact if the bound were raised: **+19–109 s on a blocking turn**. **Three independent failures — latency, shape, semantic value — and only shape is fixable in-environment; no metric was omitted for looking bad.**
 
-- [ ] **C3** — `P7_T4_SERVING_POSTURE_V2` **STOP**
+- [x] **C3** — `P7_T4_SERVING_POSTURE_V2` **STOP**
   - **Do:** Present C2. Only here may the 2.0 s timeout or the serving configuration change,
     and only with evidence that specifically justifies it. Surface: DECISION.
   - **Verify:** decision recorded; artifact `docs/evals/plan7/c3_stop_decision.md`; if the
@@ -358,7 +407,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
     visible and documented.
   - **Depends on:** C2
   - **STOP:** `P7_T4_SERVING_POSTURE_V2`
-  - **Evidence:** Packet presented: `docs/evals/plan7/c3_stop_decision_packet.md` — measurements, the three independent failures, the five options with cost and what each actually fixes, and the E2 consequence that a non-viable finding makes T4 a **CRITICAL BLOCKER** rather than out-of-scope. Options offered: `T4_SERVING_NON_VIABLE_IN_ENVIRONMENT` / `ADOPT_CONSTRAINED_DECODING_ONLY` / `PROCURE_SERVING_CAPACITY` / `RAISE_THE_BOUND` (unsupported, listed for completeness). **Awaiting user decision — no timeout raised, no serving config changed, T4 still ON at 2.0 s.**
+  - **Evidence:** Packet presented: `docs/evals/plan7/c3_stop_decision_packet.md` — measurements, the three independent failures, the five options with cost and what each actually fixes, and the E2 consequence that a non-viable finding makes T4 a **CRITICAL BLOCKER** rather than out-of-scope. Options offered: `T4_SERVING_NON_VIABLE_IN_ENVIRONMENT` / `ADOPT_CONSTRAINED_DECODING_ONLY` / `PROCURE_SERVING_CAPACITY` / `RAISE_THE_BOUND` (unsupported, listed for completeness). **User recorded `REMEDIATE_EXISTING_T4_IN_PLACE`** — keep the existing architecture and Cisco 8B; harden the prompt (compact field-constrained few-shot + constrained JSON) and set `VPS_T4_REMEDIATION_TIMEOUT = 120 s` on the VPS only, repo defaults unchanged. No sidecar, no cache work, no provider change, no new model, no redesign, no keywords, no v2 restore. Recorded in Approved decisions § C3, with manual same-VPS evidence in `c3_manual_vps_evidence.md` and earlier C2 evidence left intact.
 
 ---
 
@@ -379,6 +428,14 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
     concurrency, repeated identical requests, latency p50/p95, LLM unavailable, malformed LLM
     output, LLM timeout, DB failure/recovery, MCP unavailable, model-slot pressure. Assert no
     duplicate side effects and bounded safe degradation. Surface: VPS.
+  - **C3 model-health requirement (reliability, not a new workstream — no new sidecar or
+    service):** `model unavailable/unhealthy → existing deterministic health detection →
+    existing infrastructure/process recovery → model restart → health verification → at most one
+    governed retry when retry-safe → otherwise deterministic fallback/clarification`. Rules: the
+    LLM never decides to restart itself; restart uses the existing VPS process/container/service
+    management mechanism; no uncontrolled restart loop; no full investigation replay merely
+    because the model restarted; **cold-start/restart latency recorded separately from warm
+    inference**; a failed restart degrades safely.
   - **Failing-first:** a missing failure-class row fails the item. Do not weaken tests.
   - **Verify:** `docs/evals/plan7/runs/<ts>/d1_reliability.md`, one row per class.
   - **Depends on:** D0
