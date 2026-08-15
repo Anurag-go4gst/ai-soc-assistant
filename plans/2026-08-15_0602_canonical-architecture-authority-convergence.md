@@ -1,7 +1,7 @@
 ---
 name: canonical-architecture-authority-convergence
 overview: "Make final understanding, planning, evidence state, investigation outcome, SPL call authorization, synthesis, reliability, and continuity authoritative; admit advanced execution extensions only through measured evidence."
-status: queued
+status: in_progress
 date: 2026-08-15
 canonical_plan: plans/2026-08-15_0602_canonical-architecture-authority-convergence.md
 canonical_architecture: architecture.md
@@ -20,14 +20,20 @@ Converge the existing production Resource Planner toward the canonical target in
 
 ## Current status and execution lock
 
-This plan is **queued**, not active. Plan 7 remains the active authority migration. Runtime implementation must not begin until Plan 7 is complete or the user explicitly supersedes it. Plan 7 A6 posture remains `V2_OFF_PENDING_WIDER_EVIDENCE`; Plan 8 must not enable dispatch-v2 or infer a GO decision. Plan 7 C3 is now recorded as `REMEDIATE_EXISTING_T4_IN_PLACE`; Plan 8 does not reopen or execute that decision. A7’s legacy-fallback proof remains mandatory.
+This plan is **in progress** at **P0 only**. Plan 7 is **CLOSED 25/25** and merged; it is no longer
+the active authority-migration plan. Runtime implementation must not begin until P1 (audit-only
+baseline) is complete. Plan 7 A6 posture remains `V2_OFF_PENDING_WIDER_EVIDENCE` as the recorded
+STOP label; E2 later approved `ResourcePlan + PhaseContract` as sole **normal** authority with
+dispatch-v2 retired to rollback/test-only. Plan 8 must not enable dispatch-v2 or infer a GO
+decision. Plan 7 C3 remains `REMEDIATE_EXISTING_T4_IN_PLACE`; Plan 8 does not reopen or execute
+that decision. A7’s legacy-fallback proof is complete
+(`LEGACY_FALLBACK_ROLLBACK_ONLY_RETAIN_TEMPORARILY`); X3 consumes it and must not reopen A7.
 
 The pre-implementation architecture-conformance review was completed on 2026-08-15 against the
-frozen working-tree content of `architecture.md`. Plan 7 is not complete, so P0 must still reconcile
-the completed Plan 7 evidence before P1 or runtime work. This documentation review does not start
-minimal EvidenceState, InvestigationOutcome, SPL authorization, trust-boundary, reliability,
-step-instance, detailed evidence-ledger, PlanDelta, capability-snapshot, or session implementation
-work.
+frozen working-tree content of `architecture.md`. P0 below is the inheritance record against the
+completed Plan 7 evidence. This documentation item does not start minimal EvidenceState,
+InvestigationOutcome, SPL authorization, trust-boundary, reliability, step-instance, detailed
+evidence-ledger, PlanDelta, capability-snapshot, or session implementation work.
 
 ## Pre-implementation freeze record
 
@@ -46,6 +52,126 @@ work.
   this STOP.
 
 Historical measured source audit: `docs/architecture/canonical_architecture_audit_2026-08-15.md`.
+
+## Plan 7 disposition (P0, 2026-08-16)
+
+Plan 7 **completed**; it was **not** superseded. Dated 2026-08-16. Copied from committed Plan 7
+evidence without changing or reopening any STOP. Base: `origin/master` =
+`c248cb40862335c30febdf588f3d5ca23a38d4a7` (merge of PR #134 Plan 7 on top of PR #132 Plan 6).
+Plan 7 checklist: **25 checked / 0 unchecked**. Architecture freeze verified this session:
+commit `a8f02e3c98b866bcb12c7d5b3db75b11e823609b` contains `architecture.md` with content
+SHA-256 `c1c4ba8a88d8f245752188a76442102978eceb0c1bdb410717b789649fb9a034`; HEAD blob
+`d8cec1a85651efa8ffd3d7367c85699e527cc7bd` is identical. `architecture.md` is read-only for
+Plan 8 and was not modified by P0.
+
+### Recorded E2 outcome (copied, not re-decided)
+
+From `docs/evals/plan7/e2_decision.md` and Plan 7 Approved decisions § E2:
+
+| Field | Value |
+|---|---|
+| `PLAN7_IMPLEMENTATION` | **COMPLETE** |
+| `RESOURCEPLAN_AUTHORITY` | **APPROVED** — `ResourcePlan + PhaseContract` is the sole **normal** execution authority |
+| `PRODUCTION_GO_LIVE` | **DEFERRED / NO-GO** |
+| `REASON` | unresolved critical T4 serving stability blocker (**F3**) |
+| `PLAN8_MAY_START_AFTER_PLAN7_CLOSURE` | **YES** |
+| Accepted risks | **none recorded** |
+
+This is a deferral on serving stability — not a rejection of the architecture, not a rollback,
+and not a production-ready claim. Plan 8 must not infer GO.
+
+### Copied Plan 7 STOPs (do not reopen)
+
+| ID | Recorded decision | Artifact |
+|---|---|---|
+| **A2** | **OPTION A** — PhaseContract lifecycle is honoured independently of merge reachability. A resource-plan downgrade may remove unavailable resource work; it may **not** silently remove applicable mandatory lifecycle work. | `docs/evals/plan7/a2_stop_decision_packet.md` |
+| **A3** | Implemented A2 exactly. Structural trigger only (`no_schedulable_step` + valid execution contract + non-empty `hook_bound_mandatory`). `spl_postprocessor` contract-inserted on every applicable seam row. Invalid/unsafe plans still fail closed. | `docs/evals/plan7/a3_ownership_fix.md`, A4 acceptance |
+| **A6** | **`V2_OFF_PENDING_WIDER_EVIDENCE`**. dispatch-v2 stays OFF and is **not** restored as normal authority. v2-OFF was not claimed proven at A6; E2 later approved ResourcePlan as sole normal authority with v2 retired to rollback/test-only. Plan 8 must not enable v2. | `docs/evals/plan7/a6_stop_decision_packet.md` |
+| **A7** | **`LEGACY_FALLBACK_ROLLBACK_ONLY_RETAIN_TEMPORARILY`**. Target Resource Planner graph cannot enter `_run_legacy_dispatch_fallback`; the retained rollback branch runs `workflow_spl → spl_postprocessor → spl_source_resolve → execution` and fails closed. Not deleted. X3 consumes this; A7 is not reopened. | `docs/evals/plan7/a7_fallback_lifecycle_proof.md` |
+| **C3** | **`REMEDIATE_EXISTING_T4_IN_PLACE`**. Keep existing T4 architecture and Cisco Foundation-Sec 8B. No sidecar, cache, provider change, new model, keywords, or v2 restore. `VPS_T4_REMEDIATION_TIMEOUT = 120 s` on the VPS only; repo defaults unchanged. U3 revalidates; C3 is not reopened. | `docs/evals/plan7/c3_stop_decision_packet.md`, `c3_remediation_evidence.md` |
+| **E2** | See table above. | `docs/evals/plan7/e2_decision.md` |
+
+### Deployment posture (copied, not changed by P0)
+
+Effective VPS target (Plan 7 D2/D3/E1; `AI_SOC_ENV_PROFILE=development`):
+
+```text
+LANGGRAPH_ORCHESTRATION_ENABLED            = true
+AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED     = true
+AI_SOC_PIPELINE_DISPATCH_V2_ENABLED        = false
+AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED   = true
+AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS = 120   (VPS only; not a repo default)
+AI_SOC_LIVE_CAPABILITY_ENFORCEMENT_ENABLED = false
+MCP_MODE                                   = mock
+```
+
+Repo `config.py` defaults were not required to change. `CONFIG_REBUILD_DRIFT` is **CLOSED for
+the development profile only**; COE/production profiles remain unproven. P0 does not change
+flags, defaults, or deployment.
+
+### Gate evidence (copied from Plan 7 E1)
+
+`docs/evals/plan7/e1_closure_gates.md` @ `6ecf6c4`: **11/11 PASS** — governance
+`stage3_governance_regression: PASS` (harness 6/6); pytest `5335 passed / 0 failed`; truth-set
+0 regressions (64/76); parity `exact=120 approved=0 critical=0`; Cisco `50/0/0`; probes 10/10;
+sentinel 17/17; path 105/105; manifest 15/15; invariants 7/7. Parity `120 exact` is dual-runtime
+equivalence, **not** routing/answer correctness. Cisco `50/0/0` is a deterministic/reference
+evaluation and is **not** evidence that F3 serving is solved.
+
+### Preserved invariants (Plan 8 may not weaken)
+
+- **Sole normal authority:** `ResourcePlan + PhaseContract + deterministic compiler`. Do not
+  rebuild this topology or restore dispatch-v2 as normal authority.
+- **A3:** an unschedulable resource step cannot erase applicable mandatory lifecycle phases;
+  invalid or unsafe plans still fail closed.
+- **A7:** rollback-only fallback retained temporarily; not an alternative production executor.
+- **Human-only Cisco restart:** no code/model/agent may restart Foundation-Sec. Plan 7 performed
+  no model restart (`HUMAN_RESTART_REQUIRED` did not arise). REL0 may add health detection /
+  circuit / backpressure only.
+- **`candidate_spl` is never executable.** Only approved non-null `normalized_spl` may reach the
+  MCP gate. Plan 7 measured `execution_eligible` null on every corpus row.
+- **dispatch-v2 remains non-normal authority.** Fenced: with ResourcePlan execution ON, v2
+  cannot win even if its flag is enabled (`V2_WINS = 0`).
+- **Live MCP remains `live_mcp_unproven`.** `MCP_MODE=mock`; mock success is not live Splunk
+  readiness.
+- **MITRE 11-row DRAFT promotion remains deferred.**
+
+### Inherited / already satisfied — do not rebuild
+
+These are proven Plan 7 results. Later Plan 8 items may **consume** them (U3, X3, REL0, C1
+verify) but must not re-implement or reopen them:
+
+| Proven result | Plan 8 consumer | Rebuild? |
+|---|---|---|
+| ResourcePlan + PhaseContract sole normal authority | C0/C1/E0/X0/X3 | **no** |
+| A2 OPTION A / A3 lifecycle insertion | C1 Verify (`test_plan7_a0_mandatory_phase_survives_no_schedulable_step.py`) | **no** |
+| A6 `V2_OFF_PENDING_WIDER_EVIDENCE` + E2 v2 retired/fenced | X0/X3; no item may enable v2 | **no** |
+| A7 `LEGACY_FALLBACK_ROLLBACK_ONLY_RETAIN_TEMPORARILY` | **X3** revalidates; does not reopen A7 | **no** |
+| C3 `REMEDIATE_EXISTING_T4_IN_PLACE` + 120 s VPS-only bound | **U3** revalidates serving/contract; no new serving decision | **no** |
+| `candidate_spl` non-executable / HIL/RBAC/MCP gates | SPL1/AUTH0/G0 | **no** (extend, do not replace) |
+| Human-only Cisco restart | **REL0** | **no** automated restart |
+| `CONFIG_REBUILD_DRIFT` closed (development) | G0 posture check | **no** repo-default change unless an item authorizes it |
+
+### Carried forward into Plan 8 (unsolved, unaccepted)
+
+| ID | Meaning | Plan 8 owner | Must not claim |
+|---|---|---|---|
+| **F1** | DB loss silently degrades authority to `canonical_non_planned` while still answering; no analyst-visible degrade signal | **REL0** (degradation signalling) | not an accepted risk |
+| **F2** | `/v1/models` liveness ≠ usable inference health | **REL0** (detection); restart stays human-only | not an accepted risk |
+| **F3** | `T4_SEMANTICALLY_VIABLE_BUT_VPS_SERVING_BLOCKER` | remains a **CRITICAL BLOCKER** for production GO | Plan 8 reliability work (REL0) may improve detection / backpressure / degradation; it **must not** claim to solve F3 serving capacity or VPS serving stability |
+
+Locked-field upstream quality (T4 can no longer re-classify a paraphrase into an SPL-capable
+family) also carries to Plan 8 understanding work (U0–U2/R0); it is not a serving-capacity fix.
+
+### Remaining core Plan 8 work after P0
+
+Mandatory current path still unchecked: **P1**, **S0**, **U0**, **U1**, **U2**, **REL0**, **R0**,
+**R1**, **C0**, **SPL1**, **AUTH0**, **E0A**, **D0**, **OUT0**, **SEC0**, **O0**, **O1**, **O1A**
+(17 `CORE_REQUIRED`) plus supporting **P8_ADVANCED_EXECUTION_EXTENSION_GATE**, **U3**, **SPL0**,
+**X0**, **X2**, **X3**, **G0**, **G1**. Conditional extensions (`R2`, `C1`, `E0`, `E1`, `D1`,
+`D2`, `X1`) stay gated. Architecture Phase 10 remains an explicit approved deferral.
+
+P0 does **not** authorize P1 or any runtime change.
 
 ## Done definition
 
@@ -317,11 +443,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
 
 ### P — authority prerequisites and baseline
 
-- [ ] **P0 — Record Plan 7 disposition and freeze overlapping decisions**
+- [x] **P0 — Record Plan 7 disposition and freeze overlapping decisions**
   - **Do:** Add a dated disposition note stating whether Plan 7 completed or was explicitly superseded; copy its final A3, A6, A7, C3, deployment posture, and gate evidence without changing or reopening them. Attribute `V2_OFF_PENDING_WIDER_EVIDENCE` to A6 and `REMEDIATE_EXISTING_T4_IN_PLACE` to C3. If Plan 7 was superseded before A7 completion, record the explicit user-approved fallback disposition required before Plan 8 can start.
   - **Verify:** `rg -n "Plan 7 disposition|A3|A6|A7|C3|V2_OFF_PENDING_WIDER_EVIDENCE|REMEDIATE_EXISTING_T4_IN_PLACE|deployment posture" plans/2026-08-15_0602_canonical-architecture-authority-convergence.md`; confirm completed Plan 7 evidence or explicit user supersession/disposition is recorded.
   - **Depends on:** Plan 7 completion or explicit user-approved supersession.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Plan 7 **completed** (not superseded): 25/25, merged PR #134 @ `c248cb40862335c30febdf588f3d5ca23a38d4a7` on top of Plan 6 PR #132. Dated disposition § **Plan 7 disposition (P0, 2026-08-16)** copies A2 OPTION A, A3, A6 `V2_OFF_PENDING_WIDER_EVIDENCE`, A7 `LEGACY_FALLBACK_ROLLBACK_ONLY_RETAIN_TEMPORARILY`, C3 `REMEDIATE_EXISTING_T4_IN_PLACE`, E2 `RESOURCEPLAN_AUTHORITY=APPROVED` / `PRODUCTION_GO_LIVE=DEFERRED / NO-GO`, deployment posture, and E1 11/11 gates. Architecture freeze verified: `a8f02e3c98b866bcb12c7d5b3db75b11e823609b` / SHA-256 `c1c4ba8a88d8f245752188a76442102978eceb0c1bdb410717b789649fb9a034`. F1/F2 → REL0; F3 `T4_SEMANTICALLY_VIABLE_BUT_VPS_SERVING_BLOCKER` remains CRITICAL BLOCKER (REL0 must not claim to solve serving capacity). Live MCP unproven; MITRE deferred. `architecture.md` unmodified. Verify: see command output recorded at check-off; P0 is DOCUMENTATION_ONLY — no runtime change.
 
 - [ ] **P1 — Capture a no-drift architecture baseline**
   - **Do:** Add/extend a baseline test corpus covering: explain-only SPL; supplied-alert investigation; failed VPN administrator logins from `203.0.113.24` yesterday; failed VPN logins by privileged users from Germany; a T4-heavy lateral-movement question; MITRE follow-up; “What about service accounts?”; an untrusted-evidence instruction; exact-call authorization mutation; and T4 saturation/failure without restart. Record final RQC constraints, clarification, route owner, plan/phase schedule, minimal evidence inputs, sufficiency, current result/outcome seams, SPL lifecycle/authorization, trust boundary, T4 reliability evidence, and execution authority.
@@ -569,3 +695,9 @@ None at amendment time. Commands referencing new tests/harnesses name the exact 
   The architecture commit SHA is unavailable because `architecture.md` is untracked; execution must
   STOP until that full commit SHA is recorded. Plan remains queued with 0/34 checked; no runtime code
   or architecture content was changed.
+- **2026-08-16:** **P0 complete.** Plan 7 CLOSED 25/25 and merged at
+  `c248cb40862335c30febdf588f3d5ca23a38d4a7`; Plan 6 merged immediately beneath it. Architecture
+  freeze re-verified (`a8f02e3` content SHA-256 matches working tree and freeze commit). Disposition
+  recorded; overlapping A2/A3/A6/A7/C3/E2 decisions copied and not reopened. F1/F2/F3 carried
+  forward unaccepted. Plan status `queued` → `in_progress`. Checklist **1/34**. No runtime code,
+  flag, baseline, or `architecture.md` change. P1 not started.
