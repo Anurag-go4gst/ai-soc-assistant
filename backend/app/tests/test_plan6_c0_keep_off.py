@@ -66,10 +66,10 @@ def test_flags_remain_independently_controllable() -> None:
     assert fields["ai_soc_live_capability_enforcement_enabled"].default is False
 
 
-def test_change_ladder_not_implemented_v2_still_wins(
+def test_plan7_explicit_direction_supersedes_plan6_ladder_without_rewriting_history(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """C0 did not select CHANGE_LADDER. exec ON + v2 projection still stands merge down."""
+    """Plan 6 recorded KEEP OFF; Plan 7 later authorized ResourcePlan precedence."""
     monkeypatch.setattr(settings, "ai_soc_resource_plan_execution_enabled", True)
     monkeypatch.setattr(
         "app.planner.executor.imperative_hook_schedule_from_state",
@@ -79,9 +79,9 @@ def test_change_ladder_not_implemented_v2_still_wins(
     compiled, reason, merge_trace = executor._execution_driven_schedule_detailed(
         state, executor.walk_plan_steps(state)
     )
-    assert compiled is None
-    assert reason == "dispatch_v2_projected_schedule"
-    assert merge_trace is None
+    assert reason is None
+    assert compiled == ["workflow_spl", "spl_postprocessor", "spl_source_resolve", "execution"]
+    assert merge_trace is not None
 
 
 def test_coe_profile_keeps_dispatch_v2_on() -> None:

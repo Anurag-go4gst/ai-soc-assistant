@@ -168,10 +168,10 @@ def decision_from_state(state: dict[str, Any] | None) -> PipelineDispatchContrac
 
 
 def projected_flags_from_state(state: dict[str, Any] | None) -> dict[str, bool] | None:
-    """Project dispatch contract flags when dispatch v2 is enabled and decision exists."""
+    """Project dispatch flags only for the explicitly selected legacy authority."""
     from app.config import settings
 
-    if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+    if not legacy_dispatch_v2_authority_enabled():
         return None
     decision = decision_from_state(state)
     if decision is None:
@@ -179,11 +179,24 @@ def projected_flags_from_state(state: dict[str, Any] | None) -> dict[str, bool] 
     return project_dispatch_flags(decision)
 
 
-def imperative_hook_schedule_from_state(state: dict[str, Any] | None) -> list[str] | None:
-    """Map ``stage_schedule`` to imperative pipeline hook names (REV5-A)."""
+def legacy_dispatch_v2_authority_enabled() -> bool:
+    """Return whether dispatch-v2 may own the legacy/rollback runtime.
+
+    Plan 7 retires dispatch-v2 as an alternative normal authority.  Keeping its
+    flag independently controllable is useful for old-release rollback and
+    focused compatibility tests, but ResourcePlan execution always wins when
+    enabled, even if both flags are accidentally set.
+    """
     from app.config import settings
 
-    if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+    return bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)) and not bool(
+        getattr(settings, "ai_soc_resource_plan_execution_enabled", False)
+    )
+
+
+def imperative_hook_schedule_from_state(state: dict[str, Any] | None) -> list[str] | None:
+    """Map a rollback-only v2 ``stage_schedule`` to imperative hook names."""
+    if not legacy_dispatch_v2_authority_enabled():
         return None
     decision = decision_from_state(state)
     if decision is None or not decision.stage_schedule:
@@ -224,9 +237,7 @@ def build_plan_dispatch_trace_from_pipeline_dispatch(
     dispatch_source: str = "langgraph_v2_cursor",
 ) -> dict[str, Any] | None:
     """Synthesize ``plan_dispatch`` trace when LangGraph v2 cursor routing skips executor dispatch."""
-    from app.config import settings
-
-    if not bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)):
+    if not legacy_dispatch_v2_authority_enabled():
         return None
     decision = decision_from_state(state)
     if decision is None:

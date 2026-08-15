@@ -162,10 +162,12 @@ def test_flag_on_trace_records_activation(monkeypatch: pytest.MonkeyPatch) -> No
     assert trace["execution_order"] == {"active": True, "downgrade_reason": None}
 
 
-# --- dispatch v2 precedence ---------------------------------------------------
+# --- dispatch v2 retirement fence --------------------------------------------
 
 
 def _v2_state(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    from app.chat.contracts.resolved_query import ResolvedQueryContract
+
     monkeypatch.setattr("app.config.settings.ai_soc_pipeline_dispatch_v2_enabled", True)
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_pipeline_dispatch_v2_enabled", True)
     plan = EvidencePlan(
@@ -184,7 +186,7 @@ def _v2_state(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         evidence_plan=plan.model_dump(),
         intent_classification={"intent_family": "spl_generation"},
     )
-    return with_committed_resource_plan(
+    state = with_committed_resource_plan(
         {
             "pipeline_dispatch": dispatch.model_dump(mode="json"),
             "evidence_plan": plan.model_dump(),
@@ -192,9 +194,19 @@ def _v2_state(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         },
         steps=[{"step_id": "spl", "resource_id": "skill:spl_generation", "purpose": "spl_artifact"}],
     )
+    state["resolved_query_contract"] = ResolvedQueryContract(
+        normalized_goal="generate spl",
+        intent_family="spl_generation_only",
+        answer_goal="spl_artifact",
+        ambiguity_state="unambiguous",
+        qualification_tier="T1",
+        qualification_source="exact_105",
+        required_capabilities={"spl"},
+    ).model_dump(mode="json")
+    return state
 
 
-def test_dispatch_v2_projection_takes_precedence_and_records_the_downgrade(
+def test_resource_plan_takes_precedence_when_v2_is_accidentally_enabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.planner import executor
@@ -203,10 +215,9 @@ def test_dispatch_v2_projection_takes_precedence_and_records_the_downgrade(
     state = _v2_state(monkeypatch)
     walk = walk_plan_steps(state)
     compiled, reason = executor._execution_driven_schedule(state, walk)
-    assert compiled is None
-    assert reason == "dispatch_v2_projected_schedule"
-    legacy, walked = _schedules(state)
-    assert walked == legacy
+    assert reason is None
+    assert compiled == ["workflow_spl", "spl_postprocessor", "spl_source_resolve", "execution"]
+    assert build_step_walk_dispatch_schedule(state, walk, _hooks()) == compiled
 
 
 def test_unparseable_plan_downgrades_instead_of_raising(monkeypatch: pytest.MonkeyPatch) -> None:
