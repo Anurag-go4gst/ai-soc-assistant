@@ -640,11 +640,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** O1A.
   - **Evidence:** Table + call graph in `docs/architecture/canonical_architecture_audit_2026-08-15.md` § Plan 8 X0. Verify `rg` → **402** lines. Classes: `llm_plan_bridge` test-only; evidence-loop HUB rollback-only; `guided_hybrid_refinement` production; `linear_graph_legacy` test-only; dispatch-v2 rollback-only; `session_spl_refine` rollback-only; `_run_legacy_dispatch_fallback` rollback-only. **0 dead.** No deletion. `architecture.md` unmodified. X1 not authorized.
 
-- [ ] **X1 — CONDITIONAL: retire only explicitly authorized, proven duplicate/dead seams**
+- [x] **X1 — CONDITIONAL: retire only explicitly authorized, proven duplicate/dead seams**
   - **Do:** If X0 proves a seam dead/duplicate and explicit retirement authorization is recorded, remove or fence only that seam. Otherwise record `NOT_REQUIRED_FOR_CURRENT_SCOPE` and retain it. Preserve rollback paths and compatibility adapters until separately authorized with parity evidence; no broad deletion by filename or age.
   - **Verify:** If retirement is authorized: `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_dual_runtime_single_orchestration.py app/tests/test_resource_planner_topology_contract.py app/tests/test_resource_plan_dispatch_switch.py -q`; `rg` confirms each retired symbol has no production importer. If retained/deferred: X0 evidence names X1 and records `NOT_REQUIRED_FOR_CURRENT_SCOPE` plus the retained seam classification.
   - **Depends on:** X0 plus explicit evidence-backed retirement authorization. This is separate from the advanced-execution gate.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `NOT_REQUIRED_FOR_CURRENT_SCOPE`. X0 classified **0 dead** seams and recorded **no** retirement authorization. All seven seams retained: `llm_plan_bridge` test-only; evidence-loop HUB rollback-only; `guided_hybrid_refinement` production; `linear_graph_legacy` test-only; dispatch-v2 / `session_spl_refine` / `_run_legacy_dispatch_fallback` rollback-only. No deletion. `architecture.md` unmodified.
 
 - [ ] **X2 — Reconcile architecture and operating documentation**
   - **Do:** Update `AGENTS.md`, `CLAUDE.md`, phase/schedule docs, deployment posture, and architecture diagrams to match verified runtime authority. Resolve the contradiction over live final synthesis by recording the approved policy; do not change behavior as a documentation shortcut.
@@ -715,3 +715,4 @@ None at amendment time. Commands referencing new tests/harnesses name the exact 
   material SPL/time/source/tool/identity/limit/timeout/expiry/consumed changes invalidate.
   Verify **61 passed**. No new auth service. F3/live MCP unproven unchanged. Next: X0.
 - **2026-08-16:** **X0 complete.** Seven seams classified; 0 dead; no deletion. Next: X1 disposition.
+- **2026-08-16:** **X1 complete.** `NOT_REQUIRED_FOR_CURRENT_SCOPE`; all seven seams retained. Next: X3.
