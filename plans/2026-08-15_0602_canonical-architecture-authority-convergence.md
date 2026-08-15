@@ -504,11 +504,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
 
 ### R — final RQC, route ownership, and ResourcePlan authority
 
-- [ ] **R0 — Make final RQC and clarification authoritative before planning**
+- [x] **R0 — Make final RQC and clarification authoritative before planning**
   - **Do:** Reorder the canonical seam to complete deterministic/T4 merge and validation, then decide clarification from the final RQC. Clarification must terminate before ResourcePlan creation. Persist the final RQC in the durable handoff.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_final_rqc_precedes_planning.py app/tests/test_canonical_handoff_contract.py app/tests/test_canonical_architecture_authority_baseline.py -q`; static trace shows no call to `plan_evidence_from_canonical` before final RQC validation/clarification.
   - **Depends on:** U2. Deterministic convergence must work whether T4 is unavailable, times out, is disabled, or remains unsuitable for production serving.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Clarification now reads `resolved_query.clarification_required` (final RQC) before `_commit_planned_outcome`. Handoff JSON stores `resolved_query_contract` beside canonical input (no DB migration). `plan_evidence_from_canonical` fail-closes on RQC clarification. T4 disabled in tests. Verify → **15 passed**. Neighbor planning/dual-runtime → **44 passed**. `architecture.md` unmodified.
 
 - [ ] **R1 — Commit final route ownership before the sole plan creator**
   - **Do:** Run deterministic route adjudication and create the final route contract from the final RQC before `plan_evidence_from_canonical`. Remove any second post-plan route mutation. Keep one final owner while preserving cross-capability work.

@@ -642,6 +642,14 @@ def _resolve_lane_intent_and_details(
     )
 
 
+def _durable_canonical_payload(canonical: Any, resolved_query_contract: dict[str, Any] | None) -> dict[str, Any]:
+    """Persist the final RQC beside canonical input without a DB migration."""
+    payload = canonical.model_dump()
+    if resolved_query_contract:
+        payload["resolved_query_contract"] = resolved_query_contract
+    return payload
+
+
 def _persist_clarification_outcome(
     state: ChatPipelineState,
     *,
@@ -664,6 +672,10 @@ def _persist_clarification_outcome(
     unresolved_fields = list(
         gap.unresolved_details if gap else completeness.missing_fields if completeness else []
     )
+    rqc_unresolved = list((resolved_query_contract or {}).get("unresolved_fields") or [])
+    for field in rqc_unresolved:
+        if field not in unresolved_fields:
+            unresolved_fields.append(field)
     if not unresolved_fields:
         # The outcome contract requires at least one unresolved field; without this
         # the clarification would be unanswerable and the handoff unresumable.
@@ -671,10 +683,14 @@ def _persist_clarification_outcome(
     save_clarification_handoff(
         handoff_id=handoff_id,
         handoff_version=handoff_version,
-        canonical_planning_input=canonical.model_dump(),
+        canonical_planning_input=_durable_canonical_payload(canonical, resolved_query_contract),
         gap_resolution=gap.model_dump() if gap else None,
         unresolved_fields=unresolved_fields,
-        clarification_reason=route_reason or "clarification_required",
+        clarification_reason=(
+            (resolved_query_contract or {}).get("clarification_reason")
+            or route_reason
+            or "clarification_required"
+        ),
         trace_id=str(trace_id) if trace_id else None,
         session_id=str(session_id) if session_id else None,
         original_query=intake.query,
@@ -771,7 +787,7 @@ def _commit_planned_outcome(
             original_answer_goal=str(intent_classification.get("answer_goal_primary")),
             initial_tier=intake.initial_tier,
             resolved_tier=lane.resolved_tier,
-            canonical_planning_input=canonical.model_dump(),
+            canonical_planning_input=_durable_canonical_payload(canonical, resolved_query_contract),
             gap_resolution=gap.model_dump() if gap else None,
         )
     )
@@ -895,6 +911,7 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
         query=intake.query,
     )
     resolved_query_contract = resolved_query.model_dump(mode="json")
+    state = {**state, "resolved_query_contract": resolved_query_contract}
 
     canonical = build_canonical_planning_input(
         query=intake.query,
@@ -915,7 +932,8 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     )
 
     clarification_required = bool(
-        intent_classification.get("requires_clarification")
+        resolved_query.clarification_required
+        or resolved_query.ambiguity_state in {"clarification_required", "policy_blocked"}
         or (lane.post is not None and lane.post.clarification_required)
         or (lane.gap is not None and lane.gap.clarification_required)
     )
