@@ -87,3 +87,27 @@ requires zero *unexplained* `MISPLACED` findings, measured against the implement
 matching the recorded SHA-256, the correct action is to STOP with
 `ARCHITECTURE_FREEZE_REFERENCE_REQUIRED` — a coding agent may not edit `architecture.md` to clear
 that STOP.
+
+## Plan 8 SPL0 — nine-answer SPL entity / lifecycle / authorization map
+
+AUDIT_ONLY against the implemented tree at Plan 8 SPL0 (2026-08-16). **No runtime change.**
+Does not reopen Plan 7 A2 OPTION A or A3 `spl_postprocessor` lifecycle ownership.
+Verify `rg` over the listed packages returned **4715** matching lines.
+
+| # | Question | Class | Code/line map |
+|---|---|---|---|
+| 1 | Where source IP, dest IP, host, user, domain, port, geography, and time are extracted | `PARTIAL` | `backend/app/query_understanding/parser.py` `_entities()` **213–251**: `IP_RE` **19** → `source_ip`; `destination_ip=[]` always; `HOST_RE` **23** / `_HOST_BARE_RE` **25** → `host`; `USER_RE` **24** / bare/leading user → `user`; `PORT_RE` **72** → `port_numbers`; `normalize_time_window` `backend/app/query_understanding/time_window.py` **8–29** (`yesterday` → `earliest=-1d@d latest=@d` **27–28**). **No** dedicated domain or geography extractor. Bare `from Germany` can be captured as **host**, not geo. |
+| 2 | Which of those are stored in final RQC | `PARTIAL` | `build_resolved_query_contract` `backend/app/chat/resolved_query_builder.py` **122–140**: `entities = _entities_map(query_understanding)` (**163–173**), `time_scope` from `time_window`. RQC schema `backend/app/chat/contracts/resolved_query.py` **61–62**. Session continuity may add `account_type`/`geo` later (O1); T1 parser still has no geo field. |
+| 3 | Which fields reach `workflow_spl` / generation | `PARTIAL` | `graph_node_workflow_spl` `backend/app/chat/pipeline.py` **2777–2858** consumes `effective_query` / `request.message`, `query_understanding`, skill, template/use-case, discovery context. It does **not** read `state["resolved_query_contract"]` as a first-class SPL input. Entity filters therefore reach generation only if they remain in the query text or template slots. |
+| 4 | Exactly what `spl_source_resolve` does | `EXISTS` (source slots only) | `graph_node_spl_source_resolve` `pipeline.py` **3257–3322** calls `resolve_spl_source_profile` `backend/app/spl/spl_source_resolve.py` **104+**. Fills `<placeholder>` source-profile slots (index/sourcetype) from policy/COE/session/RAG; `del user_query` **114**. Does **not** inject RQC entity/time/geo constraints. Plan 7 A2/A3 ownership unchanged. |
+| 5 | Exactly what `spl_postprocessor` does | `EXISTS` (review-only hygiene) | `graph_node_spl_postprocessor` `pipeline.py` **2542–2579** → `finalize_review_only_spl` `backend/app/spl/review_only_spl_postprocessor.py` **1–17, 226–491**. Index resolution, lookback hardening, `sort 0` removal, weekend locale. **Never** authorizes execution; does **not** prove RQC entity constraints survived. A3 still requires this phase on applicable seams. |
+| 6 | Where `normalized_spl` is validated | `EXISTS` | `validate_spl` `backend/app/safeguards/spl_validator.py` **63–76**, `_validate_raw_search` **79–142**: commands, index/sourcetype allowlists, `earliest`/`latest` presence, aggregation, result cap, secrets/macros. Gate requires `approved=true` and non-null `normalized_spl` (`mcp_execution_gate.py` **55–76**, `catalogue_execution_eligibility.py` **53–55**). |
+| 7 | Whether validation proves mandatory final-RQC constraints survived | `MISSING` | `validate_spl` does not accept or compare an RQC. No check that `source_ip` / account class / geo / `time_scope` appear in `normalized_spl` or have a non-applicability reason. This is the SPL1 gap. |
+| 8 | Where Splunk/MCP authorization is enforced | `EXISTS` | `evaluate_mcp_execution` `backend/app/orchestration/mcp_execution_gate.py` **55+**: preconditions, `select_mcp_tool`, data-silence, HIL confirmation (`execution_confirmation.py` **97–118**), RBAC via `session_role_for_mcp_gate`, global/per-server execution flags. Candidate SPL never executed. |
+| 9 | Tool-level only vs bound to the final normalized call | `PARTIAL` | Replay fingerprint `build_mcp_execution_fingerprint` `backend/app/chat/hook_replay_contract.py` **116–137** hashes tool, server, `normalized_spl`, intent, earliest/latest, saved-search name — **hook idempotency only** (`mcp_execution_gate.py` **778–786**). P1 baseline recorded AUTH0 **PARTIAL**: a mutated approved `normalized_spl` is not rejected for fingerprint mismatch at the live gate. Not a per-call grant bound to identity + source scope + expiry. AUTH0 owns that binding. |
+
+**SPL1 implication:** pass final-RQC entities into generation and require `normalized_spl` to contain each mandatory constraint or an explicit non-applicability reason. Do not change `spl_source_resolve` into an entity injector.
+
+**AUTH0 implication:** extend the existing MCP/HIL/RBAC gate so a material change to normalized SPL, time/source, tool/connection, identity, or limits invalidates authorization. Do not add an authorization service.
+
+`architecture.md` unmodified. Plan 7 A2/A3 lifecycle owners unchanged.
