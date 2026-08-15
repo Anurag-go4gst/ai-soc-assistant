@@ -247,9 +247,6 @@ def _execution_driven_schedule_detailed(
   if not bool(getattr(settings, "ai_soc_resource_plan_execution_enabled", False)):
     return None, None, None
 
-  if imperative_hook_schedule_from_state(state) is not None:
-    return None, "dispatch_v2_projected_schedule", None
-
   from app.planner.resource_plan import ResourcePlan
   from app.planner.resource_plan_execution_scheduler import (
     ScheduleInputs,
@@ -278,9 +275,9 @@ def _execution_driven_schedule_detailed(
       plan,
       PhasePolicyInputs(
         has_workflow_plan=inputs.has_workflow_plan,
-        pre_spl_discovery_enabled=bool(
-          getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False)
-        ),
+        # Pre-SPL discovery was a dispatch-v2 lifecycle choice.  It cannot be
+        # reintroduced merely by accidentally enabling the retired v2 flag.
+        pre_spl_discovery_enabled=False,
       ),
     )
     merged, merge_reason = merge_schedule(contract, plan, phase_contract, inputs)
@@ -293,6 +290,9 @@ def _execution_driven_schedule_detailed(
         "phase_contract": phase_contract.trace_payload(),
         "inserted_phases": list(merged.inserted_phases),
         "inline_phases": list(merged.inline_phases),
+        # Plan 7 A3: the compiler downgraded but the contract's mandatory
+        # lifecycle still had to be honoured. Provenance only.
+        "resource_downgrade": merged.resource_downgrade,
         "capability_satisfied": merged.capability.satisfied,
         "capability_missing": sorted(merged.capability.missing),
       },

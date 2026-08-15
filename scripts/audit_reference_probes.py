@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit current routing for the reference-knowledge probe contract.
+"""Audit current ResourcePlan routing for the reference-knowledge probe contract.
 
 Default mode is ``--check``: run the ten probes, compare them against the frozen
 baseline, and **write nothing**. A verification gate must never rewrite the
@@ -44,6 +44,7 @@ os.environ["MCP_GLOBAL_EXECUTION_ENABLED"] = "false"
 
 from app.chat.pipeline import build_live_chat_response  # noqa: E402
 from app.chat.answer_shape_router import classify_answer_shape  # noqa: E402
+from app.chat.debug_summary import build_debug_summary  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.schemas.requests import ChatRequest  # noqa: E402
 
@@ -58,6 +59,13 @@ for _setting_name in (
 ):
     if hasattr(settings, _setting_name):
         setattr(settings, _setting_name, False)
+
+# This is the Plan 7 authority probe, not a rollback compatibility probe.  Pin
+# only the two execution-authority switches so the result cannot silently fall
+# back to dispatch-v2 because of a developer shell or stale local profile.
+settings.ai_soc_resource_plan_execution_enabled = True
+settings.ai_soc_pipeline_dispatch_v2_enabled = False
+settings.ai_soc_t4_semantic_understanding_enabled = False
 
 PROBES = ROOT / "backend" / "app" / "tests" / "fixtures" / "reference_knowledge" / "probes.json"
 OUT = ROOT / "docs" / "evals" / "reference_knowledge_baseline.md"
@@ -93,8 +101,13 @@ def _route_row(probe: dict[str, Any]) -> dict[str, Any]:
             "query": probe["query"],
             "selected_skill": None,
             "answer_mode": None,
-            "request_mode": None,
-            "stage_schedule": [],
+            "authority_owner": None,
+            "resource_plan_purposes": [],
+            "phase_contract": [],
+            "dispatch_schedule": [],
+            "degrade_reason": None,
+            "execution_result": None,
+            "execution_block_reason": None,
             "primary_shape": None,
             "human_review_type": None,
             "has_mitre_panel": False,
@@ -106,11 +119,34 @@ def _route_row(probe: dict[str, Any]) -> dict[str, Any]:
         signal.signal(signal.SIGALRM, old_handler)
     payload = response.model_dump(mode="json")
     trace = payload.get("control_plane_trace") if isinstance(payload.get("control_plane_trace"), dict) else {}
-    pipeline_dispatch = trace.get("pipeline_dispatch") if isinstance(trace.get("pipeline_dispatch"), dict) else {}
-    dispatch_decision = pipeline_dispatch.get("decision") if isinstance(pipeline_dispatch.get("decision"), dict) else {}
+    evidence_plan = trace.get("evidence_plan") if isinstance(trace.get("evidence_plan"), dict) else {}
+    resource_plan = evidence_plan.get("resource_plan") if isinstance(evidence_plan.get("resource_plan"), dict) else {}
+    plan_dispatch = trace.get("plan_dispatch") if isinstance(trace.get("plan_dispatch"), dict) else {}
+    debug = build_debug_summary(payload=payload, control_plane_trace=trace)
+    schedule = debug.get("schedule") if isinstance(debug.get("schedule"), dict) else {}
+    resource_steps = resource_plan.get("steps") if isinstance(resource_plan.get("steps"), list) else []
+    resource_purposes = [
+        str(step.get("purpose"))
+        for step in resource_steps
+        if isinstance(step, dict) and step.get("purpose")
+    ]
+    phase_contract = [str(item) for item in (schedule.get("phase_names") or [])]
+    dispatch_schedule = [str(item) for item in (schedule.get("dispatch_schedule") or [])]
+    dispatch_source = str(plan_dispatch.get("dispatch_source") or "")
+    if phase_contract:
+        authority_owner = "resource_plan_phase_contract"
+    elif resource_plan and payload.get("answer_mode") == "rag_only":
+        authority_owner = "resource_planner_rag_lane"
+    elif resource_plan:
+        authority_owner = "resource_plan"
+    elif dispatch_source == "canonical_non_planned":
+        authority_owner = "canonical_non_planned"
+    else:
+        authority_owner = "deterministic_non_planned"
     answer_shape = trace.get("answer_shape") if isinstance(trace.get("answer_shape"), dict) else {}
     analyst_response = payload.get("analyst_response") if isinstance(payload.get("analyst_response"), dict) else {}
     structured_context = payload.get("structured_context") if isinstance(payload.get("structured_context"), dict) else {}
+    execution = payload.get("execution") if isinstance(payload.get("execution"), dict) else {}
     deterministic_shape = classify_answer_shape(str(probe["query"])).primary_shape
     return {
         "id": probe["id"],
@@ -118,8 +154,13 @@ def _route_row(probe: dict[str, Any]) -> dict[str, Any]:
         "query": probe["query"],
         "selected_skill": payload.get("selected_skill"),
         "answer_mode": payload.get("answer_mode"),
-        "request_mode": dispatch_decision.get("request_mode"),
-        "stage_schedule": dispatch_decision.get("stage_schedule") or [],
+        "authority_owner": authority_owner,
+        "resource_plan_purposes": resource_purposes,
+        "phase_contract": phase_contract,
+        "dispatch_schedule": dispatch_schedule,
+        "degrade_reason": schedule.get("degrade_reason"),
+        "execution_result": execution.get("execution_status_label") or execution.get("status"),
+        "execution_block_reason": execution.get("block_reason"),
         "primary_shape": answer_shape.get("primary_shape") or _dig(payload, "routing_skill_resolution", "answer_shape", "primary_shape") or deterministic_shape,
         "human_review_type": _dig(payload, "human_review", "review_type"),
         "has_mitre_panel": bool(payload.get("mitre_mappings") or analyst_response.get("mitre")),
@@ -138,15 +179,19 @@ def _render(rows: list[dict[str, Any]]) -> str:
         "",
         "Current baseline for the reference-knowledge probe contract. P1-P4 should route through `reference_taxonomy` / `reference_knowledge`; P5/P6/N1-N4 are frozen non-regression rows.",
         "",
-        "| ID | Kind | Selected skill | Answer mode | Request mode | Shape | Human review | Stages |",
-        "|---|---|---|---|---|---|---|---|",
+        "| ID | Kind | Route | Answer | Authority owner | Resource purposes | PhaseContract | Dispatch | HIL | Result |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in rows:
-        stages = ",".join(str(item) for item in row.get("stage_schedule") or [])
+        purposes = ",".join(str(item) for item in row.get("resource_plan_purposes") or [])
+        phases = ",".join(str(item) for item in row.get("phase_contract") or [])
+        dispatch = ",".join(str(item) for item in row.get("dispatch_schedule") or [])
         lines.append(
-            "| {id} | {kind} | {selected_skill} | {answer_mode} | {request_mode} | {primary_shape} | {human_review_type} | {stages} |".format(
-                stages=stages,
-                **{key: row.get(key) or "" for key in ("id", "kind", "selected_skill", "answer_mode", "request_mode", "primary_shape", "human_review_type")},
+            "| {id} | {kind} | {selected_skill} | {answer_mode} | {authority_owner} | {purposes} | {phases} | {dispatch} | {human_review_type} | {execution_result} |".format(
+                purposes=purposes,
+                phases=phases,
+                dispatch=dispatch,
+                **{key: row.get(key) or "" for key in ("id", "kind", "selected_skill", "answer_mode", "authority_owner", "human_review_type", "execution_result")},
             )
         )
     lines.extend(
@@ -154,6 +199,7 @@ def _render(rows: list[dict[str, Any]]) -> str:
             "",
             "## Frozen Non-Regression Contract",
             "",
+            "- Authority fields come from ResourcePlan, PhaseContract/merge, and the current dispatch/execution result; retired `pipeline_dispatch.decision` fields are not read or reconstructed.",
             "- P5/P6/N1-N4 current routes are the non-regression baseline for item 18.",
             "- N3 intentionally duplicates the alert-mapping guard class covered by P5.",
             "- This file is updated deliberately when P1/P2 flip red to green; the probe script should not be used for silent baseline drift.",
@@ -173,8 +219,13 @@ def _render(rows: list[dict[str, Any]]) -> str:
 COMPARED_FIELDS: tuple[str, ...] = (
     "selected_skill",
     "answer_mode",
-    "request_mode",
-    "stage_schedule",
+    "authority_owner",
+    "resource_plan_purposes",
+    "phase_contract",
+    "dispatch_schedule",
+    "degrade_reason",
+    "execution_result",
+    "execution_block_reason",
     "primary_shape",
     "human_review_type",
     "has_mitre_panel",

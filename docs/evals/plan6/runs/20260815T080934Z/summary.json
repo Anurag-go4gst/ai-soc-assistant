@@ -1,0 +1,157 @@
+{
+  "arm": "D",
+  "results": [
+    {
+      "row_id": "p6.t4.out_of_registry",
+      "class": "t4_out_of_registry_investigation",
+      "exit_code": 0,
+      "trace_id": "2a284bf0-2821-4e3e-b010-c84aca1b38e7",
+      "wall_ms": 152348,
+      "chat": {
+        "trace_id": "2a284bf0-2821-4e3e-b010-c84aca1b38e7",
+        "route": "guided_investigation",
+        "answer_mode": "guided_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "guided_investigation",
+        "answer_goal": "procedural_steps",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "fd65002b17c46fa0",
+        "degrade_reason": "merge",
+        "dispatch_schedule_present": true,
+        "phase_names": [
+          "prepare_rag_only",
+          "rag_early"
+        ],
+        "semantic_t4": {
+          "notes": [
+            "llm_assist_timed_out"
+          ],
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 120005,
+          "rejected_reasons": [
+            "timed_out"
+          ]
+        },
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.para.003",
+      "class": "t4_residual_paraphrase",
+      "exit_code": 0,
+      "trace_id": "9ef718d4-dcdd-4137-a3df-4caef3f56869",
+      "wall_ms": 211788,
+      "chat": {
+        "trace_id": "9ef718d4-dcdd-4137-a3df-4caef3f56869",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": {
+          "notes": [
+            "llm_assist_timed_out"
+          ],
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 120004,
+          "rejected_reasons": [
+            "timed_out"
+          ]
+        },
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.para.008",
+      "class": "t4_residual_paraphrase",
+      "exit_code": 0,
+      "trace_id": "85e144f2-91a4-48be-8023-f10cfe577aa7",
+      "wall_ms": 212174,
+      "chat": {
+        "trace_id": "85e144f2-91a4-48be-8023-f10cfe577aa7",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": {
+          "notes": [
+            "llm_assist_timed_out"
+          ],
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 120000,
+          "rejected_reasons": [
+            "timed_out"
+          ]
+        },
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.para.012",
+      "class": "t4_residual_paraphrase",
+      "exit_code": 0,
+      "trace_id": "6f3851a3-1da5-4a57-859b-fba09bdc76b8",
+      "wall_ms": 210937,
+      "chat": {
+        "trace_id": "6f3851a3-1da5-4a57-859b-fba09bdc76b8",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": {
+          "notes": [
+            "llm_assist_timed_out"
+          ],
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 120018,
+          "rejected_reasons": [
+            "timed_out"
+          ]
+        },
+        "understanding_source": "deterministic_qualification"
+      }
+    }
+  ],
+  "missing_qualification_tier": []
+}

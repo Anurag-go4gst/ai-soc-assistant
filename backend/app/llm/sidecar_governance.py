@@ -33,6 +33,17 @@ REASONING_REJECTION_ROUTING = "reasoning_model_not_allowed_for_routing"
 REASONING_REJECTION_NARRATION = "reasoning_model_not_allowed_for_narration"
 
 NOTE_LLM_ASSIST_TIMED_OUT = "llm_assist_timed_out"
+NOTE_LLM_PROVIDER_UNAVAILABLE = "llm_provider_unavailable"
+
+# Failure classes a caller may need to tell apart. `timed_out` keeps its existing
+# meaning ("the hop produced nothing, degrade") for the callers that branch on it;
+# `failure_kind` carries the accurate class. Plan 7 D1: a provider exception used to
+# be reported as a timeout, which made "LLM unavailable" and "LLM timeout"
+# indistinguishable in every trace.
+FAILURE_TIMEOUT = "timeout"
+FAILURE_PROVIDER_UNAVAILABLE = "provider_unavailable"
+FAILURE_POOL_REJECTED = "pool_rejected"
+FAILURE_SLOT_BUSY = "slot_busy"
 NOTE_LLM_SLOT_BUSY = "llm_model_slot_busy"
 NOTE_CONFIDENCE_ADVISORY_ONLY = "confidence_advisory_only"
 
@@ -75,6 +86,7 @@ class SidecarLlmCallResult:
     raw_output: str | None
     timed_out: bool
     notes: list[str]
+    failure_kind: str | None = None
 
 
 def is_reasoning_provider_assignment(provider: str | None, model: str | None) -> bool:
@@ -182,7 +194,12 @@ def run_sidecar_llm_with_timeout(
                 wrapper_kind=wrapper_kind,
                 outcome=WrapperEventOutcome.TIMEOUT,
             )
-            return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT])
+            return SidecarLlmCallResult(
+                raw_output=None,
+                timed_out=True,
+                notes=[NOTE_LLM_ASSIST_TIMED_OUT],
+                failure_kind=FAILURE_TIMEOUT,
+            )
         timeout_seconds = min(timeout_seconds, remaining)
 
     slot = _MODEL_SLOT_SEMAPHORE
@@ -198,7 +215,12 @@ def run_sidecar_llm_with_timeout(
             wrapper_kind=wrapper_kind,
             outcome=WrapperEventOutcome.SATURATED,
         )
-        return SidecarLlmCallResult(raw_output=None, timed_out=False, notes=[NOTE_LLM_SLOT_BUSY])
+        return SidecarLlmCallResult(
+            raw_output=None,
+            timed_out=False,
+            notes=[NOTE_LLM_SLOT_BUSY],
+            failure_kind=FAILURE_SLOT_BUSY,
+        )
 
     def _slot_guarded() -> str:
         try:
@@ -217,7 +239,12 @@ def run_sidecar_llm_with_timeout(
             wrapper_kind=wrapper_kind,
             outcome=WrapperEventOutcome.FAILURE,
         )
-        return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT])
+        return SidecarLlmCallResult(
+            raw_output=None,
+            timed_out=True,
+            notes=[NOTE_LLM_ASSIST_TIMED_OUT],
+            failure_kind=FAILURE_POOL_REJECTED,
+        )
 
     try:
         raw_output = future.result(timeout=timeout_seconds)
@@ -238,7 +265,12 @@ def run_sidecar_llm_with_timeout(
             wrapper_kind=wrapper_kind,
             outcome=WrapperEventOutcome.TIMEOUT,
         )
-        return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT])
+        return SidecarLlmCallResult(
+            raw_output=None,
+            timed_out=True,
+            notes=[NOTE_LLM_ASSIST_TIMED_OUT],
+            failure_kind=FAILURE_TIMEOUT,
+        )
     except Exception:  # noqa: BLE001 — never propagate provider errors to /chat
         duration_ms = int((time.monotonic() - started) * 1000)
         record_wrapper_event(
@@ -247,7 +279,15 @@ def run_sidecar_llm_with_timeout(
             wrapper_kind=wrapper_kind,
             outcome=WrapperEventOutcome.FAILURE,
         )
-        return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT])
+        # `timed_out=True` is retained so existing callers still degrade, but the note
+        # and `failure_kind` say what actually happened: the provider failed, it did
+        # not run out of time.
+        return SidecarLlmCallResult(
+            raw_output=None,
+            timed_out=True,
+            notes=[NOTE_LLM_PROVIDER_UNAVAILABLE],
+            failure_kind=FAILURE_PROVIDER_UNAVAILABLE,
+        )
 
 
 def build_sidecar_metadata_payload(

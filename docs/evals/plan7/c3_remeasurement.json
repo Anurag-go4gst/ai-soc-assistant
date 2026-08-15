@@ -1,0 +1,426 @@
+{
+  "timeout_seconds": 120.0,
+  "warmup": {
+    "wall_ms": 55305,
+    "accepted": true,
+    "timed_out": false,
+    "elapsed_ms": 55265
+  },
+  "cases": [
+    {
+      "case_id": "lateral_movement",
+      "query": "signs that something is moving sideways through the estate",
+      "intent_of_case": "semantic question: name the objective, keep lateral movement a hypothesis",
+      "invoked": true,
+      "accepted": true,
+      "timed_out": false,
+      "elapsed_ms": 39436,
+      "wall_ms": 39436,
+      "proposed_fields": [
+        "ambiguity_state",
+        "clarification_reason",
+        "clarification_required",
+        "confidence",
+        "evidence_requirements",
+        "normalized_goal"
+      ],
+      "accepted_fields": [
+        "evidence_requirements",
+        "normalized_goal"
+      ],
+      "rejected_reasons": [
+        "clarification_without_unresolved_referent"
+      ],
+      "notes": [],
+      "base": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "normalized_goal": "signs that something is moving sideways through the estate",
+        "time_scope": null
+      },
+      "post_merge": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [
+          "authentication logs for successful logons from unusual locations or hosts",
+          "suspicious process executions with network activity (especially to different subnets)",
+          "anomalous data transfers or access patterns",
+          "lateral movement IOCs such as known malicious IP addresses, domains, or hashes",
+          "baseline behavior for comparison to detect anomalies"
+        ],
+        "normalized_goal": "identify lateral movement within the network estate",
+        "time_scope": null
+      },
+      "clarification_added": false,
+      "evidence_requirements_added": [
+        "authentication logs for successful logons from unusual locations or hosts",
+        "suspicious process executions with network activity (especially to different subnets)",
+        "anomalous data transfers or access patterns",
+        "lateral movement IOCs such as known malicious IP addresses, domains, or hashes",
+        "baseline behavior for comparison to detect anomalies"
+      ],
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "host_before": {
+        "mem_total_mb": 15992,
+        "mem_available_mb": 8787,
+        "swap_total_mb": 4095,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "2.90",
+          "1.19",
+          "0.88"
+        ],
+        "llama_server": [
+          {
+            "pid": "217320",
+            "rss_mb": 8472,
+            "stat": "Rsl"
+          }
+        ]
+      },
+      "host_after": {
+        "mem_total_mb": 15992,
+        "mem_available_mb": 8803,
+        "swap_total_mb": 4095,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "3.95",
+          "1.69",
+          "1.06"
+        ],
+        "llama_server": [
+          {
+            "pid": "217320",
+            "rss_mb": 8437,
+            "stat": "Ssl"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "competing_hypotheses",
+      "query": "powershell on endpoints talking to new domains",
+      "intent_of_case": "benign and malicious must both stay on the table",
+      "invoked": true,
+      "accepted": true,
+      "timed_out": false,
+      "elapsed_ms": 39133,
+      "wall_ms": 39134,
+      "proposed_fields": [
+        "ambiguity_state",
+        "clarification_reason",
+        "clarification_required",
+        "confidence",
+        "evidence_requirements",
+        "normalized_goal"
+      ],
+      "accepted_fields": [
+        "evidence_requirements",
+        "normalized_goal"
+      ],
+      "rejected_reasons": [
+        "clarification_without_unresolved_referent"
+      ],
+      "notes": [],
+      "base": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "normalized_goal": "powershell on endpoints talking to new domains",
+        "time_scope": null
+      },
+      "post_merge": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [
+          "parent process and command line for the PowerShell activity",
+          "domain registration age and query cadence",
+          "context of the new domains (e.g., WHOIS data, known software usage)",
+          "competing explanation: software updater, admin script or telemetry"
+        ],
+        "normalized_goal": "assess whether PowerShell activity with outbound DNS to new domains is malicious or routine administration",
+        "time_scope": null
+      },
+      "clarification_added": false,
+      "evidence_requirements_added": [
+        "parent process and command line for the PowerShell activity",
+        "domain registration age and query cadence",
+        "context of the new domains (e.g., WHOIS data, known software usage)",
+        "competing explanation: software updater, admin script or telemetry"
+      ],
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "host_before": {
+        "mem_total_mb": 15992,
+        "mem_available_mb": 8803,
+        "swap_total_mb": 4095,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "3.95",
+          "1.69",
+          "1.06"
+        ],
+        "llama_server": [
+          {
+            "pid": "217320",
+            "rss_mb": 8437,
+            "stat": "Ssl"
+          }
+        ]
+      },
+      "host_after": {
+        "mem_total_mb": 15992,
+        "mem_available_mb": 8819,
+        "swap_total_mb": 4095,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "4.39",
+          "2.07",
+          "1.22"
+        ],
+        "llama_server": [
+          {
+            "pid": "217320",
+            "rss_mb": 8468,
+            "stat": "Rsl"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "missing_context",
+      "query": "compare this with what happened last week and tell me if it is getting worse",
+      "intent_of_case": "unresolved referent: clarification is the correct answer",
+      "invoked": true,
+      "accepted": true,
+      "timed_out": false,
+      "elapsed_ms": 28573,
+      "wall_ms": 28573,
+      "proposed_fields": [
+        "ambiguity_state",
+        "clarification_reason",
+        "clarification_required",
+        "confidence",
+        "evidence_requirements",
+        "normalized_goal"
+      ],
+      "accepted_fields": [
+        "clarification_required",
+        "evidence_requirements",
+        "normalized_goal"
+      ],
+      "rejected_reasons": [],
+      "notes": [],
+      "base": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "normalized_goal": "compare this with what happened last week and tell me if it is getting worse",
+        "time_scope": null
+      },
+      "post_merge": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [
+          "specific details of the current event",
+          "corresponding details from the event that occurred last week",
+          "metrics to measure worsening (e.g., frequency, severity, impact)"
+        ],
+        "normalized_goal": "compare the current security event with the corresponding event from last week to determine if the situation is worsening",
+        "time_scope": null
+      },
+      "clarification_added": false,
+      "evidence_requirements_added": [
+        "specific details of the current event",
+        "corresponding details from the event that occurred last week",
+        "metrics to measure worsening (e.g., frequency, severity, impact)"
+      ],
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "host_before": {
+        "mem_total_mb": 15992,
+        "mem_available_mb": 8756,
+        "swap_total_mb": 4095,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "4.39",
+          "2.07",
+          "1.22"
+        ],
+        "llama_server": [
+          {
+            "pid": "217320",
+            "rss_mb": 8533,
+            "stat": "Rsl"
+          }
+        ]
+      },
+      "host_after": {
+        "mem_total_mb": 15992,
+        "mem_available_mb": 8809,
+        "swap_total_mb": 4095,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "4.37",
+          "2.29",
+          "1.32"
+        ],
+        "llama_server": [
+          {
+            "pid": "217320",
+            "rss_mb": 8439,
+            "stat": "Ssl"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "spl_capable_paraphrase",
+      "query": "any domain lookups that look algorithmically generated",
+      "intent_of_case": "evidence need should ultimately require SPL-capable downstream work",
+      "invoked": true,
+      "accepted": true,
+      "timed_out": false,
+      "elapsed_ms": 32850,
+      "wall_ms": 32851,
+      "proposed_fields": [
+        "ambiguity_state",
+        "clarification_reason",
+        "clarification_required",
+        "confidence",
+        "evidence_requirements",
+        "normalized_goal"
+      ],
+      "accepted_fields": [
+        "evidence_requirements",
+        "normalized_goal"
+      ],
+      "rejected_reasons": [
+        "clarification_without_unresolved_referent"
+      ],
+      "notes": [],
+      "base": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [],
+        "normalized_goal": "any domain lookups that look algorithmically generated",
+        "time_scope": null
+      },
+      "post_merge": {
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "clarification_required": true,
+        "required_capabilities": [],
+        "prohibited_capabilities": [
+          "mcp",
+          "spl"
+        ],
+        "evidence_requirements": [
+          "list of domain lookups with associated query patterns and rates",
+          "analysis of domain names for randomness or DGA characteristics",
+          "comparison with known benign patterns or known malicious indicators",
+          "historical data to establish baselines for normal behavior"
+        ],
+        "normalized_goal": "identify domain lookups that appear algorithmically generated",
+        "time_scope": null
+      },
+      "clarification_added": false,
+      "evidence_requirements_added": [
+        "list of domain lookups with associated query patterns and rates",
+        "analysis of domain names for randomness or DGA characteristics",
+        "comparison with known benign patterns or known malicious indicators",
+        "historical data to establish baselines for normal behavior"
+      ],
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "host_before": {
+        "mem_total_mb": 15992,
+        "mem_available_mb": 8810,
+        "swap_total_mb": 4095,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "4.37",
+          "2.29",
+          "1.32"
+        ],
+        "llama_server": [
+          {
+            "pid": "217320",
+            "rss_mb": 8439,
+            "stat": "Ssl"
+          }
+        ]
+      },
+      "host_after": {
+        "mem_total_mb": 15992,
+        "mem_available_mb": 8784,
+        "swap_total_mb": 4095,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "4.34",
+          "2.49",
+          "1.42"
+        ],
+        "llama_server": [
+          {
+            "pid": "217320",
+            "rss_mb": 8476,
+            "stat": "Rsl"
+          }
+        ]
+      }
+    }
+  ]
+}

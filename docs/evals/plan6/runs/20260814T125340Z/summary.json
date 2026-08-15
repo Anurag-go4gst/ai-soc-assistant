@@ -1,0 +1,386 @@
+{
+  "arm": "F",
+  "results": [
+    {
+      "row_id": "p6.t1.knowledge",
+      "class": "t1_exact_known_knowledge",
+      "exit_code": 0,
+      "trace_id": "554f29d7-ff1b-4261-9dbe-83eb268064e7",
+      "wall_ms": 55526,
+      "chat": {
+        "trace_id": "554f29d7-ff1b-4261-9dbe-83eb268064e7",
+        "route": "knowledge_recall",
+        "answer_mode": "rag_only",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "sop_or_playbook",
+        "answer_goal": "procedural_steps",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "54643926bb51081e",
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.t2.known_nontrivial",
+      "class": "t2_t3_known_nontrivial",
+      "exit_code": 0,
+      "trace_id": "6ff1454d-f729-4f14-9bd3-ad1ca3ce9925",
+      "wall_ms": 60700,
+      "chat": {
+        "trace_id": "6ff1454d-f729-4f14-9bd3-ad1ca3ce9925",
+        "route": "knowledge_recall",
+        "answer_mode": "rag_only",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "policy_knowledge",
+        "answer_goal": "policy_citation",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "54643926bb51081e",
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.t4.out_of_registry",
+      "class": "t4_out_of_registry_investigation",
+      "exit_code": 0,
+      "trace_id": "c0963df0-51d4-4d2b-8bf3-810732fe14c2",
+      "wall_ms": 66296,
+      "chat": {
+        "trace_id": "c0963df0-51d4-4d2b-8bf3-810732fe14c2",
+        "route": "guided_investigation",
+        "answer_mode": "guided_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "guided_investigation",
+        "answer_goal": "procedural_steps",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "fd65002b17c46fa0",
+        "degrade_reason": "merge",
+        "dispatch_schedule_present": true,
+        "phase_names": [
+          "prepare_rag_only",
+          "rag_early"
+        ],
+        "semantic_t4": {
+          "notes": [
+            "llm_assist_timed_out"
+          ],
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 2001,
+          "rejected_reasons": [
+            "timed_out"
+          ]
+        },
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.spl.draft",
+      "class": "spl_only_draft_review",
+      "exit_code": 0,
+      "trace_id": "0c0fefea-c366-4b58-994d-b8d7fade59b7",
+      "wall_ms": 58469,
+      "chat": {
+        "trace_id": "0c0fefea-c366-4b58-994d-b8d7fade59b7",
+        "route": "attack_discovery",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "99ccd9213e2f0b37",
+        "degrade_reason": "merge",
+        "dispatch_schedule_present": true,
+        "phase_names": [
+          "workflow_spl",
+          "spl_postprocessor",
+          "spl_source_resolve",
+          "execution"
+        ],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.spl.mcp",
+      "class": "spl_plus_mcp_mock",
+      "exit_code": 0,
+      "trace_id": "97f9d607-4de9-409a-b8ad-6391e8ca05e8",
+      "wall_ms": 235940,
+      "chat": {
+        "trace_id": "97f9d607-4de9-409a-b8ad-6391e8ca05e8",
+        "route": "attack_discovery",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "hybrid_alert_review",
+        "answer_goal": "severity_assessment",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "3a8fae8d686ea666",
+        "degrade_reason": "merge",
+        "dispatch_schedule_present": true,
+        "phase_names": [
+          "workflow_spl",
+          "spl_postprocessor",
+          "spl_source_resolve",
+          "mitre_finalize",
+          "execution"
+        ],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.multi.knowledge_spl_mcp",
+      "class": "knowledge_spl_mcp_multistep",
+      "exit_code": 0,
+      "trace_id": "4e048382-f222-4df6-844e-3dbeb1b8fcba",
+      "wall_ms": 3268,
+      "chat": {
+        "trace_id": "4e048382-f222-4df6-844e-3dbeb1b8fcba",
+        "route": "spl_generation",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "16d973d375e6940d",
+        "degrade_reason": "no_schedulable_step",
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.clarify",
+      "class": "clarification_required",
+      "exit_code": 0,
+      "trace_id": "0f65bf3c-642f-46b3-b1fc-754e275d03f6",
+      "wall_ms": 44167,
+      "chat": {
+        "trace_id": "0f65bf3c-642f-46b3-b1fc-754e275d03f6",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": {
+          "notes": [
+            "llm_assist_timed_out"
+          ],
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 2003,
+          "rejected_reasons": [
+            "timed_out"
+          ]
+        },
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.unsafe",
+      "class": "unsafe_action_request",
+      "exit_code": 0,
+      "trace_id": "b3104042-60e8-4dfa-af78-562529bc5158",
+      "wall_ms": 41773,
+      "chat": {
+        "trace_id": "b3104042-60e8-4dfa-af78-562529bc5158",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": {
+          "notes": [
+            "llm_assist_timed_out"
+          ],
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 2001,
+          "rejected_reasons": [
+            "timed_out"
+          ]
+        },
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.alert.summary",
+      "class": "supplied_alert_summarization",
+      "exit_code": 0,
+      "trace_id": "021deb51-5150-4071-8c18-ba4e98a20261",
+      "wall_ms": 123580,
+      "chat": {
+        "trace_id": "021deb51-5150-4071-8c18-ba4e98a20261",
+        "route": "knowledge_recall",
+        "answer_mode": "rag_only",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "alert_summary",
+        "answer_goal": "severity_assessment",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "59ad8ff3369b83a3",
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.live_posture.d1_003",
+      "class": "live_posture_ratified_row",
+      "exit_code": 0,
+      "trace_id": "098bc233-047f-4546-ba95-e5d69174a0fc",
+      "wall_ms": 1469,
+      "chat": {
+        "trace_id": "098bc233-047f-4546-ba95-e5d69174a0fc",
+        "route": "spl_generation",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T1",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "59ad8ff3369b83a3",
+        "degrade_reason": "no_schedulable_step",
+        "dispatch_schedule_present": true,
+        "phase_names": [],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.repeat.refinement",
+      "class": "repeated_evidence_refinement",
+      "exit_code": 0,
+      "trace_id": "df23f8ec-1cb5-421d-8c78-f9ac42f1b554",
+      "wall_ms": 43041,
+      "chat": {
+        "trace_id": "df23f8ec-1cb5-421d-8c78-f9ac42f1b554",
+        "route": "spl_generation",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "1bc3fa1464e13db9",
+        "degrade_reason": "merge",
+        "dispatch_schedule_present": true,
+        "phase_names": [
+          "workflow_spl",
+          "spl_postprocessor",
+          "spl_source_resolve",
+          "execution"
+        ],
+        "semantic_t4": {
+          "notes": [
+            "llm_assist_timed_out"
+          ],
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 2001,
+          "rejected_reasons": [
+            "timed_out"
+          ]
+        },
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.fail.degraded",
+      "class": "failure_degraded_dependency",
+      "exit_code": 0,
+      "trace_id": "ca8b7c1b-e70e-411b-9533-ea50f2bbfc1d",
+      "wall_ms": 2467,
+      "chat": {
+        "trace_id": "ca8b7c1b-e70e-411b-9533-ea50f2bbfc1d",
+        "route": "attack_discovery",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "spl_generation_and_run",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "1bc3fa1464e13db9",
+        "degrade_reason": "merge",
+        "dispatch_schedule_present": true,
+        "phase_names": [
+          "workflow_spl",
+          "spl_postprocessor",
+          "spl_source_resolve",
+          "execution"
+        ],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    }
+  ],
+  "missing_qualification_tier": []
+}

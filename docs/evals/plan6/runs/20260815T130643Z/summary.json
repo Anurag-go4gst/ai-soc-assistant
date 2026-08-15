@@ -1,0 +1,37 @@
+{
+  "arm": "F",
+  "results": [
+    {
+      "row_id": "p6.spl.draft",
+      "class": "spl_only_draft_review",
+      "exit_code": 0,
+      "trace_id": "47d52f8c-026b-4b4a-bc54-ce2d5235c2df",
+      "wall_ms": 29813,
+      "chat": {
+        "trace_id": "47d52f8c-026b-4b4a-bc54-ce2d5235c2df",
+        "route": "attack_discovery",
+        "answer_mode": "live_investigation",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T2",
+        "intent_family": "spl_generation_only",
+        "answer_goal": "spl_artifact",
+        "ambiguity_state": "unambiguous",
+        "resource_plan_fingerprint": "99ccd9213e2f0b37",
+        "degrade_reason": "merge",
+        "dispatch_schedule_present": true,
+        "phase_names": [
+          "workflow_spl",
+          "spl_postprocessor",
+          "spl_source_resolve",
+          "execution"
+        ],
+        "semantic_t4": null,
+        "understanding_source": "deterministic_qualification"
+      }
+    }
+  ],
+  "missing_qualification_tier": []
+}

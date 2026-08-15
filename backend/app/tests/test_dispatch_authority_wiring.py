@@ -58,6 +58,16 @@ def test_imperative_schedule_maps_stage_order(monkeypatch: pytest.MonkeyPatch) -
     ]
 
 
+def test_v2_projection_is_fenced_when_resource_plan_authority_is_on(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.config.settings.ai_soc_pipeline_dispatch_v2_enabled", True)
+    monkeypatch.setattr("app.config.settings.ai_soc_resource_plan_execution_enabled", True)
+    state = _state(schedule=[PipelineStage.workflow_spl])
+    assert projected_flags_from_state(state) is None
+    assert imperative_hook_schedule_from_state(state) is None
+
+
 def test_should_use_llm_spl_failover_reads_dispatch_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.chat.pipeline.settings.ai_soc_pipeline_dispatch_v2_enabled", True)
     flags = project_dispatch_flags(

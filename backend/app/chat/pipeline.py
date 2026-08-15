@@ -5777,10 +5777,12 @@ def _run_legacy_dispatch_fallback(
     dispatch_source: str,
     composed_plan_missing_reason: str | None = None,
 ) -> ChatPipelineState:
-    """Dispatch stages when composed plan is absent; traced, never silent.
+    """Dispatch stages in the explicitly retained rollback-only runtime.
 
     When dispatch v2 is on and ``pipeline_dispatch`` is present, ``stage_schedule``
-    is the sole routing authority (REV5-A). Otherwise legacy evidence_plan booleans.
+    may own this legacy posture only while ResourcePlan execution is off. Otherwise
+    legacy evidence-plan predicates apply. Normal target execution never enters
+    this duplicate executor.
     """
     trace: dict[str, Any] = {
         "dispatch_source": dispatch_source,
@@ -5837,6 +5839,10 @@ def _run_legacy_dispatch_fallback(
     if _uses_pre_mcp_rag(state):
         state = graph_node_rag_early(state)
         trace["dispatch_schedule"].append("rag_early")
+    # A7: even the retained rollback-only session-refine path must honour the
+    # deterministic SPL lifecycle before source resolution / execution gating.
+    state = graph_node_spl_postprocessor(state)
+    trace["dispatch_schedule"].append("spl_postprocessor")
     state = graph_node_spl_source_resolve(state)
     trace["dispatch_schedule"].append("spl_source_resolve")
     state = graph_node_execution(state)

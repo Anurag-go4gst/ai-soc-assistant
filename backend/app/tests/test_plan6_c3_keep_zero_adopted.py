@@ -1,8 +1,8 @@
-"""Plan 6 C3 — KEEP 0 ADOPTED; no seam adoption, no fallback retirement.
+"""Plan 6 C3 historical decision plus Plan 7 A7 classification.
 
 C0 KEEP OFF is the production-authority context. C3 does not change
-execution seams. Pins in test_execution_seam_coverage.py and
-test_fallback_lifecycle_equivalence.py remain the inventory authority.
+execution seams. Plan 7 later classified the retained fallback ROLLBACK_ONLY;
+the Plan 6 decision artifact remains unchanged and no seam was adopted.
 """
 
 from __future__ import annotations
@@ -25,10 +25,11 @@ def test_c3_keep_zero_adopted_is_recorded() -> None:
     assert "_run_legacy_dispatch_fallback" in text
 
 
-def test_inventory_stays_two_four_four_zero() -> None:
+def test_inventory_keeps_zero_adopted_after_plan7_rollback_classification() -> None:
     classifications = [classification for _reaches, classification in SEAM_INVENTORY.values()]
     assert classifications.count("SEAM") == 2
-    assert classifications.count("DECISION_REQUIRED") == 4
+    assert classifications.count("DECISION_REQUIRED") == 3
+    assert classifications.count("ROLLBACK_ONLY") == 1
     assert classifications.count("KEEP_SEPARATE") == 4
     assert "ADOPT_CANDIDATE" not in classifications
     adopted = [path for path, (_reaches, classification) in SEAM_INVENTORY.items() if classification == "ADOPT_CANDIDATE"]

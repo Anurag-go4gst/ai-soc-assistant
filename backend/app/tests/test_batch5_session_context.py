@@ -29,6 +29,15 @@ def _enable_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.config.settings.ai_soc_session_context_enabled", True)
     monkeypatch.setattr("app.config.settings.ai_soc_live_chat_ec_parity_enabled", False)
     monkeypatch.setattr("app.config.settings.langgraph_orchestration_enabled", False)
+    monkeypatch.setattr("app.config.settings.ai_soc_llm_enabled", False)
+    monkeypatch.setattr("app.config.settings.llm_enabled", False)
+    monkeypatch.setattr("app.config.settings.ai_soc_llm_intent_advisor_enabled", False)
+    monkeypatch.setattr("app.config.settings.ai_soc_llm_spl_fallback_enabled", False)
+    monkeypatch.setattr("app.config.settings.ai_soc_guided_llm_enabled", False)
+    monkeypatch.setattr("app.config.settings.ai_soc_t4_semantic_understanding_enabled", False)
+    monkeypatch.setattr("app.config.settings.routing_mode", "deterministic_only")
+    monkeypatch.setattr("app.config.settings.routing_lab_llm_primary_enabled", False)
+    monkeypatch.setattr("app.config.settings.routing_llm_shadow_enabled", False)
     monkeypatch.setattr("app.config.settings.telemetry_mode", "none")
     monkeypatch.setattr("app.config.settings.ai_soc_telemetry_sink", "none")
     monkeypatch.setattr(
@@ -73,7 +82,7 @@ def test_follow_up_mitre_uses_fresh_session_context() -> None:
     assert "session_context" in names
 
 
-def test_follow_up_spl_refine_revalidates_previous_spl() -> None:
+def test_follow_up_spl_refine_runs_postprocessor_and_fails_closed_on_mutation() -> None:
     first = chat(ChatRequest(message=ALT_QUERY))
     session_id = first.session_context_status.session_id if first.session_context_status else None
     assert session_id and first.spl_validation is not None and first.spl_validation.approved
@@ -81,8 +90,41 @@ def test_follow_up_spl_refine_revalidates_previous_spl() -> None:
     assert follow_up.spl_validation is not None
     assert follow_up.candidate_spl is not None
     assert follow_up.candidate_spl.generation_mode == "session_refine"
-    assert follow_up.spl_validation.approved is True
+    assert follow_up.spl_validation.approved is False
+    assert follow_up.spl_validation.normalized_spl is None
+    assert "postprocessor_mutation_revalidation_failed" in follow_up.spl_validation.reject_reasons
     assert follow_up.execution.execution_status_label in {"not_executed", "review_required", None}
+    dispatch = (follow_up.control_plane_trace or {}).get("plan_dispatch") or {}
+    assert dispatch.get("dispatch_schedule") == [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution",
+    ]
+    assert follow_up.candidate_spl.review_only_spl_postprocessor_trace is not None
+    assert follow_up.execution.execution_status_label != "live_executed"
+
+
+def test_target_graph_session_refine_never_enters_legacy_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.config.settings.langgraph_orchestration_enabled", True)
+    monkeypatch.setattr("app.config.settings.ai_soc_resource_plan_execution_enabled", True)
+    monkeypatch.setattr("app.config.settings.ai_soc_pipeline_dispatch_v2_enabled", False)
+
+    def _boom(*_args, **_kwargs):  # pragma: no cover - must remain unreachable
+        raise AssertionError("target graph entered rollback-only legacy fallback")
+
+    monkeypatch.setattr("app.chat.pipeline._run_legacy_dispatch_fallback", _boom)
+    first = chat(ChatRequest(message=ALT_QUERY))
+    session_id = first.session_context_status.session_id if first.session_context_status else None
+    assert session_id
+    follow_up = chat(ChatRequest(message="refine that SPL", session_id=session_id))
+    # The target graph does not import/call the duplicate fallback.  This
+    # follow-up currently degrades without a candidate rather than entering a
+    # second executor; no candidate can reach MCP from that result.
+    assert follow_up.candidate_spl is None
+    assert follow_up.execution is None or follow_up.execution.execution_status_label != "live_executed"
 
 
 def test_stale_session_context_triggers_clarification() -> None:

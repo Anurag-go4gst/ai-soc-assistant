@@ -1,7 +1,7 @@
 """Plan 5 C2 — the merge seam is wired at one place, behind the existing flag.
 
 `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` stays default false for all of Plan 5.
-Flag-off must reach zero merge-seam code; flag-on must preserve the dispatch-v2
+Flag-off must reach zero merge-seam code; flag-on must retire dispatch-v2
 precedence and must stop dropping the lifecycle stage Plan 3 A0 measured.
 """
 
@@ -145,8 +145,10 @@ def test_flag_on_without_a_contract_keeps_the_pre_c1_compiler_result(
     assert merge_trace is None
 
 
-def test_dispatch_v2_projection_still_wins(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ladder precedence is unchanged: a v2 projected schedule owns ordering."""
+def test_dispatch_v2_projection_cannot_stand_down_resource_plan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Even a fabricated v2 projection cannot replace PhaseContract ordering."""
     monkeypatch.setattr(settings, "ai_soc_resource_plan_execution_enabled", True)
     monkeypatch.setattr(
         "app.planner.executor.imperative_hook_schedule_from_state",
@@ -156,9 +158,9 @@ def test_dispatch_v2_projection_still_wins(monkeypatch: pytest.MonkeyPatch) -> N
     compiled, reason, merge_trace = executor._execution_driven_schedule_detailed(
         state, walk_plan_steps(state)
     )
-    assert compiled is None
-    assert reason == "dispatch_v2_projected_schedule"
-    assert merge_trace is None
+    assert reason is None
+    assert compiled == ["workflow_spl", "spl_postprocessor", "spl_source_resolve", "execution"]
+    assert merge_trace is not None
 
 
 def test_flag_on_trace_records_the_phase_contract_without_authority(

@@ -12,6 +12,8 @@ import time
 
 from app.llm import sidecar_governance as sg
 from app.llm.sidecar_governance import (
+    FAILURE_PROVIDER_UNAVAILABLE,
+    NOTE_LLM_PROVIDER_UNAVAILABLE,
     NOTE_LLM_ASSIST_TIMED_OUT,
     NOTE_LLM_SLOT_BUSY,
     run_sidecar_llm_with_timeout,
@@ -80,8 +82,11 @@ def test_slot_released_on_provider_error() -> None:
         raise RuntimeError("provider failed")
 
     err = run_sidecar_llm_with_timeout(_boom, timeout_seconds=1.0)
+    # `timed_out` stays True so existing callers still degrade, but Plan 7 D1 made the
+    # reported class truthful: a provider that raised did not run out of time.
     assert err.timed_out is True
-    assert err.notes == [NOTE_LLM_ASSIST_TIMED_OUT]
+    assert err.notes == [NOTE_LLM_PROVIDER_UNAVAILABLE]
+    assert err.failure_kind == FAILURE_PROVIDER_UNAVAILABLE
 
     # Slot must be free immediately for the next hop.
     ok = run_sidecar_llm_with_timeout(lambda: "after-error", timeout_seconds=1.0)

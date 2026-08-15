@@ -1,0 +1,53 @@
+{
+  "arm": "D",
+  "results": [
+    {
+      "row_id": "p6.para.003",
+      "class": "t4_residual_paraphrase",
+      "exit_code": 0,
+      "trace_id": "4a12353f-af4c-4932-b6bb-8e1d374546f7",
+      "wall_ms": 78676,
+      "chat": {
+        "trace_id": "4a12353f-af4c-4932-b6bb-8e1d374546f7",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": {
+          "notes": [],
+          "invoked": true,
+          "accepted": true,
+          "timed_out": false,
+          "elapsed_ms": 19905,
+          "accepted_fields": [
+            "evidence_requirements",
+            "normalized_goal"
+          ],
+          "proposed_fields": [
+            "ambiguity_state",
+            "clarification_reason",
+            "clarification_required",
+            "confidence",
+            "evidence_requirements",
+            "normalized_goal"
+          ],
+          "rejected_reasons": [
+            "clarification_without_unresolved_referent"
+          ]
+        },
+        "understanding_source": "semantic_t4"
+      }
+    }
+  ],
+  "missing_qualification_tier": []
+}
