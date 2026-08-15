@@ -15,6 +15,7 @@ _MAX_SKIPPED_ROLES = 7
 _SEMANTIC_T4_NOTE_ALLOWLIST = frozenset(
     {
         "llm_assist_timed_out",
+        "llm_provider_unavailable",
         "llm_model_slot_busy",
         "semantic_t4_llm_disabled",
         "semantic_t4_no_provider_configured",
@@ -135,6 +136,9 @@ def redact_resolved_query(raw: dict[str, Any] | None) -> dict[str, Any]:
             "invoked": bool(semantic.get("invoked")),
             "accepted": bool(semantic.get("accepted")),
             "timed_out": bool(semantic.get("timed_out")),
+            # Plan 7 D1: the class of failure, so a trace can tell "the model was
+            # slow" from "the endpoint was unreachable".
+            "failure_kind": semantic.get("failure_kind"),
             "elapsed_ms": int(elapsed) if isinstance(elapsed, (int, float)) else None,
             "rejected_reasons": [str(item) for item in reasons][:8] if isinstance(reasons, list) else [],
             # Field names only. Lets a measurement separate "the model answered"

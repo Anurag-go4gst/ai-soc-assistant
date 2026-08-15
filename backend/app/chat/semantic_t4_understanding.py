@@ -30,7 +30,14 @@ from app.config import settings
 from app.llm.adapter.output_preprocessor import preprocess_llm_output
 from app.llm.clients.endpoint_resolver import resolve_local_primary_endpoint
 from app.llm.clients.local_chat_client import LocalChatClient
-from app.llm.sidecar_governance import SidecarLlmCallResult, run_sidecar_llm_with_timeout
+from app.llm.sidecar_governance import (
+    FAILURE_PROVIDER_UNAVAILABLE,
+    FAILURE_TIMEOUT,
+    NOTE_LLM_ASSIST_TIMED_OUT,
+    NOTE_LLM_PROVIDER_UNAVAILABLE,
+    SidecarLlmCallResult,
+    run_sidecar_llm_with_timeout,
+)
 
 SEMANTIC_T4_TIMEOUT_SECONDS = 2.0
 _KNOWN_FAMILIES = frozenset(get_args(IntentFamily))
@@ -201,17 +208,30 @@ def maybe_enrich_t4_semantic(
             wrapper_kind="t4_semantic",
         )
     elapsed_ms = int((time.monotonic() - started) * 1000)
+    # Plan 7 D1: report the failure class the sidecar actually observed. A provider
+    # that could not be reached did not "time out", and conflating the two makes the
+    # LLM-unavailable and LLM-timeout reliability rows indistinguishable.
+    failure_kind = getattr(call, "failure_kind", None)
+    real_timeout = bool(call.timed_out) and failure_kind != FAILURE_PROVIDER_UNAVAILABLE
     base_trace: dict[str, Any] = {
         "invoked": True,
         "accepted": False,
-        "timed_out": bool(call.timed_out),
+        "timed_out": real_timeout,
+        "failure_kind": failure_kind,
         "elapsed_ms": elapsed_ms,
         "timeout_seconds": timeout,
         "rejected_reasons": [],
         "notes": list(call.notes or []),
     }
     if call.timed_out or not call.raw_output:
-        reason = "timed_out" if call.timed_out else "empty_output"
+        if failure_kind == FAILURE_PROVIDER_UNAVAILABLE:
+            reason = "provider_unavailable"
+        elif failure_kind == FAILURE_TIMEOUT or call.timed_out:
+            reason = "timed_out"
+        elif failure_kind:
+            reason = str(failure_kind)
+        else:
+            reason = "empty_output"
         return _with_semantic_trace(deterministic, {**base_trace, "rejected_reasons": [reason]})
 
     proposal, parse_reason = _parse_proposal(call.raw_output)
@@ -231,9 +251,14 @@ def _bounded_injected_call(provider: Callable[[], str], timeout_seconds: float) 
         return SidecarLlmCallResult(raw_output=raw, timed_out=False, notes=[])
     except (FuturesTimeoutError, TimeoutError):
         future.cancel()
-        return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=["llm_assist_timed_out"])
+        return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=[NOTE_LLM_ASSIST_TIMED_OUT], failure_kind=FAILURE_TIMEOUT)
     except Exception:  # noqa: BLE001 — never propagate provider errors
-        return SidecarLlmCallResult(raw_output=None, timed_out=True, notes=["llm_assist_timed_out"])
+        return SidecarLlmCallResult(
+            raw_output=None,
+            timed_out=True,
+            notes=[NOTE_LLM_PROVIDER_UNAVAILABLE],
+            failure_kind=FAILURE_PROVIDER_UNAVAILABLE,
+        )
     finally:
         executor.shutdown(wait=False, cancel_futures=True)
 

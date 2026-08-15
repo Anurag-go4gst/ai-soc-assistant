@@ -1,0 +1,481 @@
+{
+  "flags": {
+    "resource_plan_execution": true,
+    "dispatch_v2": false,
+    "t4_enabled": true,
+    "t4_timeout_s": 120.0,
+    "live_capability_enforcement": false,
+    "mcp_mode": "mock"
+  },
+  "side_effect_totals": {
+    "gate_calls": 1,
+    "allowed": 0
+  },
+  "rows": {
+    "repeated_identical": {
+      "runs": [
+        {
+          "wall_ms": 2081,
+          "trace_id": "d4454c28-3a95-4105-9b5e-c919bb53919b",
+          "route": "spl_generation",
+          "execution_enabled": false,
+          "dispatch_source": "resource_plan_step_walk",
+          "dispatch_schedule": [
+            "workflow_spl",
+            "spl_postprocessor",
+            "spl_source_resolve",
+            "execution"
+          ],
+          "t4_invoked": true,
+          "t4_accepted": true,
+          "t4_timed_out": false,
+          "t4_failure_kind": null,
+          "t4_rejected": [],
+          "t4_elapsed_ms": 0,
+          "execution_eligible": null,
+          "mcp_status": "skipped",
+          "spl_approved": false,
+          "normalized_spl_present": false
+        },
+        {
+          "wall_ms": 805,
+          "trace_id": "a0bc0a26-9f35-4e53-9917-61bc3de8ac3d",
+          "route": "spl_generation",
+          "execution_enabled": false,
+          "dispatch_source": "resource_plan_step_walk",
+          "dispatch_schedule": [
+            "workflow_spl",
+            "spl_postprocessor",
+            "spl_source_resolve",
+            "execution"
+          ],
+          "t4_invoked": true,
+          "t4_accepted": true,
+          "t4_timed_out": false,
+          "t4_failure_kind": null,
+          "t4_rejected": [],
+          "t4_elapsed_ms": 0,
+          "execution_eligible": null,
+          "mcp_status": "skipped",
+          "spl_approved": false,
+          "normalized_spl_present": false
+        },
+        {
+          "wall_ms": 827,
+          "trace_id": "08c7118b-3b53-4754-94b0-e5c2b6a42e97",
+          "route": "spl_generation",
+          "execution_enabled": false,
+          "dispatch_source": "resource_plan_step_walk",
+          "dispatch_schedule": [
+            "workflow_spl",
+            "spl_postprocessor",
+            "spl_source_resolve",
+            "execution"
+          ],
+          "t4_invoked": true,
+          "t4_accepted": true,
+          "t4_timed_out": false,
+          "t4_failure_kind": null,
+          "t4_rejected": [],
+          "t4_elapsed_ms": 0,
+          "execution_eligible": null,
+          "mcp_status": "skipped",
+          "spl_approved": false,
+          "normalized_spl_present": false
+        }
+      ],
+      "distinct_trace_ids": 3,
+      "routes": [
+        "spl_generation"
+      ],
+      "schedules_identical": true,
+      "gate_calls_delta": 0,
+      "gate_allowed_delta": 0,
+      "host": {
+        "mem_available_mb": 8523,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "1.16",
+          "1.99",
+          "1.97"
+        ]
+      }
+    },
+    "concurrency": {
+      "concurrency": 3,
+      "wall_ms": 1868,
+      "completed": 3,
+      "failed": 0,
+      "distinct_trace_ids": 3,
+      "gate_calls_delta": 0,
+      "gate_allowed_delta": 0,
+      "rows": [
+        {
+          "wall_ms": 1853,
+          "trace_id": "343a7cef-2954-4c56-8132-870ea5f74785",
+          "route": "spl_generation",
+          "execution_enabled": false,
+          "dispatch_source": "resource_plan_step_walk",
+          "dispatch_schedule": [
+            "workflow_spl",
+            "spl_postprocessor",
+            "spl_source_resolve",
+            "execution"
+          ],
+          "t4_invoked": true,
+          "t4_accepted": true,
+          "t4_timed_out": false,
+          "t4_failure_kind": null,
+          "t4_rejected": [],
+          "t4_elapsed_ms": 0,
+          "execution_eligible": null,
+          "mcp_status": "skipped",
+          "spl_approved": false,
+          "normalized_spl_present": false
+        },
+        {
+          "wall_ms": 1864,
+          "trace_id": "ee9da823-8f9f-494f-8338-9b28fcd68f3c",
+          "route": "spl_generation",
+          "execution_enabled": false,
+          "dispatch_source": "resource_plan_step_walk",
+          "dispatch_schedule": [
+            "workflow_spl",
+            "spl_postprocessor",
+            "spl_source_resolve",
+            "execution"
+          ],
+          "t4_invoked": true,
+          "t4_accepted": true,
+          "t4_timed_out": false,
+          "t4_failure_kind": null,
+          "t4_rejected": [],
+          "t4_elapsed_ms": 0,
+          "execution_eligible": null,
+          "mcp_status": "skipped",
+          "spl_approved": false,
+          "normalized_spl_present": false
+        },
+        {
+          "wall_ms": 1848,
+          "trace_id": "a4359348-a1df-451d-9f70-a70fea050acf",
+          "route": "spl_generation",
+          "execution_enabled": false,
+          "dispatch_source": "resource_plan_step_walk",
+          "dispatch_schedule": [
+            "workflow_spl",
+            "spl_postprocessor",
+            "spl_source_resolve",
+            "execution"
+          ],
+          "t4_invoked": true,
+          "t4_accepted": true,
+          "t4_timed_out": false,
+          "t4_failure_kind": null,
+          "t4_rejected": [],
+          "t4_elapsed_ms": 0,
+          "execution_eligible": null,
+          "mcp_status": "skipped",
+          "spl_approved": false,
+          "normalized_spl_present": false
+        }
+      ],
+      "host": {
+        "mem_available_mb": 8510,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "1.15",
+          "1.97",
+          "1.96"
+        ]
+      }
+    },
+    "model_slot_pressure": {
+      "concurrency": 3,
+      "wall_ms": 1657,
+      "slot_busy_notes": 0,
+      "completed": 3,
+      "rows": [
+        {
+          "wall_ms": 1562,
+          "trace_id": "3abe840d-6e55-4a9d-a596-7a4f294819c5",
+          "route": "knowledge_recall",
+          "execution_enabled": false,
+          "dispatch_source": "canonical_non_planned",
+          "dispatch_schedule": [],
+          "t4_invoked": true,
+          "t4_accepted": true,
+          "t4_timed_out": false,
+          "t4_failure_kind": null,
+          "t4_rejected": [
+            "ambiguity_weakening_rejected"
+          ],
+          "t4_elapsed_ms": 0,
+          "execution_eligible": null,
+          "mcp_status": "skipped",
+          "spl_approved": null,
+          "normalized_spl_present": false
+        },
+        {
+          "wall_ms": 1630,
+          "trace_id": "f2759da4-873c-4e4a-bd43-817e51de6bef",
+          "route": "knowledge_recall",
+          "execution_enabled": false,
+          "dispatch_source": "canonical_non_planned",
+          "dispatch_schedule": [],
+          "t4_invoked": true,
+          "t4_accepted": true,
+          "t4_timed_out": false,
+          "t4_failure_kind": null,
+          "t4_rejected": [
+            "ambiguity_weakening_rejected"
+          ],
+          "t4_elapsed_ms": 0,
+          "execution_eligible": null,
+          "mcp_status": "skipped",
+          "spl_approved": null,
+          "normalized_spl_present": false
+        },
+        {
+          "wall_ms": 1645,
+          "trace_id": "ff2897d8-ad51-499a-89b2-71bf6cdfa89f",
+          "route": "knowledge_recall",
+          "execution_enabled": false,
+          "dispatch_source": "canonical_non_planned",
+          "dispatch_schedule": [],
+          "t4_invoked": true,
+          "t4_accepted": true,
+          "t4_timed_out": false,
+          "t4_failure_kind": null,
+          "t4_rejected": [
+            "ambiguity_weakening_rejected"
+          ],
+          "t4_elapsed_ms": 2,
+          "execution_eligible": null,
+          "mcp_status": "skipped",
+          "spl_approved": null,
+          "normalized_spl_present": false
+        }
+      ],
+      "host": {
+        "mem_available_mb": 8510,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "1.15",
+          "1.97",
+          "1.96"
+        ]
+      }
+    },
+    "llm_unavailable": {
+      "wall_ms": 704,
+      "trace_id": "573811db-b460-4589-b632-f952499a7beb",
+      "route": "knowledge_recall",
+      "execution_enabled": false,
+      "dispatch_source": "canonical_non_planned",
+      "dispatch_schedule": [],
+      "t4_invoked": true,
+      "t4_accepted": false,
+      "t4_timed_out": false,
+      "t4_failure_kind": "provider_unavailable",
+      "t4_rejected": [
+        "provider_unavailable"
+      ],
+      "t4_elapsed_ms": 0,
+      "execution_eligible": null,
+      "mcp_status": "skipped",
+      "spl_approved": null,
+      "normalized_spl_present": false,
+      "gate_allowed_delta": 0,
+      "host": {
+        "mem_available_mb": 8500,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "1.15",
+          "1.97",
+          "1.96"
+        ]
+      }
+    },
+    "llm_malformed_output": {
+      "wall_ms": 572,
+      "trace_id": "f74ca08f-6a74-47cf-b14c-fb24a2ba5c15",
+      "route": "knowledge_recall",
+      "execution_enabled": false,
+      "dispatch_source": "canonical_non_planned",
+      "dispatch_schedule": [],
+      "t4_invoked": true,
+      "t4_accepted": false,
+      "t4_timed_out": false,
+      "t4_failure_kind": null,
+      "t4_rejected": [
+        "schema_invalid"
+      ],
+      "t4_elapsed_ms": 0,
+      "execution_eligible": null,
+      "mcp_status": "skipped",
+      "spl_approved": null,
+      "normalized_spl_present": false,
+      "host": {
+        "mem_available_mb": 8502,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "1.15",
+          "1.97",
+          "1.96"
+        ]
+      }
+    },
+    "llm_timeout": {
+      "wall_ms": 1617,
+      "trace_id": "0783b0a6-88d6-4666-b95e-4ec53beb6430",
+      "route": "knowledge_recall",
+      "execution_enabled": false,
+      "dispatch_source": "canonical_non_planned",
+      "dispatch_schedule": [],
+      "t4_invoked": true,
+      "t4_accepted": false,
+      "t4_timed_out": true,
+      "t4_failure_kind": "timeout",
+      "t4_rejected": [
+        "timed_out"
+      ],
+      "t4_elapsed_ms": 1000,
+      "execution_eligible": null,
+      "mcp_status": "skipped",
+      "spl_approved": null,
+      "normalized_spl_present": false,
+      "host": {
+        "mem_available_mb": 8507,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "1.14",
+          "1.96",
+          "1.95"
+        ]
+      }
+    },
+    "mcp_unavailable": {
+      "wall_ms": 937,
+      "trace_id": "a01dfdc0-278f-4b28-8528-a8da7ac23a49",
+      "route": "attack_discovery",
+      "execution_enabled": false,
+      "dispatch_source": "resource_plan_step_walk",
+      "dispatch_schedule": [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+        "execution"
+      ],
+      "t4_invoked": false,
+      "t4_accepted": false,
+      "t4_timed_out": false,
+      "t4_failure_kind": null,
+      "t4_rejected": [],
+      "t4_elapsed_ms": null,
+      "execution_eligible": null,
+      "mcp_status": "requires_human_review",
+      "spl_approved": false,
+      "normalized_spl_present": false,
+      "raised_to_caller": false,
+      "host": {
+        "mem_available_mb": 8518,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "1.14",
+          "1.96",
+          "1.95"
+        ]
+      }
+    },
+    "latency": {
+      "samples_ms": [
+        993,
+        756,
+        853,
+        900,
+        771
+      ],
+      "p50_ms": 853,
+      "p95_ms": 993,
+      "note": "orchestration latency with a recorded T4 proposal; not live-model latency",
+      "host": {
+        "mem_available_mb": 8506,
+        "swap_free_mb": 0,
+        "loadavg": [
+          "1.20",
+          "1.96",
+          "1.95"
+        ]
+      }
+    },
+    "model_slot_pressure_delayed_provider": {
+      "method": "3 concurrent T4 turns against a 3.0s provider so the single-flight semaphore is genuinely contended",
+      "delay_s": 3.0,
+      "wall_ms": 4996,
+      "rows": [
+        {
+          "wall_ms": 2372,
+          "accepted": false,
+          "failure_kind": "slot_busy",
+          "notes": [
+            "llm_model_slot_busy"
+          ],
+          "rejected": [
+            "slot_busy"
+          ]
+        },
+        {
+          "wall_ms": 2393,
+          "accepted": false,
+          "failure_kind": "slot_busy",
+          "notes": [
+            "llm_model_slot_busy"
+          ],
+          "rejected": [
+            "slot_busy"
+          ]
+        },
+        {
+          "wall_ms": 4983,
+          "accepted": true,
+          "failure_kind": null,
+          "notes": [],
+          "elapsed_ms": 3001
+        }
+      ],
+      "note": "supersedes the in-harness model_slot_pressure row, which used an instant recorded provider and therefore never contended the slot"
+    },
+    "restart_recreate": {
+      "method": "docker compose up -d --force-recreate backend (application container only; Cisco model never restarted)",
+      "health_before": 200,
+      "health_after": 200,
+      "flags_after": {
+        "exec": "true",
+        "v2": "false",
+        "t4": "true",
+        "t4_timeout_s": "120"
+      },
+      "llama_server_uptime_unbroken": "01:21:38 at check, same PID 217320",
+      "post_restart_rows": "5 D0 rows identical to the D0 baseline: same routes, resource_plan_step_walk, merge active, spl_postprocessor present, execution_eligible null"
+    },
+    "db_failure_recovery": {
+      "artifact": "d1_db_failure.json",
+      "health_during_db_down": {
+        "http": 200,
+        "database_migrations_ready": false
+      },
+      "chat_during_db_down": {
+        "succeeded": true,
+        "dispatch_source": "canonical_non_planned",
+        "execution_eligible": null
+      },
+      "chat_after_recovery": {
+        "dispatch_source": "resource_plan_step_walk",
+        "execution_eligible": null
+      },
+      "finding": "DB loss silently downgrades execution authority from ResourcePlan to canonical_non_planned while still answering"
+    }
+  },
+  "provider_unavailable_class": "provider_unavailable"
+}

@@ -1,0 +1,171 @@
+{
+  "steps": [
+    {
+      "step": "health_before",
+      "r": {
+        "http": 200,
+        "ms": 75,
+        "body": "{\"status\":\"ok\",\"service\":\"ai-soc-assistant-backend\",\"readiness\":{\"database_migrations\":{\"ready\":true,\"configured\":true,\"required_versions\":[\"0001_ai_soc_telemetry\",\"0002_answer_quality\",\"0003_ai_soc_telemetry_indexes\",\"0004_canonical_handoffs\",\"0005_canonical_planning_cutover_constraints\",\"0006_canonical_retention_indexes\"],\"missing_versions\":[],\"remediation\":\"docker compose exec backend python sc"
+      }
+    },
+    {
+      "step": "stop_postgres",
+      "r": {
+        "cmd": "stop postgres",
+        "rc": 0,
+        "err": " Container ai-soc-assistant-postgres-1 Stopping \n Container ai-soc-assistant-postgres-1 Stopped \n"
+      }
+    },
+    {
+      "step": "health_during",
+      "r": {
+        "http": 200,
+        "ms": 21,
+        "body": "{\"status\":\"ok\",\"service\":\"ai-soc-assistant-backend\",\"readiness\":{\"database_migrations\":{\"ready\":false,\"configured\":true,\"required_versions\":[\"0001_ai_soc_telemetry\",\"0002_answer_quality\",\"0003_ai_soc_telemetry_indexes\",\"0004_canonical_handoffs\",\"0005_canonical_planning_cutover_constraints\",\"0006_canonical_retention_indexes\"],\"missing_versions\":[\"0001_ai_soc_telemetry\",\"0002_answer_quality\",\"0003_a"
+      }
+    },
+    {
+      "step": "chat_during_db_down",
+      "rc": 0,
+      "rows": [
+        {
+          "class": "explain_supplied_spl",
+          "row_id": "d0.explain_spl",
+          "wall_ms": 1158,
+          "error": null,
+          "route": "spl_generation",
+          "execution_enabled": false,
+          "qualification_tier": null,
+          "intent_family": null,
+          "dispatch_source": "canonical_non_planned",
+          "dispatch_schedule": [],
+          "merge_active": false,
+          "downgrade_reason": null,
+          "resource_downgrade": null,
+          "inserted_phases": null,
+          "spl_approved": null,
+          "normalized_spl_present": false,
+          "candidate_spl_present": false,
+          "execution_eligible": null,
+          "mcp_status": "skipped",
+          "human_review_type": null,
+          "t4_invoked": false,
+          "t4_accepted": false,
+          "seam_dispatch_calls": 0
+        },
+        {
+          "class": "generate_spl_no_execution",
+          "row_id": "d0.generate_spl",
+          "wall_ms": 112,
+          "error": null,
+          "route": "spl_generation",
+          "execution_enabled": false,
+          "qualification_tier": null,
+          "intent_family": null,
+          "dispatch_source": "canonical_non_planned",
+          "dispatch_schedule": [],
+          "merge_active": false,
+          "downgrade_reason": null,
+          "resource_downgrade": null,
+          "inserted_phases": null,
+          "spl_approved": null,
+          "normalized_spl_present": false,
+          "candidate_spl_present": false,
+          "execution_eligible": null,
+          "mcp_status": "skipped",
+          "human_review_type": null,
+          "t4_invoked": false,
+          "t4_accepted": false,
+          "seam_dispatch_calls": 0
+        }
+      ],
+      "stderr": "retired_env_key_ignored\ntelemetry_write_failed\ndiagnostic_planning_event_persist_failed\ndiagnostic_planning_event_persist_failed\ndiagnostic_planning_event_persist_failed\ndiagnostic_planning_event_pers"
+    },
+    {
+      "step": "start_postgres",
+      "r": {
+        "cmd": "start postgres",
+        "rc": 0,
+        "err": " Container ai-soc-assistant-postgres-1 Starting \n Container ai-soc-assistant-postgres-1 Started \n"
+      }
+    },
+    {
+      "step": "health_after",
+      "r": {
+        "http": 200,
+        "ms": 172,
+        "body": "{\"status\":\"ok\",\"service\":\"ai-soc-assistant-backend\",\"readiness\":{\"database_migrations\":{\"ready\":true,\"configured\":true,\"required_versions\":[\"0001_ai_soc_telemetry\",\"0002_answer_quality\",\"0003_ai_soc_telemetry_indexes\",\"0004_canonical_handoffs\",\"0005_canonical_planning_cutover_constraints\",\"0006_canonical_retention_indexes\"],\"missing_versions\":[],\"remediation\":\"docker compose exec backend python sc"
+      }
+    },
+    {
+      "step": "chat_after_recovery",
+      "rc": 0,
+      "rows": [
+        {
+          "class": "explain_supplied_spl",
+          "row_id": "d0.explain_spl",
+          "wall_ms": 2732,
+          "error": null,
+          "route": "spl_generation",
+          "execution_enabled": false,
+          "qualification_tier": "T4",
+          "intent_family": "spl_generation_only",
+          "dispatch_source": "resource_plan_step_walk",
+          "dispatch_schedule": [
+            "workflow_spl",
+            "spl_postprocessor",
+            "spl_source_resolve",
+            "execution"
+          ],
+          "merge_active": true,
+          "downgrade_reason": null,
+          "resource_downgrade": null,
+          "inserted_phases": [
+            "spl_postprocessor"
+          ],
+          "spl_approved": false,
+          "normalized_spl_present": false,
+          "candidate_spl_present": false,
+          "execution_eligible": null,
+          "mcp_status": "skipped",
+          "human_review_type": null,
+          "t4_invoked": true,
+          "t4_accepted": true,
+          "seam_dispatch_calls": 1
+        },
+        {
+          "class": "generate_spl_no_execution",
+          "row_id": "d0.generate_spl",
+          "wall_ms": 1029,
+          "error": null,
+          "route": "spl_generation",
+          "execution_enabled": false,
+          "qualification_tier": "T4",
+          "intent_family": "spl_generation_only",
+          "dispatch_source": "resource_plan_step_walk",
+          "dispatch_schedule": [
+            "workflow_spl",
+            "spl_postprocessor",
+            "spl_source_resolve",
+            "execution"
+          ],
+          "merge_active": true,
+          "downgrade_reason": null,
+          "resource_downgrade": null,
+          "inserted_phases": [
+            "spl_postprocessor"
+          ],
+          "spl_approved": false,
+          "normalized_spl_present": false,
+          "candidate_spl_present": false,
+          "execution_eligible": null,
+          "mcp_status": "skipped",
+          "human_review_type": null,
+          "t4_invoked": true,
+          "t4_accepted": true,
+          "seam_dispatch_calls": 1
+        }
+      ]
+    }
+  ]
+}
