@@ -478,11 +478,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** S0.
   - **Evidence:** `build_resolved_query_contract` now attaches `locked_fields` / `unresolved_fields` / `derived_field_names` / `understanding_sufficiency`. T1–T3 lock intent/answer_goal/entities/time; T4 names `semantic_goal` only; capabilities stay derived; clarification does not `CALL_T4`. Verify → **23 passed**. Neighbor `test_semantic_t4_understanding.py` **14 passed**. `architecture.md` unmodified.
 
-- [ ] **U1 — Make T4 invocation job-aware and field-constrained**
+- [x] **U1 — Make T4 invocation job-aware and field-constrained**
   - **Do:** Invoke the bounded semantic hop only when deterministic `UNDERSTANDING` sufficiency permits `CALL_T4`; give it the unresolved query fragment, authoritative/observed locked-field map, allowed semantic vocabulary, and a strict schema limited to unresolved semantic fields. T4 may propose `clarification_required=true` plus a focused `clarification_question` when meaning cannot be inferred safely. It may not clear a deterministic clarification/prohibition or directly grant capabilities, tools, resources, routes, actions, or authorization. Keep one call, deadline, no tool/MCP access, redacted tracing, and deterministic fallback.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_semantic_t4_understanding.py app/tests/test_t4_job_aware_invocation.py -q`
   - **Depends on:** U0.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `maybe_enrich_t4_semantic` now requires `understanding_sufficiency.next_action==CALL_T4`; prompt carries `unresolved_query_fragment` + locked map; JSON schema omits `intent_family`/`required_capabilities`/`answer_goal`. Verify → **18 passed**. No Cisco restart path. `architecture.md` unmodified.
 
 - [ ] **U2 — Validate and merge only unresolved T4 fields**
   - **Do:** Reject changes to authoritative/observed or locked fields, unknown semantic values, contradictions, fabricated identifiers, direct capability/tool/resource/route/action/authorization grants, and invalid time scopes. Accept a proposed clarification only when it strengthens safety; never accept clearing of deterministic clarification or prohibitions. Merge only validated unresolved semantic interpretation, then deterministically recompute capability requirements, evidence requirements, route hints, and other derived fields without weakening locked requirements.
@@ -709,3 +709,5 @@ None at amendment time. Commands referencing new tests/harnesses name the exact 
   completeness/context-sufficiency checks; no pipeline wiring; 23 passed. Next: U0.
 - **2026-08-16:** **U0 complete.** T1–T3 emit locked/unresolved/derived maps and UNDERSTANDING
   sufficiency (`CALL_T4` only for T4 unresolved semantics). Next: U1.
+- **2026-08-16:** **U1 complete.** T4 hop gated on CALL_T4; field-constrained prompt/schema.
+  Next: U2.

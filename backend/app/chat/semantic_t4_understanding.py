@@ -25,7 +25,7 @@ from app.chat.contracts.resolved_query import (
     ResolvedQueryContract,
 )
 from app.chat.contracts.semantic_t4_proposal import SemanticT4Proposal
-from app.chat.resolved_query_builder import capabilities_for_intent_family
+from app.chat.resolved_query_builder import attach_understanding_authority, capabilities_for_intent_family
 from app.config import settings
 from app.llm.adapter.output_preprocessor import preprocess_llm_output
 from app.llm.clients.endpoint_resolver import resolve_local_primary_endpoint
@@ -138,29 +138,53 @@ _SEMANTIC_T4_FEW_SHOT: tuple[dict[str, Any], ...] = (
 )
 
 
-def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContract) -> str:
-    """Original query + locked fields + explicit unresolved fields + vocabulary + few-shot."""
-    locked = {
-        "intent_family": deterministic.intent_family,
-        "answer_goal": deterministic.answer_goal,
-        "required_capabilities": sorted(deterministic.required_capabilities),
-        "prohibited_capabilities": sorted(deterministic.prohibited_capabilities),
+_UNRESOLVED_TO_SCHEMA: dict[str, str] = {
+    "semantic_goal": "normalized_goal",
+    "investigation_target": "entities",
+}
+
+
+def _job_aware_unresolved_schema_names(deterministic: ResolvedQueryContract) -> list[str]:
+    names: list[str] = []
+    for field in deterministic.unresolved_fields or ["semantic_goal"]:
+        names.append(_UNRESOLVED_TO_SCHEMA.get(field, field))
+    if "normalized_goal" not in names and "semantic_goal" in (deterministic.unresolved_fields or []):
+        names.append("normalized_goal")
+    # Clarification is always proposable; it cannot clear a locked deterministic ask.
+    if "clarification_required" not in (deterministic.locked_fields or {}):
+        names.extend(["ambiguity_state", "clarification_required", "clarification_reason"])
+    names.append("confidence")
+    # Never offer locked authority or derived capability grants as T4 schema keys.
+    blocked = {
+        "intent_family",
+        "answer_goal",
+        "required_capabilities",
+        "prohibited_capabilities",
+        *list(deterministic.locked_fields or {}),
     }
-    unresolved = [
-        "normalized_goal",
-        "evidence_requirements",
-        "entities",
-        "time_scope",
-        "confidence",
-    ]
-    # Ambiguity may only be raised, never lowered, so it is offered as unresolved
-    # only when the deterministic verdict is not already the strictest.
-    if _AMBIGUITY_RANK.get(str(deterministic.ambiguity_state), 0) < _AMBIGUITY_RANK["policy_blocked"]:
-        unresolved.extend(["ambiguity_state", "clarification_required", "clarification_reason"])
-    # Examples are rendered as flat input→output pairs rather than nested objects.
-    # A nested `{"query":…,"output":{…}}` example teaches the model to emit that
-    # same wrapper, which `SemanticT4Proposal(extra="forbid")` then rejects as
-    # schema_invalid — measured in C3 before this format was adopted.
+    return [name for name in names if name not in blocked]
+
+
+def _schema_limited_to_unresolved(deterministic: ResolvedQueryContract) -> dict[str, Any]:
+    allowed = set(_job_aware_unresolved_schema_names(deterministic))
+    properties = {
+        key: value
+        for key, value in _SEMANTIC_T4_SCHEMA["properties"].items()
+        if key in allowed
+    }
+    return {"type": "object", "properties": properties}
+
+
+def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContract) -> str:
+    """Unresolved fragment + locked map + allowed vocabulary + strict unresolved schema."""
+    locked = dict(deterministic.locked_fields or {})
+    if not locked:
+        locked = {
+            "intent_family": deterministic.intent_family,
+            "answer_goal": deterministic.answer_goal,
+            "prohibited_capabilities": sorted(deterministic.prohibited_capabilities),
+        }
+    unresolved = _job_aware_unresolved_schema_names(deterministic)
     example_lines: list[str] = []
     for index, example in enumerate(_SEMANTIC_T4_FEW_SHOT, start=1):
         example_lines.append(f"EXAMPLE {index} QUERY: {example['query']}")
@@ -170,16 +194,19 @@ def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContr
     task = json.dumps(
         {
             "query": query,
+            "unresolved_query_fragment": query,
             "locked_fields_do_not_change": locked,
             "unresolved_fields_to_resolve": unresolved,
-            # Only for fields this stage may actually resolve. Offering the full
-            # intent_family / capability vocabulary invited the model to argue with
-            # a locked value, which is conflict a small model does not need.
             "allowed_values": {"ambiguity_state": sorted(_AMBIGUITY_RANK)},
         },
         separators=(",", ":"),
     )
     return "\n".join([*example_lines, f"TASK: {task}", "ANSWER:"])
+
+
+def _permits_t4_call(deterministic: ResolvedQueryContract) -> bool:
+    sufficiency = deterministic.understanding_sufficiency or {}
+    return str(sufficiency.get("next_action") or "") == "CALL_T4"
 
 
 def maybe_enrich_t4_semantic(
@@ -188,21 +215,28 @@ def maybe_enrich_t4_semantic(
     query: str,
     raw_output_provider: SemanticRawProvider | None = None,
 ) -> ResolvedQueryContract:
-    """Return deterministic contract unless T4 + flag-on + a valid bounded hop."""
+    """Return deterministic contract unless T4 + flag-on + CALL_T4 + a valid bounded hop."""
     if not settings.ai_soc_t4_semantic_understanding_enabled:
         return deterministic
     if deterministic.qualification_tier != "T4":
         return deterministic
+    prepared = (
+        deterministic
+        if deterministic.understanding_sufficiency
+        else attach_understanding_authority(deterministic)
+    )
+    if not _permits_t4_call(prepared):
+        return prepared
 
     timeout = float(
         settings.ai_soc_t4_semantic_understanding_timeout_seconds or SEMANTIC_T4_TIMEOUT_SECONDS
     )
     started = time.monotonic()
     if raw_output_provider is not None:
-        call = _bounded_injected_call(lambda: raw_output_provider(query, deterministic), timeout)
+        call = _bounded_injected_call(lambda: raw_output_provider(query, prepared), timeout)
     else:
         call = run_sidecar_llm_with_timeout(
-            lambda: _live_single_hop_provider(query, deterministic),
+            lambda: _live_single_hop_provider(query, prepared),
             timeout_seconds=timeout,
             call_purpose="t4_semantic_understanding",
             wrapper_kind="t4_semantic",
@@ -232,14 +266,14 @@ def maybe_enrich_t4_semantic(
             reason = str(failure_kind)
         else:
             reason = "empty_output"
-        return _with_semantic_trace(deterministic, {**base_trace, "rejected_reasons": [reason]})
+        return _with_semantic_trace(prepared, {**base_trace, "rejected_reasons": [reason]})
 
     proposal, parse_reason = _parse_proposal(call.raw_output)
     if proposal is None:
         return _with_semantic_trace(
-            deterministic, {**base_trace, "rejected_reasons": [parse_reason or "schema_invalid"]}
+            prepared, {**base_trace, "rejected_reasons": [parse_reason or "schema_invalid"]}
         )
-    return _merge_proposal(deterministic, proposal, base_trace, query=query)
+    return _merge_proposal(prepared, proposal, base_trace, query=query)
 
 
 def _bounded_injected_call(provider: Callable[[], str], timeout_seconds: float) -> SidecarLlmCallResult:
@@ -679,7 +713,10 @@ def _live_single_hop_provider(query: str, deterministic: ResolvedQueryContract) 
         # unaffected — the parser still validates the payload.
         response_format={
             "type": "json_schema",
-            "json_schema": {"name": "semantic_t4_proposal", "schema": _SEMANTIC_T4_SCHEMA},
+            "json_schema": {
+                "name": "semantic_t4_proposal",
+                "schema": _schema_limited_to_unresolved(deterministic),
+            },
         },
         timeout_seconds=timeout,
     )
