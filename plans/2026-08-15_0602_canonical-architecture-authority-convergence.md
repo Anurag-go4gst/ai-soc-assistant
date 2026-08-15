@@ -455,12 +455,12 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** P0.
   - **Evidence:** `app/tests/test_canonical_architecture_authority_baseline.py` — `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_canonical_architecture_authority_baseline.py -q` → **11 passed**. Corpus: explain-only SPL, supplied-alert, VPN admin `203.0.113.24` yesterday, privileged VPN from Germany, T4-heavy lateral movement (stubbed failing provider), MITRE follow-up, “What about service accounts?”, untrusted-evidence instruction, exact-call auth mutation, T4 saturation without restart. Snapshots record RQC/clarification/route/plan/evidence/sufficiency/outcome/SPL/trust/T4/execution keys. Invariants pinned: `execution_enabled=false`, `candidate_spl`/`validation` `execution_eligible` null/false, unapproved `normalized_spl=null`, MCP not executed, v2 OFF and not winning, ResourcePlan execution ON. AUTH0 recorded **PARTIAL**: mutated approved SPL is not fingerprint-rejected (same `mcp_global_execution_disabled` block). T4 timeout/fail keeps deterministic contract; `semantic_t4_understanding.py` has no restart/`runtime_control` import; planner/graph have no `request_control`/`restart_service`. AUDIT_ONLY — no runtime correction. Not evidence of F3 serving, live MCP, or GO. `architecture.md` unmodified.
 
-- [ ] **P8_ADVANCED_EXECUTION_EXTENSION_GATE — Decide whether advanced execution extensions are required**
+- [x] **P8_ADVANCED_EXECUTION_EXTENSION_GATE — Decide whether advanced execution extensions are required**
   - **Do:** Present P1 plus available core-item evidence for required canonical use cases. Record an explicit decision: `NOT_REQUIRED_FOR_CURRENT_SCOPE` or `REQUIRED_BY_MEASURED_USE_CASE`. For `NOT_REQUIRED_FOR_CURRENT_SCOPE`, explicitly defer R2/C1/E0/E1/D1/D2 without treating them as architecture failures. For `REQUIRED_BY_MEASURED_USE_CASE`, identify the exact failing use case and minimum justified subset. Do not self-approve the latter or generalize one case into an agentic-loop redesign.
   - **Verify:** `rg -n "P8_ADVANCED_EXECUTION_EXTENSION_GATE|NOT_REQUIRED_FOR_CURRENT_SCOPE|REQUIRED_BY_MEASURED_USE_CASE|measured use case|minimum justified subset" plans/2026-08-15_0602_canonical-architecture-authority-convergence.md`; decision and evidence citation are recorded, and every conditional item has an explicit disposition/dependency.
   - **Depends on:** P1 and sufficient measured core evidence to answer the gate. Invoke before any conditional item and resolve before G0.
   - **STOP:** explicit decision required; never self-approve `REQUIRED_BY_MEASURED_USE_CASE`.
-  - **Evidence:** _(fill when decided)_
+  - **Evidence:** Decision **`NOT_REQUIRED_FOR_CURRENT_SCOPE`** (2026-08-16). P1 baseline (11 cases) plus core S0–O1A run without step-instance compilation, per-step attribution, PlanDelta, or a joined capability snapshot. No measured use case failed for lack of those extensions; minimum justified subset is empty. Not `REQUIRED_BY_MEASURED_USE_CASE` (would need user approval). Deferrals: R2, C1, E0, E1, D1, D2 — not architecture failures. Existing RP hub, phase compiler, Plan 7 A3, C0 registry APIs, E0A, and D0 synthesize/degrade/block remain sufficient. `architecture.md` unmodified.
 
 ### S — shared sufficiency contract
 
@@ -516,11 +516,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** R0.
   - **Evidence:** `_bind_final_route_from_rqc` runs `graph_node_route_resolution`/`graph_node_route_contract` inside `_commit_planned_outcome` before `plan_evidence_from_canonical`; `canonical.routing.primary_skill` takes `final_route`. `run_canonical_planning` skips a second adjudication when `route_adjudication` is already present. Verify → **22 passed**. Neighbor architecture tests **36 passed** with R0. `architecture.md` unmodified.
 
-- [ ] **R2 — CONDITIONAL: provide a thin planner-facing capability view only if measured necessary**
+- [x] **R2 — CONDITIONAL: provide a thin planner-facing capability view only if measured necessary**
   - **Do:** Use existing resource, skill, phase, MCP, and model registry APIs directly wherever practical. Only if the advanced-extension gate records a stable joined view as necessary, add a thin immutable read-only adapter over metadata those authoritative registries already expose, with deterministic precedence. Unknown metadata stays `unknown`/`not_declared`; never invent estimates or add telemetry, measurement work, persistence, another registry/service, or another source of truth.
   - **Verify:** If implemented: `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_planner_capability_snapshot.py app/tests/test_resource_registry.py app/tests/test_mcp_registry.py -q`. If deferred: the gate evidence names R2 and records `NOT_REQUIRED_FOR_CURRENT_SCOPE` with the direct existing APIs used by C0.
   - **Depends on:** R1 and `P8_ADVANCED_EXECUTION_EXTENSION_GATE=REQUIRED_BY_MEASURED_USE_CASE` naming R2. Otherwise close with approved `NOT_REQUIRED_FOR_CURRENT_SCOPE` evidence.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Deferred. `P8_ADVANCED_EXECUTION_EXTENSION_GATE=NOT_REQUIRED_FOR_CURRENT_SCOPE` names R2. C0 uses existing skill/MCP/phase registry APIs and RQC `required_capabilities`; no measured use case required a joined snapshot. `architecture.md` unmodified.
 
 ### C — ResourcePlan and compilation
 
@@ -530,11 +530,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** R1. R2 is not required unless C0 produces measured evidence and the advanced-extension gate explicitly authorizes it.
   - **Evidence:** Composer no longer deletes SPL/MCP from `knowledge_recall` skill contracts; `mcp_allowed=false` still blocks MCP via `mcp_not_allowed_by_evidence_plan`. Final RQC `required_capabilities` overlay `needs_spl`/`needs_mcp` in `plan_evidence_from_canonical` before compose. No new capability snapshot (R2 not required). Verify → **35 passed**. Neighbor `test_planner_composer_parity.py` updated for evidence-plan MCP block (not skill veto). `architecture.md` unmodified.
 
-- [ ] **C1 — CONDITIONAL: compile step instances plus lifecycle boundaries**
+- [x] **C1 — CONDITIONAL: compile step instances plus lifecycle boundaries**
   - **Do:** Extend the existing execution compiler/merge so each executable plan step has an ordered instance in dependency waves and a lifecycle binding. Repeatable read-only SPL/MCP/RAG steps may appear multiple times; side-effecting work remains `max_attempts=1`. Preserve deterministic ordering validation and Plan 7 A3 lifecycle insertion on `no_schedulable_step`.
   - **Verify:** If implemented: `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_plan_step_instance_schedule.py app/tests/test_resource_plan_execution_scheduler.py app/tests/test_phase_schedule_merge.py app/tests/test_plan7_a0_mandatory_phase_survives_no_schedulable_step.py app/tests/test_phase_refinement_bound.py -q`. If deferred: the gate evidence names C1 and records `NOT_REQUIRED_FOR_CURRENT_SCOPE` with the measured core cases satisfied by the existing compiler.
   - **Depends on:** C0 and `P8_ADVANCED_EXECUTION_EXTENSION_GATE=REQUIRED_BY_MEASURED_USE_CASE` naming C1. Otherwise close with approved `NOT_REQUIRED_FOR_CURRENT_SCOPE` evidence.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Deferred. `P8_ADVANCED_EXECUTION_EXTENSION_GATE=NOT_REQUIRED_FOR_CURRENT_SCOPE` names C1. P1/C0 cases are satisfied by the existing phase compiler plus Plan 7 A3 lifecycle insertion; no measured use case required step-instance waves. `architecture.md` unmodified.
 
 ### SPL — constraint fidelity and call authorization
 
@@ -564,17 +564,17 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** C0 and S0.
   - **Evidence:** `MinimalEvidenceState` projects SourceEvidence/StructuredContext/RQC/`evidence_plan`/CanonicalFacts/FinalEvidenceGate; `GatedEvidenceState` remains classification/permission authority and does not satisfy the required/obtained/missing vocabulary. `graph_node_context_finalize` attaches `state["evidence_state"]` (declared on `ChatPipelineState`). No preview_rows/raw store. Verify → **28 passed**. `architecture.md` unmodified. Anchor note: `test_source_evidence.py` / `test_structured_context.py` did not previously exist; created as E0A derivation proofs (existing coverage remains in `test_evidence_context.py` / `test_source_evidence_envelope_sanitizer.py`).
 
-- [ ] **E0 — CONDITIONAL: execute compiled step instances in the existing RP graph**
+- [x] **E0 — CONDITIONAL: execute compiled step instances in the existing RP graph**
   - **Do:** Adapt the existing Resource Planner execution hub to consume and execute each compiled step instance with its declared inputs, deterministic policy gate, timeout/retry/fallback, and typed output. Primarily replace the collapsed capability-level hook consumption; do not create new worker-node families, another execution graph, a second executor, or another runtime abstraction. Keep the existing deterministic workers, HIL/RBAC, SPL validation, MCP eligibility, and execution boundaries authoritative.
   - **Verify:** If implemented: `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_planner_step_instance_execution.py app/tests/test_resource_planner_topology_contract.py app/tests/test_resource_plan_dispatch_switch.py app/tests/test_resource_plan_execution_handoffs.py -q`. If deferred: the gate evidence names E0 and records `NOT_REQUIRED_FOR_CURRENT_SCOPE` with the required cases satisfied by the existing RP hub.
   - **Depends on:** C1 and `P8_ADVANCED_EXECUTION_EXTENSION_GATE=REQUIRED_BY_MEASURED_USE_CASE` naming E0. Otherwise close with approved `NOT_REQUIRED_FOR_CURRENT_SCOPE` evidence.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Deferred. `P8_ADVANCED_EXECUTION_EXTENSION_GATE=NOT_REQUIRED_FOR_CURRENT_SCOPE` names E0. Required cases remain on the existing Resource Planner hub; C1 was not authorized so step-instance execution is not in current scope. `architecture.md` unmodified.
 
-- [ ] **E1 — CONDITIONAL: add detailed per-step/producer EvidenceState attribution**
+- [x] **E1 — CONDITIONAL: add detailed per-step/producer EvidenceState attribution**
   - **Do:** Only when the advanced gate proves it necessary, extend E0A's minimal view with plan `step_id`/producer-instance attribution, required/produced evidence keys, execution status, deterministic failure reason, and policy/sensitivity status wherever those values already exist. It is not an evidence database or new authority. Do not duplicate or mutate raw/historical evidence, store prompts/secrets/credentials, or use LLM confidence as authority.
   - **Verify:** If implemented: `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_evidence_state_attribution.py app/tests/test_minimal_evidence_state.py app/tests/test_source_evidence.py app/tests/test_structured_context.py -q`. If deferred: the gate evidence names E1 and records `NOT_REQUIRED_FOR_CURRENT_SCOPE`, with E0A remaining the complete core view.
   - **Depends on:** E0A and `P8_ADVANCED_EXECUTION_EXTENSION_GATE=REQUIRED_BY_MEASURED_USE_CASE` naming E1. E0 is required only if the measured attribution case needs executed step instances. Otherwise close with approved `NOT_REQUIRED_FOR_CURRENT_SCOPE` evidence.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Deferred. `P8_ADVANCED_EXECUTION_EXTENSION_GATE=NOT_REQUIRED_FOR_CURRENT_SCOPE` names E1. E0A remains the complete core EvidenceState view; D0/O1A did not require per-step producer attribution. `architecture.md` unmodified.
 
 ### D — EVIDENCE sufficiency and bounded PlanDelta loop
 
@@ -584,17 +584,17 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** E0A.
   - **Evidence:** `rp_node_context_sufficiency` calls `attach_evidence_sufficiency` / `from_evidence_state` (S0 adapter) instead of `pending_finalize`. Stage 3J `context_sufficiency` modes remain on finalize; architecture vocab lives on `state["evidence_sufficiency"]`. Next action never `CALL_T4`. Verify → **32 passed**. Neighbor I/O contract updated for new refs. `architecture.md` unmodified.
 
-- [ ] **D1 — CONDITIONAL: define and validate a targeted PlanDelta**
+- [x] **D1 — CONDITIONAL: define and validate a targeted PlanDelta**
   - **Do:** Add an immutable targeted delta contract centered on `base_plan_fingerprint`, `target_missing_evidence`, `add_steps`, `modify_unexecuted_steps`, and deterministic rationale/reason codes. `COMPLETED` and `IN_PROGRESS` work, plus any work that has produced a side effect, is immutable; only pending/unresolved, unexecuted work may be modified, and new work may be added only for missing evidence. If future-compatible remove/reorder fields remain, restrict them to unresolved unexecuted work. Validate resource IDs, schemas, policies, dependencies, final-RQC capability bounds, max steps/cost, and fingerprints. A delta cannot change final RQC/route ownership, clear policy, replay side effects, widen capabilities, repeat the same effective plan, or mutate historical evidence.
   - **Verify:** If implemented: `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_plan_delta_contract.py app/tests/test_plan_delta_validation.py app/tests/test_phase_refinement_bound.py -q`. If deferred: the gate evidence names D1 and records `NOT_REQUIRED_FOR_CURRENT_SCOPE` with no required core case needing a delta.
   - **Depends on:** D0 and `P8_ADVANCED_EXECUTION_EXTENSION_GATE=REQUIRED_BY_MEASURED_USE_CASE` naming D1. Otherwise close with approved `NOT_REQUIRED_FOR_CURRENT_SCOPE` evidence.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Deferred. `P8_ADVANCED_EXECUTION_EXTENSION_GATE=NOT_REQUIRED_FOR_CURRENT_SCOPE` names D1. No required core case needed a PlanDelta; D0 synthesize/degrade/block plus O1A applicability suffice. `architecture.md` unmodified.
 
-- [ ] **D2 — CONDITIONAL: wire one bounded evidence-targeted refinement round**
+- [x] **D2 — CONDITIONAL: wire one bounded evidence-targeted refinement round**
   - **Do:** Enforce a deterministic `MAX_PLAN_DELTA_ROUNDS = 1` (or the equivalent existing constant, not a new deployment control). Flow: E0A minimal EvidenceState (plus E1 detail only when separately justified) → deterministic EVIDENCE sufficiency → if allowed and evidence is missing, create/validate/apply one PlanDelta → execute only new/unresolved work → update the same evidence view → re-evaluate once → outcome/synthesize, degrade, or block. Stop after that one refinement, or earlier on sufficient evidence, no progress, same effective fingerprint, policy block, resource exhaustion, timeout/cost budget, or failed delta validation. Never form an open plan/execute/reason loop.
   - **Verify:** If implemented: `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_planner_bounded_delta_loop.py app/tests/test_plan_delta_single_round.py app/tests/test_plan_delta_validation.py app/tests/test_phase_refinement_bound.py app/tests/test_resource_planner_topology_contract.py -q`. If deferred: the gate evidence names D2 and records `NOT_REQUIRED_FOR_CURRENT_SCOPE` with deterministic synthesize/degrade/block behavior sufficient for current scope.
   - **Depends on:** D1 and `P8_ADVANCED_EXECUTION_EXTENSION_GATE=REQUIRED_BY_MEASURED_USE_CASE` naming D2, plus only C1/E0/E1 prerequisites explicitly justified by the gate decision. Otherwise close with approved `NOT_REQUIRED_FOR_CURRENT_SCOPE` evidence.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Deferred. `P8_ADVANCED_EXECUTION_EXTENSION_GATE=NOT_REQUIRED_FOR_CURRENT_SCOPE` names D2. D1 was not authorized; D0 deterministic synthesize/degrade/block is sufficient for current scope. `architecture.md` unmodified.
 
 ### OUT — authoritative investigation result
 
