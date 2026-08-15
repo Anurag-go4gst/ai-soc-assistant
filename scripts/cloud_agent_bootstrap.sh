@@ -61,13 +61,15 @@ start_dockerd() {
       | sudo tee /etc/docker/daemon.json >/dev/null
   fi
   sudo bash -c 'nohup dockerd >/var/log/dockerd.log 2>&1 &'
-  for _ in $(seq 1 30); do
+  # Cold-init on a fresh /var/lib/docker (first ever boot) is much slower than a
+  # warm start, so allow up to ~120s.
+  for _ in $(seq 1 120); do
     docker info >/dev/null 2>&1 && break
     sleep 1
   done
   if ! docker info >/dev/null 2>&1; then
     log "ERROR: docker daemon failed to start"
-    sudo tail -n 20 /var/log/dockerd.log >&2 || true
+    sudo tail -n 60 /var/log/dockerd.log >&2 || true
     exit 1
   fi
   # Let the invoking (non-root) user reach the socket without a fresh login shell.
