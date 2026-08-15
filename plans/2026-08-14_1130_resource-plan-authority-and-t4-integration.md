@@ -57,6 +57,70 @@ Flags stay independently controllable for testing and rollback **after** activat
 - `P7_T4_SERVING_POSTURE_V2` (C3) — before changing serving config or the 2.0 s bound.
 - `P7_PRODUCTION_GO_LIVE_V2` (E2) — the new go-live gate.
 
+## Approved decisions
+
+### A2 — `P7_SPL_LIFECYCLE_OWNERSHIP` (2026-08-14)
+
+**OPTION A — the PhaseContract lifecycle is honoured independently of merge reachability.**
+
+`ResourcePlan` / `compile_execution_schedule` owns compilation of schedulable resource work.
+`PhaseContract` / `PhasePolicy` owns mandatory lifecycle obligations. A compiler downgrade such
+as `no_schedulable_step` must **not** erase applicable mandatory lifecycle phases:
+
+```
+ResourcePlan compilation result  +  PhaseContract mandatory lifecycle obligations
+                                 ↓
+                    final governed schedule / downgrade
+
+A resource-plan downgrade may remove unavailable resource work.
+It may not silently remove applicable mandatory lifecycle work.
+```
+
+Rejected — **B** (re-couples compilation to lifecycle ownership; two insertion authorities;
+duplicate-ordering risk), **C** (upstream plan can itself be vetoed/narration-only, so it does
+not solve the early return, and churns SPL fingerprints/baselines), **D** (broader and later than
+the defect, highest duplicate risk, turns the execution seam into a compensating lifecycle
+reconciler — seams may still be audited in A5). **E** retained as migration framing only, not the
+implementation site.
+
+Artifact: `docs/evals/plan7/a2_stop_decision_packet.md`.
+
+### A6 — `P7_DISPATCH_V2_RETIREMENT` (2026-08-15)
+
+**`V2_OFF_PENDING_WIDER_EVIDENCE`.**
+
+dispatch-v2 stays **OFF** for the remainder of Plan 7 and is **not** restored as normal
+authority. ResourcePlan + PhaseContract + the deterministic merge/compiler remain the
+architecture under remediation and validation. **v2-OFF is not yet claimed as proven
+production-normal authority.**
+
+A3/A4 did fix the measured lifecycle-ownership defect: affected population **6 → 0**, corpus rows
+losing mandatory lifecycle **2 → 0**, merge authoritative **6/12 → 8/12**, duplicate execution
+**0**, merge + old-engine double-run **0**, route/tier/fingerprint regressions **0**,
+deterministic SPL validation preserved, HIL/RBAC preserved. The `bb38d292` change to
+`spl_validation_failed` + HIL `source_profile_slots_missing` is a **governed safety correction,
+not a regression** — validation now runs where it previously did not.
+
+Outstanding evidence before production-normal authority may be claimed:
+
+1. `_run_legacy_dispatch_fallback` remains reachable through `session_spl_refine` and skips
+   `spl_postprocessor`; it was **not** exercised in A4. Given A3's finding that losing the merge
+   can lose deterministic SPL validation, this path must not be assumed safe.
+2. End-to-end authority evidence is primarily the 12-row corpus; the 175-row sweep is
+   planning-layer structural coverage, not end-to-end execution coverage.
+3. Goldens / Cisco have not been exercised end-to-end under the target ResourcePlan authority.
+4. Live MCP remains `live_mcp_unproven`.
+5. T4 is ON but has produced no accepted contract at 2.0 s; it remains a separate **hard GO**
+   requirement.
+6. Bounded pre-SPL discovery remains unproven and must not be removed merely because current
+   corpus paths succeed.
+
+Therefore: keep ResourcePlan execution **ON**, dispatch-v2 **OFF**, T4 **ON @ 2.0 s**, live
+capability enforcement **OFF**; do not change repo defaults; do not restore v2; do not retire the
+fallback; do not claim production-normal authority.
+
+Artifact: `docs/evals/plan7/a6_stop_decision_packet.md`.
+
 ## Success questions (must be answered with evidence)
 
 1. Why are `p6.multi.knowledge_spl_mcp` and `p6.live_posture.d1_003` `no_schedulable_step`?
@@ -188,7 +252,7 @@ Flags stay independently controllable for testing and rollback **after** activat
   - **Depends on:** A4
   - **Evidence:** `docs/evals/plan7/a5_old_path_audit.md`, from `dispatch_source` on all 12 A4 traces. **8** rows `resource_plan_step_walk` with merge active (target architecture); **2** `canonical_non_planned`; **2** no `plan_dispatch` (rag-only lane); **0** `legacy_predicate`, **0** `session_spl_refine`, **0** `guided_hybrid`. **`_run_legacy_dispatch_fallback` executed zero times** — no old engine ran beside the merge. Classification: **migration debt ×1** (the fallback still skips `spl_postprocessor` and stays reachable via `session_spl_refine` — unexercised here, so unproven rather than safe); **legitimately separate ×4**; **regressions ×0**. Seam inventory unchanged at **2 SEAM / 4 DECISION_REQUIRED / 4 KEEP_SEPARATE, 0 adopted** — nothing adopted, nothing retired in A5.
 
-- [ ] **A6** — `P7_DISPATCH_V2_RETIREMENT` **STOP**
+- [x] **A6** — `P7_DISPATCH_V2_RETIREMENT` **STOP**
   - **Do:** Present whether dispatch-v2 can remain OFF as the normal authority: missed work
     count, duplicate execution count, regressions fixed vs outstanding, migration debt from A5,
     and rollback cost. **Dispatch-v2 taking authority back is not an acceptable "fix".**
@@ -196,7 +260,7 @@ Flags stay independently controllable for testing and rollback **after** activat
   - **Verify:** decision recorded; artifact `docs/evals/plan7/a6_stop_decision.md`.
   - **Depends on:** A5
   - **STOP:** `P7_DISPATCH_V2_RETIREMENT`
-  - **Evidence:** Packet presented: `docs/evals/plan7/a6_stop_decision_packet.md` — exact effective flags, remaining missed mandatory work (**0 measured**), duplicate work (**0**), post-fix structural population (**0/175**), A4 corpus result, active old paths, A5 classification, rollback cost, and five stated gaps (unexercised `session_spl_refine` fallback; coverage limited to 12 corpus rows + a planning-layer sweep rather than goldens/Cisco end-to-end; MCP still `mock`/`live_mcp_unproven`; T4 still failing at the 2.0 s bound; no measurement that bounded pre-SPL discovery is unnecessary). Options offered: `V2_OFF_IS_NORMAL_AUTHORITY` / `V2_OFF_PENDING_WIDER_EVIDENCE` / `RESTORE_V2`. **Awaiting user decision.**
+  - **Evidence:** Packet presented: `docs/evals/plan7/a6_stop_decision_packet.md` — exact effective flags, remaining missed mandatory work (**0 measured**), duplicate work (**0**), post-fix structural population (**0/175**), A4 corpus result, active old paths, A5 classification, rollback cost, and five stated gaps (unexercised `session_spl_refine` fallback; coverage limited to 12 corpus rows + a planning-layer sweep rather than goldens/Cisco end-to-end; MCP still `mock`/`live_mcp_unproven`; T4 still failing at the 2.0 s bound; no measurement that bounded pre-SPL discovery is unnecessary). Options offered: `V2_OFF_IS_NORMAL_AUTHORITY` / `V2_OFF_PENDING_WIDER_EVIDENCE` / `RESTORE_V2`. **User recorded `V2_OFF_PENDING_WIDER_EVIDENCE`** — v2 stays OFF for the remainder of Plan 7 and is not restored as normal authority; v2-OFF is not yet claimed proven. Six outstanding evidence items recorded in Approved decisions § A6, and a new mandatory pre-GO item **A7** added for the `session_spl_refine` / `_run_legacy_dispatch_fallback` path.
 
 ### ResourcePlan authority acceptance criteria (A4 gate)
 
@@ -217,6 +281,21 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
 | Query-ID-specific fixes | **none** |
 
 ---
+
+- [ ] **A7** — Prove the `session_spl_refine` / `_run_legacy_dispatch_fallback` path (required before the GO gate)
+  - **Do:** Exercise that path under the target architecture, or prove deterministically that it
+    cannot bypass required SPL lifecycle validation. Required by A6. Surface: LOCAL + VPS.
+  - **Prove specifically:** whether PhaseContract/merge owns the lifecycle before the fallback
+    runs; whether `spl_postprocessor` executes; whether candidate SPL is deterministically
+    validated; whether only validated non-null `normalized_spl` can reach the MCP gate; whether
+    HIL/RBAC remain authoritative; whether duplicate execution occurs.
+  - **Failing-first:** if the path still bypasses mandatory lifecycle ownership, that is a **Plan 7
+    regression/blocker** and must be fixed **structurally**. It must **not** be solved by
+    re-enabling dispatch-v2.
+  - **Verify:** `docs/evals/plan7/a7_fallback_lifecycle_proof.md` answers all six questions with
+    observed output or a deterministic proof; targeted tests committed; `/invariant-check` 7/7.
+  - **Depends on:** A6
+  - **Evidence:** _(fill when done)_
 
 ## Workstream B — keep T4 ON and measure the real target architecture
 
@@ -287,7 +366,9 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
 
 - [ ] **D0** — Target-architecture regression corpus
   - **Do:** Full corpus + paraphrases + in-catalogue contract on the final target posture.
-    Surface: VPS.
+    **A6 requirement:** the goldens and Cisco populations must be exercised at the appropriate
+    **end-to-end** layer under the target ResourcePlan authority — planning-level classification
+    alone does not satisfy this. Surface: VPS.
   - **Verify:** `docs/evals/plan7/runs/<ts>/target_corpus.md`; every delta vs Plan 6 Arm A
     explained; no regression accepted silently.
   - **Depends on:** A6, C3
@@ -353,7 +434,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
     posture**, MITRE governance, **Live MCP/Splunk scope**, Critical blockers, Accepted risks.
     Verdicts are only PASS / BLOCKER / ACCEPTED RISK / NOT IN PRODUCTION SCOPE ⋅ UNPROVEN.
     `GO LIVE` requires **zero** critical blockers, ResourcePlan authority actually active with
-    v2 OFF, **and all three T4 conditions below**. Do **not** choose the outcome.
+    v2 OFF, **A7 proven**, **and all three T4 conditions below**. Do **not** choose the outcome.
     Surface: DECISION.
   - **T4 is a hard GO requirement.** `GO LIVE` additionally requires: (1)
     `AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED=ON`; (2) C3 approved a **viable** serving
