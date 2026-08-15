@@ -46,24 +46,15 @@ def compose_resource_plan(
     registry = registry or load_resource_registry()
     steps: list[PlanStep] = []
     contract = _skill_contract(skill_id, registry)
-    skill_vetoes: list[str] = []
 
     rag_step = _rag_step(evidence_plan) if getattr(evidence_plan, "needs_rag", False) else None
     spl_step = _spl_step(evidence_plan, use_case_id, registry) if getattr(evidence_plan, "needs_spl", False) else None
     mcp_step = _mcp_step(evidence_plan, registry) if getattr(evidence_plan, "needs_mcp", False) else None
 
-    # WS2 T2.1: the routed skill's capability contract constrains composition.
-    # A step whose purpose the skill blocks (or does not allow at all) is
-    # vetoed before it ever exists; the veto is recorded in provenance.
+    # Plan 8 C0: primary skill is an ownership/entry signal, not a capability veto.
+    # SPL/MCP steps follow the EvidencePlan / final RQC requirements. Deterministic
+    # policy, onboarding, HIL/RBAC, and MCP gates remain downstream.
     if contract is not None:
-        if spl_step is not None and not _skill_permits(contract, "spl"):
-            skill_vetoes.append("spl_artifact:skill_contract")
-            spl_step = None
-        if mcp_step is not None and not _skill_permits(contract, "mcp"):
-            skill_vetoes.append("mcp_execution:skill_contract")
-            mcp_step.status = "blocked_policy"
-            mcp_step.status_reason = "skill_contract"
-            mcp_step.policy_checks.append("blocked_by_skill_contract")
         required = [str(item) for item in contract.get("required_evidence") or []]
         if required:
             check = "skill_required_evidence:" + ",".join(sorted(required))
@@ -150,8 +141,6 @@ def compose_resource_plan(
         provenance["skill_id"] = skill_id
     if contract is not None and contract.get("default_workflow"):
         provenance["skill_workflow"] = list(contract["default_workflow"])
-    if skill_vetoes:
-        provenance["skill_vetoes"] = skill_vetoes
     if intent_family == "guided_investigation" or skill_id == "guided_investigation":
         provenance["resource_decisions"] = build_guided_investigation_resource_decisions(
             evidence_plan,

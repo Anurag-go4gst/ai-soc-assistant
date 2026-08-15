@@ -90,8 +90,7 @@ def test_resource_plan_emits_blocked_mcp_step_when_mcp_off_but_needed() -> None:
 
     assert len(mcp_steps) == 1
     assert mcp_steps[0].status == "blocked_policy"
-    assert mcp_steps[0].status_reason == "skill_contract"
-    assert "blocked_by_skill_contract" in mcp_steps[0].policy_checks
+    assert mcp_steps[0].status_reason == "mcp_not_allowed_by_evidence_plan"
     assert "mcp_not_allowed_by_evidence_plan" in mcp_steps[0].policy_checks
 
 

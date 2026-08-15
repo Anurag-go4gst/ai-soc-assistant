@@ -524,11 +524,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
 
 ### C — ResourcePlan and compilation
 
-- [ ] **C0 — Plan from final requirements, not the primary skill’s capability list**
+- [x] **C0 — Plan from final requirements, not the primary skill’s capability list**
   - **Do:** Change the sole ResourcePlan creator to consume final RQC, final ownership route, existing policy/session facts, and existing registered capabilities. Remove the composer’s primary-skill SPL deletion/MCP veto while preserving deterministic policy, onboarding, schedule-level capability, SPL, HIL/RBAC, and MCP gates. Use existing ResourcePlan fields and registry APIs. Add dependencies/evidence/fallback/retry/stop fields only if a required use case or failing verification proves a minimum schema evolution necessary; do not redesign the schema speculatively.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_resource_plan_from_final_rqc.py app/tests/test_skill_contract_planning.py app/tests/test_phase_schedule_merge.py app/tests/test_canonical_architecture_authority_baseline.py -q`
   - **Depends on:** R1. R2 is not required unless C0 produces measured evidence and the advanced-extension gate explicitly authorizes it.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Composer no longer deletes SPL/MCP from `knowledge_recall` skill contracts; `mcp_allowed=false` still blocks MCP via `mcp_not_allowed_by_evidence_plan`. Final RQC `required_capabilities` overlay `needs_spl`/`needs_mcp` in `plan_evidence_from_canonical` before compose. No new capability snapshot (R2 not required). Verify → **35 passed**. Neighbor `test_planner_composer_parity.py` updated for evidence-plan MCP block (not skill veto). `architecture.md` unmodified.
 
 - [ ] **C1 — CONDITIONAL: compile step instances plus lifecycle boundaries**
   - **Do:** Extend the existing execution compiler/merge so each executable plan step has an ordered instance in dependency waves and a lifecycle binding. Repeatable read-only SPL/MCP/RAG steps may appear multiple times; side-effecting work remains `max_attempts=1`. Preserve deterministic ordering validation and Plan 7 A3 lifecycle insertion on `no_schedulable_step`.

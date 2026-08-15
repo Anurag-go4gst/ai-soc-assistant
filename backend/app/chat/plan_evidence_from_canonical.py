@@ -115,6 +115,18 @@ def plan_evidence_from_canonical(
         selected_use_case=selected_use_case,
         user_query=user_query or canonical.message.content_reference,
     )
+    if state is not None:
+        rqc = state.get("resolved_query_contract")
+        if isinstance(rqc, dict):
+            required = {str(item) for item in (rqc.get("required_capabilities") or [])}
+            prohibited = {str(item) for item in (rqc.get("prohibited_capabilities") or [])}
+            overlay: dict[str, Any] = {}
+            if "spl" in required and "spl" not in prohibited:
+                overlay["needs_spl"] = True
+            if "mcp" in required and "mcp" not in prohibited:
+                overlay["needs_mcp"] = True
+            if overlay:
+                plan = plan.model_copy(update=overlay)
 
     target_mode = answer_mode_decision.answer_mode
     if target_mode is not None and plan.answer_mode != target_mode:
