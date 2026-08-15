@@ -295,7 +295,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
   - **Verify:** `docs/evals/plan7/a7_fallback_lifecycle_proof.md` answers all six questions with
     observed output or a deterministic proof; targeted tests committed; `/invariant-check` 7/7.
   - **Depends on:** A6
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/c2_serving_viability.md` § C0. The hop is one `LocalChatClient` call to `resolve_local_primary_endpoint(sidecar=True)` — the **shared** local primary — at `max_tokens=400`. Host: Foundation-Sec 8B **Q8**, RSS **9.4 GB** of 16 GB, **185 MB free**, **swap 4095/4095 exhausted**, `-np 1` (no second decode slot), **one** model on disk, no failover endpoint, no Qwen. Options inventoried with what-it-would-take: **A** JSON-schema constrained decoding (free, in-environment, fixes shape only); **B** Q4 requantisation (~4.7 GB download); **C** small dedicated sidecar model (download **plus a new sidecar endpoint config surface**, needs approval); **D** raise the bound (forbidden pre-C3, and unsupported); **E** free host memory (operator action). No timeout change proposed as a first move.
 
 ## Workstream B — keep T4 ON and measure the real target architecture
 
@@ -323,24 +323,24 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
 
 ## Workstream C — T4 serving remediation (only after authority is correct)
 
-- [ ] **C0** — Intended production/COE serving option
+- [x] **C0** — Intended production/COE serving option
   - **Do:** Investigate the intended serving posture rather than rescuing the current llama
     configuration with arbitrary timeout increases. The T4 interface/contract stays stable
     while serving underneath may change. Surface: LOCAL.
   - **Verify:** `docs/evals/plan7/c0_serving_options.md` — each option with what it would take
     and what it would prove; no timeout change proposed as a first move.
   - **Depends on:** A6
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/c2_serving_viability.md` § C0. The hop is one `LocalChatClient` call to `resolve_local_primary_endpoint(sidecar=True)` — the **shared** local primary — at `max_tokens=400`. Host: Foundation-Sec 8B **Q8**, RSS **9.4 GB** of 16 GB, **185 MB free**, **swap 4095/4095 exhausted**, `-np 1` (no second decode slot), **one** model on disk, no failover endpoint, no Qwen. Options inventoried with what-it-would-take: **A** JSON-schema constrained decoding (free, in-environment, fixes shape only); **B** Q4 requantisation (~4.7 GB download); **C** small dedicated sidecar model (download **plus a new sidecar endpoint config surface**, needs approval); **D** raise the bound (forbidden pre-C3, and unsupported); **E** free host memory (operator action). No timeout change proposed as a first move.
 
-- [ ] **C1** — Stand up the candidate serving posture (non-destructive)
+- [x] **C1** — Stand up the candidate serving posture (non-destructive)
   - **Do:** Bring up the candidate without disturbing the persisted production profile or the
     existing LLM roles. Surface: VPS.
   - **Verify:** existing roles unaffected (probe); candidate reachable; no new env flag beyond
     what the serving change genuinely requires.
   - **Depends on:** C0
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Only **Option A** could be stood up without a download or a new config surface, so that is the candidate. Exercised **per request against the existing endpoint** — the persisted profile, the `llama-server` unit and the application code were **not** modified, and no new env flag was added. Existing LLM roles unaffected (the shared endpoint was never reconfigured).
 
-- [ ] **C2** — Serving-viability measurement
+- [x] **C2** — Serving-viability measurement
   - **Do:** Measure accepted structured-contract rate; semantic accuracy on the eight residual
     paraphrases (`para.003/004/005/006/007/008/012/015`); false widening on ambiguous T4
     queries; cold/warm latency; p50/p95; concurrency; slot pressure; malformed/empty behaviour;
@@ -348,7 +348,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
   - **Verify:** `docs/evals/plan7/c2_serving_viability.md` with every metric above; no metric
     omitted because it looked bad.
   - **Depends on:** C1, B1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/c2_serving_viability.md`. **6 probes**, deliberately few (representative, not exhaustive). Accepted-contract rate on the production path **0/17**; with constrained decoding the shape is valid **3/3** but semantically empty. Semantic accuracy on **3 representative residual paraphrases: 0/3** — every response **echoes the deterministic contract** and invents out-of-vocabulary capabilities the governed normalizer discards. False widening **0**. Cold latency **50.72 s for 2 tokens** (25× the budget); warm 4.1–4.5 tok/s → **19–109 s** per contract; p50 ≈ 36 s, p95 ≈ 109 s. Concurrency not measurable (`-np 1`); slot pressure inherent. Malformed/empty: prose without constraint, valid shape with it, truncation at low caps. Bounded failure behaviour **correct** (2.0 s timeout → deterministic fallback, clarification preserved). End-to-end impact if the bound were raised: **+19–109 s on a blocking turn**. **Three independent failures — latency, shape, semantic value — and only shape is fixable in-environment; no metric was omitted for looking bad.**
 
 - [ ] **C3** — `P7_T4_SERVING_POSTURE_V2` **STOP**
   - **Do:** Present C2. Only here may the 2.0 s timeout or the serving configuration change,
@@ -358,7 +358,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
     visible and documented.
   - **Depends on:** C2
   - **STOP:** `P7_T4_SERVING_POSTURE_V2`
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Packet presented: `docs/evals/plan7/c3_stop_decision_packet.md` — measurements, the three independent failures, the five options with cost and what each actually fixes, and the E2 consequence that a non-viable finding makes T4 a **CRITICAL BLOCKER** rather than out-of-scope. Options offered: `T4_SERVING_NON_VIABLE_IN_ENVIRONMENT` / `ADOPT_CONSTRAINED_DECODING_ONLY` / `PROCURE_SERVING_CAPACITY` / `RAISE_THE_BOUND` (unsupported, listed for completeness). **Awaiting user decision — no timeout raised, no serving config changed, T4 still ON at 2.0 s.**
 
 ---
 
