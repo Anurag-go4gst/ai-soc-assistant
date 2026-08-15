@@ -137,6 +137,10 @@ def redact_resolved_query(raw: dict[str, Any] | None) -> dict[str, Any]:
             "timed_out": bool(semantic.get("timed_out")),
             "elapsed_ms": int(elapsed) if isinstance(elapsed, (int, float)) else None,
             "rejected_reasons": [str(item) for item in reasons][:8] if isinstance(reasons, list) else [],
+            # Field names only. Lets a measurement separate "the model answered"
+            # from "deterministic validation kept any of it".
+            "proposed_fields": [str(item) for item in semantic.get("proposed_fields") or []][:16],
+            "accepted_fields": [str(item) for item in semantic.get("accepted_fields") or []][:16],
             "notes": [
                 str(item)
                 for item in notes
@@ -146,13 +150,22 @@ def redact_resolved_query(raw: dict[str, Any] | None) -> dict[str, Any]:
     # Which fields the semantic hop actually supplied. Field names and source
     # labels only — never field values. This is what separates a schema-valid
     # echo from useful semantic completion (Plan 7 C3).
+    # This redaction runs twice on a live turn: once into `control_plane_trace`,
+    # then again over that already-redacted dict in `debug_summary`. The second
+    # pass has no `provenance`, so it must fall back to the flattened key or it
+    # silently erases what the first pass extracted — which is exactly how the
+    # C3 measurement came back empty.
     raw_sources = provenance.get("field_sources")
+    if not isinstance(raw_sources, dict):
+        raw_sources = source.get("field_sources")
     field_sources = (
         {str(key): str(value) for key, value in sorted(raw_sources.items())}
         if isinstance(raw_sources, dict)
         else {}
     )
     semantic_fields = sorted(key for key, value in field_sources.items() if value == "semantic_t4")
+    if not semantic_fields and isinstance(source.get("semantic_t4_fields"), list):
+        semantic_fields = [str(item) for item in source["semantic_t4_fields"]]
     return {
         "qualification_tier": source.get("qualification_tier"),
         "field_sources": field_sources,

@@ -125,8 +125,9 @@ supplied.
 
 `debug_summary.resolved_query` now exposes `field_sources` and `semantic_t4_fields` (names and
 source labels only, never values), so semantic addition can be measured rather than asserted.
-**Instrument gap:** both came back empty on the bundles inspected, so per-field semantic addition
-is **not** yet measurable end-to-end. Not claimed as measured.
+**Instrument gap (fixed in the controlled re-measurement below):** both came back empty on the
+bundles inspected, because the redaction runs twice and the second pass had no `provenance`. See
+*Controlled C3 re-measurement*.
 
 ## Verification
 
@@ -148,7 +149,7 @@ One existing test was edited: `test_model_cannot_set_a_skill` asserted the reaso
 `schema_invalid`; it now asserts `authority_key_present`. The assertion's intent — a `skill` key
 is rejected and never applied — is unchanged and still checked.
 
-## C3 classification
+## C3 classification (superseded — see *Controlled C3 re-measurement* below)
 
 **`T4_PROMPT_INTERFACE_STILL_BLOCKING`** — with the caveat that both remaining blockers are now
 named and separable:
@@ -159,6 +160,10 @@ named and separable:
    model produces a correct flat answer once the contract is tight enough.
 2. **Serving (unchanged):** at 120 s the model completes 2–3 times in 9–13 attempts, and only
    when the host is not paging. This is not fixable by prompt work.
+
+**Superseded on 2026-08-15** by the controlled re-measurement, which was taken on a healthy host
+against fixed instrumentation and shows the interface working (4/4 accepted). The classification
+below stands only as the record of what was known before that run.
 
 It is **not** `T4_VPS_VIABLE_FOR_PLAN7` — acceptance is neither reliable nor reproducible.
 It is **not** `T4_MODEL_CAPABILITY_BLOCKER` — the model demonstrably produces the correct
@@ -187,3 +192,113 @@ seam passes both inside the existing contract, which is as far as it goes withou
 and a final-RQC authority sequence. Now that locked fields are immutable here, **upstream
 classification quality is the binding constraint on T4 usefulness** — recorded as a Plan 8
 convergence dependency, not built here.
+
+---
+
+# Controlled C3 re-measurement (2026-08-15)
+
+Third measurement stage. `c2_serving_viability.md` (PRE-C3) and the POST-C3 section above are
+unchanged; this section is additive.
+
+Artifact: `docs/evals/plan7/c3_remeasurement.json`. Harness:
+`scripts/eval_plan7_c3_t4_measure.py` — drives the real `maybe_enrich_t4_semantic` seam with the
+real live provider, so the shape adapter, every deterministic guard and the merge run exactly as
+production would. No restart, no reconfiguration, no deployment change.
+
+## Instrumentation defect that invalidated the previous measurement
+
+`redact_resolved_query` runs **twice** on a live turn: once into `control_plane_trace`, then
+again in `debug_summary` over that already-redacted dict. The second pass has no `provenance`,
+so `field_sources` was recomputed as `{}` and overwrote the first pass. The `semantic_t4` block
+survived only because it happened to have a flattened fallback; `field_sources`, added later, did
+not. Fixed by giving it the same fallback. Pinned by
+`test_field_sources_survive_a_second_redaction`.
+
+Added, observation-only: `semantic_t4.proposed_fields` and `semantic_t4.accepted_fields` — names
+and source labels only, never values — so "the model answered" and "deterministic validation kept
+it" are separable facts. Tests assert the seam carries no values and does not move the
+accept/reject boundary or attribute capabilities to `semantic_t4`.
+
+## Two discarded/false-signal runs, recorded not hidden
+
+1. **First controlled run was invalid.** All four cases failed in **1–7 ms** with
+   `url_error:gaierror` on `host.docker.internal`, which resolves only inside the container; the
+   harness ran on the host. Discarded rather than reported as T4 timeouts.
+2. **An endpoint failure is reported as `timed_out`.** `run_sidecar_llm_with_timeout` maps any
+   provider exception — DNS failure, refused connection, 5xx — onto `timed_out` with note
+   `llm_assist_timed_out`. So "T4 timed out" in earlier measurements could mean *slow model* or
+   *unreachable endpoint*, indistinguishably. This weakens the PRE/POST timeout counts above.
+   **Carried to D1**; not changed here, because altering failure classification would change
+   acceptance semantics inside a measurement item.
+
+## Host state during the measurement
+
+Load **0.70**, `si`/`so` **0**, `wa` **0%**, MemAvailable **8.8 GB**, swap 4095/4095 allocated but
+not paging, `llama-server` `Ssl` RSS 8.6 GB, uptime 38 min at start (restarted **by the operator**;
+Claude performed no restart). Healthy — no `HUMAN_RESTART_REQUIRED`.
+
+Inference health was confirmed by a bounded inference probe, not by `/v1/models`: one warm-up
+completed and was **accepted** at **55.3 s** cold.
+
+## Results — 4/4 accepted, all inside the 120 s bound
+
+| case | accepted | elapsed | proposed | accepted fields | rejected | locked preserved | widening |
+|---|---|---|---|---|---|---|---|
+| lateral_movement | ✅ | **39.4 s** | 6 | `normalized_goal`, `evidence_requirements` | `clarification_without_unresolved_referent` | ✅ | none |
+| competing_hypotheses | ✅ | **39.1 s** | 6 | `normalized_goal`, `evidence_requirements` | `clarification_without_unresolved_referent` | ✅ | none |
+| missing_context | ✅ | **28.6 s** | 6 | `clarification_required`, `normalized_goal`, `evidence_requirements` | — | ✅ | none |
+| spl_capable_paraphrase | ✅ | **32.9 s** | 6 | `normalized_goal`, `evidence_requirements` | `clarification_without_unresolved_referent` | ✅ | none |
+
+Warm-up 55.3 s cold; steady-state 28.6–39.4 s. p50 ≈ 36 s, p95 ≈ 39 s — comfortably inside 120 s.
+
+## Useful semantic contribution, not schema-valid echo
+
+| case | goal before → after | evidence requirements added |
+|---|---|---|
+| lateral_movement | "signs that something is moving sideways through the estate" → **"identify lateral movement within the network estate"** | 5, incl. authentication logons from unusual hosts, process execution with cross-subnet network activity |
+| competing_hypotheses | "powershell on endpoints talking to new domains" → **"assess whether PowerShell activity with outbound DNS to new domains is malicious or routine administration"** | 4, incl. parent process/command line, domain registration age, *known software usage* as a competing explanation |
+| missing_context | verbatim query → **"compare the current security event with the corresponding event from last week to determine if the situation is worsening"** | 3, incl. the missing current-event details |
+| spl_capable_paraphrase | "any domain lookups that look algorithmically generated" → **"identify domain lookups that appear algorithmically generated"** | 4, incl. DGA-characteristic analysis and comparison against known benign patterns |
+
+Competing hypotheses were preserved (case 2 names routine administration and known software as
+explanations); no case asserted anything malicious as fact; no invented time scope; no category
+strings recorded as entities.
+
+## The binding limitation is upstream, and it is not T4's to fix
+
+**Every one of the four deterministic base contracts is `intent_family=clarification_required`,
+`answer_goal=clarification`, `required_capabilities=[]`** — including a clean lateral-movement
+hunt and a DGA hunt.
+
+Consequences, stated plainly:
+
+- `clarification_added` is `false` on all four **because clarification was already true upstream**,
+  not because T4 avoided adding it.
+- The three `clarification_without_unresolved_referent` rejections were therefore **no-ops** on the
+  final contract. This run does **not** demonstrate the guard preventing an over-clarification on
+  an otherwise-unambiguous turn; that is demonstrated in unit tests
+  (`test_evidence_uncertainty_may_not_become_an_analyst_question`), not here.
+- With locked fields now immutable, **T4 cannot move these rows toward an SPL-capable family**, so
+  no downstream SPL work can follow from them regardless of how good the semantic completion is.
+
+This is the intended architecture boundary (`architecture.md` §9: T4 may not grant capabilities or
+become routing authority) and is recorded as a **Plan 8 convergence dependency**: T1–T3 locked
+facts → T4 completion → deterministic merge → **deterministic recomputation of evidence,
+capability requirements and route hints** → final RQC. It was **not** patched with keywords or T4
+route mutation.
+
+## Classification
+
+**`T4_SEMANTICALLY_VIABLE_BUT_VPS_SERVING_BLOCKER`.**
+
+- **Semantics: proven.** 4/4 accepted with genuine, useful contribution; every guard held; locked
+  facts preserved; zero capability widening. Not `T4_INTERFACE_DEFECT_REMAINS`, and not
+  `T4_MODEL_CAPABILITY_BLOCKER`.
+- **Serving: not proven.** The same configuration produced 2/9, then 1/4, then 4/4 on the same day
+  — the variable was host paging, not the prompt. There is still no automated health detection or
+  recovery (`/v1/models` returns 200 while the model is unusable), and endpoint failures are
+  indistinguishable from timeouts in the trace. So `T4_VPS_VIABLE_FOR_PLAN7` is not supported:
+  one clean run on a quiet, freshly-restarted host is not reproducibility.
+
+T4 remains a **hard GO requirement** per the E2 amendment, and therefore a **critical blocker**
+until serving stability and recovery are addressed in D1.

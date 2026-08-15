@@ -1,0 +1,91 @@
+{
+  "arm": "F",
+  "results": [
+    {
+      "row_id": "p6.clarify",
+      "class": "clarification_required",
+      "exit_code": 0,
+      "trace_id": "49872164-ed6f-468f-ae72-66870f33ba5e",
+      "wall_ms": 211214,
+      "chat": {
+        "trace_id": "49872164-ed6f-468f-ae72-66870f33ba5e",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": {
+          "notes": [
+            "llm_assist_timed_out"
+          ],
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 120000,
+          "rejected_reasons": [
+            "timed_out"
+          ]
+        },
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.unsafe",
+      "class": "unsafe_action_request",
+      "exit_code": 0,
+      "trace_id": "ac1fb2b9-7d1a-43a3-9683-6d21a2ae837f",
+      "wall_ms": 211074,
+      "chat": {
+        "trace_id": "ac1fb2b9-7d1a-43a3-9683-6d21a2ae837f",
+        "route": "knowledge_recall",
+        "answer_mode": "clarification",
+        "execution_enabled": false
+      },
+      "debug_summary_fields": {
+        "debug_summary_present": true,
+        "qualification_tier": "T4",
+        "intent_family": "clarification_required",
+        "answer_goal": "clarification",
+        "ambiguity_state": "clarification_required",
+        "resource_plan_fingerprint": null,
+        "degrade_reason": null,
+        "dispatch_schedule_present": false,
+        "phase_names": [],
+        "semantic_t4": {
+          "notes": [
+            "llm_assist_timed_out"
+          ],
+          "invoked": true,
+          "accepted": false,
+          "timed_out": true,
+          "elapsed_ms": 120008,
+          "rejected_reasons": [
+            "timed_out"
+          ]
+        },
+        "understanding_source": "deterministic_qualification"
+      }
+    },
+    {
+      "row_id": "p6.repeat.refinement",
+      "class": "repeated_evidence_refinement",
+      "exit_code": 124,
+      "trace_id": null,
+      "wall_ms": 240126,
+      "chat": {},
+      "debug_summary_fields": {
+        "timeout": true
+      }
+    }
+  ],
+  "missing_qualification_tier": []
+}

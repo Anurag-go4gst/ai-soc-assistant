@@ -389,6 +389,12 @@ def _time_scope_grounded(query: str, time_scope: str | None) -> bool:
     return bool(_TIME_EXPRESSION_RE.search(lowered))
 
 
+def _proposed_field_names(proposal: SemanticT4Proposal) -> list[str]:
+    """Field names the model actually supplied — names only, never values."""
+    dumped = proposal.model_dump(exclude_none=True)
+    return sorted(name for name, value in dumped.items() if value not in (None, "", [], {}))
+
+
 def _merge_proposal(
     deterministic: ResolvedQueryContract,
     proposal: SemanticT4Proposal,
@@ -571,6 +577,12 @@ def _merge_proposal(
                     **base_trace,
                     "accepted": accepted_any,
                     "rejected_reasons": rejected,
+                    # Diagnostics only: what the model offered vs what deterministic
+                    # validation kept. Never read by routing, planning or policy.
+                    "proposed_fields": _proposed_field_names(proposal),
+                    "accepted_fields": sorted(
+                        name for name, src in field_sources.items() if src == "semantic_t4"
+                    ),
                 },
             },
         }
