@@ -24,9 +24,11 @@ from app.coverage.catalogue_execution_map import resolve_catalogue_execution_bin
 from app.orchestration.catalogue_execution_eligibility import catalogue_auto_execute_eligible
 from app.orchestration.data_silence_advisory import resolve_data_silence_at_gate
 from app.orchestration.execution_confirmation import (
+    build_exact_call_invalidated_review,
     build_execution_confirmation_review,
     resolve_execution_spl,
 )
+from app.orchestration.splunk_call_authorization import call_grant_from_validation, grants_match
 from app.orchestration.human_review import human_review, no_human_review
 from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS, select_mcp_tool
@@ -224,6 +226,22 @@ def evaluate_mcp_execution(
         execution = _blocked_execution(selection, "requires_human_review", confirmation_review["reason"])
         telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=confirmation_review["reason"])
         return execution, confirmation_review
+    grant_source = execution_validation or spl_validation or {}
+    current_grant = call_grant_from_validation(
+        trace_id=trace_id,
+        selection=selection,
+        spl_validation=grant_source,
+        rbac_role=rbac_role,
+        identity=rbac_role,
+        hil_required=require_confirmation,
+        execution_intent=execution_intent,
+    )
+    if pending_execution and not grants_match(pending_execution, current_grant):
+        review = build_exact_call_invalidated_review()
+        execution = _blocked_execution(selection, "requires_human_review", review["reason"])
+        execution["call_grant"] = current_grant
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_blocked", reason=review["reason"])
+        return execution, review
     if execution_validation is None:
         normalized_spl = str(spl_validation["normalized_spl"])
         review = build_execution_confirmation_review(
@@ -238,6 +256,7 @@ def evaluate_mcp_execution(
             "selected_mcp_tool": selection["selected_mcp_tool"],
             "trace_id": trace_id,
             "selected_skill": selected_skill,
+            "call_grant": current_grant,
         }
         telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=review["reason"])
         return execution, review
@@ -334,6 +353,7 @@ def evaluate_mcp_execution(
             "duration_ms": duration_ms,
             "evidence_source": "live" if live_run else "mock",
             "execution_status_label": "executed" if live_run else None,
+            "call_grant_consumed": True,
         }
         telemetry.record_mcp_execution(
             trace_id,

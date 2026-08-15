@@ -550,11 +550,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** SPL0, R0, and C0.
   - **Evidence:** Final-RQC slots overlay deterministic bindings and `required_evidence_keys`. `apply_rqc_constraint_preservation` fails closed (`approved=false`, `normalized_spl=null`) on silent source-IP/geo/account-type/time loss; explicit `non_applicable` reasons do not drop. `spl_source_resolve` unchanged (slots only). VPN `203.0.113.24` / yesterday covered. Verify → **52 passed**. Neighbor C0 planner → **8 passed**. `architecture.md` unmodified.
 
-- [ ] **AUTH0 — Bind Splunk authorization to the final governed call**
+- [x] **AUTH0 — Bind Splunk authorization to the final governed call**
   - **Do:** Extend existing policy/RBAC/HIL/MCP/confirmation seams where practical so an execution decision binds the authenticated identity, investigation/trace, Splunk connection/tool, source/index scope, validated `normalized_spl` plus fingerprint, time range, permitted operators, read-only/write classification, result/timeout/resource limits, HIL state, and expiry/one-run scope where available/applicable. A material change to normalized SPL, time/source scope, connection/tool, identity, or limits invalidates the grant and forces re-evaluation. Do not add an authorization service or treat generic Splunk/MCP access as per-call approval.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_splunk_call_authorization.py app/tests/test_mcp_execution_gate.py app/tests/test_explicit_run_spl_hil.py app/tests/test_mcp_rbac.py app/tests/test_mcp_execution_contract_e2e.py -q`; tests prove exact-call acceptance and rejection after normalized-SPL fingerprint, time range, source scope, connection/tool, identity, HIL, expiry, or limit changes.
   - **Depends on:** SPL1 and the authorization-granularity findings recorded by SPL0.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Extended pending MCP confirmation with `call_grant` (`app/orchestration/splunk_call_authorization.py`); no new auth service. Confirm rejects pending≠current SPL (`exact_call_grant_invalidated`). Grant fingerprint binds trace, identity/RBAC, server/tool, `normalized_spl` SHA-256, earliest/latest, indexes, operators, limits, timeout, intent/read-write, HIL required. Expiry, one-run `consumed`, and `llm_granted` fail closed. Same-call confirm executes; mutated SPL/source/tool/identity/limits/timeout/expiry/consumed cannot. Unapproved/null `normalized_spl` still blocked. LLM cannot mint a grant. Verify → **61 passed**. Neighbor P1 baseline **11 passed**. `architecture.md` unmodified. F3/live MCP unproven unchanged.
 
 ### E — execution hub and evidence attribution
 
@@ -711,3 +711,6 @@ None at amendment time. Commands referencing new tests/harnesses name the exact 
   sufficiency (`CALL_T4` only for T4 unresolved semantics). Next: U1.
 - **2026-08-16:** **U1 complete.** T4 hop gated on CALL_T4; field-constrained prompt/schema.
   Next: U2.
+- **2026-08-16:** **AUTH0 complete.** Exact-call grant on existing MCP/HIL pending confirmation;
+  material SPL/time/source/tool/identity/limit/timeout/expiry/consumed changes invalidate.
+  Verify **61 passed**. No new auth service. F3/live MCP unproven unchanged. Next: X0.

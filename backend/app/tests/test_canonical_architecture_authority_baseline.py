@@ -310,11 +310,10 @@ def test_service_account_follow_up_records_continuity_without_execution() -> Non
     assert follow.user_query == "What about service accounts?" or follow.user_query is None or isinstance(follow.user_query, str)
 
 
-def test_exact_call_authorization_is_not_yet_fingerprint_bound(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Record current PARTIAL AUTH0: each gate call evaluates the supplied
-    validation object independently. Unapproved/null SPL cannot execute.
-    A mutated approved SPL is not rejected for fingerprint mismatch — that
-    binding is AUTH0 work, not current production behavior.
+def test_exact_call_authorization_is_not_process_global(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Independent gate calls without a pending grant still evaluate separately.
+    Exact-call fingerprint binding is AUTH0 via pending `call_grant`
+    (`test_splunk_call_authorization.py`), not a process-wide authorization store.
     """
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: _FakeTelemetry())
 
