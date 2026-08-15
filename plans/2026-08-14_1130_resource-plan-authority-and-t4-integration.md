@@ -467,7 +467,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
 
 ## E — new go-live gate
 
-- [ ] **E0** — Plan 7 report
+- [x] **E0** — Plan 7 report
   - **Do:** `docs/evals/plan7_architecture_authority_report.md` answering the twelve success
     questions with artifact citations. State the persistent profile separately from repo
     defaults. Honest about anything still unproven. Surface: LOCAL.
@@ -475,7 +475,12 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
     observed L4/L5; parity `120 exact` never cited as routing correctness; `V2_WINS` never
     described as activation.
   - **Depends on:** D3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7_architecture_authority_report.md` answers all 12 success
+    questions with the required verdict/evidence/explanation/gap structure and committed-artifact
+    traceability; it separates effective VPS posture from tracked/code defaults, retains the D3
+    `dispatch_source` caveat, F1/F2/F3, config-rebuild drift, A7, Plan 8 and live-MCP limits, and
+    makes no GO/risk-acceptance decision. Structure check **12/12**; `git diff --check` and staged
+    diff check clean; plan-discipline audit **0 gaps**.
 
 - [ ] **E1** — Closure gates
   - **Do:** Full forecast-rule set: governance regression, backend pytest, parity, Cisco,
