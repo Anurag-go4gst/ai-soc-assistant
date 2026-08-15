@@ -558,11 +558,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
 
 ### E — execution hub and evidence attribution
 
-- [ ] **E0A — Establish the minimal canonical EvidenceState from existing governed state**
+- [x] **E0A — Establish the minimal canonical EvidenceState from existing governed state**
   - **Do:** Audit existing `SourceEvidence`, `StructuredContext`, `CanonicalFacts`, MCP/execution state, and final-evidence fields, then extend or project the minimum deterministic derived view containing required, obtained, missing, stale, invalidated, and blocked evidence plus provenance, trust class, scope, and observed-at/freshness metadata where available. Do not require plan-step IDs, create an evidence database/persistence layer, duplicate raw evidence, or change evidence authority. Use an equivalent existing production type if it already satisfies the role.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_minimal_evidence_state.py app/tests/test_source_evidence.py app/tests/test_structured_context.py app/tests/test_final_evidence_gate.py -q`; tests prove the view is derived from current state, preserves provenance/trust/scope, and does not duplicate raw evidence.
   - **Depends on:** C0 and S0.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `MinimalEvidenceState` projects SourceEvidence/StructuredContext/RQC/`evidence_plan`/CanonicalFacts/FinalEvidenceGate; `GatedEvidenceState` remains classification/permission authority and does not satisfy the required/obtained/missing vocabulary. `graph_node_context_finalize` attaches `state["evidence_state"]` (declared on `ChatPipelineState`). No preview_rows/raw store. Verify → **28 passed**. `architecture.md` unmodified. Anchor note: `test_source_evidence.py` / `test_structured_context.py` did not previously exist; created as E0A derivation proofs (existing coverage remains in `test_evidence_context.py` / `test_source_evidence_envelope_sanitizer.py`).
 
 - [ ] **E0 — CONDITIONAL: execute compiled step instances in the existing RP graph**
   - **Do:** Adapt the existing Resource Planner execution hub to consume and execute each compiled step instance with its declared inputs, deterministic policy gate, timeout/retry/fallback, and typed output. Primarily replace the collapsed capability-level hook consumption; do not create new worker-node families, another execution graph, a second executor, or another runtime abstraction. Keep the existing deterministic workers, HIL/RBAC, SPL validation, MCP eligibility, and execution boundaries authoritative.

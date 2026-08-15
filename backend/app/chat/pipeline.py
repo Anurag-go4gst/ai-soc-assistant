@@ -450,6 +450,7 @@ class ChatPipelineState(TypedDict, total=False):
     # Plan 5.2 — LangGraph drops undeclared keys; spine + dispatch/gate channels.
     canonical_facts: dict[str, Any] | None
     final_evidence_gate: dict[str, Any] | None
+    evidence_state: dict[str, Any] | None
     plan_dispatch_trace: dict[str, Any] | None
     # Plan 6 E0 — names of pipeline_inline phases that actually ran this turn
     # (mitre_finalize / cve_adapter). Provenance only; not a hook schedule.
@@ -3612,8 +3613,21 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         "final_evidence_gate": gate_payload,
     }
     from app.chat.canonical_facts_spine import attach_canonical_facts_to_state
+    from app.evidence.minimal_evidence_state import derive_minimal_evidence_state
 
     state = attach_canonical_facts_to_state(state)
+    evidence_state = derive_minimal_evidence_state(
+        source_evidence=source_evidence,
+        structured_context=structured_context,
+        evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
+        resolved_query_contract=state.get("resolved_query_contract")
+        if isinstance(state.get("resolved_query_contract"), dict)
+        else None,
+        canonical_facts=state.get("canonical_facts") if isinstance(state.get("canonical_facts"), dict) else None,
+        final_evidence_gate=gate_payload,
+        execution=execution if isinstance(execution, dict) else None,
+    )
+    state = {**state, "evidence_state": evidence_state.model_dump_view()}
     source_refs = [str(item.get("evidence_id")) for item in source_evidence]
     spl_template = template_summary(selected_use_case.default_spl_template if selected_use_case else None)
     if selected_use_case is not None:
