@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Cloud Agent bootstrap for the AI-SOC Docker stack.
 #
-# The Cursor Cloud Agent VM is a nested container that ships without Docker: the
-# default overlayfs graphdriver mount fails and same-bridge container traffic is
-# dropped by the netfilter FORWARD chain. This script installs Docker and
-# encapsulates the VM-specific setup so the canonical `docker compose` dev path
-# works unchanged — self-contained, so it needs no prebuilt snapshot.
+# The Cursor Cloud Agent VM is a nested container. Docker is provided by the
+# environment's base snapshot (the default image has none, and a fresh dockerd
+# cold-init does not complete inside a build pod). Given that base, the default
+# overlayfs graphdriver mount fails and same-bridge container traffic is dropped
+# by the netfilter FORWARD chain. This script encapsulates that VM-specific setup
+# so the canonical `docker compose` dev path works unchanged.
 #
 # Frontend node_modules lives on a Docker named volume (docker-compose.cloud-agent.yml)
 # and is installed with `docker run npm ci` — both avoid npm crashes seen with an
@@ -30,82 +31,39 @@ log() { echo "[cloud-agent] $*"; }
 # override (named volume for frontend node_modules — see docker-compose.cloud-agent.yml).
 dc() { docker compose -f docker-compose.yml -f docker-compose.cloud-agent.yml "$@"; }
 
-ensure_docker_installed() {
-  # Make the environment self-contained: the default Cloud Agent image ships
-  # Python/Node/Chrome but not Docker. Install the engine + compose plugin +
-  # fuse-overlayfs if absent. --force-confold answers the fuse.conf conffile
-  # prompt non-interactively. Idempotent: a no-op once installed (e.g. when the
-  # environment boots from a snapshot that already has Docker).
-  if command -v docker >/dev/null 2>&1 && command -v fuse-overlayfs >/dev/null 2>&1; then
-    return 0
-  fi
-  log "installing docker engine + compose plugin + fuse-overlayfs"
-  sudo apt-get update -qq
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-    -o Dpkg::Options::="--force-confold" \
-    docker.io docker-compose-v2 fuse-overlayfs
-}
-
-# Write the daemon config for a given storage driver. Disabling the containerd
-# snapshotter makes the classic graphdriver honor the storage-driver choice.
-_write_daemon_json() {
-  sudo mkdir -p /etc/docker
-  printf '{ "storage-driver": "%s", "features": { "containerd-snapshotter": false } }\n' "$1" \
-    | sudo tee /etc/docker/daemon.json >/dev/null
-}
-
-# Stop dockerd precisely via its pidfile (never by process-name match).
-_stop_dockerd() {
-  local pid
-  pid="$(sudo cat /var/run/docker.pid 2>/dev/null || true)"
-  [[ -n "${pid}" ]] && sudo kill "${pid}" 2>/dev/null || true
-  sleep 2
-}
-
-_launch_dockerd_wait() {
-  local secs="$1"
-  _stop_dockerd
-  sudo bash -c 'nohup dockerd >/var/log/dockerd.log 2>&1 &'
-  for _ in $(seq 1 "${secs}"); do
-    docker info >/dev/null 2>&1 && return 0
-    sleep 1
-  done
-  return 1
-}
-
 start_dockerd() {
+  # Docker is provided by the environment's base snapshot (the default Cloud Agent
+  # image has none). This starts the pre-installed daemon; it does not install it.
   if docker info >/dev/null 2>&1; then
     log "docker daemon already running"
     return 0
   fi
-  # Preferred driver: fuse-overlayfs (the default overlayfs graphdriver mount fails
-  # with "invalid argument" in the nested VM). Keep an existing daemon.json (e.g.
-  # from a snapshot) if present.
-  if [[ -f /etc/docker/daemon.json ]]; then
-    log "starting docker daemon (existing daemon.json)"
-  else
-    log "starting docker daemon (fuse-overlayfs storage driver)"
-    _write_daemon_json "fuse-overlayfs"
+  if ! command -v dockerd >/dev/null 2>&1; then
+    log "ERROR: docker is not installed. This environment expects a base snapshot"
+    log "with Docker installed (see docs/coe deploy runbook / the env snapshot)."
+    exit 1
   fi
-  if _launch_dockerd_wait 90; then
-    sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
-    return 0
+  log "starting docker daemon (fuse-overlayfs storage driver)"
+  sudo mkdir -p /etc/docker
+  if [[ ! -f /etc/docker/daemon.json ]]; then
+    # fuse-overlayfs works in the nested VM where the default overlayfs graphdriver
+    # mount fails with "invalid argument". Disable the containerd snapshotter so the
+    # classic graphdriver honors the storage-driver choice.
+    echo '{ "storage-driver": "fuse-overlayfs", "features": { "containerd-snapshotter": false } }' \
+      | sudo tee /etc/docker/daemon.json >/dev/null
   fi
-  # fuse-overlayfs can stall on graphdriver init in some pods (no usable /dev/fuse).
-  # Fall back to vfs, which always works in a nested container (plain directory
-  # copies, no overlay/fuse). Wipe the half-initialized graph so drivers don't mix.
-  log "fuse-overlayfs dockerd did not come up; falling back to vfs storage driver"
-  _stop_dockerd
-  sudo rm -rf /var/lib/docker 2>/dev/null || true
-  _write_daemon_json "vfs"
-  if _launch_dockerd_wait 120; then
-    sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
-    log "docker daemon up (vfs storage driver)"
-    return 0
+  sudo bash -c 'nohup dockerd >/var/log/dockerd.log 2>&1 &'
+  for _ in $(seq 1 60); do
+    docker info >/dev/null 2>&1 && break
+    sleep 1
+  done
+  if ! docker info >/dev/null 2>&1; then
+    log "ERROR: docker daemon failed to start"
+    sudo tail -n 40 /var/log/dockerd.log >&2 || true
+    exit 1
   fi
-  log "ERROR: docker daemon failed to start"
-  sudo tail -n 60 /var/log/dockerd.log >&2 || true
-  exit 1
+  # Let the invoking (non-root) user reach the socket without a fresh login shell.
+  sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
 }
 
 fix_bridge_networking() {
@@ -229,7 +187,6 @@ wait_health() {
 
 case "${1:-start}" in
   install)
-    ensure_docker_installed
     start_dockerd
     seed_env
     log "building images"
@@ -239,7 +196,6 @@ case "${1:-start}" in
     log "install complete"
     ;;
   start)
-    ensure_docker_installed
     start_dockerd
     fix_bridge_networking
     seed_env
