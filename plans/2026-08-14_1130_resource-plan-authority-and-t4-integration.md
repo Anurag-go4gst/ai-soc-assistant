@@ -347,7 +347,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
   - **Verify:** `docs/evals/plan7/a7_fallback_lifecycle_proof.md` answers all six questions with
     observed output or a deterministic proof; targeted tests committed; `/invariant-check` 7/7.
   - **Depends on:** A6
-  - **Evidence:** `docs/evals/plan7/c2_serving_viability.md` § C0. The hop is one `LocalChatClient` call to `resolve_local_primary_endpoint(sidecar=True)` — the **shared** local primary — at `max_tokens=400`. Host: Foundation-Sec 8B **Q8**, RSS **9.4 GB** of 16 GB, **185 MB free**, **swap 4095/4095 exhausted**, `-np 1` (no second decode slot), **one** model on disk, no failover endpoint, no Qwen. Options inventoried with what-it-would-take: **A** JSON-schema constrained decoding (free, in-environment, fixes shape only); **B** Q4 requantisation (~4.7 GB download); **C** small dedicated sidecar model (download **plus a new sidecar endpoint config surface**, needs approval); **D** raise the bound (forbidden pre-C3, and unsupported); **E** free host memory (operator action). No timeout change proposed as a first move.
+  - **Evidence:** _(fill when done)_
 
 ## Workstream B — keep T4 ON and measure the real target architecture
 
@@ -416,7 +416,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
 
 ## Workstream D — integrated target-profile readiness
 
-- [ ] **D0** — Target-architecture regression corpus
+- [x] **D0** — Target-architecture regression corpus
   - **Do:** Full corpus + paraphrases + in-catalogue contract on the final target posture.
     **A6 requirement:** the goldens and Cisco populations must be exercised at the appropriate
     **end-to-end** layer under the target ResourcePlan authority — planning-level classification
@@ -424,7 +424,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
   - **Verify:** `docs/evals/plan7/runs/<ts>/target_corpus.md`; every delta vs Plan 6 Arm A
     explained; no regression accepted silently.
   - **Depends on:** A6, C3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/runs/20260815T131000Z/target_corpus.md` + `d0_target_corpus.json`. **30 rows, 0 errors** — the ten required request classes plus the 20-row Plan 6 corpus (12 + 8 paraphrases) — run **inside the container** through `run_chat_via_resource_planner_graph` with real DB, canonical planning, ResourcePlan commit, dispatch seam and PhaseContract merge; only the external model call substituted (`t4_mode: recorded_proposal`). **Verified prerequisite:** outside the container the canonical handoff cannot reach Postgres, so no composed plan commits and the seam never runs — an out-of-container sweep would have looked clean while exercising nothing (also explains A1's zero seam calls). Dispatch: `resource_plan_step_walk` **11**, `canonical_non_planned` **14**, none **5**; **zero** legacy/predicate/session-refine/guided-hybrid. **Invariants all hold:** `execution_eligible` null 30/30, `execution_enabled` false 30/30, MCP never executed, no approved SPL without `normalized_spl`, **no SPL row missing `spl_postprocessor`** (A3 invariant), T4 invoked only on T4 tier (18/18, zero on T1–T3). **Deltas vs Arm A: 0 route changes**; 11 EXPECTED_ARCHITECTURE_CHANGE (target authority + A3 insertion), 12 KNOWN_PLAN8_DEPENDENCY (`clarification_required` / `required_capabilities=[]` on T4 rows incl. all 8 paraphrases — recorded, **not** patched), **0 REGRESSION**, 0 UNEXPLAINED; no baseline refreshed, no test weakened. **Live sample (2 rows, small by policy):** `p6.spl.draft` T2 merge with `spl_postprocessor`, fingerprint `99ccd9213e2f0b37` identical to Arm A, 29.8 s; `p6.para.003` T4 **accepted in 19.9 s** with `proposed_fields`/`accepted_fields` populated in the live bundle — closing the C3 instrument gap end-to-end. Explicitly **not** established here: serving reliability, latency, concurrency, model-unavailable behaviour, recovery — those remain **D1**.
 
 - [ ] **D1** — Reliability and failure behaviour on the target posture
   - **Do:** Repeat the Plan 6 F3 classes against the new authority: restart/recreate,
