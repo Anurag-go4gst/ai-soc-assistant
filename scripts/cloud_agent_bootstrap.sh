@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Cloud Agent bootstrap for the AI-SOC Docker stack.
 #
-# The Cursor Cloud Agent VM is a nested container: the default Docker overlayfs
-# mount fails and same-bridge container traffic is dropped by the netfilter
-# FORWARD chain. This script encapsulates the VM-specific setup so the canonical
-# `docker compose` dev path works unchanged.
+# The Cursor Cloud Agent VM is a nested container that ships without Docker: the
+# default overlayfs graphdriver mount fails and same-bridge container traffic is
+# dropped by the netfilter FORWARD chain. This script installs Docker and
+# encapsulates the VM-specific setup so the canonical `docker compose` dev path
+# works unchanged — self-contained, so it needs no prebuilt snapshot.
 #
 # Frontend node_modules lives on a Docker named volume (docker-compose.cloud-agent.yml)
 # and is installed with `docker run npm ci` — both avoid npm crashes seen with an
@@ -28,6 +29,22 @@ log() { echo "[cloud-agent] $*"; }
 # All stack commands go through the base compose file plus the Cloud-Agent
 # override (named volume for frontend node_modules — see docker-compose.cloud-agent.yml).
 dc() { docker compose -f docker-compose.yml -f docker-compose.cloud-agent.yml "$@"; }
+
+ensure_docker_installed() {
+  # Make the environment self-contained: the default Cloud Agent image ships
+  # Python/Node/Chrome but not Docker. Install the engine + compose plugin +
+  # fuse-overlayfs if absent. --force-confold answers the fuse.conf conffile
+  # prompt non-interactively. Idempotent: a no-op once installed (e.g. when the
+  # environment boots from a snapshot that already has Docker).
+  if command -v docker >/dev/null 2>&1 && command -v fuse-overlayfs >/dev/null 2>&1; then
+    return 0
+  fi
+  log "installing docker engine + compose plugin + fuse-overlayfs"
+  sudo apt-get update -qq
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+    -o Dpkg::Options::="--force-confold" \
+    docker.io docker-compose-v2 fuse-overlayfs
+}
 
 start_dockerd() {
   if docker info >/dev/null 2>&1; then
@@ -178,6 +195,7 @@ wait_health() {
 
 case "${1:-start}" in
   install)
+    ensure_docker_installed
     start_dockerd
     seed_env
     log "building images"
@@ -187,6 +205,7 @@ case "${1:-start}" in
     log "install complete"
     ;;
   start)
+    ensure_docker_installed
     start_dockerd
     fix_bridge_networking
     seed_env
