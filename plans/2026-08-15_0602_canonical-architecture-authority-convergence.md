@@ -472,11 +472,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
 
 ### U — understanding, T4, and deterministic merge
 
-- [ ] **U0 — Emit explicit locked and unresolved RQC fields after T1–T3**
+- [x] **U0 — Emit explicit locked and unresolved RQC fields after T1–T3**
   - **Do:** Make the deterministic understanding stage evaluate job-aware requirements and produce an `UNDERSTANDING` sufficiency result. Classify explicit entities, user constraints, explicit time scope, deterministic facts/prohibitions, and already-established user/policy requirements as authoritative/observed fields; lock them against T4 changes. Name only genuinely unresolved semantic fields. Mark capability/evidence representations, route hints, and other downstream consequences as derived fields to be recomputed deterministically—without weakening locked requirements—after final understanding; do not build another understanding system.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_understanding_sufficiency.py app/tests/test_resolved_query_contract.py app/tests/test_canonical_architecture_authority_baseline.py -q`
   - **Depends on:** S0.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `build_resolved_query_contract` now attaches `locked_fields` / `unresolved_fields` / `derived_field_names` / `understanding_sufficiency`. T1–T3 lock intent/answer_goal/entities/time; T4 names `semantic_goal` only; capabilities stay derived; clarification does not `CALL_T4`. Verify → **23 passed**. Neighbor `test_semantic_t4_understanding.py` **14 passed**. `architecture.md` unmodified.
 
 - [ ] **U1 — Make T4 invocation job-aware and field-constrained**
   - **Do:** Invoke the bounded semantic hop only when deterministic `UNDERSTANDING` sufficiency permits `CALL_T4`; give it the unresolved query fragment, authoritative/observed locked-field map, allowed semantic vocabulary, and a strict schema limited to unresolved semantic fields. T4 may propose `clarification_required=true` plus a focused `clarification_question` when meaning cannot be inferred safely. It may not clear a deterministic clarification/prohibition or directly grant capabilities, tools, resources, routes, actions, or authorization. Keep one call, deadline, no tool/MCP access, redacted tracing, and deterministic fallback.
@@ -707,3 +707,5 @@ None at amendment time. Commands referencing new tests/harnesses name the exact 
   No runtime/flag/`architecture.md` change. F3 serving not claimed. Next: S0.
 - **2026-08-16:** **S0 complete.** Shared `StagedSufficiencyResult` adapter over existing
   completeness/context-sufficiency checks; no pipeline wiring; 23 passed. Next: U0.
+- **2026-08-16:** **U0 complete.** T1–T3 emit locked/unresolved/derived maps and UNDERSTANDING
+  sufficiency (`CALL_T4` only for T4 unresolved semantics). Next: U1.

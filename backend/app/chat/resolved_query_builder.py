@@ -12,6 +12,7 @@ from app.chat.contracts.resolved_query import (
     ResolvedQueryContract,
     UnderstandingSource,
 )
+from app.chat.contracts.staged_sufficiency import from_understanding_state
 from app.chat.intent_classifier import build_query_to_intent
 from app.chat.skill_intent_compatibility import (
     CAPABILITY_MCP,
@@ -121,11 +122,11 @@ def build_resolved_query_contract(
     entities: dict[str, Any] = {}
     time_scope: str | None = None
     if query_understanding is not None:
-        entities = dict(getattr(query_understanding, "entities", None) or {})
-        time_scope = getattr(query_understanding, "time_window", None)
+        entities = _entities_map(query_understanding)
+        time_scope = getattr(query_understanding, "time_window", None) or entities.get("time_window")
 
     ambiguity = _ambiguity_state(intent)
-    return ResolvedQueryContract(
+    contract = ResolvedQueryContract(
         normalized_goal=query.strip(),
         intent_family=intent.intent_family,
         answer_goal=_answer_goal(intent),
@@ -136,7 +137,7 @@ def build_resolved_query_contract(
         prohibited_capabilities=prohibited,
         evidence_requirements=list(evidence_requirements or []),
         entities=entities,
-        time_scope=time_scope,
+        time_scope=time_scope if isinstance(time_scope, str) else None,
         qualification_tier=qualification_tier,
         qualification_source=qualification_source,
         confidence=float(intent.confidence),
@@ -146,4 +147,91 @@ def build_resolved_query_contract(
             "llm_intent_assist_status": q2i.llm_intent_assist_status,
         },
         understanding_source=understanding_source,
+    )
+    return attach_understanding_authority(contract)
+
+
+_DERIVED_FIELD_NAMES = (
+    "required_capabilities",
+    "prohibited_capabilities",
+    "evidence_requirements",
+)
+
+_GENERIC_ENTITY_VALUES = frozenset({"multiple", "all", "any", "several", "various", "unknown"})
+
+
+def _entities_map(query_understanding: Any) -> dict[str, Any]:
+    raw = getattr(query_understanding, "entities", None)
+    if raw is None:
+        return {}
+    if hasattr(raw, "model_dump"):
+        dumped = raw.model_dump()
+    elif isinstance(raw, dict):
+        dumped = dict(raw)
+    else:
+        return {}
+    return {key: value for key, value in dumped.items() if value not in (None, "", [], {})}
+
+
+def _is_concrete(value: Any) -> bool:
+    if value in (None, "", [], {}):
+        return False
+    if isinstance(value, (list, tuple, set)):
+        return any(_is_concrete(item) for item in value)
+    text = str(value).strip().lower()
+    return bool(text) and text not in _GENERIC_ENTITY_VALUES
+
+
+def attach_understanding_authority(contract: ResolvedQueryContract) -> ResolvedQueryContract:
+    """Classify T1–T3 locked vs unresolved semantic fields; mark derived fields.
+
+    Does not create a second understanding system. Capabilities and evidence
+    requirements stay derived from intent family / later deterministic recompute.
+    """
+    locked: dict[str, Any] = {
+        "intent_family": contract.intent_family,
+        "answer_goal": contract.answer_goal,
+        "qualification_tier": contract.qualification_tier,
+        "qualification_source": contract.qualification_source,
+        "ambiguity_state": contract.ambiguity_state,
+    }
+    if contract.clarification_required:
+        locked["clarification_required"] = True
+        if contract.clarification_reason:
+            locked["clarification_reason"] = contract.clarification_reason
+    if contract.prohibited_capabilities:
+        locked["prohibited_capabilities"] = sorted(contract.prohibited_capabilities)
+    if contract.time_scope:
+        locked["time_scope"] = contract.time_scope
+    for key, value in (contract.entities or {}).items():
+        if key == "time_window" and value and "time_scope" not in locked:
+            locked["time_scope"] = value
+            continue
+        if _is_concrete(value):
+            locked[f"entities.{key}"] = value
+    if contract.qualification_tier != "T4":
+        locked["normalized_goal"] = contract.normalized_goal
+
+    unresolved: list[str] = []
+    if contract.qualification_tier == "T4" and not contract.clarification_required:
+        unresolved.append("semantic_goal")
+        if not any(name.startswith("entities.") for name in locked):
+            unresolved.append("investigation_target")
+
+    sufficiency = from_understanding_state(
+        required=["semantic_goal"] if contract.qualification_tier == "T4" else [],
+        available=sorted(locked.keys()),
+        missing=[],
+        locked=sorted(locked.keys()),
+        unresolved=unresolved,
+        clarification_required=contract.clarification_required,
+        policy_blocked=contract.ambiguity_state == "policy_blocked",
+    )
+    return contract.model_copy(
+        update={
+            "locked_fields": locked,
+            "unresolved_fields": unresolved,
+            "derived_field_names": list(_DERIVED_FIELD_NAMES),
+            "understanding_sufficiency": sufficiency.model_dump(mode="json"),
+        }
     )
