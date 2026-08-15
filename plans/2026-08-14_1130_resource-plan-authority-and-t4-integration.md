@@ -490,7 +490,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
     makes no GO/risk-acceptance decision. Structure check **12/12**; `git diff --check` and staged
     diff check clean; plan-discipline audit **0 gaps**.
 
-- [ ] **E1** — Closure gates
+- [x] **E1** — Closure gates
   - **Do:** Full forecast-rule set: governance regression, backend pytest, parity, Cisco,
     probes, sentinel, path, protected manifest, invariants, plan-discipline audit. Revert only
     the six stale reports. Surface: LOCAL.
@@ -498,7 +498,18 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
     regressions; parity `120 exact`; Cisco `50/0/0`; probes `10/10`; sentinel `17/17`; path
     `105/105`; manifest N/N; invariants 7/7; plan audit 0 gaps.
   - **Depends on:** E0
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/e1_closure_gates.md` — **11/11 gates PASS** in the isolated
+    worktree `/var/www/ai-soc-assistant-plan7-e1` @ `6ecf6c4`: governance `stage3_governance_regression: PASS`
+    (harness 6/6, dispatch matrix 5/5); pytest `5335 passed, 3 skipped, 6 xfailed, 0 failed`;
+    truth set 0 regressions (64/76); parity `exact=120 approved=0 critical=0`; Cisco
+    `PASS=50 REVIEW=0 FAIL=0 CRITICAL=0`; probes 10/10; sentinel 17/17; path 105/105; manifest
+    15/15; invariants 7/7; plan audit 0 gaps. Attempt 2 was aborted by an external shared-worktree
+    checkout (no Plan 7 commit lost) and resumed from an isolated worktree. The one repository
+    change is an `INCOMPLETE_CONVERGENCE_COMMIT` manifest hash recapture for the artifact
+    authorized by `5810000` (1 file, 1 line); no baseline refreshed, no test weakened. Two
+    gitignored-only `ENVIRONMENT_DRIFT` reconstructions are disclosed in the evidence. A7,
+    F1/F2/F3, `CONFIG_REBUILD_DRIFT=CLOSED (development)` and `live_mcp_unproven` carried
+    forward unchanged; no GO/NO-GO decision.
 
 - [ ] **E2** — `P7_PRODUCTION_GO_LIVE_V2` **STOP**
   - **Do:** Present the full matrix: Functional, Safety, Performance, Reliability,
