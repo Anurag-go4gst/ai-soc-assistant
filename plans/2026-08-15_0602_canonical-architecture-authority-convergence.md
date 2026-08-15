@@ -464,11 +464,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
 
 ### S — shared sufficiency contract
 
-- [ ] **S0 — Introduce the staged sufficiency result without changing behavior**
+- [x] **S0 — Introduce the staged sufficiency result without changing behavior**
   - **Do:** Add a small result/adapter contract over existing deterministic checks with `stage`, `status`, `required`, `available`, `missing`, `locked`, `unresolved`, `reason_codes`, and `next_action`. `next_action` is derived deterministically from existing policy/state. This object is not a planner, router, policy engine, or LLM authority. Do not replace existing qualification/completeness/context-sufficiency rules.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_shared_sufficiency_contract.py app/tests/test_context_sufficiency_stage3j.py -q`
   - **Depends on:** P1.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `app/chat/contracts/staged_sufficiency.py` adapter only — `StagedSufficiencyResult` + `from_context_sufficiency` / `from_understanding_state`; `next_action` derived (`CONTINUE`/`CALL_T4`/`CLARIFY`/`DEGRADE`/`BLOCK`); EVIDENCE cannot `CALL_T4`. Existing `check_context_sufficiency` unchanged. Verify: `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_shared_sufficiency_contract.py app/tests/test_context_sufficiency_stage3j.py -q` → **23 passed**. Not wired into `/chat`. `architecture.md` unmodified.
 
 ### U — understanding, T4, and deterministic merge
 
@@ -705,3 +705,5 @@ None at amendment time. Commands referencing new tests/harnesses name the exact 
   `backend/app/tests/test_canonical_architecture_authority_baseline.py` (**11 passed**). Safety
   invariants pinned; AUTH0 fingerprint-binding recorded PARTIAL; T4 failure has no restart path.
   No runtime/flag/`architecture.md` change. F3 serving not claimed. Next: S0.
+- **2026-08-16:** **S0 complete.** Shared `StagedSufficiencyResult` adapter over existing
+  completeness/context-sufficiency checks; no pipeline wiring; 23 passed. Next: U0.
