@@ -4,33 +4,28 @@ B0 wrote this as a pre-change audit at baseline `2f678b9` + Phase A. **The secti
 
 Related: [`phase_contract_and_schedule.md`](phase_contract_and_schedule.md), [`docs/evals/plan5_architecture_and_routing_report.md`](../evals/plan5_architecture_and_routing_report.md).
 
-## Current live flow (post Plan 5 B–D)
+## Current live flow (post Plan 7 / Plan 8)
 
 ```
 POST /chat
-  → understand_query → route_skill (provisional; not understanding input)
-  → run_canonical_planning
-       build_query_to_intent(query, understanding, provenance)   ← no routed_skill
-       qualify_reference_query (T0 promotion; does not write routed["skill"])
-       build_resolved_query_contract                             ← no skill, no execution authority
-       optional T4 semantic hop (default OFF, 2.0s, degrade to deterministic)
-  → adjudicate_route(ResolvedQueryContract, …)                   ← L4; production final route
-  → graph_node_route_contract                                    ← last writer of routed["skill"]
-  → ResourcePlan + PhaseContract → merge_schedule                ← flag-gated; default OFF
-  → knowledge / SPL / MCP / validation / HIL ordered by dependencies
+  → T1–T3 understand_query
+  → UNDERSTANDING sufficiency (optional T4; default OFF in repo, ON on this host's development profile)
+  → deterministic T4 validation/merge → FINAL ResolvedQueryContract
+  → clarification decision → final owner/route
+  → ResourcePlan + PhaseContract → existing Resource Planner hub
+  → knowledge / SPL / MCP / validation / HIL ordered by the compiled schedule
 ```
 
 Authoritative seams:
 
 | Concern | Authority | Default |
 |---|---|---|
-| Understanding | `ResolvedQueryContract` (`chat/contracts/resolved_query.py`), built `resolved_query_builder.py:95`, emitted `canonical_planning_orchestrator.py` | Always on canonical turns |
-| Final skill | `adjudicate_route` (`routing/route_adjudication.py:92`) committed at `graph_node_route_contract` | Always |
-| Route-level capability veto | `ai_soc_live_capability_enforcement_enabled` | **false** (`DEFAULT_OFF_ARCHITECTURALLY_DEFERRED`; `cisco.ot.029`) |
-| T4 semantic hop | `ai_soc_t4_semantic_understanding_enabled` | **false**; timeout 2.0s |
-| Schedule merge | `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` | **false**; dispatch-v2 projection still wins when present |
-| Capability satisfaction | schedule-level (`phase_schedule_merge.evaluate_capability_satisfaction`), not "one skill grants everything" | Diagnostic/deny only |
-| Plan 4 D3 advisory finality | `governance.py::_advisory_may_replace_skill` | Unchanged |
+| Understanding | Final `ResolvedQueryContract` before clarification, ownership, and ResourcePlan | Always on canonical turns |
+| Final skill | Ownership/entry signal only; not a capability veto (`ai_soc_live_capability_enforcement_enabled`) | enforcement **false** |
+| T4 semantic hop | Bounded interpreter only; no tools/MCP/route/capability grants | repo **false** @ 2.0s; F3 serving still a blocker |
+| Schedule merge | `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` | repo **false**; **normal** when on. dispatch-v2 cannot win while this is on |
+| PlanDelta | Conditional Plan 8 extension | `NOT_REQUIRED_FOR_CURRENT_SCOPE` |
+| Capability satisfaction | schedule-level, not "one skill grants everything" | Diagnostic/deny only |
 
 Live `build_query_to_intent` at `canonical_planning_orchestrator.py:447` and `:516` does **not** pass `routed_skill`. Known-lane `primary_intent` is not overwritten with the routed skill. Frozen truth-set arms still call `select_route_from_understanding` / `route_skill` and therefore do **not** observe L4/L5.
 

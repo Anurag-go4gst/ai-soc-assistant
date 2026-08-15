@@ -646,11 +646,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** X0 plus explicit evidence-backed retirement authorization. This is separate from the advanced-execution gate.
   - **Evidence:** `NOT_REQUIRED_FOR_CURRENT_SCOPE`. X0 classified **0 dead** seams and recorded **no** retirement authorization. All seven seams retained: `llm_plan_bridge` test-only; evidence-loop HUB rollback-only; `guided_hybrid_refinement` production; `linear_graph_legacy` test-only; dispatch-v2 / `session_spl_refine` / `_run_legacy_dispatch_fallback` rollback-only. No deletion. `architecture.md` unmodified.
 
-- [ ] **X2 — Reconcile architecture and operating documentation**
+- [x] **X2 — Reconcile architecture and operating documentation**
   - **Do:** Update `AGENTS.md`, `CLAUDE.md`, phase/schedule docs, deployment posture, and architecture diagrams to match verified runtime authority. Resolve the contradiction over live final synthesis by recording the approved policy; do not change behavior as a documentation shortcut.
   - **Verify:** `rg -n "No final LLM synthesis|inert flag|dispatch-v2|PhaseContract|PlanDelta|ResolvedQueryContract" AGENTS.md CLAUDE.md docs/architecture docs/coe`; manually trace every claim to code, deployment evidence, or an explicit decision record.
   - **Depends on:** X0. X1 is conditional and does not block documentation reconciliation once its disposition is recorded.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Operating docs now match Plan 7/8 verified runtime: ResourcePlan+PhaseContract sole normal authority; dispatch-v2 fenced; A7 rollback-only fallback retained; live synthesis = narration-only when both flags true (repo default false; Answer Guard still inert); PlanDelta `NOT_REQUIRED_FOR_CURRENT_SCOPE`; production GO deferred; F3/live MCP unproven. `architecture.md` unmodified. No runtime/flag change. Verify `rg` re-run at check-off.
 
 - [x] **X3 — Reconcile inherited Plan 7 A7 fallback disposition**
   - **Do:** Consume and preserve the already-recorded Plan 7 A7 result; do not reopen A7. If the inherited fallback is retained, preserve its structural tests and disposition. If Plan 7 retired it with proof, do not recreate it. If Plan 7 was explicitly superseded before A7 completion, consume the explicit user-approved P0 disposition before doing anything.
@@ -717,3 +717,4 @@ None at amendment time. Commands referencing new tests/harnesses name the exact 
 - **2026-08-16:** **X0 complete.** Seven seams classified; 0 dead; no deletion. Next: X1 disposition.
 - **2026-08-16:** **X1 complete.** `NOT_REQUIRED_FOR_CURRENT_SCOPE`; all seven seams retained. Next: X3.
 - **2026-08-16:** **X3 complete.** A7 consumed, not reopened; Verify **29 passed**. Next: X2.
+- **2026-08-16:** **X2 complete.** Operating docs reconciled to verified runtime; synthesis policy recorded; no GO/F3 claim. Next: G0.
