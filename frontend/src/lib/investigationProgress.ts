@@ -81,6 +81,35 @@ const BASE_STEPS: Omit<InvestigationProgressStep, 'durationMs' | 'activity'>[] =
   },
 ];
 
+/**
+ * Demo step durations are jittered (±30%, with an occasional slow stage) so the
+ * Experience Center never plays an identical, obviously-staged timeline twice.
+ */
+export function jitterMs(base: number): number {
+  const spread = base * 0.3;
+  let value = base - spread + Math.random() * spread * 2;
+  if (Math.random() < 0.18) {
+    value *= 1.45; // occasional "slow" stage, like a real backend hiccup
+  }
+  return Math.round(value);
+}
+
+/**
+ * Global tempo for the Experience Center staged playback. The raw per-step values
+ * sum to ~11s on an MCP-heavy scenario (+ finalization → 12–18s); scaling them keeps
+ * the realistic staging while landing total time-to-answer at ~8–10s. Demo-only:
+ * the live path uses LIVE_LINEAR_STEPS and never calls step().
+ */
+const DEMO_DURATION_SCALE = 0.62;
+
+function step(
+  partial: Omit<InvestigationProgressStep, 'durationMs'> & { durationMs?: number },
+  durationMs: number,
+): InvestigationProgressStep {
+  const { durationMs: _ignored, ...rest } = partial as InvestigationProgressStep;
+  return { ...rest, durationMs: jitterMs(Math.round(durationMs * DEMO_DURATION_SCALE)) };
+}
+
 const LIVE_LINEAR_STEPS: InvestigationProgressStep[] = [
   step(
     {
@@ -265,40 +294,11 @@ export function applyStageLatencies(
   });
 }
 
-/**
- * Demo step durations are jittered (±30%, with an occasional slow stage) so the
- * Experience Center never plays an identical, obviously-staged timeline twice.
- */
-export function jitterMs(base: number): number {
-  const spread = base * 0.3;
-  let value = base - spread + Math.random() * spread * 2;
-  if (Math.random() < 0.18) {
-    value *= 1.45; // occasional "slow" stage, like a real backend hiccup
-  }
-  return Math.round(value);
-}
-
 /** Splunk-style search job sid for the MCP handshake micro-sequence. */
 export function generateJobSid(): string {
   const epoch = 1718_000_000 + Math.floor(Math.random() * 9_000_000);
   const suffix = 1000 + Math.floor(Math.random() * 9000);
   return `${epoch}.${suffix}`;
-}
-
-/**
- * Global tempo for the Experience Center staged playback. The raw per-step values
- * sum to ~11s on an MCP-heavy scenario (+ finalization → 12–18s); scaling them keeps
- * the realistic staging while landing total time-to-answer at ~8–10s. Demo-only:
- * the live path uses LIVE_LINEAR_STEPS and never calls step().
- */
-const DEMO_DURATION_SCALE = 0.62;
-
-function step(
-  partial: Omit<InvestigationProgressStep, 'durationMs'> & { durationMs?: number },
-  durationMs: number,
-): InvestigationProgressStep {
-  const { durationMs: _ignored, ...rest } = partial as InvestigationProgressStep;
-  return { ...rest, durationMs: jitterMs(Math.round(durationMs * DEMO_DURATION_SCALE)) };
 }
 
 export function buildInvestigationProgressSteps(options?: {
