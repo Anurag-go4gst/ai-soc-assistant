@@ -30,8 +30,7 @@ DEMO = Path(__file__).resolve().parents[1] / "demo"
 # --- inventory, as data -------------------------------------------------------
 
 # path -> (reaches_canonical_seam, classification)
-# Classifications are the A1 vocabulary: ADOPT_CANDIDATE / KEEP_SEPARATE /
-# DECISION_REQUIRED. Recorded in the plan's A1 evidence with full reasoning.
+# Plan 7 adds ROLLBACK_ONLY after resolving one A1 decision-required seam.
 SEAM_INVENTORY: dict[str, tuple[bool, str]] = {
     "graph:composed_dispatch": (True, "SEAM"),
     "graph:rag_only": (False, "DECISION_REQUIRED"),
@@ -39,13 +38,19 @@ SEAM_INVENTORY: dict[str, tuple[bool, str]] = {
     "graph:non_planned_finalize": (False, "KEEP_SEPARATE"),
     "imperative:composed_plan": (True, "SEAM"),
     "imperative:guided_hybrid": (False, "DECISION_REQUIRED"),
-    "imperative:session_spl_refine": (False, "DECISION_REQUIRED"),
+    "imperative:session_spl_refine": (False, "ROLLBACK_ONLY"),
     "imperative:non_planned": (False, "KEEP_SEPARATE"),
     "trace:v2_cursor_synthesis": (False, "KEEP_SEPARATE"),
     "fixture:ec_demo": (False, "KEEP_SEPARATE"),
 }
 
-VALID_CLASSIFICATIONS = {"SEAM", "ADOPT_CANDIDATE", "KEEP_SEPARATE", "DECISION_REQUIRED"}
+VALID_CLASSIFICATIONS = {
+    "SEAM",
+    "ADOPT_CANDIDATE",
+    "KEEP_SEPARATE",
+    "DECISION_REQUIRED",
+    "ROLLBACK_ONLY",
+}
 
 # Functions permitted to turn state into a hook schedule.
 ALLOWED_SCHEDULE_PRODUCERS = {
@@ -180,8 +185,8 @@ def test_hook_execution_loops_are_confined_to_known_modules() -> None:
 
     source = inspect.getsource(pipeline._run_legacy_dispatch_fallback)
     # This fallback executes hooks itself instead of delegating to the executor.
-    # Pinned deliberately: it is a KNOWN duplicate executor, recorded in A1 as
-    # DECISION_REQUIRED. If it disappears, adoption happened and A1 must be revisited.
+    # Pinned deliberately: it is a KNOWN duplicate executor, now fenced as
+    # ROLLBACK_ONLY. If it spreads, normal authority regressed.
     assert "hook_nodes" in source
     assert "imperative_hook_schedule_from_state" in source
 
