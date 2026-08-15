@@ -517,6 +517,7 @@ def _evidence_scope_for_session(state: dict[str, Any]) -> dict[str, Any] | None:
     return {
         "time_scope": rqc.get("time_scope"),
         "entities": rqc.get("entities") if isinstance(rqc.get("entities"), dict) else {},
+        "intent_family": rqc.get("intent_family"),
         "freshness": evidence.get("observed_at") or evidence.get("freshness"),
         "applicability": evidence.get("applicability"),
     }

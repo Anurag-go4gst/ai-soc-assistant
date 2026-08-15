@@ -626,11 +626,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** O0.
   - **Evidence:** SessionPins now persist redacted last RQC, InvestigationOutcome ref, evidence refs/scope, clarification state, and plan identity. Generic “what about …” deltas reuse prior RQC via `follow_up_kind=scope_delta` and `apply_session_continuity` (retain time/geo/event; replace account class) without a new phrase catalogue. TTL/replace/clear and MITRE follow-up unchanged. Verify → **28 passed**. `architecture.md` unmodified. Applicability statuses left to O1A.
 
-- [ ] **O1A — Revalidate prior evidence for a follow-up's final RQC**
+- [x] **O1A — Revalidate prior evidence for a follow-up's final RQC**
   - **Do:** After deterministic session-delta resolution, evaluate prior evidence applicability against the new final RQC across relevant entity/account, host/device, IP/domain, geography, time/freshness, source/index, user/RBAC, investigation purpose, policy, and contradiction/supersession dimensions. Use existing vocabulary if equivalent; otherwise keep the minimum controlled statuses `REUSABLE`, `STALE`, `OUT_OF_SCOPE`, `SUPERSEDED`, `INVALIDATED`, `BLOCKED`. Only reusable evidence may satisfy the new EVIDENCE sufficiency result. Retain unusable historical evidence for provenance; do not delete it or solve follow-up with a phrase catalogue.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_session_evidence_applicability.py app/tests/test_minimal_evidence_state.py app/tests/test_session_canonical_continuity.py app/tests/test_canonical_architecture_authority_baseline.py -q`; the admin→service-account example keeps safe context but marks admin-only evidence out of scope and cannot treat it as sufficient for the service-account RQC.
   - **Depends on:** O1, E0A, and D0.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `apply_session_evidence_applicability` classifies prior refs against the new final RQC. Admin-scoped MCP evidence is `OUT_OF_SCOPE` for `account_type=service_account` and is kept in provenance, not `obtained`. Sufficiency is `INSUFFICIENT` (`evidence_out_of_scope`). Matching geo/time without account conflict stays `REUSABLE`. Verify → **20 passed**. Neighbor `test_resource_planner_evidence_sufficiency.py` → **4 passed**. `architecture.md` unmodified.
 
 ### X — retirement and documentation
 

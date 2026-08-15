@@ -47,6 +47,7 @@ class EvidenceStateItem(BaseModel):
     scope: dict[str, Any] = Field(default_factory=dict)
     observed_at: str | None = None
     freshness: str | None = None
+    applicability: str | None = None
 
 
 class MinimalEvidenceState(BaseModel):
@@ -59,6 +60,7 @@ class MinimalEvidenceState(BaseModel):
     stale: list[str] = Field(default_factory=list)
     invalidated: list[str] = Field(default_factory=list)
     blocked: list[str] = Field(default_factory=list)
+    out_of_scope: list[str] = Field(default_factory=list)
     provenance: dict[str, Any] = Field(default_factory=dict)
     trust_class: TrustClass = "untrusted_evidence"
     scope: dict[str, Any] = Field(default_factory=dict)
@@ -284,12 +286,14 @@ def _trust_class_for_record(record: dict[str, Any]) -> TrustClass:
 
 
 def _scope_for_record(record: dict[str, Any], *, rqc: dict[str, Any]) -> dict[str, Any]:
+    entities = record.get("entities") if isinstance(record.get("entities"), dict) else {}
     return {
         "source_name": record.get("source_name"),
         "source_type": record.get("source_type"),
         "time_range": record.get("time_range"),
         "time_scope": rqc.get("time_scope"),
         "tool_name": record.get("tool_name"),
+        "entities": entities,
     }
 
 

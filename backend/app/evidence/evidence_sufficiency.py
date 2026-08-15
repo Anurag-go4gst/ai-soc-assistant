@@ -31,6 +31,21 @@ def attach_evidence_sufficiency(state: dict[str, Any]) -> dict[str, Any]:
             else None,
             execution=state.get("execution") if isinstance(state.get("execution"), dict) else None,
         ).model_dump_view()
+    from app.evidence.session_evidence_applicability import (
+        apply_session_evidence_applicability,
+        session_applicability_inputs,
+    )
+
+    prior_scope, prior_refs = session_applicability_inputs(state)
+    if prior_scope or prior_refs:
+        evidence_state = apply_session_evidence_applicability(
+            evidence_state,
+            resolved_query_contract=state.get("resolved_query_contract")
+            if isinstance(state.get("resolved_query_contract"), dict)
+            else None,
+            prior_scope=prior_scope,
+            prior_refs=prior_refs,
+        ).model_dump_view()
     result = from_evidence_state(
         evidence_state,
         resolved_query_contract=state.get("resolved_query_contract")

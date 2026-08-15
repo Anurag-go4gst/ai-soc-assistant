@@ -162,10 +162,15 @@ def from_evidence_state(
     stale = [str(item) for item in (view.get("stale") or [])]
     invalidated = [str(item) for item in (view.get("invalidated") or [])]
     blocked = [str(item) for item in (view.get("blocked") or [])]
+    out_of_scope = [str(item) for item in (view.get("out_of_scope") or [])]
+    obtained = [key for key in obtained if key not in set(out_of_scope)]
     required_set = set(required)
     applicable_blocked = [key for key in blocked if not required_set or key in required_set]
     applicable_stale = [key for key in stale if not required_set or key in required_set]
     applicable_invalidated = [key for key in invalidated if not required_set or key in required_set]
+    applicable_out_of_scope = [key for key in out_of_scope if not required_set or key in required_set]
+    if applicable_out_of_scope:
+        missing = _unique_keys([*missing, *applicable_out_of_scope])
     reasons: list[str] = []
     if applicable_blocked:
         status: SufficiencyStatus = "BLOCKED"
@@ -174,7 +179,9 @@ def from_evidence_state(
     elif missing and not (set(obtained) & required_set):
         status = "INSUFFICIENT"
         reasons.append("evidence_missing")
-    elif missing or applicable_stale or applicable_invalidated:
+        if applicable_out_of_scope:
+            reasons.append("evidence_out_of_scope")
+    elif missing or applicable_stale or applicable_invalidated or applicable_out_of_scope:
         status = "PARTIAL"
         if missing:
             reasons.append("evidence_missing")
@@ -182,6 +189,8 @@ def from_evidence_state(
             reasons.append("evidence_stale")
         if applicable_invalidated:
             reasons.append("evidence_invalidated")
+        if applicable_out_of_scope:
+            reasons.append("evidence_out_of_scope")
     else:
         status = "SUFFICIENT"
     next_action = derive_next_action(
