@@ -299,7 +299,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
 
 ## Workstream B — keep T4 ON and measure the real target architecture
 
-- [ ] **B0** — T4-ON instrumentation on every run
+- [x] **B0** — T4-ON instrumentation on every run
   - **Do:** For every corpus/regression run in this plan capture per row: T4 invoked, contract
     accepted, timeout, malformed/empty output, slot-busy, clarification preserved, capability
     widening, selected route after failure, total latency. Ride the existing
@@ -308,7 +308,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
   - **Depends on:** P0.3
   - **Evidence:** `docs/evals/plan7/runs/target_profile_baseline.md`. Arm F `docs/evals/plan6/runs/20260814T125340Z/` (12 rows) + arm D `…/20260814T130605Z/` (9 rows — 8 paraphrases plus the shared `p6.t4.out_of_registry`) = **21 row-runs / 20 distinct rows**, harness exit 0 both, `missing_qualification_tier` none, **code unchanged**. Per row: route, tier, fingerprint, `degrade_reason`, `phase_names`, `inline_executed`, T4 fields, latency. **Merge executed on 6/12**; `no_schedulable_step` on **exactly 2/12** (`p6.multi.knowledge_spl_mcp`, `p6.live_posture.d1_003`); remaining 4 are rag_only-shaped turns that never reach the seam. **T4 ON and failing visibly, not suppressed:** invoked on **12/12** T4-tier row-runs and **0** T1–T3 rows (qualification correct), **0** accepted contracts, **12/12** timeouts at 2000–2003 ms against the 2.0 s bound, **0** false capability widening, clarification preserved. Arm F p50 ≈ **55.5 s** vs Plan 6's 92.9 s — attributed to v2 being OFF (no pre-SPL discovery), **not** claimed as an improvement.
 
-- [ ] **B1** — T4-ON diagnostic baseline
+- [x] **B1** — T4-ON diagnostic baseline
   - **Do:** Record the current expected outcome honestly — T4 invoked → ~2 s bounded failure →
     deterministic safe fallback/clarification. Acceptable as diagnostic evidence; **not**
     sufficient for production activation. Surface: VPS.
@@ -317,7 +317,7 @@ Measured with exec **ON**, v2 **OFF**, T4 **ON**, live capability enforcement **
   - **Verify:** `docs/evals/plan7/b1_t4_on_baseline.md`; **0** false capability widening; **0**
     clarification losses; failures visible, not suppressed.
   - **Depends on:** B0, A4
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/plan7/b1_t4_on_baseline.md`, across **33 row-runs** (P0.4 arm F + arm D, A4 arm F). T4 **invoked 17/17** on every T4-tier row; **0** T4-tier rows without invocation (failing-first: T4 really is ON); **0** invocations on T1–T3 (qualification correct); **0 accepted contracts**; **17/17 timeouts** with `elapsed_ms` **2000–2005 ms**; only note observed is `llm_assist_timed_out`; **0** malformed/empty (bound reached before any parse); **0** slot-busy; **0** false capability widening; clarification preserved; route after failure identical to the Plan 6 Arm A baseline. Recorded outcome: `T4 invoked → ~2 s bounded failure → deterministic safe fallback/clarification`. Acceptable as diagnostic evidence, **not** sufficient for production activation — per the E2 amendment T4 is a hard GO requirement, so a non-viable C3 makes it a CRITICAL BLOCKER. Failures visible, nothing suppressed, T4 never switched off.
 
 ---
 
