@@ -274,6 +274,10 @@ from app.spl.user_constraint_bindings import (
     UserConstraintBindings,
     build_user_constraint_bindings,
 )
+from app.spl.rqc_constraint_preservation import (
+    apply_rqc_constraint_preservation,
+    rqc_slots_from_contract,
+)
 from app.chat.mitre_branch import planner_mitre_branch_suppressed_decision, run_mitre_evidence_branch
 from app.chat.hil_resolution import resolve_effective_hil_required
 from app.chat.planning_decision import plan_path_and_tools
@@ -2856,7 +2860,22 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             ).get("mcp_discovery_context"),
             slot_handoff=_slot_handoff,
             dispatch_flags=_dispatch_flags,
+            resolved_query_contract=state.get("resolved_query_contract")
+            if isinstance(state.get("resolved_query_contract"), dict)
+            else None,
         )
+        rqc = state.get("resolved_query_contract") if isinstance(state.get("resolved_query_contract"), dict) else None
+        spl_text = None
+        if isinstance(spl_validation, dict):
+            spl_text = spl_validation.get("normalized_spl")
+        if not spl_text and isinstance(candidate_spl, dict):
+            spl_text = candidate_spl.get("candidate_spl")
+        if isinstance(spl_validation, dict) and rqc:
+            spl_validation = apply_rqc_constraint_preservation(
+                spl_validation,
+                spl=str(spl_text or ""),
+                resolved_query_contract=rqc,
+            )
     preference = preference_from_discovery_context(
         query=query_text,
         discovery_context=(
@@ -7175,6 +7194,7 @@ def _spl_user_constraint_bindings(
     llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
     query_understanding: Any | None = None,
     template_id: str | None = None,
+    resolved_query_contract: dict[str, Any] | None = None,
 ) -> UserConstraintBindings:
     template = get_spl_template(template_id) if template_id else None
     policy_indexes = None
@@ -7195,6 +7215,9 @@ def _spl_user_constraint_bindings(
         llm_intent_advisory=llm_intent_advisory,
         query_understanding=query_understanding,
         extra_slots=source_profile_result.slots,
+        rqc_slots=rqc_slots_from_contract(
+            resolved_query_contract if isinstance(resolved_query_contract, dict) else None
+        ),
         source_profile_trace=source_profile_result.trace(),
         allowed_indexes=policy_indexes,
         allowed_sourcetypes=policy_sourcetypes,
@@ -7253,6 +7276,7 @@ def _candidate_spl_stage(
     mcp_discovery_context: dict[str, Any] | None = None,
     slot_handoff: dict[str, Any] | None = None,
     dispatch_flags: dict[str, bool] | None = None,
+    resolved_query_contract: dict[str, Any] | None = None,
 ) -> tuple[dict | None, dict | None]:
     if not spl_allowed:
         return None, None
@@ -7370,6 +7394,7 @@ def _candidate_spl_stage(
         llm_intent_advisory=llm_intent_advisory,
         query_understanding=query_understanding,
         template_id=template_id,
+        resolved_query_contract=resolved_query_contract,
     )
     if runtime_profile is not None and _dispatch_v2_on:
         catalogue_template_id = _RUNTIME_PROFILE_CATALOGUE_TEMPLATES.get(
@@ -7400,6 +7425,7 @@ def _candidate_spl_stage(
                         else "user"
                     ),
                     user_constraint_bindings=user_bindings,
+                    resolved_query_contract=resolved_query_contract,
                 )
                 if catalogue_candidate is not None:
                     return catalogue_candidate
@@ -7430,6 +7456,7 @@ def _candidate_spl_stage(
             else "user"
         ),
         user_constraint_bindings=user_bindings,
+        resolved_query_contract=resolved_query_contract,
     )
     if template_candidate is not None:
         candidate_payload, validation_payload = template_candidate
@@ -7675,6 +7702,7 @@ def _candidate_from_default_template(
     extra_slots: dict[str, Any] | None = None,
     slot_source: str = "user",
     user_constraint_bindings: UserConstraintBindings | None = None,
+    resolved_query_contract: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
     template = get_spl_template(template_id)
     if template is None or template.query_shape != QUERY_SHAPE_RAW_SEARCH or not template.spl_text:
@@ -7732,6 +7760,7 @@ def _candidate_from_default_template(
     bindings = user_constraint_bindings or _spl_user_constraint_bindings(
         user_query,
         template_id=template.template_id,
+        resolved_query_contract=resolved_query_contract,
     )
     compatibility = check_template_compatibility(template.template_id, bindings, template=template)
     force_skeleton = compatibility.use_user_bound_skeleton

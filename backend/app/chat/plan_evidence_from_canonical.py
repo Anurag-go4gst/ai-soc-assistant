@@ -127,6 +127,13 @@ def plan_evidence_from_canonical(
                 overlay["needs_mcp"] = True
             if overlay:
                 plan = plan.model_copy(update=overlay)
+            from app.spl.rqc_constraint_preservation import rqc_slots_from_contract
+
+            constraint_keys = list(rqc_slots_from_contract(rqc).keys())
+            if constraint_keys:
+                existing = [str(item) for item in (getattr(plan, "required_evidence_keys", None) or [])]
+                merged = list(dict.fromkeys([*existing, *constraint_keys]))
+                plan = plan.model_copy(update={"required_evidence_keys": merged})
 
     target_mode = answer_mode_decision.answer_mode
     if target_mode is not None and plan.answer_mode != target_mode:

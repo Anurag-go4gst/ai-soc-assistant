@@ -120,6 +120,7 @@ def build_user_constraint_bindings(
     llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
     query_understanding: QueryUnderstandingResult | None = None,
     extra_slots: dict[str, Any] | None = None,
+    rqc_slots: dict[str, Any] | None = None,
     source_profile_trace: dict[str, Any] | None = None,
     allowed_indexes: tuple[str, ...] | None = None,
     allowed_sourcetypes: tuple[str, ...] | None = None,
@@ -134,6 +135,8 @@ def build_user_constraint_bindings(
     deterministic: dict[str, Any] = {}
     if query_understanding is not None:
         deterministic.update(_entities_to_slots(query_understanding.entities))
+    if rqc_slots:
+        deterministic.update({str(key): value for key, value in rqc_slots.items() if value not in (None, "", [], {})})
 
     llm_slots = _llm_entity_slots(llm_intent_advisory)
     source_profile_slots = dict(extra_slots or {})
@@ -472,6 +475,12 @@ def bindings_to_extra_slots(bindings: UserConstraintBindings) -> dict[str, Any]:
         extra["service"] = bindings.explicit_services[0]
     if bindings.explicit_lookups:
         extra["lookup"] = bindings.explicit_lookups[0]
+    if bindings.explicit_src_ips:
+        extra["src_ip"] = bindings.explicit_src_ips[0]
+    if bindings.explicit_hosts:
+        extra["host"] = bindings.explicit_hosts[0]
+    if bindings.explicit_users:
+        extra["user"] = bindings.explicit_users[0]
     if bindings.explicit_thresholds:
         extra.update(bindings.explicit_thresholds)
     if bindings.explicit_directionality:
