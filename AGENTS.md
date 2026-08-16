@@ -114,6 +114,7 @@ Fix every `GAP:` before implementation. Generic loop runner: [`plans/LOOP_RUNNER
 | [`plans/LOOP_RUNNER_TEMPLATE.md`](plans/LOOP_RUNNER_TEMPLATE.md) | Generic loop-runner prompt per plan |
 | [`.cursor/hooks/audit-plan-discipline.sh`](.cursor/hooks/audit-plan-discipline.sh) | Audit a plan for checklist/verify/stop-condition gaps |
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code entry — stack, gotchas, plan index (links here for rules) |
+| [`docs/ai/t4_semantic_prompting_playbook.md`](docs/ai/t4_semantic_prompting_playbook.md) | **Read first** before any T4 prompt/schema/few-shot/merge work — Cisco 8B semantic-prompting learnings |
 | [`plans/README.md`](plans/README.md) | Active work pointers |
 | [`plans/`](plans/) | Versioned implementation specs |
 | `.cursor/plans/` | Cursor-local plans — may be ahead of git; reconcile into `plans/` for shared truth |
@@ -123,6 +124,7 @@ Fix every `GAP:` before implementation. Generic loop runner: [`plans/LOOP_RUNNER
 - **Plan 8 (active):** [`plans/2026-08-15_0602_canonical-architecture-authority-convergence.md`](plans/2026-08-15_0602_canonical-architecture-authority-convergence.md) — canonical authority convergence on the frozen [`architecture.md`](architecture.md). Plan 7 is **CLOSED 25/25** (merged). Index: [`plans/README.md`](plans/README.md).
 - **Intent cascade:** Done — [`plans/2026-06-17_1730_intent-node-cascade-hardening.md`](plans/2026-06-17_1730_intent-node-cascade-hardening.md). Harness: `test_cisco_intent_distribution.py`, `scripts/eval_out_of_set_intent_probe.py`.
 - **Cisco Environment KB + 50-Q catalogue:** Done as an earlier batch; loader/map exist — extend, do not recreate.
+- **T4 semantic prompting:** before any T4 prompt, schema, few-shot, or merge change, read [`docs/ai/t4_semantic_prompting_playbook.md`](docs/ai/t4_semantic_prompting_playbook.md). Do not query-patch; do not call Cisco on this VPS to iterate prompts.
 - **Master roadmap:** [`plans/AI_SOC_MASTER_PLAN.md`](plans/AI_SOC_MASTER_PLAN.md).
 
 Normal execution authority is `ResourcePlan + PhaseContract` via the existing Resource Planner hub. dispatch-v2 is rollback/test-only (fenced when ResourcePlan execution is on). Production GO remains **deferred**; T4 serving **F3** is still a critical blocker; live MCP/Splunk remains **unproven**. `architecture.md` is read-only.
