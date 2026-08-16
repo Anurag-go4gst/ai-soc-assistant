@@ -265,7 +265,9 @@ def test_malformed_output_rejected_fail_closed(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_module_has_no_mcp_or_spl_execution_path() -> None:
-    source = Path("app/chat/semantic_t4_understanding.py").read_text(encoding="utf-8")
+    source = (Path(__file__).resolve().parents[1] / "chat" / "semantic_t4_understanding.py").read_text(
+        encoding="utf-8"
+    )
     tree = ast.parse(source)
     imported: list[str] = []
     for node in ast.walk(tree):
