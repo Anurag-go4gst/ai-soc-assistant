@@ -31,6 +31,12 @@ Apply via `env/profiles/coe.env.example` (or operator overrides in repo-root `.e
 
 | Flag | COE recommended | Rationale |
 |------|-----------------|-----------|
+| `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` | `true` | Application execution authority: ResourcePlan + PhaseContract. **Not** live MCP. |
+| `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` | `false` | dispatch-v2 is rollback/test-only; ResourcePlan fences it when execution is on |
+| `AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED` | `true` | T4 is part of the intended architecture. Serving (F3) is still COE live proof. |
+| `AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS` | **operator `.env` override required** | Not set in the tracked COE seed. Code default `2.0` is rejected for this profile. Do **not** copy the VPS `120`s bound as a COE SLO. |
+| `AI_SOC_LIVE_CAPABILITY_ENFORCEMENT_ENABLED` | `false` | Live route-level capability enforcement stays off |
+| `LANGGRAPH_ORCHESTRATION_ENABLED` | `true` | Resource Planner graph is the `/chat` spine |
 | `AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED` | `true` | Out-of-catalog guided hunts use `guided_hybrid_dispatch` (review-only) |
 | `AI_SOC_RUNTIME_ENRICHMENT_ENABLED` | `true` | Loads curated `content_enrichment.json` on runtime paths when use case is activation-eligible |
 | `AI_SOC_CURATED_ENRICHMENT_ACTIVATION_ENABLED` | `true` | Legacy alias; either flag OR the other may enable enrichment gate |
@@ -41,9 +47,10 @@ Apply via `env/profiles/coe.env.example` (or operator overrides in repo-root `.e
 | `AI_SOC_SESSION_STORE_BACKEND` | `file` | Multi-worker-ready structured pins (no transcript) |
 | `AI_SOC_SESSION_STORE_FILE_DIR` | `<coe-writable-path>` | e.g. `/var/lib/ai-soc/session_pins` — must be writable by backend user |
 | `AI_SOC_PIPELINE_SPLIT_ROUTING_NODES_ENABLED` | **`false`** | Trace-only split nodes; enable only after engineering parity sign-off |
-| `MCP_GLOBAL_EXECUTION_ENABLED` | **`false`** | No live/mock MCP execution unless operator explicitly approves |
-| `MCP_SERVER_MOCK_EXECUTION_ENABLED` | **`false`** | Same |
-| `MCP_SERVER_*_EXECUTION_ENABLED` | **`false`** | Per-server execution stays off until live rollout |
+| `MCP_MODE` | **`mock`** | Mock MCP only until explicit live COE qualification |
+| `MCP_GLOBAL_EXECUTION_ENABLED` | `true` (mock lane) | Bounded **mock** execution when `MCP_MODE=mock`. **Not** live Splunk. Live Splunk requires `MCP_MODE=registry` + operator URL/token + per-server execution. |
+| `MCP_SERVER_MOCK_EXECUTION_ENABLED` | `true` (mock lane) | Same mock lane. Same as `development.env.example`. |
+| `MCP_SERVER_*_EXECUTION_ENABLED` | **`false`** until live rollout | Per-server live execution stays off |
 | `AI_SOC_GUIDED_MCP_DISCOVERY_ENABLED` | `false` | Separate COE decision; metadata discovery only when approved |
 
 **Still intentionally off in COE profile (unless operator documents an exception):**
@@ -98,7 +105,9 @@ Run after selecting COE profile and restarting backend (`docker compose up -d --
 
 ### 3.6 Execution safety (must pass)
 
-- [ ] `MCP_GLOBAL_EXECUTION_ENABLED=false` → no live/mock executed rows unless operator override documented.
+- [ ] `MCP_MODE=mock`. Mock-lane `MCP_GLOBAL_EXECUTION_ENABLED` does **not** mean live Splunk.
+- [ ] Live Splunk remains off until `MCP_MODE=registry` + operator URL/token + per-server execution.
+- [ ] T4 enabled only with an explicit `AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS` in `.env` (2.0s code default is rejected; do not copy VPS 120s as a COE SLO).
 - [ ] `candidate_spl` / `spl_validation.execution_enabled=false` on governed paths.
 - [ ] Free-form SPL execution blocked; planned templates do not emit approved executable SPL without COE template enablement.
 

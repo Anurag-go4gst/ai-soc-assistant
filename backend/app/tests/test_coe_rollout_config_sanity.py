@@ -88,6 +88,10 @@ def test_coe_profile_enables_safe_rollout_flags() -> None:
     assert env.get("AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED", "").lower() == "true"
     assert env.get("AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED", "").lower() == "true"
     assert env.get("AI_SOC_LLM_ANSWER_GUARD_ENABLED", "").lower() == "true"
+    assert env.get("AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED", "").lower() == "true"
+    assert env.get("AI_SOC_PIPELINE_DISPATCH_V2_ENABLED", "").lower() == "false"
+    assert env.get("AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED", "").lower() == "true"
+    assert "AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS" not in env
 
 
 def test_coe_profile_keeps_live_splunk_execution_off() -> None:

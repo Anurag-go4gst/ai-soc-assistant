@@ -64,7 +64,9 @@ Sample query: *How should I investigate unusual outbound traffic from an OT host
 Expected trace signals: `dispatch_source=guided_hybrid_dispatch`, `investigation_planning_enabled=true`,
 `safe_spl_execution_allowed=false`, `execution.status=skipped`.
 
-Batch 1 profile keeps `MCP_GLOBAL_EXECUTION_ENABLED=false` and `MCP_SERVER_MOCK_EXECUTION_ENABLED=false`.
+Batch 1 profile keeps `MCP_MODE=mock`. `MCP_GLOBAL_EXECUTION_ENABLED` /
+`MCP_SERVER_MOCK_EXECUTION_ENABLED` on that mock lane are **not** live Splunk.
+Live Splunk requires `MCP_MODE=registry` plus operator credentials.
 
 ## COE LLM endpoint
 

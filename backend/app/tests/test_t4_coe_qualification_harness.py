@@ -170,6 +170,17 @@ def test_hunt_cases_use_call_t4_overlay_missing_referent_stays_clarify() -> None
     assert inconclusive["t4_call_permitted"] is True
 
 
+def test_live_mode_refuses_code_default_t4_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "ai_soc_t4_semantic_understanding_timeout_seconds", 2.0)
+    refused = harness.refuse_live_on_code_default_timeout()
+    assert refused is not None
+    assert "2.0" in refused
+    monkeypatch.setattr(settings, "ai_soc_t4_semantic_understanding_timeout_seconds", 3.0)
+    assert harness.refuse_live_on_code_default_timeout() is None
+
+
 def test_t4_cannot_grant_route_in_invariants() -> None:
     report = harness.build_report(mode="emit-prompts")
     invariants = report["invariants"]

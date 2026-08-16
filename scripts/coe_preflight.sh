@@ -37,6 +37,17 @@ PUBLIC_API="$(dotenv_get "${ENV_FILE}" AI_SOC_PUBLIC_API_BASE_URL "http://127.0.
 CORS_ORIGINS="$(dotenv_get "${ENV_FILE}" AI_SOC_CORS_ALLOWED_ORIGINS "http://localhost:3010,http://127.0.0.1:3010")"
 VLLM_BASE="$(dotenv_get "${ENV_FILE}" AI_SOC_LLM_LOCAL_BASE_URL)"
 
+PROFILE_FILE="${REPO_ROOT}/env/profiles/${PROFILE}.env.example"
+merged_dotenv_get() {
+  local key="$1" default="${2:-}" from_env
+  from_env="$(dotenv_get "${ENV_FILE}" "${key}")"
+  if [[ -n "${from_env}" ]]; then
+    printf '%s' "${from_env}"
+    return 0
+  fi
+  dotenv_get "${PROFILE_FILE}" "${key}" "${default}"
+}
+
 echo "== AI-SOC deployment preflight =="
 echo "profile:              ${PROFILE}"
 echo "host bind:            ${HOST_BIND}"
@@ -101,6 +112,20 @@ fi
 if [[ "${CORS_ORIGINS}" == *"*"* ]]; then
   echo "ERROR: wildcard CORS is not allowed when credentials are enabled" >&2
   exit 1
+fi
+
+if [[ "${PROFILE}" == "coe" ]]; then
+  T4_ENABLED="$(merged_dotenv_get AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED false)"
+  T4_TIMEOUT="$(merged_dotenv_get AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS)"
+  T4_ENABLED_LC="$(printf '%s' "${T4_ENABLED}" | tr '[:upper:]' '[:lower:]')"
+  if [[ "${T4_ENABLED_LC}" == "true" || "${T4_ENABLED_LC}" == "1" || "${T4_ENABLED_LC}" == "yes" || "${T4_ENABLED_LC}" == "on" ]]; then
+    if [[ -z "${T4_TIMEOUT}" || "${T4_TIMEOUT}" == "2" || "${T4_TIMEOUT}" == "2.0" ]]; then
+      echo "ERROR: COE T4 is enabled but AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS is unset or the 2.0s code default." >&2
+      echo "HINT: set an explicit timeout in repo-root .env before live T4 qualification. Do not copy the VPS 120s bound as a COE SLO." >&2
+      exit 1
+    fi
+    echo "T4 timeout override:  ${T4_TIMEOUT}s (operator-supplied; not a documented SLO)"
+  fi
 fi
 
 echo ""
