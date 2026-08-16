@@ -98,10 +98,8 @@ def approve_action(action_id: str) -> EcActionRecord:
 def execute_action(action_id: str) -> EcActionRecord:
     with _lock:
         record = _require(action_id)
-        if record["state"] not in {"APPROVED", "APPROVAL_REQUIRED"}:
+        if record["state"] != "APPROVED":
             raise ValueError(f"ec_action_not_executable:{record['state']}")
-        if record["state"] == "APPROVAL_REQUIRED":
-            record["state"] = "APPROVED"
         record["state"] = "EXECUTED"
         record["production_side_effect"] = False
         extra = dict(record.get("extra") or {})
@@ -110,7 +108,7 @@ def execute_action(action_id: str) -> EcActionRecord:
             "production_side_effect": False,
             "provenance": "simulated_phase10_action",
             "summary": f"Simulated {record['kind']} completed with no production side effect.",
-            **({k: v for k, v in extra.items() if k != "source_interactive_action_id"}),
+            **({k: v for k, v in extra.items() if k not in {"source_interactive_action_id", "verify_payload"}}),
         }
         return _to_model(record)
 
@@ -122,11 +120,14 @@ def verify_action(action_id: str) -> EcActionRecord:
             raise ValueError(f"ec_action_not_verifiable:{record['state']}")
         record["state"] = "VERIFIED"
         record["production_side_effect"] = False
+        extra = dict(record.get("extra") or {})
+        verify_payload = extra.get("verify_payload") if isinstance(extra.get("verify_payload"), dict) else {}
         record["verify_result"] = {
             "verified": True,
             "production_side_effect": False,
             "provenance": "simulated_phase10_action",
             "summary": f"Simulated verification for {record['kind']} succeeded.",
+            **verify_payload,
         }
         return _to_model(record)
 

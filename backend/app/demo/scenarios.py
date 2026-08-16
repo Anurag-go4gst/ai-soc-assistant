@@ -123,7 +123,7 @@ def list_demo_scenarios() -> list[dict[str, Any]]:
     items = [
         item
         for item in SCENARIOS.values()
-        if item.fsm_step != 0 and getattr(item, "picker_tier", "leadership") == "leadership"
+        if item.fsm_step != 0 and getattr(item, "picker_tier", "leadership") in {"leadership", "lab"}
     ]
     return [_scenario_summary(item) for item in sorted(items, key=lambda item: item.demo_order)]
 
@@ -1540,11 +1540,11 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
     if fw_override is not None:
         return fw_override
 
-    from app.demo.fixtures.s1.pack import s1_analyst_override
+    from app.demo.fixtures.registry import analyst_override_for
 
-    s1_override = s1_analyst_override(scenario.scenario_id, base)
-    if s1_override is not None:
-        return s1_override
+    override = analyst_override_for(scenario.scenario_id, base)
+    if override is not None:
+        return override
 
     if scenario.scenario_id == "failed_login_spike_app01":
         return attach_evidence_summary({
@@ -2925,10 +2925,10 @@ SCENARIOS: dict[str, DemoScenario] = {
 }
 
 from app.demo.ec_firewall_incident import build_firewall_incident_scenarios
-from app.demo.fixtures.s1.pack import build_s1_demo_scenarios
+from app.demo.fixtures.registry import all_flagship_demo_scenarios
 
 SCENARIOS.update(build_firewall_incident_scenarios())
-SCENARIOS.update(build_s1_demo_scenarios())
+SCENARIOS.update(all_flagship_demo_scenarios())
 
 # Built after the registry so alias normalization sees every scenario. Fail-fast on
 # any alias/query collision (plan D1).
