@@ -57,14 +57,14 @@ def test_clarification_sufficiency_does_not_invoke_t4() -> None:
             normalized_goal="compare this",
             intent_family="clarification_required",
             answer_goal="clarification",
-            ambiguity_state="clarification_required",
+            ambiguity_state="policy_blocked",
             clarification_required=True,
-            clarification_reason="unnamed referent",
+            clarification_reason="unsafe_run_spl",
             qualification_tier="T4",
             qualification_source="out_of_registry",
         )
     )
-    assert (contract.understanding_sufficiency or {}).get("next_action") == "CLARIFY"
+    assert (contract.understanding_sufficiency or {}).get("next_action") == "BLOCK"
     maybe_enrich_t4_semantic(contract, query="compare this", raw_output_provider=_provider)
     assert calls == []
 
@@ -72,9 +72,12 @@ def test_clarification_sufficiency_does_not_invoke_t4() -> None:
 def test_prompt_is_limited_to_locked_map_and_unresolved_fields() -> None:
     contract = _t4_contract()
     prompt = _build_semantic_t4_user_prompt("hunt fragment", contract)
-    assert "unresolved_query_fragment" in prompt
+    assert '"query":"hunt fragment"' in prompt.replace(" ", "") or "hunt fragment" in prompt
+    assert "unresolved_query_fragment" not in prompt
     assert "locked_fields_do_not_change" in prompt
-    assert "required_capabilities" not in prompt or "unresolved_fields_to_resolve" in prompt
+    assert "unresolved_fields_to_resolve" in prompt
+    assert "field_types" not in prompt
+    assert "Return only fields offered in unresolved_fields_to_resolve." in prompt
     schema = _schema_limited_to_unresolved(contract)
     assert "intent_family" not in schema["properties"]
     assert "required_capabilities" not in schema["properties"]
@@ -92,7 +95,7 @@ def test_t4_cannot_clear_deterministic_clarification() -> None:
             answer_goal="clarification",
             ambiguity_state="clarification_required",
             clarification_required=True,
-            clarification_reason="alert_id missing",
+            clarification_reason="unsafe_run_spl",
             qualification_tier="T4",
             qualification_source="out_of_registry",
             prohibited_capabilities=["spl", "mcp"],
@@ -110,5 +113,5 @@ def test_t4_cannot_clear_deterministic_clarification() -> None:
         ),
     )
     assert enriched.clarification_required is True
-    assert enriched.clarification_reason == "alert_id missing"
+    assert enriched.clarification_reason == "unsafe_run_spl"
     assert "spl" in enriched.prohibited_capabilities

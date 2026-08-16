@@ -15,6 +15,8 @@ from app.chat.contracts.semantic_t4_proposal import (
 from app.chat.resolved_query_builder import build_resolved_query_contract
 from app.chat.semantic_t4_understanding import (
     _SEMANTIC_T4_FEW_SHOT,
+    _SEMANTIC_T4_SYSTEM_PROMPT,
+    _build_semantic_t4_user_prompt,
     _has_unresolved_referent,
     _job_aware_unresolved_schema_names,
     _merge_proposal,
@@ -299,6 +301,168 @@ def test_unresolved_referent_still_clarifies() -> None:
     assert enriched.clarification_required is True
 
 
+MISSING_REFERENT_QUERY = (
+    "has the contractor token we rotated shown up in any other SaaS sign-ins?"
+)
+RESOLVED_REFERENT_QUERY = "did it reconnect after isolation?"
+RESOLVED_REFERENT_HOST = "ws-finance-04"
+
+
+def test_missing_referent_clarifies() -> None:
+    original = ResolvedQueryContract(
+        normalized_goal=MISSING_REFERENT_QUERY,
+        intent_family="live_investigation",
+        answer_goal="live_results",
+        ambiguity_state="unambiguous",
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+    )
+    enriched = maybe_enrich_t4_semantic(
+        original,
+        query=MISSING_REFERENT_QUERY,
+        raw_output_provider=lambda _q, _c: json.dumps(
+            {
+                "normalized_goal": (
+                    "determine whether a rotated contractor token appeared in other SaaS sign-ins"
+                ),
+                "evidence_requirements": [
+                    "identity of the rotated contractor token",
+                    "SaaS sign-in records after the rotation",
+                ],
+                "semantic_ambiguity": "clarification_required",
+                "clarification_required": True,
+                "clarification_reason": (
+                    "which contractor token was rotated, and which rotation event to use"
+                ),
+                "semantic_confidence": 0.4,
+            }
+        ),
+    )
+    assert enriched.clarification_required is True
+    assert enriched.ambiguity_state == "clarification_required"
+    reasons = (enriched.provenance.get("semantic_t4") or {}).get("rejected_reasons") or []
+    assert "clarification_without_unresolved_referent" not in reasons
+
+
+def test_supplied_context_resolves_referent_no_clarify() -> None:
+    original = ResolvedQueryContract(
+        normalized_goal=RESOLVED_REFERENT_QUERY,
+        intent_family="live_investigation",
+        answer_goal="live_results",
+        ambiguity_state="unambiguous",
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+        entities={"host": RESOLVED_REFERENT_HOST},
+        locked_fields={
+            "intent_family": "live_investigation",
+            "answer_goal": "live_results",
+            "entities.host": RESOLVED_REFERENT_HOST,
+        },
+    )
+    prompt = _build_semantic_t4_user_prompt(RESOLVED_REFERENT_QUERY, original)
+    assert RESOLVED_REFERENT_HOST in prompt
+    assert "supplied_context" in prompt
+    enriched = maybe_enrich_t4_semantic(
+        original,
+        query=RESOLVED_REFERENT_QUERY,
+        raw_output_provider=lambda _q, _c: json.dumps(
+            {
+                "normalized_goal": (
+                    f"determine whether {RESOLVED_REFERENT_HOST} reconnected after isolation"
+                ),
+                "evidence_requirements": [
+                    f"network activity from {RESOLVED_REFERENT_HOST} after isolation",
+                ],
+                "semantic_ambiguity": "unambiguous",
+                "clarification_required": False,
+                "clarification_reason": None,
+                "semantic_confidence": 0.7,
+            }
+        ),
+    )
+    assert enriched.clarification_required is False
+    assert enriched.ambiguity_state == "unambiguous"
+    assert RESOLVED_REFERENT_HOST in (enriched.normalized_goal or "")
+
+
+def test_unresolved_referent_not_emitted_as_entity() -> None:
+    original = ResolvedQueryContract(
+        normalized_goal=MISSING_REFERENT_QUERY,
+        intent_family="live_investigation",
+        answer_goal="live_results",
+        ambiguity_state="unambiguous",
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+    )
+    enriched = maybe_enrich_t4_semantic(
+        original,
+        query=MISSING_REFERENT_QUERY,
+        raw_output_provider=lambda _q, _c: json.dumps(
+            {
+                "normalized_goal": (
+                    "determine whether a rotated contractor token appeared in other SaaS sign-ins"
+                ),
+                "semantic_ambiguity": "clarification_required",
+                "clarification_required": True,
+                "clarification_reason": "which contractor token was rotated",
+                "entities": {
+                    "token": "the contractor token",
+                    "host": "tok-7741",
+                },
+            }
+        ),
+    )
+    assert enriched.clarification_required is True
+    assert "token" not in (enriched.entities or {})
+    assert enriched.entities.get("host") != "tok-7741"
+    reasons = (enriched.provenance.get("semantic_t4") or {}).get("rejected_reasons") or []
+    assert "entity_not_concrete" in reasons or "unresolved_referent_not_entity" in reasons
+
+
+def test_prompt_encodes_referent_first_and_schema_types() -> None:
+    prompt = _SEMANTIC_T4_SYSTEM_PROMPT
+    assert "before ordinary semantic completion" in prompt
+    assert "Naming a missing referent generically does not resolve" in prompt
+    assert "Do not emit an unresolved referent as a concrete entity." in prompt
+    assert "do not copy locked ambiguity_state" in prompt
+    assert "missing logs, evidence, examples, thresholds, or detection" in prompt
+    assert "Return only fields offered in unresolved_fields_to_resolve." in prompt
+    assert '""' not in prompt
+    assert "0.0" not in prompt
+    user = _build_semantic_t4_user_prompt(
+        MISSING_REFERENT_QUERY,
+        ResolvedQueryContract(
+            normalized_goal=MISSING_REFERENT_QUERY,
+            intent_family="live_investigation",
+            answer_goal="live_results",
+            ambiguity_state="unambiguous",
+            qualification_tier="T4",
+            qualification_source="out_of_registry",
+            locked_fields={
+                "intent_family": "live_investigation",
+                "answer_goal": "live_results",
+                "ambiguity_state": "unambiguous",
+                "qualification_tier": "T4",
+                "qualification_source": "out_of_registry",
+                "clarification_required": False,
+            },
+        ),
+    )
+    assert '"ambiguity_state"' not in user
+    assert "qualification_tier" not in user
+    assert "qualification_source" not in user
+    assert "field_types" not in user
+    assert "allowed_values" not in user
+    assert "unresolved_query_fragment" not in user
+    assert "Return only fields offered in unresolved_fields_to_resolve." in user
+    assert '""' not in user.split("TASK:")[1]
+    assert "0.0" not in user
+    diagnostic = "is this the same campaign as the one we escalated last month?"
+    assert diagnostic not in prompt
+    assert diagnostic not in json.dumps(_SEMANTIC_T4_FEW_SHOT)
+    assert diagnostic not in user
+
+
 def test_locked_unambiguous_meaning_cannot_be_overturned() -> None:
     query = "find signs of credential stuffing against our SSO portal"
     original = ResolvedQueryContract(
@@ -384,6 +548,7 @@ def test_one_contrastive_few_shot() -> None:
     unseen = (
         "show unusual domain activity from finance systems overnight",
         "is this the same campaign as the one we escalated last month?",
+        "has the contractor token we rotated shown up in any other SaaS sign-ins?",
         "find signs of credential stuffing against our SSO portal",
     )
     blob = json.dumps(example)

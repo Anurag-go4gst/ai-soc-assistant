@@ -258,10 +258,10 @@ def test_locked_deterministic_fields_survive_a_contradicting_proposal() -> None:
 
 def test_deterministic_clarification_is_never_cleared_by_the_model() -> None:
     deterministic = _contract(
-        ambiguity_state="clarification_required",
+        ambiguity_state="policy_blocked",
         answer_goal="clarification",
         clarification_required=True,
-        clarification_reason="the referenced event was not supplied",
+        clarification_reason="unsafe_run_spl",
     )
     enriched = maybe_enrich_t4_semantic(
         deterministic,

@@ -49,6 +49,10 @@ Do not treat RQC `ambiguity_state` / `confidence` as synonyms without mapping: t
 1. An **unresolved required referent** — the query points at an unnamed event, host, alert, indicator, or prior turn that was not supplied.
 2. **Two materially different semantic meanings** — the analyst’s wording itself has two distinct interpretations of *what is being asked*, and choosing one would change the investigation.
 
+**Required referential resolution precedes ordinary semantic completion.** Before completing the hunt/goal, determine whether any required referent depends on supplied conversation/context. If the specific referenced object cannot be resolved from that context, `semantic_ambiguity=clarification_required` and `clarification_required=true`. Naming the missing object generically does not resolve it. Unresolved referents must not be emitted as concrete entities.
+
+Locked upstream `ambiguity_state` does **not** determine T4 `semantic_ambiguity`. Do not copy it.
+
 Everything else is **not** clarification:
 
 - missing logs, evidence, examples, thresholds, or detection criteria
@@ -70,6 +74,12 @@ A hunt is not missing context. Resolve it and list what evidence would answer it
 | **Investigation** | We know the ask; benign and malicious (or other) explanations remain open. | Preserve hypotheses. Do not conclude. Do not ask. |
 
 Semantic uncertainty ≠ evidence uncertainty ≠ investigation uncertainty.
+
+T1–T3 may detect a referential candidate and resolve it when an **exact structured
+binding** exists. They must not convert an unresolved semantic referent into `CLARIFY`
+and skip T4. Sufficiency is `CALL_T4`; T4 proposes meaning or clarification; merge
+decides. If T4 is unavailable, timeout, circuit-open, or invalid, deterministic
+fail-closed clarification is **degradation/fallback**, not normal semantic resolution.
 
 Production merge accepts a T4 clarification proposal only when the frozen
 triple is complete (`clarification_required=true`, `semantic_ambiguity=clarification_required`,
@@ -105,11 +115,16 @@ Never invent observed facts (IPs, hosts, users, CVEs, time windows) that the que
 
 ## Prompt construction rules
 
-- Keep the **schema simple and fixed**. Do not grow it per query class.
+- Keep the **schema simple and fixed**. Field types and enums live in the constrained
+  JSON schema, not duplicated in natural-language or TASK JSON.
+- State the untrusted-data boundary once. Do not repeat the query as
+  `unresolved_query_fragment` when the texts are identical.
+- Instruct: **Return only fields offered in unresolved_fields_to_resolve.** Do not ask
+  the model to output locked fields.
 - Use **at most one** small contrastive example for a **known failure class**. Few-shots are prompt assets, not retrieval and not an agent.
 - Avoid broad rules such as “ask if context is missing.”
 - **No query-specific prompt patches.** If one case fails, do not add that query as a few-shot.
-- Production ships one compact contrastive example: clear SOC hunt with missing evidence → do not clarify, versus unresolved semantic meaning → clarify. Do not add query-specific few-shots.
+- Production ships one compact contrastive example: clear SOC hunt with missing evidence → do not clarify, versus unresolved semantic meaning → clarify. Do not add query-specific few-shots. Do not add campaign/incident diagnostic wording.
 
 ---
 

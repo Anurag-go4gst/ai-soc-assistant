@@ -251,17 +251,13 @@ def _measurement_contract(
 ) -> tuple[ResolvedQueryContract, str]:
     """T4 hop contract.
 
-    Production U1 skips T4 when the deterministic contract is already CLARIFY.
-    That is the right outcome for a missing referent. Hunt-shaped classes still
-    need a CALL_T4 contract so COE can measure the hop — the same overlay Plan 7
-    C3 shape tests used (live_investigation / unambiguous / T4). This is not a
-    keyword routing rule and does not change production /chat.
+    Hunt-shaped classes still need a CALL_T4 contract so COE can measure the hop.
+    Missing-referent production now defers unresolved semantic referents to T4.
+    This is not a keyword routing rule and does not change production /chat.
     """
     next_action = str((production.understanding_sufficiency or {}).get("next_action") or "")
     if next_action == "CALL_T4":
         return production, "production_call_t4"
-    if case["case_id"] == "missing_referent_clarification":
-        return production, "production_clarify_unresolved_referent"
     family = production.intent_family
     answer_goal = production.answer_goal
     if family == "clarification_required":
@@ -869,7 +865,9 @@ def assert_output_contract(report: dict[str, Any]) -> list[str]:
         prompt = row.get("exact_t4_prompt") or {}
         if prompt.get("system") != _SEMANTIC_T4_SYSTEM_PROMPT:
             failures.append(f"{row.get('case_id')}: system prompt is not production T4")
-        if "Do not select a skill or route" not in str(prompt.get("system") or ""):
+        if "Do not grant route, capability, SPL, MCP, RBAC, HIL" not in str(
+            prompt.get("system") or ""
+        ):
             failures.append(f"{row.get('case_id')}: production T4 authority rule missing")
     disposition = report.get("f3_disposition") or {}
     if disposition.get("f3_closed") is True:

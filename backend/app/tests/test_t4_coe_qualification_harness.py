@@ -80,7 +80,7 @@ def test_emit_prompts_records_required_fields_and_production_prompt() -> None:
         assert row["latency_ms"] is None
         assert row["provider_failure_kind"] is None
         assert "locked_fields_do_not_change" in prompt["user"]
-        assert "Do not select a skill or route" in prompt["system"]
+        assert "Do not grant route, capability, SPL, MCP, RBAC, HIL" in prompt["system"]
 
 
 def test_f3_stays_open_and_v1_models_is_liveness() -> None:
@@ -150,9 +150,9 @@ def test_hunt_cases_use_call_t4_overlay_missing_referent_stays_clarify() -> None
     report = harness.build_report(mode="emit-prompts")
     by_id = {row["case_id"]: row for row in report["cases"]}
     referent = by_id["missing_referent_clarification"]
-    assert referent["t4_call_permitted"] is False
-    assert referent["measurement_overlay"] == "production_clarify_unresolved_referent"
-    assert referent["production_next_action"] == "CLARIFY"
+    assert referent["t4_call_permitted"] is True
+    assert referent["measurement_overlay"] == "production_call_t4"
+    assert referent["production_next_action"] == "CALL_T4"
     hunts = [
         "lateral_movement",
         "dga_dns_c2",

@@ -13,9 +13,9 @@ Playbook: [`docs/ai/t4_semantic_prompting_playbook.md`](../ai/t4_semantic_prompt
   "evidence_requirements": ["string"],
   "competing_hypotheses": ["string"],
   "semantic_ambiguity": "unambiguous | clarification_required",
-  "clarification_required": true,
-  "clarification_reason": "string|null",
-  "semantic_confidence": 0.0
+  "clarification_required": "boolean",
+  "clarification_reason": "string | null",
+  "semantic_confidence": "number[0,1]"
 }
 ```
 
