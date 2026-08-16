@@ -82,6 +82,9 @@ def test_referent_stays_production_clarify_hunts_permit_t4() -> None:
     by_id = {row["case_id"]: row for row in report["cases"]}
     referent = by_id["unresolved_referent"]
     assert referent["clarification_expected"] is True
+    assert referent["t4_call_permitted"] is True
+    assert referent["qualification_authority"] == "t4_semantic"
+    assert referent["production_next_action"] == "CALL_T4"
     dual = by_id["material_dual_meaning"]
     assert dual["clarification_expected"] is True
     assert dual["t4_call_permitted"] is True
@@ -96,6 +99,7 @@ def test_referent_stays_production_clarify_hunts_permit_t4() -> None:
     for case_id in hunts:
         assert by_id[case_id]["clarification_expected"] is False, case_id
         assert by_id[case_id]["t4_call_permitted"] is True, case_id
+        assert by_id[case_id]["qualification_authority"] == "t4_semantic", case_id
     assert by_id["knowledge_only"]["clarification_expected"] is False
     assert by_id["followup_from_context"]["supplied_conversation_context"]["host"] == "ws-finance-04"
 

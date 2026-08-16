@@ -59,6 +59,7 @@ CASE_RECORD_FIELDS: tuple[str, ...] = (
     "expected_authority_behaviour",
     "injected_good_proposal",
     "pass_gate",
+    "qualification_authority",
 )
 
 # Nine unseen classes. Do not reuse DGA / PowerShell tuning wording.
@@ -445,16 +446,10 @@ def _measurement_contract(
 ) -> tuple[ResolvedQueryContract, str]:
     """CALL_T4 overlay for hunts that production U1 already CLARIFY-skips.
 
-    Missing-referent stays production CLARIFY. Not a keyword router.
+    Unresolved semantic referents now stay on the production CALL_T4 path.
+    Not a keyword router.
     """
     next_action = str((production.understanding_sufficiency or {}).get("next_action") or "")
-    if case["case_id"] == "unresolved_referent":
-        kind = (
-            "production_clarify_unresolved_referent"
-            if next_action == "CLARIFY"
-            else "production_call_t4"
-        )
-        return production, kind
     if next_action == "CALL_T4":
         return production, "production_call_t4"
     family = production.intent_family
@@ -517,6 +512,9 @@ def _prompt_pack(case: dict[str, Any]) -> dict[str, Any]:
         "answer_goal": base.answer_goal,
         "ambiguity_state": base.ambiguity_state,
         "clarification_required": bool(base.clarification_required),
+        "qualification_authority": (
+            "t4_semantic" if hop_next == "CALL_T4" else "deterministic_qualification"
+        ),
         "_base_contract": base,
     }
 
@@ -579,11 +577,7 @@ def score_injected_case(case: dict[str, Any]) -> dict[str, Any]:
     trace = (enriched.provenance or {}).get("semantic_t4") or {}
     clarification_post = bool(enriched.clarification_required)
     expected = bool(case["clarification_expected"])
-    # Production U1 may skip T4 on the referent case; then deterministic clarification stands.
-    if case["case_id"] == "unresolved_referent" and not pack["t4_call_permitted"]:
-        clarification_ok = bool(base.clarification_required) is True or expected
-    else:
-        clarification_ok = clarification_post == expected
+    clarification_ok = clarification_post == expected
     invented = _invented_concrete_facts(case["query"], case, base, enriched)
     widening = _widening(base, enriched)
     goal = (enriched.normalized_goal or "").lower()

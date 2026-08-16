@@ -249,6 +249,37 @@ def _permits_t4_call(deterministic: ResolvedQueryContract) -> bool:
     return str(sufficiency.get("next_action") or "") == "CALL_T4"
 
 
+def _owns_unresolved_semantic_referent(contract: ResolvedQueryContract) -> bool:
+    if (contract.provenance or {}).get("t4_owns_unresolved_semantic_referent"):
+        return True
+    return "semantic_referent" in (contract.unresolved_fields or [])
+
+
+def _fail_closed_unresolved_semantic_referent(
+    deterministic: ResolvedQueryContract,
+    trace: dict[str, Any],
+) -> ResolvedQueryContract:
+    """T4 unavailable: do not guess the referent. Visible degradation, not normal resolve."""
+    semantic_trace = {
+        **trace,
+        "accepted": False,
+        "fallback": "deterministic_fail_closed",
+        "degradation": True,
+        "authority": "t4_unavailable_failover",
+    }
+    provenance = dict(deterministic.provenance or {})
+    provenance["semantic_t4"] = semantic_trace
+    return deterministic.model_copy(
+        update={
+            "clarification_required": True,
+            "clarification_reason": "t4_unavailable_unresolved_semantic_referent",
+            "ambiguity_state": "clarification_required",
+            "understanding_source": "deterministic_qualification",
+            "provenance": provenance,
+        }
+    )
+
+
 def maybe_enrich_t4_semantic(
     deterministic: ResolvedQueryContract,
     *,
@@ -310,13 +341,20 @@ def maybe_enrich_t4_semantic(
             reason = str(failure_kind)
         else:
             reason = "empty_output"
-        return _with_semantic_trace(prepared, {**base_trace, "rejected_reasons": [reason]})
+        failed_trace = {**base_trace, "rejected_reasons": [reason]}
+        if _owns_unresolved_semantic_referent(prepared):
+            return _fail_closed_unresolved_semantic_referent(prepared, failed_trace)
+        return _with_semantic_trace(prepared, failed_trace)
 
     proposal, parse_reason = _parse_proposal(call.raw_output)
     if proposal is None:
-        return _with_semantic_trace(
-            prepared, {**base_trace, "rejected_reasons": [parse_reason or "schema_invalid"]}
-        )
+        failed_trace = {
+            **base_trace,
+            "rejected_reasons": [parse_reason or "schema_invalid"],
+        }
+        if _owns_unresolved_semantic_referent(prepared):
+            return _fail_closed_unresolved_semantic_referent(prepared, failed_trace)
+        return _with_semantic_trace(prepared, failed_trace)
     return _merge_proposal(prepared, proposal, base_trace, query=query)
 
 

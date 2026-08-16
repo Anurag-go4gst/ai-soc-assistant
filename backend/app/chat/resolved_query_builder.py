@@ -296,6 +296,28 @@ def _is_concrete(value: Any) -> bool:
     return bool(text) and text not in _GENERIC_ENTITY_VALUES
 
 
+def _keep_deterministic_clarification(contract: ResolvedQueryContract) -> bool:
+    """True for policy/scope/unsafe facts T1–T3 must not hand to T4."""
+    if contract.ambiguity_state == "policy_blocked":
+        return True
+    reason = str(contract.clarification_reason or "").lower()
+    if "out of soc scope" in reason:
+        return True
+    if "unsafe" in reason or "blocked_by_policy" in reason:
+        return True
+    return False
+
+
+def _has_exact_structured_binding(contract: ResolvedQueryContract) -> bool:
+    """Exact T1–T3 entity binding, not a semantic guess."""
+    for key, value in (contract.entities or {}).items():
+        if key == "time_window":
+            continue
+        if _is_concrete(value):
+            return True
+    return False
+
+
 def attach_understanding_authority(contract: ResolvedQueryContract) -> ResolvedQueryContract:
     """Classify T1–T3 locked vs unresolved semantic fields; mark derived fields.
 
@@ -326,9 +348,32 @@ def attach_understanding_authority(contract: ResolvedQueryContract) -> ResolvedQ
     if contract.qualification_tier != "T4":
         locked["normalized_goal"] = contract.normalized_goal
 
+    clarification_required = contract.clarification_required
+    clarification_reason = contract.clarification_reason
+    ambiguity_state = contract.ambiguity_state
+    exact_binding = _has_exact_structured_binding(contract)
+    deferred_semantic_referent = False
+    if (
+        contract.qualification_tier == "T4"
+        and clarification_required
+        and not _keep_deterministic_clarification(contract)
+    ):
+        # Unresolved semantic interpretation is T4's job. Exact structured
+        # bindings may resolve a referent without converting it into CLARIFY.
+        clarification_required = False
+        clarification_reason = None
+        if ambiguity_state == "clarification_required":
+            ambiguity_state = "unambiguous"
+        locked.pop("clarification_required", None)
+        locked.pop("clarification_reason", None)
+        locked["ambiguity_state"] = ambiguity_state
+        deferred_semantic_referent = not exact_binding
+
     unresolved: list[str] = []
-    if contract.qualification_tier == "T4" and not contract.clarification_required:
+    if contract.qualification_tier == "T4" and not clarification_required:
         unresolved.append("semantic_goal")
+        if deferred_semantic_referent:
+            unresolved.append("semantic_referent")
         if not any(name.startswith("entities.") for name in locked):
             unresolved.append("investigation_target")
 
@@ -338,14 +383,21 @@ def attach_understanding_authority(contract: ResolvedQueryContract) -> ResolvedQ
         missing=[],
         locked=sorted(locked.keys()),
         unresolved=unresolved,
-        clarification_required=contract.clarification_required,
-        policy_blocked=contract.ambiguity_state == "policy_blocked",
+        clarification_required=clarification_required,
+        policy_blocked=ambiguity_state == "policy_blocked",
     )
+    provenance = dict(contract.provenance or {})
+    if deferred_semantic_referent:
+        provenance["t4_owns_unresolved_semantic_referent"] = True
     return contract.model_copy(
         update={
+            "ambiguity_state": ambiguity_state,
+            "clarification_required": clarification_required,
+            "clarification_reason": clarification_reason,
             "locked_fields": locked,
             "unresolved_fields": unresolved,
             "derived_field_names": list(_DERIVED_FIELD_NAMES),
             "understanding_sufficiency": sufficiency.model_dump(mode="json"),
+            "provenance": provenance,
         }
     )

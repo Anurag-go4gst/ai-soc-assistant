@@ -75,6 +75,12 @@ A hunt is not missing context. Resolve it and list what evidence would answer it
 
 Semantic uncertainty ≠ evidence uncertainty ≠ investigation uncertainty.
 
+T1–T3 may detect a referential candidate and resolve it when an **exact structured
+binding** exists. They must not convert an unresolved semantic referent into `CLARIFY`
+and skip T4. Sufficiency is `CALL_T4`; T4 proposes meaning or clarification; merge
+decides. If T4 is unavailable, timeout, circuit-open, or invalid, deterministic
+fail-closed clarification is **degradation/fallback**, not normal semantic resolution.
+
 Production merge accepts a T4 clarification proposal only when the frozen
 triple is complete (`clarification_required=true`, `semantic_ambiguity=clarification_required`,
 non-empty `clarification_reason`) **and** either:

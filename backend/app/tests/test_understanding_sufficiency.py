@@ -70,9 +70,8 @@ def test_clarification_does_not_request_t4() -> None:
         tier="T4",
         source="out_of_registry",
     )
-    if contract.clarification_required:
-        assert (contract.understanding_sufficiency or {}).get("next_action") == "CLARIFY"
-        assert "CALL_T4" != (contract.understanding_sufficiency or {}).get("next_action")
-    else:
-        # Still must not treat derived capabilities as unresolved semantics.
-        assert "required_capabilities" not in contract.unresolved_fields
+    # Unresolved semantic referent is T4's job, not a T1–T3 CLARIFY skip.
+    assert (contract.understanding_sufficiency or {}).get("next_action") == "CALL_T4"
+    assert contract.clarification_required is False
+    assert "semantic_referent" in (contract.unresolved_fields or [])
+    assert "required_capabilities" not in contract.unresolved_fields

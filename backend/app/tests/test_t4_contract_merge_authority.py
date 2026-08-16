@@ -99,9 +99,9 @@ def test_deterministic_clarification_cannot_be_cleared() -> None:
             normalized_goal="compare this",
             intent_family="clarification_required",
             answer_goal="clarification",
-            ambiguity_state="clarification_required",
+            ambiguity_state="policy_blocked",
             clarification_required=True,
-            clarification_reason="unnamed event",
+            clarification_reason="unsafe_run_spl",
             qualification_tier="T4",
             qualification_source="out_of_registry",
         )
@@ -112,8 +112,8 @@ def test_deterministic_clarification_cannot_be_cleared() -> None:
         "compare this",
     )
     assert merged.clarification_required is True
-    assert merged.clarification_reason == "unnamed event"
-    assert merged.ambiguity_state == "clarification_required"
+    assert merged.clarification_reason == "unsafe_run_spl"
+    assert merged.ambiguity_state == "policy_blocked"
 
 
 def test_derived_capabilities_recomputed_from_locked_family() -> None:
