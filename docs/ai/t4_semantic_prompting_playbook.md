@@ -71,7 +71,17 @@ A hunt is not missing context. Resolve it and list what evidence would answer it
 
 Semantic uncertainty ≠ evidence uncertainty ≠ investigation uncertainty.
 
-Production merge currently **fail-closes** model-proposed clarification unless a deictic unresolved referent is present (`_has_unresolved_referent`). That guard is load-bearing (Plan 7 C3). Do not weaken it to “ask if context is missing.”
+Production merge accepts a T4 clarification proposal only when the frozen
+triple is complete (`clarification_required=true`, `semantic_ambiguity=clarification_required`,
+non-empty `clarification_reason`) **and** either:
+
+1. `_has_unresolved_referent` is true, or
+2. semantic ambiguity is still eligible for T4 and no locked deterministic fact
+   contradicts asking (`policy_blocked`, locked meaning, explicit do-not-clarify).
+
+Arbitrary clarification widening (asking while `semantic_ambiguity` stays
+`unambiguous`, empty reason, locked meaning) is still rejected. Do not inspect
+`clarification_reason` with keywords. Do not weaken this to “ask if context is missing.”
 
 ---
 
@@ -99,7 +109,7 @@ Never invent observed facts (IPs, hosts, users, CVEs, time windows) that the que
 - Use **at most one** small contrastive example for a **known failure class**. Few-shots are prompt assets, not retrieval and not an agent.
 - Avoid broad rules such as “ask if context is missing.”
 - **No query-specific prompt patches.** If one case fails, do not add that query as a few-shot.
-- Production currently ships three compact C3 few-shots (identity sequence, competing explanations, unresolved referent). Future edits should converge toward one contrastive example, not add a fourth.
+- Production ships one compact contrastive example: clear SOC hunt with missing evidence → do not clarify, versus unresolved semantic meaning → clarify. Do not add query-specific few-shots.
 
 ---
 
@@ -120,7 +130,7 @@ This VPS must not run live Cisco for T4 prompt iteration. Emit production prompt
 
 - Production hop: `maybe_enrich_t4_semantic` in `semantic_t4_understanding.py`
 - Proposal model: `SemanticT4Proposal` (frozen fields in `FROZEN_SEMANTIC_T4_PROPOSAL_FIELDS`)
-- Merge / referent guard: `_merge_proposal`, `_has_unresolved_referent`
+- Merge / clarification guard: `_merge_proposal`, `_may_merge_t4_clarification`
 - Unseen generalization pack (prompts only on this VPS): `scripts/eval_t4_unseen_qualification.py`
 - COE serving pack (separate): `docs/evals/t4_coe_qualification.md`
 - Architecture (read-only): `architecture.md` §§9–12

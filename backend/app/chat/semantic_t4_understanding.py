@@ -108,55 +108,31 @@ _SEMANTIC_T4_SYSTEM_PROMPT = (
     "  no prose."
 )
 
-# Compact, curated. Prompt assets — not a retrieval system and not an agent.
+# One compact contrastive example for the known failure class:
+# clear SOC hunt with missing evidence → do not clarify
+# versus unresolved semantic meaning → clarify.
+# Prompt asset — not retrieval and not an agent. Not an unseen qualification query.
 _SEMANTIC_T4_FEW_SHOT: tuple[dict[str, Any], ...] = (
-    # A — hypothesis and evidence: name the objective, keep lateral movement a
-    # hypothesis rather than a finding, state what evidence would settle it.
     {
-        "query": "repeated failed admin logons on a server then one that succeeded",
-        "unresolved": ["normalized_goal", "evidence_requirements"],
-        "output": {
-            "normalized_goal": "determine whether the successful admin logon after repeated "
-            "failures represents account compromise",
+        "hunt_query": "find signs of lateral movement across the estate",
+        "hunt_output": {
+            "normalized_goal": "identify signs of lateral movement across the estate",
             "semantic_ambiguity": "unambiguous",
             "clarification_required": False,
             "evidence_requirements": [
-                "failure-then-success sequence for that account and source",
-                "whether the source host normally authenticates to this server",
-                "subsequent authentications from the same account to other hosts",
+                "authentication from unusual sources to internal hosts",
+                "process execution with cross-subnet connections",
             ],
             "competing_hypotheses": [
-                "account compromise after password guessing",
-                "legitimate administrator retry after lockouts",
+                "benign administrative tooling",
+                "unauthorized lateral movement",
             ],
             "semantic_confidence": 0.6,
         },
-    },
-    # B — competing hypotheses: benign and malicious both stay on the table.
-    {
-        "query": "powershell running on a few endpoints with outbound dns to new domains",
-        "unresolved": ["normalized_goal", "evidence_requirements"],
-        "output": {
-            "normalized_goal": "assess whether scripted activity with new-domain lookups is "
-            "malicious or routine administration",
-            "semantic_ambiguity": "unambiguous",
-            "clarification_required": False,
-            "evidence_requirements": [
-                "parent process and command line for the scripted activity",
-                "domain registration age and query cadence",
-            ],
-            "competing_hypotheses": [
-                "malicious scripted activity",
-                "software updater, admin script or telemetry",
-            ],
-            "semantic_confidence": 0.5,
-        },
-    },
-    # C — clarification: the referenced event is not available, so ask.
-    {
-        "query": "compare this with what happened last week and tell me if it is getting worse",
-        "unresolved": ["entities", "time_scope", "clarification_required"],
-        "output": {
+        "meaning_query": (
+            "compare this with what happened last week and tell me if it is getting worse"
+        ),
+        "meaning_output": {
             "normalized_goal": "compare a prior event with a current one the analyst has not named",
             "semantic_ambiguity": "clarification_required",
             "clarification_required": True,
@@ -217,9 +193,19 @@ def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContr
     unresolved = _job_aware_unresolved_schema_names(deterministic)
     example_lines: list[str] = []
     for index, example in enumerate(_SEMANTIC_T4_FEW_SHOT, start=1):
-        example_lines.append(f"EXAMPLE {index} QUERY: {example['query']}")
         example_lines.append(
-            f"EXAMPLE {index} ANSWER: {json.dumps(example['output'], separators=(',', ':'))}"
+            f"EXAMPLE {index} CONTRAST — clear hunt with missing evidence: do not clarify."
+        )
+        example_lines.append(f"EXAMPLE {index} HUNT QUERY: {example['hunt_query']}")
+        example_lines.append(
+            f"EXAMPLE {index} HUNT ANSWER: {json.dumps(example['hunt_output'], separators=(',', ':'))}"
+        )
+        example_lines.append(
+            f"EXAMPLE {index} CONTRAST — unresolved semantic meaning: clarify."
+        )
+        example_lines.append(f"EXAMPLE {index} MEANING QUERY: {example['meaning_query']}")
+        example_lines.append(
+            f"EXAMPLE {index} MEANING ANSWER: {json.dumps(example['meaning_output'], separators=(',', ':'))}"
         )
     task = json.dumps(
         {
@@ -473,6 +459,58 @@ def _has_unresolved_referent(query: str) -> bool:
     return any(re.search(pattern, lowered) for pattern in _REFERENT_PATTERNS)
 
 
+def _frozen_clarification_claim(proposal: SemanticT4Proposal) -> bool:
+    """Complete frozen clarification triple. Does not inspect reason text."""
+    if proposal.clarification_required is not True:
+        return False
+    if proposal.semantic_ambiguity != "clarification_required":
+        return False
+    reason = proposal.clarification_reason
+    return isinstance(reason, str) and bool(reason.strip())
+
+
+def _locked_fact_contradicts_clarification(deterministic: ResolvedQueryContract) -> bool:
+    """Locked T1–T3 meaning, explicit do-not-clarify, or policy block."""
+    if deterministic.ambiguity_state == "policy_blocked":
+        return True
+    locked = deterministic.locked_fields or {}
+    if locked.get("ambiguity_state") == "policy_blocked":
+        return True
+    if "clarification_required" in locked and not bool(locked.get("clarification_required")):
+        return True
+    if "normalized_goal" in locked:
+        return True
+    return False
+
+
+def _semantic_ambiguity_eligible_for_t4(deterministic: ResolvedQueryContract) -> bool:
+    """T4 may propose semantic_ambiguity when that field is offered and not locked away."""
+    if deterministic.qualification_tier != "T4":
+        return False
+    offered = _job_aware_unresolved_schema_names(deterministic)
+    return "semantic_ambiguity" in offered and "clarification_required" in offered
+
+
+def _may_merge_t4_clarification(
+    deterministic: ResolvedQueryContract,
+    proposal: SemanticT4Proposal,
+    query: str,
+) -> bool:
+    """Accept T4 clarification only for the two frozen classes, fail-closed otherwise.
+
+    Class A: unresolved required referent.
+    Class B: complete frozen clarification claim, semantic ambiguity eligible for T4,
+    and no locked deterministic fact contradicts asking.
+    """
+    if not _frozen_clarification_claim(proposal):
+        return False
+    if _locked_fact_contradicts_clarification(deterministic):
+        return False
+    if _has_unresolved_referent(query):
+        return True
+    return _semantic_ambiguity_eligible_for_t4(deterministic)
+
+
 def _is_concrete_entity(value: Any) -> bool:
     text = str(value).strip()
     if not text or len(text.split()) > 3:
@@ -568,14 +606,13 @@ def _merge_proposal(
 
     clarification_required = bool(deterministic.clarification_required)
     clarification_reason = deterministic.clarification_reason
+    may_clarify = _may_merge_t4_clarification(deterministic, proposal, query)
     if proposal.clarification_required is True:
-        # Three kinds of uncertainty are not interchangeable. Only *semantic*
-        # uncertainty — an unresolved referent — may become an analyst question.
-        # Missing evidence, thresholds or detection criteria are investigation
-        # inputs, and a model that confuses them must not be able to turn a clear
-        # hunt into a clarification prompt. Deterministic, so it holds whatever the
-        # prompt or the model does.
-        if _has_unresolved_referent(query):
+        # Semantic uncertainty only. Evidence/investigation uncertainty must not
+        # become an analyst question. Class A = unresolved referent. Class B =
+        # complete frozen clarification claim while semantic ambiguity is still
+        # eligible for T4 and no locked fact contradicts asking.
+        if may_clarify:
             clarification_required = True
             if proposal.clarification_reason:
                 clarification_reason = proposal.clarification_reason
@@ -590,16 +627,14 @@ def _merge_proposal(
     ambiguity = deterministic.ambiguity_state
     if proposal.ambiguity_state:
         if _AMBIGUITY_RANK.get(proposal.ambiguity_state, 0) >= _AMBIGUITY_RANK.get(ambiguity, 0):
-            # Escalating to `clarification_required` is the same act as asking the
-            # analyst a question, so it answers to the same rule: only an unresolved
-            # referent qualifies. Otherwise this is evidence uncertainty wearing a
-            # different field name.
-            if (
-                proposal.ambiguity_state == "clarification_required"
-                and not _has_unresolved_referent(query)
-            ):
-                if "clarification_without_unresolved_referent" not in rejected:
-                    rejected.append("clarification_without_unresolved_referent")
+            if proposal.ambiguity_state == "clarification_required":
+                if not may_clarify:
+                    if "clarification_without_unresolved_referent" not in rejected:
+                        rejected.append("clarification_without_unresolved_referent")
+                elif proposal.ambiguity_state != ambiguity:
+                    ambiguity = proposal.ambiguity_state
+                    field_sources["ambiguity_state"] = "semantic_t4"
+                    accepted_any = True
             elif proposal.ambiguity_state != ambiguity:
                 ambiguity = proposal.ambiguity_state
                 field_sources["ambiguity_state"] = "semantic_t4"

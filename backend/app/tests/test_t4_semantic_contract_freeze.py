@@ -14,7 +14,10 @@ from app.chat.contracts.semantic_t4_proposal import (
 )
 from app.chat.resolved_query_builder import build_resolved_query_contract
 from app.chat.semantic_t4_understanding import (
+    _SEMANTIC_T4_FEW_SHOT,
+    _has_unresolved_referent,
     _job_aware_unresolved_schema_names,
+    _merge_proposal,
     _parse_proposal,
     _schema_limited_to_unresolved,
     maybe_enrich_t4_semantic,
@@ -168,6 +171,224 @@ def test_semantic_confidence_does_not_overwrite_rqc_confidence() -> None:
     )
     assert enriched.confidence == 0.41
     assert enriched.provenance["semantic_t4"]["semantic_confidence"] == 0.91
+
+
+DUAL_MEANING_QUERY = "show unusual domain activity from finance systems overnight"
+
+
+def test_material_dual_meaning_may_clarify_without_deictic_referent() -> None:
+    """Fail-first: two material SOC meanings must be askable without a deictic referent.
+
+    'domain activity' can mean DNS/domain-name activity or Active Directory /
+    domain authentication. Guessing one would change the investigation.
+    """
+    assert _has_unresolved_referent(DUAL_MEANING_QUERY) is False
+    original = ResolvedQueryContract(
+        normalized_goal=DUAL_MEANING_QUERY,
+        intent_family="live_investigation",
+        answer_goal="live_results",
+        ambiguity_state="unambiguous",
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+        confidence=0.4,
+    )
+    enriched = maybe_enrich_t4_semantic(
+        original,
+        query=DUAL_MEANING_QUERY,
+        raw_output_provider=lambda _q, _c: json.dumps(
+            {
+                "normalized_goal": "identify unusual domain activity from finance systems overnight",
+                "evidence_requirements": [
+                    "which sense of domain activity the analyst means",
+                ],
+                "competing_hypotheses": [],
+                "semantic_ambiguity": "clarification_required",
+                "clarification_required": True,
+                "clarification_reason": (
+                    "domain activity may mean DNS/domain-name lookups or "
+                    "Active Directory/domain authentication"
+                ),
+                "semantic_confidence": 0.5,
+            }
+        ),
+    )
+    assert enriched.clarification_required is True
+    assert enriched.ambiguity_state == "clarification_required"
+    reasons = (enriched.provenance.get("semantic_t4") or {}).get("rejected_reasons") or []
+    assert "clarification_without_unresolved_referent" not in reasons
+
+
+def test_broad_actionable_hunt_does_not_clarify() -> None:
+    query = "find signs of credential stuffing against our SSO portal"
+    assert _has_unresolved_referent(query) is False
+    original = ResolvedQueryContract(
+        normalized_goal=query,
+        intent_family="live_investigation",
+        answer_goal="live_results",
+        ambiguity_state="unambiguous",
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+    )
+    enriched = maybe_enrich_t4_semantic(
+        original,
+        query=query,
+        raw_output_provider=lambda _q, _c: json.dumps(
+            {
+                "normalized_goal": "find signs of credential stuffing against the SSO portal",
+                "clarification_required": True,
+                "clarification_reason": "need examples of stuffing",
+                "semantic_ambiguity": "unambiguous",
+                "semantic_confidence": 0.4,
+            }
+        ),
+    )
+    assert enriched.clarification_required is False
+    assert "clarification_without_unresolved_referent" in (
+        enriched.provenance["semantic_t4"]["rejected_reasons"]
+    )
+
+
+def test_missing_evidence_does_not_clarify() -> None:
+    query = "find signs of lateral movement across the estate"
+    original = ResolvedQueryContract(
+        normalized_goal=query,
+        intent_family="live_investigation",
+        answer_goal="live_results",
+        ambiguity_state="unambiguous",
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+    )
+    enriched = maybe_enrich_t4_semantic(
+        original,
+        query=query,
+        raw_output_provider=lambda _q, _c: json.dumps(
+            {
+                "normalized_goal": "identify signs of lateral movement across the estate",
+                "clarification_required": True,
+                "clarification_reason": "need logs and a detection threshold",
+                "semantic_ambiguity": "unambiguous",
+            }
+        ),
+    )
+    assert enriched.clarification_required is False
+
+
+def test_unresolved_referent_still_clarifies() -> None:
+    query = "compare this with what happened last week and tell me if it is getting worse"
+    assert _has_unresolved_referent(query) is True
+    original = ResolvedQueryContract(
+        normalized_goal=query,
+        intent_family="live_investigation",
+        answer_goal="live_results",
+        ambiguity_state="unambiguous",
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+    )
+    enriched = maybe_enrich_t4_semantic(
+        original,
+        query=query,
+        raw_output_provider=lambda _q, _c: json.dumps(
+            {
+                "normalized_goal": "compare an unnamed current event with last week",
+                "clarification_required": True,
+                "clarification_reason": "which event 'this' refers to",
+                "semantic_ambiguity": "clarification_required",
+            }
+        ),
+    )
+    assert enriched.clarification_required is True
+
+
+def test_locked_unambiguous_meaning_cannot_be_overturned() -> None:
+    query = "find signs of credential stuffing against our SSO portal"
+    original = ResolvedQueryContract(
+        normalized_goal="identify credential stuffing against SSO",
+        intent_family="live_investigation",
+        answer_goal="live_results",
+        ambiguity_state="unambiguous",
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+        locked_fields={
+            "normalized_goal": "identify credential stuffing against SSO",
+            "ambiguity_state": "unambiguous",
+            "intent_family": "live_investigation",
+            "clarification_required": False,
+        },
+        unresolved_fields=[],
+        understanding_sufficiency={
+            "schema_version": "staged_sufficiency_v1",
+            "stage": "UNDERSTANDING",
+            "status": "PARTIAL",
+            "required": [],
+            "available": ["normalized_goal"],
+            "missing": [],
+            "locked": ["normalized_goal", "ambiguity_state", "clarification_required"],
+            "unresolved": [],
+            "reason_codes": ["unresolved_semantic_fields"],
+            "next_action": "CALL_T4",
+        },
+    )
+    proposal, reason = _parse_proposal(
+        json.dumps(
+            {
+                "normalized_goal": "identify credential stuffing against SSO",
+                "clarification_required": True,
+                "clarification_reason": "domain vs stuffing meaning",
+                "semantic_ambiguity": "clarification_required",
+            }
+        )
+    )
+    assert proposal is not None, reason
+    merged = _merge_proposal(original, proposal, {"rejected_reasons": []}, query=query)
+    assert merged.clarification_required is False
+    assert merged.ambiguity_state == "unambiguous"
+    assert merged.normalized_goal == "identify credential stuffing against SSO"
+
+
+def test_policy_blocked_cannot_be_overturned() -> None:
+    query = "show unusual domain activity from finance systems overnight"
+    original = ResolvedQueryContract(
+        normalized_goal=query,
+        intent_family="clarification_required",
+        answer_goal="clarification",
+        ambiguity_state="policy_blocked",
+        clarification_required=True,
+        clarification_reason="unsafe_action",
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+        prohibited_capabilities=["spl", "mcp"],
+    )
+    proposal, parse_reason = _parse_proposal(
+        json.dumps(
+            {
+                "normalized_goal": query,
+                "clarification_required": True,
+                "clarification_reason": "two meanings of domain",
+                "semantic_ambiguity": "clarification_required",
+            }
+        )
+    )
+    assert proposal is not None, parse_reason
+    merged = _merge_proposal(original, proposal, {"rejected_reasons": []}, query=query)
+    assert merged.ambiguity_state == "policy_blocked"
+    assert merged.clarification_required is True
+    assert merged.clarification_reason == "unsafe_action"
+    assert "spl" in merged.prohibited_capabilities
+
+
+def test_one_contrastive_few_shot() -> None:
+    assert len(_SEMANTIC_T4_FEW_SHOT) == 1
+    example = _SEMANTIC_T4_FEW_SHOT[0]
+    assert example["hunt_output"]["clarification_required"] is False
+    assert example["meaning_output"]["clarification_required"] is True
+    unseen = (
+        "show unusual domain activity from finance systems overnight",
+        "is this the same campaign as the one we escalated last month?",
+        "find signs of credential stuffing against our SSO portal",
+    )
+    blob = json.dumps(example)
+    for query in unseen:
+        assert query not in blob
 
 
 def test_proposal_model_round_trip_frozen_contract() -> None:

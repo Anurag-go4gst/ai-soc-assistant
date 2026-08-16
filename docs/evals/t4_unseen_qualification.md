@@ -31,7 +31,7 @@ PYTHONPATH=backend:. python3 scripts/eval_t4_unseen_qualification.py --emit-prom
 
 `--live` is refused here.
 
-## Eight unseen cases
+## Nine unseen cases
 
 Queries are new. No DGA / PowerShell tuning wording. No case-specific few-shots.
 No keyword routing.
@@ -46,6 +46,7 @@ No keyword routing.
 | `knowledge_only` | knowledge-only request | no |
 | `competing_explanations` | benign/malicious competing explanations | no |
 | `semantic_strength_trap` | semantic-strengthening trap (`unusual` ≠ `malicious`) | no |
+| `material_dual_meaning` | two materially different SOC meanings | yes |
 
 Each record includes locked/base context, unresolved fields, the exact production
 prompt, expected semantic behaviour, clarification yes/no, forbidden strengthening,
@@ -53,12 +54,12 @@ and expected authority behaviour.
 
 ## Pass gate (for a later COE live run)
 
-- 8/8 schema valid
-- 8/8 no invented observed facts
-- 8/8 no authority widening
-- clarification correct on all
+- 9/9 schema valid
+- 9/9 no invented observed facts
+- 9/9 no authority widening
+- clarification correct for both approved clarification classes
 - no semantic-strengthening failure
-- ≥7/8 overall semantic pass
+- ≥8/9 overall semantic pass
 
 Injected-proposal contract checks run without a model and pin merge behaviour.
 Live Cisco scoring is COE-only and is not asserted by this pack.

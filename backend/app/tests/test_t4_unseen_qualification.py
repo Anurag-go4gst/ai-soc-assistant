@@ -26,11 +26,12 @@ _REQUIRED_IDS = [
     "knowledge_only",
     "competing_explanations",
     "semantic_strength_trap",
+    "material_dual_meaning",
 ]
 
 
-def test_eight_unseen_classes() -> None:
-    assert len(harness.CASES) == 8
+def test_nine_unseen_classes() -> None:
+    assert len(harness.CASES) == 9
     assert [case["case_id"] for case in harness.CASES] == _REQUIRED_IDS
     queries = " ".join(case["query"].lower() for case in harness.CASES)
     assert "dga" not in queries
@@ -58,7 +59,7 @@ def test_emit_prompts_does_not_call_the_model(monkeypatch) -> None:
 
 def test_each_record_has_locked_prompt_and_expected_behaviour() -> None:
     report = harness.build_report(mode="emit-prompts")
-    assert len(report["cases"]) == 8
+    assert len(report["cases"]) == 9
     for row, case in zip(report["cases"], harness.CASES, strict=True):
         for field in harness.CASE_RECORD_FIELDS:
             assert field in row, field
@@ -80,6 +81,9 @@ def test_referent_stays_production_clarify_hunts_permit_t4() -> None:
     by_id = {row["case_id"]: row for row in report["cases"]}
     referent = by_id["unresolved_referent"]
     assert referent["clarification_expected"] is True
+    dual = by_id["material_dual_meaning"]
+    assert dual["clarification_expected"] is True
+    assert dual["t4_call_permitted"] is True
     hunts = [
         "explicit_host",
         "explicit_time_range",
@@ -98,14 +102,14 @@ def test_referent_stays_production_clarify_hunts_permit_t4() -> None:
 def test_injected_good_proposals_meet_pass_gate() -> None:
     report = harness.build_report(mode="emit-prompts")
     scores = report["injected_contract_scores"]
-    assert len(scores) == 8
+    assert len(scores) == 9
     assert all(row["schema_valid"] for row in scores)
     assert all(row["no_invented_observed_facts"] for row in scores)
     assert all(row["no_authority_widening"] for row in scores)
     assert all(row["clarification_correct"] for row in scores)
     assert all(row["semantic_strength_preserved"] for row in scores)
     semantic_pass = sum(1 for row in scores if row["semantic_goal_acceptable"])
-    assert semantic_pass >= 7
+    assert semantic_pass >= 8
 
 
 def test_injected_clarification_on_hunt_is_rejected() -> None:
@@ -127,7 +131,7 @@ def test_injected_clarification_on_hunt_is_rejected() -> None:
                     "normalized_goal": "find credential stuffing",
                     "clarification_required": True,
                     "clarification_reason": "need a threshold and example logs",
-                    "semantic_ambiguity": "clarification_required",
+                    "semantic_ambiguity": "unambiguous",
                 }
             ),
         )
