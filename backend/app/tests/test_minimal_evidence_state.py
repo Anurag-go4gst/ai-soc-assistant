@@ -95,6 +95,17 @@ def test_blocked_and_stale_and_invalidated_are_not_usable() -> None:
     assert "rag" in state.missing
 
 
+def test_executed_status_records_spl_and_mcp_items() -> None:
+    state = derive_minimal_evidence_state(
+        evidence_plan={"needs_spl": True, "needs_mcp": True, "mcp_allowed": True},
+        execution={"status": "executed"},
+    )
+    assert "spl" in state.obtained
+    assert "mcp" in state.obtained
+    assert {item.key for item in state.items} >= {"spl", "mcp"}
+    assert next(item for item in state.items if item.key == "spl").status == "obtained"
+
+
 def test_generated_candidate_spl_is_non_authoritative() -> None:
     state = derive_minimal_evidence_state(
         source_evidence=[

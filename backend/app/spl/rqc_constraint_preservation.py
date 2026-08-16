@@ -59,10 +59,17 @@ def evaluate_rqc_constraint_preservation(
     *,
     resolved_query_contract: dict[str, Any] | None,
     non_applicable: dict[str, str] | None = None,
+    template_body: str | None = None,
 ) -> dict[str, Any]:
     """Return present/missing/non_applicable for mandatory RQC constraints."""
     reasons = dict(non_applicable or {})
     slots = rqc_slots_from_contract(resolved_query_contract)
+    if template_body is not None:
+        for key in slots:
+            if key == "time_window" or key in reasons:
+                continue
+            if not _template_has_governed_slot(template_body, key):
+                reasons[key] = "no_governed_template_slot"
     haystack = (spl or "").lower()
     present: list[str] = []
     missing: list[str] = []
@@ -90,6 +97,7 @@ def apply_rqc_constraint_preservation(
     spl: str | None,
     resolved_query_contract: dict[str, Any] | None,
     non_applicable: dict[str, str] | None = None,
+    template_body: str | None = None,
 ) -> dict[str, Any] | None:
     """Fail closed when a mandatory RQC constraint is silently absent from SPL."""
     if not isinstance(validation, dict):
@@ -98,6 +106,7 @@ def apply_rqc_constraint_preservation(
         spl or validation.get("normalized_spl"),
         resolved_query_contract=resolved_query_contract,
         non_applicable=non_applicable,
+        template_body=template_body,
     )
     updated = {**validation, "rqc_constraint_preservation": result}
     if not result["dropped"]:
@@ -111,6 +120,27 @@ def apply_rqc_constraint_preservation(
     updated["approved"] = False
     updated["normalized_spl"] = None
     return updated
+
+
+def _template_has_governed_slot(template_body: str, key: str) -> bool:
+    body = template_body.lower()
+    names = {key}
+    if key == "src_ip":
+        names.update(_IP_ALIASES)
+    elif key == "dest_ip":
+        names.update(_DEST_IP_ALIASES)
+    elif key == "host":
+        names.update(_HOST_ALIASES)
+    elif key == "user":
+        names.update(_USER_ALIASES)
+    elif key == "geo":
+        names.update(_GEO_ALIASES)
+    elif key == "account_type":
+        names.update({"account_type", "account-class", "privileged"})
+    for name in names:
+        if f"${name}$" in body or f"<{name}>" in body or f"{{{name}}}" in body or f"${{{name}}}" in body:
+            return True
+    return False
 
 
 def _constraint_present(haystack: str, key: str, value: str) -> bool:

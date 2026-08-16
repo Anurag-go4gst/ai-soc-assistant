@@ -189,6 +189,26 @@ def test_pending_grant_rejects_source_identity_tool_limit_timeout_expiry_consume
     assert consumed_review["reason"] == "exact_call_grant_invalidated"
 
 
+def test_update_spl_with_revalidated_call_is_a_new_authorized_grant(monkeypatch) -> None:
+    first = _pending_confirmation(monkeypatch, VALIDATION_A, trace_id="auth0-update")
+    pending = first.get("pending_execution_confirmation")
+    assert pending and pending.get("call_grant")
+
+    _enable_mock_execution(monkeypatch, require_confirmation=True)
+    updated, review = evaluate_mcp_execution(
+        trace_id="auth0-update-turn2",
+        selected_skill="attack_discovery",
+        workflow_plan={},
+        spl_validation=VALIDATION_A,
+        execution_review_action="update_spl",
+        analyst_provided_spl=APPROVED_B,
+        pending_execution=pending,
+    )
+    assert updated.get("executed_spl") == APPROVED_B
+    assert review.get("required") is False
+    assert updated.get("block_reason") != "exact_call_grant_invalidated"
+
+
 def test_unapproved_normalized_spl_still_cannot_execute(monkeypatch) -> None:
     _enable_mock_execution(monkeypatch, require_confirmation=True)
     blocked, _review = evaluate_mcp_execution(

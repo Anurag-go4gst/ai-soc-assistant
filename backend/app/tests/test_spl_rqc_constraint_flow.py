@@ -87,6 +87,39 @@ def test_silent_geo_and_account_type_loss_is_rejected() -> None:
     assert "account_type" in result["dropped"] or "user" in result["dropped"]
 
 
+def test_governed_template_without_src_slot_is_non_applicable() -> None:
+    spl = (
+        "search index=pgcil_soc sourcetype=pgcil:auth earliest=-24h latest=now "
+        "| stats count by user | head 50"
+    )
+    rqc = {
+        "time_scope": "earliest=-24h latest=now",
+        "entities": {"source_ip": ["203.0.113.24"], "host": "fw01"},
+    }
+    result = evaluate_rqc_constraint_preservation(
+        spl,
+        resolved_query_contract=rqc,
+        template_body="search index=$index$ sourcetype=$sourcetype$ earliest=$earliest$ latest=$latest$ | stats count by user | head $limit$",
+    )
+    assert "src_ip" not in result["dropped"]
+    assert "host" not in result["dropped"]
+    assert result["non_applicable"]["src_ip"] == "no_governed_template_slot"
+    assert result["non_applicable"]["host"] == "no_governed_template_slot"
+    assert "time_window" not in result["dropped"]
+
+
+def test_empty_governed_template_still_marks_unmapped_slots_non_applicable() -> None:
+    spl = "search index=pgcil_soc earliest=-24h latest=now | stats count by user | head 50"
+    rqc = {"entities": {"source_ip": ["203.0.113.24"]}}
+    result = evaluate_rqc_constraint_preservation(
+        spl,
+        resolved_query_contract=rqc,
+        template_body="",
+    )
+    assert result["non_applicable"]["src_ip"] == "no_governed_template_slot"
+    assert "src_ip" not in result["dropped"]
+
+
 def test_explicit_non_applicability_does_not_drop() -> None:
     spl = (
         "search index=pgcil_soc sourcetype=pgcil:auth src=203.0.113.24 user=admin "

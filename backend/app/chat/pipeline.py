@@ -2871,10 +2871,24 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
         if not spl_text and isinstance(candidate_spl, dict):
             spl_text = candidate_spl.get("candidate_spl")
         if isinstance(spl_validation, dict) and rqc:
+            template_id = (
+                state["selected_use_case"].default_spl_template
+                if state.get("selected_use_case") is not None
+                else None
+            )
+            template = get_spl_template(template_id) if template_id else None
+            template_body = None
+            if template is not None:
+                template_body = " ".join(
+                    part
+                    for part in (template.spl_text, template.render_pattern)
+                    if part
+                ) or ""
             spl_validation = apply_rqc_constraint_preservation(
                 spl_validation,
                 spl=str(spl_text or ""),
                 resolved_query_contract=rqc,
+                template_body=template_body,
             )
     preference = preference_from_discovery_context(
         query=query_text,

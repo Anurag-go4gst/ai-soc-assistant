@@ -227,8 +227,9 @@ def evaluate_mcp_execution(
         telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=confirmation_review["reason"])
         return execution, confirmation_review
     grant_source = execution_validation or spl_validation or {}
+    grant_trace = str((pending_execution or {}).get("trace_id") or trace_id)
     current_grant = call_grant_from_validation(
-        trace_id=trace_id,
+        trace_id=grant_trace,
         selection=selection,
         spl_validation=grant_source,
         rbac_role=rbac_role,
@@ -236,7 +237,8 @@ def evaluate_mcp_execution(
         hil_required=require_confirmation,
         execution_intent=execution_intent,
     )
-    if pending_execution and not grants_match(pending_execution, current_grant):
+    action = (execution_review_action or "").strip().lower()
+    if pending_execution and action != "update_spl" and not grants_match(pending_execution, current_grant):
         review = build_exact_call_invalidated_review()
         execution = _blocked_execution(selection, "requires_human_review", review["reason"])
         execution["call_grant"] = current_grant

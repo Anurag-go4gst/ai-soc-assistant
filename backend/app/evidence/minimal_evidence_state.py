@@ -181,6 +181,16 @@ def derive_minimal_evidence_state(
         "success",
     }:
         obtained.extend(["mcp", "spl"])
+        for key in ("mcp", "spl"):
+            item_by_key.setdefault(
+                key,
+                EvidenceStateItem(
+                    key=key,
+                    status="obtained",
+                    provenance="execution",
+                    trust_class="untrusted_evidence",
+                ),
+            )
 
     if plan.get("needs_mcp") and plan.get("mcp_allowed") is not True:
         blocked.append("mcp")
@@ -221,7 +231,18 @@ def derive_minimal_evidence_state(
                 trust_class="untrusted_evidence",
             ),
         )
-    items = [item_by_key[key] for key in _unique([*required, *obtained, *stale, *invalidated, *blocked, *missing])]
+    items = []
+    for key in _unique([*required, *obtained, *stale, *invalidated, *blocked, *missing]):
+        item = item_by_key.get(key)
+        if item is None:
+            item = EvidenceStateItem(
+                key=key,
+                status="obtained" if key in obtained else "missing",
+                provenance="derived_minimal_evidence_state",
+                trust_class="untrusted_evidence",
+            )
+            item_by_key[key] = item
+        items.append(item)
 
     derived_from = [
         name
