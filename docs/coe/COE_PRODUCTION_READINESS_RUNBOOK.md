@@ -15,10 +15,12 @@ Reuse, do not replace:
 
 Invariants for this run:
 
-- `MCP_MODE=mock` until an explicit live MCP qualification window.
+- `MCP_MODE=registry` with `MCP_GLOBAL_EXECUTION_ENABLED=false` until the operator
+  flips the single live-execution kill-switch.
 - Do not treat `/v1/models` HTTP 200 as inference health.
 - Do not copy the VPS `120`s T4 bound as a COE SLO.
-- Do not set `LIVE_MCP_PROVEN` or close F3 from mocks.
+- Do not set `LIVE_MCP_PROVEN` or close F3 from mocks or from merely starting
+  the app in registry mode.
 - Never restart Cisco Foundation-Sec from code or this runbook’s automation.
 
 ---
@@ -61,7 +63,8 @@ Run on the COE host from the repo root. Record `git rev-parse HEAD` before start
    Or: `docker compose up -d --force-recreate backend` after a first full `up`.
    Settings are process-start config — `restart` alone can leave a stale env.
 
-5. **Read back application authority** (must match; live MCP is a later opt-in):
+5. **Read back application authority** (must match; live MCP execution stays off
+   until the single kill-switch is flipped):
 
    | Flag | Required |
    |---|---|
@@ -70,9 +73,12 @@ Run on the COE host from the repo root. Record `git rev-parse HEAD` before start
    | `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` | `false` |
    | `AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED` | `true` |
    | `AI_SOC_LIVE_CAPABILITY_ENFORCEMENT_ENABLED` | `false` |
-   | `MCP_MODE` | `mock` |
+   | `MCP_MODE` | `registry` |
+   | `MCP_GLOBAL_EXECUTION_ENABLED` | `false` |
 
-   `MCP_GLOBAL_EXECUTION_ENABLED=true` on this mock lane is **not** live Splunk.
+   Registry mode plus a configured Splunk endpoint/token does **not** execute
+   searches. `MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED=true` is pre-armed so it
+   is not a second go-live switch.
 
 6. **Inference health** (bounded generation, not `/v1/models`):
 
@@ -112,7 +118,26 @@ Record `serving.inference_health`, cold/warm, p50/p95, timeout/error rate, concu
 
 ## 3. MCP qualification
 
-Keep `MCP_MODE=mock` until this section’s live window.
+Connector mode is `MCP_MODE=registry`. Execution stays off until the single
+kill-switch is flipped.
+
+```
+BEFORE LIVE ACTIVATION:
+LIVE_MCP_CONFIGURED = true/false
+MCP_GLOBAL_EXECUTION_ENABLED = false
+LIVE_MCP_EXECUTION = disabled
+
+ACTIVATION:
+MCP_GLOBAL_EXECUTION_ENABLED=true
+
+AFTER ACTIVATION:
+AUTH0 + RBAC + HIL + policy + read-only tool allowlist still determine whether
+any individual call may execute.
+```
+
+Operator must still supply (never git): Cisco endpoint/model, explicit COE T4
+timeout, Splunk MCP endpoint, token or token-file, TLS verify / CA path as
+required, Splunk service identity.
 
 Config/contract only (no network, never claims `LIVE_MCP_PROVEN`):
 
@@ -142,7 +167,7 @@ must fail closed. Mock rows must not masquerade as live. Operator sign-off of
 
 ## 4. Smoke pack (8)
 
-After deploy, with `MCP_MODE=mock`. Copy `trace_id` from each `/chat` response.
+After deploy, with `MCP_MODE=registry` and `MCP_GLOBAL_EXECUTION_ENABLED=false`. Copy `trace_id` from each `/chat` response.
 
 | # | Do | Pass |
 |---|---|---|
@@ -152,7 +177,7 @@ After deploy, with `MCP_MODE=mock`. Copy `trace_id` from each `/chat` response.
 | S4 | In-catalog query (e.g. failed-login / CVE lookup) | `control_plane_trace` present; `schedule.resource_plan_authority` not `degraded`; `execution_enabled=false` |
 | S5 | *How should I investigate unusual outbound traffic from an OT host overnight?* | guided / hybrid path; MCP not executed |
 | S6 | `GET /api/debug/traces/{trace_id}/bundle` (user with `debug_access`) | `explainability.debug_summary` has routing, `semantic_t4`, `t4_circuit`, schedule, SPL, MCP (`evidence_source`/status), `evidence_state`, `investigation_outcome`, `auth0` fingerprint |
-| S7 | Confirm `MCP_MODE=mock` and empty live URL/token | no live Splunk rows |
+| S7 | Confirm `MCP_MODE=registry`, `MCP_GLOBAL_EXECUTION_ENABLED=false`, and empty live URL/token | `LIVE_MCP_EXECUTION = disabled`; no live Splunk rows |
 | S8 | Candidate SPL on an SPL-shaped ask | `spl_validation.approved` may be true; `execution_eligible` false / null; candidate not executed |
 
 Do not treat S1–S8 as T4 serving proof or live MCP proof.
@@ -230,7 +255,7 @@ Code must not restart the model (`request_human_model_restart` returns `restart_
 
 Fail-closed: missing URL/token → `splunk_mcp_not_configured`; timeout/TLS → mapped error kinds; no mock fallback in `MCP_MODE=registry`. After network restore, retry the gated `/chat` confirm path. Live reconnect on COE is **UNPROVEN** until §3 live steps run.
 
-To leave live MCP: set `MCP_MODE=mock` (and keep live URL unused). Do not “fix” live by flipping dispatch-v2.
+To leave live MCP execution: set `MCP_GLOBAL_EXECUTION_ENABLED=false`. Do not “fix” live by flipping dispatch-v2.
 
 ### Release rollback
 
@@ -260,7 +285,7 @@ Live COE cells stay **UNPROVEN** until this runbook’s measurements exist. Do n
 | COE configuration | **PASS** | Tracked `coe.env.example` reconstructs authority; T4 timeout fail-closed until operator override |
 | T4 semantics | **PASS** | Plans 6–8; T4 cannot grant route/capability/tool |
 | T4 serving / F3 | **UNPROVEN** | VPS serving not viable; COE `--live` not yet run; F3 stays open |
-| Live Splunk MCP | **UNPROVEN** | `MCP_MODE=mock`; `LIVE_MCP_PROVEN` must stay false until §3 live `/chat` |
+| Live Splunk MCP | **UNPROVEN** | `MCP_MODE=registry` + `MCP_GLOBAL_EXECUTION_ENABLED=false`; `LIVE_MCP_PROVEN` must stay false until §3 live `/chat` |
 | End-to-end | **UNPROVEN** | COE host `/chat` + T4 + (optional) live MCP not executed in this doc |
 | Security | **PASS** | TLS verify default on; write/remediation tools disallowed; LLM cannot mint AUTH0 grant; candidate SPL non-executable. COE public TLS / live MCP TLS still operator-supplied |
 | Failure handling | **PASS** | D1 classes + F1 degraded-authority signal in code; live COE drill not a GO substitute |

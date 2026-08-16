@@ -11,7 +11,7 @@ Live MCP execution remains **default-off**. This checklist documents prerequisit
 5. **HIL approval** — human review when policy requires; `effective_hil_required` honored in RunContract.
 6. **Disallowed tools rejected** — discovery may list admin/generative tools; deterministic policy blocks them.
 7. **Execution envelope captured** — live rows carry provenance + sanitized envelope; empty results reported honestly.
-8. **Rollback flags documented** — operator can set `MCP_GLOBAL_EXECUTION_ENABLED=false` and per-server execution flags false.
+8. **Rollback flags documented** — operator sets `MCP_GLOBAL_EXECUTION_ENABLED=false`. Per-server Splunk execution stays pre-armed in the COE seed.
 
 ## Verification commands (non-executing)
 
@@ -28,7 +28,7 @@ Expected default posture: `ready_for_live_splunk_mcp=false`, `mcp_called=false`,
 1. Complete contract in `contracts/splunk_mcp_connection_contract.md`.
 2. Set registry mode + Splunk server config per `.env.splunk-live.example`.
 3. Run governance regression: `./scripts/run_stage3_governance_regression.sh`.
-4. Enable `MCP_GLOBAL_EXECUTION_ENABLED` and server execution flag only in the approved environment.
+4. Enable **only** `MCP_GLOBAL_EXECUTION_ENABLED=true` in the approved environment. Per-server Splunk execution is already pre-armed in the COE profile.
 5. Bounded staging smoke with HIL owner present; document rollback owner.
 
 No LLM tool-calling. LLM must never call MCP directly.

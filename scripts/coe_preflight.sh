@@ -126,6 +126,45 @@ if [[ "${PROFILE}" == "coe" ]]; then
     fi
     echo "T4 timeout override:  ${T4_TIMEOUT}s (operator-supplied; not a documented SLO)"
   fi
+
+  MCP_MODE_VAL="$(merged_dotenv_get MCP_MODE mock)"
+  MCP_GLOBAL_VAL="$(merged_dotenv_get MCP_GLOBAL_EXECUTION_ENABLED false)"
+  SPLUNK_URL="$(merged_dotenv_get SPLUNK_MCP_BASE_URL)"
+  if [[ -z "${SPLUNK_URL}" ]]; then
+    SPLUNK_URL="$(merged_dotenv_get MCP_SERVER_SPLUNK_SOC_URL)"
+  fi
+  SPLUNK_TOKEN="$(merged_dotenv_get SPLUNK_MCP_TOKEN)"
+  if [[ -z "${SPLUNK_TOKEN}" ]]; then
+    SPLUNK_TOKEN="$(merged_dotenv_get MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN)"
+  fi
+  SPLUNK_TOKEN_FILE="$(merged_dotenv_get SPLUNK_MCP_TOKEN_FILE)"
+  if [[ -z "${SPLUNK_TOKEN_FILE}" ]]; then
+    SPLUNK_TOKEN_FILE="$(merged_dotenv_get MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN_FILE)"
+  fi
+  LIVE_MCP_CONFIGURED=false
+  if [[ -n "${SPLUNK_URL}" && -n "${SPLUNK_TOKEN}${SPLUNK_TOKEN_FILE}" ]]; then
+    LIVE_MCP_CONFIGURED=true
+  fi
+  MCP_GLOBAL_LC="$(printf '%s' "${MCP_GLOBAL_VAL}" | tr '[:upper:]' '[:lower:]')"
+  if [[ "${MCP_GLOBAL_LC}" == "true" || "${MCP_GLOBAL_LC}" == "1" || "${MCP_GLOBAL_LC}" == "yes" || "${MCP_GLOBAL_LC}" == "on" ]]; then
+    LIVE_MCP_EXECUTION="gated (AUTH0 + RBAC + HIL + policy + read-only allowlist)"
+  else
+    LIVE_MCP_EXECUTION="disabled"
+  fi
+  echo ""
+  echo "== MCP live activation (one switch) =="
+  echo "MCP_MODE:                       ${MCP_MODE_VAL}"
+  echo "BEFORE LIVE ACTIVATION:"
+  echo "LIVE_MCP_CONFIGURED = ${LIVE_MCP_CONFIGURED}"
+  echo "MCP_GLOBAL_EXECUTION_ENABLED = ${MCP_GLOBAL_VAL}"
+  echo "LIVE_MCP_EXECUTION = ${LIVE_MCP_EXECUTION}"
+  echo "ACTIVATION:"
+  echo "MCP_GLOBAL_EXECUTION_ENABLED=true"
+  echo "AFTER ACTIVATION:"
+  echo "AUTH0 + RBAC + HIL + policy + read-only tool allowlist still determine whether"
+  echo "any individual call may execute."
+  echo "Operator-supplied (never git): Cisco endpoint/model, explicit COE T4 timeout,"
+  echo "Splunk MCP endpoint, token or token-file, TLS verify/CA path, Splunk service identity."
 fi
 
 echo ""
