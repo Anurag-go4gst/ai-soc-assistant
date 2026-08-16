@@ -120,9 +120,12 @@ Fix every `GAP:` before implementation. Generic loop runner: [`plans/LOOP_RUNNER
 
 ## Active work (pointers)
 
+- **Plan 8 (active):** [`plans/2026-08-15_0602_canonical-architecture-authority-convergence.md`](plans/2026-08-15_0602_canonical-architecture-authority-convergence.md) — canonical authority convergence on the frozen [`architecture.md`](architecture.md). Plan 7 is **CLOSED 25/25** (merged). Index: [`plans/README.md`](plans/README.md).
 - **Intent cascade:** Done — [`plans/2026-06-17_1730_intent-node-cascade-hardening.md`](plans/2026-06-17_1730_intent-node-cascade-hardening.md). Harness: `test_cisco_intent_distribution.py`, `scripts/eval_out_of_set_intent_probe.py`.
-- **Cisco Environment KB + 50-Q catalogue:** Next — full spec in `.cursor/plans/environment_kb_cisco_catalogue_1eddd12f.plan.md`; read **Review Addendum §A–D** before Batch 1 (repo-state, phased eval gates, security). Loader/map largely exist — extend, do not recreate.
+- **Cisco Environment KB + 50-Q catalogue:** Done as an earlier batch; loader/map exist — extend, do not recreate.
 - **Master roadmap:** [`plans/AI_SOC_MASTER_PLAN.md`](plans/AI_SOC_MASTER_PLAN.md).
+
+Normal execution authority is `ResourcePlan + PhaseContract` via the existing Resource Planner hub. dispatch-v2 is rollback/test-only (fenced when ResourcePlan execution is on). Production GO remains **deferred**; T4 serving **F3** is still a critical blocker; live MCP/Splunk remains **unproven**. `architecture.md` is read-only.
 
 ## Agent skills
 
@@ -153,9 +156,9 @@ Current implementation is governed candidate generation and gated execution cont
 - Mock MCP execution is allowed only when explicitly enabled through `MCP_GLOBAL_EXECUTION_ENABLED=true` and `MCP_SERVER_MOCK_EXECUTION_ENABLED=true`.
 - Real Splunk MCP search adapter is implemented (`splunk_mcp.py`, async lifecycle). Live execution stays **default-off** until operator sets URL/token + execution flags per `CLAUDE.md` §Splunk MCP go-live.
 - Governed RAG retrieval is wired: SOC KB results flow only through `SourceEvidence` and `StructuredContext`. There is no direct RAG-to-LLM path.
-- The Context Sufficiency Gate (Stage 3J) classifies the evidence package into one answer mode and computes `synthesis_readiness`. `synthesis_allowed` stays `false`.
-- No final LLM synthesis runs. `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_ANSWER_GUARD_ENABLED` are inert config flags (Stage 3J-B), default false. Answer Guard execution stays disabled.
-- The governed LLM layer (Stage 3J-B) is configuration/status/UI only and never calls a real LLM. `/settings/llm/check` validates drafts without persisting; secrets are never echoed.
+- The Context Sufficiency Gate (Stage 3J) classifies the evidence package into one answer mode and computes `synthesis_readiness`. Stage 3J `synthesis_allowed` stays `false` on that gate; Plan 8 synthesis consumes governed `InvestigationOutcome` / EvidenceState and does not treat free-form prose as action authority.
+- Live LLM synthesis (live `/chat` only, never Experience Center): **approved policy** is narration-only when `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` and `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED` are both true and an endpoint is configured. Repo defaults for both flags are **false**. The model may rewrite analyst-summary prose; severity, MITRE, actions, SPL, and `execution_eligible=false` stay deterministic. Failure falls back to the deterministic draft. `AI_SOC_LLM_ANSWER_GUARD_ENABLED` remains an inert default-false flag; Answer Guard execution stays disabled. Enabling narration is not production GO and does not prove T4 serving (F3) or live Splunk.
+- The governed LLM settings/status UI (Stage 3J-B) never calls a real LLM. `/settings/llm/check` validates drafts without persisting; secrets are never echoed. Live narration, when both synthesis flags are on, is the separate governed composer.
 - Intent hygiene (Stage 3J-C): SOP/playbook and MITRE prompts route to `knowledge_recall` (no SPL). A MITRE ask without alert context returns an `intent_clarification` human-review rather than generating SPL. The chat UI is analyst-first with the technical trace collapsed by default.
 - Guarded LLM adapter (Stage 3J-I): `app/llm/adapter/` extracts the first balanced JSON object, validates role schemas, and applies active authority overrides — it always forces SPL `execution_eligible=false` and forces deterministic clarification, severity, MITRE status, SOP citation, and allowed actions on conflict, recording `warnings`/`disagreements`. Dormant semantic guards in `app/answer_guard/rules.py` (13 `guard.*` ids) are unit-tested only. Neither the adapter nor the guard rules are imported by `/chat` or the demo path; they never run on a live answer.
 - Experience Center calibration (Stage 3J-J): demo golden answers in `app/demo/scenarios.py` mirror governed Foundation-sec behavior (valid template SPL, per-source distinct-user labels, explicit MITRE `Status`, P1–P4 priorities, no execution eligibility) and carry a collapsed investigation-lineage reveal. Answers stay deterministic `coe_synthetic_fixture`, not live-model output.

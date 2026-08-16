@@ -621,16 +621,16 @@ def rp_node_spl_validate(state: ResourcePlannerGraphState) -> ResourcePlannerGra
 
 
 def rp_node_context_sufficiency(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
-    sufficiency = state.get("context_sufficiency")
-    if not isinstance(sufficiency, dict):
-        sufficiency = {"status": "pending_finalize", "synthesis_readiness": "not_evaluated"}
+    from app.evidence.evidence_sufficiency import attach_evidence_sufficiency
+
+    state = attach_evidence_sufficiency(state)
     state = _with_trace(state, "context_sufficiency")
     return _record(
-        {**state, "context_sufficiency": sufficiency},
+        state,
         node="context_sufficiency",
-        reason="pre_finalize_sufficiency_surface",
-        inputs_ref=["context_sufficiency"],
-        outputs_ref=["context_sufficiency"],
+        reason="evidence_state_rqc_sufficiency",
+        inputs_ref=["resolved_query_contract", "evidence_state", "evidence_plan", "source_evidence"],
+        outputs_ref=["evidence_sufficiency", "context_sufficiency", "evidence_state"],
         authority="deterministic",
     )
 

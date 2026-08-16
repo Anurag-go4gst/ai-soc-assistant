@@ -274,6 +274,10 @@ from app.spl.user_constraint_bindings import (
     UserConstraintBindings,
     build_user_constraint_bindings,
 )
+from app.spl.rqc_constraint_preservation import (
+    apply_rqc_constraint_preservation,
+    rqc_slots_from_contract,
+)
 from app.chat.mitre_branch import planner_mitre_branch_suppressed_decision, run_mitre_evidence_branch
 from app.chat.hil_resolution import resolve_effective_hil_required
 from app.chat.planning_decision import plan_path_and_tools
@@ -450,6 +454,9 @@ class ChatPipelineState(TypedDict, total=False):
     # Plan 5.2 — LangGraph drops undeclared keys; spine + dispatch/gate channels.
     canonical_facts: dict[str, Any] | None
     final_evidence_gate: dict[str, Any] | None
+    evidence_state: dict[str, Any] | None
+    evidence_sufficiency: dict[str, Any] | None
+    investigation_outcome: dict[str, Any] | None
     plan_dispatch_trace: dict[str, Any] | None
     # Plan 6 E0 — names of pipeline_inline phases that actually ran this turn
     # (mitre_finalize / cve_adapter). Provenance only; not a hook schedule.
@@ -2853,7 +2860,36 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             ).get("mcp_discovery_context"),
             slot_handoff=_slot_handoff,
             dispatch_flags=_dispatch_flags,
+            resolved_query_contract=state.get("resolved_query_contract")
+            if isinstance(state.get("resolved_query_contract"), dict)
+            else None,
         )
+        rqc = state.get("resolved_query_contract") if isinstance(state.get("resolved_query_contract"), dict) else None
+        spl_text = None
+        if isinstance(spl_validation, dict):
+            spl_text = spl_validation.get("normalized_spl")
+        if not spl_text and isinstance(candidate_spl, dict):
+            spl_text = candidate_spl.get("candidate_spl")
+        if isinstance(spl_validation, dict) and rqc:
+            template_id = (
+                state["selected_use_case"].default_spl_template
+                if state.get("selected_use_case") is not None
+                else None
+            )
+            template = get_spl_template(template_id) if template_id else None
+            template_body = None
+            if template is not None:
+                template_body = " ".join(
+                    part
+                    for part in (template.spl_text, template.render_pattern)
+                    if part
+                ) or ""
+            spl_validation = apply_rqc_constraint_preservation(
+                spl_validation,
+                spl=str(spl_text or ""),
+                resolved_query_contract=rqc,
+                template_body=template_body,
+            )
     preference = preference_from_discovery_context(
         query=query_text,
         discovery_context=(
@@ -3612,8 +3648,24 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         "final_evidence_gate": gate_payload,
     }
     from app.chat.canonical_facts_spine import attach_canonical_facts_to_state
+    from app.evidence.minimal_evidence_state import derive_minimal_evidence_state
 
     state = attach_canonical_facts_to_state(state)
+    evidence_state = derive_minimal_evidence_state(
+        source_evidence=source_evidence,
+        structured_context=structured_context,
+        evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
+        resolved_query_contract=state.get("resolved_query_contract")
+        if isinstance(state.get("resolved_query_contract"), dict)
+        else None,
+        canonical_facts=state.get("canonical_facts") if isinstance(state.get("canonical_facts"), dict) else None,
+        final_evidence_gate=gate_payload,
+        execution=execution if isinstance(execution, dict) else None,
+    )
+    state = {**state, "evidence_state": evidence_state.model_dump_view()}
+    from app.evidence.evidence_sufficiency import attach_evidence_sufficiency
+
+    state = attach_evidence_sufficiency(state)
     source_refs = [str(item.get("evidence_id")) for item in source_evidence]
     spl_template = template_summary(selected_use_case.default_spl_template if selected_use_case else None)
     if selected_use_case is not None:
@@ -3815,6 +3867,23 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         severity_decision.severity_label,
         hil_required=run_contract.effective_hil_required,
     )
+    from app.chat.contracts.investigation_outcome import derive_investigation_outcome
+
+    investigation_outcome = derive_investigation_outcome(
+        trace_id=trace_id,
+        evidence_state=state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else None,
+        evidence_sufficiency=state.get("evidence_sufficiency")
+        if isinstance(state.get("evidence_sufficiency"), dict)
+        else None,
+        context_sufficiency=context_sufficiency if isinstance(context_sufficiency, dict) else None,
+        final_evidence_gate=gate_payload if isinstance(gate_payload, dict) else None,
+        canonical_facts=state.get("canonical_facts") if isinstance(state.get("canonical_facts"), dict) else None,
+        structured_context=structured_context if isinstance(structured_context, dict) else None,
+        human_review=human_review if isinstance(human_review, dict) else None,
+        severity_label=severity_decision.severity_label,
+        action_capability=action_capability,
+    )
+    state = {**state, "investigation_outcome": investigation_outcome.model_dump(mode="json")}
     emit_stage("generating_answer")
     close_post_planning_pipeline_phase()
     _skip_registry_warnings, _skip_catalog_row = _composer_skip_registry_context(state)
@@ -3831,6 +3900,24 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         promotion_lifecycle_summary=_promotion_lifecycle_for_composer_skip(state),
         registry_warnings=_skip_registry_warnings,
         catalog_row=_skip_catalog_row,
+        resolved_query_contract=state.get("resolved_query_contract")
+        if isinstance(state.get("resolved_query_contract"), dict)
+        else None,
+        investigation_outcome=state.get("investigation_outcome")
+        if isinstance(state.get("investigation_outcome"), dict)
+        else None,
+        evidence_state=state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else None,
+        evidence_sufficiency=state.get("evidence_sufficiency")
+        if isinstance(state.get("evidence_sufficiency"), dict)
+        else None,
+        route_plan_summary={
+            "primary_skill": (state.get("routed") or {}).get("skill")
+            if isinstance(state.get("routed"), dict)
+            else None,
+            "intent_family": (state.get("resolved_query_contract") or {}).get("intent_family")
+            if isinstance(state.get("resolved_query_contract"), dict)
+            else None,
+        },
     )
     synthesis_status = synthesis_lab.status
     context_sufficiency = apply_synthesis_allowed_to_sufficiency(
@@ -5451,6 +5538,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         session_context_status=session_context_status,
         run_contract=state.get("run_contract"),
         canonical_facts=state.get("canonical_facts"),
+        investigation_outcome=state.get("investigation_outcome"),
         routing_contract=state.get("route_contract"),
     )
     response = _apply_coe_stop_condition_gate(response, query=request.message)
@@ -7120,6 +7208,7 @@ def _spl_user_constraint_bindings(
     llm_intent_advisory: LLMIntentAdvisory | dict[str, Any] | None = None,
     query_understanding: Any | None = None,
     template_id: str | None = None,
+    resolved_query_contract: dict[str, Any] | None = None,
 ) -> UserConstraintBindings:
     template = get_spl_template(template_id) if template_id else None
     policy_indexes = None
@@ -7140,6 +7229,9 @@ def _spl_user_constraint_bindings(
         llm_intent_advisory=llm_intent_advisory,
         query_understanding=query_understanding,
         extra_slots=source_profile_result.slots,
+        rqc_slots=rqc_slots_from_contract(
+            resolved_query_contract if isinstance(resolved_query_contract, dict) else None
+        ),
         source_profile_trace=source_profile_result.trace(),
         allowed_indexes=policy_indexes,
         allowed_sourcetypes=policy_sourcetypes,
@@ -7198,6 +7290,7 @@ def _candidate_spl_stage(
     mcp_discovery_context: dict[str, Any] | None = None,
     slot_handoff: dict[str, Any] | None = None,
     dispatch_flags: dict[str, bool] | None = None,
+    resolved_query_contract: dict[str, Any] | None = None,
 ) -> tuple[dict | None, dict | None]:
     if not spl_allowed:
         return None, None
@@ -7315,6 +7408,7 @@ def _candidate_spl_stage(
         llm_intent_advisory=llm_intent_advisory,
         query_understanding=query_understanding,
         template_id=template_id,
+        resolved_query_contract=resolved_query_contract,
     )
     if runtime_profile is not None and _dispatch_v2_on:
         catalogue_template_id = _RUNTIME_PROFILE_CATALOGUE_TEMPLATES.get(
@@ -7345,6 +7439,7 @@ def _candidate_spl_stage(
                         else "user"
                     ),
                     user_constraint_bindings=user_bindings,
+                    resolved_query_contract=resolved_query_contract,
                 )
                 if catalogue_candidate is not None:
                     return catalogue_candidate
@@ -7375,6 +7470,7 @@ def _candidate_spl_stage(
             else "user"
         ),
         user_constraint_bindings=user_bindings,
+        resolved_query_contract=resolved_query_contract,
     )
     if template_candidate is not None:
         candidate_payload, validation_payload = template_candidate
@@ -7620,6 +7716,7 @@ def _candidate_from_default_template(
     extra_slots: dict[str, Any] | None = None,
     slot_source: str = "user",
     user_constraint_bindings: UserConstraintBindings | None = None,
+    resolved_query_contract: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
     template = get_spl_template(template_id)
     if template is None or template.query_shape != QUERY_SHAPE_RAW_SEARCH or not template.spl_text:
@@ -7677,6 +7774,7 @@ def _candidate_from_default_template(
     bindings = user_constraint_bindings or _spl_user_constraint_bindings(
         user_query,
         template_id=template.template_id,
+        resolved_query_contract=resolved_query_contract,
     )
     compatibility = check_template_compatibility(template.template_id, bindings, template=template)
     force_skeleton = compatibility.use_user_bound_skeleton

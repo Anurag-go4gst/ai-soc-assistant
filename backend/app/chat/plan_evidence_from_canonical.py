@@ -5,7 +5,10 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from app.chat.canonical_answer_mode_policy import resolve_canonical_answer_mode
+from app.chat.canonical_answer_mode_policy import (
+    CanonicalAnswerModePolicyError,
+    resolve_canonical_answer_mode,
+)
 from app.chat.canonical_handoff_store import commit_resource_plan, get_committed_resource_plan
 from app.chat.contracts.canonical_planning_input import CanonicalPlanningInput
 from app.chat.contracts.evidence_plan import EvidencePlan
@@ -59,6 +62,15 @@ def plan_evidence_from_canonical(
             return plan, consumed, ["provenance.prompt_template_id"]
 
     if state is not None:
+        rqc = state.get("resolved_query_contract")
+        if isinstance(rqc, dict) and (
+            rqc.get("clarification_required")
+            or rqc.get("ambiguity_state") in {"clarification_required", "policy_blocked"}
+        ):
+            raise CanonicalAnswerModePolicyError(
+                reason="final_rqc_clarification_blocks_planning",
+                detail="final ResolvedQueryContract requires clarification before ResourcePlan creation",
+            )
         emit_planner_handoff_created(state, canonical)
 
     if isinstance(intent_classification, dict) and intent_classification.get("intent_family"):
@@ -103,6 +115,18 @@ def plan_evidence_from_canonical(
         selected_use_case=selected_use_case,
         user_query=user_query or canonical.message.content_reference,
     )
+    if state is not None:
+        rqc = state.get("resolved_query_contract")
+        if isinstance(rqc, dict):
+            required = {str(item) for item in (rqc.get("required_capabilities") or [])}
+            prohibited = {str(item) for item in (rqc.get("prohibited_capabilities") or [])}
+            overlay: dict[str, Any] = {}
+            if "spl" in required and "spl" not in prohibited:
+                overlay["needs_spl"] = True
+            if "mcp" in required and "mcp" not in prohibited:
+                overlay["needs_mcp"] = True
+            if overlay:
+                plan = plan.model_copy(update=overlay)
 
     target_mode = answer_mode_decision.answer_mode
     if target_mode is not None and plan.answer_mode != target_mode:

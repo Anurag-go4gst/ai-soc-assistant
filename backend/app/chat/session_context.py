@@ -143,6 +143,32 @@ def resolve_session_context(request: ChatRequest) -> SessionContextResolution:
     status.staleness = "fresh"
     status.context_source_trace_id = pins.last_trace_id
     kind = _follow_up_kind(normalized)
+    scope_delta = _generic_scope_delta(normalized)
+
+    if not kind and scope_delta and (pins.last_rqc_redacted or pins.last_entities):
+        status.used_previous_context = True
+        status.used_fields = sorted(
+            {
+                field
+                for field in (
+                    "last_rqc_redacted" if pins.last_rqc_redacted else None,
+                    "last_entities" if pins.last_entities else None,
+                    "last_investigation_outcome_ref" if pins.last_investigation_outcome_ref else None,
+                    "last_evidence_refs" if pins.last_evidence_refs else None,
+                    "last_clarification_state" if pins.last_clarification_state else None,
+                    "last_plan_identity" if pins.last_plan_identity else None,
+                    "last_evidence_scope" if pins.last_evidence_scope else None,
+                )
+                if field
+            }
+        )
+        return SessionContextResolution(
+            session_id=session_id,
+            pins=pins,
+            effective_query=effective_query,
+            status=status,
+            follow_up_kind="scope_delta",
+        )
 
     if not kind and not _message_has_own_alert_context(normalized):
         return SessionContextResolution(
@@ -304,6 +330,12 @@ def pins_from_pipeline_state(
         original_query=query_text if pending_handoff_id else (
             prior_pins.original_query if isinstance(prior_pins, SessionPins) else None
         ),
+        last_rqc_redacted=_redact_rqc_for_session(state.get("resolved_query_contract")),
+        last_investigation_outcome_ref=_outcome_ref_for_session(state.get("investigation_outcome")),
+        last_evidence_refs=_evidence_refs_for_session(state),
+        last_clarification_state=_clarification_state_for_session(state),
+        last_plan_identity=_plan_identity_for_session(state, trace_id),
+        last_evidence_scope=_evidence_scope_for_session(state),
         updated_at=datetime.now(UTC),
         expires_at=datetime.now(UTC),
     )
@@ -403,3 +435,89 @@ def _human_review_status(human_review: Any) -> str | None:
     if required:
         return str(review_type or "required")
     return "not_required"
+
+
+_SCOPE_DELTA_PREFIXES = ("what about ", "how about ", "and for ", "also for ")
+
+
+def _generic_scope_delta(normalized: str) -> str | None:
+    """Shape-only follow-up delta. Not a catalogue of investigation phrases."""
+    for prefix in _SCOPE_DELTA_PREFIXES:
+        if normalized.startswith(prefix):
+            remainder = normalized[len(prefix) :].strip(" ?.")
+            return remainder or None
+    return None
+
+
+def _redact_rqc_for_session(rqc: Any) -> dict[str, Any] | None:
+    if not isinstance(rqc, dict):
+        return None
+    caps = rqc.get("required_capabilities")
+    if isinstance(caps, (set, frozenset)):
+        caps = sorted(str(item) for item in caps)
+    return {
+        "intent_family": rqc.get("intent_family"),
+        "answer_goal": rqc.get("answer_goal"),
+        "evidence_requirements": list(rqc.get("evidence_requirements") or []),
+        "required_capabilities": list(caps or []),
+        "time_scope": rqc.get("time_scope"),
+        "entities": rqc.get("entities") if isinstance(rqc.get("entities"), dict) else {},
+        "clarification_required": bool(rqc.get("clarification_required")),
+    }
+
+
+def _outcome_ref_for_session(outcome: Any) -> dict[str, Any] | None:
+    if not isinstance(outcome, dict):
+        return None
+    provenance = outcome.get("provenance") if isinstance(outcome.get("provenance"), dict) else {}
+    return {
+        "disposition": outcome.get("disposition"),
+        "severity_label": outcome.get("severity_label"),
+        "evidence_refs": list(outcome.get("evidence_refs") or []),
+        "missing_evidence": list(outcome.get("missing_evidence") or []),
+        "trace_id": provenance.get("trace_id"),
+    }
+
+
+def _evidence_refs_for_session(state: dict[str, Any]) -> list[str]:
+    evidence = state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else {}
+    refs = [str(item) for item in (evidence.get("obtained") or [])]
+    outcome = state.get("investigation_outcome") if isinstance(state.get("investigation_outcome"), dict) else {}
+    refs.extend(str(item) for item in (outcome.get("evidence_refs") or []))
+    return sorted({item for item in refs if item})
+
+
+def _clarification_state_for_session(state: dict[str, Any]) -> dict[str, Any] | None:
+    rqc = state.get("resolved_query_contract") if isinstance(state.get("resolved_query_contract"), dict) else {}
+    if not rqc:
+        return None
+    return {
+        "clarification_required": bool(rqc.get("clarification_required")),
+        "clarification_reason": rqc.get("clarification_reason"),
+        "unresolved_fields": list(rqc.get("unresolved_fields") or []),
+    }
+
+
+def _plan_identity_for_session(state: dict[str, Any], trace_id: str) -> dict[str, Any]:
+    evidence = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
+    plan = evidence.get("resource_plan") if isinstance(evidence.get("resource_plan"), dict) else {}
+    provenance = plan.get("provenance") if isinstance(plan.get("provenance"), dict) else {}
+    return {
+        "trace_id": trace_id,
+        "resource_plan_id": provenance.get("resource_plan_id"),
+        "handoff_id": provenance.get("handoff_id"),
+    }
+
+
+def _evidence_scope_for_session(state: dict[str, Any]) -> dict[str, Any] | None:
+    rqc = state.get("resolved_query_contract") if isinstance(state.get("resolved_query_contract"), dict) else {}
+    evidence = state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else {}
+    if not rqc and not evidence:
+        return None
+    return {
+        "time_scope": rqc.get("time_scope"),
+        "entities": rqc.get("entities") if isinstance(rqc.get("entities"), dict) else {},
+        "intent_family": rqc.get("intent_family"),
+        "freshness": evidence.get("observed_at") or evidence.get("freshness"),
+        "applicability": evidence.get("applicability"),
+    }

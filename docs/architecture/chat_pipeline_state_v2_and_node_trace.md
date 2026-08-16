@@ -15,6 +15,9 @@
 > discovery loop is fenced off under canonical mode, while bounded **pre-SPL** MCP discovery
 > runs inline on the SPL path when **dispatch-v2** (`AI_SOC_PIPELINE_DISPATCH_V2_ENABLED`) is
 > enabled — see `docs/architecture/mcp_tool_routing.md` for which is which.
+> **Plan 7/8:** dispatch-v2 is rollback-only. When ResourcePlan execution is on, v2 cannot
+> own the schedule (`legacy_dispatch_v2_authority_enabled`). This host's development profile
+> keeps v2 off.
 >
 > **Update (2026-08-11, Plan 2).** Three things below changed:
 > - **Topology truth source.** `resource_planner_graph_edges()` now returns *runtime-derived*

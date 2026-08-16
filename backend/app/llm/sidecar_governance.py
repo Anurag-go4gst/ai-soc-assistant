@@ -44,8 +44,21 @@ FAILURE_TIMEOUT = "timeout"
 FAILURE_PROVIDER_UNAVAILABLE = "provider_unavailable"
 FAILURE_POOL_REJECTED = "pool_rejected"
 FAILURE_SLOT_BUSY = "slot_busy"
+FAILURE_CIRCUIT_OPEN = "circuit_open"
 NOTE_LLM_SLOT_BUSY = "llm_model_slot_busy"
 NOTE_CONFIDENCE_ADVISORY_ONLY = "confidence_advisory_only"
+NOTE_CIRCUIT_OPEN = "t4_circuit_open"
+NOTE_HUMAN_ACTION_REQUIRED = "human_action_required_model_restart"
+NOTE_CIRCUIT_HALF_OPEN = "t4_circuit_half_open_probe"
+
+CIRCUIT_CLOSED = "CLOSED"
+CIRCUIT_OPEN = "OPEN"
+CIRCUIT_HALF_OPEN = "HALF_OPEN"
+
+# Trip the shared-model circuit. Slot-busy is backpressure, not model failure.
+_CIRCUIT_FAILURE_KINDS = frozenset(
+    {FAILURE_TIMEOUT, FAILURE_PROVIDER_UNAVAILABLE, FAILURE_POOL_REJECTED}
+)
 
 # Persistent pool — never use ``with ThreadPoolExecutor()`` here: __exit__ joins workers
 # and defeats ``future.result(timeout=...)``. Orphaned workers are bounded by the
@@ -87,6 +100,138 @@ class SidecarLlmCallResult:
     timed_out: bool
     notes: list[str]
     failure_kind: str | None = None
+    circuit_state: str | None = None
+    human_action_required: bool = False
+
+
+@dataclass
+class T4Circuit:
+    """Deterministic CLOSED/OPEN/HALF_OPEN breaker for the shared model slot.
+
+    Opening the circuit sheds work. It never restarts Cisco. HALF_OPEN is allowed
+    only after an operator records a manual restart plus inference-health evidence
+    (not ``/v1/models`` liveness).
+    """
+
+    state: str = CIRCUIT_CLOSED
+    consecutive_failures: int = 0
+    opened_at: float | None = None
+    half_open_in_flight: bool = False
+    last_health: dict[str, Any] | None = None
+    human_action_required: bool = False
+    manual_restart_recorded: bool = False
+
+
+_CIRCUIT = T4Circuit()
+_CIRCUIT_LOCK = threading.Lock()
+
+
+def _failure_threshold() -> int:
+    return max(1, int(os.getenv("AI_SOC_T4_CIRCUIT_FAILURE_THRESHOLD", "3")))
+
+
+def reset_t4_circuit() -> None:
+    """Test/process isolation — does not restart the model."""
+    global _CIRCUIT
+    with _CIRCUIT_LOCK:
+        _CIRCUIT = T4Circuit()
+
+
+def t4_circuit_status() -> dict[str, Any]:
+    with _CIRCUIT_LOCK:
+        return {
+            "state": _CIRCUIT.state,
+            "consecutive_failures": _CIRCUIT.consecutive_failures,
+            "human_action_required": _CIRCUIT.human_action_required,
+            "manual_restart_recorded": _CIRCUIT.manual_restart_recorded,
+            "half_open_in_flight": _CIRCUIT.half_open_in_flight,
+            "last_health": dict(_CIRCUIT.last_health or {}),
+            "opened_at": _CIRCUIT.opened_at,
+        }
+
+
+def request_human_model_restart() -> dict[str, Any]:
+    """Operator diagnostic only. Never executes a restart command or API."""
+    with _CIRCUIT_LOCK:
+        _CIRCUIT.human_action_required = True
+        _CIRCUIT.state = CIRCUIT_OPEN
+        if _CIRCUIT.opened_at is None:
+            _CIRCUIT.opened_at = time.monotonic()
+    return {
+        "human_action_required": True,
+        "circuit_state": CIRCUIT_OPEN,
+        "restart_authorized": False,
+        "procedure": (
+            "HUMAN ACTION REQUIRED: an operator must restart Cisco Foundation-Sec "
+            "out of band, then call record_manual_model_restart() with inference-health "
+            "evidence. This function does not restart the model."
+        ),
+    }
+
+
+def record_manual_model_restart(*, inference_health_ok: bool, evidence: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Record that a human already restarted the model. Does not restart it.
+
+    ``inference_health_ok`` must come from a bounded generation probe, not from
+    ``/v1/models`` liveness (Plan 7 F2 / Plan 8 REL0).
+    """
+    with _CIRCUIT_LOCK:
+        _CIRCUIT.manual_restart_recorded = True
+        _CIRCUIT.last_health = {
+            "inference_health_ok": bool(inference_health_ok),
+            "source": "operator_inference_probe",
+            **dict(evidence or {}),
+        }
+        if not inference_health_ok:
+            _CIRCUIT.state = CIRCUIT_OPEN
+            _CIRCUIT.human_action_required = True
+            _CIRCUIT.half_open_in_flight = False
+        else:
+            _CIRCUIT.state = CIRCUIT_HALF_OPEN
+            _CIRCUIT.human_action_required = False
+            _CIRCUIT.half_open_in_flight = False
+            _CIRCUIT.consecutive_failures = 0
+    return t4_circuit_status()
+
+
+def _circuit_allow_request() -> tuple[bool, str, bool]:
+    with _CIRCUIT_LOCK:
+        if _CIRCUIT.state == CIRCUIT_CLOSED:
+            return True, CIRCUIT_CLOSED, False
+        if _CIRCUIT.state == CIRCUIT_OPEN:
+            _CIRCUIT.human_action_required = True
+            return False, CIRCUIT_OPEN, True
+        if _CIRCUIT.state == CIRCUIT_HALF_OPEN:
+            if _CIRCUIT.half_open_in_flight:
+                return False, CIRCUIT_HALF_OPEN, False
+            _CIRCUIT.half_open_in_flight = True
+            return True, CIRCUIT_HALF_OPEN, False
+        return False, _CIRCUIT.state, True
+
+
+def _circuit_record_success() -> None:
+    with _CIRCUIT_LOCK:
+        _CIRCUIT.consecutive_failures = 0
+        _CIRCUIT.half_open_in_flight = False
+        _CIRCUIT.human_action_required = False
+        _CIRCUIT.state = CIRCUIT_CLOSED
+        _CIRCUIT.opened_at = None
+        _CIRCUIT.manual_restart_recorded = False
+
+
+def _circuit_record_failure(kind: str | None) -> None:
+    if kind not in _CIRCUIT_FAILURE_KINDS:
+        with _CIRCUIT_LOCK:
+            _CIRCUIT.half_open_in_flight = False
+        return
+    with _CIRCUIT_LOCK:
+        _CIRCUIT.consecutive_failures += 1
+        _CIRCUIT.half_open_in_flight = False
+        if _CIRCUIT.state == CIRCUIT_HALF_OPEN or _CIRCUIT.consecutive_failures >= _failure_threshold():
+            _CIRCUIT.state = CIRCUIT_OPEN
+            _CIRCUIT.human_action_required = True
+            if _CIRCUIT.opened_at is None:
+                _CIRCUIT.opened_at = time.monotonic()
 
 
 def is_reasoning_provider_assignment(provider: str | None, model: str | None) -> bool:
@@ -165,6 +310,35 @@ def resolve_sidecar_role_status(
     )
 
 
+def _finalize_sidecar_result(
+    result: SidecarLlmCallResult,
+    *,
+    success: bool,
+    kind: str | None,
+    probe_state: str,
+) -> SidecarLlmCallResult:
+    if success:
+        _circuit_record_success()
+    else:
+        _circuit_record_failure(kind)
+    status = t4_circuit_status()
+    notes = list(result.notes)
+    if probe_state == CIRCUIT_HALF_OPEN and NOTE_CIRCUIT_HALF_OPEN not in notes:
+        notes.append(NOTE_CIRCUIT_HALF_OPEN)
+    if status["state"] == CIRCUIT_OPEN and NOTE_CIRCUIT_OPEN not in notes:
+        notes.append(NOTE_CIRCUIT_OPEN)
+    if status["human_action_required"] and NOTE_HUMAN_ACTION_REQUIRED not in notes:
+        notes.append(NOTE_HUMAN_ACTION_REQUIRED)
+    return SidecarLlmCallResult(
+        raw_output=result.raw_output,
+        timed_out=result.timed_out,
+        notes=notes,
+        failure_kind=result.failure_kind,
+        circuit_state=status["state"],
+        human_action_required=bool(status["human_action_required"]),
+    )
+
+
 def run_sidecar_llm_with_timeout(
     llm_raw_output_provider: Callable[[], str],
     *,
@@ -202,6 +376,27 @@ def run_sidecar_llm_with_timeout(
             )
         timeout_seconds = min(timeout_seconds, remaining)
 
+    allowed, circuit_state, human_action = _circuit_allow_request()
+    if not allowed:
+        duration_ms = int((time.monotonic() - started) * 1000)
+        record_wrapper_event(
+            duration_ms,
+            call_purpose=call_purpose,
+            wrapper_kind=wrapper_kind,
+            outcome=WrapperEventOutcome.SATURATED,
+        )
+        notes = [NOTE_CIRCUIT_OPEN]
+        if human_action:
+            notes.append(NOTE_HUMAN_ACTION_REQUIRED)
+        return SidecarLlmCallResult(
+            raw_output=None,
+            timed_out=False,
+            notes=notes,
+            failure_kind=FAILURE_CIRCUIT_OPEN,
+            circuit_state=circuit_state,
+            human_action_required=human_action,
+        )
+
     slot = _MODEL_SLOT_SEMAPHORE
     if slot_wait_seconds and slot_wait_seconds > 0:
         acquired = slot.acquire(timeout=slot_wait_seconds)
@@ -220,6 +415,7 @@ def run_sidecar_llm_with_timeout(
             timed_out=False,
             notes=[NOTE_LLM_SLOT_BUSY],
             failure_kind=FAILURE_SLOT_BUSY,
+            circuit_state=circuit_state,
         )
 
     def _slot_guarded() -> str:
@@ -239,11 +435,16 @@ def run_sidecar_llm_with_timeout(
             wrapper_kind=wrapper_kind,
             outcome=WrapperEventOutcome.FAILURE,
         )
-        return SidecarLlmCallResult(
-            raw_output=None,
-            timed_out=True,
-            notes=[NOTE_LLM_ASSIST_TIMED_OUT],
-            failure_kind=FAILURE_POOL_REJECTED,
+        return _finalize_sidecar_result(
+            SidecarLlmCallResult(
+                raw_output=None,
+                timed_out=True,
+                notes=[NOTE_LLM_ASSIST_TIMED_OUT],
+                failure_kind=FAILURE_POOL_REJECTED,
+            ),
+            success=False,
+            kind=FAILURE_POOL_REJECTED,
+            probe_state=circuit_state,
         )
 
     try:
@@ -255,7 +456,12 @@ def run_sidecar_llm_with_timeout(
             wrapper_kind=wrapper_kind,
             outcome=WrapperEventOutcome.COMPLETED,
         )
-        return SidecarLlmCallResult(raw_output=raw_output, timed_out=False, notes=[])
+        return _finalize_sidecar_result(
+            SidecarLlmCallResult(raw_output=raw_output, timed_out=False, notes=[]),
+            success=True,
+            kind=None,
+            probe_state=circuit_state,
+        )
     except (FuturesTimeoutError, TimeoutError):
         future.cancel()
         duration_ms = int((time.monotonic() - started) * 1000)
@@ -265,11 +471,16 @@ def run_sidecar_llm_with_timeout(
             wrapper_kind=wrapper_kind,
             outcome=WrapperEventOutcome.TIMEOUT,
         )
-        return SidecarLlmCallResult(
-            raw_output=None,
-            timed_out=True,
-            notes=[NOTE_LLM_ASSIST_TIMED_OUT],
-            failure_kind=FAILURE_TIMEOUT,
+        return _finalize_sidecar_result(
+            SidecarLlmCallResult(
+                raw_output=None,
+                timed_out=True,
+                notes=[NOTE_LLM_ASSIST_TIMED_OUT],
+                failure_kind=FAILURE_TIMEOUT,
+            ),
+            success=False,
+            kind=FAILURE_TIMEOUT,
+            probe_state=circuit_state,
         )
     except Exception:  # noqa: BLE001 — never propagate provider errors to /chat
         duration_ms = int((time.monotonic() - started) * 1000)
@@ -282,11 +493,16 @@ def run_sidecar_llm_with_timeout(
         # `timed_out=True` is retained so existing callers still degrade, but the note
         # and `failure_kind` say what actually happened: the provider failed, it did
         # not run out of time.
-        return SidecarLlmCallResult(
-            raw_output=None,
-            timed_out=True,
-            notes=[NOTE_LLM_PROVIDER_UNAVAILABLE],
-            failure_kind=FAILURE_PROVIDER_UNAVAILABLE,
+        return _finalize_sidecar_result(
+            SidecarLlmCallResult(
+                raw_output=None,
+                timed_out=True,
+                notes=[NOTE_LLM_PROVIDER_UNAVAILABLE],
+                failure_kind=FAILURE_PROVIDER_UNAVAILABLE,
+            ),
+            success=False,
+            kind=FAILURE_PROVIDER_UNAVAILABLE,
+            probe_state=circuit_state,
         )
 
 

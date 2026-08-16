@@ -88,6 +88,8 @@ def reset_model_slot_guard() -> Iterator[None]:
     from app.llm import sidecar_governance as sg
 
     sg._MODEL_SLOT_SEMAPHORE = threading.BoundedSemaphore(sg._MODEL_SLOTS)
+    sg.reset_t4_circuit()
+    os.environ.pop("AI_SOC_T4_CIRCUIT_FAILURE_THRESHOLD", None)
     yield
 
 

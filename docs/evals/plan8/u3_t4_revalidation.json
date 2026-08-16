@@ -1,0 +1,170 @@
+{
+  "item": "U3",
+  "inherited_c3": "REMEDIATE_EXISTING_T4_IN_PLACE",
+  "serving_decision": "no_new_decision",
+  "timeout_seconds_observed": 120.0,
+  "host": {
+    "mem_available_mb": 9291,
+    "swap_free_mb": 14,
+    "loadavg": [
+      "2.79",
+      "1.03",
+      "0.54"
+    ]
+  },
+  "c3_baseline_timeout_seconds": 120.0,
+  "c3_baseline_accepted": 4,
+  "c3_baseline_cases": 4,
+  "injected_contract": [
+    {
+      "case_id": "lateral_movement",
+      "query": "signs that something is moving sideways through the estate",
+      "injected": true,
+      "invoked": false,
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "clarification_cleared": false,
+      "prohibitions_weakened": false
+    },
+    {
+      "case_id": "competing_hypotheses",
+      "query": "powershell on endpoints talking to new domains",
+      "injected": true,
+      "invoked": false,
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "clarification_cleared": false,
+      "prohibitions_weakened": false
+    },
+    {
+      "case_id": "missing_context",
+      "query": "compare this with what happened last week and tell me if it is getting worse",
+      "injected": true,
+      "invoked": false,
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "clarification_cleared": false,
+      "prohibitions_weakened": false
+    },
+    {
+      "case_id": "spl_capable_paraphrase",
+      "query": "any domain lookups that look algorithmically generated",
+      "injected": true,
+      "invoked": false,
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "clarification_cleared": false,
+      "prohibitions_weakened": false
+    },
+    {
+      "case_id": "call_t4_hunt",
+      "query": "Hunt for CI/CD supply-chain compromise indicators across our environment",
+      "injected": true,
+      "invoked": true,
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "clarification_cleared": false,
+      "prohibitions_weakened": false
+    }
+  ],
+  "live": [
+    {
+      "case_id": "lateral_movement",
+      "query": "signs that something is moving sideways through the estate",
+      "next_action": "CLARIFY",
+      "invoked": false,
+      "accepted": false,
+      "timed_out": false,
+      "failure_kind": null,
+      "elapsed_ms": null,
+      "wall_ms": 0,
+      "rejected_reasons": [],
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "clarification_cleared": false,
+      "prohibitions_weakened": false
+    },
+    {
+      "case_id": "competing_hypotheses",
+      "query": "powershell on endpoints talking to new domains",
+      "next_action": "CLARIFY",
+      "invoked": false,
+      "accepted": false,
+      "timed_out": false,
+      "failure_kind": null,
+      "elapsed_ms": null,
+      "wall_ms": 0,
+      "rejected_reasons": [],
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "clarification_cleared": false,
+      "prohibitions_weakened": false
+    },
+    {
+      "case_id": "missing_context",
+      "query": "compare this with what happened last week and tell me if it is getting worse",
+      "next_action": "CLARIFY",
+      "invoked": false,
+      "accepted": false,
+      "timed_out": false,
+      "failure_kind": null,
+      "elapsed_ms": null,
+      "wall_ms": 0,
+      "rejected_reasons": [],
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "clarification_cleared": false,
+      "prohibitions_weakened": false
+    },
+    {
+      "case_id": "spl_capable_paraphrase",
+      "query": "any domain lookups that look algorithmically generated",
+      "next_action": "CLARIFY",
+      "invoked": false,
+      "accepted": false,
+      "timed_out": false,
+      "failure_kind": null,
+      "elapsed_ms": null,
+      "wall_ms": 0,
+      "rejected_reasons": [],
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "clarification_cleared": false,
+      "prohibitions_weakened": false
+    },
+    {
+      "case_id": "call_t4_hunt",
+      "query": "Hunt for CI/CD supply-chain compromise indicators across our environment",
+      "next_action": "CALL_T4",
+      "invoked": true,
+      "accepted": true,
+      "timed_out": false,
+      "failure_kind": null,
+      "elapsed_ms": 62216,
+      "wall_ms": 62228,
+      "rejected_reasons": [
+        "entity_not_concrete"
+      ],
+      "locked_facts_preserved": true,
+      "capability_widening": [],
+      "clarification_cleared": false,
+      "prohibitions_weakened": false
+    }
+  ],
+  "live_error": null,
+  "counts": {
+    "live_cases": 5,
+    "invoked": 1,
+    "accepted": 1,
+    "timed_out": 0,
+    "not_invoked_job_aware": 4,
+    "rejected_or_unaccepted": 0
+  },
+  "latency": {
+    "p50_ms": 62216,
+    "p95_ms": 62216
+  },
+  "f3_still_present": true,
+  "u1_job_aware_skips_clarification_t4": true,
+  "check_failures": []
+}

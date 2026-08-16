@@ -76,6 +76,20 @@ def safe_validate_for_execution(spl: str) -> dict[str, Any]:
     return validate_spl(spl)
 
 
+def build_exact_call_invalidated_review() -> dict[str, Any]:
+    return human_review(
+        review_type="spl_execution_confirmation",
+        reason="exact_call_grant_invalidated",
+        reviewer_role="soc_lead",
+        allowed_actions=["reconfirm_execution", "reject_execution"],
+        safe_message_for_user=(
+            "The approved Splunk call changed after confirmation. "
+            "Re-review the exact search, time range, source, and tool before it can run."
+        ),
+        required=True,
+    )
+
+
 def resolve_execution_spl(
     *,
     spl_validation: dict[str, Any],
@@ -103,6 +117,8 @@ def resolve_execution_spl(
     if action == "confirm":
         pending_spl = str((pending_execution or {}).get("normalized_spl") or "").strip()
         current_spl = str(spl_validation.get("normalized_spl") or "").strip()
+        if pending_spl and current_spl and pending_spl != current_spl:
+            return None, build_exact_call_invalidated_review()
         target = pending_spl or current_spl
         if not target:
             return None, build_updated_spl_revision_review(reject_reasons=["normalized_spl_null"])

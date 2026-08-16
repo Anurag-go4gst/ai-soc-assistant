@@ -157,10 +157,10 @@ EXPECTED_RECORD_IO: dict[str, RecordIo] = {
         ("spl_validation",),
     ),
     "context_sufficiency": _io(
-        ("context_sufficiency",),
-        ("context_sufficiency",),
-        ("context_sufficiency",),
-        ("context_sufficiency",),
+        ("resolved_query_contract", "evidence_state", "evidence_plan", "source_evidence"),
+        ("evidence_sufficiency", "context_sufficiency", "evidence_state"),
+        ("resolved_query_contract", "evidence_state", "evidence_plan", "source_evidence"),
+        ("evidence_sufficiency", "context_sufficiency", "evidence_state"),
     ),
     "decide_facts": _io(
         (),

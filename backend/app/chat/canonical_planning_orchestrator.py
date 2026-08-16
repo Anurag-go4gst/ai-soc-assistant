@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from app.chat.canonical_answer_mode_policy import CanonicalAnswerModePolicyError
@@ -25,8 +25,9 @@ from app.chat.contracts.canonical_planning_outcome import (
 from app.chat.contracts.gap_resolution import FieldProvenance
 from app.chat.guided_detail_resolution import run_guided_detail_resolution
 from app.chat.intent_classifier import build_query_to_intent
-from app.chat.resolved_query_builder import build_resolved_query_contract
+from app.chat.resolved_query_builder import apply_session_continuity, build_resolved_query_contract
 from app.chat.semantic_t4_understanding import maybe_enrich_t4_semantic
+from app.chat.session_context import _generic_scope_delta
 from app.chat.intent_family_defaults import build_known_path_intent_stub, build_t0_knowledge_stub
 from app.chat.known_detail_completion import evaluate_known_detail_completion
 from app.chat.lane_router import is_known_catalogue_match, lane_for_match_path
@@ -110,8 +111,9 @@ def run_canonical_planning(state: ChatPipelineState) -> ChatPipelineState:
         from app.chat.canonical_outcome_gate import enforce_canonical_outcome_invariant
 
         state = enforce_canonical_outcome_invariant(state)
-        state = graph_node_route_resolution(state)
-        state = graph_node_route_contract(state)
+        if not isinstance(state.get("route_adjudication"), dict):
+            state = graph_node_route_resolution(state)
+            state = graph_node_route_contract(state)
         state = _graph_node_planning_decision_from_canonical(state)
         return state
     except HandoffPersistenceError as exc:
@@ -642,6 +644,14 @@ def _resolve_lane_intent_and_details(
     )
 
 
+def _durable_canonical_payload(canonical: Any, resolved_query_contract: dict[str, Any] | None) -> dict[str, Any]:
+    """Persist the final RQC beside canonical input without a DB migration."""
+    payload = canonical.model_dump()
+    if resolved_query_contract:
+        payload["resolved_query_contract"] = resolved_query_contract
+    return payload
+
+
 def _persist_clarification_outcome(
     state: ChatPipelineState,
     *,
@@ -664,6 +674,10 @@ def _persist_clarification_outcome(
     unresolved_fields = list(
         gap.unresolved_details if gap else completeness.missing_fields if completeness else []
     )
+    rqc_unresolved = list((resolved_query_contract or {}).get("unresolved_fields") or [])
+    for field in rqc_unresolved:
+        if field not in unresolved_fields:
+            unresolved_fields.append(field)
     if not unresolved_fields:
         # The outcome contract requires at least one unresolved field; without this
         # the clarification would be unanswerable and the handoff unresumable.
@@ -671,10 +685,14 @@ def _persist_clarification_outcome(
     save_clarification_handoff(
         handoff_id=handoff_id,
         handoff_version=handoff_version,
-        canonical_planning_input=canonical.model_dump(),
+        canonical_planning_input=_durable_canonical_payload(canonical, resolved_query_contract),
         gap_resolution=gap.model_dump() if gap else None,
         unresolved_fields=unresolved_fields,
-        clarification_reason=route_reason or "clarification_required",
+        clarification_reason=(
+            (resolved_query_contract or {}).get("clarification_reason")
+            or route_reason
+            or "clarification_required"
+        ),
         trace_id=str(trace_id) if trace_id else None,
         session_id=str(session_id) if session_id else None,
         original_query=intake.query,
@@ -733,6 +751,53 @@ def _persist_clarification_outcome(
     return clarification_state
 
 
+def _bind_final_route_from_rqc(
+    state: ChatPipelineState,
+    *,
+    intake: _PlanningIntake,
+    lane: _LaneResolution,
+    canonical: Any,
+    intent_classification: dict[str, Any],
+    query_to_intent: dict[str, Any] | None,
+    resolved_query_contract: dict[str, Any] | None,
+) -> tuple[ChatPipelineState, _LaneResolution, Any]:
+    """Commit final route ownership from the final RQC before ResourcePlan creation."""
+    ready: ChatPipelineState = {
+        **state,
+        "routed": lane.routed,
+        "intent_classification": intent_classification,
+        "query_to_intent": query_to_intent,
+        "resolved_query_contract": resolved_query_contract,
+        "canonical_planning_input": canonical.model_dump(),
+        "processing_lane": lane.processing_lane,
+        "resolved_tier": lane.resolved_tier,
+        "initial_tier": intake.initial_tier,
+    }
+    if ready.get("request") is None:
+        return ready, lane, canonical
+    from app.chat.pipeline import graph_node_route_contract, graph_node_route_resolution
+
+    if ready.get("route_plan_shadow") is None:
+        ready = {**ready, "route_plan_shadow": {}}
+    ready = graph_node_route_resolution(ready)
+    ready = graph_node_route_contract(ready)
+    adjudication = ready.get("route_adjudication")
+    final_route = None
+    if isinstance(adjudication, dict):
+        final_route = adjudication.get("final_route") or adjudication.get("route")
+    if not final_route:
+        return ready, lane, canonical
+    routed = dict(ready.get("routed") or lane.routed)
+    routed["skill"] = str(final_route)
+    ready = {**ready, "routed": routed}
+    canonical = canonical.model_copy(
+        update={
+            "routing": canonical.routing.model_copy(update={"primary_skill": str(final_route)})
+        }
+    )
+    return ready, replace(lane, routed=routed), canonical
+
+
 def _commit_planned_outcome(
     state: ChatPipelineState,
     *,
@@ -748,6 +813,15 @@ def _commit_planned_outcome(
     ``plan_evidence_from_canonical`` stays the sole plan creator; this stage only
     persists around it and projects the committed plan onto the returned state.
     """
+    state, lane, canonical = _bind_final_route_from_rqc(
+        state,
+        intake=intake,
+        lane=lane,
+        canonical=canonical,
+        intent_classification=intent_classification,
+        query_to_intent=query_to_intent,
+        resolved_query_contract=resolved_query_contract,
+    )
     handoff_id = intake.handoff_id
     handoff_version = intake.handoff_version
     trace_id = state.get("trace_id")
@@ -771,7 +845,7 @@ def _commit_planned_outcome(
             original_answer_goal=str(intent_classification.get("answer_goal_primary")),
             initial_tier=intake.initial_tier,
             resolved_tier=lane.resolved_tier,
-            canonical_planning_input=canonical.model_dump(),
+            canonical_planning_input=_durable_canonical_payload(canonical, resolved_query_contract),
             gap_resolution=gap.model_dump() if gap else None,
         )
     )
@@ -883,18 +957,35 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     if lane.known_query_to_intent_built and isinstance(query_to_intent, dict):
         query_to_intent = {**query_to_intent, "intent_classification": intent_classification}
 
+    session_resolution = state.get("session_context_resolution")
+    prior_rqc = None
+    delta_remainder = None
+    follow_up_kind = None
+    pins = getattr(session_resolution, "pins", None)
+    if pins is not None:
+        follow_up_kind = getattr(session_resolution, "follow_up_kind", None)
+        prior_rqc = getattr(pins, "last_rqc_redacted", None)
+        if follow_up_kind == "scope_delta":
+            delta_remainder = _generic_scope_delta(" ".join(intake.query.lower().split()))
+
     resolved_query = maybe_enrich_t4_semantic(
-        build_resolved_query_contract(
-            query=intake.query,
-            query_understanding=state.get("query_understanding"),
-            qualification_tier=lane.resolved_tier,  # type: ignore[arg-type]
-            qualification_source=intake.match_path,
-            query_to_intent=query_to_intent,
-            provenance={"route_reason": lane.route_reason},
+        apply_session_continuity(
+            build_resolved_query_contract(
+                query=intake.query,
+                query_understanding=state.get("query_understanding"),
+                qualification_tier=lane.resolved_tier,  # type: ignore[arg-type]
+                qualification_source=intake.match_path,
+                query_to_intent=query_to_intent,
+                provenance={"route_reason": lane.route_reason},
+            ),
+            prior_rqc=prior_rqc if isinstance(prior_rqc, dict) else None,
+            delta_remainder=delta_remainder,
+            follow_up_kind=follow_up_kind if isinstance(follow_up_kind, str) else None,
         ),
         query=intake.query,
     )
     resolved_query_contract = resolved_query.model_dump(mode="json")
+    state = {**state, "resolved_query_contract": resolved_query_contract}
 
     canonical = build_canonical_planning_input(
         query=intake.query,
@@ -915,7 +1006,8 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     )
 
     clarification_required = bool(
-        intent_classification.get("requires_clarification")
+        resolved_query.clarification_required
+        or resolved_query.ambiguity_state in {"clarification_required", "policy_blocked"}
         or (lane.post is not None and lane.post.clarification_required)
         or (lane.gap is not None and lane.gap.clarification_required)
     )

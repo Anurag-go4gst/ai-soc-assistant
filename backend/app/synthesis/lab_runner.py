@@ -67,6 +67,11 @@ def run_governed_synthesis_lab(
     promotion_lifecycle_summary: dict[str, Any] | None = None,
     registry_warnings: list[str] | None = None,
     catalog_row: dict[str, Any] | None = None,
+    resolved_query_contract: dict[str, Any] | None = None,
+    investigation_outcome: dict[str, Any] | None = None,
+    evidence_state: dict[str, Any] | None = None,
+    evidence_sufficiency: dict[str, Any] | None = None,
+    route_plan_summary: dict[str, Any] | None = None,
 ) -> SynthesisLabResult:
     if not settings.ai_soc_llm_final_synthesis_enabled:
         return SynthesisLabResult(
@@ -80,6 +85,13 @@ def run_governed_synthesis_lab(
             analyst_summary=None,
         )
 
+    contract_inputs = {
+        "resolved_query_contract": resolved_query_contract,
+        "investigation_outcome": investigation_outcome,
+        "evidence_state": evidence_state,
+        "evidence_sufficiency": evidence_sufficiency,
+        "route_plan_summary": route_plan_summary,
+    }
     mode = str(context_sufficiency.get("status") or INSUFFICIENT_EVIDENCE)
     readiness = bool(context_sufficiency.get("synthesis_readiness"))
     if settings.ai_soc_llm_require_context_sufficiency and not readiness:
@@ -91,6 +103,7 @@ def run_governed_synthesis_lab(
             mitre_mappings=mitre_mappings,
             action_capability=action_capability,
             synthesis_allowed=False,
+            **contract_inputs,
         )
 
     if mode in _BLOCKED_MODES:
@@ -102,6 +115,7 @@ def run_governed_synthesis_lab(
             mitre_mappings=mitre_mappings,
             action_capability=action_capability,
             synthesis_allowed=False,
+            **contract_inputs,
         )
 
     if human_review and human_review.get("required"):
@@ -113,6 +127,7 @@ def run_governed_synthesis_lab(
             mitre_mappings=mitre_mappings,
             action_capability=action_capability,
             synthesis_allowed=False,
+            **contract_inputs,
         )
 
     package = build_governed_synthesis_package(
@@ -120,6 +135,7 @@ def run_governed_synthesis_lab(
         source_evidence=source_evidence,
         mitre_mappings=mitre_mappings,
         action_capability=action_capability,
+        **contract_inputs,
     )
     package = package.model_copy(update={"synthesis_allowed": mode in _LAB_READY_MODES})
 
@@ -275,12 +291,22 @@ def _blocked_result(
     mitre_mappings: list[MitreMappingDecision] | list[dict[str, Any]] | None,
     action_capability: ActionCapability,
     synthesis_allowed: bool,
+    resolved_query_contract: dict[str, Any] | None = None,
+    investigation_outcome: dict[str, Any] | None = None,
+    evidence_state: dict[str, Any] | None = None,
+    evidence_sufficiency: dict[str, Any] | None = None,
+    route_plan_summary: dict[str, Any] | None = None,
 ) -> SynthesisLabResult:
     package = build_governed_synthesis_package(
         structured_context=structured_context,
         source_evidence=source_evidence,
         mitre_mappings=mitre_mappings,
         action_capability=action_capability,
+        resolved_query_contract=resolved_query_contract,
+        investigation_outcome=investigation_outcome,
+        evidence_state=evidence_state,
+        evidence_sufficiency=evidence_sufficiency,
+        route_plan_summary=route_plan_summary,
     )
     package = package.model_copy(update={"synthesis_allowed": synthesis_allowed})
     return SynthesisLabResult(
@@ -371,6 +397,14 @@ def _build_deterministic_lab_draft(
         severity_explanation = ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL
         priority = None
     allowed_actions = [row.action_id for row in package.permitted_actions if row.allowed][:4]
+    outcome = package.investigation_outcome if isinstance(package.investigation_outcome, dict) else {}
+    if outcome.get("recommended_actions"):
+        allowed_actions = [str(item) for item in outcome["recommended_actions"] if item][:4]
+    if (
+        outcome.get("severity_label")
+        and severity_label != ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL
+    ):
+        draft_severity = str(outcome.get("severity_label"))
 
     draft: dict[str, Any] = {
         "analyst_summary": " ".join(part for part in summary_parts if part)[:1200],

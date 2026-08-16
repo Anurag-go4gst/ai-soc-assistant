@@ -67,6 +67,13 @@ class ResolvedQueryContract(BaseModel):
     provenance: dict[str, Any] = Field(default_factory=dict)
     understanding_source: UnderstandingSource = "deterministic_qualification"
 
+    # Plan 8 U0 — T1–T3 authority map. T4 may change only unresolved semantic fields.
+    # Derived fields are recomputed after final understanding and are not T4 grants.
+    locked_fields: dict[str, Any] = Field(default_factory=dict)
+    unresolved_fields: list[str] = Field(default_factory=list)
+    derived_field_names: list[str] = Field(default_factory=list)
+    understanding_sufficiency: dict[str, Any] | None = None
+
     @field_validator("required_capabilities", "prohibited_capabilities", mode="before")
     @classmethod
     def _normalize_capability_set(cls, value: object) -> frozenset[str]:
