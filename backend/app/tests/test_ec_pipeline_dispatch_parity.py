@@ -58,5 +58,6 @@ def test_firewall_opener_has_visual_lanes() -> None:
 
 def test_list_demo_scenarios_leadership_order() -> None:
     pickable = list_demo_scenarios()
-    assert pickable[0]["scenario_id"] == "firewall_deny_coordinated_attack"
-    assert len(pickable) == 10
+    flagship = [item for item in pickable if item["category"] == "Flagship"]
+    assert flagship[0]["scenario_id"] == "s1_governed_splunk_investigation"
+    assert len(flagship) == 7

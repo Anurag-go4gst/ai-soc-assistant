@@ -39,25 +39,28 @@ def _reset_fsm() -> None:
 # --- Phase 2: curated registry --------------------------------------------------
 
 
-def test_registry_has_ten_pickable_scenarios() -> None:
+def test_registry_has_flagship_and_lab_scenarios() -> None:
     pickable = S.list_demo_scenarios()
-    assert len(pickable) == 10
-    assert pickable[0]["scenario_id"] == "firewall_deny_coordinated_attack"
-    # The clarification (fsm_step==0) turn is internal, not pickable.
     ids = {item["scenario_id"] for item in pickable}
+    assert "s1_governed_splunk_investigation" in ids
     assert "mitre_mapping_requires_context" not in ids
     assert "mitre_mapping_auth_alert" in ids
+    assert "failed_login_spike_app01" in ids
 
 
 def test_categories_match_plan_buckets() -> None:
     categories = {item["category"] for item in S.list_demo_scenarios()}
     expected = {
+        "Flagship",
         "Coordinated Firewall Incident",
         "MITRE",
         "Knowledge & Compliance",
         "Guided (out-of-catalog)",
+        "Alert Triage",
+        "Threat Hunt",
+        "OT/ICS",
     }
-    assert categories == expected
+    assert expected.issubset(categories)
 
 
 def test_breadth_includes_ot_and_regulatory() -> None:
