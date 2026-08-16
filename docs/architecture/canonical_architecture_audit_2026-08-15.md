@@ -18,6 +18,8 @@
 
 **Scope.** Measured current state as of Plan 7 closure (`a546ab0`, Plan 7 25/25). Classifications
 use the Plan 8 vocabulary: `EXISTS` / `PARTIAL` / `MISSING` / `MISPLACED`.
+**Plan 8 G1 (below) supersedes this table for post-implementation status.** This reconstruction
+remains the Plan 7 starting baseline.
 
 **Not in scope.** No new architecture decision, no owner reassignment, no runtime change, no
 reopening of a Plan 7 recorded STOP.
@@ -160,3 +162,48 @@ llm_plan_bridge.propose_validated_llm_plan
 **X1 implication:** no seam is proven dead, and this audit records **no** explicit retirement authorization. X1 must record `NOT_REQUIRED_FOR_CURRENT_SCOPE` and retain all seven seams.
 
 `architecture.md` unmodified.
+
+## Plan 8 G1 — re-audit of canonical phases 0–11 (post-implementation)
+
+Measured against the implemented tree after G0 (`8603519`, 2026-08-16). **No runtime change in this section.** `architecture.md` unmodified. Production GO remains **DEFERRED / NO-GO**. F3 and live MCP remain unproven.
+
+### Role table (production entry / owner / I/O / fallback / tests / residual)
+
+| # | Role | Class | Production entry | Owner | Inputs → outputs | Fallback | Tests | Remaining gap |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Deterministic authority over LLM | `EXISTS` | `/chat` RP graph | adapter + registries | LLM advisory → deterministic overrides | discard advisory | P1 baseline; Plan 4 D3 | none for Plan 8 |
+| 2 | T1–T3 before T4 | `EXISTS` | `understand_query` then U1 gate | query understanding | locked/unresolved maps → `CALL_T4` only | skip T4 | `test_understanding_sufficiency.py` | F3 serving |
+| 3 | Final RQC before clarify / owner / plan | `EXISTS` | `build_resolved_query_contract` then R0/R1 | RQC | UNDERSTANDING → final RQC | clarification | `test_final_rqc_precedes_planning.py` | dest-IP/domain/geo extraction still PARTIAL at parser |
+| 4 | Primary skill = ownership not veto | `EXISTS` | C0 overlay `required_capabilities` | planner | RQC caps → `needs_spl`/`needs_mcp` | `mcp_not_allowed_by_evidence_plan` | `test_resource_plan_from_final_rqc.py` | live route-level capability enforcement still default OFF (Plan 5 B) |
+| 5 | Composable resources | `EXISTS` | `compose_resource_plan` | RP hub | EvidencePlan → ResourcePlan | specialists advisory only | C0 / composer tests | R2 snapshot deferred |
+| 6 | Side effects vs reasoning | `EXISTS` | MCP gate only | `evaluate_mcp_execution` | approved `normalized_spl` → mock/live call | HIL / skip | AUTH0 + HIL two-turn | live MCP unproven |
+| 7 | InvestigationOutcome before synthesis/actions | `EXISTS` (minimal) | `graph_node_context_finalize` after D0 | `investigation_outcome.py` | EvidenceState/sufficiency/facts → disposition/findings | no LLM mutation | `test_investigation_outcome.py` | Phase 10 actions deferred; not a duplicate of CanonicalPlanningOutcome |
+| 8 | Minimal EvidenceState | `EXISTS` (derived) | same finalize node | `minimal_evidence_state.py` | SourceEvidence/RQC/plan/facts/gate/execution → required/obtained/missing/stale/invalidated/blocked | missing items defaulted | `test_minimal_evidence_state.py` | detailed per-step E1 deferred |
+| 9 | Evidence reuse / invalidation | `EXISTS` | O1 pins + O1A | session + applicability | prior refs + new RQC → IN_SCOPE/OUT_OF_SCOPE/STALE | do not reuse out-of-scope | `test_session_canonical_continuity.py`, `test_session_evidence_applicability.py` | not a durable evidence DB |
+| 10 | ResourcePlan compiler | `EXISTS` | `plan_evidence_from_canonical` | composer + phase merge | plan + PhaseContract → schedule | unsupported → fixed schedule | Plan 7 A3 pins | C1 step-instances deferred |
+| 11 | PhaseRegistry/Policy/Contract | `EXISTS` | merge seam | phase modules | registry + policy → immutable contract | flag-off skips execution-contract code on repo default; this host development profile ON | `test_phase_schedule_merge.py` | none |
+| 12 | Source resolve vs postprocessor | `EXISTS` (owners unchanged) | `spl_source_resolve` then `spl_postprocessor` | A2/A3 | placeholders → hygiene SPL | HIL on unresolved slots | `test_spl_source_resolve.py`, `test_review_only_spl_postprocessor.py` | dest-IP/domain/geo extraction still parser-PARTIAL |
+| 13 | Call-bound authorization | `EXISTS` | pending MCP confirmation | `splunk_call_authorization.py` | fingerprint of SPL/time/source/tool/identity/limits → grant | `exact_call_grant_invalidated`; `update_spl` is a new revalidated call | `test_splunk_call_authorization.py` | live MCP unproven |
+| 14 | Trust / prompt boundary | `EXISTS` | T4 + synthesis prompts | `trust_boundary.py` | untrusted body → `BEGIN/END {TRUST_CLASS}` | fail closed on injection | `test_prompt_trust_boundary.py` | none for Plan 8 |
+| 15 | T4 circuit / backpressure / human restart | `PARTIAL` | sidecar T4 hop | `sidecar_governance.py` | failures → CLOSED/OPEN/HALF_OPEN | `human_action_required_model_restart`; never auto-restart | `test_t4_circuit_breaker.py` | **F2** `/v1/models` ≠ inference health (REL0 uses operator probe, not solved as serving). **F3** CRITICAL BLOCKER not claimed solved |
+| 16 | Degradation signalling (F1) | `MISSING` (approved residual) | DB-loss path | planning degrade | DB down → `canonical_non_planned` still answers | silent | P1 / Plan 7 F1 | **F1** not closed; REL0 was T4 circuit only |
+| 17 | Clarification | `EXISTS` | R0 | RQC unresolved | three-uncertainty rule | human review | P1 corpus | none |
+| 18 | Action flow / LLM in actions | `PARTIAL` | action lane default-off | InvestigationOutcome + policy | outcome → recommended actions | LLM cannot change eligibility | `test_investigation_outcome.py` | **Architecture Phase 10** deferred |
+| 19 | Architecture Phase 10 | `deferred` | n/a | next plan | n/a | preserve compatibility only | n/a | ticket/email/CRM/remediation MCP not in Plan 8 |
+| 20 | Advanced execution extensions | `deferred` | n/a | `P8_ADVANCED_EXECUTION_EXTENSION_GATE=NOT_REQUIRED_FOR_CURRENT_SCOPE` | n/a | existing RP hub / E0A / D0 | gate evidence | R2, C1, E0, E1, D1, D2, X1 retained/not required |
+
+### SPL0 Q7 / Q9 update
+
+| SPL0 Q | Plan 8 start | After G0 | Disposition |
+|---|---|---|---|
+| 7 RQC-constraint survival | `MISSING` | `EXISTS` | `apply_rqc_constraint_preservation` in `graph_node_workflow_spl`; unmapped silent loss fail-closed; governed template without a slot is `non_applicable:no_governed_template_slot` |
+| 3 fields reach `workflow_spl` | `PARTIAL` (no RQC read) | `EXISTS` for constraint check | RQC consumed at preservation; generation still uses query/template slots plus RQC bindings |
+| 9 call-bound auth | `PARTIAL` | `EXISTS` | AUTH0 exact-call grant on pending confirmation |
+
+### Unexplained MISPLACED / unapproved MISSING
+
+- **MISPLACED:** **0**. No authority sits on the wrong owner relative to `architecture.md`.
+- **Unapproved MISSING:** **0**. The only remaining `MISSING` role is **F1 degradation signalling**, explicitly carried as an unaccepted residual (REL0 did not close it). F3 is a serving **blocker**, not a missing role.
+- **Approved deferrals:** Architecture Phase 10; R2; C1; E0; E1; D1; D2; X1 (`NOT_REQUIRED_FOR_CURRENT_SCOPE`); MITRE 11-row DRAFT promotion; live MCP/Splunk (`live_mcp_unproven`).
+
+`architecture.md` unmodified. Production GO not claimed.

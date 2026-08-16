@@ -1,7 +1,7 @@
 ---
 name: canonical-architecture-authority-convergence
 overview: "Make final understanding, planning, evidence state, investigation outcome, SPL call authorization, synthesis, reliability, and continuity authoritative; admit advanced execution extensions only through measured evidence."
-status: in_progress
+status: complete_pending_user_merge
 date: 2026-08-15
 canonical_plan: plans/2026-08-15_0602_canonical-architecture-authority-convergence.md
 canonical_architecture: architecture.md
@@ -666,11 +666,11 @@ E1 means detailed per-step/producer-instance attribution only; E0A minimal Evide
   - **Depends on:** X2, X3, REL0, AUTH0, SEC0, OUT0, O1A, a recorded `P8_ADVANCED_EXECUTION_EXTENSION_GATE` decision with every advanced item dispositioned, and an explicit X1 disposition.
   - **Evidence:** First full pytest 9 failed (SPL1 rejecting catalogue templates without entity slots; AUTH0 two-turn HIL; in-catalogue extra sections). Focused correction: governed-template slots `non_applicable:no_governed_template_slot`; pending `trace_id` for grant match; explicit `update_spl` is a new authorized call; EvidenceState records executed `spl`/`mcp` items; RQC slot names no longer merge into `required_evidence_keys` (that list drives analyst sections). Second pytest **5409 passed, 41 skipped, 6 xfailed**. Governance **PASS**. Harness **6/6**. Out-of-set **11/11**. No frontend/shared-type change (build skipped). Eval reports rewritten by `--check` were restored; no baseline/flag/default/timeout drift committed. Production GO deferred; F3/live MCP unproven. `architecture.md` unmodified. Next: G1.
 
-- [ ] **G1 — Re-audit canonical phases 0–11 and close only with evidence**
+- [x] **G1 — Re-audit canonical phases 0–11 and close only with evidence**
   - **Do:** Re-run the source audit against the implemented tree for canonical phases 0–11. Explicitly classify minimal versus detailed EvidenceState, InvestigationOutcome, follow-up evidence applicability, SPL entity/constraint flow, source-resolution versus postprocessor ownership, call-level authorization, trust/prompt boundaries, and T4 circuit/backpressure/human-restart authority. Record production entry, authority owner, inputs/outputs, fallback, tests, and remaining gap for each role. Require zero unexplained `MISPLACED` authority findings and no unapproved `MISSING` role. Record Architecture Phase 10 as an explicit approved deferral and list all approved conditional deferrals; do not silently ignore them.
   - **Verify:** `.cursor/hooks/audit-plan-discipline.sh plans/2026-08-15_0602_canonical-architecture-authority-convergence.md`; review every checklist item’s **Verify** and **Evidence**; `rg -n "MISPLACED|MISSING|deferred|known gap" docs/architecture/canonical_architecture_audit_2026-08-15.md` and confirm each residual has an explicit disposition.
   - **Depends on:** G0.
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Audit script **0 gaps**, **34/34 checked** after this item. G1 table in `docs/architecture/canonical_architecture_audit_2026-08-15.md` § Plan 8 G1: minimal EvidenceState `EXISTS` (E1 detailed deferred); InvestigationOutcome `EXISTS`; O1A applicability `EXISTS`; SPL1 constraint preservation `EXISTS`; A2/A3 owners unchanged; AUTH0 call-grant `EXISTS`; trust delimiters `EXISTS`; T4 circuit `PARTIAL` (F3 not solved); F1 `MISSING` as explicit unaccepted residual. **MISPLACED 0.** Unapproved MISSING 0. Phase 10 + R2/C1/E0/E1/D1/D2/X1 listed as approved deferrals. Production GO deferred. `architecture.md` unmodified.
 
 ## Verification gaps
 
@@ -719,3 +719,4 @@ None at amendment time. Commands referencing new tests/harnesses name the exact 
 - **2026-08-16:** **X3 complete.** A7 consumed, not reopened; Verify **29 passed**. Next: X2.
 - **2026-08-16:** **X2 complete.** Operating docs reconciled to verified runtime; synthesis policy recorded; no GO/F3 claim. Next: G0.
 - **2026-08-16:** **G0 complete.** Full pytest **5409 passed** after one focused SPL1/AUTH0/EvidenceState/in-catalogue correction; governance PASS; harness 6/6; out-of-set 11/11; no baseline/flag drift; frontend unchanged. Production GO deferred. Next: G1.
+- **2026-08-16:** **G1 complete.** Phases 0–11 re-audited; 0 unexplained MISPLACED; F1 is the only remaining MISSING and is an explicit residual; Phase 10 and advanced extensions deferred. Plan 8 checklist **34/34**. PR/merge needs user approval. Production GO not claimed.
