@@ -725,89 +725,89 @@ None blocking planning. Phase F UI tests may add `frontend/src/components/ec/*.t
   - **Depends on:** C1, B4
   - **Evidence:** `test_s1_every_follow_up_advances_state_and_updates_evidence` HTTP 200 for all 7 ids; turn 0→7; evidence/outcome updates; firewall block stays `APPROVAL_REQUIRED`; ticket `EXECUTED` with `production_side_effect=false`. Unknown id does not invent a scenario.
 
-- [ ] **D1** — S2 prompt-injection scenario
+- [x] **D1** — S2 prompt-injection scenario
   - **Do:** Fixture logs + blocked tool call + policy; follow-ups
   - **Verify:** pytest confirmed vs unconfirmed vs missing
   - **Depends on:** B2
-  - **Evidence:**
+  - **Evidence:** `pytest app/tests/test_s2_ai_application_security.py -q` → 4 passed. Prompt injection + blocked `export_customer_records` confirmed; successful tool exec / data access / hijack unconfirmed; DLP missing until follow-up; `disable_integration_credential` stays `APPROVAL_REQUIRED` (`execute_action` raises); `production_side_effect=false`; no live MCP/LLM.
 
-- [ ] **D2** — S3 email coordination loop
+- [x] **D2** — S3 email coordination loop
   - **Do:** Process KB, compose, send, await, ingest whitelist reply, continue
   - **Verify:** pytest states through `AWAITING_FIREWALL_TEAM_CONFIRMATION` then re-evaluation
   - **Depends on:** B3, B4
-  - **Evidence:**
+  - **Evidence:** `pytest app/tests/test_s3_firewall_team_coordination.py -q` → 3 passed. Mandatory process fields present; `email.send` receipt `production_side_effect=false`; state `AWAITING_FIREWALL_TEAM_CONFIRMATION`; inbound whitelist reply is `email_mcp_fixture` evidence; outcome `needs_reassessment` (not blind benign/malicious); whitelist removal and IP block stay HIL.
 
-- [ ] **D3** — S4 zero-day no playbook
+- [x] **D3** — S4 zero-day no playbook
   - **Do:** Advisory + assets + Splunk + hardening; no threat-specific SOAR resource
   - **Verify:** pytest resource list has no named SOAR playbook; exposure honest
   - **Depends on:** B2
-  - **Evidence:**
+  - **Evidence:** `pytest app/tests/test_s4_zero_day_no_playbook.py -q` → 3 passed. `ec_soar_playbook=not_available`; exposure `PARTIAL`/`REQUIRES_VALIDATION`; versions split affected vs not; exploitation not confirmed; temporary control HIL. Advisory id `ZD-FIXTURE-VPN-2026-001` is scenario-defined, not a real CVE.
 
-- [ ] **E1** — S5 Cisco 14→15 with verify
+- [x] **E1** — S5 Cisco 14→15 with verify
   - **Do:** Policy as `ec_scenario_policy`; HIL; simulate upgrade; verify 15
   - **Verify:** pytest version probe after execute; provenance not production Cisco policy
   - **Depends on:** B3
-  - **Evidence:**
+  - **Evidence:** `pytest app/tests/test_s5_cisco_hardening_remediation.py -q` → 3 passed. 14 → policy → ticket → approve → upgrade → verify 15; `ec_policy_source=ec_scenario_policy`; `simulated_mcp`; verify chip hidden until upgrade.
 
-- [ ] **E2** — S6 continuity follow_up_ids
+- [x] **E2** — S6 continuity follow_up_ids
   - **Do:** Seven turns; applicability vocabulary; no global alias explosion
   - **Verify:** pytest applicability labels; `_ALIAS_INDEX` not grown per synonym
   - **Depends on:** B4
-  - **Evidence:**
+  - **Evidence:** `pytest app/tests/test_s6_investigation_continuity.py -q` → 3 passed. Session id stable; turns 0→6; admin evidence `OUT_OF_SCOPE` then service-account `SUPERSEDED`; historical `STALE`/`REUSABLE`; ticket fetch/update + notify; synonym `"What about service accounts?"` resolves without growing `_ALIAS_INDEX`.
 
-- [ ] **E3** — S7 conflicting evidence
+- [x] **E3** — S7 conflicting evidence
   - **Do:** Splunk vs retired CMDB; no forced incident; OT/firewall/team paths
   - **Verify:** pytest conflicting + missing; outcome updates after team response
   - **Depends on:** B4
-  - **Evidence:**
+  - **Evidence:** `pytest app/tests/test_s7_conflicting_ot_evidence.py -q` → 3 passed. Initial `CONFLICTING` + no ticket chip; Path A inventory→confirmed→ticket; Path B recycled identity `not_an_incident` + CMDB correction chip.
 
-- [ ] **E4** — Lab picker group
+- [x] **E4** — Lab picker group
   - **Do:** Retained lab scenarios on EC picker collapsed group
   - **Verify:** `list_demo_scenarios` / EC list: 7 flagship + lab ids present
   - **Depends on:** C1
-  - **Evidence:**
+  - **Evidence:** `pytest app/tests/test_e4_flagship_lab_picker.py -q` → 1 passed. `list_demo_scenarios` now includes `picker_tier=lab`. UI optgroups: `7 Flagship Scenarios` / `Lab / Additional Scenarios`. Existing secondary scenarios retained (not deleted).
 
-- [ ] **F1** — Three-layer workspace polish
+- [x] **F1** — Three-layer workspace polish
   - **Do:** Layer 1 answer, Layer 2 drawer, Layer 3 action flow on `/scenarios`
   - **Verify:** frontend tests for each layer; Layer 1 has no v2/debug dump
   - **Depends on:** C2, D2, E1
-  - **Evidence:**
+  - **Evidence:** `flagshipWorkspace.test.tsx` + `s1Workspace.test.tsx`: Layer 1 assessment without v2 dump; Layer 2 Investigation Path; Layer 3 Action Journey. Shared components used across S1–S7.
 
-- [ ] **F2** — Complete flagship Experience Center on `/scenarios` without expanding ChatPanel coupling
+- [x] **F2** — Complete flagship Experience Center on `/scenarios` without expanding ChatPanel coupling
   - **Do:** Finish flagship run/workspace on `/scenarios` only. Do **not** modify ChatPanel EC behavior (picker, `runDemoScenario`, intercept). Do not add EC imports or action/session runtime to ChatPanel.
   - **Verify:** `git diff -- frontend/src/components/ChatPanel.tsx` is empty; `rg "@/components/ec" frontend/src/components/ChatPanel.tsx` empty; seven flagships reachable from `/scenarios`
   - **Depends on:** B5, F1
-  - **Evidence:**
+  - **Evidence:** ChatPanel migration deliberately deferred (production UI freeze). `git diff -- frontend/src/components/ChatPanel.tsx` empty. SideNav `/scenarios` labeled Experience Center. Scenario switch starts a fresh EC session (no cross-family leak). This is compliance, not a failure.
 
-- [ ] **F3** — Email/ticket/HIL/verify UI
+- [x] **F3** — Email/ticket/HIL/verify UI
   - **Do:** EC panels only; no ProposedActionsPanel
   - **Verify:** `rg ProposedActionsPanel frontend/src/components/ec` empty; UI tests send/await/receipt/verify
   - **Depends on:** D2, E1, F1
-  - **Evidence:**
+  - **Evidence:** `EcCoordinationPanels` email/ticket/tool; Execute disabled until `APPROVED`; Verify disabled until `EXECUTED`. `rg ProposedActionsPanel frontend/src/components/ec` empty. flagshipWorkspace tests cover inbound email + HIL buttons.
 
-- [ ] **G1** — Backend isolation suite
+- [x] **G1** — Backend isolation suite
   - **Do:** Import boundary, no live MCP, no RP graph, no production session, no `/api/actions`, no PlaceholderResponse edits
   - **Verify:** dedicated pytest module; `git diff backend/app/schemas/responses.py` empty for this work
   - **Depends on:** F2
-  - **Evidence:**
+  - **Evidence:** `pytest app/tests/test_races_g1_backend_isolation.py -q` → 5 passed. Pre-existing `routes_chat` demo imports allowed; no new production `app.demo` imports. PlaceholderResponse file diff empty. All 7 flagships `production_side_effect=false`.
 
-- [ ] **G2** — Frontend isolation + production chat journeys
+- [x] **G2** — Frontend isolation + production chat journeys
   - **Do:** Chat/Cockpit do not import `components/ec`; ChatPanel.tsx unmodified; journeyContracts pass
   - **Verify:** `git diff -- frontend/src/components/ChatPanel.tsx` empty; `rg "@/components/ec" frontend/src/pages/ChatPage.tsx frontend/src/pages/SocCockpit.tsx frontend/src/components/ChatPanel.tsx`; `npm test` journey file; `npm run build`
   - **Depends on:** F2
-  - **Evidence:**
+  - **Evidence:** `pytest app/tests/test_races_g2_frontend_isolation.py -q` → 3 passed. `npm test -- src/components/ec src/test/journeyContracts.test.tsx` → 23 passed. `npm run build` tsc+vite ok.
 
-- [ ] **G3** — Flagship UX acceptance
+- [x] **G3** — Flagship UX acceptance
   - **Do:** Each S1–S7: answer without trace, path accessible, stateful follow-ups, HIL+receipt+verify where applicable
   - **Verify:** scenario pytest + EC frontend tests listed in G
   - **Depends on:** E4, F3
-  - **Evidence:**
+  - **Evidence:** Backend S1–S7 + E4 tests green. Multi-turn journeys covered for S1, S3, S5, S6, S7. Frontend flagship + S1 workspace tests green.
 
-- [ ] **G4** — Production non-regression sample
+- [x] **G4** — Production non-regression sample
   - **Do:** Run canonical architecture / MCP gate / live-chat parity tests unchanged. Final `/invariant-check` on the full diff.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_canonical_architecture_authority_baseline.py app/tests/test_mcp_execution_gate.py app/tests/test_live_chat_ec_parity.py app/tests/test_live_path_untouched_by_ec.py -q`; freeze files still empty in `git diff --name-only`
   - **Depends on:** G1
-  - **Evidence:**
+  - **Evidence:** Combined G4+flagship slice **91 passed**. Freeze-file `git diff --name-only` empty for ChatPanel, routes_chat, pipeline, graph, planner, routing, responses, routes_actions, mcp gate, spl_validator, architecture.md. Invariant check 7/7 PASS. `execute_action` now requires `APPROVED` (EC-only HIL tightening).
 
 - [ ] **G5** — Commit / PR (merge only if user asked)
   - **Do:** Follow § Commit / PR / merge / build. Phase-scoped commits should already exist. Push `feat/races-experience-center` if the user asked. Open or update the PR with freeze-file empty diffs, L-A PASS, and build evidence. **Do not merge to `master` unless the user explicitly asked.**
@@ -821,3 +821,4 @@ None blocking planning. Phase F UI tests may add `frontend/src/components/ec/*.t
 - 2026-08-16 rev 3: converted to loop plan; design-time invariant check PASS; live-path freeze (L0/L-A/L-B/G4); `run_demo_scenario` must remain PlaceholderResponse-compatible so `routes_chat.py` is never edited; pre-existing `app.demo` imports are not a license to expand.
 - 2026-08-16 rev 4: **F2 does not modify ChatPanel.tsx.** Flagships live on `/scenarios` only; existing ChatPanel picker stays. ChatPanel added to freeze files. Do not start B/C until L-A invariant-check PASS.
 - 2026-08-16 rev 5: Commit / PR / merge / build guidance; G5 user-gated PR; merge to master never implied.
+- 2026-08-17 D–G: F2 ChatPanel picker migration deferred (freeze). `list_demo_scenarios` includes `lab` tier so APP-01/DNS/OT lab ids appear. EC `execute_action` requires `APPROVED` (HIL). `PHASE_D_STATUS=PASS`; `PHASE_E_STATUS=PASS`; `PHASE_F_STATUS=PASS`; `PHASE_G_STATUS=PASS_READY_FOR_REVIEW`.
