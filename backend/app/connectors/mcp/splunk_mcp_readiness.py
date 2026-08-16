@@ -36,6 +36,19 @@ DISALLOWED_MUTATING_TOOLS = frozenset(
         "splunk.write",
     }
 )
+DISALLOWED_TOOL_TOKENS = (
+    "kvstore",
+    "delete",
+    "write",
+    "admin",
+    "saia",
+    "remedia",
+    "contain",
+    "isolate",
+    "phase10",
+    "workflow_action",
+    "firewall_block",
+)
 
 McpToolCallKind = Literal["planned_tool_call", "blocked_tool_call", "fixture_tool_call"]
 McpFailureMode = Literal[
@@ -319,7 +332,7 @@ def is_disallowed_tool(tool_name: str) -> bool:
     lowered = tool_name.lower()
     if tool_name in DISALLOWED_MUTATING_TOOLS:
         return True
-    return any(token in lowered for token in ("kvstore", "delete", "write", "admin", "saia"))
+    return any(token in lowered for token in DISALLOWED_TOOL_TOKENS)
 
 
 def splunk_search_tool_arguments(

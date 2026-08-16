@@ -84,6 +84,8 @@ class McpVerificationRequest(BaseModel):
     username: str = ""
     password: str = ""
     timeout_seconds: int = 5
+    tls_verify: bool = True
+    ca_cert_path: str = ""
 
 
 class McpConnectionSaveRequest(BaseModel):
@@ -1198,9 +1200,23 @@ def _fetch_mcp_tools(payload: McpVerificationRequest) -> dict[str, object]:
                 "clientInfo": {"name": "ai-soc-assistant", "version": "stage-3j-h"},
             },
         }
-        init_payload = _json_request(endpoint, headers=headers, body=init_body, timeout=payload.timeout_seconds)
+        init_payload = _json_request(
+            endpoint,
+            headers=headers,
+            body=init_body,
+            timeout=payload.timeout_seconds,
+            tls_verify=payload.tls_verify,
+            ca_cert_path=payload.ca_cert_path,
+        )
         initialized = "result" in init_payload or "serverInfo" in json.dumps(init_payload)
-        tools_payload = _json_request(endpoint, headers=headers, body={"jsonrpc": "2.0", "id": "ai-soc-verify-tools", "method": "tools/list", "params": {}}, timeout=payload.timeout_seconds)
+        tools_payload = _json_request(
+            endpoint,
+            headers=headers,
+            body={"jsonrpc": "2.0", "id": "ai-soc-verify-tools", "method": "tools/list", "params": {}},
+            timeout=payload.timeout_seconds,
+            tls_verify=payload.tls_verify,
+            ca_cert_path=payload.ca_cert_path,
+        )
         tools = _extract_mcp_tools(tools_payload, payload.provider_kind)
     except HTTPError as exc:
         if exc.code in {401, 403}:
@@ -1713,10 +1729,21 @@ def _llm_models_url(base_url: str) -> str:
     return urljoin(stripped, "models")
 
 
-def _json_request(url: str, *, headers: dict[str, str], timeout: int, body: dict[str, object] | None = None) -> object:
+def _json_request(
+    url: str,
+    *,
+    headers: dict[str, str],
+    timeout: int,
+    body: dict[str, object] | None = None,
+    tls_verify: bool = True,
+    ca_cert_path: str = "",
+) -> object:
+    from app.connectors.mcp.tls_config import urllib_ssl_context
+
     data = None if body is None else json.dumps(body).encode("utf-8")
     request = Request(url, data=data, method="POST" if data is not None else "GET", headers=headers)
-    with urlopen(request, timeout=min(max(timeout, 1), 30)) as response:  # noqa: S310 - admin-configured verification endpoint.
+    context = urllib_ssl_context(tls_verify=tls_verify, ca_cert_path=ca_cert_path)
+    with urlopen(request, timeout=min(max(timeout, 1), 30), context=context) as response:  # noqa: S310 - admin-configured verification endpoint.
         raw = response.read(1024 * 256)
     if not raw:
         return {}

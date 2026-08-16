@@ -43,6 +43,9 @@ class McpServerConfig:
     username: str = ""
     password: str = ""
     connect_timeout_seconds: int = 10
+    tls_verify: bool = True
+    ca_cert_path: str = ""
+    bearer_token_file: str = ""
     tool_allowlist: list[str] = field(default_factory=list)
     execution_enabled: bool = False
     splunk_app_id: str = "7931"
@@ -75,6 +78,9 @@ class McpServerStatus:
     saia_spl_generation_allowed: bool | None = None
     knowledge_object_discovery_allowed: bool | None = None
     list_tools_allowed: bool | None = None
+    tls_verify: bool = True
+    ca_cert_configured: bool = False
+    token_file_configured: bool = False
 
 
 @dataclass(frozen=True)
@@ -135,6 +141,9 @@ def load_mcp_registry_status() -> McpRegistryStatus:
                     saia_spl_generation_allowed=False,
                     knowledge_object_discovery_allowed=True,
                     list_tools_allowed=True,
+                    tls_verify=True,
+                    ca_cert_configured=False,
+                    token_file_configured=False,
                 )
             ],
         )
@@ -164,6 +173,9 @@ def _load_server_config(name: str) -> McpServerConfig:
         username=_env(prefix + "USERNAME"),
         password=_env(prefix + "PASSWORD"),
         connect_timeout_seconds=_int_env(prefix + "CONNECT_TIMEOUT_SECONDS", 10),
+        tls_verify=_bool_env(prefix + "TLS_VERIFY", True),
+        ca_cert_path=_env(prefix + "CA_CERT_PATH"),
+        bearer_token_file=_env(prefix + "BEARER_TOKEN_FILE"),
         tool_allowlist=_csv_env(prefix + "TOOL_ALLOWLIST"),
         execution_enabled=_bool_env(prefix + "EXECUTION_ENABLED", False),
         splunk_app_id=_env(prefix + "SPLUNK_APP_ID", "7931"),
@@ -232,6 +244,9 @@ def _status_for_server(config: McpServerConfig, global_execution_enabled: bool) 
         blocked_tools_count=len(blocked_tools),
         blocked_tools_safe_names=blocked_tools,
         last_error=last_error,
+        tls_verify=config.tls_verify,
+        ca_cert_configured=bool(config.ca_cert_path.strip()),
+        token_file_configured=bool(config.bearer_token_file.strip()),
         **kwargs,
     )
 
@@ -253,7 +268,10 @@ def _auth_configured(config: McpServerConfig) -> bool:
     if config.auth_mode == "none":
         return True
     if config.auth_mode == "bearer":
-        return bool(config.bearer_token.strip())
+        if config.bearer_token.strip():
+            return True
+        path = config.bearer_token_file.strip()
+        return bool(path)
     if config.auth_mode == "basic":
         return bool(config.username.strip() and config.password.strip())
     return False

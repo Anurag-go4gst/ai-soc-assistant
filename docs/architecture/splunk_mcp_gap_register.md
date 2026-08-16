@@ -21,7 +21,7 @@ Reference manifest: [`docs/splunk_mcp_tool_manifest_2026-07-03.json`](../splunk_
 | G2 | `allow_saved_search` not exposed in Settings UI | **Fixed 3.9:** checkbox in `McpSettingsPanel` |
 | G3 | `splunk_run_saved_search` live `call_tool` blocked | **Fixed 4.4:** allowlist + transport tool name |
 | G4 | Live discovery `call_tool` raises `NotImplementedError` | Deferred O4; Settings Discover works |
-| G5 | SSL `mcp.conf ssl_verify` not in app | Operator: valid TLS in prod; dev self-signed via env httpx override (document only) |
+| G5 | SSL `mcp.conf ssl_verify` not in app | **Fixed for COE readiness:** `SPLUNK_MCP_TLS_VERIFY` / `MCP_SERVER_*_TLS_VERIFY` (default true) + optional CA path wired into streamable_http transport and Settings verify |
 | G6 | Search timeout default 120s vs Splunk guardrail 60s | Documented in guardrail parity; operator may lower `MCP_SEARCH_JOB_TIMEOUT_MS` |
 | G7 | Splunkbase app ID `7931` hardcoded | Confirm at connect; update env if Splunkbase ID changes |
 | G8 | Token rotation / Invalidate Keys | Operator re-saves token in Settings after Splunk app rotation |

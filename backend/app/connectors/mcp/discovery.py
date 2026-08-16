@@ -14,6 +14,12 @@ BLOCKED_TOOL_TOKENS = (
     "admin",
     "rest",
     "script",
+    "remedia",
+    "contain",
+    "isolate",
+    "phase10",
+    "workflow_action",
+    "firewall_block",
 )
 
 SAFE_TOOL_PATTERNS = {
@@ -112,8 +118,16 @@ def classify_mcp_tool(name: str, description: str = "", server_type: str = "gene
             capability = candidate
             break
 
-    if server_type == "splunk" and capability == "unknown" and ("spl" in lowered or "splunk" in lowered):
-        capability = "spl_search"
+    if server_type == "splunk":
+        # Unknown Splunk-named tools are not implicitly search-safe.
+        return McpToolDescriptor(
+            name=safe_name,
+            description=safe_description,
+            capability="blocked",
+            blocked=True,
+            blocked_reason="unknown_tool_not_allowlisted",
+            categories=["unknown"],
+        )
 
     return McpToolDescriptor(name=safe_name, description=safe_description, capability=capability, categories=[capability] if capability != "unknown" else ["unknown"])
 

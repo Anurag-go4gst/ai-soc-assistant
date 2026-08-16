@@ -23,6 +23,56 @@ DONE_STATES = {"done", "completed", "succeeded", "finalized"}
 FAILED_STATES = {"failed", "error"}
 DENIED_STATES = {"denied", "permission_denied", "forbidden", "unauthorized"}
 
+# Typed transport failures. The gate maps these to visible orchestration outcomes.
+MCP_ERROR_TYPES = (
+    "permission_denied",
+    "auth_failed",
+    "tls_error",
+    "timeout",
+    "tool_not_found",
+    "malformed_result",
+    "unavailable",
+    "submit_failed",
+)
+
+
+class McpTransportError(Exception):
+    """Typed live-transport failure. Never contains secrets."""
+
+    def __init__(self, error_type: str, message: str = "") -> None:
+        kind = error_type if error_type in MCP_ERROR_TYPES else "unavailable"
+        super().__init__(message or kind)
+        self.error_type = kind
+
+
+def classify_transport_exception(exc: BaseException) -> tuple[str, str]:
+    """Return (payload_status, error_type) for a transport exception."""
+    if isinstance(exc, McpTransportError):
+        return _status_for_error_type(exc.error_type), exc.error_type
+    if isinstance(exc, PermissionError):
+        return "denied", "permission_denied"
+    if isinstance(exc, TimeoutError):
+        return "timeout", "timeout"
+    name = type(exc).__name__.lower()
+    text = str(exc).lower()
+    if "ssl" in name or "tls" in name or "certificate" in text:
+        return "failed", "tls_error"
+    if "timeout" in name:
+        return "timeout", "timeout"
+    if "json" in name or "decode" in name:
+        return "schema_invalid", "malformed_result"
+    return "failed", f"submit_failed:{type(exc).__name__}"
+
+
+def _status_for_error_type(error_type: str) -> str:
+    if error_type in {"permission_denied", "auth_failed"}:
+        return "denied"
+    if error_type == "timeout":
+        return "timeout"
+    if error_type in {"malformed_result", "schema_invalid"}:
+        return "schema_invalid"
+    return "failed"
+
 
 class SearchTransport(Protocol):
     """The three live operations. Implementations may raise on transport error;
@@ -65,10 +115,9 @@ def run_search_lifecycle(
     """
     try:
         job_id = transport.submit(arguments)
-    except PermissionError:
-        return _payload("denied", error="permission_denied")
     except Exception as exc:  # noqa: BLE001 — connector must fail closed.
-        return _payload("failed", error=f"submit_failed:{type(exc).__name__}")
+        status, error_type = classify_transport_exception(exc)
+        return _payload(status, error=error_type)
 
     deadline = monotonic() + (job_timeout_ms / 1000.0)
     interval = max(poll_interval_ms, 0) / 1000.0
@@ -79,10 +128,9 @@ def run_search_lifecycle(
                             job={"job_id": job_id, "polls": poll_index})
         try:
             status = transport.poll(job_id)
-        except PermissionError:
-            return _payload("denied", error="permission_denied", job={"job_id": job_id})
         except Exception as exc:  # noqa: BLE001
-            return _payload("failed", error=f"poll_failed:{type(exc).__name__}", job={"job_id": job_id})
+            payload_status, error_type = classify_transport_exception(exc)
+            return _payload(payload_status, error=error_type, job={"job_id": job_id})
 
         state = str((status or {}).get("state") or "").strip().lower()
         if state in DONE_STATES:
@@ -106,10 +154,9 @@ def run_search_lifecycle(
 def _fetch_final(transport: SearchTransport, job_id: str, polls: int) -> dict[str, Any]:
     try:
         result = transport.fetch(job_id)
-    except PermissionError:
-        return _payload("denied", error="permission_denied", job={"job_id": job_id})
     except Exception as exc:  # noqa: BLE001
-        return _payload("failed", error=f"fetch_failed:{type(exc).__name__}", job={"job_id": job_id})
+        payload_status, error_type = classify_transport_exception(exc)
+        return _payload(payload_status, error=error_type, job={"job_id": job_id})
 
     rows = result.get("rows") if isinstance(result, dict) else None
     if not isinstance(rows, list):

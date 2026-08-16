@@ -60,12 +60,12 @@ def test_placeholder_connectors_advertise_implemented_false_and_fallback() -> No
         assert status.fallback == "mock", type(connector).__name__
 
 
-def test_splunk_mcp_readiness_scaffold_advertises_not_available() -> None:
-    """WS4c/d: readiness adapter exists but live execution stays unavailable."""
+def test_splunk_mcp_live_adapter_does_not_advertise_mock_fallback() -> None:
+    """Live adapter is implemented; missing credentials fail closed without mock fallback."""
     status = SplunkMcpConnector().health()
     assert status.implemented is True
     assert status.available is False
-    assert status.fallback == "mock"
+    assert status.fallback is None
     assert status.detail in {"execution_disabled", "credentials_missing", "real_adapter_schema_unverified"}
 
 

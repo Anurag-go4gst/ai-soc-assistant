@@ -88,6 +88,12 @@ class Settings(BaseSettings):
     splunk_allowed_saia_tools: str = "saia_generate_spl,saia_explain_spl,saia_optimize_spl,saia_ask_splunk_question"
     splunk_mcp_base_url: str = ""
     splunk_mcp_token: str = ""
+    # Externally supplied secret reference (file mount). Never a hardcoded token.
+    splunk_mcp_token_file: str = ""
+    # TLS for the existing streamable_http transport. Default verify-on.
+    splunk_mcp_tls_verify: bool = True
+    splunk_mcp_ca_cert_path: str = ""
+    splunk_mcp_connect_timeout_seconds: int = 10
     ai_soc_mcp_connection_store_path: str = ""
     llm_enabled: bool = False
     foundation_sec_instruct_url: str = ""
