@@ -277,6 +277,8 @@ def _schedule_provenance_block(
         if isinstance(inline_executed_raw, list)
         else []
     )
+    authority = plan_dispatch.get("resource_plan_authority")
+    authority_reason = plan_dispatch.get("resource_plan_authority_reason")
     return {
         "resource_plan_id": provenance.get("resource_plan_id"),
         "resource_plan_fingerprint": fingerprint,
@@ -286,6 +288,10 @@ def _schedule_provenance_block(
         "inline_mandatory": inline_mandatory[:8],
         "inline_executed": inline_executed[:8],
         "degrade_reason": degrade_reason,
+        "resource_plan_authority": str(authority) if isinstance(authority, str) else None,
+        "resource_plan_authority_reason": (
+            str(authority_reason) if isinstance(authority_reason, str) else None
+        ),
         "session_role": session_role if isinstance(session_role, str) else None,
         "rbac_decision": str(rbac) if rbac is not None else None,
         "phase_duration_ms": duration_ms,
