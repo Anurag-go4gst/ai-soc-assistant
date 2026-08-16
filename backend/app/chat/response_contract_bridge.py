@@ -52,7 +52,10 @@ _STATUS_USER_MESSAGE: dict[str, str] = {
     "clarification_required": "More detail is needed before this investigation can proceed.",
     "policy_blocked": "This request was blocked by SOC policy.",
     "planning_failed": "Investigation planning could not be completed for this question.",
-    "persistence_failed": "This turn could not be saved safely; do not assume it was recorded.",
+    "persistence_failed": (
+        "This turn could not be saved safely, so ResourcePlan authority was not "
+        "available. Do not treat this as a normal authoritative investigation."
+    ),
     "resolution_failed": "Required investigation context could not be resolved.",
     "unsupported": "This request is not supported in the current SOC assistant scope.",
     "execution_failed": "A governed execution step failed before a safe answer could be produced.",
@@ -167,10 +170,12 @@ def build_planning_outcome_summary(
     default_message = _STATUS_USER_MESSAGE[status]
     default_hint = _STATUS_RECOVERY_HINT[status]
 
-    user_message = _safe_user_line(
-        safe_review or message if status != "planned" else None,
-        default_message,
-    )
+    # Persistence failure is a deterministic authority signal. The composed
+    # answer body and any LLM/review prose must not replace it.
+    preferred = None
+    if status not in {"planned", "persistence_failed"}:
+        preferred = safe_review or message
+    user_message = _safe_user_line(preferred, default_message)
     recovery_hint = _safe_user_line(None, default_hint)
     category = _category_for_status(status, failure_category) if status != "planned" else None
 
