@@ -119,7 +119,8 @@ This VPS must not run live Cisco for T4 prompt iteration. Emit production prompt
 ## Pointers
 
 - Production hop: `maybe_enrich_t4_semantic` in `semantic_t4_understanding.py`
-- Proposal model: `SemanticT4Proposal`
+- Proposal model: `SemanticT4Proposal` (frozen fields in `FROZEN_SEMANTIC_T4_PROPOSAL_FIELDS`)
 - Merge / referent guard: `_merge_proposal`, `_has_unresolved_referent`
-- COE serving pack (separate from unseen generalization): `docs/evals/t4_coe_qualification.md`
+- Unseen generalization pack (prompts only on this VPS): `scripts/eval_t4_unseen_qualification.py`
+- COE serving pack (separate): `docs/evals/t4_coe_qualification.md`
 - Architecture (read-only): `architecture.md` §§9–12
