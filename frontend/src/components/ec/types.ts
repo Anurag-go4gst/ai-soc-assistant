@@ -122,6 +122,7 @@ export interface EcAnalystPayload {
   affected_systems?: EcAffectedSystem[];
   important_evidence?: string[];
   unconfirmed_findings?: string[];
+  missing_evidence?: string[];
 }
 
 export interface ExperienceCenterResponse {
@@ -147,6 +148,19 @@ export interface ExperienceCenterResponse {
   ec_evidence_state?: EcEvidenceStateItem[];
   ec_layer2_path?: string[];
   production_side_effect?: boolean;
+  ec_email?: {
+    to?: string;
+    subject?: string;
+    mandatory_fields?: Record<string, unknown>;
+    status?: string;
+    inbound?: string;
+  };
+  ec_workflow_state?: string;
+  ec_workflow_path?: string[];
+  ec_impact_legend?: string[];
+  ec_applicability?: Array<{ key?: string; status: string; reason?: string }>;
+  ec_conflict?: { status?: string; sources?: string[] };
+  ec_ticket_id?: string;
 }
 
 export interface EcScenarioSummary {

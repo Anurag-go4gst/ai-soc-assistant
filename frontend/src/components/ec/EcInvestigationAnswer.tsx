@@ -18,6 +18,9 @@ export function EcInvestigationAnswer({ envelope }: { envelope: ExperienceCenter
   const unconfirmed = analyst.unconfirmed_findings?.length
     ? analyst.unconfirmed_findings
     : envelope.ec_investigation_outcome?.unconfirmed ?? [];
+  const missing = analyst.missing_evidence ?? envelope.ec_investigation_outcome?.missing_evidence ?? [];
+  const legend = envelope.ec_impact_legend ?? [];
+  const applicability = envelope.ec_applicability ?? [];
   const nextSteps = analyst.recommended_actions ?? [];
   const tableRows = systems.length
     ? []
@@ -32,6 +35,20 @@ export function EcInvestigationAnswer({ envelope }: { envelope: ExperienceCenter
           {analyst.severity_label ? <Badge>{analyst.severity_label}</Badge> : <Badge variant="outline">Severity not assigned</Badge>}
         </div>
       </header>
+
+      {legend.length ? (
+        <div className="flex flex-wrap gap-2" data-ec-section="impact-legend">
+          {legend.map((item) => (
+            <Badge key={item} variant="outline">{item}</Badge>
+          ))}
+        </div>
+      ) : null}
+
+      {envelope.ec_workflow_state ? (
+        <p className="text-xs uppercase tracking-[0.14em] text-cyan-400/80">
+          Workflow · {envelope.ec_workflow_path?.join(' → ') ?? envelope.ec_workflow_state}
+        </p>
+      ) : null}
 
       <div>
         <h4 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Assessment</h4>
@@ -119,6 +136,26 @@ export function EcInvestigationAnswer({ envelope }: { envelope: ExperienceCenter
           )}
         </ul>
       </div>
+
+      {missing.length ? (
+        <div data-ec-section="missing">
+          <h4 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Evidence still required</h4>
+          <ul className="mt-2 space-y-1 text-sm text-slate-400">
+            {missing.map((item) => <li key={item}>{item}</li>)}
+          </ul>
+        </div>
+      ) : null}
+
+      {applicability.length ? (
+        <div data-ec-section="applicability">
+          <h4 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Evidence applicability</h4>
+          <ul className="mt-2 space-y-1 text-sm text-slate-300">
+            {applicability.map((item) => (
+              <li key={`${item.key}-${item.status}`}>{item.status}: {item.reason || item.key}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {nextSteps.length ? (
         <div>

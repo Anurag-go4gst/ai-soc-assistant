@@ -27,8 +27,8 @@ function PathCard({ view }: { view: EcProjectionView }) {
 }
 
 function statusVariant(status: string): 'success' | 'warning' | 'outline' {
-  if (status === 'OBTAINED') return 'success';
-  if (status === 'MISSING') return 'warning';
+  if (status === 'OBTAINED' || status === 'VERIFIED') return 'success';
+  if (status === 'MISSING' || status === 'CONFLICTING' || status === 'NOT_AVAILABLE') return 'warning';
   return 'outline';
 }
 

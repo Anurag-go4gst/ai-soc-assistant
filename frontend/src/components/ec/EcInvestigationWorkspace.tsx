@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { followUpEcScenario, runEcScenario } from '@/api/ecClient';
 import { EcActionFlow } from '@/components/ec/EcActionFlow';
+import { EcCoordinationPanels } from '@/components/ec/EcCoordinationPanels';
 import { EcFollowUpBar } from '@/components/ec/EcFollowUpBar';
 import { EcInvestigationAnswer } from '@/components/ec/EcInvestigationAnswer';
 import { EcScenarioPicker } from '@/components/ec/EcScenarioPicker';
@@ -18,7 +19,7 @@ export function EcInvestigationWorkspace() {
     setBusy(true);
     setError(null);
     try {
-      const next = await runEcScenario(scenario.scenario_id, envelope?.ec_session_state.session_id ?? undefined);
+      const next = await runEcScenario(scenario.scenario_id);
       setSelectedId(scenario.scenario_id);
       setEnvelope(next);
     } catch (err) {
@@ -64,7 +65,7 @@ export function EcInvestigationWorkspace() {
           <p className="soc-eyebrow text-cyan-400">Experience Center</p>
           <h2 className="mt-1 text-xl font-semibold tracking-tight">Investigation workspace</h2>
           <p className="mt-1 max-w-2xl text-sm text-slate-400">
-            Visitor showcase of governed SOC investigations. Production chat on /chat is unchanged.
+            Seven flagship investigations plus a lab of additional scenarios. Production chat on /chat is unchanged.
           </p>
         </header>
 
@@ -89,6 +90,7 @@ export function EcInvestigationWorkspace() {
             <EcInvestigationAnswer envelope={envelope} />
             <EcFollowUpBar chips={envelope.ec_followups} disabled={busy} onSelect={(id) => void followUp(id)} />
             <EcTransparencyDrawer envelope={envelope} />
+            <EcCoordinationPanels envelope={envelope} />
             {envelope.ec_actions.length ? (
               <EcActionFlow actions={envelope.ec_actions} onUpdate={replaceAction} />
             ) : null}

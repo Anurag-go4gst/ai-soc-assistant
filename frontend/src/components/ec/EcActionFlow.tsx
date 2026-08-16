@@ -32,7 +32,7 @@ export function EcActionFlow({
     <section className="soc-panel space-y-4 rounded-xl p-5" data-ec-layer="action-journey">
       <header>
         <p className="soc-eyebrow text-cyan-400">Action Journey</p>
-        <p className="mt-1 text-sm text-slate-400">Recommended → HIL → execute → receipt → verify. No production side effects.</p>
+        <p className="mt-1 text-sm text-slate-400">Prepare → Policy → RBAC → Approval → Execute → Receipt → Verify. No production side effects.</p>
       </header>
       {actions.map((action) => (
         <article key={action.action_id} className="rounded-lg border border-slate-800 bg-slate-950/40 p-4">
@@ -42,18 +42,21 @@ export function EcActionFlow({
           </div>
           <p className="mt-1 text-xs text-slate-500">{action.kind} · no production change</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" disabled={busyId === action.action_id} onClick={() => void run(action.action_id, approveEcAction)}>
+            <Button size="sm" variant="secondary" disabled={busyId === action.action_id || !['APPROVAL_REQUIRED', 'PREPARED'].includes(action.state)} onClick={() => void run(action.action_id, approveEcAction)}>
               Approve
             </Button>
-            <Button size="sm" disabled={busyId === action.action_id} onClick={() => void run(action.action_id, executeEcAction)}>
+            <Button size="sm" disabled={busyId === action.action_id || action.state !== 'APPROVED'} onClick={() => void run(action.action_id, executeEcAction)}>
               Execute
             </Button>
-            <Button size="sm" variant="outline" disabled={busyId === action.action_id} onClick={() => void run(action.action_id, verifyEcAction)}>
+            <Button size="sm" variant="outline" disabled={busyId === action.action_id || action.state !== 'EXECUTED'} onClick={() => void run(action.action_id, verifyEcAction)}>
               Verify
             </Button>
           </div>
           {action.receipt ? (
             <p className="mt-2 text-xs text-emerald-300">{String(action.receipt.summary ?? 'Receipt recorded')}</p>
+          ) : null}
+          {action.verify_result ? (
+            <p className="mt-2 text-xs text-cyan-300">{String(action.verify_result.summary ?? 'Verification recorded')}</p>
           ) : null}
         </article>
       ))}
