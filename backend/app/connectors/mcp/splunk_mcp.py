@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any, Callable
 
 from app.config import settings
@@ -14,7 +15,8 @@ from app.connectors.mcp.splunk_mcp_readiness import (
     is_disallowed_tool,
     plan_splunk_search_call,
 )
-from app.connectors.mcp.splunk_search_lifecycle import SearchTransport, run_search_lifecycle
+from app.connectors.mcp.splunk_search_lifecycle import McpTransportError, SearchTransport, run_search_lifecycle
+from app.connectors.mcp.tls_config import mcp_tls_verify, resolve_splunk_mcp_token
 
 # Canonical search tool (splunk_* surface). Contract/registry aliases normalize
 # to this name at the live boundary (Go-live decision A.13 #4).
@@ -48,22 +50,36 @@ class SplunkMcpConnector:
         if not registry.global_execution_enabled:
             return ConnectorStatus(
                 mode=self.mode, configured=configured, available=False,
-                detail="execution_disabled", implemented=True, fallback="mock",
+                detail="execution_disabled", implemented=True, fallback=None,
             )
         if not configured:
             return ConnectorStatus(
                 mode=self.mode, configured=False, available=False,
-                detail="credentials_missing", implemented=True, fallback="mock",
+                detail="credentials_missing", implemented=True, fallback=None,
             )
         # Adapter implemented + endpoint configured + execution enabled. Schema is
         # confirmed by the operator after staging smoke (doc-level), not here.
+        # Never advertise a mock fallback — live failures stay live failures.
         return ConnectorStatus(
             mode=self.mode, configured=True, available=True,
-            detail="live_adapter_ready", implemented=True, fallback="mock",
+            detail="live_adapter_ready", implemented=True, fallback=None,
         )
 
     def list_tools(self, server_name: str | None = None) -> list[McpToolDescriptor]:
-        return []
+        """Configured allowlist classification only — no network I/O."""
+        from app.connectors.mcp.discovery import classify_mcp_tool
+
+        registry = load_mcp_registry_status()
+        names: list[str] = []
+        for server in registry.servers:
+            if server.type != "splunk":
+                continue
+            if server_name and server.name != server_name:
+                continue
+            names.extend(server.discovered_tools_safe_names)
+            names.extend(server.blocked_tools_safe_names)
+        unique = list(dict.fromkeys(names))
+        return [classify_mcp_tool(name, server_type="splunk") for name in unique]
 
     def plan_search(
         self,
@@ -91,6 +107,21 @@ class SplunkMcpConnector:
             "failure_mode": record.failure_mode,
             "policy_checks": list(record.policy_checks),
         }
+
+    def handshake_initialize_and_list_tools(self) -> dict[str, Any]:
+        """COE --live step: TLS connect + initialize + tools/list. No search.
+
+        --check never calls this. Tests inject transport via the factory.
+        """
+        transport = self._search_transport()
+        if transport is None or not hasattr(transport, "handshake"):
+            return {
+                "status": "blocked",
+                "error": "live_transport_unconfigured",
+                "initialized": False,
+                "tools": [],
+            }
+        return transport.handshake()
 
     def call_tool(self, tool_name: str, arguments: dict[str, Any], server_name: str | None = None) -> dict[str, Any]:
         if tool_name == _SAVED_SEARCH_TOOL:
@@ -199,13 +230,25 @@ class _StreamableHttpToolTransport:
     never constructed (factory returns None).
     """
 
-    def __init__(self, base_url: str, token: str, timeout_seconds: float, tool_name: str = _CANONICAL_SEARCH_TOOL) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        token: str,
+        timeout_seconds: float,
+        tool_name: str = _CANONICAL_SEARCH_TOOL,
+        *,
+        connect_timeout_seconds: float | None = None,
+        tls_verify: bool | str | None = None,
+    ) -> None:
         import httpx  # lazy: optional dependency, only needed for live runs
 
         self._url = normalize_mcp_endpoint_url(base_url)
         self._tool_name = tool_name
+        connect = connect_timeout_seconds if connect_timeout_seconds is not None else min(timeout_seconds, 10.0)
+        verify = True if tls_verify is None else tls_verify
         self._client = httpx.Client(
-            timeout=timeout_seconds,
+            timeout=httpx.Timeout(timeout_seconds, connect=connect),
+            verify=verify,
             headers={
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
@@ -213,6 +256,31 @@ class _StreamableHttpToolTransport:
             },
         )
         self._inline: dict[str, dict[str, Any]] = {}
+
+    def handshake(self) -> dict[str, Any]:
+        """initialize + tools/list over the same TLS/auth session as search."""
+        init_body = self._rpc(
+            {
+                "jsonrpc": "2.0",
+                "id": "ai-soc-mcp-init",
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "ai-soc-assistant", "version": "splunk-mcp-coe"},
+                },
+            }
+        )
+        tools_body = self._rpc(
+            {"jsonrpc": "2.0", "id": "ai-soc-mcp-tools", "method": "tools/list", "params": {}}
+        )
+        tools = _tool_names_from_list_result(tools_body.get("result") if isinstance(tools_body, dict) else None)
+        return {
+            "status": "ok",
+            "initialized": True,
+            "initialize_ok": bool(init_body.get("result") if isinstance(init_body, dict) else False),
+            "tools": tools,
+        }
 
     def submit(self, arguments: dict[str, Any]) -> str:
         payload = {
@@ -224,16 +292,38 @@ class _StreamableHttpToolTransport:
                 "arguments": {k: v for k, v in arguments.items() if not k.startswith("_")},
             },
         }
-        response = self._client.post(self._url, json=payload)
-        if response.status_code in (401, 403):
-            raise PermissionError("splunk_mcp_forbidden")
-        response.raise_for_status()
-        body = response.json()
+        body = self._rpc(payload)
         result = body.get("result") if isinstance(body, dict) else None
         rows = _rows_from_mcp_result(result)
         job_id = "inline-1"
         self._inline[job_id] = {"rows": rows}
         return job_id
+
+    def _rpc(self, payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            response = self._client.post(self._url, json=payload)
+        except Exception as exc:  # noqa: BLE001
+            raise _transport_error_from_httpx(exc) from exc
+        if response.status_code in (401, 403):
+            raise McpTransportError("auth_failed" if response.status_code == 401 else "permission_denied")
+        if response.status_code == 404:
+            raise McpTransportError("tool_not_found")
+        try:
+            response.raise_for_status()
+            body = response.json()
+        except Exception as exc:  # noqa: BLE001
+            raise _transport_error_from_httpx(exc) from exc
+        if not isinstance(body, dict):
+            raise McpTransportError("malformed_result")
+        error = body.get("error")
+        if isinstance(error, dict):
+            message = str(error.get("message") or error.get("code") or "mcp_error").lower()
+            if "not found" in message or "unknown tool" in message:
+                raise McpTransportError("tool_not_found")
+            if "forbidden" in message or "permission" in message:
+                raise McpTransportError("permission_denied")
+            raise McpTransportError("unavailable", message[:120])
+        return body
 
     def poll(self, job_id: str) -> dict[str, Any]:
         # Inline model: the result was already captured at submit.
@@ -256,9 +346,38 @@ def _rows_from_mcp_result(result: Any) -> list[dict[str, Any]]:
     return []
 
 
+def _tool_names_from_list_result(result: Any) -> list[str]:
+    if not isinstance(result, dict):
+        return []
+    tools = result.get("tools")
+    if not isinstance(tools, list):
+        return []
+    names: list[str] = []
+    for item in tools:
+        if isinstance(item, dict) and item.get("name"):
+            names.append(str(item["name"]))
+        elif isinstance(item, str) and item.strip():
+            names.append(item.strip())
+    return names
+
+
+def _transport_error_from_httpx(exc: BaseException) -> McpTransportError:
+    name = type(exc).__name__.lower()
+    text = str(exc).lower()
+    if "timeout" in name:
+        return McpTransportError("timeout")
+    if "ssl" in name or "tls" in name or "certificate" in text or "cert" in name:
+        return McpTransportError("tls_error")
+    if "connect" in name or "network" in name:
+        return McpTransportError("unavailable")
+    if "json" in name or "decode" in name:
+        return McpTransportError("malformed_result")
+    return McpTransportError("unavailable", type(exc).__name__)
+
+
 def build_live_tool_transport(tool_name: str = _CANONICAL_SEARCH_TOOL) -> "SearchTransport | None":
-    base_url = settings.splunk_mcp_base_url.strip()
-    token = settings.splunk_mcp_token.strip()
+    base_url = settings.splunk_mcp_base_url.strip() or os.environ.get("MCP_SERVER_SPLUNK_SOC_URL", "").strip()
+    token = resolve_splunk_mcp_token()
     if not base_url or not token:
         return None
     try:
@@ -267,6 +386,11 @@ def build_live_tool_transport(tool_name: str = _CANONICAL_SEARCH_TOOL) -> "Searc
             token=token,
             timeout_seconds=settings.mcp_search_job_timeout_ms / 1000.0,
             tool_name=tool_name,
+            connect_timeout_seconds=float(
+                os.environ.get("MCP_SERVER_SPLUNK_SOC_CONNECT_TIMEOUT_SECONDS")
+                or settings.splunk_mcp_connect_timeout_seconds
+            ),
+            tls_verify=mcp_tls_verify(),
         )
     except Exception:  # noqa: BLE001 — missing httpx / bad config => fail closed.
         return None

@@ -12,6 +12,8 @@
 - [x] Encrypted MCP token created (`mcp_tool_admin` + `edit_tokens_own`)
 - [x] Server-side tool toggles reviewed (core `splunk_*` on; SAIA per policy)
 - [x] Guardrails recorded (Timeout ___s, default rows ___, rate limit ___)
+- [ ] TLS verification policy recorded (`SPLUNK_MCP_TLS_VERIFY`, CA path if private CA)
+- [ ] Encrypted MCP token supplied as env or file reference (never committed)
 
 ## AI-SOC Settings (operator)
 
@@ -26,8 +28,9 @@
 ## Verification commands
 
 ```bash
+PYTHONPATH=backend:. python3 scripts/eval_splunk_mcp_coe_qualification.py --check
 cd backend
-PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_splunk_mcp_manifest_validation.py app/tests/test_p3_mcp_live_readiness.py -q
+PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_splunk_mcp_coe_qualification.py app/tests/test_splunk_mcp_manifest_validation.py app/tests/test_p3_mcp_live_readiness.py -q
 PYTHONPATH=../backend:.. python3 -c "from app.connectors.mcp.live_readiness import evaluate_splunk_mcp_live_readiness as r; print(r(coe_contract_approved=True))"
 ```
 

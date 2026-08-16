@@ -15,6 +15,8 @@ from app.chat.per_step_hook_idempotency import (
     run_idempotent_mcp_execution_hook,
 )
 from app.connectors.mcp import get_mcp_connector
+from app.connectors.mcp.mock import MockMcpConnector
+from app.connectors.mcp.tls_config import token_reference_configured
 from app.connectors.mcp.registry import load_mcp_registry_status
 from app.connectors.mcp.splunk_result_adapter import adapt_mcp_search_payload, execution_preview_from_envelope
 from app.config import settings
@@ -290,7 +292,22 @@ def evaluate_mcp_execution(
             selected_mcp_tool=selection["selected_mcp_tool"],
         )
         try:
-            result = get_mcp_connector().call_tool(
+            connector = _gated_live_connector(registry)
+            if connector is None:
+                review = _review(
+                    "admin_action_required",
+                    "mock_connector_forbidden_in_registry_mode",
+                    "platform_admin",
+                    ["configure_connector", "reject_execution"],
+                )
+                execution = _blocked_execution(selection, "failed", review["reason"])
+                telemetry.record_mcp_execution(
+                    trace_id,
+                    event_type="mcp_execution_failed",
+                    reason=review["reason"],
+                )
+                return execution, review
+            result = connector.call_tool(
                 str(selection["selected_mcp_tool"]),
                 tool_arguments,
                 server_name=str(selection["selected_mcp_server"]),
@@ -328,6 +345,20 @@ def evaluate_mcp_execution(
         else:
             execution_meta = {}
         live_run = registry.mode == "registry"
+        if live_run and result.get("mock") is True:
+            review = _review(
+                "admin_action_required",
+                "mock_result_forbidden_as_live_evidence",
+                "platform_admin",
+                ["configure_connector", "reject_execution"],
+            )
+            execution = _blocked_execution(selection, "failed", review["reason"])
+            telemetry.record_mcp_execution(
+                trace_id,
+                event_type="mcp_execution_failed",
+                reason=review["reason"],
+            )
+            return execution, review
         envelope = adapt_mcp_search_payload(
             result,
             mcp_mode="splunk_mcp" if live_run else registry.mode,
@@ -335,6 +366,20 @@ def evaluate_mcp_execution(
             normalized_spl=normalized_spl,
             duration_ms=duration_ms,
         )
+        if live_run and envelope.origin == "mock_connector":
+            review = _review(
+                "admin_action_required",
+                "mock_result_forbidden_as_live_evidence",
+                "platform_admin",
+                ["configure_connector", "reject_execution"],
+            )
+            execution = _blocked_execution(selection, "failed", review["reason"])
+            telemetry.record_mcp_execution(
+                trace_id,
+                event_type="mcp_execution_failed",
+                reason=review["reason"],
+            )
+            return execution, review
         result_count, results_preview = execution_preview_from_envelope(
             envelope,
             preview_cap=RESULT_PREVIEW_CAP,
@@ -399,6 +444,13 @@ def evaluate_mcp_execution(
         latest=str(tool_arguments.get("latest") or ""),
         execute_connector=_connector_execute,
     )
+
+
+def _gated_live_connector(registry: Any):
+    connector = get_mcp_connector()
+    if registry.mode == "registry" and isinstance(connector, MockMcpConnector):
+        return None
+    return connector
 
 
 def _record_discovery(telemetry: Any, trace_id: str, registry: Any) -> None:
@@ -489,7 +541,9 @@ def _gate_review(
     # adapter is implemented (Step 3); "schema_confirmed" is operator doc
     # sign-off, not a runtime flag. Until URL/token are set, fail closed.
     if registry.mode == "registry" and not (
-        settings.splunk_mcp_enabled and settings.splunk_mcp_base_url.strip() and settings.splunk_mcp_token.strip()
+        settings.splunk_mcp_enabled
+        and settings.splunk_mcp_base_url.strip()
+        and token_reference_configured()
     ):
         return _review("connector_configuration", "splunk_mcp_not_configured", "platform_admin", ["configure_connector", "reject_execution"])
     return no_human_review()
@@ -511,7 +565,18 @@ def _execute_read_only_mcp_tool(
         selected_mcp_tool=selected_tool,
     )
     try:
-        result = get_mcp_connector().call_tool(
+        connector = _gated_live_connector(registry)
+        if connector is None:
+            review = _review(
+                "admin_action_required",
+                "mock_connector_forbidden_in_registry_mode",
+                "platform_admin",
+                ["configure_connector", "reject_execution"],
+            )
+            execution = _blocked_execution(selection, "failed", review["reason"])
+            telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_failed", reason=review["reason"])
+            return execution, review
+        result = connector.call_tool(
             selected_tool,
             _read_only_tool_arguments(selected_tool, trace_id=trace_id),
             server_name=str(selection["selected_mcp_server"]),
@@ -628,7 +693,18 @@ def _execute_saved_search_with_hil(
         selected_mcp_tool=selection["selected_mcp_tool"],
     )
     try:
-        result = get_mcp_connector().call_tool(
+        connector = _gated_live_connector(registry)
+        if connector is None:
+            review = _review(
+                "admin_action_required",
+                "mock_connector_forbidden_in_registry_mode",
+                "platform_admin",
+                ["configure_connector", "reject_execution"],
+            )
+            execution = _blocked_execution(selection, "failed", review["reason"])
+            telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_failed", reason=review["reason"])
+            return execution, review
+        result = connector.call_tool(
             str(selection["selected_mcp_tool"]),
             tool_arguments,
             server_name=str(selection["selected_mcp_server"]),
@@ -709,19 +785,28 @@ def _read_only_tool_arguments(tool_name: str, *, trace_id: str) -> dict[str, Any
 
 def _classify_failed_call(result_status: str, result: dict[str, Any]) -> tuple[dict[str, Any], str]:
     """Map a non-ok live call payload to (review, execution_status)."""
-    if result_status in {"denied", "permission_denied", "blocked", "forbidden"}:
+    error = str(result.get("error") or result_status)
+    if result_status in {"denied", "permission_denied", "blocked", "forbidden"} or error in {
+        "permission_denied",
+        "auth_failed",
+    }:
         return (
-            _review("policy_exception_request", str(result.get("error") or "permission_denied"), "security_admin", ["request_policy_exception", "reject_execution"]),
+            _review("policy_exception_request", error or "permission_denied", "security_admin", ["request_policy_exception", "reject_execution"]),
             "blocked",
         )
-    if result_status == "timeout":
+    if result_status == "timeout" or error == "timeout":
         return (
             _review("admin_action_required", "mcp_search_timed_out", "platform_admin", ["configure_connector", "reject_execution"]),
             "failed",
         )
-    if result_status == "schema_invalid":
+    if result_status == "schema_invalid" or error in {"malformed_result", "schema_invalid"}:
         return (
             _review("admin_action_required", "mcp_result_schema_invalid", "platform_admin", ["configure_connector", "reject_execution"]),
+            "failed",
+        )
+    if error in {"tls_error", "unavailable", "tool_not_found"}:
+        return (
+            _review("admin_action_required", f"mcp_{error}", "platform_admin", ["configure_connector", "reject_execution"]),
             "failed",
         )
     return (

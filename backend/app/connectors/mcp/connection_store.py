@@ -97,6 +97,9 @@ def apply_to_settings() -> dict[str, Any]:
     transport = str(splunk.get("transport") if "transport" in splunk else os.environ.get("MCP_SERVER_SPLUNK_SOC_TRANSPORT", "streamable_http")).strip().lower()
     auth_method = str(splunk.get("auth_method") if "auth_method" in splunk else os.environ.get("MCP_SERVER_SPLUNK_SOC_AUTH_MODE", "bearer" if token else "none")).strip().lower()
     timeout_seconds = int(splunk.get("timeout_seconds") if "timeout_seconds" in splunk else os.environ.get("MCP_SERVER_SPLUNK_SOC_CONNECT_TIMEOUT_SECONDS", "10") or 10)
+    tls_verify = bool(splunk.get("tls_verify")) if "tls_verify" in splunk else os.environ.get("MCP_SERVER_SPLUNK_SOC_TLS_VERIFY", "true").lower() not in {"0", "false", "no", "off"}
+    ca_cert_path = str(splunk.get("ca_cert_path") if "ca_cert_path" in splunk else os.environ.get("MCP_SERVER_SPLUNK_SOC_CA_CERT_PATH", "") or "").strip()
+    bearer_token_file = str(splunk.get("bearer_token_file") if "bearer_token_file" in splunk else os.environ.get("MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN_FILE", "") or "").strip()
     execution_enabled = bool(splunk.get("execution_enabled")) if "execution_enabled" in splunk else os.environ.get("MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED", "false").lower() == "true"
     saia_tools_enabled = bool(splunk.get("saia_tools_enabled")) if "saia_tools_enabled" in splunk else bool(settings.splunk_saia_tools_enabled)
     ai_assistant_mode = str(splunk.get("splunk_ai_assistant_mode") if "splunk_ai_assistant_mode" in splunk else settings.splunk_ai_assistant_mode or "auto").strip().lower()
@@ -124,6 +127,10 @@ def apply_to_settings() -> dict[str, Any]:
     settings.splunk_mcp_discovery_mode = discovery_mode
     settings.splunk_mcp_base_url = url
     settings.splunk_mcp_token = token
+    settings.splunk_mcp_token_file = bearer_token_file
+    settings.splunk_mcp_tls_verify = tls_verify
+    settings.splunk_mcp_ca_cert_path = ca_cert_path
+    settings.splunk_mcp_connect_timeout_seconds = timeout_seconds
     settings.splunk_saia_tools_enabled = saia_tools_enabled and deployment_mode != "air_gapped"
     settings.splunk_ai_assistant_mode = "disabled" if deployment_mode == "air_gapped" and "splunk_ai_assistant_mode" in splunk else ai_assistant_mode
     settings.splunk_allow_run_saved_search = allow_saved_search
@@ -144,6 +151,9 @@ def apply_to_settings() -> dict[str, Any]:
     os.environ["MCP_SERVER_SPLUNK_SOC_AUTH_MODE"] = auth_method
     os.environ["MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN"] = token
     os.environ["MCP_SERVER_SPLUNK_SOC_CONNECT_TIMEOUT_SECONDS"] = str(timeout_seconds)
+    os.environ["MCP_SERVER_SPLUNK_SOC_TLS_VERIFY"] = "true" if tls_verify else "false"
+    os.environ["MCP_SERVER_SPLUNK_SOC_CA_CERT_PATH"] = ca_cert_path
+    os.environ["MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN_FILE"] = bearer_token_file
     os.environ["MCP_SERVER_SPLUNK_SOC_TOOL_ALLOWLIST"] = _tool_allowlist(splunk)
     os.environ["MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED"] = "true" if execution_enabled else "false"
     os.environ["MCP_SERVER_SPLUNK_SOC_SPLUNK_APP_ID"] = "7931"
@@ -169,6 +179,9 @@ def save_connection(
     allowed_saved_searches: str = "",
     execution_enabled: bool,
     updated_by: str,
+    tls_verify: bool | None = None,
+    ca_cert_path: str | None = None,
+    bearer_token_file: str | None = None,
 ) -> dict[str, Any]:
     existing = _read_document()
     existing_splunk = _splunk_document(existing)
@@ -180,6 +193,9 @@ def save_connection(
         "auth_method": auth_method.strip().lower(),
         "url": url.strip(),
         "timeout_seconds": int(timeout_seconds),
+        "tls_verify": bool(existing_splunk.get("tls_verify", True)) if tls_verify is None else bool(tls_verify),
+        "ca_cert_path": str(existing_splunk.get("ca_cert_path") or "") if ca_cert_path is None else str(ca_cert_path).strip(),
+        "bearer_token_file": str(existing_splunk.get("bearer_token_file") or "") if bearer_token_file is None else str(bearer_token_file).strip(),
         "saia_tools_enabled": bool(saia_tools_enabled) and deployment_mode.strip().lower() != "air_gapped",
         "splunk_ai_assistant_mode": "disabled" if deployment_mode.strip().lower() == "air_gapped" else splunk_ai_assistant_mode.strip().lower(),
         "allow_saved_search": bool(allow_saved_search),
@@ -363,6 +379,9 @@ def effective_connection() -> dict[str, Any]:
         "url": settings.splunk_mcp_base_url,
         "bearer_token_configured": bool((settings.splunk_mcp_token or "").strip()),
         "timeout_seconds": int(os.environ.get("MCP_SERVER_SPLUNK_SOC_CONNECT_TIMEOUT_SECONDS", "10")),
+        "tls_verify": bool(settings.splunk_mcp_tls_verify),
+        "ca_cert_configured": bool((settings.splunk_mcp_ca_cert_path or "").strip()),
+        "token_file_configured": bool((settings.splunk_mcp_token_file or "").strip()),
         "saia_tools_enabled": bool(settings.splunk_saia_tools_enabled) and settings.ai_soc_environment_mode != "air_gapped",
         "splunk_ai_assistant_mode": settings.splunk_ai_assistant_mode,
         "allow_saved_search": bool(settings.splunk_allow_run_saved_search),

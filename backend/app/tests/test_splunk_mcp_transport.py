@@ -13,7 +13,7 @@ from app.connectors.mcp.splunk_mcp import (
     SplunkMcpConnector,
     set_search_transport_factory,
 )
-from app.connectors.mcp.splunk_search_lifecycle import run_search_lifecycle
+from app.connectors.mcp.splunk_search_lifecycle import McpTransportError, run_search_lifecycle
 
 
 class FakeTransport:
@@ -244,8 +244,9 @@ def test_transport_403_raises_permission_error(monkeypatch) -> None:
     _patch_httpx(monkeypatch)
     t = _StreamableHttpSearchTransport("https://splunk.example.invalid", "tok", 30.0)
     _FakeHttpxClient.last_instance.response = _FakeResponse(403, {})
-    with pytest.raises(PermissionError):
+    with pytest.raises(McpTransportError) as excinfo:
         t.submit({"search_query": "index=a"})
+    assert excinfo.value.error_type == "permission_denied"
 
 
 def test_transport_parses_structured_content_shape(monkeypatch) -> None:

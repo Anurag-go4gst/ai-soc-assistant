@@ -73,9 +73,8 @@ def test_registry_classifies_risky_tools_as_blocked(monkeypatch) -> None:
     server = load_mcp_registry_status().servers[0]
 
     assert "run_splunk_query" in server.discovered_tools_safe_names
-    for blocked in ("outputlookup", "collect", "delete", "sendemail", "write_admin", "rest_script"):
+    for blocked in ("outputlookup", "collect", "delete", "sendemail", "write_admin", "rest_script", "generate_spl", "saia_assistant"):
         assert blocked in server.blocked_tools_safe_names
-    assert "generate_spl" in server.discovered_tools_safe_names
 
 
 def test_missing_credentials_mark_only_one_server_unavailable(monkeypatch) -> None:

@@ -13,6 +13,7 @@ import time
 from typing import Any
 
 from app.config import settings
+from app.connectors.mcp.mcp_endpoint import normalize_mcp_endpoint_url
 
 SCHEMA_VERSION = "splunk_call_grant_v1"
 GRANT_TTL_SECONDS = 900
@@ -35,6 +36,7 @@ def build_splunk_call_grant(
     read_write_mode: str | None = None,
     hil_required: bool = True,
     rbac_role: str | None = None,
+    mcp_endpoint: str | None = None,
     now: float | None = None,
     ttl_seconds: int = GRANT_TTL_SECONDS,
 ) -> dict[str, Any]:
@@ -58,6 +60,11 @@ def build_splunk_call_grant(
         "read_write_mode": str(read_write_mode or "read"),
         "hil_required": bool(hil_required),
         "rbac_role": str(rbac_role or ""),
+        "mcp_endpoint": str(
+            mcp_endpoint
+            if mcp_endpoint is not None
+            else normalize_mcp_endpoint_url(settings.splunk_mcp_base_url)
+        ),
         "one_run": True,
         "issued_at": issued,
         "expires_at": issued + int(ttl_seconds),
@@ -80,6 +87,7 @@ def build_splunk_call_grant(
             payload["read_write_mode"],
             "1" if payload["hil_required"] else "0",
             payload["rbac_role"],
+            payload["mcp_endpoint"],
         ]
     )
     payload["fingerprint"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
@@ -109,6 +117,7 @@ def call_grant_from_validation(
         read_write_mode="read" if execution_intent in {"spl_search", "saved_search_execution"} else "write",
         hil_required=hil_required,
         rbac_role=rbac_role,
+        mcp_endpoint=normalize_mcp_endpoint_url(settings.splunk_mcp_base_url),
         now=now,
     )
 

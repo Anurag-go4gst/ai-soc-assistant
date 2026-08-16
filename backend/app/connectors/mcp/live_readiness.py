@@ -108,6 +108,12 @@ def _server_payload(server: Any | None) -> dict[str, Any] | None:
         "auth_configured": server.auth_configured,
         "execution_enabled": server.execution_enabled,
         "search_execution_allowed": server.search_execution_allowed,
+        "saia_spl_generation_allowed": server.saia_spl_generation_allowed,
+        "knowledge_object_discovery_allowed": server.knowledge_object_discovery_allowed,
+        "list_tools_allowed": server.list_tools_allowed,
+        "tls_verify": bool(getattr(server, "tls_verify", True)),
+        "ca_cert_configured": bool(getattr(server, "ca_cert_configured", False)),
+        "token_file_configured": bool(getattr(server, "token_file_configured", False)),
         "last_error": server.last_error,
     }
 
