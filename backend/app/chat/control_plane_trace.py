@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.chat.debug_summary import redact_resolved_query
+from app.chat.debug_summary import (
+    project_auth0_debug,
+    project_evidence_state_debug,
+    project_investigation_outcome_debug,
+    redact_resolved_query,
+)
 from app.schemas.responses import PlaceholderResponse
 from app.planner.recipe_registry import get_recipe
 from app.spl.spl_artifact_trace_projection import build_spl_artifact_handoff_summary
@@ -113,6 +118,14 @@ def build_control_plane_trace(
         "resolved_query": redact_resolved_query(
             state.get("resolved_query_contract")
             if isinstance(state.get("resolved_query_contract"), dict)
+            else None
+        ),
+        "evidence_state": project_evidence_state_debug(
+            state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else None
+        ),
+        "investigation_outcome": project_investigation_outcome_debug(
+            state.get("investigation_outcome")
+            if isinstance(state.get("investigation_outcome"), dict)
             else None
         ),
         "session_role": state.get("session_role")
@@ -499,6 +512,10 @@ def _mcp_trace(execution: dict[str, Any] | None) -> dict[str, Any] | None:
         "block_reason": execution.get("block_reason"),
         "selected_mcp_server": execution.get("selected_mcp_server"),
         "selected_mcp_tool": execution.get("selected_mcp_tool"),
+        "evidence_source": execution.get("evidence_source"),
+        "result_count": execution.get("result_count") if isinstance(execution.get("result_count"), int) else None,
+        "call_grant_consumed": bool(execution.get("call_grant_consumed")),
+        "auth0": project_auth0_debug(execution),
     }
 
 

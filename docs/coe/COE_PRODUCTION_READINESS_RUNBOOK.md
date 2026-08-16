@@ -151,7 +151,7 @@ After deploy, with `MCP_MODE=mock`. Copy `trace_id` from each `/chat` response.
 | S3 | UI login (`APP_AUTH_USER` / password) | session established |
 | S4 | In-catalog query (e.g. failed-login / CVE lookup) | `control_plane_trace` present; `schedule.resource_plan_authority` not `degraded`; `execution_enabled=false` |
 | S5 | *How should I investigate unusual outbound traffic from an OT host overnight?* | guided / hybrid path; MCP not executed |
-| S6 | `GET /api/debug/traces/{trace_id}/bundle` (user with `debug_access`) | `explainability.debug_summary` has routing, `semantic_t4`, schedule, SPL, MCP block |
+| S6 | `GET /api/debug/traces/{trace_id}/bundle` (user with `debug_access`) | `explainability.debug_summary` has routing, `semantic_t4`, `t4_circuit`, schedule, SPL, MCP (`evidence_source`/status), `evidence_state`, `investigation_outcome`, `auth0` fingerprint |
 | S7 | Confirm `MCP_MODE=mock` and empty live URL/token | no live Splunk rows |
 | S8 | Candidate SPL on an SPL-shaped ask | `spl_validation.approved` may be true; `execution_eligible` false / null; candidate not executed |
 
@@ -170,13 +170,12 @@ Use [`docs/observability/debugging.md`](../observability/debugging.md).
 | ResourcePlan authority | `debug_summary.schedule.resource_plan_authority` | no |
 | T4 called/skipped/degraded | `semantic_t4.invoked/accepted/timed_out` | no |
 | provider failure kind | `semantic_t4.failure_kind` | no |
+| T4 circuit OPEN | `debug_summary.t4_circuit.circuit_state` + `human_action_required` | no |
 | normalized SPL | presence boolean + hashes; not SPL text | by design |
-| authorization result | MCP `allowed/status/block_reason` | AUTH0 grant fingerprint is **not** a `/debug` block |
-| MCP result | status/block_reason | live rows **UNPROVEN** |
-| EvidenceState | pipeline state only | **not** on ChatResponse or `/debug` |
-| InvestigationOutcome | `/chat` payload | **not** in `debug_summary` |
-| F1 DB degrade | `planning_outcome.status=persistence_failed`; schedule `resource_plan_authority=degraded` | closed in code |
-| T4 circuit OPEN | sidecar notes / `human_action_required_model_restart` | **not** a first-class `/debug` field |
+| authorization result | `debug_summary.auth0` fingerprint + consumed/invalidated/llm_granted | no raw grant |
+| MCP result | `mcp.status/block_reason/evidence_source/result_count` | live rows **UNPROVEN**; preview rows never on `/debug` |
+| EvidenceState | `debug_summary.evidence_state` (keys/lifecycle) | no |
+| InvestigationOutcome | `debug_summary.investigation_outcome` | no |
 | latency | `duration_ms`, T4 `elapsed_ms`, run duration | COE p50/p95 **UNPROVEN** |
 
 `/v1/models=200` is liveness only.
@@ -265,7 +264,7 @@ Live COE cells stay **UNPROVEN** until this runbook’s measurements exist. Do n
 | End-to-end | **UNPROVEN** | COE host `/chat` + T4 + (optional) live MCP not executed in this doc |
 | Security | **PASS** | TLS verify default on; write/remediation tools disallowed; LLM cannot mint AUTH0 grant; candidate SPL non-executable. COE public TLS / live MCP TLS still operator-supplied |
 | Failure handling | **PASS** | D1 classes + F1 degraded-authority signal in code; live COE drill not a GO substitute |
-| Observability | **PASS** | `/debug` bundle covers trace, RQC, authority, T4, failure_kind, SPL hashes, MCP block. Gaps: EvidenceState not on `/debug`; InvestigationOutcome not in `debug_summary`; AUTH0 fingerprint and T4 circuit not first-class debug fields |
+| Observability | **PASS** | `/debug` bundle covers trace, RQC, authority, T4, `t4_circuit`, failure_kind, SPL hashes, MCP status, AUTH0 fingerprint, EvidenceState keys, InvestigationOutcome. Gaps: live MCP rows **UNPROVEN**; COE p50/p95 **UNPROVEN**; AUTH0 fingerprint and T4 circuit are debug projections, not grant/prompt material |
 | Performance | **UNPROVEN** | No COE SLO; VPS p50/p95 must not be treated as targets |
 | Recovery / Rollback | **PASS** | Procedures above + Plan 7 runbook; v2 re-enable forbidden as routine rollback. Live COE rollback drill **UNPROVEN** |
 

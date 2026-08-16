@@ -1712,6 +1712,11 @@ export interface DebugSummary {
     allowed?: boolean;
     status?: string | null;
     block_reason?: string | null;
+    evidence_source?: string | null;
+    selected_mcp_tool?: string | null;
+    selected_mcp_server?: string | null;
+    result_count?: number | null;
+    call_grant_consumed?: boolean;
   };
   hil?: {
     required?: boolean;
@@ -1733,6 +1738,55 @@ export interface DebugSummary {
     llm_hops?: string[];
     dispatch_reasons?: string[];
     dispatch_cursor?: string | null;
+  };
+  evidence_state?: {
+    schema_version?: string | null;
+    required?: string[];
+    obtained?: string[];
+    missing?: string[];
+    stale?: string[];
+    invalidated?: string[];
+    blocked?: string[];
+    items?: Array<{
+      key: string;
+      status?: string | null;
+      trust_class?: string | null;
+      provenance?: string | null;
+    }>;
+  };
+  investigation_outcome?: {
+    disposition?: string | null;
+    severity_label?: string | null;
+    missing_evidence?: string[];
+    evidence_refs?: string[];
+    llm_proposal_accepted?: boolean;
+    findings?: string[];
+    findings_count?: number;
+    recommended_actions?: string[];
+    policy_eligibility?: {
+      synthesis_allowed?: boolean;
+      human_review_required?: boolean;
+      evidence_sufficiency?: string | null;
+      next_action?: string | null;
+    };
+  };
+  auth0?: {
+    present?: boolean;
+    fingerprint?: string | null;
+    consumed?: boolean;
+    llm_granted?: boolean;
+    hil_required?: boolean;
+    one_run?: boolean;
+    selected_mcp_tool?: string | null;
+    invalidated?: boolean;
+    schema_version?: string | null;
+  };
+  t4_circuit?: {
+    circuit_state?: string | null;
+    human_action_required?: boolean;
+    failure_kind?: string | null;
+    invoked?: boolean;
+    timed_out?: boolean;
   };
 }
 
