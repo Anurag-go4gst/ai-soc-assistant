@@ -671,41 +671,41 @@ None blocking planning. Phase F UI tests may add `frontend/src/components/ec/*.t
   - **Depends on:** A7
   - **Evidence:** L0 pytest slice `49 passed` (2026-08-16). Parity-off pin included. Freeze diffs empty including ChatPanel. INVARIANT CHECK 7/7 PASS (below). **STOP — do not start B.**
 
-- [ ] **B1** — `ExperienceCenterResponse` in `backend/app/demo/`
+- [x] **B1** — `ExperienceCenterResponse` in `backend/app/demo/`
   - **Do:** New EC-owned envelope; `/demo/scenarios` run returns it via a **new** entrypoint. **Do not** edit `PlaceholderResponse`. **Do not** change `run_demo_scenario()` so `PlaceholderResponse(**run_demo_scenario(id))` breaks.
   - **Verify:** OpenAPI/schema of `/chat` unchanged; `pytest app/tests/test_live_chat_ec_parity.py -q`; `/demo/scenarios/{id}/run` types are demo-owned; `git diff --name-only -- backend/app/api/routes_chat.py backend/app/schemas/responses.py` empty
   - **Depends on:** L-A
-  - **Evidence:**
+  - **Evidence:** `run_experience_center_turn` + `ExperienceCenterResponse` (`app/demo/ec_response.py`). HTTP `POST /demo/scenarios/{id}/run` `response_model=ExperienceCenterResponse`; Python `run_demo_scenario_fixture` still `PlaceholderResponse(**run_demo_scenario())`. OpenAPI: `/chat` still PlaceholderResponse; `/demo/.../run` is ExperienceCenterResponse. `test_experience_center_response.py` + live-chat parity green. Freeze diffs empty.
 
-- [ ] **B2** — `ec_projection` on EC envelope
+- [x] **B2** — `ec_projection` on EC envelope
   - **Do:** Understanding/plan/controls/evidence/outcome views with provenance; production InvestigationOutcome field stays unused
   - **Verify:** pytest one existing scenario includes `ec_projection.provenance`
   - **Depends on:** B1
-  - **Evidence:**
+  - **Evidence:** `test_ec_projection_provenance_present` / `test_experience_center_turn_is_demo_owned_envelope` — `ec_projection.provenance.kind=experience_center_fixture`; outcome items include `production InvestigationOutcome field unused`.
 
-- [ ] **B3** — `ec_actions` + `/demo/ec-actions` (no `/api/actions`)
+- [x] **B3** — `ec_actions` + `/demo/ec-actions` (no `/api/actions`)
   - **Do:** Simulation contract + in-memory store
   - **Verify:** pytest approve/execute does not import `routes_actions`; `production_side_effect is False`
   - **Depends on:** B1
-  - **Evidence:**
+  - **Evidence:** `test_ec_actions.py` — no `routes_actions` import; approve→execute→verify with `production_side_effect is False`. Endpoints: `POST /demo/ec-actions/prepare|{id}/approve|execute|verify`.
 
-- [ ] **B4** — `ec_session` + follow-up endpoint
+- [x] **B4** — `ec_session` + follow-up endpoint
   - **Do:** Extend `ec_fsm_store`; `POST /demo/scenarios/{id}/follow-up` with `follow_up_id`
   - **Verify:** pytest turn advances; unknown id does not invent a scenario
   - **Depends on:** B1
-  - **Evidence:**
+  - **Evidence:** `test_follow_up_advances_turn` (turn 0→1); `test_unknown_follow_up_does_not_invent_scenario` + HTTP 404 `Unknown follow-up`.
 
-- [ ] **B5** — EC frontend client + `/scenarios` shell
+- [x] **B5** — EC frontend client + `/scenarios` shell
   - **Do:** `ecClient.ts` + `EcInvestigationWorkspace` mounted in `ScenariosPage`. Do not edit ChatPanel.
   - **Verify:** `git diff -- frontend/src/components/ChatPanel.tsx` empty; `rg "components/ec" frontend/src/components/ChatPanel.tsx frontend/src/pages/ChatPage.tsx` empty; `/scenarios` renders workspace
   - **Depends on:** B1
-  - **Evidence:**
+  - **Evidence:** ChatPanel/ChatPage diffs and `components/ec` imports empty. `ecWorkspace.test.tsx` finds “Investigation workspace”. `npm test` 13 passed; `npm run build` ok (postbuild chmod). Public `/scenarios` still behind login; workspace is three-layer SOC Answer / Investigation Path / Action Journey.
 
-- [ ] **L-B** — Re-pin live path after Phase B
+- [x] **L-B** — Re-pin live path after Phase B
   - **Do:** Confirm `/demo` envelope is not used by `/chat`. No `pipeline.py` / `routes_chat.py` / `PlaceholderResponse` edits.
   - **Verify:** L0 pytest slice; `rg "ExperienceCenterResponse" backend/app/api/routes_chat.py backend/app/chat/pipeline.py` empty
   - **Depends on:** B5
-  - **Evidence:**
+  - **Evidence:** L0 slice `49 passed, 1 warning in 4.83s` (2026-08-16). Combined Phase B + isolation `123 passed`. `rg ExperienceCenterResponse` empty on `routes_chat.py` / `pipeline.py`. Freeze `git diff --name-only` empty on freeze paths. INVARIANT CHECK 7/7 PASS. **STOP — do not start C.**
 
 - [ ] **C1** — S1 fixture pack + 30+30 as `ec_scenario_policy`
   - **Do:** Two bounded searches, merge, Env KB, no `index=*`; provenance not production policy

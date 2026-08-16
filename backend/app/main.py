@@ -33,7 +33,7 @@ from app.api.routes_investigations import router as investigations_router
 from app.api.routes_knowledge import router as knowledge_router
 from app.api.routes_llm_lab import router as llm_lab_router
 from app.api.routes_quality import router as quality_router
-from app.api.routes_scenarios import demo_router, router as scenarios_router
+from app.api.routes_scenarios import demo_router, ec_actions_router, router as scenarios_router
 from app.api.routes_settings import router as settings_router
 from app.auth.routes_auth import router as auth_router
 from app.db.migration_readiness import log_startup_migration_readiness
@@ -206,6 +206,8 @@ app.include_router(scenarios_router)
 app.include_router(scenarios_router, prefix="/api")
 app.include_router(demo_router)
 app.include_router(demo_router, prefix="/api")
+app.include_router(ec_actions_router)
+app.include_router(ec_actions_router, prefix="/api")
 app.include_router(settings_router)
 app.include_router(settings_router, prefix="/api")
 app.include_router(quality_router)

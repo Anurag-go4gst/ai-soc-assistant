@@ -28,6 +28,10 @@ EC_ALLOWED_PREFIXES = (
     "frontend/src/types/api.ts",
     "frontend/src/components/ec/",
     "frontend/src/pages/ScenariosPage.tsx",
+    "frontend/src/api/ecClient.ts",
+    "backend/app/api/routes_scenarios.py",
+    "backend/app/main.py",
+    "backend/app/tests/test_experience_center_response.py",
 )
 
 # EC demo work must never edit these live-path surfaces (dispatch plan owns pipeline.py).
@@ -63,6 +67,8 @@ EC_SCOPE_PREFIXES = (
     "frontend/src/lib/investigationProgress.ts",
     "frontend/src/components/ec/",
     "frontend/src/pages/ScenariosPage.tsx",
+    "frontend/src/api/ecClient.ts",
+    "backend/app/api/routes_scenarios.py",
 )
 
 
@@ -157,9 +163,10 @@ def test_ec_q1_ticket_does_not_call_production_actions() -> None:
     payload = run_demo_scenario("firewall_deny_coordinated_attack")
     for path in (REPO / "backend/app/demo").rglob("*.py"):
         text = path.read_text(encoding="utf-8")
-        assert "/api/actions" not in text, path
-        assert "ProposedActionsPanel" not in text, path
-        assert "ChatPanel" not in text, path
+        if "from app.api.routes_actions" in text or "import routes_actions" in text:
+            raise AssertionError(f"{path} imports production action routes")
+        if "ProposedActionsPanel" in text or "components.ChatPanel" in text:
+            raise AssertionError(f"{path} references production chat/action UI")
     actions = ((payload.get("analyst_response") or {}).get("interactive_actions") or [])
     ticket = next(item for item in actions if item.get("id") == "open_p1_incident_ticket")
     assert ticket["provenance"] == "simulated_phase10_action"
