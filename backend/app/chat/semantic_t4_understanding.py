@@ -81,18 +81,28 @@ _SEMANTIC_T4_SCHEMA: dict[str, Any] = {
 
 _SEMANTIC_T4_SYSTEM_PROMPT = (
     "You complete SOC query understanding. Resolve only the unresolved semantic meaning.\n"
+    "Before ordinary semantic completion, determine whether any required referent depends\n"
+    "on supplied conversation or context.\n"
     "Return one JSON object with these fields only:\n"
-    "- normalized_goal: restate the ask at the same semantic strength as the query.\n"
-    "- evidence_requirements: proposed evidence categories, not findings.\n"
-    "- competing_hypotheses: possibilities, not conclusions.\n"
-    "- semantic_ambiguity: unambiguous or clarification_required. Analyst meaning only.\n"
-    "- clarification_required: true ONLY for an unresolved required referent, or two\n"
+    "- normalized_goal: string. Restate the ask at the same semantic strength as the query.\n"
+    "- evidence_requirements: array of string. Proposed evidence categories, not findings.\n"
+    "- competing_hypotheses: array of string. Possibilities, not conclusions.\n"
+    "- semantic_ambiguity: string enum unambiguous | clarification_required. Analyst meaning\n"
+    "  only. Independent of locked upstream ambiguity_state; do not copy that field.\n"
+    "- clarification_required: boolean. true ONLY for an unresolved required referent, or two\n"
     "  materially different semantic meanings of what is being asked.\n"
-    "- clarification_reason: the unresolved meaning, or null.\n"
-    "- semantic_confidence: confidence you understood the analyst meaning, not that an\n"
-    "  attack occurred.\n"
+    "- clarification_reason: string | null. The unresolved meaning when clarifying;\n"
+    "  null otherwise. Never substitute an empty string.\n"
+    "- semantic_confidence: number in [0, 1]. Confidence you understood the analyst meaning,\n"
+    "  not that an attack occurred.\n"
     "Rules:\n"
-    "- Do not rewrite locked fields; repeat them unchanged.\n"
+    "- Referent check first: if the query points at a specific object (event, host, alert,\n"
+    "  identity, prior turn) that is not identified in supplied context or locked entities,\n"
+    "  set semantic_ambiguity=clarification_required and clarification_required=true.\n"
+    "  Naming the missing object generically does not resolve it.\n"
+    "- Do not emit an unresolved referent as a concrete entity.\n"
+    "- Do not rewrite locked authority fields (intent_family, answer_goal, capabilities,\n"
+    "  qualification). Locked ambiguity_state does not set semantic_ambiguity.\n"
     "- Missing logs, evidence, examples, thresholds or detection criteria are not reasons\n"
     "  to clarify. A broad hunting request is not missing context: resolve it and list\n"
     "  what evidence would answer it.\n"
@@ -119,6 +129,7 @@ _SEMANTIC_T4_FEW_SHOT: tuple[dict[str, Any], ...] = (
             "normalized_goal": "identify signs of lateral movement across the estate",
             "semantic_ambiguity": "unambiguous",
             "clarification_required": False,
+            "clarification_reason": None,
             "evidence_requirements": [
                 "authentication from unusual sources to internal hosts",
                 "process execution with cross-subnet connections",
@@ -181,8 +192,8 @@ def _schema_limited_to_unresolved(deterministic: ResolvedQueryContract) -> dict[
     return {"type": "object", "properties": properties}
 
 
-def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContract) -> str:
-    """Unresolved fragment + locked map + allowed vocabulary + strict unresolved schema."""
+def _prompt_locked_fields(deterministic: ResolvedQueryContract) -> dict[str, Any]:
+    """Locked authority for the prompt. Upstream ambiguity_state is not T4 semantics."""
     locked = dict(deterministic.locked_fields or {})
     if not locked:
         locked = {
@@ -190,6 +201,29 @@ def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContr
             "answer_goal": deterministic.answer_goal,
             "prohibited_capabilities": sorted(deterministic.prohibited_capabilities),
         }
+    locked.pop("ambiguity_state", None)
+    return {key: value for key, value in locked.items() if value not in (None, "", [], {})}
+
+
+def _supplied_context_payload(deterministic: ResolvedQueryContract) -> dict[str, Any] | None:
+    """Entities/time already supplied. Omit rather than emit empty sentinels."""
+    payload: dict[str, Any] = {}
+    entities = {
+        key: value
+        for key, value in (deterministic.entities or {}).items()
+        if value not in (None, "", [], {})
+    }
+    if entities:
+        payload["entities"] = entities
+    time_scope = deterministic.time_scope
+    if isinstance(time_scope, str) and time_scope.strip():
+        payload["time_scope"] = time_scope.strip()
+    return payload or None
+
+
+def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContract) -> str:
+    """Unresolved fragment + locked map + allowed vocabulary + strict unresolved schema."""
+    locked = _prompt_locked_fields(deterministic)
     unresolved = _job_aware_unresolved_schema_names(deterministic)
     example_lines: list[str] = []
     for index, example in enumerate(_SEMANTIC_T4_FEW_SHOT, start=1):
@@ -207,22 +241,31 @@ def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContr
         example_lines.append(
             f"EXAMPLE {index} MEANING ANSWER: {json.dumps(example['meaning_output'], separators=(',', ':'))}"
         )
-    task = json.dumps(
-        {
-            "query": query,
-            "unresolved_query_fragment": query,
-            "locked_fields_do_not_change": locked,
-            "unresolved_fields_to_resolve": unresolved,
-            "allowed_values": {"semantic_ambiguity": list(FROZEN_SEMANTIC_AMBIGUITY_VALUES)},
+    task: dict[str, Any] = {
+        "query": query,
+        "unresolved_query_fragment": query,
+        "locked_fields_do_not_change": locked,
+        "unresolved_fields_to_resolve": unresolved,
+        "allowed_values": {"semantic_ambiguity": list(FROZEN_SEMANTIC_AMBIGUITY_VALUES)},
+        "field_types": {
+            "normalized_goal": "string",
+            "evidence_requirements": "array<string>",
+            "competing_hypotheses": "array<string>",
+            "semantic_ambiguity": "unambiguous | clarification_required",
+            "clarification_required": "boolean",
+            "clarification_reason": "string | null",
+            "semantic_confidence": "number[0,1]",
         },
-        separators=(",", ":"),
-    )
+    }
+    supplied = _supplied_context_payload(deterministic)
+    if supplied is not None:
+        task["supplied_context"] = supplied
     return "\n".join(
         [
             CONTROL_PREAMBLE,
             wrap_untrusted_source("user_query", query),
             *example_lines,
-            f"TASK: {task}",
+            f"TASK: {json.dumps(task, separators=(',', ':'))}",
             "ANSWER:",
         ]
     )
@@ -518,6 +561,30 @@ def _is_concrete_entity(value: Any) -> bool:
     return bool(_CONCRETE_ENTITY_RE.search(text))
 
 
+def _entity_value_grounded(
+    query: str, deterministic: ResolvedQueryContract, value: Any
+) -> bool:
+    """A new entity must already appear in the query or supplied/locked context."""
+    text = str(value).strip().lower()
+    if not text:
+        return False
+    if text in query.lower():
+        return True
+    candidates: list[Any] = list((deterministic.entities or {}).values())
+    for key, locked_value in (deterministic.locked_fields or {}).items():
+        if key == "time_scope" or key.startswith("entities."):
+            candidates.append(locked_value)
+    if deterministic.time_scope:
+        candidates.append(deterministic.time_scope)
+    for existing in candidates:
+        if isinstance(existing, (list, tuple, set)):
+            if any(text == str(item).strip().lower() for item in existing):
+                return True
+        elif text == str(existing).strip().lower():
+            return True
+    return False
+
+
 def _time_scope_grounded(query: str, time_scope: str | None) -> bool:
     """A time scope must come from the analyst, not from the model's habits."""
     if not time_scope:
@@ -678,6 +745,11 @@ def _merge_proposal(
             if not _is_concrete_entity(value):
                 if "entity_not_concrete" not in rejected:
                     rejected.append("entity_not_concrete")
+                continue
+            # Unresolved referents and other unsupplied names are not observations.
+            if not _entity_value_grounded(query, deterministic, value):
+                if "unresolved_referent_not_entity" not in rejected:
+                    rejected.append("unresolved_referent_not_entity")
                 continue
             entities[key] = value
             field_sources["entities"] = "semantic_t4"
