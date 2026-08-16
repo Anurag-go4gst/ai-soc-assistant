@@ -7,6 +7,8 @@ description: Probe the local Foundation-Sec LLM (llama-server :8081) empirically
 
 Never promote, demote, or re-prompt an LLM role on intuition. Probe the live model, record numbers, then decide. (Measured precedent: zero-shot shape classification 4/8; few-shot 8/8 at 1–2s warm — the decision flipped on data.)
 
+**T4 semantic understanding:** read [`docs/ai/t4_semantic_prompting_playbook.md`](docs/ai/t4_semantic_prompting_playbook.md) first (repo root). Do not iterate T4 prompts against Cisco on this VPS; emit-prompts only. Prompt changes need a general failure class plus unseen validation, not a query-specific few-shot.
+
 ## Endpoint facts
 
 - llama-server, Foundation-Sec-1.1-8B-Instruct, `http://127.0.0.1:8081/v1/chat/completions` (OpenAI-compatible). From Docker: `host.docker.internal:8081`.
