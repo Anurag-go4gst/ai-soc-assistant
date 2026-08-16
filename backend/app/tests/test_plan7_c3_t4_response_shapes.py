@@ -160,7 +160,7 @@ def test_evidence_uncertainty_may_not_become_an_analyst_question() -> None:
                 "normalized_goal": "identify algorithmically generated domain lookups",
                 "clarification_required": True,
                 "clarification_reason": "define what counts as algorithmically generated",
-                "ambiguity_state": "clarification_required",
+                "semantic_ambiguity": "unambiguous",
             }
         ),
     )
@@ -180,6 +180,7 @@ def test_semantic_uncertainty_may_still_ask() -> None:
                 "normalized_goal": "compare an unnamed current event with last week",
                 "clarification_required": True,
                 "clarification_reason": "the activity referred to by 'this' is not identified",
+                "semantic_ambiguity": "clarification_required",
             }
         ),
     )

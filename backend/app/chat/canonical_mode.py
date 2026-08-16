@@ -163,13 +163,36 @@ def build_persistence_failed_state(
     return emit_request_failed(next_state, reason=reason, error_category=category)
 
 
+# DB/resource-state loss makes ResourcePlan authority unavailable. That is not the
+# same as a legitimate non-planned outcome (clarification / policy block).
+_RESOURCE_PLAN_AUTHORITY_DEGRADED_STATUSES: frozenset[str] = frozenset({"persistence_failed"})
+_RESOURCE_PLAN_AUTHORITY_DEGRADED_REASON = "persistence_failed"
+
+
 def build_non_planned_dispatch_state(state: dict[str, Any], *, status: str) -> dict[str, Any]:
     """Record that dispatch was correctly skipped for a non-planned canonical outcome.
 
     Clarification and policy blocks are legitimate terminal outcomes, not planning
     failures — labelling them ``planning_failed`` misreports them to every downstream
     surface and to telemetry.
+
+    Persistence failure is different: ResourcePlan authority could not operate, so
+    the skip must not masquerade as ``canonical_non_planned``.
     """
+    if status in _RESOURCE_PLAN_AUTHORITY_DEGRADED_STATUSES:
+        existing = state.get("plan_dispatch_trace")
+        existing = existing if isinstance(existing, dict) else {}
+        return {
+            **state,
+            "plan_dispatch_trace": {
+                **existing,
+                "dispatch_source": "canonical_failure",
+                "dispatch_schedule": [],
+                "canonical_status": status,
+                "resource_plan_authority": "degraded",
+                "resource_plan_authority_reason": _RESOURCE_PLAN_AUTHORITY_DEGRADED_REASON,
+            },
+        }
     next_state = {
         **state,
         "plan_dispatch_trace": {

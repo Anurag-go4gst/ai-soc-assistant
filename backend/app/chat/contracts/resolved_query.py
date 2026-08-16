@@ -57,6 +57,7 @@ class ResolvedQueryContract(BaseModel):
     required_capabilities: frozenset[str] = Field(default_factory=frozenset)
     prohibited_capabilities: frozenset[str] = Field(default_factory=frozenset)
     evidence_requirements: list[str] = Field(default_factory=list)
+    competing_hypotheses: list[str] = Field(default_factory=list)
 
     entities: dict[str, Any] = Field(default_factory=dict)
     time_scope: str | None = None

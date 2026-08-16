@@ -46,6 +46,23 @@ describe('journey contract surfaces', () => {
     expect(screen.getByText(/Which alert should I investigate?/)).toBeInTheDocument();
   });
 
+  it('3b persistence_failed — planning_outcome banner shows authority loss', () => {
+    render(
+      <PlanningOutcomeBanner
+        outcome={{
+          status: 'persistence_failed',
+          user_message:
+            'This turn could not be saved safely, so ResourcePlan authority was not available. Do not treat this as a normal authoritative investigation.',
+          recovery_hint: 'Retry once. If it continues, contact your operator before retrying execution.',
+          category: 'database',
+        }}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: /turn not saved safely/i })).toBeInTheDocument();
+    expect(screen.getByText(/ResourcePlan authority was not available/i)).toBeInTheDocument();
+    expect(document.querySelector('[data-planning-outcome="persistence_failed"]')).toBeTruthy();
+  });
+
   it('3 policy_blocked — planning_outcome banner', () => {
     const presentation = presentPlanningOutcome({
       status: 'policy_blocked',

@@ -80,6 +80,8 @@ def test_prompt_is_limited_to_locked_map_and_unresolved_fields() -> None:
     assert "required_capabilities" not in schema["properties"]
     assert "answer_goal" not in schema["properties"]
     assert "normalized_goal" in schema["properties"]
+    assert "competing_hypotheses" in schema["properties"]
+    assert "semantic_ambiguity" in schema["properties"]
 
 
 def test_t4_cannot_clear_deterministic_clarification() -> None:
