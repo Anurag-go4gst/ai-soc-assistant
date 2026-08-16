@@ -51,6 +51,7 @@ If Cursor also writes a plan under `.cursor/plans/` or `/root/.cursor/plans/`, *
 - [`AGENTS.md`](../AGENTS.md) — repository operating rules, plan discipline, verification gates.
 - [`CLAUDE.md`](../CLAUDE.md) — project context, stack, and deployment notes.
 - [`docs/coe/COE_ROLLOUT_CONFIGURATION.md`](../docs/coe/COE_ROLLOUT_CONFIGURATION.md) — COE rollout profile and smoke checklist.
+- [`docs/coe/COE_PRODUCTION_READINESS_RUNBOOK.md`](../docs/coe/COE_PRODUCTION_READINESS_RUNBOOK.md) — executable COE qualification, rollback, GO matrix.
 
 ## Execution
 

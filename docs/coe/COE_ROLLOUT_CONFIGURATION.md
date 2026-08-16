@@ -134,6 +134,7 @@ Run after selecting COE profile and restarting backend (`docker compose up -d --
 
 | Doc | Purpose |
 |-----|---------|
+| [`COE_PRODUCTION_READINESS_RUNBOOK.md`](COE_PRODUCTION_READINESS_RUNBOOK.md) | Executable COE qualification, smoke, rollback, GO matrix |
 | [`plans/AI_SOC_MASTER_PLAN.md`](../../plans/AI_SOC_MASTER_PLAN.md) §R | Slice execution log |
 | [`docs/evals/bl004_coverage_closeout_report.md`](../evals/bl004_coverage_closeout_report.md) | 41/105 mapped; 64 gaps |
 | [`docs/architecture/real_splunk_mcp_safety_contract.md`](../architecture/real_splunk_mcp_safety_contract.md) | Live MCP gates |

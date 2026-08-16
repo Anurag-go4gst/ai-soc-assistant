@@ -6,6 +6,7 @@
 
 **Related docs**
 
+- Production readiness (qualification, smoke, rollback, GO matrix): [`COE_PRODUCTION_READINESS_RUNBOOK.md`](COE_PRODUCTION_READINESS_RUNBOOK.md)
 - Profile loader and variable precedence: [`env/README.md`](../../env/README.md)
 - COE feature-flag table: [`COE_ROLLOUT_CONFIGURATION.md`](COE_ROLLOUT_CONFIGURATION.md)
 - Live/mock/EC testing layers: [`COE_LIVE_TESTING_GUIDE.md`](COE_LIVE_TESTING_GUIDE.md)

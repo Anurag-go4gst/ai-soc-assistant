@@ -2,6 +2,7 @@
 
 This guide explains how to turn on **every supported lever** for COE validation, what still requires **engineering work** (not just `.env`), and how to get **Experience Center parity** in the main chat UI.
 
+**COE production readiness (qualification / rollback / GO matrix):** [`COE_PRODUCTION_READINESS_RUNBOOK.md`](COE_PRODUCTION_READINESS_RUNBOOK.md)  
 **COE rollout (recommended flags + smoke checklist):** [`COE_ROLLOUT_CONFIGURATION.md`](COE_ROLLOUT_CONFIGURATION.md)  
 **Canonical profile:** [`env/profiles/coe.env.example`](../../env/profiles/coe.env.example)
 
