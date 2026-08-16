@@ -869,7 +869,9 @@ def assert_output_contract(report: dict[str, Any]) -> list[str]:
         prompt = row.get("exact_t4_prompt") or {}
         if prompt.get("system") != _SEMANTIC_T4_SYSTEM_PROMPT:
             failures.append(f"{row.get('case_id')}: system prompt is not production T4")
-        if "Do not select a skill or route" not in str(prompt.get("system") or ""):
+        if "Do not grant route, capability, SPL, MCP, RBAC, HIL" not in str(
+            prompt.get("system") or ""
+        ):
             failures.append(f"{row.get('case_id')}: production T4 authority rule missing")
     disposition = report.get("f3_disposition") or {}
     if disposition.get("f3_closed") is True:

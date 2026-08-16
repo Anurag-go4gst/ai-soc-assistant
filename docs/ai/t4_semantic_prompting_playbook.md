@@ -109,8 +109,12 @@ Never invent observed facts (IPs, hosts, users, CVEs, time windows) that the que
 
 ## Prompt construction rules
 
-- Keep the **schema simple and fixed**. Do not grow it per query class.
-- Describe fields with **schema/type semantics**. Do not instruct using copyable sentinel values such as empty strings or `0.0`.
+- Keep the **schema simple and fixed**. Field types and enums live in the constrained
+  JSON schema, not duplicated in natural-language or TASK JSON.
+- State the untrusted-data boundary once. Do not repeat the query as
+  `unresolved_query_fragment` when the texts are identical.
+- Instruct: **Return only fields offered in unresolved_fields_to_resolve.** Do not ask
+  the model to output locked fields.
 - Use **at most one** small contrastive example for a **known failure class**. Few-shots are prompt assets, not retrieval and not an agent.
 - Avoid broad rules such as “ask if context is missing.”
 - **No query-specific prompt patches.** If one case fails, do not add that query as a few-shot.

@@ -72,8 +72,9 @@ def test_each_record_has_locked_prompt_and_expected_behaviour() -> None:
         assert isinstance(row["clarification_expected"], bool)
         assert row["forbidden_strengthening"]
         assert row["expected_authority_behaviour"]
-        assert "Do not select a skill or route" in prompt["system"]
+        assert "Do not grant route, capability, SPL, MCP, RBAC, HIL" in prompt["system"]
         assert "competing_hypotheses" in prompt["system"]
+        assert "Return only fields offered in unresolved_fields_to_resolve." in prompt["system"]
 
 
 def test_referent_stays_production_clarify_hunts_permit_t4() -> None:

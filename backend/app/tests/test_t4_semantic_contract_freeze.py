@@ -421,11 +421,12 @@ def test_unresolved_referent_not_emitted_as_entity() -> None:
 
 def test_prompt_encodes_referent_first_and_schema_types() -> None:
     prompt = _SEMANTIC_T4_SYSTEM_PROMPT
-    assert "Before ordinary semantic completion" in prompt
-    assert "Naming the missing object generically does not resolve it." in prompt
+    assert "before ordinary semantic completion" in prompt
+    assert "Naming a missing referent generically does not resolve" in prompt
     assert "Do not emit an unresolved referent as a concrete entity." in prompt
-    assert "Locked ambiguity_state does not set semantic_ambiguity." in prompt
-    assert "Missing logs, evidence, examples, thresholds or detection criteria" in prompt
+    assert "do not copy locked ambiguity_state" in prompt
+    assert "missing logs, evidence, examples, thresholds, or detection" in prompt
+    assert "Return only fields offered in unresolved_fields_to_resolve." in prompt
     assert '""' not in prompt
     assert "0.0" not in prompt
     user = _build_semantic_t4_user_prompt(
@@ -441,11 +442,19 @@ def test_prompt_encodes_referent_first_and_schema_types() -> None:
                 "intent_family": "live_investigation",
                 "answer_goal": "live_results",
                 "ambiguity_state": "unambiguous",
+                "qualification_tier": "T4",
+                "qualification_source": "out_of_registry",
+                "clarification_required": False,
             },
         ),
     )
-    assert '"ambiguity_state":"unambiguous"' not in user
-    assert "field_types" in user
+    assert '"ambiguity_state"' not in user
+    assert "qualification_tier" not in user
+    assert "qualification_source" not in user
+    assert "field_types" not in user
+    assert "allowed_values" not in user
+    assert "unresolved_query_fragment" not in user
+    assert "Return only fields offered in unresolved_fields_to_resolve." in user
     assert '""' not in user.split("TASK:")[1]
     assert "0.0" not in user
     diagnostic = "is this the same campaign as the one we escalated last month?"
