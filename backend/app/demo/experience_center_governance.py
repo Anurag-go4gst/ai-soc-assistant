@@ -42,7 +42,12 @@ def build_experience_center_governance(
     route_plan_shadow: dict[str, Any] | None,
     selected_use_case: dict[str, Any] | None,
     llm_sidecar_panel: dict[str, Any] | None = None,
+    candidate_spl: str | dict[str, Any] | None = None,
+    spl_validation: dict[str, Any] | None = None,
 ) -> GovernanceTrace:
+    candidate_text = candidate_spl
+    if isinstance(candidate_spl, dict):
+        candidate_text = candidate_spl.get("candidate_spl")
     trace = build_governance_trace(
         demo_mode=True,
         scenario_id=scenario_id,
@@ -54,6 +59,8 @@ def build_experience_center_governance(
         execution=execution,
         route_plan_shadow=route_plan_shadow,
         selected_use_case=selected_use_case,
+        candidate_spl=str(candidate_text) if candidate_text else None,
+        spl_validation=spl_validation,
     )
     if trace is None:
         raise RuntimeError("experience_center_governance requires selected_skill")

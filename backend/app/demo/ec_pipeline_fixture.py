@@ -1,4 +1,9 @@
-"""Synthetic pipeline-dispatch v2 + run_contract surfaces for Experience Center."""
+"""Synthetic pipeline-dispatch + run_contract surfaces for Experience Center.
+
+Dispatch authority is an EC architecture projection, not the retired
+dispatch-v2 production stamp (Plan 7: ResourcePlan + PhaseContract is sole
+normal authority). ``build_pipeline_dispatch`` may still supply schedule *shape*.
+"""
 
 from __future__ import annotations
 
@@ -120,7 +125,7 @@ def build_ec_plan_dispatch(pipeline_dispatch: dict[str, Any]) -> dict[str, Any]:
     return {
         "dispatch_source": "ec_fixture_projection",
         "dispatch_schedule": hooks_schedule,
-        "dispatch_authority": "pipeline_dispatch_v2",
+        "dispatch_authority": "ec_architecture_projection",
         "projected_flags": projected,
     }
 
@@ -303,6 +308,6 @@ def attach_ec_dispatch_surfaces(
     updated["ec_provenance"] = {
         **(updated.get("ec_provenance") or {}),
         "mcp_label": "Splunk MCP search" if execution.get("status") == "executed" else "Splunk MCP readiness",
-        "dispatch_authority": "pipeline_dispatch_v2",
+        "dispatch_authority": "ec_architecture_projection",
     }
     return updated

@@ -1,4 +1,4 @@
-"""Dispatch v2 + run_contract parity on Experience Center scenarios."""
+"""EC architecture-projection dispatch surfaces on Experience Center scenarios."""
 
 from __future__ import annotations
 
@@ -19,13 +19,17 @@ MCP_EXECUTED_IDS = {
 
 
 @pytest.mark.parametrize("scenario_id", sorted(LEADERSHIP_IDS))
-def test_leadership_scenarios_project_dispatch_v2(scenario_id: str) -> None:
+def test_leadership_scenarios_project_ec_architecture_authority(scenario_id: str) -> None:
     payload = run_demo_scenario(scenario_id)
     assert payload.get("intent_dispatch")
     assert payload.get("pipeline_dispatch")
     assert payload.get("plan_dispatch")
     assert payload.get("run_contract")
-    assert payload["plan_dispatch"].get("dispatch_authority") == "pipeline_dispatch_v2"
+    authority = payload["plan_dispatch"].get("dispatch_authority")
+    assert authority == "ec_architecture_projection"
+    assert authority != "pipeline_dispatch_v2"
+    provenance = payload.get("ec_provenance") or {}
+    assert provenance.get("dispatch_authority") != "pipeline_dispatch_v2"
 
 
 @pytest.mark.parametrize("scenario_id", sorted(MCP_EXECUTED_IDS & LEADERSHIP_IDS | MCP_EXECUTED_IDS))

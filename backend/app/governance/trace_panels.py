@@ -160,6 +160,8 @@ def build_governance_trace(
     question_runtime_map: dict[str, Any] | None = None,
     precondition_evaluation: dict[str, Any] | None = None,
     selected_use_case: dict[str, Any] | None = None,
+    candidate_spl: str | None = None,
+    spl_validation: dict[str, Any] | None = None,
 ) -> GovernanceTrace | None:
     """Build trace-only governance panels when minimum routing context exists."""
     if not selected_skill:
@@ -202,6 +204,8 @@ def build_governance_trace(
         selected_use_case=selected_use_case if isinstance(selected_use_case, dict) else None,
         source_evidence=list(source_evidence or []),
         execution=execution,
+        candidate_spl=candidate_spl,
+        spl_validation=spl_validation,
     )
 
     return GovernanceTrace(
@@ -289,6 +293,8 @@ def _experience_center_panels(
     selected_use_case: dict[str, Any] | None,
     source_evidence: list[dict[str, Any]],
     execution: dict[str, Any] | None,
+    candidate_spl: str | None = None,
+    spl_validation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not scenario_id:
         return {}
@@ -301,6 +307,8 @@ def _experience_center_panels(
         selected_use_case=selected_use_case,
         source_evidence=source_evidence,
         execution=execution,
+        candidate_spl=candidate_spl,
+        spl_validation=spl_validation,
     )
 
 
@@ -492,6 +500,24 @@ def _failed_login_experience_center_panels(scenario_id: str | None) -> dict[str,
     }
 
 
+def _ec_spl_panel_status(
+    *,
+    candidate_spl: str | None,
+    spl_validation: dict[str, Any] | None,
+    execution: dict[str, Any] | None,
+) -> str:
+    has_candidate = bool(str(candidate_spl or "").strip())
+    has_executed = bool(execution and execution.get("executed_spl"))
+    if not has_candidate and not has_executed:
+        return "SPL not required"
+    if isinstance(spl_validation, dict):
+        if spl_validation.get("approved") is True:
+            return "validated"
+        if spl_validation.get("approved") is False:
+            return "rejected"
+    return "SPL candidate / validation"
+
+
 def _generic_experience_center_panels(
     *,
     scenario_id: str,
@@ -500,6 +526,8 @@ def _generic_experience_center_panels(
     selected_use_case: dict[str, Any] | None,
     source_evidence: list[dict[str, Any]],
     execution: dict[str, Any] | None,
+    candidate_spl: str | None = None,
+    spl_validation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     splunk_items = [
         item
@@ -515,8 +543,13 @@ def _generic_experience_center_panels(
         or str((selected_use_case or {}).get("use_case_id") or "")
         or scenario_id
     )
+    spl_status = _ec_spl_panel_status(
+        candidate_spl=candidate_spl,
+        spl_validation=spl_validation,
+        execution=execution,
+    )
     selected_resources = [
-        "SPL candidate / validation" if execution and execution.get("executed_spl") else "SPL not required",
+        spl_status,
         "Answer contract",
         "answer scorecard",
         "narration visibility",
@@ -534,14 +567,14 @@ def _generic_experience_center_panels(
             "selected_capability": capability,
             "selected_resources": selected_resources,
             "resource_decision": [
-                f"Query is routed to {selected_skill}.",
+                f"Scenario fixture selected investigation family {selected_skill} (route_source=ec_fixture_selected).",
                 "Resource Planner selects only governed resources for the Experience Center scenario.",
                 "No live MCP execution; no live customer data.",
                 "Foundation-sec / model signal remains advisory; deterministic V.AI SOC policy wins.",
             ],
         },
         "spl_validation_panel": {
-            "status": "SPL candidate / validation" if execution and execution.get("executed_spl") else "SPL not required",
+            "status": spl_status,
             "validation_scope": "Experience Center fixture path",
             "live_customer_query": False,
         },
@@ -581,7 +614,7 @@ def _generic_experience_center_panels(
         "progress_labels": [
             "Understanding query",
             "Resource planning",
-            "Validating SPL" if execution and execution.get("executed_spl") else "SPL not required",
+            "Validating SPL" if spl_status != "SPL not required" else "SPL not required",
             "Selecting MCP fixture tool" if splunk_items or selected_server == "splunk" else "MCP not required",
             "Calling MCP fixture search" if splunk_items or result_count else "MCP fixture not required",
             "Packaging SourceEvidence" if source_evidence else "SourceEvidence not required",
