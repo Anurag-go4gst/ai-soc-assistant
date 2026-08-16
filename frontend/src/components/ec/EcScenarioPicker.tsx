@@ -39,6 +39,9 @@ export function EcScenarioPicker({ disabled, selectedId, onSelect, onRun }: EcSc
     [scenarios, selectedId],
   );
 
+  const flagship = scenarios.filter((item) => item.category === 'Flagship' || item.scenario_id.startsWith('s1_'));
+  const rest = scenarios.filter((item) => !flagship.some((row) => row.scenario_id === item.scenario_id));
+
   return (
     <div className="space-y-3">
       <label className="block text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
@@ -49,11 +52,22 @@ export function EcScenarioPicker({ disabled, selectedId, onSelect, onRun }: EcSc
           value={selected?.scenario_id ?? ''}
           onChange={(event) => onSelect(event.target.value)}
         >
-          {scenarios.map((item) => (
-            <option key={item.scenario_id} value={item.scenario_id}>
-              {item.label}
-            </option>
-          ))}
+          {flagship.length ? (
+            <optgroup label="Flagship">
+              {flagship.map((item) => (
+                <option key={item.scenario_id} value={item.scenario_id}>
+                  {item.label}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
+          <optgroup label={flagship.length ? 'Lab' : 'Scenarios'}>
+            {rest.map((item) => (
+              <option key={item.scenario_id} value={item.scenario_id}>
+                {item.label}
+              </option>
+            ))}
+          </optgroup>
         </select>
       </label>
       {selected ? (

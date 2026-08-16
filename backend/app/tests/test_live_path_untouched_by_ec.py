@@ -32,6 +32,7 @@ EC_ALLOWED_PREFIXES = (
     "backend/app/api/routes_scenarios.py",
     "backend/app/main.py",
     "backend/app/tests/test_experience_center_response.py",
+    "backend/app/tests/test_s1_governed_splunk_investigation.py",
 )
 
 # EC demo work must never edit these live-path surfaces (dispatch plan owns pipeline.py).

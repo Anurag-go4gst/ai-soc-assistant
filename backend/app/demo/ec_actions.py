@@ -104,11 +104,13 @@ def execute_action(action_id: str) -> EcActionRecord:
             record["state"] = "APPROVED"
         record["state"] = "EXECUTED"
         record["production_side_effect"] = False
+        extra = dict(record.get("extra") or {})
         record["receipt"] = {
             "status": "SUCCESS",
             "production_side_effect": False,
             "provenance": "simulated_phase10_action",
             "summary": f"Simulated {record['kind']} completed with no production side effect.",
+            **({k: v for k, v in extra.items() if k != "source_interactive_action_id"}),
         }
         return _to_model(record)
 

@@ -707,23 +707,23 @@ None blocking planning. Phase F UI tests may add `frontend/src/components/ec/*.t
   - **Depends on:** B5
   - **Evidence:** L0 slice `49 passed, 1 warning in 4.83s` (2026-08-16). Combined Phase B + isolation `123 passed`. `rg ExperienceCenterResponse` empty on `routes_chat.py` / `pipeline.py`. Freeze `git diff --name-only` empty on freeze paths. INVARIANT CHECK 7/7 PASS. **STOP — do not start C.**
 
-- [ ] **C1** — S1 fixture pack + 30+30 as `ec_scenario_policy`
+- [x] **C1** — S1 fixture pack + 30+30 as `ec_scenario_policy`
   - **Do:** Two bounded searches, merge, Env KB, no `index=*`; provenance not production policy
   - **Verify:** pytest S1; provenance key `ec_scenario_policy`; `validate_spl` approved without override
   - **Depends on:** L-B, B2, B4
-  - **Evidence:**
+  - **Evidence:** `pytest app/tests/test_s1_governed_splunk_investigation.py -q` → `11 passed`. Policy `ec_search_governance_policy` with `provenance=ec_scenario_policy`, 60d as 30+30. Both SPLs `validate_spl` approved, `execution_eligible=false`, no override, no `index=*`.
 
-- [ ] **C2** — S1 Layer 1 answer + SPL governance panel
+- [x] **C2** — S1 Layer 1 answer + SPL governance panel
   - **Do:** Affected systems; omitted time; candidate → constraints → validator → search1 → search2 → merge
   - **Verify:** UI/pytest payload sections; panel never “SPL not required”
   - **Depends on:** C1, B5
-  - **Evidence:**
+  - **Evidence:** `s1Workspace.test.tsx` 5 passed: assessment, affected systems, unconfirmed, 30+30 SPL panel, `validate_spl approved`, `queryByText('SPL not required')` empty. `npm run build` ok. ChatPanel untouched.
 
-- [ ] **C3** — S1 follow-ups advance state
+- [x] **C3** — S1 follow-ups advance state
   - **Do:** Auth/privileged/EDR/TI/block/ticket chips call follow-up endpoint
   - **Verify:** pytest each `follow_up_id` changes `ec_session_state.turn`
   - **Depends on:** C1, B4
-  - **Evidence:**
+  - **Evidence:** `test_s1_every_follow_up_advances_state_and_updates_evidence` HTTP 200 for all 7 ids; turn 0→7; evidence/outcome updates; firewall block stays `APPROVAL_REQUIRED`; ticket `EXECUTED` with `production_side_effect=false`. Unknown id does not invent a scenario.
 
 - [ ] **D1** — S2 prompt-injection scenario
   - **Do:** Fixture logs + blocked tool call + policy; follow-ups

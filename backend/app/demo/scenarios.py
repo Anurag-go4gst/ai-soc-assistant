@@ -1540,6 +1540,12 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
     if fw_override is not None:
         return fw_override
 
+    from app.demo.fixtures.s1.pack import s1_analyst_override
+
+    s1_override = s1_analyst_override(scenario.scenario_id, base)
+    if s1_override is not None:
+        return s1_override
+
     if scenario.scenario_id == "failed_login_spike_app01":
         return attach_evidence_summary({
             **base,
@@ -2919,8 +2925,10 @@ SCENARIOS: dict[str, DemoScenario] = {
 }
 
 from app.demo.ec_firewall_incident import build_firewall_incident_scenarios
+from app.demo.fixtures.s1.pack import build_s1_demo_scenarios
 
 SCENARIOS.update(build_firewall_incident_scenarios())
+SCENARIOS.update(build_s1_demo_scenarios())
 
 # Built after the registry so alias normalization sees every scenario. Fail-fast on
 # any alias/query collision (plan D1).

@@ -88,8 +88,10 @@ export function EcInvestigationWorkspace() {
           <>
             <EcInvestigationAnswer envelope={envelope} />
             <EcFollowUpBar chips={envelope.ec_followups} disabled={busy} onSelect={(id) => void followUp(id)} />
-            <EcTransparencyDrawer projection={envelope.ec_projection} />
-            <EcActionFlow actions={envelope.ec_actions} onUpdate={replaceAction} />
+            <EcTransparencyDrawer envelope={envelope} />
+            {envelope.ec_actions.length ? (
+              <EcActionFlow actions={envelope.ec_actions} onUpdate={replaceAction} />
+            ) : null}
           </>
         ) : (
           <p className="text-sm text-slate-500">Select a scenario and run an investigation to see the SOC answer.</p>

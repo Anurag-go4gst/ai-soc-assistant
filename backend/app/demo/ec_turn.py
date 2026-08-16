@@ -15,6 +15,7 @@ from app.demo.ec_response import (
     ExperienceCenterResponse,
 )
 from app.demo.scenarios import SCENARIOS, run_demo_scenario
+from app.demo.fixtures.s1.pack import S1_FOLLOWUP_IDS, S1_SCENARIO_ID, build_s1_turn
 
 _DEFAULT_FOLLOWUPS: dict[str, tuple[EcFollowUpChip, ...]] = {
     "firewall_deny_coordinated_attack": (
@@ -42,10 +43,16 @@ def _family_for(scenario_id: str) -> str:
 
 
 def followups_for(scenario_id: str) -> list[EcFollowUpChip]:
+    if scenario_id == S1_SCENARIO_ID:
+        from app.demo.fixtures.s1.pack import _followup_catalog
+
+        return list(_followup_catalog())
     return list(_DEFAULT_FOLLOWUPS.get(scenario_id, ()))
 
 
 def known_follow_up_ids(scenario_id: str) -> set[str]:
+    if scenario_id == S1_SCENARIO_ID:
+        return set(S1_FOLLOWUP_IDS)
     return {chip.follow_up_id for chip in followups_for(scenario_id)}
 
 
@@ -107,7 +114,6 @@ def run_experience_center_turn(
     if follow_up_id and follow_up_id not in known_follow_up_ids(scenario_id):
         raise UnknownFollowUpError(follow_up_id)
 
-    payload = run_demo_scenario(scenario_id)
     family = _family_for(scenario_id)
     active_session = session_id or f"ec-sess-{uuid4().hex[:10]}"
 
@@ -126,6 +132,17 @@ def run_experience_center_turn(
             scenario_id=scenario_id,
             turn=0,
         )
+
+    if scenario_id == S1_SCENARIO_ID:
+        return build_s1_turn(
+            session_id=active_session,
+            turn=int(session_record.get("turn") or 0),
+            applied_follow_up_ids=list(session_record.get("applied_follow_up_ids") or []),
+            pending_action_id=session_record.get("pending_action_id"),
+            awaiting_external=bool(session_record.get("awaiting_external")),
+        )
+
+    payload = run_demo_scenario(scenario_id)
 
     analyst = payload.get("analyst_response") if isinstance(payload.get("analyst_response"), dict) else None
     interactive = list((analyst or {}).get("interactive_actions") or [])

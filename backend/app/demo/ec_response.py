@@ -45,6 +45,8 @@ class EcFollowUpChip(BaseModel):
     follow_up_id: str
     label: str
     advances_state: bool = True
+    group: Literal["continue", "action"] = "continue"
+    leads_to_action: bool = False
 
 
 class EcSessionState(BaseModel):
