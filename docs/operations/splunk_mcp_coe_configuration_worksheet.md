@@ -42,7 +42,6 @@ PYTHONPATH=../backend:.. python3 -c "from app.connectors.mcp.live_readiness impo
 
 ## Rollback
 
-- `MCP_GLOBAL_EXECUTION_ENABLED=false`
-- `MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED=false`
+- `MCP_GLOBAL_EXECUTION_ENABLED=false` (the only operational kill-switch)
 - `AI_SOC_CATALOGUE_AUTO_EXECUTE_ENABLED=false`
 - Splunk app: Invalidate Keys only with change window (rotates all encrypted tokens)

@@ -96,16 +96,17 @@ def test_coe_profile_enables_safe_rollout_flags() -> None:
 
 
 def test_coe_profile_keeps_live_splunk_execution_off() -> None:
-    """COE now mirrors development's bounded MOCK execution posture (2026-07
-    directive: MCP eligibility on all tiers) — global/mock execution flags are
-    on, matching development.env.example. The real "live execution" boundary
-    is MCP_MODE: only MCP_MODE=registry + operator-supplied SPLUNK_MCP_* creds
-    route to a live Splunk connector (see CLAUDE.md Gotchas); mock mode cannot
-    reach live Splunk regardless of the execution flags above."""
+    """COE ships live-ready registry mode. The only operational go-live switch
+    is MCP_GLOBAL_EXECUTION_ENABLED=false. Per-server Splunk execution is
+    pre-armed so operators do not flip a second flag; effective execution is
+    AND'd with the global switch. Secrets stay empty in git."""
     env = _parse_env_file(_COE_PROFILE)
-    assert env.get("MCP_MODE", "mock").lower() == "mock"
-    assert env.get("MCP_GLOBAL_EXECUTION_ENABLED", "").lower() == "true"
-    assert env.get("MCP_SERVER_MOCK_EXECUTION_ENABLED", "").lower() == "true"
+    assert env.get("MCP_MODE", "mock").lower() == "registry"
+    assert env.get("MCP_GLOBAL_EXECUTION_ENABLED", "").lower() == "false"
+    assert env.get("MCP_SERVER_MOCK_EXECUTION_ENABLED", "").lower() == "false"
+    assert env.get("MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED", "").lower() == "true"
+    assert env.get("SPLUNK_MCP_BASE_URL", "") == ""
+    assert env.get("SPLUNK_MCP_TOKEN", "") == ""
 
 
 def test_coe_profile_live_synthesis_flags_are_documented() -> None:
@@ -135,6 +136,10 @@ def test_production_readiness_runbook_is_executable_and_no_go() -> None:
     assert "eval_t4_coe_qualification.py --live" in text
     assert "eval_splunk_mcp_coe_qualification.py --check" in text
     assert "AI_SOC_COE_LIVE_MCP_QUALIFICATION=1" in text
+    assert "LIVE_MCP_CONFIGURED" in text
+    assert "LIVE_MCP_EXECUTION" in text
+    assert "MCP_GLOBAL_EXECUTION_ENABLED=true" in text
+    assert "AUTH0" in text
     assert "Never** roll back by setting `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED=true`" in text or (
         "Never** roll back by setting" in text and "AI_SOC_PIPELINE_DISPATCH_V2_ENABLED=true" in text
     )

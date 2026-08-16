@@ -24,7 +24,7 @@ _AUTHORITY = {
     "AI_SOC_PIPELINE_DISPATCH_V2_ENABLED": "false",
     "AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED": "true",
     "AI_SOC_LIVE_CAPABILITY_ENFORCEMENT_ENABLED": "false",
-    "MCP_MODE": "mock",
+    "MCP_MODE": "registry",
 }
 
 
@@ -49,13 +49,16 @@ def test_coe_profile_does_not_ship_a_t4_timeout_slo() -> None:
     assert "AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS" not in values
 
 
-def test_coe_profile_keeps_mcp_mock_without_live_credentials() -> None:
+def test_coe_profile_keeps_mcp_live_ready_without_secrets_or_global_enable() -> None:
     values = _profile_values(_COE_PROFILE)
-    assert values.get("MCP_MODE") == "mock"
+    assert values.get("MCP_MODE") == "registry"
     assert values.get("SPLUNK_MCP_BASE_URL", "") == ""
     assert values.get("SPLUNK_MCP_TOKEN", "") == ""
-    assert values.get("MCP_GLOBAL_EXECUTION_ENABLED") == "true"
-    assert values.get("MCP_SERVER_MOCK_EXECUTION_ENABLED") == "true"
+    assert values.get("MCP_SERVER_SPLUNK_SOC_URL", "") == ""
+    assert values.get("MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN", "") == ""
+    assert values.get("MCP_GLOBAL_EXECUTION_ENABLED") == "false"
+    assert values.get("MCP_SERVER_MOCK_EXECUTION_ENABLED") == "false"
+    assert values.get("MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED") == "true"
 
 
 def test_coe_t4_on_with_code_default_timeout_fails_closed() -> None:

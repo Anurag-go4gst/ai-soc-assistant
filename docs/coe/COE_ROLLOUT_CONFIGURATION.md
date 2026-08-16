@@ -19,7 +19,7 @@ Do **not** treat all remaining work as “COE-only.” Use this table:
 | **Engineering complete** | Implemented, tested, governance-green; flag-off byte-identical where designed | Guided hybrid dispatch (`AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED`); runtime enrichment loader (`AI_SOC_RUNTIME_ENRICHMENT_ENABLED`); graph `node_trace` / state v2 (`project_chat_pipeline_state_v2`); MITRE evidence preconditions expansion (`T1190`, `T1046` + pilot resolver); SPL template metadata (phishing/ransomware planned rows); P3–P7 pilot enrichment blocks; Answer Guard lab alias (`AI_SOC_ANSWER_GUARD_LAB_ENABLED`); durable session pin store (`AI_SOC_SESSION_STORE_BACKEND=file`) |
 | **Corpus curation open** | Offline mapping / catalogue work — not a runtime flag | **64** `missing_authoritative_mapping` rows in BL-004 closeout (`docs/evals/bl004_coverage_closeout_report.md`); incremental `question_use_case_map.json` curation; sample anchors stay **non-routable** |
 | **COE rollout config** | Enable safe feature flags in COE profile; restart backend | See §2 recommended flag table |
-| **Operator-only** | Credentials, network, smoke on real Splunk | Live Splunk MCP URL/token; `MCP_MODE=registry`; per-server execution enablement; `splunk_run_query` allowlist; per-call analyst confirmation; staging smoke per [`contracts/splunk_mcp_connection_contract.md`](../../contracts/splunk_mcp_connection_contract.md); `schema_confirmed=true` sign-off |
+| **Operator-only** | Credentials, network, smoke on real Splunk | Live Splunk MCP URL/token; `MCP_GLOBAL_EXECUTION_ENABLED=true`; `splunk_run_query` allowlist; per-call analyst confirmation (AUTH0); staging smoke per [`contracts/splunk_mcp_connection_contract.md`](../../contracts/splunk_mcp_connection_contract.md); `schema_confirmed=true` sign-off |
 | **Engineering / QA decision** | Optional enablement after explicit parity review | `AI_SOC_PIPELINE_SPLIT_ROUTING_NODES_ENABLED=true` (trace-only split nodes; **default off**) |
 | **COE sign-off required** | Template exists but `enabled=false` until real mail/EDR schema confirmed | `email_phishing_header_review`, `endpoint_ransomware_impact_review` SPL templates in `backend/app/spl/templates.json` |
 
@@ -47,15 +47,15 @@ Apply via `env/profiles/coe.env.example` (or operator overrides in repo-root `.e
 | `AI_SOC_SESSION_STORE_BACKEND` | `file` | Multi-worker-ready structured pins (no transcript) |
 | `AI_SOC_SESSION_STORE_FILE_DIR` | `<coe-writable-path>` | e.g. `/var/lib/ai-soc/session_pins` — must be writable by backend user |
 | `AI_SOC_PIPELINE_SPLIT_ROUTING_NODES_ENABLED` | **`false`** | Trace-only split nodes; enable only after engineering parity sign-off |
-| `MCP_MODE` | **`mock`** | Mock MCP only until explicit live COE qualification |
-| `MCP_GLOBAL_EXECUTION_ENABLED` | `true` (mock lane) | Bounded **mock** execution when `MCP_MODE=mock`. **Not** live Splunk. Live Splunk requires `MCP_MODE=registry` + operator URL/token + per-server execution. |
-| `MCP_SERVER_MOCK_EXECUTION_ENABLED` | `true` (mock lane) | Same mock lane. Same as `development.env.example`. |
-| `MCP_SERVER_*_EXECUTION_ENABLED` | **`false`** until live rollout | Per-server live execution stays off |
+| `MCP_MODE` | **`registry`** | Live Splunk connector. Does **not** execute searches by itself. |
+| `MCP_GLOBAL_EXECUTION_ENABLED` | **`false`** | **The only operational go-live switch.** Flip to `true` after Cisco health, Splunk endpoint/token/TLS, and preflight are ready. |
+| `MCP_SERVER_MOCK_EXECUTION_ENABLED` | `false` | Mock lane stays off in COE registry mode. |
+| `MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED` | `true` (pre-armed) | Not a second go-live switch. Effective `server.execution_enabled` is AND'd with the global flag. |
 | `AI_SOC_GUIDED_MCP_DISCOVERY_ENABLED` | `false` | Separate COE decision; metadata discovery only when approved |
 
 **Still intentionally off in COE profile (unless operator documents an exception):**
 
-- Live Splunk MCP execution (`MCP_MODE=registry` + execution flags + URL/token + allowlist + per-call analyst confirmation)
+- Live Splunk MCP **execution** (`MCP_GLOBAL_EXECUTION_ENABLED=true` + operator URL/token + allowlist + AUTH0/HIL/RBAC). Registry mode alone does not execute.
 - Free-form / LLM-primary SPL execution paths (`candidate_spl` remains review-only; governance gates unchanged)
 - `AI_SOC_PIPELINE_SPLIT_ROUTING_NODES_ENABLED` (until QA parity review)
 - Phishing/ransomware template `enabled=true` (COE sign-off on real sourcetypes)
@@ -105,8 +105,8 @@ Run after selecting COE profile and restarting backend (`docker compose up -d --
 
 ### 3.6 Execution safety (must pass)
 
-- [ ] `MCP_MODE=mock`. Mock-lane `MCP_GLOBAL_EXECUTION_ENABLED` does **not** mean live Splunk.
-- [ ] Live Splunk remains off until `MCP_MODE=registry` + operator URL/token + per-server execution.
+- [ ] `MCP_MODE=registry`. `MCP_GLOBAL_EXECUTION_ENABLED=false` until the operator flips the single kill-switch.
+- [ ] Live Splunk remains non-executing until `MCP_GLOBAL_EXECUTION_ENABLED=true` **and** operator URL/token/TLS are present. AUTH0 + RBAC + HIL + policy still govern each call.
 - [ ] T4 enabled only with an explicit `AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS` in `.env` (2.0s code default is rejected; do not copy VPS 120s as a COE SLO).
 - [ ] `candidate_spl` / `spl_validation.execution_enabled=false` on governed paths.
 - [ ] Free-form SPL execution blocked; planned templates do not emit approved executable SPL without COE template enablement.

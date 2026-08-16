@@ -320,7 +320,7 @@ cat ai_soc_backup_2026-08-05.sql | docker compose exec -T postgres psql -U ai_so
 - [ ] UI login works
 - [ ] One end-to-end question answered in chat
 - [ ] `AI_SOC_HOST_BIND` is still `127.0.0.1`
-- [ ] MCP execution flags still `false` unless a live Splunk rollout was explicitly approved (`MCP_GLOBAL_EXECUTION_ENABLED`, `MCP_SERVER_*_EXECUTION_ENABLED`) — see [`COE_ROLLOUT_CONFIGURATION.md`](COE_ROLLOUT_CONFIGURATION.md)
+- [ ] MCP live execution remains off until `MCP_GLOBAL_EXECUTION_ENABLED=true` (`MCP_MODE=registry` is live-ready, not live-executing) — see [`COE_ROLLOUT_CONFIGURATION.md`](COE_ROLLOUT_CONFIGURATION.md)
 - [ ] Feature flags reviewed against the COE flag table in `COE_ROLLOUT_CONFIGURATION.md`
 
 ---
