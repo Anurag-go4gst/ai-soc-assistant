@@ -59,6 +59,7 @@ from app.chat.semantic_t4_understanding import (  # noqa: E402
     maybe_enrich_t4_semantic,
 )
 from app.config import settings  # noqa: E402
+from app.config import t4_timeout_matches_code_default  # noqa: E402
 from app.llm.clients.endpoint_resolver import resolve_local_primary_endpoint  # noqa: E402
 from app.llm.sidecar_governance import (  # noqa: E402
     FAILURE_SLOT_BUSY,
@@ -213,6 +214,17 @@ def _empty_live_fields() -> dict[str, Any]:
         "accepted": None,
         "timed_out": None,
     }
+
+
+def refuse_live_on_code_default_timeout() -> str | None:
+    """Live qualification must not silently use the 2.0s code default."""
+    if t4_timeout_matches_code_default(settings.ai_soc_t4_semantic_understanding_timeout_seconds):
+        return (
+            "REFUSING: T4 live qualification cannot use the code-default timeout "
+            "(2.0s). Set AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS explicitly "
+            "in .env. Do not copy the VPS 120s bound as a COE SLO."
+        )
+    return None
 
 
 def _enable_t4_flag_only() -> dict[str, Any]:
@@ -905,6 +917,11 @@ def main() -> int:
     if selected == "emit-prompts" and args.chat_smoke:
         print("--chat-smoke requires --live", file=sys.stderr)
         return 2
+    if selected == "live":
+        refused = refuse_live_on_code_default_timeout()
+        if refused:
+            print(refused, file=sys.stderr)
+            return 2
     out = Path(args.out) if args.out else (
         OUT_LIVE_DEFAULT if selected == "live" else OUT_EMIT_DEFAULT
     )

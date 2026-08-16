@@ -12,11 +12,12 @@ from app.llm.sidecar_governance import (
     t4_circuit_status,
 )
 
+_APP = Path(__file__).resolve().parents[1]
 _SEAM_FILES = (
-    Path("app/llm/sidecar_governance.py"),
-    Path("app/chat/semantic_t4_understanding.py"),
-    Path("app/graph/resource_planner_graph.py"),
-    Path("app/orchestration"),
+    _APP / "llm" / "sidecar_governance.py",
+    _APP / "chat" / "semantic_t4_understanding.py",
+    _APP / "graph" / "resource_planner_graph.py",
+    _APP / "orchestration",
 )
 
 _FORBIDDEN_SUBSTRINGS = (
@@ -42,7 +43,10 @@ def test_request_human_restart_does_not_execute_a_restart() -> None:
 
 def test_sidecar_and_planner_have_no_restart_command() -> None:
     hits: list[str] = []
-    roots = [Path("app/llm/sidecar_governance.py"), Path("app/chat/semantic_t4_understanding.py")]
+    roots = [
+        _APP / "llm" / "sidecar_governance.py",
+        _APP / "chat" / "semantic_t4_understanding.py",
+    ]
     for path in roots:
         text = path.read_text(encoding="utf-8")
         lowered = text.lower()

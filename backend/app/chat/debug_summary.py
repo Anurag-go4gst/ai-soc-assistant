@@ -19,8 +19,12 @@ _SEMANTIC_T4_NOTE_ALLOWLIST = frozenset(
         "llm_model_slot_busy",
         "semantic_t4_llm_disabled",
         "semantic_t4_no_provider_configured",
+        "t4_circuit_open",
+        "human_action_required_model_restart",
+        "t4_circuit_half_open_probe",
     }
 )
+_EVIDENCE_BUCKETS = ("required", "obtained", "missing", "stale", "invalidated", "blocked")
 
 
 def build_debug_summary(
@@ -77,6 +81,13 @@ def build_debug_summary(
         contract_raw = cp.get("resolved_query")
     resolved_query_block = redact_resolved_query(contract_raw)
     schedule_block = _schedule_provenance_block(base, cp)
+    evidence_raw = base.get("evidence_state") if isinstance(base.get("evidence_state"), dict) else cp.get("evidence_state")
+    outcome_raw = (
+        base.get("investigation_outcome")
+        if isinstance(base.get("investigation_outcome"), dict)
+        else cp.get("investigation_outcome")
+    )
+    semantic = resolved_query_block.get("semantic_t4") if isinstance(resolved_query_block, dict) else None
 
     return {
         "routing": routing,
@@ -89,6 +100,12 @@ def build_debug_summary(
         "dispatch": dispatch_block,
         "resolved_query": resolved_query_block,
         "schedule": schedule_block,
+        "evidence_state": project_evidence_state_debug(evidence_raw if isinstance(evidence_raw, dict) else None),
+        "investigation_outcome": project_investigation_outcome_debug(
+            outcome_raw if isinstance(outcome_raw, dict) else None
+        ),
+        "auth0": project_auth0_debug(execution, mcp_trace=cp.get("mcp_execution")),
+        "t4_circuit": project_t4_circuit_debug(semantic if isinstance(semantic, dict) else None),
     }
 
 
@@ -139,6 +156,8 @@ def redact_resolved_query(raw: dict[str, Any] | None) -> dict[str, Any]:
             # Plan 7 D1: the class of failure, so a trace can tell "the model was
             # slow" from "the endpoint was unreachable".
             "failure_kind": semantic.get("failure_kind"),
+            "circuit_state": semantic.get("circuit_state"),
+            "human_action_required": bool(semantic.get("human_action_required")),
             "elapsed_ms": int(elapsed) if isinstance(elapsed, (int, float)) else None,
             "rejected_reasons": [str(item) for item in reasons][:8] if isinstance(reasons, list) else [],
             # Field names only. Lets a measurement separate "the model answered"
@@ -187,6 +206,131 @@ def redact_resolved_query(raw: dict[str, Any] | None) -> dict[str, Any]:
         "understanding_source": source.get("understanding_source"),
         "qualification_source": source.get("qualification_source"),
         "semantic_t4": semantic_block,
+    }
+
+
+def project_evidence_state_debug(raw: dict[str, Any] | None) -> dict[str, Any]:
+    """Keys and lifecycle only. No entities, preview rows, or raw evidence."""
+    source = raw if isinstance(raw, dict) else {}
+    items: list[dict[str, Any]] = []
+    for item in source.get("items") or []:
+        if not isinstance(item, dict) or not item.get("key"):
+            continue
+        items.append(
+            {
+                "key": str(item.get("key")),
+                "status": item.get("status"),
+                "trust_class": item.get("trust_class"),
+                "provenance": item.get("provenance") if isinstance(item.get("provenance"), str) else None,
+            }
+        )
+    provenance = source.get("provenance") if isinstance(source.get("provenance"), dict) else {}
+    derived = provenance.get("derived_from")
+    return {
+        "schema_version": source.get("schema_version"),
+        **{
+            bucket: [str(item) for item in (source.get(bucket) or [])][:32]
+            for bucket in _EVIDENCE_BUCKETS
+        },
+        "items": items[:32],
+        "provenance": {
+            "derived_from": [str(item) for item in derived][:16] if isinstance(derived, list) else []
+        },
+    }
+
+
+def project_investigation_outcome_debug(raw: dict[str, Any] | None) -> dict[str, Any]:
+    """Disposition and refs only. Never raw evidence rows."""
+    source = raw if isinstance(raw, dict) else {}
+    policy = source.get("policy_eligibility") if isinstance(source.get("policy_eligibility"), dict) else {}
+    findings = [str(item) for item in (source.get("findings") or []) if isinstance(item, str)][:8]
+    policy_block: dict[str, Any] = {}
+    if source:
+        policy_block = {
+            "synthesis_allowed": False,
+            "human_review_required": bool(policy.get("human_review_required")),
+            "evidence_sufficiency": policy.get("evidence_sufficiency"),
+            "next_action": policy.get("next_action"),
+        }
+    return {
+        "disposition": source.get("disposition"),
+        "severity_label": source.get("severity_label"),
+        "missing_evidence": [str(item) for item in (source.get("missing_evidence") or [])][:16],
+        "evidence_refs": [str(item) for item in (source.get("evidence_refs") or [])][:16],
+        "llm_proposal_accepted": bool(source.get("llm_proposal_accepted")),
+        "policy_eligibility": policy_block,
+        "findings_count": len(source.get("findings") or []),
+        "findings": findings,
+        "recommended_actions": [str(item) for item in (source.get("recommended_actions") or [])][:8],
+    }
+
+
+def project_auth0_debug(
+    execution: dict[str, Any] | None = None,
+    mcp_trace: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Fingerprint and status only. Never SPL, endpoint, identity, or token material."""
+    execution = execution if isinstance(execution, dict) else {}
+    mcp_trace = mcp_trace if isinstance(mcp_trace, dict) else {}
+    nested = mcp_trace.get("auth0") if isinstance(mcp_trace.get("auth0"), dict) else None
+    grant: dict[str, Any] | None = None
+    pending = execution.get("pending_execution_confirmation")
+    if isinstance(pending, dict) and isinstance(pending.get("call_grant"), dict):
+        grant = pending["call_grant"]
+    if grant is None and isinstance(execution.get("call_grant"), dict):
+        grant = execution["call_grant"]
+    consumed = bool(execution.get("call_grant_consumed") or mcp_trace.get("call_grant_consumed"))
+    invalidated = str(execution.get("block_reason") or mcp_trace.get("block_reason") or "") == (
+        "exact_call_grant_invalidated"
+    )
+    tool = execution.get("selected_mcp_tool") or mcp_trace.get("selected_mcp_tool")
+    if grant is None and nested:
+        return {
+            "present": bool(nested.get("present", bool(nested.get("fingerprint")))),
+            "fingerprint": nested.get("fingerprint"),
+            "consumed": bool(nested.get("consumed") or consumed),
+            "llm_granted": bool(nested.get("llm_granted")),
+            "hil_required": bool(nested.get("hil_required")),
+            "one_run": bool(nested.get("one_run", True)),
+            "selected_mcp_tool": nested.get("selected_mcp_tool") or tool,
+            "invalidated": bool(nested.get("invalidated") or invalidated),
+            "schema_version": nested.get("schema_version"),
+        }
+    if grant is not None:
+        consumed = consumed or bool(grant.get("consumed"))
+        return {
+            "present": True,
+            "schema_version": grant.get("schema_version"),
+            "fingerprint": grant.get("fingerprint"),
+            "consumed": consumed,
+            "llm_granted": bool(grant.get("llm_granted")),
+            "hil_required": bool(grant.get("hil_required")),
+            "one_run": bool(grant.get("one_run", True)),
+            "selected_mcp_tool": grant.get("selected_mcp_tool") or tool,
+            "invalidated": invalidated,
+        }
+    return {
+        "present": False,
+        "fingerprint": None,
+        "consumed": consumed,
+        "llm_granted": False,
+        "hil_required": False,
+        "one_run": True,
+        "selected_mcp_tool": tool,
+        "invalidated": invalidated,
+        "schema_version": None,
+    }
+
+
+def project_t4_circuit_debug(semantic: dict[str, Any] | None) -> dict[str, Any]:
+    """First-class T4 breaker status. No prompts, providers, or credentials."""
+    semantic = semantic if isinstance(semantic, dict) else {}
+    return {
+        "circuit_state": semantic.get("circuit_state"),
+        "human_action_required": bool(semantic.get("human_action_required")),
+        "failure_kind": semantic.get("failure_kind"),
+        "invoked": bool(semantic.get("invoked")),
+        "timed_out": bool(semantic.get("timed_out")),
     }
 
 
@@ -463,10 +607,20 @@ def _mcp_block(
 ) -> dict[str, Any]:
     mcp_trace = control_plane_trace.get("mcp_execution")
     mcp_trace = mcp_trace if isinstance(mcp_trace, dict) else {}
+    result_count = execution.get("result_count")
+    if not isinstance(result_count, int):
+        result_count = mcp_trace.get("result_count")
     return {
         "allowed": bool(run_contract.get("mcp_allowed")),
         "status": execution.get("status") or mcp_trace.get("status") or "skipped",
         "block_reason": execution.get("block_reason") or mcp_trace.get("block_reason"),
+        "evidence_source": execution.get("evidence_source") or mcp_trace.get("evidence_source"),
+        "selected_mcp_tool": execution.get("selected_mcp_tool") or mcp_trace.get("selected_mcp_tool"),
+        "selected_mcp_server": execution.get("selected_mcp_server") or mcp_trace.get("selected_mcp_server"),
+        "result_count": result_count if isinstance(result_count, int) else None,
+        "call_grant_consumed": bool(
+            execution.get("call_grant_consumed") or mcp_trace.get("call_grant_consumed")
+        ),
     }
 
 

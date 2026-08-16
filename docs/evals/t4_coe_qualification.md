@@ -45,7 +45,10 @@ PYTHONPATH=backend:. python3 scripts/eval_t4_coe_qualification.py --live \
 ```
 
 `--live` does not change timeout, model, or provider. It enables the existing
-T4 flag in-process for measurement only.
+T4 flag in-process for measurement only. **`--live` refuses the 2.0s code-default
+timeout** — set `AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS` explicitly in
+`.env` first. That value is operator-supplied measurement config, not an SLO.
+Do not copy the VPS 120s bound.
 
 ## Eight evaluation cases
 

@@ -416,6 +416,8 @@ class Settings(BaseSettings):
     ai_soc_resource_plan_execution_enabled: bool = False
     # Plan 5 B4: bounded T4 semantic understanding hop. Default false. T1–T3 never
     # invoke it. Timeout/error keeps the deterministic ResolvedQueryContract.
+    # The 2.0s default is a code fallback, not a COE qualification value. COE
+    # profile + T4-on requires an explicit operator override (see `_validate`).
     ai_soc_t4_semantic_understanding_enabled: bool = False
     ai_soc_t4_semantic_understanding_timeout_seconds: float = 2.0
     # Plan 5 B5: live fail-closed capability enforcement from ResolvedQueryContract.
@@ -482,6 +484,21 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore")
 
 
+def t4_timeout_matches_code_default(timeout_seconds: float) -> bool:
+    """True when the value is the Settings field default (currently 2.0s)."""
+    default = float(Settings.model_fields["ai_soc_t4_semantic_understanding_timeout_seconds"].default)
+    return float(timeout_seconds) == default
+
+
+def coe_t4_missing_explicit_timeout(s: Settings) -> bool:
+    """COE + T4-on still sitting on the code-default timeout (not operator-supplied)."""
+    return (
+        s.ai_soc_env_profile.strip().lower() == "coe"
+        and bool(s.ai_soc_t4_semantic_understanding_enabled)
+        and t4_timeout_matches_code_default(s.ai_soc_t4_semantic_understanding_timeout_seconds)
+    )
+
+
 def _validate(s: Settings) -> Settings:
     routing_mode = s.routing_mode.strip().lower()
     if routing_mode == "llm_primary":
@@ -546,6 +563,13 @@ def _validate(s: Settings) -> Settings:
         logging.getLogger("ai_soc.config").warning(
             "retired_env_key_ignored",
             extra={"key": "AI_SOC_FLOW_CHECK_MODE", "value": retired_flow_check},
+        )
+    if coe_t4_missing_explicit_timeout(s):
+        raise ConfigError(
+            "COE profile with T4 enabled requires an explicit "
+            "AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS override in .env. "
+            "The code default 2.0s is not a COE qualification value. "
+            "Do not copy the VPS 120s bound as a COE SLO; measure on COE."
         )
     return s
 

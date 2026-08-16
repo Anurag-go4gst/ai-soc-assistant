@@ -6,6 +6,7 @@
 
 **Related docs**
 
+- Production readiness (qualification, smoke, rollback, GO matrix): [`COE_PRODUCTION_READINESS_RUNBOOK.md`](COE_PRODUCTION_READINESS_RUNBOOK.md)
 - Profile loader and variable precedence: [`env/README.md`](../../env/README.md)
 - COE feature-flag table: [`COE_ROLLOUT_CONFIGURATION.md`](COE_ROLLOUT_CONFIGURATION.md)
 - Live/mock/EC testing layers: [`COE_LIVE_TESTING_GUIDE.md`](COE_LIVE_TESTING_GUIDE.md)
@@ -154,6 +155,9 @@ AI_SOC_LLM_MODE=local
 AI_SOC_LLM_LOCAL_BASE_URL=http://<llm-host>:<port>/v1
 AI_SOC_LLM_LOCAL_MODEL=<model-id-as-served>
 AI_SOC_LLM_TIMEOUT_SECONDS=120
+# Required when the COE profile enables T4. Do not leave unset (code default 2.0s
+# is rejected). Do not copy the VPS 120s T4 bound as a COE SLO; measure on COE.
+AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS=<operator-supplied-seconds>
 ```
 
 Reachability rule: the URL must resolve **from inside the backend container**, not just from the host shell.
