@@ -161,6 +161,36 @@ export interface ExperienceCenterResponse {
   ec_applicability?: Array<{ key?: string; status: string; reason?: string }>;
   ec_conflict?: { status?: string; sources?: string[] };
   ec_ticket_id?: string;
+  ec_execution_journey?: EcExecutionJourney | null;
+}
+
+export interface EcExecutionResource {
+  system: string;
+  operation: string;
+  mode?: 'read' | 'write' | 'knowledge';
+}
+
+export interface EcExecutionStage {
+  id: string;
+  title: string;
+  description?: string;
+  activity?: string[];
+  semantic_type?: string;
+  resource?: EcExecutionResource | null;
+  duration_ms_hint?: number | null;
+  evidence_added?: string[];
+  outcome_change?: string | null;
+  action_state?: string | null;
+  provenance?: string;
+}
+
+export interface EcExecutionJourney {
+  journey_id: string;
+  kind: 'initial' | 'follow_up' | 'action';
+  header: string;
+  follow_up_id?: string | null;
+  action_id?: string | null;
+  stages: EcExecutionStage[];
 }
 
 export interface EcScenarioSummary {

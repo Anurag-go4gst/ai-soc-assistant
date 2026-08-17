@@ -15,6 +15,21 @@ ProvenanceKind = Literal[
     "simulated_llm",
     "simulated_phase10_action",
     "ec_fixture_selected",
+    "ec_allowlisted_email",
+]
+
+SemanticType = Literal[
+    "understand",
+    "plan",
+    "gather",
+    "correlate",
+    "evaluate",
+    "outcome",
+    "next",
+    "wait",
+    "hil",
+    "execute",
+    "verify",
 ]
 
 
@@ -64,10 +79,41 @@ class EcActionRecord(BaseModel):
     kind: str
     label: str
     state: str
-    provenance: Literal["simulated_phase10_action"] = "simulated_phase10_action"
+    provenance: Literal["simulated_phase10_action", "ec_allowlisted_email"] = "simulated_phase10_action"
     production_side_effect: bool = False
     receipt: dict[str, Any] | None = None
     verify_result: dict[str, Any] | None = None
+
+
+class EcExecutionResource(BaseModel):
+    system: str
+    operation: str
+    mode: Literal["read", "write", "knowledge"] = "read"
+
+
+class EcExecutionStage(BaseModel):
+    id: str
+    title: str
+    description: str = ""
+    activity: list[str] = Field(default_factory=list)
+    semantic_type: SemanticType = "gather"
+    resource: EcExecutionResource | None = None
+    duration_ms_hint: int | None = None
+    evidence_added: list[str] = Field(default_factory=list)
+    outcome_change: str | None = None
+    action_state: str | None = None
+    provenance: ProvenanceKind = "experience_center_fixture"
+
+
+class EcExecutionJourney(BaseModel):
+    """Presentation projection for staged EC playback. Not an orchestrator."""
+
+    journey_id: str
+    kind: Literal["initial", "follow_up", "action"] = "initial"
+    header: str = "Running governed investigation pipeline"
+    follow_up_id: str | None = None
+    action_id: str | None = None
+    stages: list[EcExecutionStage] = Field(default_factory=list)
 
 
 class ExperienceCenterResponse(BaseModel):
@@ -96,3 +142,4 @@ class ExperienceCenterResponse(BaseModel):
     ec_followups: list[EcFollowUpChip] = Field(default_factory=list)
     ec_session_state: EcSessionState
     ec_provenance: dict[str, Any]
+    ec_execution_journey: EcExecutionJourney | None = None

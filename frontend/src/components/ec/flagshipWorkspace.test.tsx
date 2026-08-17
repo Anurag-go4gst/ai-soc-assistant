@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EcActionFlow } from '@/components/ec/EcActionFlow';
 import { EcCoordinationPanels } from '@/components/ec/EcCoordinationPanels';
@@ -7,6 +7,7 @@ import { EcInvestigationWorkspace } from '@/components/ec/EcInvestigationWorkspa
 import { EcScenarioPicker } from '@/components/ec/EcScenarioPicker';
 import { EcTransparencyDrawer } from '@/components/ec/EcTransparencyDrawer';
 import type { ExperienceCenterResponse } from '@/components/ec/types';
+import { runEcScenario } from '@/api/ecClient';
 
 vi.mock('@/api/ecClient', () => ({
   listEcScenarios: vi.fn(async () => ({
@@ -75,6 +76,25 @@ vi.mock('@/api/ecClient', () => ({
       unconfirmed: ['Whether the whitelist explains the traffic'],
       missing_evidence: ['Business-owner reconfirmation'],
     },
+    ec_execution_journey: {
+      journey_id: 's3-test-initial',
+      kind: 'initial',
+      header: 'Running governed investigation pipeline',
+      stages: [
+        {
+          id: 'understand',
+          title: 'Understanding the question',
+          semantic_type: 'understand',
+          duration_ms_hint: 15,
+        },
+        {
+          id: 'outcome',
+          title: 'Building InvestigationOutcome',
+          semantic_type: 'outcome',
+          duration_ms_hint: 15,
+        },
+      ],
+    },
   })),
   followUpEcScenario: vi.fn(),
 }));
@@ -129,7 +149,10 @@ const envelope: ExperienceCenterResponse = {
   },
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe('Flagship Experience Center UX', () => {
   it('lists seven flagships separately from lab', async () => {
@@ -192,5 +215,63 @@ describe('Flagship Experience Center UX', () => {
   it('renders investigation path', () => {
     render(<EcTransparencyDrawer envelope={envelope} />);
     expect(screen.getByText(/Investigation Path/i)).toBeInTheDocument();
+  });
+
+  it('hides Layer 1 until the execution journey finishes', async () => {
+    render(<EcInvestigationWorkspace />);
+    const run = await screen.findByRole('button', { name: /Run investigation/i });
+    vi.useFakeTimers();
+    fireEvent.click(run);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('experience-execution-progress-panel')).toBeInTheDocument();
+    expect(screen.queryByText(/SOC Answer/i)).not.toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(screen.getByText(/SOC Answer/i)).toBeInTheDocument();
+    expect(document.querySelector('[data-ec-layer="soc-answer"]')?.textContent).toMatch(
+      /Firewall-team coordination/,
+    );
+  });
+
+  it('cancels a stale journey so a prior envelope cannot appear later', async () => {
+    vi.mocked(runEcScenario).mockImplementation(async (scenarioId: string) => ({
+      ...envelope,
+      scenario_id: scenarioId,
+      analyst: {
+        finding_title: scenarioId === 's2_ai_prompt_injection' ? 'S2 title' : 'S1 title',
+        assessment: 'Assessment text',
+        unconfirmed_findings: [],
+        missing_evidence: [],
+      },
+      ec_execution_journey: {
+        journey_id: `${scenarioId}-j`,
+        kind: 'initial',
+        header: 'Running governed investigation pipeline',
+        stages: [
+          { id: 'understand', title: 'Understanding the question', semantic_type: 'understand', duration_ms_hint: 40 },
+          { id: 'outcome', title: 'Building InvestigationOutcome', semantic_type: 'outcome', duration_ms_hint: 40 },
+        ],
+      },
+    }));
+    render(<EcInvestigationWorkspace />);
+    const run = await screen.findByRole('button', { name: /Run investigation/i });
+    vi.useFakeTimers();
+    fireEvent.click(run);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's2_ai_prompt_injection' } });
+    fireEvent.click(screen.getByRole('button', { name: /Run investigation/i }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(screen.getByText('S2 title')).toBeInTheDocument();
+    expect(screen.queryByText('S1 title')).not.toBeInTheDocument();
   });
 });
