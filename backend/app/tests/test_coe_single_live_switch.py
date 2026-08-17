@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from app.connectors.mcp import get_mcp_connector
 from app.connectors.mcp.discovery import classify_mcp_tool
+from app.connectors.mcp.discovery_snapshot import DiscoveredToolRecord, DiscoverySnapshot, get_discovery_snapshot_store
 from app.connectors.mcp.mock import MockMcpConnector
 from app.connectors.mcp.registry import load_mcp_registry_status
 from app.connectors.mcp.splunk_mcp import SplunkMcpConnector
@@ -121,6 +123,20 @@ def test_registry_global_false_blocks_execution_even_when_per_server_prearmed(mo
     _coe_registry_env(monkeypatch, global_execution=False, url="https://splunk-mcp.example.invalid/mcp", token="test-token")
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: _FakeTelemetry())
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_mcp_connector", lambda: _RaisingConnector())
+    get_discovery_snapshot_store().put(
+        DiscoverySnapshot(
+            server_name="splunk_soc",
+            captured_at=time.time(),
+            source="operator_refresh",
+            status="ok",
+            tools=(
+                DiscoveredToolRecord(
+                    name="splunk_run_query",
+                    input_schema={"properties": {"search_query": {"type": "string"}}, "required": ["search_query"]},
+                ),
+            ),
+        )
+    )
 
     status = load_mcp_registry_status()
     assert status.mode == "registry"
@@ -177,6 +193,20 @@ def test_global_true_still_requires_auth0_confirmation(monkeypatch) -> None:
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_require_spl_execution_confirmation", False)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: _FakeTelemetry())
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_mcp_connector", lambda: _RaisingConnector())
+    get_discovery_snapshot_store().put(
+        DiscoverySnapshot(
+            server_name="splunk_soc",
+            captured_at=time.time(),
+            source="operator_refresh",
+            status="ok",
+            tools=(
+                DiscoveredToolRecord(
+                    name="splunk_run_query",
+                    input_schema={"properties": {"search_query": {"type": "string"}}, "required": ["search_query"]},
+                ),
+            ),
+        )
+    )
 
     execution, review = evaluate_mcp_execution(
         trace_id="switch-auth0",

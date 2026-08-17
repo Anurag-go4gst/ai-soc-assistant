@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from app.connectors.mcp import get_mcp_connector
 from app.connectors.mcp.coe_qualification import evaluate_splunk_mcp_coe_qualification
 from app.connectors.mcp.discovery import classify_mcp_tool
+from app.connectors.mcp.discovery_snapshot import DiscoveredToolRecord, DiscoverySnapshot, get_discovery_snapshot_store
 from app.connectors.mcp.mock import MockMcpConnector
 from app.connectors.mcp.splunk_mcp import SplunkMcpConnector
 from app.connectors.mcp.splunk_mcp_readiness import is_allowed_read_tool, is_disallowed_tool, plan_splunk_search_call
@@ -247,6 +249,20 @@ def test_mock_rows_cannot_be_labelled_live_in_registry(monkeypatch) -> None:
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.settings.ai_soc_require_spl_execution_confirmation", False)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: _FakeTelemetry())
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_mcp_connector", lambda: MockMcpConnector())
+    get_discovery_snapshot_store().put(
+        DiscoverySnapshot(
+            server_name="splunk_soc",
+            captured_at=time.time(),
+            source="operator_refresh",
+            status="ok",
+            tools=(
+                DiscoveredToolRecord(
+                    name="splunk_run_query",
+                    input_schema={"properties": {"search_query": {"type": "string"}}, "required": ["search_query"]},
+                ),
+            ),
+        )
+    )
     from app.orchestration.splunk_call_authorization import call_grant_from_validation
 
     pending_grant = call_grant_from_validation(

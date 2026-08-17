@@ -30,6 +30,80 @@ in both cases. Implemented in
 `select_mcp_tool` to an effective catalog and to a capability vocabulary)
 remain blocked until this authority layer existed — it now does.
 
+## ENFORCEMENT CORRECTION — 2026-08-17 (PR #144 review question #2, same branch)
+
+**Question:** does the live `/chat` MCP execution path actually enforce the
+effective approved tool catalog, or was the PERSISTENCE DECISION section
+below built on top of an unenforced mechanism?
+
+**Answer, before this correction: NO.** The prior report's own honest
+finding — "not yet consulted by the live `/chat` path" — was accurate, and
+that made the earlier `CODE_SIDE_MCP_CATALOG_READY=YES` claim wrong for
+the specific claim "the catalog is an execution prerequisite." It was
+observability-only. This is now fixed.
+
+**Fix:** `mcp_execution_gate.py::evaluate_mcp_execution` now computes
+`effective_catalog` unconditionally on every call (new helper
+`_effective_catalog_for_target_server`, mirrors `_select_server`'s own
+target-server resolution) and passes it into `select_mcp_tool` — the same
+optional parameter added two rounds ago, now actually wired to the real
+`/chat` entry point instead of only reachable by a caller that opts in.
+No new flag: the parameter's presence on every call *is* the enforcement,
+not a toggle.
+
+**Bug found and fixed during wiring:** `compare_schema()` keyed
+`LOCAL_TOOL_CONTRACTS` by exact tool name, so an allowlist entry using the
+alias `run_splunk_query` (a real, already-supported alias of
+`splunk_run_query` per `RUN_QUERY_ALIASES`) would always resolve
+`SCHEMA_UNKNOWN` regardless of a valid server-reported schema — an
+alias-configured deployment would be permanently blocked in live registry
+mode. Fixed by normalizing through the existing
+`mcp_rbac.py::canonical_mcp_tool_name()` before the contract lookup.
+
+**Test breakage and fix:** wiring real enforcement broke 6 pre-existing
+tests across `test_mcp_execution_gate.py`, `test_hil_mock_execution_
+hardening.py`, `test_splunk_mcp_coe_qualification.py`, `test_splunk_mcp_
+transport.py`, `test_coe_single_live_switch.py` (×2), and `test_catalogue_
+auto_execute_gate.py` — all because they exercised registry-mode execution
+paths without ever having discovery run, which the new invariant
+correctly now blocks earlier than before. Each was fixed by seeding a
+valid `DiscoverySnapshot` for the tool under test (proving the *original*
+test intent — e.g. "registry mode without credentials fails closed on
+config" — still holds *downstream* of the new catalog check, not that the
+catalog check should be weakened). Also added an autouse `conftest.py`
+fixture clearing the process-wide discovery-snapshot store before/after
+every test, matching this repo's existing pattern for other global-state
+singletons (`canonical_execution_idempotency`, `resource_plan_authority`,
+etc.) — without it, one test seeding a snapshot would leak into unrelated
+later tests.
+
+**Production-path test matrix (mission's 12-item list, all via the real
+`evaluate_mcp_execution` entry point with a connector that raises if
+`call_tool` is ever reached):** all 12 pass —
+`test_mcp_effective_catalog_production_enforcement.py`. Confirms: no
+snapshot blocks before connector call; a verified tool reaches and passes
+the real AUTH0 gate; a simulated restart (put-then-clear) re-blocks a
+previously-executable tool; `APPROVED_BUT_MISSING`/`SCHEMA_MISMATCH`/
+`SCHEMA_UNKNOWN`/`DISCOVERY_STALE` all block; a server-only tool is never
+selectable at all (fails at `requested_tool_not_found`, before the catalog
+check even runs, because it was never locally approved); the fallback
+mechanism (still no live automatic-retry trigger exists anywhere in
+`gate.py` — same as before, unchanged scope) only ever proposes
+catalog-verified tools and always builds a distinct new AUTH0 grant;
+`MCP_GLOBAL_EXECUTION_ENABLED=true` alone does not bypass the catalog
+check; passing the catalog check does not bypass RBAC or the mandatory
+per-call HIL confirmation.
+
+**What remains honestly true and unchanged:** `mcp_capability` is still
+never populated by `pipeline.py` (still hardcodes `execution_intent=
+"spl_search"`) — `CAPABILITY_RESOLVER_ENFORCED_IN_CHAT=no` is accurate;
+the *capability* vocabulary is wired and enforced whenever supplied, but
+nothing in production supplies it yet. That is a materially smaller,
+separate gap than "the catalog is unenforced" (which is now closed) — a
+mis-selected capability signal is still caught by the exact same
+catalog/AUTH0/RBAC/HIL chain; a config-only catalog was the actual
+security-relevant gap, and that one is fixed.
+
 ## PERSISTENCE DECISION — 2026-08-17 (PR #144 review question, same branch)
 
 **Question:** is in-memory discovery snapshot storage an intentional
@@ -586,6 +660,13 @@ new MCP server). No edit to `architecture.md` proposed or needed.
     decision (needs a real discovery snapshot to exist in the running
     process first) outside this closure's scope, not a P0/P1 gap: the
     mechanism is additive, tested, and inert until a caller opts in.
+    **SUPERSEDED 2026-08-17 (see § ENFORCEMENT CORRECTION above):** the
+    gate itself (`evaluate_mcp_execution`, the actual `/chat` entry
+    point — not `pipeline.py` directly) now always constructs and passes
+    `effective_catalog`. The distinction that mattered was gate-level
+    wiring, not `pipeline.py`-level; `pipeline.py` never needed to know
+    about the catalog at all. `mcp_capability` (item 7) remains genuinely
+    unsupplied by `pipeline.py` — that part of this evidence still holds.
 
 - [x] **7** — `mcp_capability` vocabulary + resolver wiring — **DONE, WITH A RECORDED DEVIATION**
   - **Do:** New module `backend/app/connectors/mcp/mcp_capability.py`

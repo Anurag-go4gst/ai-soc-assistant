@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from app.connectors.mcp.discovery_snapshot import DiscoverySnapshot, DiscoveredToolRecord
+from app.connectors.mcp.mcp_rbac import canonical_mcp_tool_name
 from app.connectors.mcp.registry import McpRegistryStatus, McpServerStatus
 
 DriftStatus = Literal[
@@ -101,7 +102,7 @@ def compare_schema(
     raw JSON-equality check, never trusting server descriptions as policy."""
     if server_input_schema_malformed:
         return "SCHEMA_INCOMPATIBLE"
-    contract = LOCAL_TOOL_CONTRACTS.get(tool_name)
+    contract = LOCAL_TOOL_CONTRACTS.get(canonical_mcp_tool_name(tool_name))
     if contract is None:
         return "SCHEMA_UNKNOWN"  # no local contract defined for this tool at all
     if not server_input_schema:

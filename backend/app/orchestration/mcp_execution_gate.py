@@ -15,9 +15,12 @@ from app.chat.per_step_hook_idempotency import (
     run_idempotent_mcp_execution_hook,
 )
 from app.connectors.mcp import get_mcp_connector
+from app.connectors.mcp.discovery import safe_tool_name
+from app.connectors.mcp.discovery_snapshot import get_discovery_snapshot_store
+from app.connectors.mcp.effective_catalog import EffectiveCatalogResult, compute_effective_catalog
 from app.connectors.mcp.mock import MockMcpConnector
 from app.connectors.mcp.tls_config import token_reference_configured
-from app.connectors.mcp.registry import load_mcp_registry_status
+from app.connectors.mcp.registry import McpRegistryStatus, load_mcp_registry_status
 from app.connectors.mcp.splunk_result_adapter import adapt_mcp_search_payload, execution_preview_from_envelope
 from app.config import settings
 from app.connectors.mcp.splunk_mcp_readiness import splunk_saved_search_tool_arguments, splunk_search_tool_arguments
@@ -87,6 +90,7 @@ def evaluate_mcp_execution(
     catalogue_use_case_id: str | None = None,
     data_silence_advisory: dict[str, Any] | None = None,
     hook_idempotency: HookIdempotencyContext | None = None,
+    mcp_capability: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     telemetry = get_telemetry_connector()
     precondition_block_reason = _precondition_block_reason(precondition_evaluation)
@@ -116,6 +120,8 @@ def evaluate_mcp_execution(
     registry = load_mcp_registry_status()
     _record_discovery(telemetry, trace_id, registry)
 
+    effective_catalog = _effective_catalog_for_target_server(registry, requested_mcp_server)
+
     selection = select_mcp_tool(
         trace_id=trace_id,
         selected_skill=selected_skill,
@@ -127,6 +133,8 @@ def evaluate_mcp_execution(
         llm_tool_recommendation=llm_tool_recommendation,
         registry=registry,
         rbac_role=session_role_for_mcp_gate(rbac_role),
+        mcp_capability=mcp_capability,
+        effective_catalog=effective_catalog,
     )
     telemetry.record_mcp_execution(trace_id, event_type="mcp_tool_selection", **_selection_event(selection))
 
@@ -466,6 +474,40 @@ def _gated_live_connector(registry: Any):
     if registry.mode == "registry" and isinstance(connector, MockMcpConnector):
         return None
     return connector
+
+
+def _effective_catalog_for_target_server(
+    registry: McpRegistryStatus,
+    requested_mcp_server: str | None,
+) -> EffectiveCatalogResult | None:
+    """Computed unconditionally on every call -- this is what makes the
+    effective catalog an execution prerequisite rather than an
+    observability-only surface. In `registry.mode == "registry"`, an
+    absent/failed/stale discovery snapshot deterministically yields
+    `DISCOVERY_UNVERIFIED`/`DISCOVERY_FAILED`/`DISCOVERY_STALE` ->
+    `executable=false` for every tool on that server
+    (`effective_catalog.py::compute_effective_catalog`), which
+    `select_mcp_tool`'s `_effective_catalog_review` then enforces before a
+    tool can be selected -- fail-closed, before AUTH0/RBAC/HIL are ever
+    reached, before `connector.call_tool()`. In mock/development mode this
+    reproduces today's legacy behavior exactly (no discovery gating).
+
+    Mirrors `_select_server`'s own resolution order (requested name, else
+    `registry.default_server`, else the first configured server) so the
+    catalog checked here is for the same server `select_mcp_tool` will
+    actually pick -- duplicated intentionally rather than importing a
+    private helper across modules.
+    """
+    if requested_mcp_server:
+        target_server = next((server for server in registry.servers if server.name == safe_tool_name(requested_mcp_server)), None)
+    else:
+        target_server = next((server for server in registry.servers if server.name == registry.default_server), None) or (
+            registry.servers[0] if registry.servers else None
+        )
+    if target_server is None:
+        return None
+    snapshot = get_discovery_snapshot_store().get(target_server.name)
+    return compute_effective_catalog(target_server, mode=registry.mode, snapshot=snapshot)
 
 
 def _record_discovery(telemetry: Any, trace_id: str, registry: Any) -> None:

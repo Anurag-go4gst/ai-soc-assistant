@@ -7,8 +7,10 @@ execution-status labels (`evidence_source`, `execution_status_label`).
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
+from app.connectors.mcp.discovery_snapshot import DiscoveredToolRecord, DiscoverySnapshot, get_discovery_snapshot_store
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 
 APPROVED_VALIDATION = {
@@ -149,6 +151,20 @@ def test_real_mcp_mode_returns_admin_action_required(monkeypatch) -> None:
     monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("MCP_SERVER_SPLUNK_SOC_TOOL_ALLOWLIST", "run_splunk_query")
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: _FakeTelemetry())
+    get_discovery_snapshot_store().put(
+        DiscoverySnapshot(
+            server_name="splunk_soc",
+            captured_at=time.time(),
+            source="operator_refresh",
+            status="ok",
+            tools=(
+                DiscoveredToolRecord(
+                    name="run_splunk_query",
+                    input_schema={"properties": {"search_query": {"type": "string"}}, "required": ["search_query"]},
+                ),
+            ),
+        )
+    )
 
     execution, review = evaluate_mcp_execution(
         trace_id="trace-hil-real",

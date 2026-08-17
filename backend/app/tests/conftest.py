@@ -107,6 +107,22 @@ def disable_spl_execution_confirmation_in_tests(monkeypatch: pytest.MonkeyPatch)
 
 
 @pytest.fixture(autouse=True)
+def clear_mcp_discovery_snapshot_store() -> Iterator[None]:
+    """The MCP discovery snapshot store is a process-wide singleton
+    (`app.connectors.mcp.discovery_snapshot._STORE`), by design -- every
+    backend process re-verifies the live server catalog rather than
+    trusting stale persisted state. In the test process that same design
+    means a snapshot left behind by one test would silently make an
+    unrelated later registry-mode test's tools DISCOVERY_VERIFIED when
+    they should be UNVERIFIED. Clear before and after every test."""
+    from app.connectors.mcp.discovery_snapshot import get_discovery_snapshot_store
+
+    get_discovery_snapshot_store().clear()
+    yield
+    get_discovery_snapshot_store().clear()
+
+
+@pytest.fixture(autouse=True)
 def block_live_llm_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Fail any LocalChatClient network call with URLError -> LocalChatError fallback."""
     if os.environ.get(LIVE_LLM_OPT_IN_ENV) == "1":

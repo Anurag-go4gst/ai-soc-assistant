@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import time
 from unittest.mock import MagicMock
 
 from app.config import settings
+from app.connectors.mcp.discovery_snapshot import DiscoveredToolRecord, DiscoverySnapshot, get_discovery_snapshot_store
 from app.connectors.mcp.registry import McpRegistryStatus, McpServerStatus
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 
@@ -72,6 +74,20 @@ def test_registry_catalogue_auto_execute_skips_confirmation(monkeypatch) -> None
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_mcp_connector", lambda: connector)
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.load_mcp_registry_status", lambda: _registry("registry"))
     monkeypatch.setattr("app.orchestration.mcp_execution_gate.get_telemetry_connector", lambda: MagicMock())
+    get_discovery_snapshot_store().put(
+        DiscoverySnapshot(
+            server_name="splunk_soc",
+            captured_at=time.time(),
+            source="operator_refresh",
+            status="ok",
+            tools=(
+                DiscoveredToolRecord(
+                    name="splunk_run_query",
+                    input_schema={"properties": {"search_query": {"type": "string"}}, "required": ["search_query"]},
+                ),
+            ),
+        )
+    )
 
     execution, review = evaluate_mcp_execution(
         trace_id="trace-catalogue",
