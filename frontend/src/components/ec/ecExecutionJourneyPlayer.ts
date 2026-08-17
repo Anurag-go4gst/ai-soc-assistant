@@ -15,60 +15,73 @@ const FALLBACK_DURATION: Record<string, number> = {
   verify: 1400,
 };
 
+const LLM_ACTIVITY = [
+  'Loading captured Foundation-sec instruct signal…',
+  'Applying severity, MITRE, and SPL governance overrides…',
+  'Final synthesis disabled for Experience Center',
+];
+
+function archStage(
+  id: string,
+  title: string,
+  semantic_type: EcExecutionStage['semantic_type'],
+  duration_ms_hint: number,
+  activity?: string[],
+): EcExecutionStage {
+  return {
+    id,
+    title,
+    semantic_type,
+    duration_ms_hint,
+    activity,
+    provenance: 'experience_center_fixture',
+  };
+}
+
 export function genericFallbackJourney(): EcExecutionJourney {
   return {
     journey_id: 'ec-fallback-initial',
     kind: 'initial',
     header: 'Running governed investigation pipeline',
     stages: [
-      {
-        id: 'understand',
-        title: 'Understanding the question',
-        description: 'Parsing analyst intent and the investigation goal.',
-        activity: ['Reading the question…', 'Identifying entities and requested outcome…'],
-        semantic_type: 'understand',
-        duration_ms_hint: FALLBACK_DURATION.understand,
-      },
-      {
-        id: 'plan',
-        title: 'Planning evidence and resources',
-        description: 'Selecting governed resources for this investigation.',
-        activity: ['Mapping evidence needs…', 'Locking the investigation plan…'],
-        semantic_type: 'plan',
-        duration_ms_hint: FALLBACK_DURATION.plan,
-      },
-      {
-        id: 'gather',
-        title: 'Gathering evidence',
-        description: 'Collecting approved evidence for this scenario.',
-        activity: ['Retrieving configured evidence…'],
-        semantic_type: 'gather',
-        duration_ms_hint: FALLBACK_DURATION.gather,
-      },
-      {
-        id: 'correlate',
-        title: 'Correlating findings',
-        description: 'Comparing evidence sources without inventing facts.',
-        activity: ['Aligning entities and timelines…'],
-        semantic_type: 'correlate',
-        duration_ms_hint: FALLBACK_DURATION.correlate,
-      },
-      {
-        id: 'outcome',
-        title: 'Building InvestigationOutcome',
-        description: 'Separating confirmed, unconfirmed, and missing evidence.',
-        activity: ['Evaluating uncertainty…', 'Packaging the outcome…'],
-        semantic_type: 'outcome',
-        duration_ms_hint: FALLBACK_DURATION.outcome,
-      },
-      {
-        id: 'next',
-        title: 'Preparing next investigation options',
-        description: 'Identifying follow-up questions and recommended actions.',
-        activity: ['Preparing contextual next steps…'],
-        semantic_type: 'next',
-        duration_ms_hint: FALLBACK_DURATION.next,
-      },
+      archStage('understand', 'Decomposing the investigation question', 'understand', FALLBACK_DURATION.understand, [
+        'Reading the question…',
+        'Identifying entities and requested outcome…',
+      ]),
+      archStage('resource-plan', 'Planning evidence and resources', 'plan', FALLBACK_DURATION.plan, [
+        'Mapping evidence needs…',
+        'Locking the investigation plan…',
+      ]),
+      archStage('mcp-select', 'Selecting governed MCP tools', 'plan', FALLBACK_DURATION.plan, [
+        'Selecting splunk_run_query when Splunk evidence is required…',
+        'Applying safety gates…',
+      ]),
+      archStage('mcp-connect', 'Connecting to Splunk MCP', 'plan', 1400, [
+        'Resolving splunk server from MCP registry…',
+        'tools/list → splunk_run_query allowed for this skill ✓',
+      ]),
+      archStage('evidence', 'Reusing or retrieving governed evidence', 'gather', FALLBACK_DURATION.gather, [
+        'Retrieving configured evidence…',
+        'Replaying approved saved search when suitable…',
+      ]),
+      archStage('spl-validate', 'Validating governed SPL', 'evaluate', FALLBACK_DURATION.evaluate, [
+        'Running deterministic SPL validator…',
+        'Normalizing time range and index constraints…',
+      ]),
+      archStage('mcp-execute', 'Executing governed MCP search', 'gather', 1800, [
+        'Submitting governed search job…',
+        'Polling job dispatchState=DONE…',
+        'Fetching governed result rows…',
+      ]),
+      archStage('correlate', 'Correlating evidence sources', 'correlate', FALLBACK_DURATION.correlate, [
+        'Aligning entities and timelines…',
+        'Separating confirmed vs unconfirmed claims…',
+      ]),
+      archStage('llm-advisory', 'Applying governed LLM advisory', 'evaluate', 1500, LLM_ACTIVITY),
+      archStage('outcome', 'Building InvestigationOutcome and next options', 'outcome', FALLBACK_DURATION.outcome, [
+        'Evaluating uncertainty…',
+        'Packaging the outcome and next steps…',
+      ]),
     ],
   };
 }
@@ -83,6 +96,12 @@ export function durationFor(stage: EcExecutionStage): number {
     return stage.duration_ms_hint;
   }
   return FALLBACK_DURATION[stage.semantic_type || 'gather'] ?? 1200;
+}
+
+function jitteredPlaybackMs(ms: number): number {
+  if (ms <= 0) return 0;
+  const spread = ms * 0.2;
+  return Math.max(0, Math.round(ms + (Math.random() * 2 - 1) * spread));
 }
 
 export function viewFromJourney(
@@ -121,7 +140,7 @@ export function delay(ms: number): Promise<void> {
 export async function playEcExecutionJourney(
   journey: EcExecutionJourney,
   onUpdate: (view: ExperienceExecutionProgressView) => void,
-  options?: { isStale?: () => boolean },
+  options?: { isStale?: () => boolean; skipRemaining?: () => boolean },
 ): Promise<boolean> {
   const resolved = resolveJourney(journey);
   const completedStepIds: string[] = [];
@@ -142,7 +161,7 @@ export async function playEcExecutionJourney(
     if (stage.semantic_type === 'wait' || stage.semantic_type === 'hil') {
       return true;
     }
-    await delay(durationFor(stage));
+    await delay(options?.skipRemaining?.() ? 0 : jitteredPlaybackMs(durationFor(stage)));
     if (options?.isStale?.()) return false;
     stepStatuses[stage.id] = 'completed';
     completedStepIds.push(stage.id);

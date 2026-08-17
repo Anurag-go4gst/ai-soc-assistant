@@ -82,87 +82,78 @@ const BASE_STEPS: Omit<InvestigationProgressStep, 'durationMs' | 'activity'>[] =
 ];
 
 const LIVE_LINEAR_STEPS: InvestigationProgressStep[] = [
-  step(
-    {
+  {
       id: 'query',
       label: 'Understanding query',
       description: 'Parsing analyst intent and safe routing context.',
       activity: ['Normalizing query…', 'Identifying entities and requested outcome…'],
-    },
-    700,
-  ),
-  step(
-    {
+    
+    durationMs: 700,
+  },
+  {
       id: 'route',
       label: 'Selecting route',
       description: 'Selecting the governed SOC route for this turn.',
       activity: ['Checking deterministic routing…', 'Locking route authority…'],
-    },
-    700,
-  ),
-  step(
-    {
+    
+    durationMs: 700,
+  },
+  {
       id: 'workflow',
       label: 'Planning workflow',
       description: 'Planning the investigation path without changing execution gates.',
       activity: ['Planning evidence needs…', 'Applying workflow gates…'],
-    },
-    700,
-  ),
-  step(
-    {
+    
+    durationMs: 700,
+  },
+  {
       id: 'spl_evidence',
       label: 'Preparing SPL / evidence path',
       description: 'Preparing governed query or evidence handling when needed.',
       activity: ['Checking governed SPL and evidence policy…'],
-    },
-    800,
-  ),
-  step(
-    {
+    
+    durationMs: 800,
+  },
+  {
       id: 'mcp_gate',
       label: 'Checking MCP gate',
       description: 'Checking whether MCP execution is allowed for this request.',
       activity: ['Evaluating MCP and HIL gates…'],
-    },
-    750,
-  ),
-  step(
-    {
+    
+    durationMs: 750,
+  },
+  {
       id: 'rag',
       label: 'Retrieving SOC knowledge',
       description: 'Retrieving governed SOC knowledge only when the path requests it.',
       activity: ['Looking up approved SOC knowledge…'],
-    },
-    850,
-  ),
-  step(
-    {
+    
+    durationMs: 850,
+  },
+  {
       id: 'mitre_severity',
       label: 'Mapping MITRE / severity',
       description: 'Applying MITRE visibility and severity policy.',
       activity: ['Applying MITRE evidence policy…', 'Checking severity and sufficiency…'],
-    },
-    800,
-  ),
-  step(
-    {
+    
+    durationMs: 800,
+  },
+  {
       id: 'llm_governance',
       label: 'Applying LLM / answer governance',
       description: 'Applying answer governance and deterministic fallback policy.',
       activity: ['Checking governed answer policy…'],
-    },
-    900,
-  ),
-  step(
-    {
+    
+    durationMs: 900,
+  },
+  {
       id: 'package',
       label: 'Packaging analyst answer',
       description: 'Packaging the analyst-visible answer or review-required response.',
       activity: ['Final analyst answer is being packaged…'],
-    },
-    800,
-  ),
+    
+    durationMs: 800,
+  },
 ];
 
 const LIVE_OPTIONAL_STEP_IDS = new Set(['spl_evidence', 'mcp_gate', 'rag']);

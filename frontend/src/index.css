@@ -131,12 +131,12 @@
     }
   }
 
-  .soc-stream > * {
+  .soc-stream > *:not(.ec-answer-stream-item) {
     animation: soc-rise 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .soc-stream > * {
+    .soc-stream > *:not(.ec-answer-stream-item) {
       animation: none;
     }
   }
@@ -163,6 +163,74 @@
     box-shadow:
       inset 0 1px 0 rgba(34, 211, 238, 0.22),
       0 -8px 28px -18px rgba(34, 211, 238, 0.45);
+  }
+
+  /* EC cockpit — full-height chat column inside AppShell main */
+  .ec-cockpit-shell {
+    background:
+      radial-gradient(120% 55% at 8% -8%, rgba(34, 211, 238, 0.07), transparent 58%),
+      radial-gradient(80% 45% at 100% 0%, rgba(59, 130, 246, 0.06), transparent 50%);
+  }
+
+  .ec-cockpit-shell--idle {
+    background:
+      linear-gradient(165deg, rgba(2, 6, 23, 1) 0%, rgba(15, 23, 42, 0.98) 42%, rgba(8, 47, 73, 0.35) 100%),
+      radial-gradient(120% 70% at 10% -15%, rgba(34, 211, 238, 0.14), transparent 55%),
+      radial-gradient(90% 55% at 95% 5%, rgba(192, 132, 252, 0.1), transparent 50%),
+      radial-gradient(70% 40% at 50% 100%, rgba(59, 130, 246, 0.08), transparent 60%);
+  }
+
+  .ec-welcome-hero {
+    animation: soc-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .ec-cockpit-stream {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+    padding-left: clamp(1rem, 3vw, 2.5rem);
+    padding-right: clamp(1rem, 3vw, 2.5rem);
+    padding-bottom: clamp(10rem, 22vh, 14rem);
+  }
+
+  /* Long SPL / prose — wrap inside clipped viewport (no horizontal scroll trap) */
+  .ec-spl-code {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+
+  .ec-prose-wrap {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  @keyframes ec-rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Progressive block mount — each section appears as it is revealed */
+  .ec-reveal-block-mount {
+    animation: ec-rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ec-reveal-block-mount {
+      animation: none;
+    }
   }
 
   /* Pill toggle for the lab draft-mode switch (keeps the native checkbox). */

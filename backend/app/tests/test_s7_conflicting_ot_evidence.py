@@ -16,6 +16,14 @@ def setup_function() -> None:
     clear_actions()
 
 
+def test_s7_initial_action_readiness_blocks_incident() -> None:
+    envelope = run_experience_center_turn(S7_SCENARIO_ID, session_id="s7-readiness").model_dump()
+    readiness = envelope["ec_action_readiness"]
+    assert any(row["action"] == "Force incident from Splunk alone" and row["state"] == "NOT_RECOMMENDED_YET" for row in readiness)
+    assert any("BLOCKED" in row["state"] for row in readiness if "incident" in row["action"].lower())
+    assert envelope["ec_investigation_pivot"]["title"]
+
+
 def test_s7_initial_conflict_no_forced_incident() -> None:
     envelope = run_experience_center_turn(S7_SCENARIO_ID, session_id="s7-e3").model_dump()
     outcome = envelope["ec_investigation_outcome"]
@@ -43,6 +51,11 @@ def test_s7_path_a_resolves_to_active_device_then_ticket(monkeypatch) -> None:
             json={"follow_up_id": follow_up_id, "session_id": session_id},
         )
         assert response.status_code == 200, response.text
+        if follow_up_id == "ask_ot_team":
+            asked = response.json()
+            email = next(item for item in asked["ec_actions"] if item["kind"] == "email_send")
+            assert email["state"] == "APPROVAL_REQUIRED"
+            assert asked["ec_email"]["logical_recipient"] == "OT_TEAM"
     body = response.json()
     assert body["ec_investigation_outcome"]["disposition"] == "confirmed"
     assert body["ec_path"] == "A"
@@ -70,3 +83,13 @@ def test_s7_path_b_recycled_identity_no_incident(monkeypatch) -> None:
     ids = {item["follow_up_id"] for item in body["ec_followups"]}
     assert "create_incident_ticket" not in ids
     assert "recommend_cmdb_correction" in ids
+
+
+def test_s7_initial_journey_lingers_on_conflict() -> None:
+    envelope = run_experience_center_turn(S7_SCENARIO_ID, session_id="s7-journey").model_dump()
+    assert envelope["ec_investigation_outcome"]["disposition"] == "unresolved_conflict"
+    titles = [stage["title"] for stage in envelope["ec_execution_journey"]["stages"]]
+    assert "Conflict detected" in titles
+    conflict = next(stage for stage in envelope["ec_execution_journey"]["stages"] if stage["title"] == "Conflict detected")
+    assert conflict["duration_ms_hint"] and conflict["duration_ms_hint"] >= 1200
+    assert conflict["outcome_change"] == "unresolved_conflict"

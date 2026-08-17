@@ -46,6 +46,7 @@ export interface EcActionRecord {
   production_side_effect: boolean;
   receipt?: Record<string, unknown> | null;
   verify_result?: Record<string, unknown> | null;
+  draft?: Record<string, unknown> | null;
 }
 
 export interface EcAffectedSystem {
@@ -56,6 +57,7 @@ export interface EcAffectedSystem {
   last_seen: string;
   allowed_denied: string;
   auth_correlation: string;
+  identity_auth_context?: string;
   risk_note: string;
 }
 
@@ -107,10 +109,100 @@ export interface EcInvestigationOutcomePayload {
   mitre?: Array<Record<string, string>>;
 }
 
+export interface EcSiemCoverageRow {
+  investigation_need: string;
+  siem_status: string;
+  decision: string;
+}
+
+export interface EcSiemCoverageAssessment {
+  siem: string;
+  coverage_status: string;
+  existing_content?: Array<Record<string, unknown>>;
+  required_evidence?: Array<Record<string, unknown>>;
+  generated_searches?: Array<Record<string, unknown>>;
+  remaining_gaps?: string[];
+  coverage_rows?: EcSiemCoverageRow[];
+}
+
+export interface EcSiemToolTrace {
+  purpose: string;
+  capability: string;
+  mcp_tool: string;
+  mode?: string;
+  detail?: string | null;
+  candidate_spl?: string | null;
+  normalized_spl?: string | null;
+  validator_status?: string | null;
+  exact_call_authorization?: string | null;
+  provenance?: string;
+}
+
+export interface EcAttackChainStep {
+  label: string;
+  status: string;
+  detail?: string | null;
+}
+
+export interface EcEvidenceFindingRow {
+  investigation_point: string;
+  finding: string;
+  evidence_basis: string;
+}
+
+export interface EcDetectionOpportunity {
+  status: string;
+  title: string;
+  summary: string;
+  recommended_action: string;
+  deploy_status?: string;
+  notes?: string | null;
+}
+
+export interface EcTelemetrySourceRow {
+  source: string;
+  status: string;
+  detail?: string | null;
+}
+
+export interface EcInvestigationScope {
+  time_range: string;
+  telemetry_queried?: string[];
+  telemetry_sources?: EcTelemetrySourceRow[];
+  scope_note?: string | null;
+}
+
+export interface EcInvestigationPivot {
+  title: string;
+  subject?: string | null;
+  summary: string;
+}
+
+export interface EcActionReadinessRow {
+  action: string;
+  state: string;
+}
+
+export interface EcEvidenceReuseRow {
+  evidence_id: string;
+  label: string;
+  origin: string;
+  status: string;
+  detail?: string | null;
+}
+
+export interface EcResourceCompositionRow {
+  resource: string;
+  role: string;
+  mode: string;
+  note?: string;
+}
+
 export interface EcAnalystPayload {
   finding_title?: string | null;
   one_sentence_finding?: string | null;
   direct_answer_summary?: string | null;
+  direct_answer_line?: string | null;
   assessment?: string | null;
   what_we_found?: string | null;
   severity_label?: string | null;
@@ -123,6 +215,11 @@ export interface EcAnalystPayload {
   important_evidence?: string[];
   unconfirmed_findings?: string[];
   missing_evidence?: string[];
+  spl_code?: string | null;
+  spl_status?: string | null;
+  spl_status_detail?: Record<string, unknown> | null;
+  review_notice?: string | null;
+  response_profile?: string | null;
 }
 
 export interface ExperienceCenterResponse {
@@ -158,10 +255,26 @@ export interface ExperienceCenterResponse {
   ec_workflow_state?: string;
   ec_workflow_path?: string[];
   ec_impact_legend?: string[];
+  ec_status_summary?: string;
   ec_applicability?: Array<{ key?: string; status: string; reason?: string }>;
   ec_conflict?: { status?: string; sources?: string[] };
   ec_ticket_id?: string;
   ec_execution_journey?: EcExecutionJourney | null;
+  ec_siem_coverage?: EcSiemCoverageAssessment;
+  ec_siem_tool_traces?: EcSiemToolTrace[];
+  ec_attack_chain?: EcAttackChainStep[];
+  ec_evidence_findings?: EcEvidenceFindingRow[];
+  ec_detection_opportunity?: EcDetectionOpportunity;
+  ec_investigation_scope?: EcInvestigationScope;
+  ec_investigation_pivot?: EcInvestigationPivot;
+  ec_action_readiness?: EcActionReadinessRow[];
+  ec_recommended_investigations?: string[];
+  ec_evidence_reuse?: EcEvidenceReuseRow[];
+  ec_resource_composition?: EcResourceCompositionRow[];
+  ec_continuity_policy?: Record<string, unknown>;
+  ec_spl_governance_summary?: string;
+  ec_gap_spl_notice?: string;
+  ec_gap_spl_layer2_only?: boolean;
 }
 
 export interface EcExecutionResource {
@@ -198,5 +311,7 @@ export interface EcScenarioSummary {
   label: string;
   category: string;
   query: string;
+  canonical_query?: string;
+  aliases?: string[];
   expected_skill: string;
 }

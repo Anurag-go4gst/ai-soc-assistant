@@ -5,7 +5,15 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from app.demo import ec_actions
+from app.demo import ec_actions, ec_email_drafts
+from app.demo.ec_remediation_s5 import (
+    S5_LAYER2_PATH,
+    build_s5_action_readiness,
+    build_s5_investigation_scope,
+    build_s5_resource_composition,
+    build_s5_status_summary,
+)
+from app.demo.ec_journeys import journey_for
 from app.demo.fixtures import common as C
 
 S5_SCENARIO_ID = "s5_cisco_hardening_remediation"
@@ -117,12 +125,13 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
         C.set_status(state, "change", "OBTAINED", "CHG-R17-15 prepared with rollback and verification")
 
     if "request_network_approval" in applied:
-        C.ensure_executed_action(
-            kind="notify",
+        email_extra = ec_email_drafts.s5_network_approval_email(device=S5_DEVICE, applied=applied)
+        C.ensure_hil_action(
+            kind="email_send",
             label="Ask network team for approval",
             session_id=session_id,
             scenario_id=S5_SCENARIO_ID,
-            extra={"team": "network"},
+            extra=email_extra,
         )
 
     if "approve_upgrade" in applied:
@@ -193,6 +202,7 @@ def build_s5_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str
     C.set_status(state, "cisco_version", "OBTAINED", "current_version=14", "simulated_mcp")
     _apply(applied, session_id, outcome, state, extra)
     version = _version(applied, C.actions_for(session_id, S5_SCENARIO_ID))
+    remediation = outcome.get("remediation_status", "not_started")
     return C.envelope(
         scenario_id=S5_SCENARIO_ID,
         family=S5_FAMILY,
@@ -218,7 +228,28 @@ def build_s5_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str
         extra={
             "ec_cisco": {"device": S5_DEVICE, "current_version": version, "target_version": 15, "provenance": "simulated_mcp"},
             "ec_policy_source": "ec_scenario_policy",
+            "ec_remediation_policy": {"splunk_not_device_management": True, "cisco_authority": "version_and_upgrade"},
+            "ec_resource_composition": build_s5_resource_composition(),
+            "ec_investigation_scope": build_s5_investigation_scope().model_dump(),
+            "ec_action_readiness": [
+                row.model_dump()
+                for row in build_s5_action_readiness(applied, C.actions_for(session_id, S5_SCENARIO_ID), version)
+            ],
+            "ec_status_summary": build_s5_status_summary(version, str(remediation)),
+            **(
+                {
+                    "ec_email": {
+                        "to": "NETWORK_TEAM",
+                        "logical_recipient": "NETWORK_TEAM",
+                        "status": "draft_pending_send",
+                        "not_transmitted": True,
+                    }
+                }
+                if "request_network_approval" in applied
+                else {}
+            ),
         },
+        journey=journey_for(S5_SCENARIO_ID, applied),
         recommended=[
             "Show the hardening policy source",
             "Create the change ticket with rollback and verification",
@@ -246,7 +277,7 @@ def build_s5_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str
             "auth_correlation": "n/a",
             "risk_note": "Upgrade required if version is 14",
         }],
-        layer2_path=["Understanding", "Evidence required", "Resources/tools", "Controls", "Evidence obtained", "InvestigationOutcome"],
+        layer2_path=list(S5_LAYER2_PATH),
     )
 
 

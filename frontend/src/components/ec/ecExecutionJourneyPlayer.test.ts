@@ -110,18 +110,47 @@ describe('ecExecutionJourneyPlayer', () => {
 
   it('uses a generic fallback without dishonest TLS/bearer copy', () => {
     const fallback = resolveJourney(null);
+    expect(fallback.stages.length).toBe(10);
     expect(fallback.stages.map((stage) => stage.id)).toEqual([
       'understand',
-      'plan',
-      'gather',
+      'resource-plan',
+      'mcp-select',
+      'mcp-connect',
+      'evidence',
+      'spl-validate',
+      'mcp-execute',
       'correlate',
+      'llm-advisory',
       'outcome',
-      'next',
     ]);
     const blob = JSON.stringify(genericFallbackJourney());
     expect(blob).not.toMatch(/TLS handshake|bearer auth/i);
     const view = viewFromJourney(fallback, { activeStepIndex: 0, completedStepIds: [] });
     expect(view.header).toBe('Running governed investigation pipeline');
     expect(view.demoMode).toBe(true);
+  });
+
+  it('skipRemaining collapses remaining delays but still stops at WAITING', async () => {
+    vi.useFakeTimers();
+    let skip = false;
+    const updates: ExperienceExecutionProgressView[] = [];
+    const done = playEcExecutionJourney(
+      shortJourney({
+        stages: [
+          { id: 'a', title: 'A', semantic_type: 'plan', duration_ms_hint: 5000 },
+          { id: 'b', title: 'B', semantic_type: 'hil', duration_ms_hint: 5000 },
+          { id: 'c', title: 'C', semantic_type: 'execute', duration_ms_hint: 5000 },
+        ],
+      }),
+      (view) => {
+        updates.push(view);
+      },
+      { skipRemaining: () => skip },
+    );
+    skip = true;
+    await vi.runAllTimersAsync();
+    expect(await done).toBe(true);
+    expect(updates.at(-1)?.stepStatuses?.b).toBe('waiting');
+    expect(updates.at(-1)?.completedStepIds).toEqual(['a']);
   });
 });

@@ -121,3 +121,11 @@ def test_ec_execution_journey_is_optional_and_not_on_placeholder() -> None:
     assert dumped["ec_execution_journey"]["stages"][0]["id"] == "understand"
     payload = run_demo_scenario("firewall_baseline_template_spl")
     PlaceholderResponse(**payload)
+
+
+def test_all_flagship_initial_journeys_have_ten_architecture_steps() -> None:
+    from app.demo.ec_journeys import INITIAL_ARCHITECTURE_STEP_COUNT, _INITIAL
+
+    for scenario_id, builder in _INITIAL.items():
+        journey = builder()
+        assert len(journey.stages) == INITIAL_ARCHITECTURE_STEP_COUNT, scenario_id

@@ -83,6 +83,7 @@ class EcActionRecord(BaseModel):
     production_side_effect: bool = False
     receipt: dict[str, Any] | None = None
     verify_result: dict[str, Any] | None = None
+    draft: dict[str, Any] | None = None
 
 
 class EcExecutionResource(BaseModel):
@@ -116,6 +117,109 @@ class EcExecutionJourney(BaseModel):
     stages: list[EcExecutionStage] = Field(default_factory=list)
 
 
+class EcSiemCoverageRow(BaseModel):
+    investigation_need: str
+    siem_status: str
+    decision: str
+
+
+class EcSiemExistingContent(BaseModel):
+    object_type: str
+    name: str
+    status: str
+    purpose: str
+    coverage: Literal["FULL", "PARTIAL", "NONE", "UNKNOWN"]
+    reused: bool = False
+    execution_ref: str | None = None
+
+
+class EcSiemGeneratedSearch(BaseModel):
+    evidence_requirement: str
+    candidate_created: bool = False
+    validator_status: str = "UNKNOWN"
+    normalized: bool = False
+    execution_authorized: bool = False
+    source_evidence_ids: list[str] = Field(default_factory=list)
+
+
+class EcSiemCoverageAssessment(BaseModel):
+    """EC-only projection of SIEM reuse vs gap-driven search. Not production authority."""
+
+    siem: str = "Splunk"
+    coverage_status: Literal["FULL", "PARTIAL", "NONE", "UNKNOWN"] = "UNKNOWN"
+    existing_content: list[EcSiemExistingContent] = Field(default_factory=list)
+    required_evidence: list[dict[str, Any]] = Field(default_factory=list)
+    generated_searches: list[EcSiemGeneratedSearch] = Field(default_factory=list)
+    remaining_gaps: list[str] = Field(default_factory=list)
+    coverage_rows: list[EcSiemCoverageRow] = Field(default_factory=list)
+
+
+class EcSiemToolTrace(BaseModel):
+    purpose: str
+    capability: str
+    mcp_tool: str
+    mode: Literal["READ", "WRITE"] = "READ"
+    detail: str | None = None
+    candidate_spl: str | None = None
+    normalized_spl: str | None = None
+    validator_status: str | None = None
+    exact_call_authorization: str | None = None
+    provenance: ProvenanceKind = "simulated_mcp"
+
+
+class EcAttackChainStep(BaseModel):
+    label: str
+    status: str
+    detail: str | None = None
+
+
+class EcEvidenceFindingRow(BaseModel):
+    investigation_point: str
+    finding: str
+    evidence_basis: str
+
+
+class EcDetectionOpportunity(BaseModel):
+    status: Literal["PREPARED", "RECOMMENDED", "DEPLOYED"] = "PREPARED"
+    title: str
+    summary: str
+    recommended_action: str
+    deploy_status: str = "not_deployed"
+    notes: str | None = None
+
+
+class EcTelemetrySourceRow(BaseModel):
+    source: str
+    status: str
+    detail: str | None = None
+
+
+class EcInvestigationScope(BaseModel):
+    time_range: str
+    telemetry_queried: list[str] = Field(default_factory=list)
+    telemetry_sources: list[EcTelemetrySourceRow] = Field(default_factory=list)
+    scope_note: str | None = None
+
+
+class EcInvestigationPivot(BaseModel):
+    title: str
+    subject: str | None = None
+    summary: str
+
+
+class EcActionReadinessRow(BaseModel):
+    action: str
+    state: str
+
+
+class EcEvidenceReuseRow(BaseModel):
+    evidence_id: str
+    label: str
+    origin: str
+    status: str
+    detail: str | None = None
+
+
 class ExperienceCenterResponse(BaseModel):
     """EC-owned /demo envelope. Extra keys may pass through for the frozen picker client."""
 
@@ -143,3 +247,13 @@ class ExperienceCenterResponse(BaseModel):
     ec_session_state: EcSessionState
     ec_provenance: dict[str, Any]
     ec_execution_journey: EcExecutionJourney | None = None
+    ec_siem_coverage: EcSiemCoverageAssessment | None = None
+    ec_siem_tool_traces: list[EcSiemToolTrace] = Field(default_factory=list)
+    ec_attack_chain: list[EcAttackChainStep] = Field(default_factory=list)
+    ec_evidence_findings: list[EcEvidenceFindingRow] = Field(default_factory=list)
+    ec_detection_opportunity: EcDetectionOpportunity | None = None
+    ec_investigation_scope: EcInvestigationScope | None = None
+    ec_investigation_pivot: EcInvestigationPivot | None = None
+    ec_action_readiness: list[EcActionReadinessRow] = Field(default_factory=list)
+    ec_recommended_investigations: list[str] = Field(default_factory=list)
+    ec_evidence_reuse: list[EcEvidenceReuseRow] = Field(default_factory=list)

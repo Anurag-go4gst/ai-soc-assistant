@@ -60,6 +60,11 @@ export const EXPERIENCE_EXECUTION_PANEL_CHROME = {
   blockedRow: 'border-red-500/35 bg-red-500/[0.08]',
 } as const;
 
+export function experienceExecutionIsWaiting(view: ExperienceExecutionProgressView | null | undefined): boolean {
+  if (!view) return false;
+  return Object.values(view.stepStatuses ?? {}).some((status) => status === 'waiting');
+}
+
 export function defaultExperienceExecutionHeader(view: ExperienceExecutionProgressView): string {
   if (view.header) return view.header;
   const hasError = Boolean(view.error);

@@ -1,7 +1,10 @@
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.demo import ec_actions
+from app.demo.ec_query_match import resolve_ec_query_fuzzy, suggest_ec_queries
 from app.demo.ec_response import ExperienceCenterResponse
 from app.demo.ec_turn import UnknownFollowUpError, run_experience_center_turn
 from app.demo.scenarios import (
@@ -27,6 +30,20 @@ class EcActionBody(BaseModel):
     scenario_id: str | None = None
     kind: str | None = None
     label: str | None = None
+
+
+class EcActionExecuteBody(BaseModel):
+    draft: dict[str, Any] | None = None
+    action: dict[str, Any] | None = None
+
+
+class EcActionMutateBody(BaseModel):
+    action: dict[str, Any] | None = None
+
+
+class EcQueryResolveBody(BaseModel):
+    query: str
+    min_score: float = 0.38
 
 
 @router.get("")
@@ -119,10 +136,24 @@ def prepare_ec_action(body: EcActionBody) -> dict:
     return record.model_dump()
 
 
+@ec_catalog_router.get("/query-suggestions")
+def experience_center_query_suggestions(q: str = "", limit: int = 8) -> dict[str, object]:
+    suggestions = suggest_ec_queries(q, limit=min(max(limit, 1), 12))
+    return {"query": q, "suggestions": suggestions, "count": len(suggestions)}
+
+
+@ec_catalog_router.post("/resolve-query")
+def experience_center_resolve_query(body: EcQueryResolveBody) -> dict[str, object]:
+    scenario_id, score = resolve_ec_query_fuzzy(body.query, min_score=body.min_score)
+    if scenario_id is None:
+        return {"query": body.query, "scenario_id": None, "score": round(score, 3), "matched": False}
+    return {"query": body.query, "scenario_id": scenario_id, "score": round(score, 3), "matched": True}
+
+
 @ec_actions_router.post("/{action_id}/approve")
-def approve_ec_action(action_id: str) -> dict:
+def approve_ec_action(action_id: str, body: EcActionMutateBody | None = None) -> dict:
     try:
-        return ec_actions.approve_action(action_id).model_dump()
+        return ec_actions.approve_action(action_id, snapshot=(body.action if body else None)).model_dump()
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Unknown EC action") from exc
     except ValueError as exc:
@@ -130,9 +161,13 @@ def approve_ec_action(action_id: str) -> dict:
 
 
 @ec_actions_router.post("/{action_id}/execute")
-def execute_ec_action(action_id: str) -> dict:
+def execute_ec_action(action_id: str, body: EcActionExecuteBody | None = None) -> dict:
     try:
-        record = ec_actions.execute_action(action_id)
+        record = ec_actions.execute_action(
+            action_id,
+            draft=(body.draft if body else None),
+            snapshot=(body.action if body else None),
+        )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Unknown EC action") from exc
     except ValueError as exc:
@@ -144,9 +179,9 @@ def execute_ec_action(action_id: str) -> dict:
 
 
 @ec_actions_router.post("/{action_id}/verify")
-def verify_ec_action(action_id: str) -> dict:
+def verify_ec_action(action_id: str, body: EcActionMutateBody | None = None) -> dict:
     try:
-        return ec_actions.verify_action(action_id).model_dump()
+        return ec_actions.verify_action(action_id, snapshot=(body.action if body else None)).model_dump()
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Unknown EC action") from exc
     except ValueError as exc:

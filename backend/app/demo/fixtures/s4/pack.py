@@ -5,11 +5,24 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from app.demo.ec_siem_s4 import (
+    S4_ADVISORY_ID,
+    S4_GAP_CANDIDATE_SPL,
+    S4_LAYER2_PATH,
+    build_s4_action_readiness,
+    build_s4_detection_opportunity,
+    build_s4_evidence_findings,
+    build_s4_investigation_scope,
+    build_s4_siem_coverage,
+    build_s4_tool_traces,
+    s4_gap_spl_validation,
+)
+from app.demo.ec_journeys import journey_for
+from app.demo import ec_email_drafts
 from app.demo.fixtures import common as C
 
 S4_SCENARIO_ID = "s4_zero_day_no_playbook"
 S4_FAMILY = "s4_zero_day"
-S4_ADVISORY_ID = "ZD-FIXTURE-VPN-2026-001"
 S4_QUERY = (
     "A critical zero-day affects our internet-facing VPN gateways. We have no detection rule or "
     "SOAR playbook yet. Determine whether we are exposed and what immediate controls we should apply."
@@ -107,8 +120,18 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
         outcome["missing_evidence"] = [item for item in outcome["missing_evidence"] if "version" not in item.lower()]
 
     if "search_exploitation_indicators" in applied:
-        C.set_status(state, "splunk", "OBTAINED", "No confirmed exploitation telemetry in the reviewed window")
-        extra.append(C.evidence("ev-s4-splunk", "splunk_mcp_fixture", "Exploitation indicator search", [
+        C.set_status(state, "splunk", "OBTAINED", "No confirmed exploitation telemetry in governed IOC hunt")
+        gap_validation = s4_gap_spl_validation()
+        extra.append(C.evidence(
+            "ev-s4-ioc-hunt",
+            "splunk_mcp_fixture",
+            "Governed IOC exploitation hunt",
+            [{"query": "mgmt/session IOC", "hits": 0, "exploitation_confirmed": False}],
+            provenance="simulated_mcp",
+            tool_name="splunk_run_query",
+            summary=f"gap_spl_validated={gap_validation.get('approved')}",
+        ))
+        extra.append(C.evidence("ev-s4-splunk", "splunk_mcp_fixture", "Exploitation indicator summary", [
             {"query": "mgmt/session from WAN", "hits": 0, "exploitation_confirmed": False},
         ], provenance="simulated_mcp"))
         if "Exploitation not confirmed" not in outcome["confirmed"]:
@@ -129,7 +152,14 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
     if "create_change_ticket" in applied:
         C.ensure_executed_action(kind="ticket_create", label="Create emergency change", session_id=session_id, scenario_id=S4_SCENARIO_ID, extra={"ticket": {"id": "CHG-ZD-001", "type": "emergency_change"}})
     if "notify_network_team" in applied:
-        C.ensure_executed_action(kind="notify", label="Notify network team", session_id=session_id, scenario_id=S4_SCENARIO_ID, extra={"team": "network"})
+        email_extra = ec_email_drafts.s4_network_team_email(applied=applied, advisory_id=S4_ADVISORY_ID)
+        C.ensure_hil_action(
+            kind="email_send",
+            label="Email network/SOC team",
+            session_id=session_id,
+            scenario_id=S4_SCENARIO_ID,
+            extra=email_extra,
+        )
     if "apply_temporary_control" in applied:
         C.ensure_hil_action(
             kind="firewall_block",
@@ -151,12 +181,45 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
         )
 
 
+def _siem_coverage_check_evidence() -> dict[str, Any]:
+    return C.evidence(
+        "ev-s4-siem-check",
+        "splunk_mcp_fixture",
+        "SIEM coverage discovery",
+        [{
+            "advisory_id": S4_ADVISORY_ID,
+            "detections_found": 0,
+            "saved_searches_found": 0,
+            "outcome": "no_threat_specific_detection",
+        }],
+        provenance="simulated_mcp",
+        tool_name="splunk_get_knowledge_objects",
+        summary="No existing vendor/CVE/IOC Splunk content for this advisory",
+    )
+
+
 def build_s4_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str], pending_action_id: str | None = None, awaiting_external: bool = False):
     applied = list(applied_follow_up_ids)
     outcome = deepcopy(_base_outcome())
     state = deepcopy(_base_state())
     extra: list[dict[str, Any]] = []
     _apply(applied, session_id, outcome, state, extra)
+    actions = C.actions_for(session_id, S4_SCENARIO_ID)
+    hunt_obtained = "search_exploitation_indicators" in applied
+    gap_validation = s4_gap_spl_validation()
+    normalized_spl = gap_validation.get("normalized_spl") if gap_validation.get("approved") else None
+    siem_coverage = build_s4_siem_coverage(hunt_obtained=hunt_obtained)
+    source = [
+        _siem_coverage_check_evidence(),
+        *extra,
+    ] if extra or applied else [
+        _siem_coverage_check_evidence(),
+        C.evidence("ev-s4-condition", "advisory_fixture", "Scenario condition", [{
+            "advisory_id": S4_ADVISORY_ID,
+            "soar_playbook": "not_available",
+            "not_an_error": True,
+        }], provenance="experience_center_fixture"),
+    ]
     return C.envelope(
         scenario_id=S4_SCENARIO_ID,
         family=S4_FAMILY,
@@ -166,50 +229,98 @@ def build_s4_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str
         chips=list(S4_FOLLOWUPS),
         title="Zero-day exposure on VPN gateways — no predefined playbook",
         assessment=(
-            "This situation has not yet been engineered into a predefined response workflow. "
-            "There is no threat-specific SOAR playbook. Investigation still assembles advisory knowledge, "
-            "inventory, version evidence, telemetry, and temporary hardening. Vulnerable is not the same as compromised."
+            "No threat-specific Splunk detection exists for this advisory — a valid outcome. "
+            "There is no SOAR playbook (not an error). CMDB and device version evidence are separate from Splunk. "
+            "Vulnerable is not the same as compromised."
         ),
-        found="Exposure starts as partial and requires version validation. Exploitation is not assumed.",
+        found="SIEM coverage checked first. Exposure starts partial until version evidence is applied.",
         outcome=outcome,
         evidence_state=state,
-        source_evidence=extra or [
-            C.evidence("ev-s4-condition", "advisory_fixture", "Scenario condition", [{
-                "advisory_id": S4_ADVISORY_ID,
-                "soar_playbook": "not_available",
-                "not_an_error": True,
-            }], provenance="experience_center_fixture"),
-        ],
-        actions=C.actions_for(session_id, S4_SCENARIO_ID),
+        source_evidence=source,
+        actions=actions,
         resources=[
+            "Splunk SIEM coverage discovery",
             "advisory knowledge",
-            "CMDB / asset inventory",
+            "CMDB / asset inventory (not Splunk)",
             "device version evidence",
-            "Splunk indicator search",
+            "governed IOC hunt (gap only)",
             "hardening KB",
             "No threat-specific SOAR playbook available",
         ],
-        controls=["HIL for temporary control", "verification after remediation", "scenario advisory is not a real CVE"],
+        controls=["HIL for temporary control", "verification after remediation", "detection candidate not deployed"],
         pending_action_id=pending_action_id,
         awaiting_external=awaiting_external,
+        understanding=(
+            "Check existing Splunk detections first; generate governed IOC hunt only for the exploitation gap. "
+            "Splunk does not replace CMDB or device inventory."
+        ),
+        layer2_path=list(S4_LAYER2_PATH),
         extra={
             "ec_soar_playbook": "not_available",
             "ec_advisory_id": S4_ADVISORY_ID,
             "ec_exposure": {"status": outcome.get("exposure"), "validation": outcome.get("exposure_validation")},
+            "ec_siem_coverage": siem_coverage.model_dump(),
+            "ec_siem_tool_traces": [item.model_dump() for item in build_s4_tool_traces(gap_validation)],
+            "ec_evidence_findings": [item.model_dump() for item in build_s4_evidence_findings(hunt_obtained=hunt_obtained)],
+            "ec_detection_opportunity": build_s4_detection_opportunity().model_dump(),
+            "ec_investigation_scope": build_s4_investigation_scope().model_dump(),
+            "ec_action_readiness": [row.model_dump() for row in build_s4_action_readiness(applied, actions, outcome)],
+            "ec_status_summary": (
+                f"P1 Critical · exposure={outcome.get('exposure')} · "
+                f"no threat-specific detection · compromise not confirmed"
+            ),
+            "ec_gap_spl_notice": "Additional governed SIEM search was required to resolve the evidence gap.",
+            "ec_gap_spl_layer2_only": True,
+            "candidate_spl": {
+                "candidate_spl": S4_GAP_CANDIDATE_SPL,
+                "execution_eligible": False,
+                "generation_mode": "ec_bounded_gap_search",
+                "note": "IOC hunt only — no existing detection to reuse",
+            },
+            "spl_validation": {
+                **gap_validation,
+                "approved": bool(gap_validation.get("approved")),
+                "execution_eligible": False,
+                "provenance": "production_validator_read_only",
+                "selected_candidate_spl_provider": "ec_bounded_gap_search",
+            },
+            "execution": {
+                "status": "simulated_receipts_packaged",
+                "production_mcp_executed": False,
+                "executed_spl": normalized_spl if hunt_obtained and normalized_spl else None,
+                "block_reason": "live_mcp_not_called",
+                "exact_call_authorization": "APPROVED" if gap_validation.get("approved") else "BLOCKED",
+                "candidate_spl_not_executed": True,
+            },
+            **(
+                {
+                    "ec_email": {
+                        "to": "NETWORK_TEAM",
+                        "logical_recipient": "NETWORK_TEAM",
+                        "status": "draft_pending_send",
+                        "not_transmitted": True,
+                    }
+                }
+                if "notify_network_team" in applied
+                else {}
+            ),
         },
+        journey=journey_for(S4_SCENARIO_ID, applied),
         recommended=[
-            "Open the advisory",
-            "Inventory internet-facing VPN gateways",
-            "Check running versions",
-            "Search for exploitation indicators",
+            "Confirm no existing threat-specific Splunk detection (valid outcome)",
+            "Inventory gateways via CMDB — not Splunk",
+            "Check running versions on devices",
+            "Run governed IOC hunt only for exploitation gap",
             "Apply temporary hardening only with approval",
         ],
         important=[
-            "No threat-specific SOAR playbook available",
-            "Exposure requires version validation",
-            "Do not equate vulnerable with compromised",
+            "No threat-specific SOAR playbook available — not an error",
+            "No existing Splunk detection for this advisory",
+            "Vulnerable ≠ compromised",
+            "Detection candidate identified — not deployed",
         ],
         table=[
+            {"Question": "Splunk detection", "Status": "None found (valid)"},
             {"Question": "Playbook", "Status": "No threat-specific SOAR playbook available"},
             {"Question": "Exposure", "Status": str(outcome.get("exposure"))},
             {"Question": "Compromise", "Status": "Not confirmed"},

@@ -8,7 +8,7 @@ export function EcFollowUpBar({
 }: {
   chips: EcFollowUpChip[];
   disabled?: boolean;
-  onSelect: (followUpId: string) => void;
+  onSelect: (followUpId: string, chip: EcFollowUpChip) => void;
 }) {
   if (!chips.length) return null;
   const continueChips = chips.filter((chip) => chip.group !== 'action' && !chip.leads_to_action);
@@ -26,7 +26,7 @@ export function EcFollowUpBar({
                 size="sm"
                 variant="secondary"
                 disabled={disabled}
-                onClick={() => onSelect(chip.follow_up_id)}
+                onClick={() => onSelect(chip.follow_up_id, chip)}
               >
                 {chip.label}
               </Button>
@@ -44,7 +44,7 @@ export function EcFollowUpBar({
                 type="button"
                 size="sm"
                 disabled={disabled}
-                onClick={() => onSelect(chip.follow_up_id)}
+                onClick={() => onSelect(chip.follow_up_id, chip)}
               >
                 {chip.label}
               </Button>

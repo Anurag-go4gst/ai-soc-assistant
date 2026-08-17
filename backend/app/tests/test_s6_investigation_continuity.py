@@ -19,6 +19,22 @@ def setup_function() -> None:
     clear_actions()
 
 
+def test_s6_continuity_policy_no_identical_siem_rerun() -> None:
+    envelope = run_experience_center_turn(S6_SCENARIO_ID, session_id="s6-policy").model_dump()
+    policy = envelope["ec_continuity_policy"]
+    assert policy["identical_siem_rerun_for_animation"] is False
+    assert policy["destructive_remediation"] is False
+    assert envelope["ec_evidence_reuse"]
+    assert envelope["ec_action_readiness"]
+    ids = [item["evidence_id"] for item in envelope["source_evidence"]]
+    scoped = run_experience_center_turn(
+        S6_SCENARIO_ID,
+        session_id="s6-policy",
+        follow_up_id="scope_service_accounts",
+    ).model_dump()
+    assert ids == [item["evidence_id"] for item in scoped["source_evidence"][:1]]
+
+
 def test_s6_seven_turns_session_stable_applicability(monkeypatch) -> None:
     from app.config import settings
 
@@ -37,6 +53,7 @@ def test_s6_seven_turns_session_stable_applicability(monkeypatch) -> None:
         ("fetch_old_incident_ticket", 4),
         ("update_incident_ticket", 5),
         ("notify_incident_owner", 6),
+        ("generate_current_scope_summary", 7),
     ]
     body = first
     for follow_up_id, expected_turn in turns:
@@ -73,8 +90,13 @@ def test_s6_seven_turns_session_stable_applicability(monkeypatch) -> None:
             assert update["state"] == "EXECUTED"
             assert update["receipt"]["production_side_effect"] is False
         if follow_up_id == "notify_incident_owner":
-            notify = next(item for item in body["ec_actions"] if item["kind"] == "notify")
-            assert notify["state"] == "EXECUTED"
+            email = next(item for item in body["ec_actions"] if item["kind"] == "email_send")
+            assert email["state"] == "APPROVAL_REQUIRED"
+            assert body["ec_email"]["logical_recipient"] == "INCIDENT_OWNER"
+            assert email["production_side_effect"] is False
+        if follow_up_id == "generate_current_scope_summary":
+            assert "OUT_OF_SCOPE" in body["ec_investigation_outcome"]["closure_summary"]
+            assert "No destructive" in body["ec_investigation_outcome"]["closure_summary"]
 
 
 def test_s6_synonym_does_not_grow_alias_index(monkeypatch) -> None:
@@ -101,3 +123,21 @@ def test_s6_no_production_session() -> None:
     assert "routes_chat" not in source
     assert "session_store" not in source
     assert "_ALIAS_INDEX" not in source
+
+
+def test_s6_scope_change_journey_marks_applicability() -> None:
+    run_experience_center_turn(S6_SCENARIO_ID, session_id="s6-journey")
+    scoped = run_experience_center_turn(
+        S6_SCENARIO_ID,
+        session_id="s6-journey",
+        follow_up_id="scope_service_accounts",
+    )
+    blob = " ".join(stage.title for stage in scoped.ec_execution_journey.stages)
+    assert "OUT_OF_SCOPE" in blob
+    assert scoped.ec_execution_journey.header == "Continuing investigation"
+    builds = run_experience_center_turn(
+        S6_SCENARIO_ID,
+        session_id="s6-journey",
+        follow_up_id="scope_build_servers",
+    )
+    assert "SUPERSEDED" in " ".join(stage.title for stage in builds.ec_execution_journey.stages)

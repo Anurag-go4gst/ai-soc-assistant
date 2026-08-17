@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Circle, Clock, Loader2, MinusCircle, ShieldCheck } from 'lucide-react';
+import { scrollIntoScrollParent } from '@/lib/scrollIntoScrollParent';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -105,6 +106,18 @@ export function ExperienceExecutionProgressPanel({ state, onRetry }: ExperienceE
   const allDone = state.activeStepIndex >= steps.length && !inFinalization && !hasError && !waiting && !verifying;
   const headerLabel = defaultExperienceExecutionHeader(state);
   const counter = experienceExecutionCounter(state);
+  const listRef = useRef<HTMLOListElement | null>(null);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const activeRow = list.querySelector('[data-ec-step-active="true"]');
+    if (activeRow instanceof HTMLElement) {
+      window.requestAnimationFrame(() => {
+        scrollIntoScrollParent(activeRow, { block: 'center', behavior: 'smooth' });
+      });
+    }
+  }, [state.activeStepIndex, state.completedStepIds, state.stepStatuses]);
 
   const headerIcon = hasError ? (
     <Circle className="h-4 w-4 text-red-300" />
@@ -143,7 +156,7 @@ export function ExperienceExecutionProgressPanel({ state, onRetry }: ExperienceE
         ) : null}
       </div>
 
-      <ol className="space-y-2">
+      <ol ref={listRef} className="space-y-2">
         {steps.map((stepItem, index) => {
           const status = rowStatus(stepItem, index, state, allDone, inFinalization);
           const isComplete = status === 'completed';
@@ -160,6 +173,7 @@ export function ExperienceExecutionProgressPanel({ state, onRetry }: ExperienceE
             <li
               key={stepItem.id}
               data-stage-status={status}
+              data-ec-step-active={isActive || isWaiting ? 'true' : undefined}
               className={cn(
                 'flex gap-3 rounded-lg border px-3 py-2.5 transition-colors duration-300',
                 isActive && EXPERIENCE_EXECUTION_PANEL_CHROME.activeRow,
@@ -278,8 +292,8 @@ export function ExperienceExecutionProgressPanel({ state, onRetry }: ExperienceE
 
       <p className="mt-3 text-[0.65rem] leading-5 text-slate-500">
         {state.demoMode
-          ? 'Pipeline mirrors production routing and evidence gates. Experience Center uses COE fixtures; live MCP search and final LLM synthesis stay disabled.'
-          : 'Pipeline mirrors production routing and evidence gates. Live MCP execution and final synthesis follow platform settings.'}
+          ? 'Pipeline mirrors production routing and evidence gates. Experience Center uses COE fixtures; MCP search and final LLM synthesis stay disabled.'
+          : 'Pipeline mirrors production routing and evidence gates. MCP execution and final synthesis follow platform settings.'}
       </p>
     </div>
   );

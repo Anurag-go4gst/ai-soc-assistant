@@ -5,6 +5,15 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from app.demo.ec_continuity_s6 import (
+    S6_CONTINUITY_POLICY,
+    S6_LAYER2_PATH,
+    build_s6_action_readiness,
+    build_s6_evidence_reuse,
+    build_s6_status_summary,
+)
+from app.demo.ec_journeys import journey_for
+from app.demo import ec_email_drafts
 from app.demo.fixtures import common as C
 
 S6_SCENARIO_ID = "s6_investigation_continuity"
@@ -16,7 +25,8 @@ S6_FOLLOWUPS = (
     C.chip("check_last_month_incident", "Did we see this in last month's incident?"),
     C.chip("fetch_old_incident_ticket", "Fetch the old incident ticket"),
     C.chip("update_incident_ticket", "Add this new evidence to that ticket", action=True),
-    C.chip("notify_incident_owner", "Notify the incident owner", action=True),
+    C.chip("notify_incident_owner", "Email the incident owner", action=True),
+    C.chip("generate_current_scope_summary", "Produce current-scope incident summary"),
 )
 S6_FOLLOWUP_IDS = frozenset(item.follow_up_id for item in S6_FOLLOWUPS)
 S6_SYNONYMS = {
@@ -129,12 +139,20 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
         outcome["ticket_updated"] = True
 
     if "notify_incident_owner" in applied:
-        C.ensure_executed_action(
-            kind="notify",
-            label="Notify incident owner",
+        email_extra = ec_email_drafts.s6_incident_owner_email(applied=applied)
+        C.ensure_hil_action(
+            kind="email_send",
+            label="Email incident owner",
             session_id=session_id,
             scenario_id=S6_SCENARIO_ID,
-            extra={"team": "incident-owner", "ticket_id": "INC-VPN-0712"},
+            extra=email_extra,
+        )
+
+    if "generate_current_scope_summary" in applied:
+        outcome["closure_summary"] = (
+            "Current scope is service accounts that touched build servers. "
+            "Administrator VPN evidence is OUT_OF_SCOPE. Prior ticket INC-VPN-0712 is STALE for this scope "
+            "and REUSABLE only as geo/VPN-failure context. No destructive remediation."
         )
 
 
@@ -175,7 +193,24 @@ def build_s6_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str
             "ec_scope": outcome.get("scope"),
             "ec_applicability": outcome.get("applicability"),
             "ec_ticket_id": outcome.get("ticket_id"),
+            "ec_continuity_policy": S6_CONTINUITY_POLICY,
+            "ec_evidence_reuse": [row.model_dump() for row in build_s6_evidence_reuse(outcome, applied)],
+            "ec_action_readiness": [row.model_dump() for row in build_s6_action_readiness(applied)],
+            "ec_status_summary": build_s6_status_summary(str(outcome.get("scope"))),
+            **(
+                {
+                    "ec_email": {
+                        "to": "INCIDENT_OWNER",
+                        "logical_recipient": "INCIDENT_OWNER",
+                        "status": "draft_pending_send",
+                        "not_transmitted": True,
+                    }
+                }
+                if "notify_incident_owner" in applied
+                else {}
+            ),
         },
+        journey=journey_for(S6_SCENARIO_ID, applied),
         recommended=[
             "If the question changes to service accounts, collect that evidence separately",
             "Do not reuse administrator evidence after a scope change",
@@ -184,7 +219,7 @@ def build_s6_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str
         table=[
             {"Scope": str(outcome.get("scope")), "Turn": str(turn)},
         ],
-        layer2_path=["Understanding", "Evidence required", "Resources/tools", "Controls", "Evidence obtained", "InvestigationOutcome"],
+        layer2_path=list(S6_LAYER2_PATH),
     )
 
 

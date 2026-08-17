@@ -5,6 +5,14 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from app.demo.ec_conflict_s7 import (
+    S7_LAYER2_PATH,
+    build_s7_action_readiness,
+    build_s7_investigation_pivot,
+    build_s7_status_summary,
+)
+from app.demo.ec_journeys import journey_for
+from app.demo import ec_email_drafts
 from app.demo.fixtures import common as C
 
 S7_SCENARIO_ID = "s7_conflicting_ot_evidence"
@@ -22,6 +30,7 @@ S7_FOLLOWUPS = (
     C.chip("confirm_stale_identity", "Confirm recycled/stale identity"),
     C.chip("create_incident_ticket", "Create incident ticket", action=True),
     C.chip("recommend_cmdb_correction", "Recommend CMDB correction", action=True),
+    C.chip("generate_closure_summary", "Generate closure summary"),
 )
 S7_FOLLOWUP_IDS = frozenset(item.follow_up_id for item in S7_FOLLOWUPS)
 
@@ -90,14 +99,15 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
         extra.append(C.evidence("ev-s7-arp", "network_fixture", "Switch ARP/MAC", [{"ip": "10.80.4.14", "mac": "00:1b:44:11:3a:b7", "vlan": "ot-4"}], provenance="simulated_mcp"))
 
     if "ask_ot_team" in applied:
-        C.ensure_executed_action(
+        email_extra = ec_email_drafts.s7_ot_team_email(applied=applied)
+        C.ensure_hil_action(
             kind="email_send",
             label="Ask OT team about OT-RTU-14",
             session_id=session_id,
             scenario_id=S7_SCENARIO_ID,
-            extra={"email": {"to": "ot-ops@internal", "subject": "Is OT-RTU-14 retired?"}},
+            extra=email_extra,
         )
-        C.set_status(state, "ot_team", "AWAITING_EXTERNAL_RESPONSE", "Waiting for OT operations")
+        C.set_status(state, "ot_team", "AWAITING_EXTERNAL_RESPONSE", "Draft prepared for OT_TEAM; inbound reply is fixture-backed")
 
     if "ingest_ot_response" in applied:
         if "check_ot_inventory" in applied:
@@ -131,6 +141,20 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
         ]
         outcome["forced_incident"] = False
         outcome["data_quality_recommendation"] = "Correct CMDB / identity reuse process"
+
+    if "generate_closure_summary" in applied:
+        if outcome.get("path") == "A":
+            outcome["closure_summary"] = (
+                "Path A: device is active and CMDB is stale. Security incident is appropriate after conflict resolution."
+            )
+        elif outcome.get("path") == "B":
+            outcome["closure_summary"] = (
+                "Path B: recycled/stale identity. No active incident. Data-quality correction is the right ticket."
+            )
+        else:
+            outcome["closure_summary"] = (
+                "Conflict is unresolved. Do not force remediation or an incident until Path A or B is evidenced."
+            )
 
     if "create_incident_ticket" in applied and outcome.get("path") == "A":
         C.ensure_executed_action(
@@ -187,7 +211,24 @@ def build_s7_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str
         extra={
             "ec_conflict": {"status": "CONFLICTING", "sources": ["splunk", "cmdb"]},
             "ec_path": outcome.get("path"),
+            "ec_investigation_pivot": build_s7_investigation_pivot().model_dump(),
+            "ec_action_readiness": [row.model_dump() for row in build_s7_action_readiness(applied, outcome)],
+            "ec_status_summary": build_s7_status_summary(outcome),
+            **(
+                {
+                    "ec_email": {
+                        "to": "OT_TEAM",
+                        "logical_recipient": "OT_TEAM",
+                        "status": "draft_pending_send",
+                        "not_transmitted": True,
+                        "inbound_fixture_backed": "ingest_ot_response" in applied,
+                    }
+                }
+                if "ask_ot_team" in applied
+                else {}
+            ),
         },
+        journey=journey_for(S7_SCENARIO_ID, applied),
         recommended=[
             "Check OT inventory",
             "Check firewall and ARP/MAC",
@@ -199,6 +240,7 @@ def build_s7_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str
             {"Source": "Splunk", "Finding": "Unauthorized access OT-RTU-14", "State": "Confirmed telemetry"},
             {"Source": "CMDB", "Finding": "retired", "State": "CONFLICTING"},
         ],
+        layer2_path=list(S7_LAYER2_PATH),
     )
 
 
