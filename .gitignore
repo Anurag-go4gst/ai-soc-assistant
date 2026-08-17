@@ -36,6 +36,9 @@ backend/data/threat_intel/
 .cursor/hooks/.loop-asap-requested
 plans/.active-plan
 
+# Playwright MCP browser-walk artifacts (scripts/ec_browser_walk_audit.mjs)
+.playwright-mcp/
+
 # live-efficacy eval run output (P0/P1 diagnostics; canonical banks
 # live_efficacy_100_bank.json / _labels.json + 100/{report,findings}.md stay tracked)
 docs/evals/live_efficacy_*_stdout.log
