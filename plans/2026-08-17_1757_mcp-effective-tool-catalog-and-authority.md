@@ -30,6 +30,84 @@ in both cases. Implemented in
 `select_mcp_tool` to an effective catalog and to a capability vocabulary)
 remain blocked until this authority layer existed — it now does.
 
+## PERSISTENCE DECISION — 2026-08-17 (PR #144 review question, same branch)
+
+**Question:** is in-memory discovery snapshot storage an intentional
+production-safe final design, or an unfinished code-side requirement
+mis-classified as `BLOCKED_LIVE_CONTRACT`?
+
+**Trace result (critical finding):** `effective_catalog`/
+`compute_effective_catalog` is **not consulted anywhere in the live
+`/chat` → `evaluate_mcp_execution` → `select_mcp_tool` call path** — grep
+confirmed zero references in `pipeline.py`/`mcp_execution_gate.py` outside
+the pre-existing, unrelated `effective_catalogue_match_path` (use-case
+catalogue, a different concept). This was already documented as
+deliberate scope (item 6/7 evidence: "pipeline.py wiring is a separate,
+governance-reviewed activation decision"), but it changes this decision:
+**the in-memory-vs-Postgres question currently has zero live-authorization
+consequence**, because nothing reads discovery state to gate a real
+execution decision yet. Whichever storage is chosen only affects the
+`/debug/mcp/catalog` observability surface and (new, this round)
+`/debug/readiness`'s `mcp_discovery` summary — not what analysts can
+actually execute.
+
+**Decision: OPTION A (intentionally ephemeral, process-memory) — confirmed
+correct.** Checked against every stated acceptance criterion:
+- restart loss intentional — yes, by design (module docstring)
+- live execution fails closed after restart — **N/A today** (nothing
+  gates on discovery state yet); the mechanism itself computes
+  `DISCOVERY_UNVERIFIED → executable=false` correctly and will apply the
+  instant it's wired (unchanged from item 6's original design)
+- operator can see `DISCOVERY_UNVERIFIED` — yes, `/debug/mcp/catalog` +
+  new `/debug/readiness.mcp_discovery[].mcp_discovery_verified`
+- bounded refresh available — yes, `POST /debug/mcp/discovery/refresh`
+- refresh operationally cheap — yes, one handshake call
+- no automatic authorization — yes, snapshot never touches
+  `TOOL_ALLOWLIST`
+- runbook documents rediscovery after restart — **was missing, fixed this
+  round** (`CLAUDE.md` § Splunk MCP go-live, step 5)
+
+**§5 (persist-for-history-but-require-fresh-discovery-for-authority)
+evaluated and rejected as unnecessary right now:** that pattern only
+matters once persisted state could ever influence `executable=true`. Since
+no live path reads discovery state at all yet, adding persistence today
+would add a component with no consumer and no way to prove its restart
+behavior (no live DB was reachable to test a writer against — same
+constraint as the original round). Revisit if/when item 6/7's live wiring
+is actually activated and drift-history-across-restarts becomes an
+operationally real requirement.
+
+**§6 saved-search lifecycle:** confirmed coherent — `saved_search_name_
+allowed()` (local policy, persists in `.env`/catalogue map, unaffected by
+this question) is fully independent of MCP server-side discovery state.
+No server-discovered saved-search metadata is trusted anywhere (Splunk
+knowledge-object discovery execution is not implemented — `splunk_get_
+knowledge_objects` still hits `NotImplementedError`, per §19, untouched).
+
+**§7 reclassification:**
+
+> "Postgres-backed discovery snapshot writer (no live DB reachable)"
+
+was previously listed as `BLOCKED_LIVE_CONTRACT`/`D. GENUINE_LIVE_ONLY_
+REQUIREMENT` by implication. **Reclassified to `B.
+OPTIONAL_OBSERVABILITY_ENHANCEMENT`** — not required by final design (the
+in-memory model is the correct final design per the decision above), not
+a code-side gap (nothing is unfinished — the observability surfaces that
+exist are complete and tested), and not blocked on a live database at all
+(a durable store could be built and tested against a real Postgres
+whenever someone wants drift history across restarts — it was never
+actually gated on a *live Splunk MCP server*, which is the actual
+`LIVE_MCP_PROVEN` boundary this repo's "live-only" language is reserved
+for).
+
+**Code change made this round:** one small, additive readiness surface
+(`build_debug_readiness()` → new `mcp_discovery` block: `mcp_configured`,
+`mcp_discovery_verified`, `mcp_discovery_status`, `mcp_discovery_age_
+seconds`, `mcp_global_execution_enabled` per server) plus one runbook
+paragraph. Capability resolver, AUTH0, fallback rules, tool-selection
+policy, and `architecture.md` all untouched — confirmed via `git diff`
+scoped to this round's single commit.
+
 ## FOLLOW-UP CLOSURE — 2026-08-17 (same day, branch `feat/mcp-effective-tool-catalog`)
 
 Items 1/2/4/5/6/7/8 above are now **implemented** (see each item's
