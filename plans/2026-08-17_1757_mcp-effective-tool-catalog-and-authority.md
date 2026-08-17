@@ -30,6 +30,67 @@ in both cases. Implemented in
 `select_mcp_tool` to an effective catalog and to a capability vocabulary)
 remain blocked until this authority layer existed — it now does.
 
+## CAPABILITY PRODUCTION WIRING — 2026-08-17 (PR #144 review question #3, same branch)
+
+**Question:** `mcp_capability` was validated/enforced whenever supplied
+(item 7), but `pipeline.py` never supplied it. Close that last gap.
+
+**STRUCTURED_CAPABILITY_SOURCE**: `state["candidate_spl"]["generation_mode"]`
+— the exact same governed field `pipeline.py` already reads to decide
+`execution_intent`/`requested_mcp_tool` (`pipeline.py:3042`, unchanged
+line, pre-dates this branch). `mcp_capability` is now computed as a direct
+projection of that same field, immediately alongside `execution_intent`,
+never from `request.message`/SPL text/any keyword scan.
+
+**Wiring**: `_execution_stage` (the pipeline's own function wrapping
+`evaluate_mcp_execution`, `pipeline.py:9537`) gained an `mcp_capability`
+parameter, threaded straight to `evaluate_mcp_execution`. Two real call
+sites needed it (the other two pass `spl_validation=None`/`mcp_allowed=
+False` and never reach MCP selection at all, so nothing to wire there):
+main flow (`pipeline.py:~3046`) computes `mcp_capability = "SAVED_SEARCH_
+EXECUTION"` when `generation_mode == "saved_search_primary"`, else
+`"EVENT_SEARCH"`; guided safe-catalog SPL rail
+(`_execute_guided_safe_catalog_spl`, `pipeline.py:~6041`) always passes
+`"EVENT_SEARCH"` (structurally never proposes saved-search on that rail).
+
+**Per-capability classification** (mission's required categories):
+
+| Capability | Status | Why |
+|---|---|---|
+| `EVENT_SEARCH` | **PRODUCTION_WIRED** | Default projection of `generation_mode`; the common case. |
+| `SAVED_SEARCH_EXECUTION` | **PRODUCTION_WIRED** | Projection of `generation_mode == "saved_search_primary"`, the existing structural signal. |
+| `SERVER_INFO` | **PLANNING_SEMANTIC_GAP** | No structured `ResourcePlan`/`PlanStep` field anywhere today distinguishes "get server info" as its own requirement — resolver/vocabulary/mapping code fully built and tested (`test_mcp_capability_resolver.py`), just nothing to derive it from. |
+| `INDEX_DISCOVERY` | **PLANNING_SEMANTIC_GAP** | Same — no structured field. |
+| `INDEX_METADATA` | **PLANNING_SEMANTIC_GAP** | Same. |
+| `SOURCE_METADATA` | **PLANNING_SEMANTIC_GAP** | Same. |
+| `USER_CONTEXT` | **PLANNING_SEMANTIC_GAP** | Same. |
+| `KNOWLEDGE_OBJECT_DISCOVERY` | **PLANNING_SEMANTIC_GAP** | Same. |
+
+No `BLOCKED_LIVE_CONTRACT` entries this round — the gap for the 6
+metadata/identity capabilities is planning-representation, not live-server
+proof; it does not require a real Splunk MCP server to close, it requires
+a future governed `ResourcePlan` extension that structurally represents
+"the investigation needs index/metadata/identity context" as its own
+requirement (out of scope here — explicitly not redesigning the planner
+per mission instruction). Per instruction: this does not block `EVENT_
+SEARCH` or explicit saved-search, and no keyword routing was introduced to
+paper over the gap.
+
+**Item 11 architectural test**: `test_11_13_text_mentioning_indexes_stays_
+event_search` — a governed `EVENT_SEARCH` plan whose SPL *text* happens to
+contain "indexes"/"metadata" (in a field name) still resolves
+`splunk_run_query`, proving no keyword routing was introduced.
+
+**Tests**: 14 new (`test_pipeline_mcp_capability_wiring.py`), all pass —
+covers mission's 15-item matrix (items 11/13 merged into one test since
+they assert the same invariant from two angles) plus one added
+fallback-preserves-capability test. Consolidated scoped regression: 863
+passed, 1 pre-existing unrelated failure
+(`test_eval_sentinel_runner.py::test_repo_baseline_matches_current_
+pipeline`, independently reproduced failing identically against the clean
+`af93fb3` baseline via `git archive`, not a new worktree — confirmed
+unrelated, not fixed here, out of scope).
+
 ## ENFORCEMENT CORRECTION — 2026-08-17 (PR #144 review question #2, same branch)
 
 **Question:** does the live `/chat` MCP execution path actually enforce the
