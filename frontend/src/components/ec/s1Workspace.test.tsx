@@ -138,6 +138,10 @@ describe('S1 Experience Center workspace', () => {
     expect(screen.getByText('10.20.1.10')).toBeInTheDocument();
     expect(screen.getByText(/What remains unconfirmed/i)).toBeInTheDocument();
     expect(screen.getByText(/Successful account compromise/i)).toBeInTheDocument();
+    const layer1 = document.querySelector('[data-ec-layer="soc-answer"]');
+    expect(layer1?.textContent).not.toMatch(/ec_fixture_selected/);
+    expect(layer1?.textContent).not.toMatch(/experience_center_fixture/);
+    expect(layer1?.textContent).not.toMatch(/simulated_phase10_action/);
   });
 
   it('renders SPL governance 30+30 and validator approval', () => {

@@ -102,26 +102,63 @@ def test_ec_changes_stay_within_allowlist() -> None:
     assert not offenders, f"EC work touched forbidden live paths: {offenders}"
 
 
-def _changed_paths() -> list[str]:
+RACES_BASELINE_SHA = "bf7c30468454fb20ceb6eeb1eda621b278523933"
+
+
+def _git_name_only(rev_range: str) -> list[str]:
     result = subprocess.run(
-        ["git", "diff", "--name-only", "HEAD"],
+        ["git", "diff", "--name-only", rev_range],
         cwd=REPO,
         capture_output=True,
         text=True,
         check=False,
     )
+    assert result.returncode == 0, result.stderr
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def freeze_offenders_in(paths: list[str]) -> list[str]:
+    return [
+        path
+        for path in paths
+        if any(path == freeze or path.startswith(freeze) for freeze in RACES_FREEZE_PATHS)
+    ]
+
+
+def _changed_paths() -> list[str]:
+    return _git_name_only("HEAD")
 
 
 def test_races_freeze_files_not_in_working_tree() -> None:
     """RACES must never modify production /chat contracts or ChatPanel."""
-    changed = _changed_paths()
-    offenders = [
-        path
-        for path in changed
-        if any(path == freeze or path.startswith(freeze) for freeze in RACES_FREEZE_PATHS)
-    ]
+    offenders = freeze_offenders_in(_changed_paths())
     assert not offenders, f"RACES freeze files appear in git diff: {offenders}"
+
+
+def test_races_freeze_files_unchanged_since_baseline() -> None:
+    """Committed RACES work must not touch freeze files relative to bf7c304."""
+    changed = _git_name_only(f"{RACES_BASELINE_SHA}...HEAD")
+    offenders = freeze_offenders_in(changed)
+    assert not offenders, (
+        f"RACES commits modified freeze files vs {RACES_BASELINE_SHA}: {offenders}"
+    )
+
+
+def test_races_freeze_detector_flags_frozen_paths_without_editing_them() -> None:
+    offenders = freeze_offenders_in(
+        [
+            "backend/app/demo/scenarios.py",
+            "frontend/src/components/ChatPanel.tsx",
+            "backend/app/chat/pipeline.py",
+            "backend/app/graph/chat_workflow.py",
+            "plans/2026-08-16_2310_races-experience-center.md",
+        ]
+    )
+    assert offenders == [
+        "frontend/src/components/ChatPanel.tsx",
+        "backend/app/chat/pipeline.py",
+        "backend/app/graph/chat_workflow.py",
+    ]
 
 
 def test_run_demo_scenario_still_constructs_placeholder_response() -> None:

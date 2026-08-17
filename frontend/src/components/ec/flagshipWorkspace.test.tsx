@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EcActionFlow } from '@/components/ec/EcActionFlow';
 import { EcCoordinationPanels } from '@/components/ec/EcCoordinationPanels';
 import { EcInvestigationAnswer } from '@/components/ec/EcInvestigationAnswer';
+import { EcInvestigationWorkspace } from '@/components/ec/EcInvestigationWorkspace';
 import { EcScenarioPicker } from '@/components/ec/EcScenarioPicker';
 import { EcTransparencyDrawer } from '@/components/ec/EcTransparencyDrawer';
 import type { ExperienceCenterResponse } from '@/components/ec/types';
@@ -24,7 +25,57 @@ vi.mock('@/api/ecClient', () => ({
   approveEcAction: vi.fn(),
   executeEcAction: vi.fn(),
   verifyEcAction: vi.fn(),
-  runEcScenario: vi.fn(),
+  runEcScenario: vi.fn(async () => ({
+    scenario_id: 's3_firewall_team_coordination',
+    trace_id: 'demo-s3',
+    message: 'Coordinate the firewall block.',
+    route_source: 'ec_fixture_selected',
+    analyst: {
+      finding_title: 'Firewall-team coordination',
+      assessment: 'Follow the company firewall-block process.',
+      unconfirmed_findings: ['Whether the whitelist explains the traffic'],
+      missing_evidence: ['Firewall-team confirmation'],
+    },
+    ec_projection: {
+      understanding: { title: 'Understanding', summary: 'Coordinate block', items: [], provenance: { kind: 'experience_center_fixture', detail: 's3' } },
+      resource_plan: { title: 'Resources', summary: 'Email and process', items: [], provenance: { kind: 'experience_center_fixture', detail: 's3' } },
+      phase_contract: { title: 'Controls', summary: 'HIL', items: [], provenance: { kind: 'ec_scenario_policy', detail: 's3' } },
+      evidence_state: { title: 'Evidence', summary: 'Pending reply', items: [], provenance: { kind: 'experience_center_fixture', detail: 's3' } },
+      investigation_outcome: { title: 'Outcome', summary: 'reassess', items: [], provenance: { kind: 'experience_center_fixture', detail: 's3' } },
+      provenance: { kind: 'experience_center_fixture', detail: 's3' },
+    },
+    ec_actions: [],
+    ec_followups: [],
+    ec_session_state: {
+      session_id: 'ec-sess-secret123',
+      family: 's3',
+      scenario_id: 's3_firewall_team_coordination',
+      turn: 1,
+      awaiting_external: true,
+      applied_follow_up_ids: [],
+    },
+    ec_provenance: {
+      live_llm_called: false,
+      envelope: 'experience_center_response',
+      route_source: 'ec_fixture_selected',
+    },
+    ec_workflow_state: 'AWAITING_FIREWALL_TEAM_CONFIRMATION',
+    ec_workflow_path: ['Investigation', 'Email sent', 'Awaiting team'],
+    ec_email: {
+      to: 'firewall-team@internal',
+      subject: 'Block request',
+      status: 'awaiting_reply',
+      mandatory_fields: { malicious_ip: '198.51.100.42', reason: 'confirmed malicious activity' },
+      inbound: 'This IP was manually whitelisted yesterday for vendor testing.',
+    },
+    ec_investigation_outcome: {
+      disposition: 'needs_reassessment',
+      confirmed: ['Request sent'],
+      supported: [],
+      unconfirmed: ['Whether the whitelist explains the traffic'],
+      missing_evidence: ['Business-owner reconfirmation'],
+    },
+  })),
   followUpEcScenario: vi.fn(),
 }));
 
@@ -49,8 +100,16 @@ const envelope: ExperienceCenterResponse = {
   },
   ec_actions: [],
   ec_followups: [],
-  ec_session_state: { family: 's3', scenario_id: 's3_firewall_team_coordination', turn: 1, awaiting_external: true, applied_follow_up_ids: [] },
-  ec_provenance: { live_llm_called: false },
+  route_source: 'ec_fixture_selected',
+  ec_session_state: {
+    session_id: 'ec-sess-secret123',
+    family: 's3',
+    scenario_id: 's3_firewall_team_coordination',
+    turn: 1,
+    awaiting_external: true,
+    applied_follow_up_ids: [],
+  },
+  ec_provenance: { live_llm_called: false, route_source: 'ec_fixture_selected' },
   ec_workflow_state: 'AWAITING_FIREWALL_TEAM_CONFIRMATION',
   ec_workflow_path: ['Investigation', 'Email sent', 'Awaiting team'],
   ec_email: {
@@ -80,13 +139,29 @@ describe('Flagship Experience Center UX', () => {
     expect(screen.getByRole('option', { name: /MITRE clarification/i })).toBeInTheDocument();
   });
 
-  it('renders Layer 1 without architecture dump', () => {
+  it('renders Layer 1 without architecture dump or internal identifiers', () => {
     render(<EcInvestigationAnswer envelope={envelope} />);
     expect(screen.getByText(/SOC Answer/i)).toBeInTheDocument();
     expect(screen.getByText(/Assessment/i)).toBeInTheDocument();
     expect(screen.getByText(/Evidence still required/i)).toBeInTheDocument();
     expect(screen.queryByText(/v2/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/dispatch-v2/i)).not.toBeInTheDocument();
+    const layer1 = document.querySelector('[data-ec-layer="soc-answer"]');
+    expect(layer1?.textContent).not.toMatch(/ec_fixture_selected/);
+    expect(layer1?.textContent).not.toMatch(/experience_center_fixture/);
+    expect(layer1?.textContent).not.toMatch(/simulated_phase10_action/);
+    expect(screen.queryByText('ec-sess-secret123')).not.toBeInTheDocument();
+  });
+
+  it('keeps provenance identifiers in Layer 2, not visitor chrome', async () => {
+    render(<EcInvestigationWorkspace />);
+    expect(await screen.findByRole('option', { name: /S1 · Governed large-scale investigation/i })).toBeInTheDocument();
+    expect(screen.queryByText('ec_fixture_selected')).not.toBeInTheDocument();
+    expect(screen.queryByText('ec-sess-secret123')).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/simulated_phase10_action/);
+    render(<EcTransparencyDrawer envelope={envelope} />);
+    const layer2 = document.querySelector('[data-ec-layer="investigation-path"]');
+    expect(layer2?.textContent).toMatch(/experience_center_fixture/);
   });
 
   it('renders email send/await/inbound', () => {

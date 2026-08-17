@@ -9,7 +9,7 @@ from app.demo.ec_fsm_store import clear_all_for_tests
 from app.demo.ec_turn import UnknownFollowUpError, run_experience_center_turn
 from app.demo.fixtures.s1.pack import S1_FOLLOWUP_IDS, S1_QUERY, S1_SCENARIO_ID
 from app.demo.ec_mcp_lifecycle_fixture import PRIMARY_ATTACKER_IP
-from app.demo.scenarios import list_demo_scenarios, run_demo_scenario
+from app.demo.scenarios import list_experience_center_scenarios, run_demo_scenario
 from app.main import app
 from app.safeguards.spl_validator import validate_spl
 from app.schemas.responses import PlaceholderResponse
@@ -21,7 +21,7 @@ def setup_function() -> None:
 
 
 def test_s1_listed_in_demo_scenarios() -> None:
-    ids = {item["scenario_id"] for item in list_demo_scenarios()}
+    ids = {item["scenario_id"] for item in list_experience_center_scenarios()}
     assert S1_SCENARIO_ID in ids
 
 

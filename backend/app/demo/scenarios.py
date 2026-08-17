@@ -120,6 +120,23 @@ class DemoScenario:
 
 
 def list_demo_scenarios() -> list[dict[str, Any]]:
+    """Legacy ChatPanel picker contract: leadership-tier, non-flagship only.
+
+    Flagship/lab expansion must not leak into GET /demo/scenarios. The Experience
+    Center catalog is ``list_experience_center_scenarios``.
+    """
+    items = [
+        item
+        for item in SCENARIOS.values()
+        if item.fsm_step != 0
+        and getattr(item, "picker_tier", "leadership") == "leadership"
+        and getattr(item, "category", "") != "Flagship"
+    ]
+    return [_scenario_summary(item) for item in sorted(items, key=lambda item: item.demo_order)]
+
+
+def list_experience_center_scenarios() -> list[dict[str, Any]]:
+    """Full /scenarios catalog: 7 flagships plus lab/additional scenarios."""
     items = [
         item
         for item in SCENARIOS.values()

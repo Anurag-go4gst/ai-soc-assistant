@@ -4,11 +4,16 @@ from pydantic import BaseModel
 from app.demo import ec_actions
 from app.demo.ec_response import ExperienceCenterResponse
 from app.demo.ec_turn import UnknownFollowUpError, run_experience_center_turn
-from app.demo.scenarios import list_demo_scenarios, run_demo_scenario
+from app.demo.scenarios import (
+    list_demo_scenarios,
+    list_experience_center_scenarios,
+    run_demo_scenario,
+)
 from app.schemas.responses import PlaceholderResponse
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 demo_router = APIRouter(prefix="/demo/scenarios", tags=["demo-scenarios"])
+ec_catalog_router = APIRouter(prefix="/demo/experience-center", tags=["demo-experience-center"])
 ec_actions_router = APIRouter(prefix="/demo/ec-actions", tags=["demo-ec-actions"])
 
 
@@ -37,11 +42,26 @@ def list_scenarios() -> dict[str, list[str]]:
 
 @demo_router.get("")
 def list_demo_scenario_fixtures() -> dict[str, object]:
+    """Frozen ChatPanel contract. Do not add Flagship/Lab here."""
     scenarios = list_demo_scenarios()
     return {
         "demo_mode": True,
         "evidence_origin": "coe_synthetic_fixture",
         "no_live_customer_data": True,
+        "scenarios": scenarios,
+        "count": len(scenarios),
+    }
+
+
+@ec_catalog_router.get("/scenarios")
+def list_experience_center_catalog() -> dict[str, object]:
+    """EC /scenarios picker only. ChatPanel must not call this."""
+    scenarios = list_experience_center_scenarios()
+    return {
+        "demo_mode": True,
+        "evidence_origin": "coe_synthetic_fixture",
+        "no_live_customer_data": True,
+        "catalog": "experience_center",
         "scenarios": scenarios,
         "count": len(scenarios),
     }

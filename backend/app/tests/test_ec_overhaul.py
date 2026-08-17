@@ -40,7 +40,7 @@ def _reset_fsm() -> None:
 
 
 def test_registry_has_flagship_and_lab_scenarios() -> None:
-    pickable = S.list_demo_scenarios()
+    pickable = S.list_experience_center_scenarios()
     ids = {item["scenario_id"] for item in pickable}
     assert "s1_governed_splunk_investigation" in ids
     assert "mitre_mapping_requires_context" not in ids
@@ -49,7 +49,7 @@ def test_registry_has_flagship_and_lab_scenarios() -> None:
 
 
 def test_categories_match_plan_buckets() -> None:
-    categories = {item["category"] for item in S.list_demo_scenarios()}
+    categories = {item["category"] for item in S.list_experience_center_scenarios()}
     expected = {
         "Flagship",
         "Coordinated Firewall Incident",

@@ -77,9 +77,7 @@ export function EcInvestigationWorkspace() {
             onRun={load}
           />
           {envelope ? (
-            <p className="mt-3 text-xs text-slate-500">
-              Turn {envelope.ec_session_state.turn} · {envelope.route_source} · session {envelope.ec_session_state.session_id}
-            </p>
+            <p className="mt-3 text-xs text-slate-500">Investigation active</p>
           ) : null}
         </section>
 

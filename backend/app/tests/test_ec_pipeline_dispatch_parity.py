@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from app.demo.scenarios import SCENARIOS, list_demo_scenarios, run_demo_scenario
+from app.demo.scenarios import SCENARIOS, list_experience_center_scenarios, run_demo_scenario
 
 
-LEADERSHIP_IDS = {item["scenario_id"] for item in list_demo_scenarios()}
+LEADERSHIP_IDS = {item["scenario_id"] for item in list_experience_center_scenarios()}
 
 MCP_EXECUTED_IDS = {
     "firewall_deny_coordinated_attack",
@@ -57,7 +57,7 @@ def test_firewall_opener_has_visual_lanes() -> None:
 
 
 def test_list_demo_scenarios_leadership_order() -> None:
-    pickable = list_demo_scenarios()
+    pickable = list_experience_center_scenarios()
     flagship = [item for item in pickable if item["category"] == "Flagship"]
     assert flagship[0]["scenario_id"] == "s1_governed_splunk_investigation"
     assert len(flagship) == 7

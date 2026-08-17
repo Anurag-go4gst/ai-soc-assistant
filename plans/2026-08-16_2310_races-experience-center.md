@@ -5,11 +5,11 @@ status: active
 date: 2026-08-16
 canonical_plan: plans/2026-08-16_2310_races-experience-center.md
 loop_runner: plans/LOOP_RUNNER_races-experience-center.md
-revision: 5
-revision_date: 2026-08-16
+revision: 6
+revision_date: 2026-08-17
 ---
 
-# RACES Experience Center (rev 5 — loop plan)
+# RACES Experience Center (rev 6 — loop plan)
 
 **Evolve** the existing Experience Center into an isolated capability showcase of the frozen [`architecture.md`](../architecture.md) and the complete AI SOC product experience.
 
@@ -815,10 +815,21 @@ None blocking planning. Phase F UI tests may add `frontend/src/components/ec/*.t
   - **Depends on:** G4
   - **Evidence:**
 
+## Pre-G5 review (2026-08-17)
+
+Independent review found three correctness issues after D–G. Closed in R1–R4. **G5 remains unchecked. Plan status stays `active`.**
+
+- **R1 — scenario-list isolation.** `GET /demo/scenarios` is restored to the frozen ChatPanel contract (leadership, non-Flagship). Full catalog is `GET /demo/experience-center/scenarios` via `list_experience_center_scenarios()`. `ecClient` uses the EC catalog only. Regression: `test_ec_expanded_catalog_does_not_change_legacy_chatpanel_scenario_list`.
+- **R2 — Layer 1 identifiers.** Workspace chrome is `Investigation active`. Layer 1 DOM negatives for `ec_fixture_selected` / `experience_center_fixture` / `simulated_phase10_action`. Layer 2 still shows provenance badges.
+- **R3 — freeze vs baseline.** `test_races_freeze_files_unchanged_since_baseline` diffs `bf7c30468454fb20ceb6eeb1eda621b278523933...HEAD`. Detector helper is unit-tested without editing freeze files. Working-tree check retained.
+- **R4 — dirty file.** `backend/app/chat/detail_tools/__init__.py` restored; `git diff` empty.
+- **R-GATE evidence:** backend slice **185 passed**; frontend **24 passed**; `npm run build` ok; freeze `git diff --name-only bf7c304...HEAD` empty for ChatPanel / routes_chat / pipeline / responses / graph / planner / routing / routes_actions / mcp gate / spl_validator / architecture.md. Invariant 7/7 PASS. `PRE_G5_REVIEW_STATUS=PASS_READY_FOR_G5`.
+
 ## Drift log
 
 - 2026-08-16 rev 2: isolation tightened (EC-owned response + dedicated `/scenarios` workspace); evolve-not-rebuild; EC scenario policy provenance; three-layer UX; follow-ups must advance state.
 - 2026-08-16 rev 3: converted to loop plan; design-time invariant check PASS; live-path freeze (L0/L-A/L-B/G4); `run_demo_scenario` must remain PlaceholderResponse-compatible so `routes_chat.py` is never edited; pre-existing `app.demo` imports are not a license to expand.
 - 2026-08-16 rev 4: **F2 does not modify ChatPanel.tsx.** Flagships live on `/scenarios` only; existing ChatPanel picker stays. ChatPanel added to freeze files. Do not start B/C until L-A invariant-check PASS.
 - 2026-08-16 rev 5: Commit / PR / merge / build guidance; G5 user-gated PR; merge to master never implied.
-- 2026-08-17 D–G: F2 ChatPanel picker migration deferred (freeze). `list_demo_scenarios` includes `lab` tier so APP-01/DNS/OT lab ids appear. EC `execute_action` requires `APPROVED` (HIL). `PHASE_D_STATUS=PASS`; `PHASE_E_STATUS=PASS`; `PHASE_F_STATUS=PASS`; `PHASE_G_STATUS=PASS_READY_FOR_REVIEW`.
+- 2026-08-17 D–G: F2 ChatPanel picker migration deferred (freeze). EC `execute_action` requires `APPROVED` (HIL). `PHASE_D_STATUS=PASS`; `PHASE_E_STATUS=PASS`; `PHASE_F_STATUS=PASS`; `PHASE_G_STATUS=PASS_READY_FOR_REVIEW`.
+- 2026-08-17 pre-G5: E4 lab expansion leaked into frozen `GET /demo/scenarios`. R1 restored the ChatPanel list and moved Flagship+Lab to `GET /demo/experience-center/scenarios`. R2 removed Layer 1 internal ids. R3 freeze test now diffs `bf7c304...HEAD`. R4 dropped unrelated `detail_tools/__init__.py` dirt. G5 still unchecked.

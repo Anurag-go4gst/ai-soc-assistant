@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.demo.fixtures.registry import FLAGSHIP_SCENARIO_IDS
-from app.demo.scenarios import list_demo_scenarios
+from app.demo.scenarios import list_experience_center_scenarios
 
 
 LAB_IDS = {
@@ -21,7 +21,7 @@ LAB_IDS = {
 
 
 def test_e4_seven_flagships_and_lab_present() -> None:
-    pickable = list_demo_scenarios()
+    pickable = list_experience_center_scenarios()
     ids = {item["scenario_id"] for item in pickable}
     for scenario_id in FLAGSHIP_SCENARIO_IDS:
         assert scenario_id in ids, scenario_id

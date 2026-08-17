@@ -12,7 +12,7 @@ async function readJson<T>(response: Response, label: string): Promise<T> {
 }
 
 export async function listEcScenarios(): Promise<{ scenarios: EcScenarioSummary[]; count: number }> {
-  const response = await fetch(`${API_BASE_URL}/demo/scenarios`, { credentials: 'include' });
+  const response = await fetch(`${API_BASE_URL}/demo/experience-center/scenarios`, { credentials: 'include' });
   return readJson(response, 'EC scenario list');
 }
 
