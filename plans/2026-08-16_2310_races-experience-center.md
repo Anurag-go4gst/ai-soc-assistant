@@ -5,11 +5,11 @@ status: active
 date: 2026-08-16
 canonical_plan: plans/2026-08-16_2310_races-experience-center.md
 loop_runner: plans/LOOP_RUNNER_races-experience-center.md
-revision: 6
+revision: 7
 revision_date: 2026-08-17
 ---
 
-# RACES Experience Center (rev 6 — loop plan)
+# RACES Experience Center (rev 7 — loop plan)
 
 **Evolve** the existing Experience Center into an isolated capability showcase of the frozen [`architecture.md`](../architecture.md) and the complete AI SOC product experience.
 
@@ -809,15 +809,15 @@ None blocking planning. Phase F UI tests may add `frontend/src/components/ec/*.t
   - **Depends on:** G1
   - **Evidence:** Combined G4+flagship slice **91 passed**. Freeze-file `git diff --name-only` empty for ChatPanel, routes_chat, pipeline, graph, planner, routing, responses, routes_actions, mcp gate, spl_validator, architecture.md. Invariant check 7/7 PASS. `execute_action` now requires `APPROVED` (EC-only HIL tightening).
 
-- [ ] **G5** — Commit / PR (merge only if user asked)
+- [x] **G5** — Commit / PR (merge only if user asked)
   - **Do:** Follow § Commit / PR / merge / build. Phase-scoped commits should already exist. Push `feat/races-experience-center` if the user asked. Open or update the PR with freeze-file empty diffs, L-A PASS, and build evidence. **Do not merge to `master` unless the user explicitly asked.**
   - **Verify:** `git log --oneline feat/races-experience-center`; freeze `git diff master -- frontend/src/components/ChatPanel.tsx backend/app/api/routes_chat.py backend/app/chat/pipeline.py backend/app/schemas/responses.py` empty; PR body lists isolation pins; `cd frontend && npm run build` if frontend changed
   - **Depends on:** G4
-  - **Evidence:**
+  - **Evidence:** G5.1 pin: branch `feat/races-experience-center`, HEAD `6c88828ec2c651e1991cef180c6e04a00c8d6bda`, working tree clean (untracked `.cursor/hooks/.plan-create-requested` not committed), freeze vs `bf7c304...HEAD` empty. G5.2: `git push -u origin HEAD`; local == `origin/feat/races-experience-center` == `6c88828`. G5.3: Draft PR **#143** https://github.com/Anurag-go4gst/ai-soc-assistant/pull/143 base `master` head `feat/races-experience-center` `isDraft=true`. G5.4: `gh pr checks 143` → no checks; repo has no `.github/workflows` PR CI (existing Actions are Dependabot Graph Update on `master`) — classified environment/repo, not a RACES defect; 0 review comments. Independent review A–D: no production leakage requiring a fix; `ensure_executed_action` is fixture seeding; Layer 1 chrome is `Investigation active`; S1–S7 dispositions honest. G5.5: no code fixes. Final verify on `6c88828`: backend slice **185 passed**; frontend **24 passed**; `npm run build` PASS; freeze empty vs `bf7c304` and vs `master` for ChatPanel / routes_chat / pipeline / responses / graph / planner / routing / routes_actions / mcp gate / spl_validator / architecture.md; invariant 7/7 PASS. **Not merged.** Plan status stays `active` (canonical `done` is post-merge). `G5_STATUS=PASS_DRAFT_PR_READY_FOR_MERGE_DECISION`.
 
 ## Pre-G5 review (2026-08-17)
 
-Independent review found three correctness issues after D–G. Closed in R1–R4. **G5 remains unchecked. Plan status stays `active`.**
+Independent review found three correctness issues after D–G. Closed in R1–R4. **G5 checked 2026-08-17.** Draft PR #143 remains draft; plan status stays `active` until user merge.
 
 - **R1 — scenario-list isolation.** `GET /demo/scenarios` is restored to the frozen ChatPanel contract (leadership, non-Flagship). Full catalog is `GET /demo/experience-center/scenarios` via `list_experience_center_scenarios()`. `ecClient` uses the EC catalog only. Regression: `test_ec_expanded_catalog_does_not_change_legacy_chatpanel_scenario_list`.
 - **R2 — Layer 1 identifiers.** Workspace chrome is `Investigation active`. Layer 1 DOM negatives for `ec_fixture_selected` / `experience_center_fixture` / `simulated_phase10_action`. Layer 2 still shows provenance badges.
@@ -832,4 +832,5 @@ Independent review found three correctness issues after D–G. Closed in R1–R4
 - 2026-08-16 rev 4: **F2 does not modify ChatPanel.tsx.** Flagships live on `/scenarios` only; existing ChatPanel picker stays. ChatPanel added to freeze files. Do not start B/C until L-A invariant-check PASS.
 - 2026-08-16 rev 5: Commit / PR / merge / build guidance; G5 user-gated PR; merge to master never implied.
 - 2026-08-17 D–G: F2 ChatPanel picker migration deferred (freeze). EC `execute_action` requires `APPROVED` (HIL). `PHASE_D_STATUS=PASS`; `PHASE_E_STATUS=PASS`; `PHASE_F_STATUS=PASS`; `PHASE_G_STATUS=PASS_READY_FOR_REVIEW`.
-- 2026-08-17 pre-G5: E4 lab expansion leaked into frozen `GET /demo/scenarios`. R1 restored the ChatPanel list and moved Flagship+Lab to `GET /demo/experience-center/scenarios`. R2 removed Layer 1 internal ids. R3 freeze test now diffs `bf7c304...HEAD`. R4 dropped unrelated `detail_tools/__init__.py` dirt. G5 still unchecked.
+- 2026-08-17 pre-G5: E4 lab expansion leaked into frozen `GET /demo/scenarios`. R1 restored the ChatPanel list and moved Flagship+Lab to `GET /demo/experience-center/scenarios`. R2 removed Layer 1 internal ids. R3 freeze test now diffs `bf7c304...HEAD`. R4 dropped unrelated `detail_tools/__init__.py` dirt.
+- 2026-08-17 G5: Pushed `feat/races-experience-center` @ `6c88828`; Draft PR #143 vs `master`; no GitHub PR checks configured (not a product bug); adversarial review found no new RACES defects; G5.5 no code change; **not merged**.
