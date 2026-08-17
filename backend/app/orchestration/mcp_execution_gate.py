@@ -30,7 +30,7 @@ from app.orchestration.execution_confirmation import (
     build_execution_confirmation_review,
     resolve_execution_spl,
 )
-from app.orchestration.splunk_call_authorization import call_grant_from_validation, grants_match
+from app.orchestration.splunk_call_authorization import call_grant_from_tool_call, call_grant_from_validation, grants_match
 from app.orchestration.human_review import human_review, no_human_review
 from app.connectors.mcp.mcp_rbac import session_role_for_mcp_gate
 from app.orchestration.mcp_tool_selector import EXECUTION_ELIGIBLE_SKILLS, select_mcp_tool
@@ -39,6 +39,16 @@ from app.orchestration.spl_revision_hil import resolve_spl_revision_hil_reason
 
 RESULT_PREVIEW_CAP = 5
 READ_ONLY_EXECUTION_INTENTS = {"metadata_discovery", "identity_lookup"}
+
+
+def _hil_required_for_read_only(execution_intent: str) -> bool:
+    """Deterministic risk policy for the interactive HIL step on read-only
+    MCP tools. AUTH0 (exact-call authorization) is mandatory for every
+    read-only call regardless of this value — this only decides whether an
+    analyst must additionally confirm before execution. `identity_lookup`
+    (splunk_get_user_info) returns user-identity data and requires
+    confirmation; index/metadata/knowledge-object discovery does not."""
+    return execution_intent == "identity_lookup"
 
 
 def _mock_success_requires_hil() -> bool:
@@ -168,6 +178,10 @@ def evaluate_mcp_execution(
             selection=selection,
             registry=registry,
             telemetry=telemetry,
+            execution_intent=execution_intent,
+            rbac_role=session_role_for_mcp_gate(rbac_role),
+            execution_review_action=execution_review_action,
+            pending_execution=pending_execution,
         )
 
     if execution_intent == "saved_search_execution":
@@ -195,6 +209,7 @@ def evaluate_mcp_execution(
             pending_execution=pending_execution,
             catalogue_question_ref=catalogue_question_ref,
             catalogue_use_case_id=catalogue_use_case_id,
+            rbac_role=session_role_for_mcp_gate(rbac_role),
             telemetry=telemetry,
             registry=registry,
         )
@@ -555,8 +570,56 @@ def _execute_read_only_mcp_tool(
     selection: dict[str, Any],
     registry: Any,
     telemetry: Any,
+    execution_intent: str,
+    rbac_role: str | None,
+    execution_review_action: str | None,
+    pending_execution: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     selected_tool = str(selection["selected_mcp_tool"])
+    tool_arguments = _read_only_tool_arguments(selected_tool, trace_id=trace_id)
+    hil_required = _hil_required_for_read_only(execution_intent)
+    current_grant = call_grant_from_tool_call(
+        trace_id=trace_id,
+        selection=selection,
+        tool_arguments=tool_arguments,
+        rbac_role=rbac_role,
+        identity=rbac_role,
+        hil_required=hil_required,
+        execution_intent=execution_intent,
+        read_write_mode="read",
+    )
+    action = (execution_review_action or "").strip().lower()
+    if hil_required:
+        if action != "confirm":
+            review = human_review(
+                "read_only_execution_confirmation",
+                "analyst_confirmation_required",
+                "analyst",
+                ["confirm_execution", "reject_execution"],
+                (
+                    "Review the read-only Splunk call before it runs. "
+                    f"Tool: {selected_tool} on {selection['selected_mcp_server']}. "
+                    "Reply with Confirm to run it or Reject to cancel."
+                ),
+                required=True,
+            )
+            execution = _blocked_execution(selection, "requires_human_review", review["reason"])
+            execution["pending_execution_confirmation"] = {
+                "selected_mcp_server": selection["selected_mcp_server"],
+                "selected_mcp_tool": selection["selected_mcp_tool"],
+                "trace_id": trace_id,
+                "call_grant": current_grant,
+            }
+            telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=review["reason"])
+            return execution, review
+        if not pending_execution or not grants_match(pending_execution, current_grant):
+            review = build_exact_call_invalidated_review()
+            execution = _blocked_execution(selection, "requires_human_review", review["reason"])
+            execution["call_grant"] = current_grant
+            telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_blocked", reason=review["reason"])
+            return execution, review
+        # action == "confirm" and grant matched — proceed to execute below.
+
     started = perf_counter()
     telemetry.record_mcp_execution(
         trace_id,
@@ -578,7 +641,7 @@ def _execute_read_only_mcp_tool(
             return execution, review
         result = connector.call_tool(
             selected_tool,
-            _read_only_tool_arguments(selected_tool, trace_id=trace_id),
+            tool_arguments,
             server_name=str(selection["selected_mcp_server"]),
         )
     except NotImplementedError:
@@ -615,6 +678,7 @@ def _execute_read_only_mcp_tool(
         "duration_ms": duration_ms,
         "evidence_source": "live" if registry.mode == "registry" else "mock",
         "execution_status_label": "metadata_discovery_executed",
+        "call_grant": {**current_grant, "consumed": True},
     }
     telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_completed", result_count=execution["result_count"], duration_ms=duration_ms)
     review = no_human_review()
@@ -631,6 +695,7 @@ def _execute_saved_search_with_hil(
     pending_execution: dict[str, Any] | None,
     catalogue_question_ref: str | None,
     catalogue_use_case_id: str | None,
+    rbac_role: str | None,
     telemetry: Any,
     registry: Any,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -652,6 +717,27 @@ def _execute_saved_search_with_hil(
             ["choose_saved_search", "reject_execution"],
         )
         return _blocked_execution(selection, "requires_human_review", review["reason"]), review
+
+    tool_arguments = splunk_saved_search_tool_arguments(
+        saved_search_name=saved_name,
+        saved_search_app=saved_app,
+        trace_id=trace_id,
+    )
+    # AUTH0 is mandatory for saved-search execution, same as splunk_run_query.
+    # Mandatory analyst confirmation (below) remains orthogonal and additive —
+    # this closes the prior gap where confirmation existed without an
+    # exact-call grant, so a mutated name/app/arguments between propose and
+    # confirm went undetected.
+    current_grant = call_grant_from_tool_call(
+        trace_id=trace_id,
+        selection=selection,
+        tool_arguments=tool_arguments,
+        rbac_role=rbac_role,
+        identity=rbac_role,
+        hil_required=True,
+        execution_intent="saved_search_execution",
+        read_write_mode="read",
+    )
 
     if (execution_review_action or "").strip().lower() != "confirm":
         review = human_review(
@@ -676,15 +762,18 @@ def _execute_saved_search_with_hil(
             "selected_mcp_server": selection["selected_mcp_server"],
             "selected_mcp_tool": selection["selected_mcp_tool"],
             "trace_id": trace_id,
+            "call_grant": current_grant,
         }
         telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_requires_human_review", reason=review["reason"])
         return execution, review
 
-    tool_arguments = splunk_saved_search_tool_arguments(
-        saved_search_name=saved_name,
-        saved_search_app=saved_app,
-        trace_id=trace_id,
-    )
+    if not pending_execution or not grants_match(pending_execution, current_grant):
+        review = build_exact_call_invalidated_review()
+        execution = _blocked_execution(selection, "requires_human_review", review["reason"])
+        execution["call_grant"] = current_grant
+        telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_blocked", reason=review["reason"])
+        return execution, review
+
     started = perf_counter()
     telemetry.record_mcp_execution(
         trace_id,
@@ -739,6 +828,7 @@ def _execute_saved_search_with_hil(
         "duration_ms": duration_ms,
         "evidence_source": "live" if registry.mode == "registry" else "mock",
         "execution_status_label": "executed" if registry.mode == "registry" else "mock_executed",
+        "call_grant": {**current_grant, "consumed": True},
     }
     telemetry.record_mcp_execution(trace_id, event_type="mcp_execution_completed", result_count=execution["result_count"], duration_ms=duration_ms)
     review = no_human_review()
