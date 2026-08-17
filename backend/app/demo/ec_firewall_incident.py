@@ -140,7 +140,7 @@ def visual_lanes_for_scenario(
         hops = build_discovery_hops(discovery_only=False, include_search=True)
         lanes["coe_logic"] = {
             "title": "Firewall deny spike · governed template",
-            "body": "Routed to attack_discovery with governed firewall_deny_spike template on pgcil_soc/pgcil:firewall.",
+            "body": "Scenario fixture selected attack_discovery with governed firewall_deny_spike template on pgcil_soc/pgcil:firewall.",
         }
         lanes["mcp_console"] = {
             "lines": build_mcp_console_lines(hops),
@@ -289,7 +289,7 @@ def build_firewall_incident_scenarios() -> dict[str, Any]:
                 "svc_jump_ops indicate a likely account breach — escalate as P1 Critical."
             ),
             trace_explanation=[
-                "Routed to attack_discovery for firewall deny spike review.",
+                "Scenario fixture selected attack_discovery for firewall deny spike review.",
                 "Governed firewall_deny_spike template validated; Splunk MCP search returned top offender pairs.",
                 "Coordinated-attack assessment stays evidence-grounded — no auto-block or enforcement.",
             ],
@@ -353,7 +353,7 @@ def build_firewall_incident_scenarios() -> dict[str, Any]:
             candidate_spl=_FIREWALL_BASELINE_SPL,
             analyst_summary="Governed firewall baseline SPL with Environment KB slots resolved (pgcil_soc / pgcil:firewall) — candidate artifact ready for analyst review before execution.",
             trace_explanation=[
-                "Routed to spl_generation for governed template authoring.",
+                "Scenario fixture selected spl_generation for governed template authoring.",
                 "Environment KB resolved firewall_index → pgcil_soc and firewall_sourcetype → pgcil:firewall at load time.",
             ],
         ),
@@ -523,7 +523,7 @@ def build_firewall_incident_scenarios() -> dict[str, Any]:
                 "session review — all require change-window approval; no automated enforcement."
             ),
             trace_explanation=[
-                "Routed to knowledge_recall / ir_containment_advisory answer shape.",
+                "Scenario fixture selected knowledge_recall / ir_containment_advisory answer shape.",
                 "No SPL or MCP execution — response coordination guidance only.",
             ],
             source_evidence=[
@@ -647,6 +647,8 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
                     "label": "Click to Execute: Open P1 Incident Ticket",
                     "success_label": "P1 Ticket created",
                     "status": "SUCCESS",
+                    "provenance": "simulated_phase10_action",
+                    "production_side_effect": False,
                     "ticket_details": {
                         "ticket_id": "INC-2026-89412",
                         "priority": "P1 - CRITICAL",

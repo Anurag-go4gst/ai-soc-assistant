@@ -38,11 +38,27 @@ def _run(scenario_id: str):
     return run_demo_scenario_fixture(scenario_id)
 
 
+_INTERNAL_INTERACTIVE_ACTION_KEYS = frozenset({"provenance", "production_side_effect"})
+
+
+def _visitor_analyst_dump(analyst) -> dict:
+    payload = analyst.model_dump()
+    actions = payload.get("interactive_actions")
+    if isinstance(actions, list):
+        payload["interactive_actions"] = [
+            {key: value for key, value in item.items() if key not in _INTERNAL_INTERACTIVE_ACTION_KEYS}
+            if isinstance(item, dict)
+            else item
+            for item in actions
+        ]
+    return payload
+
+
 def _visible_text(response) -> str:
     payload = {
         "message": response.message,
         "analyst_summary": response.analyst_summary,
-        "analyst_response": response.analyst_response.model_dump() if response.analyst_response else None,
+        "analyst_response": _visitor_analyst_dump(response.analyst_response) if response.analyst_response else None,
     }
     return json.dumps(payload)
 
@@ -62,7 +78,7 @@ def _main_answer_text(response) -> str:
     payload = {
         "message": response.message,
         "analyst_summary": response.analyst_summary,
-        "analyst_response": response.analyst_response.model_dump() if response.analyst_response else None,
+        "analyst_response": _visitor_analyst_dump(response.analyst_response) if response.analyst_response else None,
         "foundation_sec_governed_analysis": governed,
     }
     return json.dumps(payload)
@@ -118,6 +134,8 @@ def test_firewall_incident_exposes_interactive_p1_ticket_action() -> None:
     assert action["label"] == "Click to Execute: Open P1 Incident Ticket"
     assert action["success_label"] == "P1 Ticket created"
     assert action["status"] == "SUCCESS"
+    assert action["provenance"] == "simulated_phase10_action"
+    assert action["production_side_effect"] is False
     details = action["ticket_details"]
     assert details["ticket_id"] == "INC-2026-89412"
     assert details["priority"] == "P1 - CRITICAL"
@@ -242,6 +260,21 @@ def test_firewall_baseline_template_is_environment_grounded_and_explained() -> N
     assert "downstream detections" in analyst.direct_answer_summary
     assert any("outputlookup firewall_baseline.csv" in item for item in analyst.analyst_checklist)
     assert any("deny_upper_bound" in item for item in analyst.key_fields)
+    visible = json.dumps(analyst.model_dump())
+    assert "SOC-SOP-AUTH-001" not in visible
+    assert "APP-01" not in visible
+    assert analyst.retrieved_playbook is None
+    assert analyst.sop_guidance is None
+    assert response.severity_decision is not None
+    assert not str(response.severity_decision.severity_label).startswith("P")
+    assert "P1" not in str(response.severity_decision.severity_label)
+    assert "P3" not in str(response.severity_decision.severity_label)
+    gov = response.governance_trace or response.experience_center_governance
+    assert gov is not None
+    assert gov.spl_validation_panel is not None
+    assert gov.spl_validation_panel["status"] != "SPL not required"
+    provenance = (response.control_plane_trace or {}).get("experience_center_provenance") or {}
+    assert provenance.get("route_source") == "ec_fixture_selected"
 
 
 def test_scada_telemetry_health_explains_unresolved_environment_mapping() -> None:
@@ -284,6 +317,8 @@ def test_sop_demo_does_not_generate_spl() -> None:
     assert response.analyst_response.escalation_criteria
     assert response.analyst_response.closure_conditions
     assert response.analyst_response.spl_code is None
+    assert response.severity_decision is not None
+    assert not str(response.severity_decision.severity_label).startswith("P")
 
 
 def test_mitre_visible_response_has_mapping_table_without_internal_labels() -> None:
@@ -498,7 +533,7 @@ def test_stage3jj3_success_after_failure_trace_uses_success_template() -> None:
     assert response.spl_template is not None
     assert response.spl_template["template_id"] == "auth_success_after_failure"
     assert response.severity_decision is not None
-    assert response.severity_decision.severity_label == "P2 High"
+    assert not str(response.severity_decision.severity_label).startswith("P")
     template_stage = _lineage_stage(response, "spl_template")
     assert template_stage.status == "complete"
     assert template_stage.technical_output["template_id"] == "auth_success_after_failure"

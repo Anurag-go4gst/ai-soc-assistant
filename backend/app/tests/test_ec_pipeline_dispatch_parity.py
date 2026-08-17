@@ -1,13 +1,13 @@
-"""Dispatch v2 + run_contract parity on Experience Center scenarios."""
+"""EC architecture-projection dispatch surfaces on Experience Center scenarios."""
 
 from __future__ import annotations
 
 import pytest
 
-from app.demo.scenarios import SCENARIOS, list_demo_scenarios, run_demo_scenario
+from app.demo.scenarios import SCENARIOS, list_experience_center_scenarios, run_demo_scenario
 
 
-LEADERSHIP_IDS = {item["scenario_id"] for item in list_demo_scenarios()}
+LEADERSHIP_IDS = {item["scenario_id"] for item in list_experience_center_scenarios()}
 
 MCP_EXECUTED_IDS = {
     "firewall_deny_coordinated_attack",
@@ -19,13 +19,17 @@ MCP_EXECUTED_IDS = {
 
 
 @pytest.mark.parametrize("scenario_id", sorted(LEADERSHIP_IDS))
-def test_leadership_scenarios_project_dispatch_v2(scenario_id: str) -> None:
+def test_leadership_scenarios_project_ec_architecture_authority(scenario_id: str) -> None:
     payload = run_demo_scenario(scenario_id)
     assert payload.get("intent_dispatch")
     assert payload.get("pipeline_dispatch")
     assert payload.get("plan_dispatch")
     assert payload.get("run_contract")
-    assert payload["plan_dispatch"].get("dispatch_authority") == "pipeline_dispatch_v2"
+    authority = payload["plan_dispatch"].get("dispatch_authority")
+    assert authority == "ec_architecture_projection"
+    assert authority != "pipeline_dispatch_v2"
+    provenance = payload.get("ec_provenance") or {}
+    assert provenance.get("dispatch_authority") != "pipeline_dispatch_v2"
 
 
 @pytest.mark.parametrize("scenario_id", sorted(MCP_EXECUTED_IDS & LEADERSHIP_IDS | MCP_EXECUTED_IDS))
@@ -53,6 +57,7 @@ def test_firewall_opener_has_visual_lanes() -> None:
 
 
 def test_list_demo_scenarios_leadership_order() -> None:
-    pickable = list_demo_scenarios()
-    assert pickable[0]["scenario_id"] == "firewall_deny_coordinated_attack"
-    assert len(pickable) == 10
+    pickable = list_experience_center_scenarios()
+    flagship = [item for item in pickable if item["category"] == "Flagship"]
+    assert flagship[0]["scenario_id"] == "s1_governed_splunk_investigation"
+    assert len(flagship) == 7

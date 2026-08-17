@@ -20,7 +20,7 @@ const baseNavItems = [
   { to: '/chat', label: 'Chat', icon: MessageSquareText },
   { to: '/llm-lab', label: 'Ask LLM', icon: Sparkles },
   { to: '/investigations', label: 'Investigations', icon: FileSearch },
-  { to: '/scenarios', label: 'Scenarios', icon: Activity },
+  { to: '/scenarios', label: 'Experience Center', icon: Activity },
   { to: '/knowledge', label: 'Knowledge', icon: DatabaseZap },
   { to: '/quality', label: 'Quality', icon: ClipboardCheck },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },

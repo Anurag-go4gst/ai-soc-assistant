@@ -40,12 +40,16 @@ from app.orchestration.human_review import human_review, no_human_review
 from app.orchestration.workflow_planner import plan_workflow
 from app.query_understanding.models import OutputTemplate, RequestedOutputType
 from app.query_understanding.parser import understand_query
-from app.risk.severity_policy import decide_severity
+from app.risk.severity_policy import (
+    ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL,
+    apply_gate_severity_cap,
+    decide_severity,
+)
 from app.routing.llm_plan_validator import validate_llm_advisory_plan
 from app.routing.route_adjudication import adjudicate_route
 from app.safeguards.spl_validator import validate_spl
 from app.skills.selector import select_skill_chain
-from app.spl.template_registry import get_spl_template, template_summary
+from app.spl.template_registry import get_spl_template, load_spl_templates, template_summary
 from app.synthesis.models import SynthesisStatus
 from app.threat.mitre_kb import map_mitre_for_use_case
 from app.use_cases.models import UseCaseSelection
@@ -66,6 +70,7 @@ EXPERIENCE_CENTER_PROVENANCE = {
     "live_mcp_called": False,
     "future_state_preview": False,
     "hallucinated_mcp_output": False,
+    "route_source": "ec_fixture_selected",
 }
 
 # Frontend-facing capture provenance for the MCP-transport honesty badge (plan B6).
@@ -115,10 +120,27 @@ class DemoScenario:
 
 
 def list_demo_scenarios() -> list[dict[str, Any]]:
+    """Legacy ChatPanel picker contract: leadership-tier, non-flagship only.
+
+    Flagship/lab expansion must not leak into GET /demo/scenarios. The Experience
+    Center catalog is ``list_experience_center_scenarios``.
+    """
     items = [
         item
         for item in SCENARIOS.values()
-        if item.fsm_step != 0 and getattr(item, "picker_tier", "leadership") == "leadership"
+        if item.fsm_step != 0
+        and getattr(item, "picker_tier", "leadership") == "leadership"
+        and getattr(item, "category", "") != "Flagship"
+    ]
+    return [_scenario_summary(item) for item in sorted(items, key=lambda item: item.demo_order)]
+
+
+def list_experience_center_scenarios() -> list[dict[str, Any]]:
+    """Full /scenarios catalog: 7 flagships plus lab/additional scenarios."""
+    items = [
+        item
+        for item in SCENARIOS.values()
+        if item.fsm_step != 0 and getattr(item, "picker_tier", "leadership") in {"leadership", "lab"}
     ]
     return [_scenario_summary(item) for item in sorted(items, key=lambda item: item.demo_order)]
 
@@ -472,6 +494,13 @@ def _run_demo_scenario_legacy(scenario_id: str) -> dict[str, Any]:
     mitre_mappings = map_mitre_for_use_case(selected_use_case.use_case_id if selected_use_case else None, source_refs)
     mitre_decision = _experience_center_mitre_decision(mitre_mappings, source_refs)
     severity_decision = decide_severity(selected_use_case.use_case_id if selected_use_case else None, structured_context, source_refs)
+    if not _ec_severity_should_assign(scenario, analyst_response):
+        severity_decision = apply_gate_severity_cap(
+            severity_decision,
+            allow_severity_assessment=False,
+        )
+        if isinstance(analyst_response, dict) and str(analyst_response.get("severity_label") or "").startswith("P"):
+            analyst_response["severity_label"] = ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL
     synthesis_status = SynthesisStatus(enabled=False, status="planned", reason="Experience Center uses captured Hugging Face/Foundation-sec output governed by deterministic policy; no live final synthesis is run.")
     answer_guard = AnswerGuardStatus(enabled=False, guard_status="planned", reason="Experience Center output is governed from captured Hugging Face/Foundation-sec output and fixture evidence; live Answer Guard execution is not run.")
     action_capability = action_capability_for(selected_use_case.use_case_id if selected_use_case else None, severity_decision.severity_label)
@@ -520,6 +549,8 @@ def _run_demo_scenario_legacy(scenario_id: str) -> dict[str, Any]:
         route_plan_shadow=None,
         selected_use_case=selected_use_case.model_dump() if selected_use_case else None,
         llm_sidecar_panel=_llm_sidecar_panel(llm_sidecars),
+        candidate_spl=candidate_spl,
+        spl_validation=spl_validation if isinstance(spl_validation, dict) else None,
     )
     response_mode = _experience_center_response_mode(scenario, context_sufficiency, review, spl_validation)
     synthesis_mode = "captured_huggingface_governed_output"
@@ -542,6 +573,17 @@ def _run_demo_scenario_legacy(scenario_id: str) -> dict[str, Any]:
         answer_guard=answer_guard.model_dump(),
     )
     control_plane_trace["experience_center_provenance"] = deepcopy(EXPERIENCE_CENTER_PROVENANCE)
+    phase10_actions = [
+        {
+            "id": item.get("id"),
+            "provenance": "simulated_phase10_action",
+            "production_side_effect": bool(item.get("production_side_effect")),
+        }
+        for item in (analyst_response.get("interactive_actions") or [])
+        if isinstance(item, dict) and item.get("provenance") == "simulated_phase10_action"
+    ]
+    if phase10_actions:
+        control_plane_trace["phase10_simulation"] = {"actions": phase10_actions}
     control_plane_trace["mitre_risk_rationale"] = llm_sidecars["mitre_risk_rationale"]
     control_plane_trace["resource_plan_shadow"] = llm_sidecars["resource_plan_shadow"]
     if llm_sidecars.get("mcp_tool_plan_shadow") is not None:
@@ -576,6 +618,7 @@ def _run_demo_scenario_legacy(scenario_id: str) -> dict[str, Any]:
         ),
         "user_query": _display_query(scenario),
         "selected_skill": scenario.expected_skill,
+        "route_source": "ec_fixture_selected",
         "tool_plan": _tool_plan(scenario),
         "confidence": scenario.confidence,
         "routing_mode": "deterministic_demo_fixture",
@@ -918,6 +961,18 @@ def _scenario_summary(scenario: DemoScenario) -> dict[str, Any]:
     }
 
 
+def _ec_severity_should_assign(scenario: DemoScenario, analyst_response: dict[str, Any]) -> bool:
+    if isinstance(analyst_response, dict) and analyst_response.get("response_profile") == "spl_only":
+        return False
+    if scenario.expected_skill in {"knowledge_recall", "spl_generation"}:
+        return False
+    if scenario.fsm_step == 0:
+        return False
+    if "requires_context" in scenario.scenario_id:
+        return False
+    return True
+
+
 def _tool_plan(scenario: DemoScenario) -> list[str]:
     if scenario.expected_skill == "knowledge_recall":
         return ["retrieve_governed_soc_kb", "structure_context", "context_sufficiency_gate"]
@@ -1074,24 +1129,28 @@ def _experience_center_response_mode(
     return "experience_center_fixture_answer"
 
 
+def _template_profile_for_scenario(scenario: DemoScenario) -> dict[str, Any] | None:
+    """Governed template validation_rules for real validate_spl — not an approval override."""
+    use_case_id = scenario.selected_use_case_id
+    if not use_case_id:
+        return None
+    template = get_spl_template(use_case_id)
+    if template is None:
+        template = next(
+            (item for item in load_spl_templates() if item.use_case_id == use_case_id),
+            None,
+        )
+    rules = getattr(template, "validation_rules", None) if template is not None else None
+    return dict(rules) if isinstance(rules, dict) and rules else None
+
+
 def _spl_payloads(scenario: DemoScenario, trace_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     if not scenario.candidate_spl:
         return None, None
-    validation = validate_spl(scenario.candidate_spl)
-    _ec_spl_override_ids = frozenset(
-        {
-            "firewall_deny_coordinated_attack",
-            "network_blast_radius_attacker_ip",
-        }
+    validation = validate_spl(
+        scenario.candidate_spl,
+        template_profile=_template_profile_for_scenario(scenario),
     )
-    if scenario.scenario_id in _ec_spl_override_ids and not validation["approved"]:
-        validation = {
-            **validation,
-            "approved": True,
-            "normalized_spl": scenario.candidate_spl,
-            "reject_reasons": [],
-            "warnings": list(validation.get("warnings") or []) + ["ec_fixture_template_policy_override"],
-        }
     provider = "spl_candidate_validation_generator" if scenario.saia_available else "deterministic_fallback_generator"
     capability_profile = {
         "environment_mode": scenario.environment_mode,
@@ -1483,8 +1542,8 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
     base = {
         "scenario_label": scenario.label,
         "status_badge": None,
-        "retrieved_playbook": playbook,
-        "sop_guidance": sop_guidance,
+        "retrieved_playbook": None,
+        "sop_guidance": None,
         "foundation_sec_analysis": None,
         "splunk_results_table": [],
         "mitre_mappings": [],
@@ -1498,9 +1557,17 @@ def _analyst_response(scenario: DemoScenario) -> dict[str, Any]:
     if fw_override is not None:
         return fw_override
 
+    from app.demo.fixtures.registry import analyst_override_for
+
+    override = analyst_override_for(scenario.scenario_id, base)
+    if override is not None:
+        return override
+
     if scenario.scenario_id == "failed_login_spike_app01":
         return attach_evidence_summary({
             **base,
+            "retrieved_playbook": playbook,
+            "sop_guidance": sop_guidance,
             "severity_label": "P2 High",
             "finding_title": "Brute-force authentication spike detected on APP-01",
             "one_sentence_finding": "COE Splunk evidence shows 101 failed logins across three source IPs against APP-01. Foundation-sec model signal supports a password-guessing pattern. V.AI SOC governs the case as P2 High because the evidence supports T1110.001. Compromise not confirmed: global distinct user count is not confirmed, and privileged-account impact, source ownership, and APP-01 criticality are not confirmed.",
@@ -2231,7 +2298,7 @@ SCENARIOS: dict[str, DemoScenario] = {
         candidate_spl=FAILED_SPIKE_SPL,
         analyst_summary="APP-01 auth evidence shows a failed-login spike candidate. MITRE T1110 is supported by the evidence; SOP guidance is attached for analyst review.",
         trace_explanation=[
-            "Routed to attack_discovery because the query asks to investigate failed authentication activity.",
+            "Scenario fixture selected attack_discovery because the query asks to investigate failed authentication activity.",
             "SPL candidate generation and validation are shown before the MCP search path.",
             "RAG SOP evidence is included only as SourceEvidence and StructuredContext.",
         ],
@@ -2452,7 +2519,7 @@ SCENARIOS: dict[str, DemoScenario] = {
         candidate_spl=DNS_BEACONING_SPL,
         analyst_summary="Beaconing-candidate SPL aggregates DNS query periodicity, rare-domain ratio, and bytes-out per source. Foundation-sec flags a C2 pattern; V.AI SOC keeps it candidate-only until jitter and domain reputation are confirmed.",
         trace_explanation=[
-            "Routed to attack_discovery for a cross-host DNS beaconing hunt beyond authentication.",
+            "Scenario fixture selected attack_discovery for a cross-host DNS beaconing hunt beyond authentication.",
             "Governed dns_beaconing_candidate template computes periodicity/jitter/rare-domain signals deterministically.",
             "Threat-intel SOC-KB guidance is attached as SourceEvidence; MITRE T1071.004 stays candidate-only pending jitter + reputation.",
         ],
@@ -2526,7 +2593,7 @@ SCENARIOS: dict[str, DemoScenario] = {
             "CVE correlation is honestly degraded because no vulnerability source is onboarded."
         ),
         trace_explanation=[
-            "Routed to attack_discovery for a multi-host critical-alert MITRE rollup.",
+            "Scenario fixture selected attack_discovery for a multi-host critical-alert MITRE rollup.",
             "Governed notable_critical_review_mitre template aggregates pgcil:edr alerts over 6h with technique annotations.",
             "Vulnerability-source degrade is explicit: no CVE rows fabricated; resource_plan marks vulnerability_source not_onboarded.",
         ],
@@ -2875,8 +2942,10 @@ SCENARIOS: dict[str, DemoScenario] = {
 }
 
 from app.demo.ec_firewall_incident import build_firewall_incident_scenarios
+from app.demo.fixtures.registry import all_flagship_demo_scenarios
 
 SCENARIOS.update(build_firewall_incident_scenarios())
+SCENARIOS.update(all_flagship_demo_scenarios())
 
 # Built after the registry so alias normalization sees every scenario. Fail-fast on
 # any alias/query collision (plan D1).
