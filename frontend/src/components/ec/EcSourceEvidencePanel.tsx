@@ -18,7 +18,9 @@ function provenanceLabel(provenance: string | null | undefined): string {
 function sourceTypeLabel(sourceType: string): string {
   switch (sourceType) {
     case 'splunk_mcp_fixture':
-      return 'Splunk MCP fixture';
+      return 'Splunk MCP · ad-hoc SPL';
+    case 'splunk_saved_search':
+      return 'Splunk MCP · saved search';
     case 'cisco_mcp_fixture':
       return 'Cisco MCP fixture';
     case 'kb_fixture':
@@ -28,6 +30,19 @@ function sourceTypeLabel(sourceType: string): string {
     default:
       return sourceType;
   }
+}
+
+function collectionMethodLabel(item: EcSourceEvidenceItem): string | null {
+  if (item.tool_name === 'splunk_run_saved_search' && item.query_or_request_summary) {
+    return `Collected via Splunk MCP saved search · ${item.query_or_request_summary}`;
+  }
+  if (item.tool_name === 'splunk_run_query' && item.executed_spl) {
+    return 'Collected via Splunk MCP ad-hoc SPL (`splunk_run_query`)';
+  }
+  if (item.tool_name) {
+    return `Collected via ${item.tool_name}`;
+  }
+  return null;
 }
 
 function formatPreviewValue(value: unknown): string {
@@ -50,7 +65,7 @@ export function EcSourceEvidencePanel({
     <section data-ec-section="source-evidence">
       <EcSectionHeading>Source evidence</EcSectionHeading>
       <p className="mt-2 text-sm text-slate-400">
-        Governed fixture rows surfaced for analyst review — not live customer telemetry.
+        How each evidence item was collected — saved search, ad-hoc SPL, or connector path.
       </p>
       <ul className="mt-4 space-y-3">
         {items.map((item) => {
@@ -58,6 +73,7 @@ export function EcSourceEvidencePanel({
           return (
             <li
               key={item.evidence_id}
+              data-evidence-id={item.evidence_id}
               data-ec-evidence-highlight={highlighted ? 'true' : undefined}
               className={
                 highlighted
@@ -81,6 +97,9 @@ export function EcSourceEvidencePanel({
                   </Badge>
                 ) : null}
               </div>
+              {collectionMethodLabel(item) ? (
+                <p className="mt-2 text-xs text-slate-400">{collectionMethodLabel(item)}</p>
+              ) : null}
               {(item.preview_rows ?? []).map((row, rowIndex) => (
                 <dl key={`${item.evidence_id}-row-${rowIndex}`} className="mt-3 space-y-1.5 text-sm">
                   {Object.entries(row).map(([key, value]) => (

@@ -17,7 +17,9 @@ def test_s4_initial_siem_coverage_no_detection_valid_outcome() -> None:
     coverage = envelope["ec_siem_coverage"]
     assert coverage["coverage_status"] == "PARTIAL"
     assert coverage["existing_content"][0]["status"] == "none"
-    assert envelope["source_evidence"][0]["evidence_id"] == "ev-s4-siem-check"
+    evidence_ids = [item["evidence_id"] for item in envelope["source_evidence"]]
+    assert "ev-s4-siem-check" in evidence_ids
+    assert "ev-s4-advisory" in evidence_ids
     assert envelope["ec_detection_opportunity"]["deploy_status"] == "not_deployed"
     assert envelope["candidate_spl"]["execution_eligible"] is False
     assert envelope["ec_investigation_scope"]["telemetry_sources"][1]["status"] == "SEPARATE_RESOURCE"

@@ -394,12 +394,14 @@ def _continue(
     journey_id: str,
     follow_up_id: str,
     stages: list[tuple[str, str, str]],
+    *,
+    header: str = "Continuing investigation",
 ) -> EcExecutionJourney:
     built = [
         _stage(f"{journey_id}-{idx}", title, semantic_type=semantic, duration_ms_hint=800, activity=[activity] if activity else None)
         for idx, (title, semantic, activity) in enumerate(stages, start=1)
     ]
-    return _journey(journey_id, built, kind="follow_up", follow_up_id=follow_up_id, header="Continuing investigation")
+    return _journey(journey_id, built, kind="follow_up", follow_up_id=follow_up_id, header=header)
 
 
 def _action(
@@ -434,7 +436,7 @@ def _ticket_action(follow_up_id: str) -> EcExecutionJourney:
         [
             ("Selecting ITSM connector", "plan", "Choosing the simulated ticket system…"),
             ("Connecting to ITSM", "execute", "Opening the EC ticket channel…"),
-            ("Recording ticket receipt", "evaluate", "No live ServiceNow change…"),
+            ("Recording ticket receipt", "evaluate", "Linking incident ticket to investigation evidence…"),
         ],
         header="Connecting to ITSM",
         system="ITSM",
@@ -484,6 +486,24 @@ def _firewall_action(follow_up_id: str) -> EcExecutionJourney:
         header="Connecting to firewall controller",
         system="Firewall",
         operation="change",
+    )
+
+
+def _agilus_action(follow_up_id: str) -> EcExecutionJourney:
+    stages = [
+        ("Selecting Agilus connector", "plan", "Agilus MCP analyzes vendor assets against version history…"),
+        ("Connecting to Agilus", "execute", "Opening the Agilus patch orchestration channel…"),
+        ("Approval required", "hil", "Patch apply waits for explicit analyst approval…"),
+        ("Submitting patch job", "execute", "Agilus MCP submits emergency patch job to target gateways…"),
+        ("Recording Agilus receipt", "wait", "Awaiting Agilus completion callback to update investigation…"),
+    ]
+    return _action(
+        f"act-agilus-{follow_up_id}",
+        follow_up_id,
+        stages,
+        header="Connecting to Agilus patch MCP",
+        system="Agilus",
+        operation="patch_submit",
     )
 
 
@@ -735,6 +755,18 @@ _INITIAL = {
     "s7_conflicting_ot_evidence": s7_initial,
 }
 
+# Auto-applied plan prereads must not replace the canonical 10-step initial animation.
+_PREREAD_ONLY_INITIAL: dict[str, frozenset[str]] = {
+    "s4_zero_day_no_playbook": frozenset({"show_advisory"}),
+}
+
+
+def _use_initial_journey(scenario_id: str, applied: list[str]) -> bool:
+    if not applied:
+        return True
+    preread = _PREREAD_ONLY_INITIAL.get(scenario_id)
+    return bool(preread and set(applied).issubset(preread))
+
 _FOLLOW_UPS: dict[str, dict[str, EcExecutionJourney]] = {
     "s1_governed_splunk_investigation": S1_FOLLOW_UP_JOURNEYS,
     "s2_ai_prompt_injection": S2_FOLLOW_UP_JOURNEYS,
@@ -755,6 +787,146 @@ _FOLLOW_UPS: dict[str, dict[str, EcExecutionJourney]] = {
         "verify_temporary_control": _firewall_action("verify_temporary_control"),
         "create_emergency_incident": _ticket_action("create_emergency_incident"),
         "create_change_ticket": _ticket_action("create_change_ticket"),
+        "request_agilus_patch": _agilus_action("request_agilus_patch"),
+        "restrict_vpn_access": _action(
+            "act-s4-restrict-vpn",
+            "restrict_vpn_access",
+            [
+                ("Selecting access policy connector", "plan", "Preparing emergency VPN access restriction…"),
+                ("Approval required", "hil", "Restrict VPN access waits for analyst approval…"),
+            ],
+            header="Access control — restrict VPN",
+            system="VPN policy",
+            operation="restrict_access",
+        ),
+        "enforce_mfa_vpn": _action(
+            "act-s4-mfa",
+            "enforce_mfa_vpn",
+            [
+                ("Selecting identity policy connector", "plan", "Preparing MFA enforcement policy…"),
+                ("Approval required", "hil", "MFA enforcement waits for analyst approval…"),
+            ],
+            header="Access control — enforce MFA",
+            system="Identity",
+            operation="enforce_mfa",
+        ),
+        "run_network_assessment": _continue("s4-net", "run_network_assessment", [
+            ("Connecting to CMDB MCP", "gather", "Listing internet-facing VPN gateways…"),
+            ("Probing gateway versions", "gather", "Reading EdgeGate software versions…"),
+            ("Recording exposure", "evaluate", "Computing partial exposure for vulnerable gateways…"),
+        ]),
+        "run_splunk_ioc_hunt": _continue("s4-splunk", "run_splunk_ioc_hunt", [
+            ("Checking Splunk detections", "gather", "splunk_get_knowledge_objects for advisory…"),
+            ("Running governed IOC hunt", "execute", "splunk_run_query across VPN telemetry…"),
+            ("Recording hunt results", "evaluate", "No exploitation hits in reviewed window…"),
+        ]),
+        "run_vuln_scan": _action(
+            "act-s4-vuln",
+            "run_vuln_scan",
+            [
+                ("Connecting to vulnerability scanner MCP", "plan", "Selecting authenticated scan target…"),
+                ("Running scan", "execute", "Scanning VPN-GW-01/02 for advisory condition…"),
+                ("Recording findings", "evaluate", "Critical condition confirmed on vulnerable gateways…"),
+            ],
+            header="Vulnerability scanner MCP",
+            system="Vuln scanner",
+            operation="scan",
+        ),
+        "check_soar_playbooks": _continue("s4-soar", "check_soar_playbooks", [
+            ("Querying SOAR registry", "gather", "Searching for VPN zero-day playbook…"),
+            ("Listing related playbooks", "evaluate", "PB-EDGE-PATCH and PB-IR-SEV1 recommended…"),
+        ]),
+        "show_incident_response_plan": _continue("s4-ir", "show_incident_response_plan", [
+            ("Querying SOC-KB", "gather", "Retrieving standard Sev-1 IR procedure…"),
+            ("Recording IR checklist", "evaluate", "Governed emergency IR steps attached to investigation…"),
+        ]),
+        "run_investigation": _continue(
+            "s4-inv-run",
+            "run_investigation",
+            [
+                ("Connecting to CMDB MCP", "gather", "Resolving internet-facing VPN inventory…"),
+                ("Identify VPN gateways", "gather", "12 internet-facing gateways returned…"),
+                ("Connecting to Device MCP", "gather", "Probing installed EdgeGate versions…"),
+                ("Check affected versions", "evaluate", "4 gateways in affected firmware range…"),
+                ("Connecting to Splunk MCP", "execute", "Governed IOC search across VPN telemetry…"),
+                ("Hunt exploitation IoCs", "evaluate", "No known IoC hits in reviewed window…"),
+                ("Correlate auth anomalies", "correlate", "Unusual privileged management auth on 2 gateways…"),
+                ("Agent adaptation", "evaluate", "Adding governed SIEM deep-dive for anomalous auth…"),
+            ],
+            header="Investigation in progress",
+        ),
+        "approve_investigation_vuln_scan": _continue(
+            "s4-agilus-approve",
+            "approve_investigation_vuln_scan",
+            [
+                ("Connecting to Agilus MCP", "plan", "Resolving governed Agilus endpoint…"),
+                ("Authenticating service account", "gather", "Verifying read-only patch-catalog scope…"),
+                ("Cross-referencing versions", "execute", "Mapping VPN-GW-01/02/05/08 to vendor catalog…"),
+                ("Emergency patch match", "evaluate", "EG-VPN-12.3.5-EMERG applies to outdated builds…"),
+                ("Check existing detections", "evaluate", "No threat-specific Splunk detection confirmed…"),
+                ("Check SOAR playbooks", "gather", "VPN zero-day playbook not found — related playbooks listed…"),
+                ("Retrieve IR guidance", "gather", "SOC-KB Sev-1 IR checklist attached…"),
+                ("Synthesizing findings", "outcome", "Investigation complete — review findings below…"),
+            ],
+            header="Agilus MCP — version and patch analysis",
+        ),
+        "skip_investigation_vuln_scan": _continue(
+            "s4-agilus-skip",
+            "skip_investigation_vuln_scan",
+            [
+                ("Check existing detections", "evaluate", "No threat-specific Splunk detection confirmed…"),
+                ("Check SOAR playbooks", "gather", "VPN zero-day playbook not found — related playbooks listed…"),
+                ("Retrieve IR guidance", "gather", "SOC-KB Sev-1 IR checklist attached…"),
+                ("Synthesizing findings", "outcome", "Investigation complete — review findings below…"),
+            ],
+            header="Completing investigation",
+        ),
+        "create_remediation_plan": _continue(
+            "s4-rem-plan",
+            "create_remediation_plan",
+            [
+                ("Reviewing investigation outcome", "evaluate", "4 vulnerable · 2 need deeper compromise review…"),
+                ("Mapping affected assets", "correlate", "VPN-GW-01, 02, 05, 08 in remediation scope…"),
+                ("Selecting compensating controls", "plan", "WAN restriction + step-up MFA for vulnerable gateways…"),
+                ("Drafting P1 incident package", "plan", "INC-48219 emergency incident template prepared…"),
+                ("Opening emergency change", "plan", "CHG-29173 with network approval gate…"),
+                ("Preparing Agilus patch job", "plan", "EG-VPN-12.3.5-EMERG for all 4 gateways…"),
+                ("Authoring Splunk monitoring", "plan", "Temporary exploitation alert for vulnerable gateways…"),
+                ("Drafting stakeholder email", "plan", "Network + SOC notification draft prepared…"),
+                ("Sequencing dependencies", "outcome", "Governed remediation plan ready for approval…"),
+            ],
+            header="Building remediation plan",
+        ),
+        "run_remediation": _continue(
+            "s4-rem-run",
+            "run_remediation",
+            [
+                ("Create P1 incident", "execute", "ITSM — INC-48219 opened…"),
+                ("Create emergency change", "execute", "ITSM — CHG-29173 awaiting network approval…"),
+                ("Restrict WAN management", "execute", "Network MCP — compensating control on 4 gateways…"),
+                ("Enforce step-up MFA", "execute", "Identity MCP — emergency MFA policy applied…"),
+                ("Submit emergency patch", "execute", "Agilus MCP — CHG-29173 linked to patch job…"),
+                ("Deploy monitoring", "execute", "Splunk MCP — temporary alert candidate deployed…"),
+                ("Notify stakeholders", "execute", "Email / Teams — network and SOC owners notified…"),
+                ("Verifying outcomes", "verify", "Confirming controls, tickets, and monitoring state…"),
+            ],
+            header="Remediation in progress",
+        ),
+        "apply_access_controls": _action(
+            "act-s4-access",
+            "apply_access_controls",
+            [
+                ("Preparing access restrictions", "plan", "VPN session policy + MFA enforcement…"),
+                ("Approval required", "hil", "Access controls wait for analyst approval…"),
+            ],
+            header="Access control policy",
+            system="Identity/VPN",
+            operation="policy",
+        ),
+        "deploy_splunk_monitoring": _continue("s4-monitor", "deploy_splunk_monitoring", [
+            ("Preparing Splunk alert", "plan", "Governed real-time monitoring search…"),
+            ("Validating SPL", "evaluate", "Alert candidate prepared — deployment requires approval…"),
+        ]),
     },
     "s5_cisco_hardening_remediation": {
         "show_hardening_policy": _continue("s5-policy", "show_hardening_policy", [
@@ -795,7 +967,12 @@ _FOLLOW_UPS: dict[str, dict[str, EcExecutionJourney]] = {
 
 def journey_for(scenario_id: str, applied_follow_up_ids: list[str] | None = None) -> EcExecutionJourney | None:
     applied = list(applied_follow_up_ids or [])
-    last = applied[-1] if applied else None
+    if _use_initial_journey(scenario_id, applied):
+        builder = _INITIAL.get(scenario_id)
+        if builder is None:
+            return None
+        return builder()
+    last = applied[-1]
     if last:
         if scenario_id == "s6_investigation_continuity" and last in {
             "scope_service_accounts",
@@ -807,7 +984,4 @@ def journey_for(scenario_id: str, applied_follow_up_ids: list[str] | None = None
         if found is not None:
             return found
         return _fallback_non_initial(last)
-    builder = _INITIAL.get(scenario_id)
-    if builder is None:
-        return None
-    return builder()
+    return None

@@ -12,7 +12,7 @@ from app.demo.ec_actions import execute_action
 from app.demo.ec_fsm_store import clear_all_for_tests
 from app.demo.ec_mcp_lifecycle_fixture import PRIMARY_ATTACKER_IP
 from app.demo.ec_turn import run_experience_center_turn
-from app.demo.fixtures.s3.pack import S3_SCENARIO_ID, _PROCESS_FIELDS
+from app.demo.fixtures.s3.pack import S3_QUERY, S3_SCENARIO_ID, _PROCESS_FIELDS
 from app.demo.scenarios import run_demo_scenario
 from app.main import app
 from app.schemas.responses import PlaceholderResponse
@@ -21,6 +21,11 @@ from app.schemas.responses import PlaceholderResponse
 def setup_function() -> None:
     clear_all_for_tests()
     clear_actions()
+
+
+def test_s3_query_names_confirmed_indicator_ip() -> None:
+    assert PRIMARY_ATTACKER_IP in S3_QUERY
+    assert "this IP" not in S3_QUERY
 
 
 def test_s3_independent_of_s1_and_placeholder_compatible() -> None:

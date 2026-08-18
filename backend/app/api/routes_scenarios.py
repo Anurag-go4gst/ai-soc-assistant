@@ -23,6 +23,7 @@ ec_actions_router = APIRouter(prefix="/demo/ec-actions", tags=["demo-ec-actions"
 class EcFollowUpBody(BaseModel):
     follow_up_id: str
     session_id: str | None = None
+    agent_payload: dict[str, Any] | None = None
 
 
 class EcActionBody(BaseModel):
@@ -114,6 +115,7 @@ def follow_up_experience_center_scenario(scenario_id: str, body: EcFollowUpBody)
             scenario_id,
             session_id=body.session_id,
             follow_up_id=body.follow_up_id,
+            agent_payload=body.agent_payload,
         )
     except UnknownFollowUpError as exc:
         raise HTTPException(status_code=404, detail="Unknown follow-up") from exc

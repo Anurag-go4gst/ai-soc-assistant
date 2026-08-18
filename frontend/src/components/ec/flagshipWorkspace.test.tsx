@@ -440,8 +440,8 @@ describe('Flagship Experience Center UX', () => {
     expect(container.querySelector('[data-ec-section="closure-summary"]')).toBeNull();
   });
 
-  it('renders credibility strip badges for S1 validator and S5 device MCP footnote', () => {
-    const { rerender } = render(
+  it('does not render the credibility strip in the main answer layer', () => {
+    render(
       <EcInvestigationAnswer
         envelope={{
           ...envelope,
@@ -469,20 +469,10 @@ describe('Flagship Experience Center UX', () => {
         }}
       />,
     );
-    expect(screen.getByText('SPL: production validate_spl')).toBeInTheDocument();
-    expect(screen.getByText('Fixture data · not live customer telemetry')).toBeInTheDocument();
-
-    rerender(
-      <EcInvestigationAnswer
-        envelope={{
-          ...envelope,
-          scenario_id: 's5_cisco_hardening_remediation',
-          ec_provenance: { live_llm_called: false, live_mcp_called: false, live_rag_called: false },
-        }}
-      />,
-    );
-    expect(screen.getByText(/Cisco device MCP \(simulated router API\)/)).toBeInTheDocument();
-    expect(screen.getByText(/Foundation-Sec 8B LLM is not used here/)).toBeInTheDocument();
+    expect(screen.queryByText('SPL: production validate_spl')).not.toBeInTheDocument();
+    expect(screen.queryByText('Fixture data · not live customer telemetry')).not.toBeInTheDocument();
+    expect(screen.queryByText('Live model: off')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-ec-section="credibility-strip"]')).toBeNull();
   });
 
   it('highlights source evidence after show_hardening_policy chip selection', () => {

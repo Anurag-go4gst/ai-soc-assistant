@@ -20,6 +20,7 @@ _ALLOWED_KINDS = frozenset(
         "firewall_verify_rule",
         "cisco_get_version",
         "cisco_upgrade",
+        "agilus_patch_submit",
         "iam_disable",
         "edr_isolate",
         "notify",
@@ -150,6 +151,8 @@ def execute_action(
             idempotency_key = str(extra.get("idempotency_key") or action_id)
         elif kind in {"firewall_block", "firewall_remove_whitelist"}:
             pass
+        elif kind == "agilus_patch_submit":
+            pass
         else:
             record["state"] = "EXECUTED"
             record["production_side_effect"] = False
@@ -169,6 +172,31 @@ def execute_action(
                     record["provenance"] = "ec_allowlisted_email"
             else:
                 record["state"] = "FAILED"
+            return _to_model(record)
+    if kind == "agilus_patch_submit":
+        job_id = str(extra.get("agilus_job_id") or "AGILUS-JOB-8842")
+        patch_id = str(extra.get("patch_id") or "EG-VPN-12.3.5-EMERG")
+        targets = list(extra.get("targets") or [])
+        ticket = extra.get("ticket") if isinstance(extra.get("ticket"), dict) else {}
+        ticket_id = str(ticket.get("id") or ticket.get("ticket_id") or "CHG-ZD-AGILUS-001")
+        with _lock:
+            record = _require(action_id)
+            record["production_side_effect"] = False
+            record["state"] = "AWAITING_EXTERNAL_RESPONSE"
+            record["provenance"] = "simulated_phase10_action"
+            record["receipt"] = {
+                "status": "SUBMITTED",
+                "production_side_effect": False,
+                "provenance": "simulated_agilus_mcp",
+                "agilus_job_id": job_id,
+                "patch_id": patch_id,
+                "targets": targets,
+                "ticket_id": ticket_id,
+                "summary": (
+                    f"Agilus patch job {job_id} submitted for {', '.join(targets) or 'target gateways'}. "
+                    f"Change ticket {ticket_id} created. Awaiting Agilus completion callback."
+                ),
+            }
             return _to_model(record)
     from app.demo import ec_soar
 
@@ -249,12 +277,13 @@ def _simulated_receipt(kind: str, extra: dict[str, Any]) -> dict[str, Any]:
     ticket = extra.get("ticket") if isinstance(extra.get("ticket"), dict) else {}
     if kind.startswith("ticket"):
         ticket_id = ticket.get("ticket_id") or ticket.get("id") or "EC-SIM"
+        ticket_record = {**ticket, "ticket_id": ticket_id, "id": ticket_id}
         return {
             "status": "SUCCESS",
             "production_side_effect": False,
             "provenance": "simulated_phase10_action",
-            "summary": f"Simulated ticket {ticket_id} recorded. No live ServiceNow change.",
-            "ticket": ticket,
+            "summary": f"Incident ticket {ticket_id} created and linked to this investigation.",
+            "ticket": ticket_record,
         }
     return {
         "status": "SUCCESS",
@@ -350,6 +379,14 @@ def _draft_from_extra(kind: str, extra: dict[str, Any]) -> dict[str, Any] | None
             "indicator": str(soar.get("indicator") or extra.get("indicator") or ""),
             "action": str(soar.get("action") or extra.get("requested_action") or "block"),
             "reason": str(soar.get("reason") or extra.get("reason") or ""),
+        }
+    if kind == "agilus_patch_submit":
+        ticket = extra.get("ticket") if isinstance(extra.get("ticket"), dict) else {}
+        return {
+            "patch_id": str(extra.get("patch_id") or ""),
+            "targets": list(extra.get("targets") or []),
+            "agilus_job_id": str(extra.get("agilus_job_id") or ""),
+            "ticket_id": str(ticket.get("id") or ticket.get("ticket_id") or ""),
         }
     return None
 
