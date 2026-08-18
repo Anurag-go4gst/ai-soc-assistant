@@ -618,11 +618,11 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
   - **Depends on:** 15
   - **Evidence:** vitest ec + ecOperationalLink → 32 passed; `npm run build` → PASS.
 
-- [ ] **18** — Push branch and open PR — **STOP; do not merge**
+- [x] **18** — Push branch and open PR — **STOP; do not merge**
   - **Do:** Push `feat/ec-experience-center-defect-remediation`; open a PR against `master` using the PR body template with every gate's output pasted; verify all 9 PR conditions; then **stop and hand to the owner**. The executing agent must not merge, must not `gh pr merge`, and must not mark the plan Done.
   - **Verify:** `gh pr view --json url,state` returns an open PR; PR body contains all pasted gate outputs and the `EC_DEFECT_REMEDIATION_STATUS` table filled in; `sha256sum architecture.md` unchanged. Final line of Evidence must read `AWAITING OWNER MERGE APPROVAL`.
   - **Depends on:** 16, 17
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** PR https://github.com/Anurag-go4gst/ai-soc-assistant/pull/148 open; gates pasted in PR body; `sha256sum architecture.md` = `c1c4ba8a88d8f245752188a76442102978eceb0c1bdb410717b789649fb9a034`. **AWAITING OWNER MERGE APPROVAL**
 
 ## Invariant check matrix (run at item 15 and before each commit)
 
