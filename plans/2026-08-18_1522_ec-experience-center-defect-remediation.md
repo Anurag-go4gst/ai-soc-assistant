@@ -318,7 +318,7 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
 
 ## Checklist
 
-- [ ] **0** — Plan audit, branch, and pre-existing-failure baseline capture
+- [x] **0** — Plan audit, branch, and pre-existing-failure baseline capture
   - **Do:**
     1. `.cursor/hooks/audit-plan-discipline.sh plans/2026-08-18_1522_ec-experience-center-defect-remediation.md` — fix any `GAP:`
     2. `git checkout -b feat/ec-experience-center-defect-remediation` from `master`
@@ -331,9 +331,9 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
        Paste the full failure list into Evidence. This is the reference item 16 compares against.
   - **Verify:** audit exit 0; `git branch --show-current` = `feat/ec-experience-center-defect-remediation`; Evidence contains the two known failure node IDs and `2 failed, 11 passed`
   - **Depends on:** none
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** audit exit 0 (0 gap). Branch `feat/ec-experience-center-defect-remediation` @ `8093a75`. Baseline: `test_races_freeze_files_unchanged_since_baseline` (line 142), `test_g2_layer1_workspace_does_not_interpolate_internal_ids` (line 46) → **2 failed, 11 passed**.
 
-- [ ] **1** — Add `source_evidence` to the EC TypeScript contract
+- [x] **1** — Add `source_evidence` to the EC TypeScript contract
   - **Do:** In [`frontend/src/components/ec/types.ts`](../frontend/src/components/ec/types.ts) add:
     ```ts
     export interface EcSourceEvidenceItem {
@@ -349,9 +349,9 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
     **This is frontend types only.** The backend already emits `source_evidence` on the EC envelope (measured: S5 turn 0 returns `['ev-s5-breach','ev-s5-initial-version']`). Do **not** edit `backend/app/schemas/responses.py` — Hard STOP. Do not reuse `frontend/src/types/api.ts::SourceEvidenceEnvelope`; the EC types file is self-contained by design.
   - **Verify:** `cd frontend && npm run build`
   - **Depends on:** 0
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `npm run build` → PASS. Added `EcSourceEvidenceItem` + `source_evidence` on `ExperienceCenterResponse` in `types.ts`.
 
-- [ ] **2** — Layer-1 `EcSourceEvidencePanel`
+- [x] **2** — Layer-1 `EcSourceEvidencePanel`
   - **Do:** Add `frontend/src/components/ec/EcSourceEvidencePanel.tsx`. Render one card per `EcSourceEvidenceItem`: `source_name` as the card title, each `preview_rows` entry as key/value lines, and a provenance badge. Root element carries `data-ec-section="source-evidence"`. Accept an optional `highlightEvidenceId?: string | null` prop; when it matches `evidence_id`, set `data-ec-evidence-highlight="true"` and a ring class (mirror the highlight styling already in `EcActionReadinessPanel`).
     **Exact enum values measured in the fixtures — do not invent others:**
     - `provenance` ∈ `experience_center_fixture` | `simulated_mcp` | `ec_scenario_policy`
@@ -359,22 +359,22 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
     Unknown values must render the raw string, never crash.
   - **Verify:** new `frontend/src/components/ec/EcSourceEvidencePanel.test.tsx` renders a `kb_fixture` item whose `preview_rows[0].rule` is `A compromised device running version 14 must be upgraded to version 15` and asserts that string is in the DOM. `cd frontend && npm run test -- src/components/ec/EcSourceEvidencePanel.test.tsx`
   - **Depends on:** 1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `npm run test -- src/components/ec/EcSourceEvidencePanel.test.tsx` → 1 passed; policy rule string in DOM.
 
-- [ ] **3** — Wire evidence panel into the SOC answer
+- [x] **3** — Wire evidence panel into the SOC answer
   - **Do:** In [`EcInvestigationAnswer.tsx`](../frontend/src/components/ec/EcInvestigationAnswer.tsx) render `<EcSourceEvidencePanel />` inside Layer 1 when `envelope.source_evidence?.length`. Placement: **after** the important-evidence block (`analyst.important_evidence`, currently read at line 65) and **before** the collapsible scope section. It must be inside `data-ec-layer="soc-answer"`.
   - **Verify:** `cd frontend && npm run test -- src/components/ec/flagshipWorkspace.test.tsx` with a mock envelope carrying a `kb_fixture` item; assert the rule text is inside `[data-ec-layer="soc-answer"]`
   - **Depends on:** 2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `npm run test -- src/components/ec/flagshipWorkspace.test.tsx` → `renders source evidence inside the SOC answer layer` PASS.
 
-- [ ] **4** — Closure summary panel
+- [x] **4** — Closure summary panel
   - **Do:** Add `EcClosureSummaryCard` as an exported component **inside [`EcInvestigationQuality.tsx`](../frontend/src/components/ec/EcInvestigationQuality.tsx)** (single location — do not create a new file). It takes `summary: string` and renders `data-ec-section="closure-summary"`. Render it from `EcInvestigationAnswer.tsx` in Layer 1 when `envelope.ec_investigation_outcome?.closure_summary` is non-empty. Add `closure_summary?: string | null` to the outcome type in `types.ts` if absent.
     **Scope note:** the chip is `generate_closure_summary` in S1, S2, S3, S5, S6, S7. **S4 has no such chip** — it uses `generate_executive_summary` and is out of scope for this item. Do not add a chip to S4.
   - **Verify:** `cd frontend && npm run test -- src/components/ec/` — a mock envelope with `closure_summary` renders the text; without it, `[data-ec-section="closure-summary"]` is absent
   - **Depends on:** 3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `npm run test -- src/components/ec/flagshipWorkspace.test.tsx` → closure summary present/absent test PASS; `npm run build` PASS.
 
-- [ ] **5** — S5 honest initial narrative (D2)
+- [x] **5** — S5 honest initial narrative (D2)
   - **Do:** In [`backend/app/demo/fixtures/s5/pack.py`](../backend/app/demo/fixtures/s5/pack.py) `build_s5_turn()`:
     - `found=` is currently a static f-string `"Policy applies because the device is affected, current_version={version}, and the breach condition is met."`. Make it **conditional on `"show_hardening_policy" in applied`**: before policy, state only breach + `current_version=14` and that policy applicability is not yet established; after policy, the current text is correct.
     - `assessment=` currently asserts "a compromised device running version 14 must be upgraded to version 15" on turn 0. Apply the same conditional split.
@@ -391,9 +391,9 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
     ```
     plus `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_s5_cisco_hardening_remediation.py -q` → 0 failed
   - **Depends on:** 0
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** item-5 verify script OK; `pytest app/tests/test_s5_cisco_hardening_remediation.py -q` → 5 passed.
 
-- [ ] **6** — S5 missing_evidence / state / readiness agreement (D3, D4, D5)
+- [x] **6** — S5 missing_evidence / state / readiness agreement (D3, D4, D5)
   - **Do:** Enforce the **Governing invariant**. Three edits, all required:
     1. **`pack.py` `_base_outcome()`** — remove `"cisco.get_version"` from the initial `missing_evidence` list. Rationale (locked user decision): `ev-s5-initial-version` is added unconditionally at `pack.py:200` and `cisco_version` is set `OBTAINED` at `pack.py:202`, so the version genuinely *is* obtained on turn 0. The readiness row is correct; the missing list was the lie. **Do not defer the initial version evidence** — that would contradict the locked decision and `S5_INITIAL_TITLES[5]` "Version 14 identified".
     2. **`pack.py` `_apply()`, `check_maintenance_window` branch (line ~113)** — add the missing filter, matching the pattern already used for policy and version:
@@ -422,9 +422,9 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
     print('OK')"
     ```
   - **Depends on:** 5
-  - **Evidence:** _(fill when done; state which of the three edits changed which surface)_
+  - **Evidence:** item-6 verify script OK. Edit 1: `_base_outcome()` dropped `cisco.get_version` from missing list. Edit 2: maintenance branch filters missing_evidence. Edit 3: `build_s5_action_readiness` sets version row OBTAINED unconditionally.
 
-- [ ] **7** — S5 named follow-up journeys (D11)
+- [x] **7** — S5 named follow-up journeys (D11)
   - **Do:** In [`ec_journeys.py`](../backend/app/demo/ec_journeys.py), add five entries to `_FOLLOW_UPS["s5_cisco_hardening_remediation"]` (currently at line ~758, holding only the five action chips): `show_hardening_policy`, `check_current_version`, `check_maintenance_window`, `update_incident`, `generate_closure_summary`. Build them with the existing `_continue(...)` helper (same shape as the `s6_investigation_continuity` entries at line ~766) with scenario-specific stage titles — not the generic `_fallback_non_initial`. The `show_hardening_policy` journey's stage titles must mention the hardening policy / knowledge source.
   - **Verify:**
     ```bash
@@ -439,9 +439,9 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
     ```
     plus `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_s5_cisco_hardening_remediation.py -q` → 0 failed
   - **Depends on:** 5
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** item-7 verify script OK (5 named follow-ups); s5 pytest 5 passed.
 
-- [ ] **8** — S5 initial journey / policy step alignment
+- [x] **8** — S5 initial journey / policy step alignment
   - **Do:** In `ec_journeys.py`, `S5_INITIAL_TITLES` (line ~52) and `s5_initial()` (line ~263) currently claim policy retrieval on the initial turn: `titles[6] = "Retrieving hardening policy"` with activity `"Retrieving EC hardening policy…"`, and `titles[7] = "Evaluating policy applicability"`. **Reword both to a planning/pending framing** (e.g. "Identifying applicable hardening policy source" / "Deferring policy applicability to analyst review") so nothing claims the policy was obtained.
     **Structural trap — read before editing:** `S5_INITIAL_TITLES` is a 10-element tuple indexed positionally as `titles[0]`…`titles[9]` inside `s5_initial()`. **Reword in place; do not delete entries.** Deleting one shifts every later index and raises `IndexError`. Tuple length must stay 10 and the `specs` list must stay 10 entries.
     Leave `titles[4]` ("Checking R-17 version") and `titles[5]` ("Version 14 identified") **unchanged** — the version probe is honest per the locked decision and `test_s5_initial_journey_titles_disclose_version_14_as_fixture_replay` pins `outcome_change="current_version=14"`.
@@ -458,9 +458,9 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
     ```
     plus `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_s5_cisco_hardening_remediation.py -q` → 0 failed
   - **Depends on:** 7, 19
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** item-8 verify script OK; s5 pytest 5 passed.
 
-- [ ] **19** — S5 Cisco upgrade action journey shows HIL (A1)
+- [x] **19** — S5 Cisco upgrade action journey shows HIL (A1)
   - **Do:** In [`ec_journeys.py`](../backend/app/demo/ec_journeys.py) `_cisco_action()` (~line 490), non-verify branch currently: Select → Connect → Record receipt. **Mirror `_firewall_action` non-verify** by inserting a third stage before receipt:
     ```python
     ("Approval required", "hil", "No production device change until Execute…"),
@@ -476,9 +476,9 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
     ```
     plus extend `test_s5_cisco_hardening_remediation.py` (same file — gate allowlist) asserting `execute_upgrade` journey includes a `hil` stage.
   - **Depends on:** 7
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** item-19 verify OK; `test_s5_execute_upgrade_journey_includes_hil_stage` added; s5 pytest 5 passed.
 
-- [ ] **20** — Surface credibility markers (B3)
+- [x] **20** — Surface credibility markers (B3)
   - **Do:** Add `EcCredibilityStrip` exported from [`EcInvestigationQuality.tsx`](../frontend/src/components/ec/EcInvestigationQuality.tsx) (same file family as item 4 — **no new top-level file**). Render from [`EcInvestigationAnswer.tsx`](../frontend/src/components/ec/EcInvestigationAnswer.tsx) at the **bottom of Layer 1** (`data-ec-section="credibility-strip"`), compact badges not a wall of negation:
     1. `ec_provenance.live_llm_called` / `live_mcp_called` / `live_rag_called` — show `Live model: off` / `Live MCP: off` / `Live RAG: off` when false (measured default on all flagships).
     2. When `envelope.ec_spl_governance?.validation?.provenance === 'production_validator_read_only'` **or** `envelope.ec_provenance?.production_validator_read_only === true` — badge `SPL: production validate_spl`.
@@ -491,9 +491,9 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
     **No new backend fields.** Read only fields already on `ExperienceCenterResponse` / `ec_provenance` / `ec_spl_governance`.
   - **Verify:** vitest in `src/components/ec/` — mock S1 envelope shows `production validate_spl` badge; mock S5 shows device-MCP vs Foundation-Sec distinction; `grep -rn production_validator_read_only frontend/src/components/ec/EcInvestigationAnswer.tsx` matches
   - **Depends on:** 3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** vitest `renders credibility strip badges for S1 validator and S5 device MCP footnote` PASS; `EcCredibilityStrip` wired in `EcInvestigationAnswer.tsx`.
 
-- [ ] **21** — Believable journey activity copy (C1)
+- [x] **21** — Believable journey activity copy (C1)
   - **Do:** In [`ec_journeys.py`](../backend/app/demo/ec_journeys.py) `_LLM_ACTIVITY` and per-scenario `InitialStepSpec.activity` / `_cisco_action` / S1 saved-search stages: **replace CIO-visible demo-tell substrings** with believable operator copy. Relocate provenance to item-20 badges and existing Layer-2 provenance — do **not** remove honesty, **relocate** it.
     **Scope is every journey reachable from `journey_for()` — initial AND follow-up/action journeys.** Measured: `ec_journeys.py` contains **11** `Replaying` occurrences; only 3 sit on initial journeys. The rest are on follow-up/action journeys the visitor also watches, including `_cisco_action` line ~500 (`"Replaying cisco.get_version…"`) and lines ~613 / ~658 / ~685 / ~697. An initial-journey-only edit leaves the action animation full of demo tells.
 
@@ -529,7 +529,7 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
     ```
     plus `pytest app/tests/test_s1_governed_splunk_investigation.py app/tests/test_s5_cisco_hardening_remediation.py -q` → 0 failed (journey title pins may need title-only updates if tests assert exact activity strings — update **tests only** to match new copy, never weaken assertions)
   - **Depends on:** 8, 19, 20
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** journey gate OK journeys checked: 58; `pytest test_s1 + test_s5` → 23 passed.
 
 - [ ] **9** — Continue-chip UX: keep the answer visible (D7)
   - **Do:** In [`EcInvestigationWorkspace.tsx`](../frontend/src/components/ec/EcInvestigationWorkspace.tsx) line ~162, `keepAnswer` is currently `isActionChip(chip)` (`chip.group === 'action' || chip.leads_to_action`, line 35). Extend it so **evidence continue chips also keep the answer**: a chip whose `follow_up_id` starts with `show_` or `check_` and which is **not** an action chip gets `keepAnswer: true`. These use the existing action-progress slot (`setActionProgress`, line 91) rather than resetting `revealed` at line 168. Action chips keep their current behaviour exactly.
