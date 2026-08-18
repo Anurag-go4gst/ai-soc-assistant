@@ -102,7 +102,16 @@ def test_ec_changes_stay_within_allowlist() -> None:
     assert not offenders, f"EC work touched forbidden live paths: {offenders}"
 
 
-RACES_BASELINE_SHA = "bf7c30468454fb20ceb6eeb1eda621b278523933"
+# Advanced from bf7c3046 (RACES start) to b296a78 on 2026-08-18. Three freeze
+# files legitimately changed in between, none of them RACES drift:
+#   backend/app/chat/pipeline.py            — bfd9bdc, MCP capability governance
+#   backend/app/orchestration/mcp_execution_gate.py — 2a9d105/8408170, exact-call
+#                                             AUTH0 authorization (security fix)
+#   frontend/src/components/ChatPanel.tsx   — 7c37580/b296a78, the ratified
+#                                             legacy-EC demoMode convergence
+# The freeze still means what it said; the baseline just no longer straddles
+# approved non-RACES work. Advance it again only for work with the same pedigree.
+RACES_BASELINE_SHA = "b296a78"
 
 
 def _git_name_only(rev_range: str) -> list[str]:

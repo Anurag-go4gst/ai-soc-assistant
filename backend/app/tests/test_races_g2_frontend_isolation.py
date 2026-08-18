@@ -43,7 +43,15 @@ def test_g2_production_demo_client_keeps_legacy_scenario_list() -> None:
 
 def test_g2_layer1_workspace_does_not_interpolate_internal_ids() -> None:
     text = (FRONTEND / "components" / "ec" / "EcInvestigationWorkspace.tsx").read_text(encoding="utf-8")
-    assert "Session active" in text
+    # The original positive assertion looked for "Session active", a string that has
+    # never existed in this component or anywhere under frontend/src in any commit
+    # (`git log -S` across --all returns nothing) — it was wrong when written in
+    # 68f9a1c, so this test has never passed. What G2 actually protects is the four
+    # negative assertions below: no internal identifier may be interpolated into
+    # analyst-visible copy. The positive half is restored against the affordance the
+    # workspace really renders, so the test still fails if the live-progress surface
+    # is removed rather than asserting a phantom.
+    assert "Running governed investigation pipeline" in text
     assert "ec_fixture_selected" not in text
     assert "route_source" not in text
     assert "experience_center_fixture" not in text

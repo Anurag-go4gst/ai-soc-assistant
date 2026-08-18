@@ -288,6 +288,23 @@ def maybe_enrich_t4_semantic(
 ) -> ResolvedQueryContract:
     """Return deterministic contract unless T4 + flag-on + CALL_T4 + a valid bounded hop."""
     if not settings.ai_soc_t4_semantic_understanding_enabled:
+        # T1–T3 deferred an unresolved referent to a hop that will not run this
+        # turn. Deferral is a handoff, and a handoff to a disabled consumer drops
+        # the signal: without this the suppressed clarification is simply lost and
+        # the turn plans against a query nobody resolved. Same visible degradation
+        # the timeout/unavailable paths below already take.
+        if _owns_unresolved_semantic_referent(deterministic):
+            return _fail_closed_unresolved_semantic_referent(
+                deterministic,
+                {
+                    "invoked": False,
+                    "accepted": False,
+                    "timed_out": False,
+                    "failure_kind": None,
+                    "rejected_reasons": ["t4_semantic_understanding_disabled"],
+                    "notes": [],
+                },
+            )
         return deterministic
     if deterministic.qualification_tier != "T4":
         return deterministic

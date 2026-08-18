@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from pathlib import Path
 import sys
 
 from app.actions.capability_policy import action_capability_for
@@ -256,11 +257,37 @@ def test_splunk_table_fidelity_omitted_row_respects_strict_mode() -> None:
 
 def test_guards_are_not_imported_by_chat_route_import() -> None:
     code = (
-        "import sys;"
-        "sys.modules.pop('app.answer_guard.rules', None);"
-        "import app.api.routes_chat;"
-        "raise SystemExit(1 if 'app.answer_guard.rules' in sys.modules else 0)"
+        "import sys, traceback\n"
+        "sys.modules.pop('app.answer_guard.rules', None)\n"
+        "try:\n"
+        "    import app.api.routes_chat\n"
+        "except Exception:\n"
+        "    traceback.print_exc()\n"
+        "    raise SystemExit(2)\n"
+        "raise SystemExit(1 if 'app.answer_guard.rules' in sys.modules else 0)\n"
     )
-    completed = subprocess.run([sys.executable, "-c", code], check=False)
+    completed = subprocess.run(
+        [sys.executable, "-c", code], check=False, env=_import_probe_env()
+    )
 
-    assert completed.returncode == 0
+    assert completed.returncode != 2, "import probe could not run — see child traceback"
+    assert completed.returncode == 0, "app.api.routes_chat imported the dormant guards"
+
+
+def _import_probe_env() -> dict[str, str]:
+    """Env for an import-probe subprocess: repo root + backend on the path.
+
+    Without this the child cannot import the repo-root ``contracts`` package, dies
+    with ModuleNotFoundError, and returns 1 — the exact code this probe uses to
+    mean "the guarded module WAS imported". The probe then reports a violation
+    that did not happen. Distinguish the two: 0 clean, 1 guard imported, 2 the
+    probe itself could not run.
+    """
+    import os
+
+    backend = str(Path(__file__).resolve().parents[2])
+    repo = str(Path(__file__).resolve().parents[3])
+    env = dict(os.environ)
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = os.pathsep.join(p for p in (backend, repo, existing) if p)
+    return env

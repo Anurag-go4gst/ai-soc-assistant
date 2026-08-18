@@ -85,7 +85,9 @@ def test_module_does_not_import_run_contract() -> None:
     import ast
     from pathlib import Path
 
-    source = Path("app/chat/contracts/resolved_query.py").read_text()
+    # Repo-anchored, not cwd-relative: another test in the suite chdirs, and a
+    # relative path then reads nothing and fails this contract for the wrong reason.
+    source = (Path(__file__).resolve().parents[1] / "chat" / "contracts" / "resolved_query.py").read_text()
     tree = ast.parse(source)
     imports = [
         node.names[0].name if isinstance(node, ast.Import) else node.module

@@ -39,6 +39,15 @@ def test_t4_config_default_and_timeout_unchanged() -> None:
     assert SEMANTIC_T4_TIMEOUT_SECONDS == 2.0
 
 
-def test_t4_not_enabled_in_coe_profile() -> None:
+def test_t4_deferral_survives_as_a_repo_default_not_a_coe_profile_ban() -> None:
+    """D3 deferred T4 activation; `1c6c247` later switched it on for COE.
+
+    What D3 actually protects is that T4 is off unless a deployment opts in, so
+    the durable pin is the repo default (`ai_soc_t4_semantic_understanding_enabled
+    = False`, asserted elsewhere in this module) plus an explicit profile opt-in
+    carrying an operator timeout. The COE seed opting in is that mechanism working,
+    not a violation of it.
+    """
     text = (_REPO / "env" / "profiles" / "coe.env.example").read_text(encoding="utf-8")
-    assert "AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED=true" not in text
+    assert "AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED=true" in text
+    assert Settings().ai_soc_t4_semantic_understanding_enabled is False

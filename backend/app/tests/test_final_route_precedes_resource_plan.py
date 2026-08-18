@@ -14,7 +14,10 @@ from app.routing.select_route_from_understanding import select_route_from_unders
 
 
 def test_static_final_route_bind_precedes_plan_creator() -> None:
-    source = Path("app/chat/canonical_planning_orchestrator.py").read_text(encoding="utf-8")
+    # Repo-anchored, not cwd-relative — see note in test_final_rqc_precedes_planning.
+    source = (
+        Path(__file__).resolve().parents[1] / "chat" / "canonical_planning_orchestrator.py"
+    ).read_text(encoding="utf-8")
     bind_idx = source.find("def _bind_final_route_from_rqc")
     commit_idx = source.find("evidence_plan, consumed, ignored = plan_evidence_from_canonical")
     bind_call = source.find("state, lane, canonical = _bind_final_route_from_rqc")

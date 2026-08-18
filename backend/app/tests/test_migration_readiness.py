@@ -69,6 +69,7 @@ def test_required_migration_versions_lists_all_sql_files() -> None:
         "0004_canonical_handoffs",
         "0005_canonical_planning_cutover_constraints",
         "0006_canonical_retention_indexes",
+        "0007_mcp_discovery_snapshot",
     ]
 
 
