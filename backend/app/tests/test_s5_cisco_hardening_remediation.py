@@ -81,6 +81,14 @@ def test_s5_state_machine_14_to_15(monkeypatch) -> None:
     assert S5_DEVICE in str(body)
 
 
+def test_s5_execute_upgrade_journey_includes_hil_stage() -> None:
+    from app.demo.ec_journeys import journey_for
+
+    journey = journey_for(S5_SCENARIO_ID, ["execute_upgrade"])
+    assert journey is not None
+    assert any(stage.semantic_type == "hil" for stage in journey.stages)
+
+
 def test_s5_no_production_cisco_connector() -> None:
     from app.demo.fixtures.s5 import pack as s5_pack
 
