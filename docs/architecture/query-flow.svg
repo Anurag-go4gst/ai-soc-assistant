@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 1180" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif">
+  <defs>
+    <linearGradient id="det" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e8f4fc"/>
+      <stop offset="100%" stop-color="#d7ebf8"/>
+    </linearGradient>
+    <linearGradient id="llm" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff4e6"/>
+      <stop offset="100%" stop-color="#ffe8cc"/>
+    </linearGradient>
+    <linearGradient id="hyb" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#eef7ee"/>
+      <stop offset="100%" stop-color="#dff0df"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#4b5563"/>
+    </marker>
+    <style>
+      .title { font-size: 22px; font-weight: 700; fill: #111827; }
+      .subtitle { font-size: 13px; fill: #4b5563; }
+      .box { stroke: #94a3b8; stroke-width: 1.5; rx: 10; }
+      .det { fill: url(#det); }
+      .llm { fill: url(#llm); }
+      .hyb { fill: url(#hyb); }
+      .label { font-size: 14px; font-weight: 600; fill: #111827; }
+      .small { font-size: 11px; fill: #374151; }
+      .legend { font-size: 12px; fill: #374151; }
+      .line { stroke: #4b5563; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+      .dash { stroke-dasharray: 6 4; }
+    </style>
+  </defs>
+
+  <text x="460" y="34" text-anchor="middle" class="title">AI SOC Assistant  Canonical Query Flow</text>
+  <text x="460" y="56" text-anchor="middle" class="subtitle">From architecture.md §5 (frozen)  production /chat spine</text>
+
+  <!-- Legend -->
+  <rect x="40" y="72" width="18" height="18" class="box det"/>
+  <text x="66" y="86" class="legend">Deterministic authority [DET]</text>
+  <rect x="250" y="72" width="18" height="18" class="box llm"/>
+  <text x="276" y="86" class="legend">Bounded LLM [LLM]</text>
+  <rect x="430" y="72" width="18" height="18" class="box hyb"/>
+  <text x="456" y="86" class="legend">Governed structured result</text>
+
+  <!-- Main spine -->
+  <rect x="260" y="110" width="400" height="52" class="box det"/>
+  <text x="460" y="133" text-anchor="middle" class="label">Request + session context</text>
+  <text x="460" y="150" text-anchor="middle" class="small">Phase 0 · auth, RBAC, safe prior state</text>
+
+  <line x1="460" y1="162" x2="460" y2="188" class="line"/>
+
+  <rect x="260" y="188" width="400" height="52" class="box det"/>
+  <text x="460" y="211" text-anchor="middle" class="label">T1T3 deterministic understanding</text>
+  <text x="460" y="228" text-anchor="middle" class="small">Phase 1 · lock known facts; leave semantics unresolved</text>
+
+  <line x1="460" y1="240" x2="460" y2="266" class="line"/>
+
+  <rect x="260" y="266" width="400" height="44" class="box det"/>
+  <text x="460" y="293" text-anchor="middle" class="label">UNDERSTANDING sufficiency</text>
+
+  <!-- T4 branch -->
+  <line x1="460" y1="310" x2="460" y2="334" class="line"/>
+  <rect x="260" y="334" width="400" height="52" class="box llm"/>
+  <text x="460" y="357" text-anchor="middle" class="label">Optional bounded T4 semantic hop</text>
+  <text x="460" y="374" text-anchor="middle" class="small">Phase 2 · only unresolved meaning; no tools/MCP/route authority</text>
+
+  <line x1="460" y1="386" x2="460" y2="412" class="line"/>
+  <rect x="260" y="412" width="400" height="44" class="box det"/>
+  <text x="460" y="439" text-anchor="middle" class="label">T4 validation + merge</text>
+
+  <line x1="460" y1="456" x2="460" y2="482" class="line"/>
+  <rect x="220" y="482" width="480" height="52" class="box det"/>
+  <text x="460" y="505" text-anchor="middle" class="label">Final ResolvedQueryContract (RQC)</text>
+  <text x="460" y="522" text-anchor="middle" class="small">Phase 4 · clarification OR final owner/route</text>
+
+  <line x1="460" y1="534" x2="460" y2="560" class="line"/>
+  <rect x="220" y="560" width="480" height="52" class="box det"/>
+  <text x="460" y="583" text-anchor="middle" class="label">ResourcePlan + PhaseContract</text>
+  <text x="460" y="600" text-anchor="middle" class="small">Phase 56 · sole normal execution authority</text>
+
+  <line x1="460" y1="612" x2="460" y2="638" class="line"/>
+  <rect x="200" y="638" width="520" height="52" class="box det"/>
+  <text x="460" y="661" text-anchor="middle" class="label">Governed execution graph / Resource Planner hub</text>
+  <text x="460" y="678" text-anchor="middle" class="small">Phase 7 · knowledge / SPL / MCP / validation / HIL</text>
+
+  <!-- SPL/MCP side path -->
+  <rect x="40" y="720" width="220" height="88" class="box det"/>
+  <text x="150" y="744" text-anchor="middle" class="label">SPL path</text>
+  <text x="150" y="762" text-anchor="middle" class="small">candidate_spl never executable</text>
+  <text x="150" y="778" text-anchor="middle" class="small">normalized_spl + AUTH0 ’ MCP</text>
+  <text x="150" y="794" text-anchor="middle" class="small">effective catalog + capability resolver</text>
+
+  <rect x="660" y="720" width="220" height="88" class="box det"/>
+  <text x="770" y="744" text-anchor="middle" class="label">MCP path</text>
+  <text x="770" y="762" text-anchor="middle" class="small">discovery ) local policy</text>
+  <text x="770" y="778" text-anchor="middle" class="small">exact-call AUTH0 + RBAC + HIL</text>
+  <text x="770" y="794" text-anchor="middle" class="small">untrusted evidence only</text>
+
+  <line x1="360" y1="664" x2="150" y2="720" class="line dash"/>
+  <line x1="560" y1="664" x2="770" y2="720" class="line dash"/>
+
+  <line x1="460" y1="690" x2="460" y2="836" class="line"/>
+  <rect x="240" y="836" width="440" height="44" class="box det"/>
+  <text x="460" y="863" text-anchor="middle" class="label">EvidenceState + EVIDENCE sufficiency</text>
+
+  <line x1="460" y1="880" x2="460" y2="906" class="line"/>
+  <rect x="220" y="906" width="480" height="52" class="box hyb"/>
+  <text x="460" y="929" text-anchor="middle" class="label">InvestigationOutcome</text>
+  <text x="460" y="946" text-anchor="middle" class="small">structured governed result before narration/actions</text>
+
+  <line x1="460" y1="958" x2="460" y2="984" class="line"/>
+  <rect x="220" y="984" width="480" height="52" class="box llm"/>
+  <text x="460" y="1007" text-anchor="middle" class="label">Final synthesis (narration only)</text>
+  <text x="460" y="1024" text-anchor="middle" class="small">Phase 9 · facts stay deterministic; LLM rewrites prose only</text>
+
+  <line x1="460" y1="1036" x2="460" y2="1062" class="line"/>
+  <rect x="260" y="1062" width="400" height="44" class="box det"/>
+  <text x="460" y="1089" text-anchor="middle" class="label">Final validation ’ response</text>
+
+  <line x1="460" y1="1106" x2="460" y2="1128" class="line dash"/>
+  <rect x="250" y="1128" width="420" height="44" class="box det"/>
+  <text x="460" y="1155" text-anchor="middle" class="label">Phase 10 actions (deferred in production; HIL in EC demo)</text>
+
+  <text x="460" y="1174" text-anchor="middle" class="subtitle">Source: architecture.md §2.3, §5 · freeze commit a8f02e3 · SHA-256 c1c4ba8a&</text>
+</svg>
