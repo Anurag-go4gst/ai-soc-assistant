@@ -13,6 +13,7 @@ import {
   markCoordinationWaiting,
   skipLegacyDemoCoordinationAction,
 } from '@/lib/legacyDemoCoordination';
+import { executeLegacyDemoCoordination } from '@/lib/legacyDemoEmail';
 import { playLegacyDemoInvestigationWithCoordination } from '@/lib/legacyDemoCoordinationPlayer';
 import type { ExperienceExecutionProgressView } from '@/lib/experienceCenterExecution';
 
@@ -93,6 +94,8 @@ describe('legacy demo coordination model', () => {
     const second = coordinationActionForScenario('cert_in_ot_reporting_obligation');
     expect(first?.scenario_id).toBe('firewall_deny_coordinated_attack');
     expect(second?.scenario_id).toBe('cert_in_ot_reporting_obligation');
+    expect(first?.delivery_mode).toBe('simulated');
+    expect(second?.delivery_mode).toBe('email');
     expect(first?.action_id).not.toBe(second?.action_id);
   });
 });
@@ -124,7 +127,7 @@ describe('ExperienceExecutionProgressPanel coordination UI', () => {
     expect(within(panel).getByText(/Human confirmation required/i)).toBeInTheDocument();
   });
 
-  it('cert_in_ot_reporting_obligation exposes reporting coordination without email transport', () => {
+  it('cert_in_ot_reporting_obligation exposes email coordination draft', () => {
     render(
       <ExperienceExecutionProgressPanel
         state={coordinationView('cert_in_ot_reporting_obligation')}
@@ -133,8 +136,8 @@ describe('ExperienceExecutionProgressPanel coordination UI', () => {
     );
     const panel = screen.getByTestId('legacy-demo-coordination-panel');
     expect(within(panel).getByText(/Coordinate CERT-In reporting stakeholders/i)).toBeInTheDocument();
-    expect(within(panel).getByText(/Email transport is not sent/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /send email/i })).not.toBeInTheDocument();
+    expect(within(panel).getByText(/allowlisted EC transport/i)).toBeInTheDocument();
+    expect(within(panel).getByTestId('legacy-demo-coordination-confirm')).toHaveTextContent(/coordination email/i);
   });
 
   it('guided_investigation_supply_chain shows supplier follow-up only', () => {
@@ -204,6 +207,7 @@ describe('legacy demo coordination player', () => {
       {
         coordinationAction: injected.action,
         skipCompletion: true,
+        executeCoordination: executeLegacyDemoCoordination,
         waitForAnalyst: () =>
           new Promise<'confirm' | 'skip'>((resolve) => {
             resolveAnalyst = resolve;
@@ -238,6 +242,7 @@ describe('legacy demo coordination player', () => {
       {
         coordinationAction: injected.action,
         skipCompletion: true,
+        executeCoordination: executeLegacyDemoCoordination,
         waitForAnalyst: () => new Promise(() => undefined),
       },
     );

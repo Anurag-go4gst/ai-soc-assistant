@@ -1,8 +1,6 @@
 import { delay, type InvestigationProgressState, type InvestigationProgressStep, type InvestigationProgressStepStatus } from '@/lib/investigationProgress';
 import {
   LEGACY_COORDINATION_STEP_ID,
-  completeLegacyDemoCoordinationVerification,
-  confirmLegacyDemoCoordinationAction,
   markCoordinationWaiting,
   skipLegacyDemoCoordinationAction,
   type LegacyDemoCoordinationAction,
@@ -16,6 +14,7 @@ export interface LegacyDemoCoordinationPlayback {
 export interface LegacyDemoCoordinationPlayerOptions {
   coordinationAction: LegacyDemoCoordinationAction | null;
   waitForAnalyst: () => Promise<'confirm' | 'skip'>;
+  executeCoordination: (action: LegacyDemoCoordinationAction) => Promise<LegacyDemoCoordinationAction>;
   skipCompletion?: boolean;
   onCoordinationUpdate?: (action: LegacyDemoCoordinationAction) => void;
   isStale?: () => boolean;
@@ -41,6 +40,12 @@ function snapshot(
     stepDisplayText: stepDisplayText ? { ...stepDisplayText } : undefined,
     finalization,
   };
+}
+
+function terminalStepStatus(action: LegacyDemoCoordinationAction): InvestigationProgressStepStatus {
+  if (action.status === 'completed') return 'completed';
+  if (action.status === 'skipped') return 'skipped';
+  return 'blocked';
 }
 
 export async function playLegacyDemoInvestigationWithCoordination(
@@ -93,18 +98,21 @@ export async function playLegacyDemoInvestigationWithCoordination(
       }
 
       if (decision === 'confirm') {
-        action = confirmLegacyDemoCoordinationAction(action);
+        action = { ...action, status: 'sending', available: false };
         stepStatuses[step.id] = 'active';
-        stepDisplayText[step.id] = action.result_message ?? 'Submitting coordination request…';
+        stepDisplayText[step.id] =
+          action.delivery_mode === 'email' ? 'Submitting allowlisted coordination email…' : 'Submitting coordination request…';
         options.onCoordinationUpdate?.(action);
         publish(index);
-        await delay(700);
+
+        action = await options.executeCoordination(action);
         if (options.isStale?.()) return action;
 
-        action = completeLegacyDemoCoordinationVerification(action);
-        stepStatuses[step.id] = 'completed';
-        stepDisplayText[step.id] = action.result_message ?? 'Coordination verified.';
-        completedStepIds.push(step.id);
+        stepStatuses[step.id] = terminalStepStatus(action);
+        stepDisplayText[step.id] = action.result_message ?? 'Coordination finished.';
+        if (action.status === 'completed' || action.status === 'skipped') {
+          completedStepIds.push(step.id);
+        }
         options.onCoordinationUpdate?.(action);
         publish(index + 1);
       }

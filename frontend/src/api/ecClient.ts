@@ -46,6 +46,22 @@ function actionBody(action?: EcActionRecord | null, draft?: Record<string, unkno
   });
 }
 
+export async function prepareEcAction(body: {
+  kind: string;
+  label: string;
+  scenario_id: string;
+  session_id?: string | null;
+  extra?: Record<string, unknown> | null;
+}): Promise<EcActionRecord> {
+  const response = await fetch(`${API_BASE_URL}/demo/ec-actions/prepare`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return readJson(response, 'EC action prepare');
+}
+
 export async function approveEcAction(actionId: string, action?: EcActionRecord): Promise<EcActionRecord> {
   const response = await fetch(`${API_BASE_URL}/demo/ec-actions/${encodeURIComponent(actionId)}/approve`, {
     method: 'POST',

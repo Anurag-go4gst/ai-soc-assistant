@@ -302,7 +302,7 @@ export function ExperienceExecutionProgressPanel({
         </div>
       ) : null}
 
-      {state.coordinationAction?.status === 'waiting_for_analyst' ? (
+      {state.coordinationAction?.status === 'waiting_for_analyst' || state.coordinationAction?.status === 'sending' ? (
         <div
           className="mt-3 rounded-lg border border-amber-500/35 bg-amber-500/[0.08] px-3 py-3"
           data-testid="legacy-demo-coordination-panel"
@@ -320,10 +320,14 @@ export function ExperienceExecutionProgressPanel({
               type="button"
               size="sm"
               data-testid="legacy-demo-coordination-confirm"
-              disabled={!state.coordinationAction.available}
+              disabled={!state.coordinationAction.available || state.coordinationAction.status === 'sending'}
               onClick={onCoordinationConfirm}
             >
-              Confirm coordination
+              {state.coordinationAction.status === 'sending'
+                ? 'Sending…'
+                : state.coordinationAction.delivery_mode === 'email'
+                  ? 'Send coordination email'
+                  : 'Confirm coordination'}
             </Button>
             {!state.coordinationAction.hil_required && onCoordinationSkip ? (
               <Button
@@ -331,6 +335,7 @@ export function ExperienceExecutionProgressPanel({
                 size="sm"
                 variant="outline"
                 data-testid="legacy-demo-coordination-skip"
+                disabled={state.coordinationAction.status === 'sending'}
                 onClick={onCoordinationSkip}
               >
                 Skip
@@ -345,14 +350,29 @@ export function ExperienceExecutionProgressPanel({
         </div>
       ) : null}
 
-      {state.coordinationAction?.status === 'verifying' || state.coordinationAction?.status === 'completed' ? (
+      {state.coordinationAction?.status === 'completed' ||
+      state.coordinationAction?.status === 'configuration_required' ||
+      state.coordinationAction?.status === 'failed' ||
+      state.coordinationAction?.status === 'rejected' ? (
         state.coordinationAction.result_message ? (
           <div
-            className="mt-3 rounded-lg border border-cyan-500/25 bg-cyan-500/[0.06] px-3 py-3"
+            className={cn(
+              'mt-3 rounded-lg px-3 py-3',
+              state.coordinationAction.status === 'completed'
+                ? 'border border-cyan-500/25 bg-cyan-500/[0.06]'
+                : 'border border-amber-500/35 bg-amber-500/[0.08]',
+            )}
             data-testid="legacy-demo-coordination-result"
+            data-coordination-status={state.coordinationAction.status}
           >
             <p className="text-xs font-medium text-cyan-200/90">
-              {state.coordinationAction.status === 'verifying' ? 'Verifying coordination' : 'Coordination recorded'}
+              {state.coordinationAction.status === 'completed'
+                ? 'Coordination recorded'
+                : state.coordinationAction.status === 'configuration_required'
+                  ? 'Email transport not configured'
+                  : state.coordinationAction.status === 'rejected'
+                    ? 'Recipient rejected'
+                    : 'Coordination failed'}
             </p>
             <p className="mt-1 text-sm leading-5 text-slate-200">{state.coordinationAction.result_message}</p>
           </div>

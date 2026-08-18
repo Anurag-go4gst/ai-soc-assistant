@@ -32,6 +32,7 @@ import {
   type LegacyDemoCoordinationAction,
 } from '@/lib/legacyDemoCoordination';
 import { playLegacyDemoInvestigationWithCoordination } from '@/lib/legacyDemoCoordinationPlayer';
+import { executeLegacyDemoCoordination } from '@/lib/legacyDemoEmail';
 import type { ChatExecutionReviewOptions, DemoScenarioSummary, PlaceholderResponse } from '@/types/api';
 
 interface ChatPanelProps {
@@ -502,6 +503,8 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
           coordinationAction: injected.action,
           skipCompletion: true,
           isStale: () => isStaleInvestigation(epoch),
+          executeCoordination: (current) =>
+            executeLegacyDemoCoordination(current, sessionIdRef.current),
           onCoordinationUpdate: (action) => {
             coordinationAction = action;
             updateProgressMessage(progressId, epoch, progressSnapshot, coordinationAction);

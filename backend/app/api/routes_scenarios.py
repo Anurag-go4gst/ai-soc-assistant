@@ -30,6 +30,7 @@ class EcActionBody(BaseModel):
     scenario_id: str | None = None
     kind: str | None = None
     label: str | None = None
+    extra: dict[str, Any] | None = None
 
 
 class EcActionExecuteBody(BaseModel):
@@ -130,6 +131,7 @@ def prepare_ec_action(body: EcActionBody) -> dict:
             label=body.label or body.kind,
             session_id=body.session_id,
             scenario_id=body.scenario_id,
+            extra=body.extra,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

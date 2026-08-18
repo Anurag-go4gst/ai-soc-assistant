@@ -17,13 +17,17 @@ export type LegacyDemoCoordinationActionType =
   | 'stakeholder_reporting'
   | 'supplier_follow_up';
 
+export type LegacyDemoCoordinationDeliveryMode = 'simulated' | 'email';
+
 export type LegacyDemoCoordinationActionStatus =
   | 'pending'
   | 'waiting_for_analyst'
+  | 'sending'
   | 'verifying'
   | 'completed'
   | 'skipped'
   | 'failed'
+  | 'rejected'
   | 'configuration_required';
 
 export interface LegacyDemoCoordinationAction {
@@ -32,12 +36,16 @@ export interface LegacyDemoCoordinationAction {
   label: string;
   scenario_id: PriorityLegacyDemoScenarioId;
   phase_step_id: string;
+  delivery_mode: LegacyDemoCoordinationDeliveryMode;
   status: LegacyDemoCoordinationActionStatus;
   hil_required: boolean;
   available: boolean;
   description: string;
   draft_summary?: string | null;
   result_message?: string | null;
+  logical_recipient?: string | null;
+  ec_action_id?: string | null;
+  email_receipt?: Record<string, unknown> | null;
 }
 
 interface ScenarioCoordinationTemplate {
@@ -46,9 +54,11 @@ interface ScenarioCoordinationTemplate {
   description: string;
   draft_summary: string;
   hil_required: boolean;
+  delivery_mode: LegacyDemoCoordinationDeliveryMode;
   insert_after_step_id: string;
   simulated_result: string;
   verify_message: string;
+  logical_recipient?: string | null;
 }
 
 const SCENARIO_COORDINATION: Record<PriorityLegacyDemoScenarioId, ScenarioCoordinationTemplate> = {
@@ -60,6 +70,7 @@ const SCENARIO_COORDINATION: Record<PriorityLegacyDemoScenarioId, ScenarioCoordi
     draft_summary:
       'Indicator 203.0.113.14 · playbook perimeter_deny · requires SOC lead sign-off before SOAR submission.',
     hil_required: true,
+    delivery_mode: 'simulated',
     insert_after_step_id: 'mcp_evidence',
     simulated_result: 'SOAR playbook queued for analyst-approved perimeter deny (simulated · no live firewall change).',
     verify_message: 'Verified block request recorded in the incident timeline (simulated).',
@@ -72,6 +83,7 @@ const SCENARIO_COORDINATION: Record<PriorityLegacyDemoScenarioId, ScenarioCoordi
     draft_summary:
       'Perimeter deny on approved block list · segment affected hosts at next change window · identity session review.',
     hil_required: true,
+    delivery_mode: 'simulated',
     insert_after_step_id: 'rag',
     simulated_result: 'IR containment advisory acknowledged and logged for change-window execution (simulated).',
     verify_message: 'Containment checklist verified against SOC-IR-ADV-FW guidance (simulated).',
@@ -80,27 +92,35 @@ const SCENARIO_COORDINATION: Record<PriorityLegacyDemoScenarioId, ScenarioCoordi
     action_type: 'stakeholder_reporting',
     label: 'Coordinate CERT-In reporting stakeholders',
     description:
-      'Prepare CISO and legal/compliance coordination for the 6-hour CERT-In reporting window. Email transport is not sent in this demo step.',
+      'Send governed stakeholder coordination email for the 6-hour CERT-In reporting window using the allowlisted EC transport.',
     draft_summary:
       'Stakeholders: CISO, legal/compliance · channel CERT-In portal · preserve ICS/OT logs before filing.',
     hil_required: true,
+    delivery_mode: 'email',
+    logical_recipient: 'SOC_LEAD',
     insert_after_step_id: 'rag',
-    simulated_result: 'Stakeholder coordination draft prepared for analyst review (simulated · no email sent).',
-    verify_message: 'Reporting coordination checklist recorded (simulated).',
+    simulated_result: 'Stakeholder coordination email submitted for analyst review.',
+    verify_message: 'Reporting coordination email recorded via EC allowlisted transport.',
   },
   guided_investigation_supply_chain: {
     action_type: 'supplier_follow_up',
     label: 'Request supplier security coordination',
     description:
-      'Open a supplier / build-pipeline security follow-up for the out-of-catalog supply-chain hunt. Analyst-authored SPL still required.',
+      'Send supplier / build-pipeline security follow-up for the out-of-catalog supply-chain hunt via the allowlisted EC transport.',
     draft_summary:
       'Supplier security liaison · CI/CD build-server scope · review-only hunt plan attached · no SPL auto-execution.',
     hil_required: true,
+    delivery_mode: 'email',
+    logical_recipient: 'APPSEC_TEAM',
     insert_after_step_id: 'rag',
-    simulated_result: 'Supplier coordination follow-up recorded for analyst review (simulated).',
-    verify_message: 'Follow-up coordination verified against hunt evidence package (simulated).',
+    simulated_result: 'Supplier coordination email submitted for analyst review.',
+    verify_message: 'Supplier follow-up email recorded via EC allowlisted transport.',
   },
 };
+
+export function isEmailCoordinationAction(action: LegacyDemoCoordinationAction): boolean {
+  return action.delivery_mode === 'email';
+}
 
 export function isPriorityLegacyDemoScenario(
   scenarioId: string | null | undefined,
@@ -118,12 +138,16 @@ export function createLegacyDemoCoordinationAction(
     label: template.label,
     scenario_id: scenarioId,
     phase_step_id: LEGACY_COORDINATION_STEP_ID,
+    delivery_mode: template.delivery_mode,
     status: 'pending',
     hil_required: template.hil_required,
     available: false,
     description: template.description,
     draft_summary: template.draft_summary,
+    logical_recipient: template.logical_recipient ?? null,
     result_message: null,
+    ec_action_id: null,
+    email_receipt: null,
   };
 }
 
@@ -212,5 +236,5 @@ export function skipLegacyDemoCoordinationAction(
 
 export function coordinationBlocksProgress(action: LegacyDemoCoordinationAction | null | undefined): boolean {
   if (!action) return false;
-  return action.status === 'waiting_for_analyst' || action.status === 'verifying';
+  return action.status === 'waiting_for_analyst' || action.status === 'sending' || action.status === 'verifying';
 }

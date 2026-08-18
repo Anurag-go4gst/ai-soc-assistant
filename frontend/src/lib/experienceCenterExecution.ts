@@ -40,11 +40,13 @@ export interface ExperienceExecutionCoordinationActionView {
   action_type: string;
   label: string;
   status: string;
+  delivery_mode?: string;
   hil_required: boolean;
   available: boolean;
   description: string;
   draft_summary?: string | null;
   result_message?: string | null;
+  logical_recipient?: string | null;
 }
 
 export interface ExperienceExecutionProgressView {

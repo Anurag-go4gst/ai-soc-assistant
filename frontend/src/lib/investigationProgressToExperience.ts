@@ -15,12 +15,14 @@ function mapCoordinationStepStatus(
     case 'waiting_for_analyst':
       return 'waiting';
     case 'verifying':
+    case 'sending':
       return 'verifying';
     case 'completed':
       return 'completed';
     case 'skipped':
       return 'skipped';
     case 'failed':
+    case 'rejected':
     case 'configuration_required':
       return 'failed';
     default:
@@ -56,7 +58,21 @@ export function investigationProgressToExperienceView(
     stepStatuses,
     stepDisplayText: state.stepDisplayText,
     demoMode,
-    coordinationAction: coordinationAction ?? null,
+    coordinationAction: coordinationAction
+      ? {
+          action_id: coordinationAction.action_id,
+          action_type: coordinationAction.action_type,
+          label: coordinationAction.label,
+          status: coordinationAction.status,
+          delivery_mode: coordinationAction.delivery_mode,
+          hil_required: coordinationAction.hil_required,
+          available: coordinationAction.available,
+          description: coordinationAction.description,
+          draft_summary: coordinationAction.draft_summary,
+          result_message: coordinationAction.result_message,
+          logical_recipient: coordinationAction.logical_recipient,
+        }
+      : null,
     error: state.error,
     llmWarning: state.llmWarning,
     finalization: state.finalization
