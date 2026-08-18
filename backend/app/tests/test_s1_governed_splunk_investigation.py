@@ -25,6 +25,26 @@ def test_s1_listed_in_demo_scenarios() -> None:
     assert S1_SCENARIO_ID in ids
 
 
+def test_s1_initial_journey_titles_are_locked() -> None:
+    from app.demo.ec_journeys import S1_INITIAL_TITLES
+
+    envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-journey")
+    assert envelope.ec_execution_journey is not None
+    titles = tuple(stage.title for stage in envelope.ec_execution_journey.stages)
+    assert titles == S1_INITIAL_TITLES
+    blob = " ".join(titles).lower()
+    assert "tls handshake" not in blob
+    assert "bearer auth" not in blob
+    playable = sum(
+        stage.duration_ms_hint or 0
+        for stage in envelope.ec_execution_journey.stages
+        if stage.semantic_type not in {"wait", "hil"}
+    )
+    assert 8000 <= playable <= 12000
+    ids = {item["scenario_id"] for item in list_experience_center_scenarios()}
+    assert S1_SCENARIO_ID in ids
+
+
 def test_s1_run_demo_scenario_still_placeholder_compatible() -> None:
     payload = run_demo_scenario(S1_SCENARIO_ID)
     response = PlaceholderResponse(**payload)
@@ -110,13 +130,14 @@ def test_s1_outcome_confirmed_unconfirmed_missing_no_compromise_claim() -> None:
     t1078 = next(item for item in outcome["mitre"] if item["technique_id"] == "T1078")
     assert t1078["status"] == "unconfirmed"
     t1110 = next(item for item in outcome["mitre"] if item["technique_id"] == "T1110.001")
-    assert t1110["status"] == "supported"
+    assert t1110["status"] == "candidate"
     assert "evidence_basis" in t1110
 
 
 def test_s1_evidence_state_initial_vocabulary() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-state")
     statuses = {item["id"]: item["status"] for item in envelope.model_dump()["ec_evidence_state"]}
+    assert statuses["siem_existing_search"] == "OBTAINED"
     assert statuses["splunk_fw_search_1"] == "OBTAINED"
     assert statuses["splunk_fw_search_2"] == "OBTAINED"
     assert statuses["auth_correlation"] == "OBTAINED"
@@ -188,10 +209,9 @@ def test_s1_every_follow_up_advances_state_and_updates_evidence(monkeypatch) -> 
             assert block["production_side_effect"] is False
         if follow_up_id == "create_incident_ticket":
             ticket = next(item for item in body["ec_actions"] if item["kind"] == "ticket_create")
-            assert ticket["state"] == "EXECUTED"
+            assert ticket["state"] in {"PREPARED", "APPROVAL_REQUIRED"}
             assert ticket["production_side_effect"] is False
-            assert ticket["receipt"]["production_side_effect"] is False
-            assert PRIMARY_ATTACKER_IP in str(ticket["receipt"])
+            assert ticket.get("draft") is not None
 
 
 def test_s1_follow_up_never_imports_production_actions() -> None:
@@ -203,3 +223,136 @@ def test_s1_follow_up_never_imports_production_actions() -> None:
     assert "routes_actions" not in source
     assert "evaluate_mcp_execution" not in source
     assert "call_tool" not in source
+
+
+def test_s1_operational_email_is_hil_draft_not_auto_sent() -> None:
+    envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-ops-email")
+    ids = {chip.follow_up_id for chip in envelope.ec_followups}
+    assert "email_firewall_team" in ids
+    assert "update_incident" in ids
+    assert "generate_closure_summary" in ids
+    assert "verify_firewall_block" not in ids
+
+    emailed = run_experience_center_turn(
+        S1_SCENARIO_ID,
+        session_id="s1-ops-email",
+        follow_up_id="email_firewall_team",
+    )
+    email = next(item for item in emailed.ec_actions if item.kind == "email_send")
+    assert email.state == "APPROVAL_REQUIRED"
+    assert email.production_side_effect is False
+    dumped = emailed.model_dump()
+    assert dumped["ec_email"]["logical_recipient"] == "FIREWALL_TEAM"
+    assert dumped["ec_email"]["not_transmitted"] is True
+    assert dumped["ec_email"]["status"] == "draft_pending_send"
+
+
+def test_s1_firewall_is_not_auto_blocked_and_verify_requires_execute() -> None:
+    from app.demo import ec_actions
+
+    session_id = "s1-ops-fw"
+    run_experience_center_turn(S1_SCENARIO_ID, session_id=session_id)
+    prepared_env = run_experience_center_turn(
+        S1_SCENARIO_ID,
+        session_id=session_id,
+        follow_up_id="prepare_firewall_block",
+    )
+    block = next(item for item in prepared_env.ec_actions if item.kind == "firewall_block")
+    assert block.state in {"PREPARED", "APPROVAL_REQUIRED"}
+    assert block.production_side_effect is False
+    try:
+        ec_actions.verify_action(block.action_id)
+        raise AssertionError("verify must not succeed before execute")
+    except ValueError as exc:
+        assert "ec_action_not_verifiable" in str(exc)
+
+    approved = ec_actions.approve_action(block.action_id)
+    executed = ec_actions.execute_action(approved.action_id)
+    assert executed.state == "EXECUTED"
+    verified = ec_actions.verify_action(executed.action_id)
+    assert verified.state == "VERIFIED"
+    assert verified.verify_result
+    assert verified.verify_result.get("indicator") == PRIMARY_ATTACKER_IP
+    assert verified.production_side_effect is False
+
+
+def test_s1_edr_follow_up_uses_stable_follow_up_id_journey() -> None:
+    run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-edr-j")
+    edr = run_experience_center_turn(
+        S1_SCENARIO_ID,
+        session_id="s1-edr-j",
+        follow_up_id="check_endpoint_activity",
+    )
+    assert edr.ec_execution_journey.follow_up_id == "check_endpoint_activity"
+    assert edr.ec_execution_journey.header == "Continuing investigation"
+    titles = [stage.title for stage in edr.ec_execution_journey.stages]
+    assert titles[0] == "Selecting EDR capability"
+    assert "Updating InvestigationOutcome" in titles
+
+
+def test_s1_firewall_action_journey_waits_at_hil() -> None:
+    run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-fw-j")
+    prepared = run_experience_center_turn(
+        S1_SCENARIO_ID,
+        session_id="s1-fw-j",
+        follow_up_id="prepare_firewall_block",
+    )
+    types = [stage.semantic_type for stage in prepared.ec_execution_journey.stages]
+    assert "hil" in types
+    block = next(item for item in prepared.ec_actions if item.kind == "firewall_block")
+    assert block.state in {"PREPARED", "APPROVAL_REQUIRED"}
+
+
+def test_s1_update_incident_and_closure_summary() -> None:
+    session_id = "s1-ops-close"
+    run_experience_center_turn(S1_SCENARIO_ID, session_id=session_id)
+    run_experience_center_turn(
+        S1_SCENARIO_ID,
+        session_id=session_id,
+        follow_up_id="create_incident_ticket",
+    )
+    updated = run_experience_center_turn(
+        S1_SCENARIO_ID,
+        session_id=session_id,
+        follow_up_id="update_incident",
+    )
+    ticket_update = next(item for item in updated.ec_actions if item.kind == "ticket_update")
+    assert ticket_update.state in {"PREPARED", "APPROVAL_REQUIRED"}
+    closed = run_experience_center_turn(
+        S1_SCENARIO_ID,
+        session_id=session_id,
+        follow_up_id="generate_closure_summary",
+    )
+    outcome = closed.model_dump()["ec_investigation_outcome"]
+    assert "closure_summary" in outcome
+    assert "unconfirmed" in outcome["closure_summary"].lower() or "not confirmed" in outcome["closure_summary"].lower()
+    statuses = {item["id"]: item["status"] for item in closed.ec_evidence_state}
+    assert statuses["closure"] == "OBTAINED"
+
+
+def test_s1_action_follow_ups_are_connector_journeys_not_initial() -> None:
+    from app.demo.ec_journeys import S1_INITIAL_TITLES, journey_for
+
+    run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-act-j")
+    ticket = run_experience_center_turn(
+        S1_SCENARIO_ID,
+        session_id="s1-act-j",
+        follow_up_id="create_incident_ticket",
+    )
+    titles = tuple(stage.title for stage in ticket.ec_execution_journey.stages)
+    assert titles != S1_INITIAL_TITLES
+    assert len(titles) < len(S1_INITIAL_TITLES)
+    assert ticket.ec_execution_journey.kind == "action"
+    assert ticket.ec_execution_journey.header == "Connecting to ITSM"
+    updated = run_experience_center_turn(
+        S1_SCENARIO_ID,
+        session_id="s1-act-j",
+        follow_up_id="update_incident",
+    )
+    assert updated.ec_execution_journey.kind == "action"
+    assert updated.ec_execution_journey.header == "Connecting to ITSM"
+    unknown = journey_for(S1_SCENARIO_ID, ["notify_soc_lead"])
+    assert unknown is not None
+    assert unknown.kind == "action"
+    assert unknown.header == "Connecting to email transport"
+    assert tuple(stage.title for stage in unknown.stages) != S1_INITIAL_TITLES

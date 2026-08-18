@@ -14,7 +14,7 @@ vi.mock('@/api/ecClient', () => ({
 describe('Experience Center workspace', () => {
   it('mounts the /scenarios investigation workspace', () => {
     render(<ScenariosPage />);
-    expect(screen.getByText(/Investigation workspace/i)).toBeInTheDocument();
-    expect(screen.getByText(/Production chat on \/chat is unchanged/i)).toBeInTheDocument();
+    expect(screen.getByText(/Investigation command/i)).toBeInTheDocument();
+    expect(screen.getByText(/AI Investigation Cockpit/i)).toBeInTheDocument();
   });
 });

@@ -55,6 +55,11 @@ def prepare_action(
 ) -> EcActionRecord:
     if kind not in _ALLOWED_KINDS:
         raise ValueError(f"unsupported_ec_action_kind:{kind}")
+    extra_payload = dict(extra or {})
+    if kind == "email_send":
+        from app.demo import ec_email
+
+        extra_payload = ec_email.hydrate_draft(extra_payload)
     action_id = f"ec-act-{uuid4().hex[:12]}"
     record = {
         "action_id": action_id,
@@ -67,7 +72,7 @@ def prepare_action(
         "scenario_id": scenario_id,
         "receipt": None,
         "verify_result": None,
-        "extra": dict(extra or {}),
+        "extra": extra_payload,
     }
     with _lock:
         _actions[action_id] = record
@@ -91,29 +96,93 @@ def list_actions_for_session(session_id: str | None, scenario_id: str) -> list[E
     return [_to_model(record) for record in rows]
 
 
-def approve_action(action_id: str) -> EcActionRecord:
+def restore_action_if_needed(action_id: str, snapshot: dict[str, Any] | None) -> None:
+    """Re-register an action from the client envelope after process reload or store loss."""
+    with _lock:
+        if action_id in _actions:
+            return
+    if not isinstance(snapshot, dict) or str(snapshot.get("action_id") or "") != action_id:
+        return
+    kind = str(snapshot.get("kind") or "")
+    if kind not in _ALLOWED_KINDS:
+        return
+    extra = _extra_from_public_record(snapshot)
+    record = {
+        "action_id": action_id,
+        "kind": kind,
+        "label": str(snapshot.get("label") or kind),
+        "state": str(snapshot.get("state") or "APPROVAL_REQUIRED"),
+        "provenance": str(snapshot.get("provenance") or "simulated_phase10_action"),
+        "production_side_effect": False,
+        "session_id": snapshot.get("session_id"),
+        "scenario_id": snapshot.get("scenario_id"),
+        "receipt": snapshot.get("receipt") if isinstance(snapshot.get("receipt"), dict) else None,
+        "verify_result": snapshot.get("verify_result") if isinstance(snapshot.get("verify_result"), dict) else None,
+        "extra": extra,
+    }
+    with _lock:
+        _actions[action_id] = record
+
+
+def approve_action(action_id: str, snapshot: dict[str, Any] | None = None) -> EcActionRecord:
+    restore_action_if_needed(action_id, snapshot)
     return _transition(action_id, from_states={"APPROVAL_REQUIRED", "PREPARED"}, to_state="APPROVED")
 
 
-def execute_action(action_id: str) -> EcActionRecord:
+def execute_action(
+    action_id: str,
+    draft: dict[str, Any] | None = None,
+    snapshot: dict[str, Any] | None = None,
+) -> EcActionRecord:
+    restore_action_if_needed(action_id, snapshot)
     with _lock:
         record = _require(action_id)
+        kind = str(record["kind"])
+        if kind == "email_send" and record["state"] == "EXECUTED":
+            return _to_model(record)
         if record["state"] != "APPROVED":
             raise ValueError(f"ec_action_not_executable:{record['state']}")
-        record["state"] = "EXECUTED"
-        record["production_side_effect"] = False
         extra = dict(record.get("extra") or {})
-        record["receipt"] = {
-            "status": "SUCCESS",
-            "production_side_effect": False,
-            "provenance": "simulated_phase10_action",
-            "summary": f"Simulated {record['kind']} completed with no production side effect.",
-            **({k: v for k, v in extra.items() if k not in {"source_interactive_action_id", "verify_payload"}}),
-        }
+        if draft:
+            extra = _merge_draft(kind, extra, draft)
+            record["extra"] = extra
+        if kind == "email_send":
+            idempotency_key = str(extra.get("idempotency_key") or action_id)
+        elif kind in {"firewall_block", "firewall_remove_whitelist"}:
+            pass
+        else:
+            record["state"] = "EXECUTED"
+            record["production_side_effect"] = False
+            record["receipt"] = _simulated_receipt(kind, extra)
+            return _to_model(record)
+    if kind == "email_send":
+        from app.demo import ec_email
+
+        receipt = ec_email.deliver(action_id=action_id, extra=extra, idempotency_key=idempotency_key)
+        with _lock:
+            record = _require(action_id)
+            record["production_side_effect"] = False
+            record["receipt"] = receipt.as_dict()
+            if receipt.status == "SUCCESS":
+                record["state"] = "EXECUTED"
+                if receipt.external_side_effect:
+                    record["provenance"] = "ec_allowlisted_email"
+            else:
+                record["state"] = "FAILED"
+            return _to_model(record)
+    from app.demo import ec_soar
+
+    receipt = ec_soar.submit_block(extra)
+    with _lock:
+        record = _require(action_id)
+        record["production_side_effect"] = False
+        record["receipt"] = receipt.as_dict()
+        record["state"] = "EXECUTED" if receipt.status == "SUCCESS" else "FAILED"
         return _to_model(record)
 
 
-def verify_action(action_id: str) -> EcActionRecord:
+def verify_action(action_id: str, snapshot: dict[str, Any] | None = None) -> EcActionRecord:
+    restore_action_if_needed(action_id, snapshot)
     with _lock:
         record = _require(action_id)
         if record["state"] != "EXECUTED":
@@ -176,14 +245,125 @@ def _transition(action_id: str, *, from_states: set[str], to_state: str) -> EcAc
         return _to_model(record)
 
 
+def _simulated_receipt(kind: str, extra: dict[str, Any]) -> dict[str, Any]:
+    ticket = extra.get("ticket") if isinstance(extra.get("ticket"), dict) else {}
+    if kind.startswith("ticket"):
+        ticket_id = ticket.get("ticket_id") or ticket.get("id") or "EC-SIM"
+        return {
+            "status": "SUCCESS",
+            "production_side_effect": False,
+            "provenance": "simulated_phase10_action",
+            "summary": f"Simulated ticket {ticket_id} recorded. No live ServiceNow change.",
+            "ticket": ticket,
+        }
+    return {
+        "status": "SUCCESS",
+        "production_side_effect": False,
+        "provenance": "simulated_phase10_action",
+        "summary": f"Simulated {kind} recorded. No production side effect.",
+        **({k: v for k, v in extra.items() if k not in {"source_interactive_action_id", "verify_payload", "soar"}}),
+    }
+
+
+def _merge_draft(kind: str, extra: dict[str, Any], draft: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(extra)
+    if kind == "email_send":
+        email = dict(merged.get("email") or {}) if isinstance(merged.get("email"), dict) else {}
+        for key in ("to", "subject", "body"):
+            if draft.get(key):
+                email[key] = str(draft[key])
+        merged["email"] = email
+        if "@" in str(email.get("to") or ""):
+            merged.pop("logical_recipient", None)
+            merged["logical_recipient"] = extra.get("logical_recipient")
+        from app.demo import ec_email
+
+        return ec_email.hydrate_draft(merged)
+    if kind.startswith("ticket") and isinstance(merged.get("ticket"), dict):
+        ticket = dict(merged["ticket"])
+        ticket.update({key: value for key, value in draft.items() if value is not None})
+        merged["ticket"] = ticket
+        return merged
+    if kind.startswith("firewall"):
+        soar = dict(merged.get("soar") or {}) if isinstance(merged.get("soar"), dict) else {}
+        soar.update({key: value for key, value in draft.items() if value is not None})
+        merged["soar"] = soar
+        if soar.get("indicator"):
+            merged["indicator"] = soar["indicator"]
+        return merged
+    return merged
+
+
+def _extra_from_public_record(record: dict[str, Any]) -> dict[str, Any]:
+    kind = str(record.get("kind") or "")
+    draft = record.get("draft") if isinstance(record.get("draft"), dict) else {}
+    if kind == "email_send" or kind == "email_reply":
+        from app.demo import ec_email
+
+        email = {
+            "to": str(draft.get("to") or ""),
+            "subject": str(draft.get("subject") or ""),
+            "body": str(draft.get("body") or ""),
+        }
+        logical = str(draft.get("logical_recipient") or email.get("to") or "")
+        return ec_email.hydrate_draft({"logical_recipient": logical, "email": email})
+    if kind.startswith("firewall"):
+        indicator = str(draft.get("indicator") or "")
+        return {
+            "indicator": indicator,
+            "requested_action": str(draft.get("action") or "block"),
+            "auto_block": False,
+            "soar": {
+                "playbook": str(draft.get("playbook") or "ip_block"),
+                "indicator": indicator,
+                "action": str(draft.get("action") or "block"),
+                "reason": str(draft.get("reason") or ""),
+            },
+            "verify_payload": {
+                "rule_present": True,
+                "indicator": indicator,
+                "simulated": True,
+            },
+        }
+    if kind.startswith("ticket"):
+        ticket = dict(draft) if draft else {}
+        return {"ticket": ticket}
+    return {}
+
+
+def _draft_from_extra(kind: str, extra: dict[str, Any]) -> dict[str, Any] | None:
+    if kind == "email_send":
+        email = extra.get("email") if isinstance(extra.get("email"), dict) else {}
+        return {
+            "to": str(email.get("to") or ""),
+            "subject": str(email.get("subject") or ""),
+            "body": str(email.get("body") or ""),
+            "logical_recipient": str(extra.get("logical_recipient") or ""),
+        }
+    if kind.startswith("ticket"):
+        ticket = extra.get("ticket") if isinstance(extra.get("ticket"), dict) else extra
+        return dict(ticket) if isinstance(ticket, dict) else None
+    if kind.startswith("firewall"):
+        soar = extra.get("soar") if isinstance(extra.get("soar"), dict) else {}
+        return {
+            "playbook": str(soar.get("playbook") or "ip_block"),
+            "indicator": str(soar.get("indicator") or extra.get("indicator") or ""),
+            "action": str(soar.get("action") or extra.get("requested_action") or "block"),
+            "reason": str(soar.get("reason") or extra.get("reason") or ""),
+        }
+    return None
+
+
 def _to_model(record: dict[str, Any]) -> EcActionRecord:
+    extra = record.get("extra") if isinstance(record.get("extra"), dict) else {}
     return EcActionRecord(
         action_id=str(record["action_id"]),
         kind=str(record["kind"]),
         label=str(record["label"]),
         state=str(record["state"]),
-        provenance="simulated_phase10_action",
+        provenance=str(record.get("provenance") or "simulated_phase10_action"),
         production_side_effect=False,
         receipt=record.get("receipt") if isinstance(record.get("receipt"), dict) else None,
         verify_result=record.get("verify_result") if isinstance(record.get("verify_result"), dict) else None,
+        draft=_draft_from_extra(str(record["kind"]), extra),
     )

@@ -207,6 +207,7 @@ def envelope(
     systems: list[dict[str, Any]] | None = None,
     table: list[dict[str, Any]] | None = None,
     severity: str = "P2 High",
+    journey: Any | None = None,
 ) -> ExperienceCenterResponse:
     remaining = [chip for chip in chips if chip.follow_up_id not in applied]
     pending = pending_action_id
@@ -296,6 +297,8 @@ def envelope(
         ],
         "production_side_effect": False,
     }
+    if journey is not None:
+        payload["ec_execution_journey"] = journey.model_dump() if hasattr(journey, "model_dump") else journey
     payload.update(extra or {})
     return ExperienceCenterResponse.model_validate(payload)
 
@@ -336,6 +339,6 @@ def demo_scenario(
         candidate_spl=candidate_spl,
         aliases=(),
         analyst_summary=summary,
-        trace_explanation=["Experience Center flagship fixture.", "No live MCP/LLM/RAG."],
+        trace_explanation=["Experience Center flagship fixture.", "MCP/LLM/RAG stay unused on this path."],
         source_evidence=source_evidence or [],
     )

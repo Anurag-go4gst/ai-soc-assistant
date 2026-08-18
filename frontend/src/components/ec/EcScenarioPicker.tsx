@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { listEcScenarios } from '@/api/ecClient';
+import { EcQueryAutocomplete } from '@/components/ec/EcQueryAutocomplete';
 import type { EcScenarioSummary } from '@/components/ec/types';
+import { resolveEcQueryLocal } from '@/lib/ecQuerySuggestions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -14,6 +16,8 @@ interface EcScenarioPickerProps {
 export function EcScenarioPicker({ disabled, selectedId, onSelect, onRun }: EcScenarioPickerProps) {
   const [scenarios, setScenarios] = useState<EcScenarioSummary[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [typedQuery, setTypedQuery] = useState('');
+  const [queryError, setQueryError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,15 +46,29 @@ export function EcScenarioPicker({ disabled, selectedId, onSelect, onRun }: EcSc
   const flagship = scenarios.filter((item) => item.category === 'Flagship' || /^s[1-7]_/.test(item.scenario_id));
   const rest = scenarios.filter((item) => !flagship.some((row) => row.scenario_id === item.scenario_id));
 
+  const runResolvedQuery = (query: string) => {
+    const match = resolveEcQueryLocal(scenarios, query);
+    if (!match) {
+      setQueryError('No matching investigation for that wording. Try the dropdown or refine your question.');
+      return;
+    }
+    setQueryError(null);
+    onSelect(match.scenario_id);
+    onRun(match);
+  };
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <label className="block text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-        Investigation
+        Investigation (picker)
         <select
           className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm text-slate-100"
           disabled={disabled || !scenarios.length}
           value={selected?.scenario_id ?? ''}
-          onChange={(event) => onSelect(event.target.value)}
+          onChange={(event) => {
+            setQueryError(null);
+            onSelect(event.target.value);
+          }}
         >
           {flagship.length ? (
             <optgroup label="7 Flagship Scenarios">
@@ -72,6 +90,18 @@ export function EcScenarioPicker({ disabled, selectedId, onSelect, onRun }: EcSc
           ) : null}
         </select>
       </label>
+
+      <EcQueryAutocomplete
+        scenarios={scenarios}
+        disabled={disabled || !scenarios.length}
+        value={typedQuery}
+        onChange={(value) => {
+          setTypedQuery(value);
+          setQueryError(null);
+        }}
+        onSubmit={runResolvedQuery}
+      />
+
       {selected ? (
         <p className="text-sm leading-relaxed text-slate-400">{selected.query}</p>
       ) : null}
@@ -85,6 +115,7 @@ export function EcScenarioPicker({ disabled, selectedId, onSelect, onRun }: EcSc
         </Button>
         {selected ? <Badge variant="outline">{selected.expected_skill}</Badge> : null}
         {loadError ? <span className="text-xs text-rose-300">{loadError}</span> : null}
+        {queryError ? <span className="text-xs text-rose-300">{queryError}</span> : null}
       </div>
     </div>
   );

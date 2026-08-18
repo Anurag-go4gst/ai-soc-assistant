@@ -43,7 +43,7 @@ def test_g2_production_demo_client_keeps_legacy_scenario_list() -> None:
 
 def test_g2_layer1_workspace_does_not_interpolate_internal_ids() -> None:
     text = (FRONTEND / "components" / "ec" / "EcInvestigationWorkspace.tsx").read_text(encoding="utf-8")
-    assert "Investigation active" in text
+    assert "Session active" in text
     assert "ec_fixture_selected" not in text
     assert "route_source" not in text
     assert "experience_center_fixture" not in text

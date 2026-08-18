@@ -158,7 +158,7 @@ describe('S1 Experience Center workspace', () => {
     render(<EcFollowUpBar chips={envelope.ec_followups} onSelect={onSelect} />);
     expect(screen.getByText(/Continue investigation/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Check successful authentications/i }));
-    expect(onSelect).toHaveBeenCalledWith('check_successful_auth');
+    expect(onSelect).toHaveBeenCalledWith('check_successful_auth', expect.objectContaining({ follow_up_id: 'check_successful_auth' }));
     expect(screen.getByRole('button', { name: /Prepare firewall block request/i })).toBeInTheDocument();
   });
 
@@ -179,7 +179,6 @@ describe('S1 Experience Center workspace', () => {
       />,
     );
     expect(screen.getByText(/Action Journey/i)).toBeInTheDocument();
-    expect(screen.getByText(/no production change/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Approve/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Call SOAR to block/i })).toBeInTheDocument();
   });
 });

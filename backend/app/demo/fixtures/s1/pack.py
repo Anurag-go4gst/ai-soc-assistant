@@ -6,8 +6,19 @@ from copy import deepcopy
 from typing import Any
 from uuid import uuid4
 
-from app.demo import ec_actions, ec_fsm_store
+from app.demo import ec_actions, ec_email_drafts, ec_fsm_store
+from app.demo.ec_journeys import journey_for
 from app.demo.ec_mcp_lifecycle_fixture import INCIDENT_ID, PRIMARY_ATTACKER_IP
+from app.demo.ec_siem_s1 import (
+    S1_DETECTION_NAME,
+    S1_LAYER2_PATH,
+    S1_SAVED_SEARCH_NAME,
+    build_s1_action_readiness,
+    build_s1_investigation_pivot,
+    build_s1_investigation_scope,
+    build_s1_siem_coverage,
+    build_s1_tool_traces,
+)
 from app.demo.ec_response import (
     EcFollowUpChip,
     EcProjection,
@@ -148,7 +159,8 @@ def _merged_systems() -> list[dict[str, Any]]:
             "first_seen": "2026-06-18T04:12:00Z",
             "last_seen": "2026-08-16T16:44:00Z",
             "allowed_denied": "3 allowed / 1842 denied",
-            "auth_correlation": f"Firewall logs associate {_ACCOUNT} with the 3 allow events",
+            "identity_auth_context": f"Firewall telemetry associates {_ACCOUNT} with the 3 allow events",
+            "auth_correlation": f"Firewall telemetry associates {_ACCOUNT} with the 3 allow events",
             "risk_note": "Highest-priority host; account use is correlated, not confirmed as compromise",
             "deny_count": 1842,
             "allow_count": 3,
@@ -161,6 +173,7 @@ def _merged_systems() -> list[dict[str, Any]]:
             "first_seen": "2026-06-20T11:03:00Z",
             "last_seen": "2026-08-15T19:02:00Z",
             "allowed_denied": "0 allowed / 1260 denied",
+            "identity_auth_context": "None in firewall results",
             "auth_correlation": "None in firewall results",
             "risk_note": "Perimeter blocks held; no allowed traffic in either window",
             "deny_count": 1260,
@@ -174,6 +187,7 @@ def _merged_systems() -> list[dict[str, Any]]:
             "first_seen": "2026-06-22T09:18:00Z",
             "last_seen": "2026-08-14T22:17:00Z",
             "allowed_denied": "0 allowed / 980 denied",
+            "identity_auth_context": "None in firewall results",
             "auth_correlation": "None in firewall results",
             "risk_note": "RDP/SSL deny pattern; no allowed traffic in either window",
             "deny_count": 980,
@@ -295,6 +309,29 @@ def _followup_catalog() -> tuple[EcFollowUpChip, ...]:
             group="action",
             leads_to_action=True,
         ),
+        EcFollowUpChip(
+            follow_up_id="email_firewall_team",
+            label="Email firewall/security team",
+            group="action",
+            leads_to_action=True,
+        ),
+        EcFollowUpChip(
+            follow_up_id="verify_firewall_block",
+            label="Verify firewall rule",
+            group="action",
+            leads_to_action=True,
+        ),
+        EcFollowUpChip(
+            follow_up_id="update_incident",
+            label="Update incident ticket",
+            group="action",
+            leads_to_action=True,
+        ),
+        EcFollowUpChip(
+            follow_up_id="generate_closure_summary",
+            label="Generate closure / executive summary",
+            group="action",
+        ),
     )
 
 
@@ -303,6 +340,13 @@ S1_FOLLOWUP_IDS = frozenset(chip.follow_up_id for chip in _followup_catalog())
 
 def _base_evidence_state() -> list[dict[str, Any]]:
     return [
+        {
+            "id": "siem_existing_search",
+            "label": "Existing Splunk suspicious-IP search",
+            "status": "OBTAINED",
+            "provenance": "simulated_mcp",
+            "detail": f"{S1_DETECTION_NAME} replayed (partial coverage)",
+        },
         {
             "id": "splunk_fw_search_1",
             "label": "Splunk firewall search 1",
@@ -319,10 +363,10 @@ def _base_evidence_state() -> list[dict[str, Any]]:
         },
         {
             "id": "auth_correlation",
-            "label": "Auth correlation",
+            "label": "Firewall identity association",
             "status": "OBTAINED",
             "provenance": "experience_center_fixture",
-            "detail": f"Firewall allow events on {_JUMP} associated with {_ACCOUNT}",
+            "detail": f"Firewall allow events on {_JUMP} associated with {_ACCOUNT} (not successful authentication)",
         },
         {
             "id": "successful_auth",
@@ -337,6 +381,27 @@ def _base_evidence_state() -> list[dict[str, Any]]:
             "status": "MISSING",
             "provenance": "experience_center_fixture",
             "detail": "IAM/privileged-account review not yet run",
+        },
+        {
+            "id": "dns_telemetry",
+            "label": "DNS communication",
+            "status": "AVAILABLE_NOT_QUERIED",
+            "provenance": "experience_center_fixture",
+            "detail": "pgcil:dns available in environment KB; not queried",
+        },
+        {
+            "id": "proxy_telemetry",
+            "label": "Proxy / web communication",
+            "status": "AVAILABLE_NOT_QUERIED",
+            "provenance": "experience_center_fixture",
+            "detail": "Proxy telemetry available; not queried in initial pass",
+        },
+        {
+            "id": "vpn_telemetry",
+            "label": "VPN communication",
+            "status": "AVAILABLE_NOT_QUERIED",
+            "provenance": "experience_center_fixture",
+            "detail": "pgcil:vpn available; not queried",
         },
         {
             "id": "edr",
@@ -366,6 +431,34 @@ def _base_evidence_state() -> list[dict[str, Any]]:
             "provenance": "experience_center_fixture",
             "detail": "Historical ticket comparison not yet run",
         },
+        {
+            "id": "team_email",
+            "label": "Firewall/security team email",
+            "status": "MISSING",
+            "provenance": "experience_center_fixture",
+            "detail": "Outbound team notification not prepared",
+        },
+        {
+            "id": "firewall_verify",
+            "label": "Firewall rule verification",
+            "status": "MISSING",
+            "provenance": "experience_center_fixture",
+            "detail": "No simulated rule verification until execute completes",
+        },
+        {
+            "id": "incident_update",
+            "label": "Incident ticket update",
+            "status": "MISSING",
+            "provenance": "experience_center_fixture",
+            "detail": "Ticket not updated after investigation actions",
+        },
+        {
+            "id": "closure",
+            "label": "Closure / executive summary",
+            "status": "MISSING",
+            "provenance": "experience_center_fixture",
+            "detail": "Closure summary not generated",
+        },
     ]
 
 
@@ -373,31 +466,35 @@ def _base_outcome() -> dict[str, Any]:
     return {
         "disposition": "suspicious",
         "confirmed": [
-            f"Suspicious IP {PRIMARY_ATTACKER_IP} communicated with {_JUMP}, {_HOST_B}, and {_HOST_C}",
+            f"Suspicious IP {PRIMARY_ATTACKER_IP} communicated with {_JUMP}, {_HOST_B}, and {_HOST_C} in firewall telemetry",
             "Traffic was observed across both historical 30-day windows",
             "Denied traffic exists on all three affected systems",
             f"At least one relevant allowed connection exists on jump host {_JUMP}",
-            f"Authentication activity is associated with {_ACCOUNT} on {_JUMP} via firewall allow events",
+            f"Firewall telemetry associates {_ACCOUNT} with allowed events on {_JUMP}",
         ],
         "supported": [
-            "T1110.001 Password Guessing — high deny volume across multiple ports/hosts in both windows",
+            "Persistent external probing and multi-port deny activity across three internal destinations",
         ],
         "unconfirmed": [
             "Successful account compromise",
+            "Successful authentication attributable to the suspicious IP",
             "Valid-account abuse (T1078)",
+            "Password guessing (T1110.001) — requires authentication failure evidence",
             "Lateral movement from the jump host to peer systems",
+            "All communication paths (DNS/proxy/VPN/endpoint network not yet assessed)",
         ],
         "missing_evidence": [
             "EDR / endpoint process telemetry",
             "Deeper IAM / identity evidence",
+            "DNS / proxy / VPN communication",
             "Threat intelligence (available, not yet queried)",
         ],
         "mitre": [
             {
                 "technique_id": "T1110.001",
                 "name": "Password Guessing",
-                "status": "supported",
-                "evidence_basis": "Bounded firewall denies across 22/443/3389/8443 on three internal systems in both windows",
+                "status": "candidate",
+                "evidence_basis": "Firewall deny volume suggests probing; authentication failure events not yet retrieved",
             },
             {
                 "technique_id": "T1078",
@@ -427,7 +524,8 @@ def _apply_follow_up_effects(
     outcome: dict[str, Any],
     evidence_state: list[dict[str, Any]],
     extra_evidence: list[dict[str, Any]],
-) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], list[Any]]:
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], list[Any], dict[str, Any]]:
+    extras: dict[str, Any] = {}
     actions: list[Any] = list(ec_actions.list_actions_for_session(session_id, S1_SCENARIO_ID))
 
     if "check_successful_auth" in applied:
@@ -608,7 +706,26 @@ def _apply_follow_up_effects(
             label=f"Prepare firewall block for {PRIMARY_ATTACKER_IP}",
             session_id=session_id,
             scenario_id=S1_SCENARIO_ID,
-            extra={"indicator": PRIMARY_ATTACKER_IP, "requested_action": "block"},
+            extra={
+                "indicator": PRIMARY_ATTACKER_IP,
+                "requested_action": "block",
+                "auto_block": False,
+                "soar": {
+                    "playbook": "ip_block",
+                    "indicator": PRIMARY_ATTACKER_IP,
+                    "action": "block",
+                    "reason": (
+                        f"SOC Experience Center request to block {PRIMARY_ATTACKER_IP} after governed "
+                        f"60-day review of {_JUMP}, {_HOST_B}, and {_HOST_C}. Compromise is unconfirmed; "
+                        "containment is HIL-gated and must go through SOAR / firewall MCP if configured."
+                    ),
+                },
+                "verify_payload": {
+                    "rule_present": True,
+                    "indicator": PRIMARY_ATTACKER_IP,
+                    "simulated": True,
+                },
+            },
         )
         actions.append(prepared)
     if "create_incident_ticket" in applied and "ticket_create" not in existing_kinds:
@@ -630,12 +747,94 @@ def _apply_follow_up_effects(
             scenario_id=S1_SCENARIO_ID,
             extra={"ticket": ticket_body},
         )
-        approved = ec_actions.approve_action(prepared.action_id)
-        executed = ec_actions.execute_action(approved.action_id)
-        actions = [item for item in actions if item.action_id != prepared.action_id]
-        actions.append(executed)
+        actions.append(prepared)
 
-    return outcome, evidence_state, extra_evidence, actions
+    if "email_firewall_team" in applied:
+        email = next((item for item in actions if item.kind == "email_send"), None)
+        if email is None:
+            ticket_executed = any(
+                item.kind == "ticket_create" and item.state == "EXECUTED" for item in actions
+            )
+            email_extra = ec_email_drafts.s1_firewall_team_email(
+                applied=applied,
+                jump=_JUMP,
+                host_b=_HOST_B,
+                host_c=_HOST_C,
+                account=_ACCOUNT,
+                ticket_executed=ticket_executed,
+            )
+            email = ec_actions.prepare_action(
+                kind="email_send",
+                label="Email firewall/security team",
+                session_id=session_id,
+                scenario_id=S1_SCENARIO_ID,
+                extra=email_extra,
+            )
+            actions.append(email)
+        _set_status(
+            evidence_state,
+            "team_email",
+            "OBTAINED",
+            "Draft prepared for logical recipient FIREWALL_TEAM; not transmitted until Send email",
+        )
+        extras["ec_email"] = {
+            "to": email_extra["email"]["to"],
+            "logical_recipient": "FIREWALL_TEAM",
+            "subject": email_extra["email"]["subject"],
+            "status": "draft_pending_send",
+            "not_transmitted": True,
+        }
+
+    if "verify_firewall_block" in applied:
+        block = next((item for item in actions if item.kind == "firewall_block"), None)
+        if block is not None and block.state == "EXECUTED":
+            verified = ec_actions.verify_action(block.action_id)
+            actions = [item for item in actions if item.action_id != verified.action_id]
+            actions.append(verified)
+            _set_status(
+                evidence_state,
+                "firewall_verify",
+                "OBTAINED",
+                f"Simulated firewall rule for {PRIMARY_ATTACKER_IP} verified after execute",
+            )
+            if "Simulated firewall rule verified after execute" not in outcome["confirmed"]:
+                outcome["confirmed"].append("Simulated firewall rule verified after execute")
+        else:
+            _set_status(
+                evidence_state,
+                "firewall_verify",
+                "MISSING",
+                "Verification is unavailable until the firewall action is executed after HIL approval",
+            )
+
+    if "update_incident" in applied:
+        updated = next((item for item in actions if item.kind == "ticket_update"), None)
+        if updated is None:
+            ticket_body = {
+                "indicator": PRIMARY_ATTACKER_IP,
+                "disposition": outcome["disposition"],
+                "update": "Investigation actions recorded; compromise remains unconfirmed",
+                "production_side_effect": False,
+            }
+            prepared = ec_actions.prepare_action(
+                kind="ticket_update",
+                label="Update incident ticket",
+                session_id=session_id,
+                scenario_id=S1_SCENARIO_ID,
+                extra={"ticket": ticket_body},
+            )
+            actions.append(prepared)
+        _set_status(evidence_state, "incident_update", "MISSING", "Ticket update draft is waiting for confirmation")
+
+    if "generate_closure_summary" in applied:
+        outcome["closure_summary"] = (
+            f"Suspicious IP {PRIMARY_ATTACKER_IP} investigated over governed 60-day coverage (30+30). "
+            "Probing is supported; account compromise and lateral movement remain unconfirmed. "
+            "Firewall block is HIL-gated and is not auto-applied from initial evidence."
+        )
+        _set_status(evidence_state, "closure", "OBTAINED", "Executive closure summary generated")
+
+    return outcome, evidence_state, extra_evidence, actions, extras
 
 
 def _assessment(applied: list[str]) -> str:
@@ -645,24 +844,44 @@ def _assessment(applied: list[str]) -> str:
     if "check_threat_intel" in applied:
         extra += f" Indicator {PRIMARY_ATTACKER_IP} is listed as a suspicious scanning source in the EC threat-intel fixture."
     return (
-        f"Suspicious activity from {PRIMARY_ATTACKER_IP} was observed across {_JUMP}, {_HOST_B}, and {_HOST_C} "
-        "during the governed 60-day investigation. Evidence supports coordinated probing and a "
-        "password-guessing pattern (T1110.001), but account compromise and lateral movement are not confirmed."
+        f"Firewall telemetry shows suspicious activity from {PRIMARY_ATTACKER_IP} against {_JUMP}, {_HOST_B}, and {_HOST_C} "
+        "during a governed 60-day review. This is firewall-observed communication only — DNS, proxy, VPN, and endpoint "
+        "network paths were not queried. Persistent probing is supported; account compromise and lateral movement are not confirmed."
         + extra
     )
 
 
 def _what_we_found(applied: list[str]) -> str:
     text = (
-        f"Two bounded firewall searches on pgcil_soc/pgcil:firewall cover 60 days as 30+30. "
+        f"Existing Splunk content ({S1_DETECTION_NAME}) was reused for recent suspicious-IP firewall activity. "
+        "Because full 60-day history was not covered, two governed 30+30 firewall searches completed the historical view. "
         f"All three internal systems show denied traffic in both windows. Jump host {_JUMP} also has "
-        f"3 allowed connections associated with {_ACCOUNT}."
+        f"3 allowed connections with a firewall identity association to {_ACCOUNT} — not established as successful authentication."
     )
     if "check_successful_auth" in applied:
         text += f" A follow-up auth search shows successful logons for {_ACCOUNT} on {_JUMP}; the auth source IP is not proven."
     if "check_privileged_accounts" in applied:
         text += f" {_ACCOUNT} is a privileged jump-host service account."
     return text
+
+
+def _recommended_investigations(applied: list[str]) -> list[str]:
+    steps = [
+        "Check successful authentications for the jump-host service account",
+        "Review privileged-account context without assuming compromise",
+        "Check endpoint activity on the jump host",
+        "Check threat intelligence for the suspicious IP",
+        "Compare with previous incidents",
+        "Assess DNS / proxy / VPN communication if broader coverage is required",
+    ]
+    mapping = {
+        "check_successful_auth": 0,
+        "check_privileged_accounts": 1,
+        "check_endpoint_activity": 2,
+        "check_threat_intel": 3,
+        "compare_previous_incidents": 4,
+    }
+    return [step for idx, step in enumerate(steps) if not any(mapping.get(fid) == idx for fid in applied)]
 
 
 def _recommended(applied: list[str]) -> list[str]:
@@ -674,6 +893,9 @@ def _recommended(applied: list[str]) -> list[str]:
         "Compare with previous incidents before containment",
         "Prepare a firewall block request only after analyst approval",
         "Open an incident ticket with confirmed vs unconfirmed findings",
+        "Email the firewall/security team after reviewing the draft",
+        "Verify a simulated firewall rule only after execute",
+        "Update the incident and generate a closure summary",
     ]
     mapping = {
         "check_successful_auth": 0,
@@ -683,6 +905,10 @@ def _recommended(applied: list[str]) -> list[str]:
         "compare_previous_incidents": 4,
         "prepare_firewall_block": 5,
         "create_incident_ticket": 6,
+        "email_firewall_team": 7,
+        "verify_firewall_block": 8,
+        "update_incident": 9,
+        "generate_closure_summary": 10,
     }
     remaining = [step for idx, step in enumerate(steps) if not any(mapping.get(fid) == idx for fid in applied)]
     return remaining or ["Document the investigation outcome and keep compromise unconfirmed until identity evidence lands."]
@@ -850,17 +1076,25 @@ def _validation_envelope(search_1: dict[str, Any], search_2: dict[str, Any]) -> 
 
 
 def _layer2_path() -> list[str]:
-    return [
-        "Understanding",
-        "Evidence required",
-        "Environment search governance",
-        "Resources selected",
-        "SPL controls",
-        "Search 1",
-        "Search 2",
-        "Evidence merged",
-        "InvestigationOutcome",
-    ]
+    return list(S1_LAYER2_PATH)
+
+
+def _existing_detection_evidence() -> dict[str, Any]:
+    return {
+        "evidence_id": "ev-s1-existing-search",
+        "trace_id": "pending",
+        "source_type": "splunk_saved_search",
+        "source_name": S1_DETECTION_NAME,
+        "tool_name": "splunk_run_saved_search",
+        "collection_status": "collected",
+        "query_or_request_summary": f"saved_search={S1_SAVED_SEARCH_NAME} · recent window",
+        "result_count": 3,
+        "fields_returned": ["src", "dest", "event_count", "actions"],
+        "preview_rows": _search_2_rows(),
+        "provenance": "simulated_mcp",
+        "warnings": ["coe_synthetic_fixture", "partial_coverage_only"],
+        "output_type": "fixture_preview",
+    }
 
 
 def build_s1_turn(
@@ -884,7 +1118,7 @@ def build_s1_turn(
     outcome = deepcopy(_base_outcome())
     evidence_state = deepcopy(_base_evidence_state())
     extra_evidence: list[dict[str, Any]] = []
-    outcome, evidence_state, extra_evidence, actions = _apply_follow_up_effects(
+    outcome, evidence_state, extra_evidence, actions, extras = _apply_follow_up_effects(
         applied,
         session_id=session_id,
         outcome=outcome,
@@ -897,6 +1131,7 @@ def build_s1_turn(
         pending = prepared.action_id if prepared else None
 
     source_evidence = [
+        _existing_detection_evidence(),
         _source_evidence_item(
             "ev-s1-fw-search-1",
             "Simulated Splunk firewall search 1",
@@ -917,21 +1152,29 @@ def build_s1_turn(
         item["trace_id"] = trace_id
 
     remaining = [chip for chip in _followup_catalog() if chip.follow_up_id not in applied]
+    firewall = next((item for item in actions if item.kind == "firewall_block"), None)
+    if firewall is None or firewall.state not in {"EXECUTED", "VERIFIED"}:
+        remaining = [chip for chip in remaining if chip.follow_up_id != "verify_firewall_block"]
     systems = _merged_systems()
     assessment = _assessment(applied)
     analyst = {
-        "finding_title": f"Governed 60-day investigation of {PRIMARY_ATTACKER_IP}",
+        "finding_title": f"Suspicious IP observed across three internal systems — compromise not confirmed",
         "severity_label": "P2 High",
+        "direct_answer_line": (
+            f"Three internal systems identified in firewall telemetry ({_JUMP}, {_HOST_B}, {_HOST_C}); "
+            "broader DNS/proxy/VPN/endpoint communication is not yet complete."
+        ),
         "assessment": assessment,
         "direct_answer_summary": assessment,
         "one_sentence_finding": _what_we_found(applied),
         "what_we_found": _what_we_found(applied),
         "affected_systems": systems,
         "important_evidence": [
-            f"{PRIMARY_ATTACKER_IP} appears in both 30-day windows against three internal systems",
-            f"Jump host {_JUMP} has 3 allowed connections associated with {_ACCOUNT}",
+            f"Existing Splunk search reused: {S1_DETECTION_NAME}",
+            f"{PRIMARY_ATTACKER_IP} appears in both 30-day firewall windows against three internal systems",
+            f"Jump host {_JUMP} has 3 allowed connections with firewall identity association to {_ACCOUNT}",
             f"{_HOST_B} and {_HOST_C} are deny-only in both windows",
-            "T1110.001 is supported by deny volume and port spread; T1078 stays unconfirmed",
+            "Governed 30+30 searches completed the 60-day firewall history gap",
         ],
         "unconfirmed_findings": _unconfirmed_copy(outcome),
         "recommended_actions": _recommended(applied),
@@ -943,7 +1186,7 @@ def build_s1_turn(
                 "First Seen": row["first_seen"],
                 "Last Seen": row["last_seen"],
                 "Allowed/Denied": row["allowed_denied"],
-                "Auth Correlation": row["auth_correlation"],
+                "Identity / auth context": row.get("identity_auth_context") or row["auth_correlation"],
                 "Risk Note": row["risk_note"],
             }
             for row in systems
@@ -952,8 +1195,8 @@ def build_s1_turn(
             {
                 "Technique": "T1110.001",
                 "Name": "Password Guessing",
-                "Status": "Supported",
-                "Evidence": "High deny volume across multiple ports and three internal destinations in both windows",
+                "Status": "Candidate",
+                "Evidence": "Firewall deny volume suggests probing; authentication failure events not retrieved",
             },
             {
                 "Technique": "T1078",
@@ -1034,6 +1277,34 @@ def build_s1_turn(
         "ec_evidence_state": evidence_state,
         "ec_layer2_path": _layer2_path(),
         "production_side_effect": False,
+        "ec_execution_journey": journey_for(S1_SCENARIO_ID, applied).model_dump(),
+        "ec_status_summary": (
+            "P2 High · Activity: Confirmed · Systems: 3 · Allowed on jump host · "
+            "Account compromise: Not confirmed · Lateral movement: Not confirmed"
+        ),
+        "ec_impact_legend": [
+            "Activity: Confirmed",
+            "Systems identified: 3",
+            "Allowed communication: Jump host only",
+            "Account compromise: Not confirmed",
+        ],
+        "ec_siem_coverage": build_s1_siem_coverage().model_dump(),
+        "ec_investigation_scope": build_s1_investigation_scope().model_dump(),
+        "ec_investigation_pivot": build_s1_investigation_pivot().model_dump(),
+        "ec_action_readiness": [row.model_dump() for row in build_s1_action_readiness(applied, actions)],
+        "ec_recommended_investigations": _recommended_investigations(applied),
+        "ec_siem_tool_traces": [
+            item.model_dump()
+            for item in build_s1_tool_traces(
+                {**search_1, "candidate_spl": _SEARCH_1_SPL},
+                {**search_2, "candidate_spl": _SEARCH_2_SPL},
+            )
+        ],
+        "ec_spl_governance_summary": (
+            "Existing SIEM coverage did not satisfy the complete 60-day historical requirement, so the assistant "
+            "ran two governed 30-day firewall searches to complete the view."
+        ),
+        **extras,
     }
     return ExperienceCenterResponse.model_validate(envelope)
 
@@ -1071,8 +1342,8 @@ def s1_analyst_override(scenario_id: str, base: dict[str, Any]) -> dict[str, Any
             {
                 "Technique": "T1110.001",
                 "Name": "Password Guessing",
-                "Status": "Supported",
-                "Evidence": "High deny volume across multiple ports and three internal destinations in both windows",
+                "Status": "Candidate",
+                "Evidence": "Firewall deny volume suggests probing; authentication failure events not retrieved",
             },
             {
                 "Technique": "T1078",

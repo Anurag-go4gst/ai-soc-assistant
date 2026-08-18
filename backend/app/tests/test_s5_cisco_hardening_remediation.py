@@ -23,6 +23,9 @@ def test_s5_initial_version_14_and_policy_not_production_cisco() -> None:
     assert envelope["ec_cisco"]["current_version"] == 14
     assert envelope["ec_cisco"]["provenance"] == "simulated_mcp"
     assert envelope["ec_policy_source"] == "ec_scenario_policy"
+    assert envelope["ec_remediation_policy"]["splunk_not_device_management"] is True
+    assert envelope["ec_resource_composition"]
+    assert envelope["ec_investigation_scope"]["scope_note"]
     verify_ids = {item["follow_up_id"] for item in envelope["ec_followups"]}
     assert "verify_version" not in verify_ids
     assert envelope["production_side_effect"] is False
@@ -56,6 +59,11 @@ def test_s5_state_machine_14_to_15(monkeypatch) -> None:
         if follow_up_id == "show_hardening_policy":
             assert body["ec_projection"]["phase_contract"]["provenance"]["kind"] == "ec_scenario_policy"
             assert "not production" in str(body["source_evidence"]).lower() or body["ec_policy_source"] == "ec_scenario_policy"
+        if follow_up_id == "request_network_approval":
+            email = next(item for item in body["ec_actions"] if item["kind"] == "email_send")
+            assert email["state"] == "APPROVAL_REQUIRED"
+            assert body["ec_email"]["logical_recipient"] == "NETWORK_TEAM"
+            assert email["production_side_effect"] is False
         if follow_up_id == "approve_upgrade":
             upgrade = next(item for item in body["ec_actions"] if item["kind"] == "cisco_upgrade")
             assert upgrade["state"] == "APPROVED"
@@ -81,3 +89,14 @@ def test_s5_no_production_cisco_connector() -> None:
     assert "call_tool" not in source
     assert "netmiko" not in source
     assert "napalm" not in source
+
+
+def test_s5_initial_journey_titles_disclose_version_14_as_fixture_replay() -> None:
+    from app.demo.ec_journeys import S5_INITIAL_TITLES
+
+    envelope = run_experience_center_turn(S5_SCENARIO_ID, session_id="s5-journey")
+    titles = tuple(stage.title for stage in envelope.ec_execution_journey.stages)
+    assert titles == S5_INITIAL_TITLES
+    version_stage = next(stage for stage in envelope.ec_execution_journey.stages if stage.title == "Version 14 identified")
+    assert "14" in " ".join(version_stage.activity)
+    assert version_stage.outcome_change == "current_version=14"

@@ -39,26 +39,58 @@ export async function followUpEcScenario(
   return readJson(response, 'EC follow-up');
 }
 
-export async function approveEcAction(actionId: string): Promise<EcActionRecord> {
+function actionBody(action?: EcActionRecord | null, draft?: Record<string, unknown> | null) {
+  return JSON.stringify({
+    draft: draft ?? null,
+    action: action ?? null,
+  });
+}
+
+export async function approveEcAction(actionId: string, action?: EcActionRecord): Promise<EcActionRecord> {
   const response = await fetch(`${API_BASE_URL}/demo/ec-actions/${encodeURIComponent(actionId)}/approve`, {
     method: 'POST',
     credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: actionBody(action),
   });
   return readJson(response, 'EC action approve');
 }
 
-export async function executeEcAction(actionId: string): Promise<EcActionRecord> {
+export async function executeEcAction(
+  actionId: string,
+  draft?: Record<string, unknown> | null,
+  action?: EcActionRecord,
+): Promise<EcActionRecord> {
   const response = await fetch(`${API_BASE_URL}/demo/ec-actions/${encodeURIComponent(actionId)}/execute`, {
     method: 'POST',
     credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: actionBody(action, draft),
   });
   return readJson(response, 'EC action execute');
 }
 
-export async function verifyEcAction(actionId: string): Promise<EcActionRecord> {
+export async function verifyEcAction(actionId: string, action?: EcActionRecord): Promise<EcActionRecord> {
   const response = await fetch(`${API_BASE_URL}/demo/ec-actions/${encodeURIComponent(actionId)}/verify`, {
     method: 'POST',
     credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: actionBody(action),
   });
   return readJson(response, 'EC action verify');
+}
+
+export async function resolveEcQuery(query: string): Promise<{
+  query: string;
+  scenario_id: string | null;
+  score: number;
+  matched: boolean;
+}> {
+  const response = await fetch(`${API_BASE_URL}/demo/experience-center/resolve-query`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  });
+  return readJson(response, 'EC resolve query');
 }

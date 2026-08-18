@@ -948,6 +948,7 @@ def _scenario_summary(scenario: DemoScenario) -> dict[str, Any]:
         "category": scenario.category,
         "query": _display_query(scenario),
         "canonical_query": scenario.query,
+        "aliases": list(scenario.aliases),
         "environment_mode": scenario.environment_mode,
         "demo_badge": DEMO_BADGE,
         "expected_skill": scenario.expected_skill,

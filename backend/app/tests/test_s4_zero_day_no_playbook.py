@@ -69,6 +69,14 @@ def test_s4_versions_update_exposure_and_hardening_hil(monkeypatch) -> None:
         execute_action(control["action_id"])
     assert "ec_scenario_policy" in str(body["source_evidence"])
 
+    notified = client.post(
+        f"/demo/scenarios/{S4_SCENARIO_ID}/follow-up",
+        json={"follow_up_id": "notify_network_team", "session_id": session_id},
+    ).json()
+    email = next(item for item in notified["ec_actions"] if item["kind"] == "email_send")
+    assert email["state"] == "APPROVAL_REQUIRED"
+    assert notified["ec_email"]["logical_recipient"] == "NETWORK_TEAM"
+
 
 def test_s4_pack_isolation() -> None:
     from app.demo.fixtures.s4 import pack as s4_pack
@@ -77,3 +85,10 @@ def test_s4_pack_isolation() -> None:
     assert "routes_actions" not in source
     assert "call_tool" not in source
     assert "pipeline.py" not in source
+
+
+def test_s4_no_playbook_stage_is_complete_context_not_failed() -> None:
+    envelope = run_experience_center_turn(S4_SCENARIO_ID, session_id="s4-journey")
+    stage = next(item for item in envelope.ec_execution_journey.stages if item.title == "No predefined SOAR playbook available")
+    assert stage.semantic_type != "failed"
+    assert "not a failed stage" in " ".join(stage.activity).lower()

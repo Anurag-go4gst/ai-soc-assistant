@@ -95,3 +95,37 @@ def test_http_follow_up_unknown_id_is_404(monkeypatch) -> None:
     )
     assert response.status_code == 404
     assert response.json()["detail"] == "Unknown follow-up"
+
+
+def test_ec_execution_journey_is_optional_and_not_on_placeholder() -> None:
+    from pathlib import Path
+
+    from app.demo.ec_response import EcExecutionJourney, EcExecutionStage
+
+    schema_text = Path(__file__).resolve().parents[1].joinpath("schemas/responses.py").read_text(encoding="utf-8")
+    assert "ec_execution_journey" not in schema_text
+    envelope = run_experience_center_turn("firewall_baseline_template_spl", session_id="ec-journey-optional")
+    assert envelope.ec_execution_journey is None
+    journey = EcExecutionJourney(
+        journey_id="lab-fallback",
+        kind="initial",
+        header="Running governed investigation pipeline",
+        stages=[
+            EcExecutionStage(id="understand", title="Understanding the question", semantic_type="understand"),
+            EcExecutionStage(id="plan", title="Planning evidence", semantic_type="plan"),
+            EcExecutionStage(id="gather", title="Gathering evidence", semantic_type="gather"),
+            EcExecutionStage(id="outcome", title="Building InvestigationOutcome", semantic_type="outcome"),
+        ],
+    )
+    dumped = envelope.model_copy(update={"ec_execution_journey": journey}).model_dump()
+    assert dumped["ec_execution_journey"]["stages"][0]["id"] == "understand"
+    payload = run_demo_scenario("firewall_baseline_template_spl")
+    PlaceholderResponse(**payload)
+
+
+def test_all_flagship_initial_journeys_have_ten_architecture_steps() -> None:
+    from app.demo.ec_journeys import INITIAL_ARCHITECTURE_STEP_COUNT, _INITIAL
+
+    for scenario_id, builder in _INITIAL.items():
+        journey = builder()
+        assert len(journey.stages) == INITIAL_ARCHITECTURE_STEP_COUNT, scenario_id

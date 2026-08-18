@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EcActionFlow } from '@/components/ec/EcActionFlow';
 import { EcCoordinationPanels } from '@/components/ec/EcCoordinationPanels';
@@ -7,6 +7,7 @@ import { EcInvestigationWorkspace } from '@/components/ec/EcInvestigationWorkspa
 import { EcScenarioPicker } from '@/components/ec/EcScenarioPicker';
 import { EcTransparencyDrawer } from '@/components/ec/EcTransparencyDrawer';
 import type { ExperienceCenterResponse } from '@/components/ec/types';
+import { followUpEcScenario, runEcScenario } from '@/api/ecClient';
 
 vi.mock('@/api/ecClient', () => ({
   listEcScenarios: vi.fn(async () => ({
@@ -75,6 +76,25 @@ vi.mock('@/api/ecClient', () => ({
       unconfirmed: ['Whether the whitelist explains the traffic'],
       missing_evidence: ['Business-owner reconfirmation'],
     },
+    ec_execution_journey: {
+      journey_id: 's3-test-initial',
+      kind: 'initial',
+      header: 'Running governed investigation pipeline',
+      stages: [
+        {
+          id: 'understand',
+          title: 'Understanding the question',
+          semantic_type: 'understand',
+          duration_ms_hint: 15,
+        },
+        {
+          id: 'outcome',
+          title: 'Building InvestigationOutcome',
+          semantic_type: 'outcome',
+          duration_ms_hint: 15,
+        },
+      ],
+    },
   })),
   followUpEcScenario: vi.fn(),
 }));
@@ -129,7 +149,20 @@ const envelope: ExperienceCenterResponse = {
   },
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
+
+async function readyComposer() {
+  await screen.findByPlaceholderText(/Ask V.AI SOC/i);
+}
+
+function sendInvestigationQuery(query: string) {
+  const input = screen.getByPlaceholderText(/Ask V.AI SOC/i);
+  fireEvent.change(input, { target: { value: query } });
+  fireEvent.click(screen.getByRole('button', { name: /Send investigation query/i }));
+}
 
 describe('Flagship Experience Center UX', () => {
   it('lists seven flagships separately from lab', async () => {
@@ -164,33 +197,190 @@ describe('Flagship Experience Center UX', () => {
     expect(layer2?.textContent).toMatch(/experience_center_fixture/);
   });
 
-  it('renders email send/await/inbound', () => {
+  it('renders inbound team reply without duplicating action panels', () => {
     render(<EcCoordinationPanels envelope={envelope} />);
-    expect(screen.getByText('Email')).toBeInTheDocument();
-    expect(screen.getByText(/malicious ip/i)).toBeInTheDocument();
+    expect(screen.getByText(/Inbound team reply/i)).toBeInTheDocument();
     expect(screen.getByText(/whitelisted yesterday/i)).toBeInTheDocument();
+    expect(screen.queryByText('Email')).not.toBeInTheDocument();
   });
 
-  it('keeps Execute disabled until approved', () => {
+  it('renders editable email draft with send control', () => {
     render(
       <EcActionFlow
         actions={[{
-          action_id: 'ec-act-1',
-          kind: 'cisco_upgrade',
-          label: 'cisco.upgrade to 15',
+          action_id: 'ec-act-email',
+          kind: 'email_send',
+          label: 'Email firewall/security team',
           state: 'APPROVAL_REQUIRED',
           provenance: 'simulated_phase10_action',
           production_side_effect: false,
+          draft: {
+            to: 'anurag.agarwal@velocis.in',
+            subject: 'SOC request',
+            body: 'Please review the indicator.',
+          },
         }]}
         onUpdate={vi.fn()}
       />,
     );
-    expect(screen.getByRole('button', { name: /Execute/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Verify/i })).toBeDisabled();
+    expect(screen.getByDisplayValue('anurag.agarwal@velocis.in')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Send email/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Approve$/i })).not.toBeInTheDocument();
   });
 
   it('renders investigation path', () => {
     render(<EcTransparencyDrawer envelope={envelope} />);
     expect(screen.getByText(/Investigation Path/i)).toBeInTheDocument();
+  });
+
+  it('hides Layer 1 until the execution journey finishes', async () => {
+    render(<EcInvestigationWorkspace />);
+    await readyComposer();
+    vi.useFakeTimers();
+    sendInvestigationQuery('q3');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('experience-execution-progress-panel')).toBeInTheDocument();
+    expect(screen.queryByText(/SOC Answer/i)).not.toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(screen.getByText(/SOC Answer/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('experience-execution-progress-panel')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-ec-layer="soc-answer"]')?.textContent).toMatch(
+      /Firewall-team coordination/,
+    );
+  });
+
+  it('keeps the waiting panel when the journey pauses on HIL', async () => {
+    vi.mocked(runEcScenario).mockResolvedValueOnce({
+      ...envelope,
+      ec_execution_journey: {
+        journey_id: 's3-wait',
+        kind: 'action',
+        header: 'Connecting to email transport',
+        stages: [
+          { id: 'prep', title: 'Preparing firewall-team request', semantic_type: 'plan', duration_ms_hint: 15 },
+          { id: 'hil', title: 'Waiting for send approval', semantic_type: 'hil', duration_ms_hint: 0 },
+        ],
+      },
+    });
+    render(<EcInvestigationWorkspace />);
+    await readyComposer();
+    vi.useFakeTimers();
+    sendInvestigationQuery('q3');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(screen.getByText(/SOC Answer/i)).toBeInTheDocument();
+    expect(screen.getByTestId('experience-execution-progress-panel')).toBeInTheDocument();
+    expect(screen.getByText(/Connecting to email transport/i)).toBeInTheDocument();
+  });
+
+  it('plays a connector journey for an action chip instead of the initial investigation', async () => {
+    vi.mocked(runEcScenario).mockResolvedValueOnce({
+      ...envelope,
+      ec_followups: [{
+        follow_up_id: 'create_incident_ticket',
+        label: 'Create incident ticket',
+        advances_state: true,
+        group: 'action',
+        leads_to_action: true,
+      }],
+      ec_execution_journey: {
+        journey_id: 's3-test-initial',
+        kind: 'initial',
+        header: 'Running governed investigation pipeline',
+        stages: [
+          { id: 'understand', title: 'Understanding the question', semantic_type: 'understand', duration_ms_hint: 15 },
+          { id: 'outcome', title: 'Building InvestigationOutcome', semantic_type: 'outcome', duration_ms_hint: 15 },
+        ],
+      },
+    });
+    vi.mocked(followUpEcScenario).mockResolvedValueOnce({
+      ...envelope,
+      analyst: {
+        ...envelope.analyst,
+        finding_title: 'Ticket recorded',
+      },
+      ec_followups: [],
+      ec_execution_journey: {
+        journey_id: 'act-ticket',
+        kind: 'action',
+        header: 'Connecting to ITSM',
+        follow_up_id: 'create_incident_ticket',
+        stages: [
+          { id: 'sel', title: 'Selecting ITSM connector', semantic_type: 'plan', duration_ms_hint: 15 },
+          { id: 'conn', title: 'Connecting to ITSM', semantic_type: 'execute', duration_ms_hint: 15 },
+        ],
+      },
+    });
+    render(<EcInvestigationWorkspace />);
+    await readyComposer();
+    vi.useFakeTimers();
+    sendInvestigationQuery('q3');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(screen.getByRole('button', { name: /Create incident ticket/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Create incident ticket/i }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText(/SOC Answer/i)).toBeInTheDocument();
+    expect(screen.getByTestId('experience-execution-progress-panel')).toBeInTheDocument();
+    expect(screen.getAllByText(/Connecting to ITSM/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Understanding the question/i)).not.toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(screen.getByText(/Ticket recorded/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('experience-execution-progress-panel')).not.toBeInTheDocument();
+  });
+
+  it('cancels a stale journey so a prior envelope cannot appear later', async () => {
+    vi.mocked(runEcScenario).mockImplementation(async (scenarioId: string) => ({
+      ...envelope,
+      scenario_id: scenarioId,
+      analyst: {
+        finding_title: scenarioId === 's2_ai_prompt_injection' ? 'S2 title' : 'S1 title',
+        assessment: 'Assessment text',
+        unconfirmed_findings: [],
+        missing_evidence: [],
+      },
+      ec_execution_journey: {
+        journey_id: `${scenarioId}-j`,
+        kind: 'initial',
+        header: 'Running governed investigation pipeline',
+        stages: [
+          { id: 'understand', title: 'Understanding the question', semantic_type: 'understand', duration_ms_hint: 40 },
+          { id: 'outcome', title: 'Building InvestigationOutcome', semantic_type: 'outcome', duration_ms_hint: 40 },
+        ],
+      },
+    }));
+    render(<EcInvestigationWorkspace />);
+    await readyComposer();
+    vi.useFakeTimers();
+    sendInvestigationQuery('q1');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.change(screen.getByLabelText(/Scenario catalog/i), { target: { value: 's2_ai_prompt_injection' } });
+    sendInvestigationQuery('q2');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(screen.getByText('S2 title')).toBeInTheDocument();
+    expect(screen.queryByText('S1 title')).not.toBeInTheDocument();
   });
 });
