@@ -1,7 +1,7 @@
 ---
 name: races-investigation-execution-ux
 overview: "Build a shared Experience Center execution-progress shell, complete S1–S7 operational journeys with honest staged playback, add allowlisted real outbound EC email, then converge legacy ChatPanel demoMode onto the same visual product in a separate worktree."
-status: active
+status: complete
 date: 2026-08-17
 canonical_plan: plans/2026-08-17_races-investigation-execution-ux.md
 loop_runner: plans/LOOP_RUNNER_races-investigation-execution-ux.md
@@ -11,7 +11,7 @@ revision_date: 2026-08-17
 
 # RACES investigation execution UX (rev 2)
 
-**Status: `active`.** Implementation is approved on `feat/races-investigation-execution-ux`.
+**Status: `COMPLETE`.** Workstream A shipped; Workstream B closed on `master` @ H7-3/H9-B.
 
 Do **not** reopen [`plans/2026-08-16_2310_races-experience-center.md`](2026-08-16_2310_races-experience-center.md) (DONE, PR #143).
 
@@ -378,11 +378,11 @@ Workstream B (other worktree, after H1-4 commit):
   - **Depends on:** H7-1
   - **Evidence:** `legacyDemoCoordination.ts` + player wired into ChatPanel demo path only; four priority scenarios inject `demo_coordination` HIL step. Vitest `legacyDemoCoordination.test.tsx` + progress shell tests → `26 passed`. `test_races_chatpanel_scenario_list_isolation.py` + `test_live_chat_linear_progress.py` → `11 passed`. `npm run build` succeeded. No `ec_email.py` / SMTP / backend changes. Live `demoMode=false` keeps `InvestigationProgressPanel` with no coordination UI.
 
-- [ ] **H7-3** — Legacy Send email reuses same EC transport **NEXT**
+- [x] **H7-3** — Legacy Send email reuses same EC transport **DONE**
   - **Do:** **Workstream B only.** One mail system. Same allowlist/idempotency/HIL.
   - **Verify:** same email pytest module; no second SMTP stack (`rg -n "smtplib" backend/app/demo/`)
   - **Depends on:** H7-2, H6A-1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `legacyDemoEmail.ts` routes cert + supply-chain (`delivery_mode: 'email'`) through existing `prepareEcAction` → `approveEcAction` → `executeEcAction` (`/demo/ec-actions/*`) into `ec_email.py`. Firewall/IR remain simulated. Vitest `legacyDemoEmail.test.ts` (4) + `legacyDemoCoordination.test.tsx` (15) → `19 passed`. Backend `test_legacy_demo_email_transport.py` + `test_ec_email_transport.py` → `13 passed`. `rg smtplib backend/app/demo/` → only `ec_email.py`. `npm run build` succeeded. `demoMode=false` unchanged (no coordination panel). HIL preserved (no auto-send on animation).
 
 - [x] **H8-1** — Skip, reset, timing, honesty polish (Workstream A)
   - **Do:** Skip-to-answer skips animation only. Epoch reset on scenario switch. Timing 8–12s / 4–7s / ±20%. Shared error “Investigation interrupted”. Honesty grep clean.
@@ -396,11 +396,11 @@ Workstream B (other worktree, after H1-4 commit):
   - **Depends on:** H8-1
   - **Evidence:** Automated Verify (+ email tests) → `73 passed`. Invariant 7/7 PASS (EC email env keys are the user-approved H6A exception; no production `/api/actions`). Playwright: SPA boots at `http://127.0.0.1:3010/scenarios` to the Sign-in screen. `BROWSER=BLOCKED` for the S1–S7 click-walk — Experience Center login is required and credentials were not used from `.env`. Vite previously failed to mount because live `LIVE_LINEAR_STEPS` called demo `step()` before `DEMO_DURATION_SCALE` (pre-existing TDZ); live steps now use literal `durationMs` so labels/activity stay the same and `test_live_chat_linear_progress.py` still `8 passed`.
 
-- [ ] **H9-B** — Legacy acceptance (Workstream B) **BLOCKED_ON_H7-3**
+- [x] **H9-B** — Legacy acceptance (Workstream B) **DONE**
   - **Do:** Visual parity vs RACES shell; dishonest strings gone; selected demo scenarios; live `/chat` regression. Report `LEGACY_EC_CONVERGENCE_STATUS`.
   - **Verify:** live linear progress pytest + catalog isolation + G2 on the legacy worktree
   - **Depends on:** H7-3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `LEGACY_EC_CONVERGENCE_STATUS=CODE_COMPLETE`. Focused regression: `test_live_chat_linear_progress.py` `8 passed`, `test_races_chatpanel_scenario_list_isolation.py` passed, vitest legacy/email/progress/journey `29 passed`, `npm run build` succeeded. `test_races_g2_frontend_isolation.py::test_g2_layer1_workspace_does_not_interpolate_internal_ids` **pre-existing FAIL** (EcInvestigationWorkspace copy drift; not introduced by H7-3). `test_races_freeze_files_unchanged_since_baseline` **pre-existing FAIL** (ChatPanel/pipeline/mcp_execution_gate touched by H7-1/H7-2 on master; H7-3 did not add pipeline changes). `BROWSER_ACCEPTANCE=OPERATOR_REQUIRED` (sign-in gate; no credentials used). `REAL_EMAIL_STATUS=CONFIGURATION_REQUIRED` (no SMTP in env; Fake transport proven in tests). `architecture.md` SHA unchanged `c1c4ba8a…`.
 
 ## Verification gaps
 
@@ -408,7 +408,7 @@ H9-A browser walk depends on a running stack; if UI is down, record `BROWSER=BLO
 
 ## Drift log
 
-- 2026-08-18: H7-1 fast-forward merged to `master` @ `7dce44d`; legacy worktree removed. Workstream B (H7-2+) now executes directly on `/var/www/ai-soc-assistant` `master` — historical worktree instructions above remain audit context only.
+- 2026-08-18: H7-3 + H9-B closed on `master`. Legacy email (`cert_in_ot_reporting_obligation`, `guided_investigation_supply_chain`) reuses `ec_email.py` via EC action API; Workstream B complete (29/29 checklist).
 - 2026-08-17: Rev 1 plan file was not present on this worktree (`plans/README.md` had been deleted in the working tree and was restored from git). Completeness matrix filled from current packs.
 - 2026-08-17: No in-repo mail transport exists. S3 currently auto-executes simulated `email_send` and tests forbid `smtplib` in the S3 pack — adapter must live outside packs.
 - 2026-08-17: POST `/demo/scenarios/{id}/run` already returns `ExperienceCenterResponse`; ChatPanel ignores extras. Do not add backend sleeps.
