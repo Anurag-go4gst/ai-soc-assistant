@@ -121,6 +121,7 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
             "tool_authorization_required": True,
             "not_production_policy": True,
         }], provenance="ec_scenario_policy"))
+        outcome["missing_evidence"] = [item for item in outcome["missing_evidence"] if "policy" not in item.lower()]
 
     if "create_ai_incident_ticket" in applied and "ticket_create" not in kinds:
         prepared = ec_actions.prepare_action(kind="ticket_create", label="Create AI security incident", session_id=session_id, scenario_id=S2_SCENARIO_ID, extra={"ticket": {"title": "Prompt injection blocked", "impact": "attempted_blocked"}})

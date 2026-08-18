@@ -531,7 +531,7 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
   - **Depends on:** 8, 19, 20
   - **Evidence:** journey gate OK journeys checked: 58; `pytest test_s1 + test_s5` → 23 passed.
 
-- [ ] **9** — Continue-chip UX: keep the answer visible (D7)
+- [x] **9** — Continue-chip UX: keep the answer visible (D7)
   - **Do:** In [`EcInvestigationWorkspace.tsx`](../frontend/src/components/ec/EcInvestigationWorkspace.tsx) line ~162, `keepAnswer` is currently `isActionChip(chip)` (`chip.group === 'action' || chip.leads_to_action`, line 35). Extend it so **evidence continue chips also keep the answer**: a chip whose `follow_up_id` starts with `show_` or `check_` and which is **not** an action chip gets `keepAnswer: true`. These use the existing action-progress slot (`setActionProgress`, line 91) rather than resetting `revealed` at line 168. Action chips keep their current behaviour exactly.
     **Pre-existing red test in this file — read the Pre-existing failure baseline section.** `test_g2_layer1_workspace_does_not_interpolate_internal_ids` already fails at line 46 because the literal `Session active` is absent. Do **not** re-add that string and do **not** edit the assert. After your change, that test must still fail on **line 46 only**; the other four asserts (`ec_fixture_selected`, `route_source`, `experience_center_fixture`, `simulated_phase10_action` all absent) must still pass. Practically: **do not introduce any of those four literals** into this file.
   - **Verify:**
@@ -541,9 +541,9 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
     ```
     Second command must still be `1 failed, 4 passed`, failing at line 46. New/extended vitest asserts that a `show_*` chip click leaves the answer mounted.
   - **Depends on:** 3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** vitest ec components → 32 passed; `test_races_g2_frontend_isolation.py` → 1 failed, 4 passed (line 46 only).
 
-- [ ] **10** — Operational link for continue chips (D8)
+- [x] **10** — Operational link for continue chips (D8)
   - **Do:** In [`ecOperationalLink.ts`](../frontend/src/lib/ecOperationalLink.ts) add to `READINESS_BY_FOLLOW_UP`:
     ```ts
     show_hardening_policy: 'Review hardening policy',
@@ -557,18 +557,18 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
     returning `show_hardening_policy → 'ev-s5-policy'`, `check_current_version → 'ev-s5-version'`, `check_maintenance_window → 'ev-s5-window'`, else `null`. Wire its result into `EcSourceEvidencePanel`'s `highlightEvidenceId` from `EcInvestigationWorkspace.tsx`, and remove the `isActionChip(chip)` guard at line 166 so continue chips can also produce a readiness label.
   - **Verify:** `cd frontend && npm run test -- src/lib/ecOperationalLink.test.ts src/components/ec/` — asserts `evidenceIdForChip` mapping and that after a `show_hardening_policy` click the DOM has `[data-ec-evidence-highlight="true"]`
   - **Depends on:** 9
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `ecOperationalLink.test.ts` → 4 passed; highlight test in `flagshipWorkspace.test.tsx` PASS.
 
-- [ ] **11** — De-duplicate action headings (D9)
+- [x] **11** — De-duplicate action headings (D9)
   - **Do:** Two headings currently render the identical literal `Recommended actions`. **Both change:**
     - [`EcFollowUpBar.tsx`](../frontend/src/components/ec/EcFollowUpBar.tsx) line 39 → `Take action`
     - [`EcInvestigationQuality.tsx`](../frontend/src/components/ec/EcInvestigationQuality.tsx) line 85 (inside `EcActionReadinessPanel`) → `Action readiness`
     (Rev 1 said "keep `EcActionReadinessPanel` as 'Action readiness'" — it does **not** currently say that; it must be changed.)
   - **Verify:** `cd frontend && npm run test -- src/components/ec/` — a workspace mock renders exactly one `Take action` and exactly one `Action readiness`, and zero `Recommended actions`
   - **Depends on:** 9
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** vitest heading de-dupe test PASS (`Take action` + `Action readiness`, zero `Recommended actions`).
 
-- [ ] **12** — S2/S4 policy evidence surfacing (D10, cross-scenario)
+- [x] **12** — S2/S4 policy evidence surfacing (D10, cross-scenario)
   - **Do:** Verified chip IDs: S2 `show_ai_security_policy` ([`fixtures/s2/pack.py:35`](../backend/app/demo/fixtures/s2/pack.py), applied at line 115); S4 `show_advisory` and `show_hardening_guidance` ([`fixtures/s4/pack.py:31,35`](../backend/app/demo/fixtures/s4/pack.py), applied at lines 79 and 142). Confirm each branch appends a `source_evidence` item with a **distinct** `evidence_id`, and clears the matching entry from `missing_evidence` (mirror the S5 filter pattern from item 6). Add whichever is absent. **No new backend fields** — the Layer-1 panel from item 3 already reads `source_evidence`.
   - **Verify:**
     ```bash
@@ -577,16 +577,16 @@ EC/demo only. No `EC_FORBIDDEN_PREFIXES` path touched. No new env flags. No back
     ```
     → 0 failed, with added assertions that each of the three chips yields a distinct `evidence_id` in `source_evidence` and leaves no matching `missing_evidence` entry
   - **Depends on:** 3, 6
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `pytest test_s2 + test_ec_s4_siem_first` → 13 passed; policy chip assertions added.
 
-- [ ] **13** — S5 backend contract tests (Governing invariant)
+- [x] **13** — S5 backend contract tests (Governing invariant)
   - **Do:** Extend [`test_s5_cisco_hardening_remediation.py`](../backend/app/tests/test_s5_cisco_hardening_remediation.py) (do **not** create a new backend test file — only `test_ec_*` names are in `EC_ALLOWED_PREFIXES`). Add:
     1. `test_s5_evidence_surfaces_agree` — loop the four evidence items (version / policy / change ticket / maintenance window) over the full follow-up sequence from `test_s5_state_machine_14_to_15` and assert the **Governing invariant**: nothing in `missing_evidence` is simultaneously `OBTAINED` in `ec_evidence_state` or `ec_action_readiness`.
     2. After `show_hardening_policy`: `source_evidence` contains an item whose `preview_rows` include the rule string; before it, no policy item and policy not in `confirmed`.
     3. After `generate_closure_summary`: `ec_investigation_outcome["closure_summary"]` is non-empty.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_s5_cisco_hardening_remediation.py -q` → 0 failed
   - **Depends on:** 5, 6, 7
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `pytest test_s5_cisco_hardening_remediation.py -q` → 8 passed (incl. `test_s5_evidence_surfaces_agree`, policy gate, HIL).
 
 - [ ] **14** — Browser walk audit extension
   - **Do:** Extend [`scripts/ec_browser_walk_audit.mjs`](../scripts/ec_browser_walk_audit.mjs): after S5 initial, click “Show hardening policy”, assert Layer 1 contains the substring `version 14 must be upgraded to version 15`; record `scenarios.S5.policy_visible_after_chip` in `ec-walk-report.json`.

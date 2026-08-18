@@ -124,6 +124,7 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
             extra={"ticket": {"id": "CHG-R17-15", "implementation": "cisco.upgrade 14→15", "rollback": "reload prior image", "verification": "cisco.get_version == 15"}},
         )
         C.set_status(state, "change", "OBTAINED", "CHG-R17-15 prepared with rollback and verification")
+        outcome["missing_evidence"] = [item for item in outcome["missing_evidence"] if "change ticket" not in item.lower()]
 
     if "request_network_approval" in applied:
         email_extra = ec_email_drafts.s5_network_approval_email(device=S5_DEVICE, applied=applied)

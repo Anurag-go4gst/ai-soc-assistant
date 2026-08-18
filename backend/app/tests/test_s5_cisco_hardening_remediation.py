@@ -89,6 +89,69 @@ def test_s5_execute_upgrade_journey_includes_hil_stage() -> None:
     assert any(stage.semantic_type == "hil" for stage in journey.stages)
 
 
+def test_s5_evidence_surfaces_agree(monkeypatch) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "app_auth_enabled", False)
+    client = TestClient(app)
+    session_id = "s5-agree"
+    run_experience_center_turn(S5_SCENARIO_ID, session_id=session_id)
+    follow_ups = (
+        "show_hardening_policy",
+        "check_current_version",
+        "check_maintenance_window",
+        "create_change_ticket",
+        "request_network_approval",
+        "approve_upgrade",
+        "execute_upgrade",
+        "verify_version",
+        "update_incident",
+        "generate_closure_summary",
+    )
+    for follow_up_id in follow_ups:
+        response = client.post(
+            f"/demo/scenarios/{S5_SCENARIO_ID}/follow-up",
+            json={"follow_up_id": follow_up_id, "session_id": session_id},
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        missing = body["ec_investigation_outcome"]["missing_evidence"]
+        state_by_label = {item["label"].lower(): item["status"] for item in body["ec_evidence_state"]}
+        readiness = {row["action"]: row["state"] for row in body["ec_action_readiness"]}
+        checks = [
+            ("cisco.get_version", "cisco.get_version", "Confirm current version (cisco.get_version)"),
+            ("policy", "enterprise hardening policy", "Review hardening policy"),
+            ("change ticket", "change ticket", "Create change ticket"),
+            ("maintenance", "maintenance", "Request network approval"),
+        ]
+        for missing_token, state_label, readiness_action in checks:
+            in_missing = any(missing_token in item.lower() for item in missing)
+            state_obtained = state_by_label.get(state_label.lower()) == "OBTAINED"
+            readiness_obtained = readiness.get(readiness_action) in {"OBTAINED", "VERIFIED", "READY", "READY_FOR_REVIEW", "EXECUTED", "AWAITING_APPROVAL"}
+            if in_missing:
+                assert not state_obtained, (follow_up_id, missing_token, state_by_label)
+                assert readiness.get(readiness_action) not in {"OBTAINED", "VERIFIED"}, (follow_up_id, readiness_action, readiness)
+        if follow_up_id == "show_hardening_policy":
+            policy_items = [item for item in body["source_evidence"] if item["evidence_id"] == "ev-s5-policy"]
+            assert policy_items
+            assert "version 14 must be upgraded to version 15" in str(policy_items[0]["preview_rows"])
+        if follow_up_id == "generate_closure_summary":
+            assert body["ec_investigation_outcome"]["closure_summary"]
+
+
+def test_s5_policy_not_in_confirmed_before_show_hardening_policy() -> None:
+    initial = run_experience_center_turn(S5_SCENARIO_ID, session_id="s5-policy-gate").model_dump()
+    assert not any(item["evidence_id"] == "ev-s5-policy" for item in initial["source_evidence"])
+    confirmed_blob = " ".join(initial["ec_investigation_outcome"]["confirmed"]).lower()
+    assert "hardening policy applies" not in confirmed_blob
+    after = run_experience_center_turn(
+        S5_SCENARIO_ID,
+        session_id="s5-policy-gate",
+        follow_up_id="show_hardening_policy",
+    ).model_dump()
+    assert any(item["evidence_id"] == "ev-s5-policy" for item in after["source_evidence"])
+
+
 def test_s5_no_production_cisco_connector() -> None:
     from app.demo.fixtures.s5 import pack as s5_pack
 

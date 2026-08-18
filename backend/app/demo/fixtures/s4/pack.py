@@ -88,6 +88,7 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
             "temporary_mitigation": "Disable WAN management listener; restrict control plane to management VRF",
             "not_a_real_cve": True,
         }], provenance="experience_center_fixture"))
+        outcome["missing_evidence"] = [item for item in outcome["missing_evidence"] if "advisory" not in item.lower()]
 
     if "list_affected_assets" in applied:
         C.set_status(state, "cmdb", "OBTAINED", "Four internet-facing VPN gateways in inventory")
@@ -146,6 +147,7 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
             "second_control": "restrict_control_plane_to_mgmt_vrf",
             "not_production_vendor_guidance": True,
         }], provenance="ec_scenario_policy"))
+        outcome["missing_evidence"] = [item for item in outcome["missing_evidence"] if "hardening" not in item.lower()]
 
     if "create_emergency_incident" in applied:
         C.ensure_executed_action(kind="ticket_create", label="Create emergency incident", session_id=session_id, scenario_id=S4_SCENARIO_ID, extra={"ticket": {"id": "INC-ZD-001", "priority": "P1"}})

@@ -49,6 +49,7 @@ export function EcInvestigationAnswer({
   embedded = false,
   revealActive = false,
   revealKey = 0,
+  highlightEvidenceId = null,
   onRevealStart,
   onRevealComplete,
 }: {
@@ -56,6 +57,7 @@ export function EcInvestigationAnswer({
   embedded?: boolean;
   revealActive?: boolean;
   revealKey?: number;
+  highlightEvidenceId?: string | null;
   onRevealStart?: () => void;
   onRevealComplete?: () => void;
 }) {
@@ -197,7 +199,7 @@ export function EcInvestigationAnswer({
 
       {envelope.source_evidence?.length ? (
         <EcRevealBlock>
-          <EcSourceEvidencePanel items={envelope.source_evidence} />
+          <EcSourceEvidencePanel items={envelope.source_evidence} highlightEvidenceId={highlightEvidenceId} />
         </EcRevealBlock>
       ) : null}
 

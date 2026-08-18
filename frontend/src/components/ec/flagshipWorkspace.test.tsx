@@ -2,7 +2,9 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EcActionFlow } from '@/components/ec/EcActionFlow';
 import { EcCoordinationPanels } from '@/components/ec/EcCoordinationPanels';
+import { EcFollowUpBar } from '@/components/ec/EcFollowUpBar';
 import { EcInvestigationAnswer } from '@/components/ec/EcInvestigationAnswer';
+import { EcActionReadinessPanel } from '@/components/ec/EcInvestigationQuality';
 import { EcInvestigationWorkspace } from '@/components/ec/EcInvestigationWorkspace';
 import { EcScenarioPicker } from '@/components/ec/EcScenarioPicker';
 import { EcTransparencyDrawer } from '@/components/ec/EcTransparencyDrawer';
@@ -481,5 +483,43 @@ describe('Flagship Experience Center UX', () => {
     );
     expect(screen.getByText(/Cisco device MCP \(simulated router API\)/)).toBeInTheDocument();
     expect(screen.getByText(/Foundation-Sec 8B LLM is not used here/)).toBeInTheDocument();
+  });
+
+  it('highlights source evidence after show_hardening_policy chip selection', () => {
+    render(
+      <EcInvestigationAnswer
+        envelope={{
+          ...envelope,
+          source_evidence: [
+            {
+              evidence_id: 'ev-s5-policy',
+              source_type: 'kb_fixture',
+              source_name: 'Enterprise hardening policy',
+              preview_rows: [{ rule: 'version 14 must be upgraded to version 15' }],
+            },
+          ],
+        }}
+        highlightEvidenceId="ev-s5-policy"
+      />,
+    );
+    expect(document.querySelector('[data-ec-evidence-highlight="true"]')).not.toBeNull();
+  });
+
+  it('renders Take action and Action readiness headings without duplicate Recommended actions', () => {
+    render(
+      <>
+        <EcFollowUpBar
+          chips={[
+            { follow_up_id: 'show_hardening_policy', label: 'Show hardening policy', advances_state: true },
+            { follow_up_id: 'create_change_ticket', label: 'Create change ticket', advances_state: true, group: 'action', leads_to_action: true },
+          ]}
+          onSelect={() => undefined}
+        />
+        <EcActionReadinessPanel rows={[{ action: 'Create change ticket', state: 'READY' }]} />
+      </>,
+    );
+    expect(screen.getByText('Take action')).toBeInTheDocument();
+    expect(screen.getByText('Action readiness')).toBeInTheDocument();
+    expect(screen.queryByText('Recommended actions')).not.toBeInTheDocument();
   });
 });

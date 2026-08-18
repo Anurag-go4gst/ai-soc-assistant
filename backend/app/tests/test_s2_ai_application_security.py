@@ -84,6 +84,10 @@ def test_s2_follow_ups_advance_and_credential_disable_requires_approval(monkeypa
         if follow_up_id == "check_dlp":
             statuses = {item["id"]: item["status"] for item in body["ec_evidence_state"]}
             assert statuses["dlp"] == "OBTAINED"
+        if follow_up_id == "show_ai_security_policy":
+            ids = {item["evidence_id"] for item in body["source_evidence"]}
+            assert "ev-s2-policy" in ids
+            assert not any("policy" in item.lower() for item in body["ec_investigation_outcome"]["missing_evidence"])
         if follow_up_id == "disable_integration_credential":
             disable = next(item for item in body["ec_actions"] if item["kind"] == "iam_disable")
             assert disable["state"] == "APPROVAL_REQUIRED"
@@ -145,7 +149,7 @@ def test_s2_initial_journey_is_siem_first_reuse_blocked_not_confirmed() -> None:
     titles = [stage.title.lower() for stage in journey.stages]
     blob = " | ".join(titles)
     assert "checking existing siem coverage" in blob
-    assert "replaying approved detection" in blob
+    assert "executing approved detection" in blob
     assert "validating governed spl" in blob
     assert "governed llm" in blob
     assert "blocked" in blob or "authorization" in blob

@@ -48,6 +48,22 @@ def test_s4_hunt_follow_up_uses_gap_evidence() -> None:
     assert any("compromised" in row["action"].lower() and row["state"] == "NOT_RECOMMENDED_YET" for row in readiness)
 
 
+def test_s4_policy_chips_surface_distinct_source_evidence() -> None:
+    session_id = "s4-policy-chips"
+    for follow_up_id, expected_id, missing_token in (
+        ("show_advisory", "ev-s4-advisory", "advisory"),
+        ("show_hardening_guidance", "ev-s4-hardening", "hardening"),
+    ):
+        envelope = run_experience_center_turn(
+            S4_SCENARIO_ID,
+            session_id=f"{session_id}-{follow_up_id}",
+            follow_up_id=follow_up_id,
+        ).model_dump()
+        ids = {item["evidence_id"] for item in envelope["source_evidence"]}
+        assert expected_id in ids
+        assert not any(missing_token in item.lower() for item in envelope["ec_investigation_outcome"]["missing_evidence"])
+
+
 def test_build_s4_coverage_after_hunt() -> None:
     after = build_s4_siem_coverage(hunt_obtained=True)
     assert after.generated_searches[0].source_evidence_ids == ["ev-s4-ioc-hunt"]

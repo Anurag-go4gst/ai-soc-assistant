@@ -149,7 +149,7 @@ export function EcActionReadinessPanel({
   const normalizedHighlight = highlightAction?.trim().toLowerCase() ?? '';
   return (
     <section data-ec-section="action-readiness">
-      <EcSectionHeading>Recommended actions</EcSectionHeading>
+      <EcSectionHeading>Action readiness</EcSectionHeading>
       <p className="mt-2 text-sm text-slate-400">Readiness reflects current evidence — destructive actions stay conditional.</p>
       <ul className="mt-4 space-y-2">
         {rows.map((row) => {
