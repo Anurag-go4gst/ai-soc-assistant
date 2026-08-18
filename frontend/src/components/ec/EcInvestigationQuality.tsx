@@ -4,6 +4,7 @@ import type {
   EcInvestigationPivot,
   EcInvestigationScope,
   EcResourceCompositionRow,
+  ExperienceCenterResponse,
 } from '@/components/ec/types';
 import { EcSectionHeading } from '@/components/ec/EcSectionHeading';
 import { EcDataTable } from '@/components/ec/EcDataTable';
@@ -71,6 +72,72 @@ export function EcInvestigationPivotCard({ pivot }: { pivot: EcInvestigationPivo
   );
 }
 
+export function EcClosureSummaryCard({ summary }: { summary: string }) {
+  if (!summary.trim()) return null;
+  return (
+    <section data-ec-section="closure-summary">
+      <EcSectionHeading>Closure summary</EcSectionHeading>
+      <p className="ec-prose-wrap mt-3 text-sm leading-relaxed text-slate-200">{summary}</p>
+    </section>
+  );
+}
+
+function fixtureDataBadgeVisible(envelope: ExperienceCenterResponse): boolean {
+  const splWarnings = envelope.spl_validation?.warnings ?? [];
+  if (splWarnings.includes('demo_fixture_not_live_data')) return true;
+  return (envelope.source_evidence ?? []).some((item) =>
+    (item.warnings ?? []).some(
+      (warning) => warning === 'coe_synthetic_fixture' || warning === 'no_live_customer_data',
+    ),
+  );
+}
+
+export function EcCredibilityStrip({ envelope }: { envelope: ExperienceCenterResponse }) {
+  const provenance = envelope.ec_provenance ?? {};
+  const liveFlags: Array<{ key: string; label: string }> = [
+    { key: 'live_llm_called', label: 'Live model: off' },
+    { key: 'live_mcp_called', label: 'Live MCP: off' },
+    { key: 'live_rag_called', label: 'Live RAG: off' },
+  ];
+  const liveBadges = liveFlags
+    .filter(({ key }) => provenance[key] === false)
+    .map(({ label }) => label);
+  const splValidator =
+    envelope.ec_spl_governance?.validation?.provenance === 'production_validator_read_only' ||
+    provenance.production_validator_read_only === true;
+  const showFixtureBadge = fixtureDataBadgeVisible(envelope);
+  const isS5 = envelope.scenario_id === 's5_cisco_hardening_remediation';
+
+  if (!liveBadges.length && !splValidator && !showFixtureBadge && !isS5) return null;
+
+  return (
+    <section data-ec-section="credibility-strip" className="mt-2 space-y-2 border-t border-slate-800/80 pt-4">
+      <div className="flex flex-wrap gap-2">
+        {liveBadges.map((label) => (
+          <Badge key={label} variant="outline" className="border-slate-600 text-slate-300">
+            {label}
+          </Badge>
+        ))}
+        {splValidator ? (
+          <Badge variant="outline" className="border-cyan-500/40 text-cyan-100">
+            SPL: production validate_spl
+          </Badge>
+        ) : null}
+        {showFixtureBadge ? (
+          <Badge variant="outline" className="border-amber-500/40 text-amber-100">
+            Fixture data · not live customer telemetry
+          </Badge>
+        ) : null}
+      </div>
+      {isS5 ? (
+        <p className="text-xs text-slate-400">
+          Cisco device MCP (simulated router API) on this path — Foundation-Sec 8B LLM is not used here.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 export function EcActionReadinessPanel({
   rows,
   highlightAction = null,
@@ -82,7 +149,7 @@ export function EcActionReadinessPanel({
   const normalizedHighlight = highlightAction?.trim().toLowerCase() ?? '';
   return (
     <section data-ec-section="action-readiness">
-      <EcSectionHeading>Recommended actions</EcSectionHeading>
+      <EcSectionHeading>Action readiness</EcSectionHeading>
       <p className="mt-2 text-sm text-slate-400">Readiness reflects current evidence — destructive actions stay conditional.</p>
       <ul className="mt-4 space-y-2">
         {rows.map((row) => {

@@ -5,6 +5,7 @@ import { EcAffectedSystemsTable } from '@/components/ec/EcAffectedSystemsTable';
 import { EcDataTable } from '@/components/ec/EcDataTable';
 import { EcCollapsibleEvidencePanel } from '@/components/ec/EcCollapsibleEvidence';
 import { EcSplArtifactPanel } from '@/components/ec/EcSplArtifactPanel';
+import { EcSourceEvidencePanel } from '@/components/ec/EcSourceEvidencePanel';
 import {
   EcAttackChain,
   EcDetectionOpportunityCard,
@@ -13,7 +14,9 @@ import {
 } from '@/components/ec/EcSiemCoverage';
 import {
   EcApplicabilityPanel,
+  EcClosureSummaryCard,
   EcConflictSourcesCard,
+  EcCredibilityStrip,
   EcEvidenceReusePanel,
   EcGapSplNotice,
   EcInvestigationPivotCard,
@@ -46,6 +49,7 @@ export function EcInvestigationAnswer({
   embedded = false,
   revealActive = false,
   revealKey = 0,
+  highlightEvidenceId = null,
   onRevealStart,
   onRevealComplete,
 }: {
@@ -53,6 +57,7 @@ export function EcInvestigationAnswer({
   embedded?: boolean;
   revealActive?: boolean;
   revealKey?: number;
+  highlightEvidenceId?: string | null;
   onRevealStart?: () => void;
   onRevealComplete?: () => void;
 }) {
@@ -192,6 +197,18 @@ export function EcInvestigationAnswer({
         </EcRevealBlock>
       ) : null}
 
+      {envelope.source_evidence?.length ? (
+        <EcRevealBlock>
+          <EcSourceEvidencePanel items={envelope.source_evidence} highlightEvidenceId={highlightEvidenceId} />
+        </EcRevealBlock>
+      ) : null}
+
+      {envelope.ec_investigation_outcome?.closure_summary ? (
+        <EcRevealBlock>
+          <EcClosureSummaryCard summary={envelope.ec_investigation_outcome.closure_summary} />
+        </EcRevealBlock>
+      ) : null}
+
       {collapsibleEvidence ? (
         <EcRevealBlock>
           <EcCollapsibleEvidencePanel>
@@ -281,6 +298,10 @@ export function EcInvestigationAnswer({
           />
         </EcRevealBlock>
       ) : null}
+
+      <EcRevealBlock>
+        <EcCredibilityStrip envelope={envelope} />
+      </EcRevealBlock>
     </EcAnswerReveal>
   );
 

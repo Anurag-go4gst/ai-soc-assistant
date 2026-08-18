@@ -55,14 +55,14 @@ S5_INITIAL_TITLES = (
     "Connecting to Cisco device MCP",
     "Checking R-17 version",
     "Version 14 identified",
-    "Retrieving hardening policy",
-    "Evaluating policy applicability",
+    "Identifying applicable hardening policy source",
+    "Deferring policy applicability to analyst review",
     "Applying governed LLM advisory",
     "Building remediation plan and next options",
 )
 
 _LLM_ACTIVITY = [
-    "Loading captured Foundation-sec instruct signal…",
+    "Applying governed LLM advisory signals…",
     "Applying severity, MITRE, and SPL governance overrides…",
     "Final synthesis disabled for Experience Center",
 ]
@@ -204,9 +204,9 @@ def s1_initial() -> EcExecutionJourney:
         InitialStepSpec("resource-plan", titles[1], semantic_type="plan", duration_ms_hint=850, activity=["Mapping evidence needs and governed resources…", "Resource plan locked for suspicious-IP hunt…"]),
         InitialStepSpec("mcp-select", titles[2], semantic_type="plan", duration_ms_hint=800, activity=["Selecting splunk_run_query and knowledge-object tools…", "Applying MCP execution gates…"]),
         InitialStepSpec("mcp-connect", titles[3], semantic_type="plan", duration_ms_hint=1000, activity=["Resolving Splunk MCP from registry…", "Connector ready for governed search…"], system=splunk[0], operation=splunk[1]),
-        InitialStepSpec("evidence", titles[4], semantic_type="gather", duration_ms_hint=1000, activity=["Replaying approved saved search…", "Partial coverage — historical gap remains…"], system=splunk_saved[0], operation=splunk_saved[1], outcome_change="coverage=PARTIAL"),
+        InitialStepSpec("evidence", titles[4], semantic_type="gather", duration_ms_hint=1000, activity=["Executing approved saved search…", "Partial coverage — historical gap remains…"], system=splunk_saved[0], operation=splunk_saved[1], outcome_change="coverage=PARTIAL"),
         InitialStepSpec("spl-validate", titles[5], semantic_type="evaluate", duration_ms_hint=900, activity=["Running deterministic SPL validator on bounded 30-day windows…"]),
-        InitialStepSpec("mcp-execute", titles[6], semantic_type="gather", duration_ms_hint=1300, activity=["Replaying first governed Splunk search…", "Replaying second governed search…", "Polling Splunk MCP job…"], system=splunk[0], operation=splunk[1]),
+        InitialStepSpec("mcp-execute", titles[6], semantic_type="gather", duration_ms_hint=1300, activity=["Executing governed Splunk search…", "Executing second governed search…", "Polling Splunk MCP job…"], system=splunk[0], operation=splunk[1]),
         InitialStepSpec("correlate", titles[7], semantic_type="correlate", duration_ms_hint=900, activity=["Merging firewall evidence across windows…", "Jump host 10.20.1.10 is the priority pivot…"]),
         InitialStepSpec("llm-advisory", titles[8], semantic_type="evaluate", duration_ms_hint=1200, activity=_LLM_ACTIVITY),
         InitialStepSpec("outcome", titles[9], semantic_type="outcome", duration_ms_hint=900, activity=["Separating confirmed, unconfirmed, and missing evidence…", "Preparing investigation and response options…"]),
@@ -267,10 +267,10 @@ def s5_initial() -> EcExecutionJourney:
         InitialStepSpec("resource-plan", titles[1], semantic_type="plan", duration_ms_hint=850, activity=["Planning Cisco version and policy evidence…"]),
         InitialStepSpec("mcp-select", titles[2], semantic_type="plan", duration_ms_hint=800, activity=["Selecting simulated cisco.get_version…"], system="Cisco", operation="get_version"),
         InitialStepSpec("mcp-connect", titles[3], semantic_type="plan", duration_ms_hint=1000, activity=["Opening Cisco MCP channel…"], system="Cisco", operation="get_version"),
-        InitialStepSpec("evidence", titles[4], semantic_type="gather", duration_ms_hint=900, activity=["Replaying the version probe…"]),
-        InitialStepSpec("spl-validate", titles[5], semantic_type="evaluate", duration_ms_hint=900, activity=["Fixture replay: current_version=14…"], outcome_change="current_version=14"),
-        InitialStepSpec("mcp-execute", titles[6], semantic_type="gather", duration_ms_hint=1000, activity=["Retrieving EC hardening policy…"], system="Knowledge", operation="hardening_policy", mode="knowledge"),
-        InitialStepSpec("correlate", titles[7], semantic_type="evaluate", duration_ms_hint=850, activity=["Evaluating whether version 14 must move to 15…", "Approval is required before upgrade…"]),
+        InitialStepSpec("evidence", titles[4], semantic_type="gather", duration_ms_hint=900, activity=["Reading device version via governed MCP…"]),
+        InitialStepSpec("spl-validate", titles[5], semantic_type="evaluate", duration_ms_hint=900, activity=["Version probe returned current_version=14…"], outcome_change="current_version=14"),
+        InitialStepSpec("mcp-execute", titles[6], semantic_type="gather", duration_ms_hint=1000, activity=["Identifying hardening policy source for analyst review…"], system="Knowledge", operation="hardening_policy", mode="knowledge"),
+        InitialStepSpec("correlate", titles[7], semantic_type="evaluate", duration_ms_hint=850, activity=["Policy applicability pending analyst review…", "Approval is required before upgrade…"]),
         InitialStepSpec("llm-advisory", titles[8], semantic_type="evaluate", duration_ms_hint=1200, activity=_LLM_ACTIVITY),
         InitialStepSpec("outcome", titles[9], semantic_type="outcome", duration_ms_hint=900, activity=["Building the remediation plan…", "Preparing change request options…"]),
     ]
@@ -288,7 +288,7 @@ def s2_initial() -> EcExecutionJourney:
         InitialStepSpec("mcp-connect", "Connecting to Splunk MCP", semantic_type="plan", duration_ms_hint=1000, activity=["Resolving Splunk MCP from registry…", "tools/list → splunk_run_query allowed ✓"], system=splunk_ko[0], operation=splunk_ko[1]),
         InitialStepSpec("evidence", "Checking existing SIEM coverage", semantic_type="plan", duration_ms_hint=1000, activity=["Looking for approved Splunk detections and saved searches…"], system=splunk_ko[0], operation=splunk_ko[1]),
         InitialStepSpec("spl-validate", "Preparing and validating governed SPL", semantic_type="evaluate", duration_ms_hint=950, activity=["Preparing bounded tool-audit search…", "Candidate query is deterministically validated…"]),
-        InitialStepSpec("mcp-execute", "Replaying approved detection and tool-audit search", semantic_type="gather", duration_ms_hint=1300, activity=["Replaying approved detection…", "Executing governed tool-audit SPL…", "Polling Splunk MCP job…"], system=splunk_query[0], operation=splunk_query[1]),
+        InitialStepSpec("mcp-execute", "Executing approved detection and tool-audit search", semantic_type="gather", duration_ms_hint=1300, activity=["Executing approved detection…", "Executing governed tool-audit SPL…", "Polling Splunk MCP job…"], system=splunk_query[0], operation=splunk_query[1]),
         InitialStepSpec("correlate", "Correlating authorization and restricted-data evidence", semantic_type="correlate", duration_ms_hint=900, activity=["Prompt-injection attempt confirmed…", "export_customer_records blocked; breach not confirmed…"], outcome_change="attempted_blocked"),
         InitialStepSpec("llm-advisory", "Applying governed LLM advisory", semantic_type="evaluate", duration_ms_hint=1200, activity=_LLM_ACTIVITY),
         InitialStepSpec("outcome", "Building InvestigationOutcome and next options", semantic_type="outcome", duration_ms_hint=900, activity=["Attack confirmed · control blocked · breach not confirmed…", "Preparing contextual next investigation options…"]),
@@ -299,7 +299,7 @@ def s2_initial() -> EcExecutionJourney:
         "Checking existing SIEM coverage",
         semantic_type="gather",
         duration_ms_hint=1000,
-        activity=["Looking for approved detections…", "Replaying approved detection preview…"],
+        activity=["Looking for approved detections…", "Running approved detection preview…"],
         system=splunk_saved[0],
         operation=splunk_saved[1],
     )
@@ -493,11 +493,12 @@ def _cisco_action(follow_up_id: str) -> EcExecutionJourney:
         [
             ("Selecting Cisco device", "plan", "cisco.get_version / cisco.upgrade are simulated…"),
             ("Connecting to Cisco device", "execute", "Opening the EC Cisco channel…"),
+            ("Approval required", "hil", "No production device change until Execute…"),
             ("Recording device receipt", "evaluate", "No production Cisco change…"),
         ]
         if not verify
         else [
-            ("Selecting Cisco device", "plan", "Replaying cisco.get_version…"),
+            ("Selecting Cisco device", "plan", "Reading cisco.get_version via governed MCP…"),
             ("Connecting to Cisco device", "verify", "Reading fixture version…"),
             ("Recording verification", "evaluate", "No live Cisco claim…"),
         ]
@@ -610,7 +611,7 @@ def _fallback_non_initial(follow_up_id: str) -> EcExecutionJourney:
         follow_up_id,
         [
             ("Selecting additional evidence", "plan", "Choosing the next governed evidence source…"),
-            ("Retrieving evidence", "gather", "Replaying the configured fixture…"),
+            ("Retrieving evidence", "gather", "Retrieving governed fixture evidence…"),
             ("Updating InvestigationOutcome", "outcome", "Updating confirmed vs unconfirmed…"),
         ],
     )
@@ -655,7 +656,7 @@ S1_FOLLOW_UP_JOURNEYS = {
         [
             ("Checking existing authentication coverage", "plan", "Looking for approved auth saved searches…"),
             ("Reviewing available auth data", "plan", "Checking Splunk auth sourcetypes…"),
-            ("Reusing approved auth search", "gather", "Replaying governed auth correlation…"),
+            ("Reusing approved auth search", "gather", "Executing governed auth correlation…"),
             ("Correlating svc_jump_ops", "correlate", "Successful logons exist; source IP not proven…"),
             ("Updating EvidenceState", "evaluate", "Auth obtained; compromise still unconfirmed…"),
             ("Updating InvestigationOutcome", "outcome", "Successful authentication not equal to compromise…"),
@@ -682,7 +683,7 @@ S2_FOLLOW_UP_JOURNEYS = {
     "check_dlp": _continue("s2-dlp", "check_dlp", [
         ("Checking existing DLP coverage", "plan", "Looking for approved DLP saved searches…"),
         ("Reviewing available DLP data", "gather", "Checking Splunk DLP indexes and sourcetypes…"),
-        ("Reusing approved DLP search", "gather", "Replaying governed DLP correlation…"),
+        ("Reusing approved DLP search", "gather", "Executing governed DLP correlation…"),
         ("Correlating data-movement evidence", "correlate", "No customer-record exfiltration in window…"),
         ("Updating EvidenceState", "evaluate", "DLP window obtained…"),
         ("Updating InvestigationOutcome", "outcome", "Breach still not confirmed…"),
@@ -694,7 +695,7 @@ S2_FOLLOW_UP_JOURNEYS = {
     ]),
     "check_tool_call_history": _continue("s2-tools", "check_tool_call_history", [
         ("Checking existing tool-abuse coverage", "plan", "Reviewing approved tool-audit searches…"),
-        ("Replaying existing search where suitable", "gather", "Reusing tool-audit saved search…"),
+        ("Reusing existing search where suitable", "gather", "Reusing tool-audit saved search…"),
         ("Searching uncovered tool activity", "gather", "Bounded gap query for uncovered tools…"),
         ("Comparing authorization outcomes", "correlate", "No other unauthorized tools executed…"),
         ("Updating blast radius", "evaluate", "Sensitive tools targeted; no successful unauthorized executions…"),
@@ -756,6 +757,23 @@ _FOLLOW_UPS: dict[str, dict[str, EcExecutionJourney]] = {
         "create_change_ticket": _ticket_action("create_change_ticket"),
     },
     "s5_cisco_hardening_remediation": {
+        "show_hardening_policy": _continue("s5-policy", "show_hardening_policy", [
+            ("Opening hardening policy source", "plan", "Selecting EC scenario policy knowledge source…"),
+            ("Retrieving hardening policy", "gather", "Loading enterprise hardening policy rule…"),
+            ("Evaluating policy applicability", "evaluate", "Checking version-gated remediation requirement…"),
+        ]),
+        "check_current_version": _continue("s5-version", "check_current_version", [
+            ("Selecting Cisco version probe", "plan", "Preparing cisco.get_version call…"),
+            ("Reading device version", "gather", "Querying simulated Cisco MCP for current_version…"),
+            ("Recording version evidence", "evaluate", "Version evidence added to investigation…"),
+        ]),
+        "check_maintenance_window": _continue("s5-maint", "check_maintenance_window", [
+            ("Checking change calendar", "plan", "Looking up maintenance window constraints…"),
+            ("Retrieving maintenance window", "gather", "Loading ITSM maintenance schedule…"),
+            ("Recording window evidence", "evaluate", "Maintenance window attached to change plan…"),
+        ]),
+        "update_incident": _ticket_action("update_incident"),
+        "generate_closure_summary": _closure_action("generate_closure_summary"),
         "create_change_ticket": _ticket_action("create_change_ticket"),
         "request_network_approval": _email_action("request_network_approval"),
         "approve_upgrade": _cisco_action("approve_upgrade"),

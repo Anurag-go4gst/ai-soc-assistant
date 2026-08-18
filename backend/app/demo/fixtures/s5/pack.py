@@ -59,7 +59,7 @@ def _base_outcome() -> dict[str, Any]:
         ],
         "supported": ["Hardening policy applicability depends on current version"],
         "unconfirmed": ["Whether version 15 is already running", "Whether the change has been verified"],
-        "missing_evidence": ["cisco.get_version", "hardening policy text", "change ticket", "maintenance window"],
+        "missing_evidence": ["hardening policy text", "change ticket", "maintenance window"],
         "remediation_status": "not_started",
         "production_investigation_outcome_unused": True,
     }
@@ -113,6 +113,7 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
     if "check_maintenance_window" in applied:
         extra.append(C.evidence("ev-s5-window", "itsm_fixture", "Maintenance window", [{"window": "2026-08-17T02:00Z/04:00Z", "required": True}], provenance="experience_center_fixture"))
         C.set_status(state, "change", "OBTAINED", "Maintenance window required 02:00–04:00Z")
+        outcome["missing_evidence"] = [item for item in outcome["missing_evidence"] if "maintenance" not in item.lower()]
 
     if "create_change_ticket" in applied:
         C.ensure_executed_action(
@@ -123,6 +124,7 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
             extra={"ticket": {"id": "CHG-R17-15", "implementation": "cisco.upgrade 14→15", "rollback": "reload prior image", "verification": "cisco.get_version == 15"}},
         )
         C.set_status(state, "change", "OBTAINED", "CHG-R17-15 prepared with rollback and verification")
+        outcome["missing_evidence"] = [item for item in outcome["missing_evidence"] if "change ticket" not in item.lower()]
 
     if "request_network_approval" in applied:
         email_extra = ec_email_drafts.s5_network_approval_email(device=S5_DEVICE, applied=applied)
@@ -203,6 +205,26 @@ def build_s5_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str
     _apply(applied, session_id, outcome, state, extra)
     version = _version(applied, C.actions_for(session_id, S5_SCENARIO_ID))
     remediation = outcome.get("remediation_status", "not_started")
+    policy_opened = "show_hardening_policy" in applied
+    if policy_opened:
+        assessment = (
+            f"{S5_DEVICE} is in a breach condition and currently reports version {version}. "
+            "In this scenario, a compromised device running version 14 must be upgraded to version 15. "
+            "Upgrade requires approval, then verification must read version 15."
+        )
+        found = (
+            f"Policy applies because the device is affected, current_version={version}, "
+            "and the breach condition is met."
+        )
+    else:
+        assessment = (
+            f"{S5_DEVICE} is in a breach condition and currently reports version {version}. "
+            "Hardening policy applicability is not yet established — open the policy source to confirm remediation requirements."
+        )
+        found = (
+            f"{S5_DEVICE} shows compromise indicators with current_version={version}. "
+            "Policy applicability has not been confirmed yet."
+        )
     return C.envelope(
         scenario_id=S5_SCENARIO_ID,
         family=S5_FAMILY,
@@ -211,12 +233,8 @@ def build_s5_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str
         applied=applied,
         chips=_visible_chips(applied),
         title=f"Cisco {S5_DEVICE}: hardening policy requires upgrade 14→15",
-        assessment=(
-            f"{S5_DEVICE} is in a breach condition and currently reports version 14. "
-            "In this scenario, a compromised device running version 14 must be upgraded to version 15. "
-            "Upgrade requires approval, then verification must read version 15."
-        ),
-        found=f"Policy applies because the device is affected, current_version={version}, and the breach condition is met.",
+        assessment=assessment,
+        found=found,
         outcome=outcome,
         evidence_state=state,
         source_evidence=extra,

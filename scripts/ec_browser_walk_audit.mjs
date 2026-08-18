@@ -30,6 +30,7 @@ function y(box) {
 async function waitAnswer(page) {
   const answer = page.locator('[data-ec-layer="soc-answer"]');
   if (await answer.isVisible()) return;
+  const skip = page.getByRole('button', { name: 'Skip to answer' });
   try {
     await skip.waitFor({ state: 'visible', timeout: 8000 });
     await skip.click({ force: true });
@@ -152,7 +153,17 @@ async function main() {
   report.scenarios.S5 = await measure(page);
   report.scenarios.S5.resource_composition =
     (await page.locator('[data-ec-section="resource-composition"]').count()) > 0;
+  const policyChip = page.getByRole('button', { name: /Show hardening policy/i });
+  if (await policyChip.count()) {
+    await policyChip.click();
+    await waitAnswer(page);
+    await page.waitForTimeout(500);
+  }
+  const layer1AfterPolicy = await page.locator('[data-ec-layer="soc-answer"]').innerText();
+  report.scenarios.S5.policy_visible_after_chip =
+    layer1AfterPolicy.includes('version 14 must be upgraded to version 15');
   await page.screenshot({ path: join(OUT_DIR, 'walk-s5-initial.png') });
+  await page.screenshot({ path: join(OUT_DIR, 'walk-s5-policy.png') });
 
   await runScenarioById(page, 's7_conflicting_ot_evidence', queries);
   report.scenarios.S7 = await measure(page);

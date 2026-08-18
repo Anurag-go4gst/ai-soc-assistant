@@ -2,7 +2,9 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EcActionFlow } from '@/components/ec/EcActionFlow';
 import { EcCoordinationPanels } from '@/components/ec/EcCoordinationPanels';
+import { EcFollowUpBar } from '@/components/ec/EcFollowUpBar';
 import { EcInvestigationAnswer } from '@/components/ec/EcInvestigationAnswer';
+import { EcActionReadinessPanel } from '@/components/ec/EcInvestigationQuality';
 import { EcInvestigationWorkspace } from '@/components/ec/EcInvestigationWorkspace';
 import { EcScenarioPicker } from '@/components/ec/EcScenarioPicker';
 import { EcTransparencyDrawer } from '@/components/ec/EcTransparencyDrawer';
@@ -382,5 +384,142 @@ describe('Flagship Experience Center UX', () => {
     });
     expect(screen.getByText('S2 title')).toBeInTheDocument();
     expect(screen.queryByText('S1 title')).not.toBeInTheDocument();
+  });
+
+  it('renders source evidence inside the SOC answer layer', () => {
+    const policyRule = 'A compromised device running version 14 must be upgraded to version 15';
+    const { container } = render(
+      <EcInvestigationAnswer
+        envelope={{
+          ...envelope,
+          scenario_id: 's5_cisco_hardening_remediation',
+          source_evidence: [
+            {
+              evidence_id: 'ev-s5-policy',
+              source_type: 'kb_fixture',
+              source_name: 'Enterprise hardening policy',
+              provenance: 'ec_scenario_policy',
+              preview_rows: [{ rule: policyRule }],
+            },
+          ],
+        }}
+      />,
+    );
+    const layer = container.querySelector('[data-ec-layer="soc-answer"]');
+    expect(layer).not.toBeNull();
+    expect(layer).toHaveTextContent(policyRule);
+  });
+
+  it('renders closure summary when present and omits the section otherwise', () => {
+    const summary = 'R-17 upgraded to version 15 with rollback plan recorded.';
+    const { container, rerender } = render(
+      <EcInvestigationAnswer
+        envelope={{
+          ...envelope,
+          ec_investigation_outcome: {
+            ...envelope.ec_investigation_outcome!,
+            closure_summary: summary,
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText(summary)).toBeInTheDocument();
+    expect(container.querySelector('[data-ec-section="closure-summary"]')).not.toBeNull();
+
+    rerender(
+      <EcInvestigationAnswer
+        envelope={{
+          ...envelope,
+          ec_investigation_outcome: {
+            ...envelope.ec_investigation_outcome!,
+            closure_summary: undefined,
+          },
+        }}
+      />,
+    );
+    expect(container.querySelector('[data-ec-section="closure-summary"]')).toBeNull();
+  });
+
+  it('renders credibility strip badges for S1 validator and S5 device MCP footnote', () => {
+    const { rerender } = render(
+      <EcInvestigationAnswer
+        envelope={{
+          ...envelope,
+          scenario_id: 's1_governed_splunk_investigation',
+          ec_provenance: { live_llm_called: false, live_mcp_called: false, live_rag_called: false },
+          ec_spl_governance: {
+            user_request: 'q',
+            time_range_supplied: true,
+            environment_governance: 'g',
+            why: 'w',
+            searches: [],
+            controls: [],
+            validation: {
+              engine: 'validate_spl',
+              provenance: 'production_validator_read_only',
+              search_1_approved: true,
+              search_2_approved: true,
+              override: false,
+            },
+            evidence_merge: 'm',
+            production_mcp_executed: false,
+            spl_not_required: false,
+          },
+          spl_validation: { warnings: ['demo_fixture_not_live_data'] },
+        }}
+      />,
+    );
+    expect(screen.getByText('SPL: production validate_spl')).toBeInTheDocument();
+    expect(screen.getByText('Fixture data · not live customer telemetry')).toBeInTheDocument();
+
+    rerender(
+      <EcInvestigationAnswer
+        envelope={{
+          ...envelope,
+          scenario_id: 's5_cisco_hardening_remediation',
+          ec_provenance: { live_llm_called: false, live_mcp_called: false, live_rag_called: false },
+        }}
+      />,
+    );
+    expect(screen.getByText(/Cisco device MCP \(simulated router API\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Foundation-Sec 8B LLM is not used here/)).toBeInTheDocument();
+  });
+
+  it('highlights source evidence after show_hardening_policy chip selection', () => {
+    render(
+      <EcInvestigationAnswer
+        envelope={{
+          ...envelope,
+          source_evidence: [
+            {
+              evidence_id: 'ev-s5-policy',
+              source_type: 'kb_fixture',
+              source_name: 'Enterprise hardening policy',
+              preview_rows: [{ rule: 'version 14 must be upgraded to version 15' }],
+            },
+          ],
+        }}
+        highlightEvidenceId="ev-s5-policy"
+      />,
+    );
+    expect(document.querySelector('[data-ec-evidence-highlight="true"]')).not.toBeNull();
+  });
+
+  it('renders Take action and Action readiness headings without duplicate Recommended actions', () => {
+    render(
+      <>
+        <EcFollowUpBar
+          chips={[
+            { follow_up_id: 'show_hardening_policy', label: 'Show hardening policy', advances_state: true },
+            { follow_up_id: 'create_change_ticket', label: 'Create change ticket', advances_state: true, group: 'action', leads_to_action: true },
+          ]}
+          onSelect={() => undefined}
+        />
+        <EcActionReadinessPanel rows={[{ action: 'Create change ticket', state: 'READY' }]} />
+      </>,
+    );
+    expect(screen.getByText('Take action')).toBeInTheDocument();
+    expect(screen.getByText('Action readiness')).toBeInTheDocument();
+    expect(screen.queryByText('Recommended actions')).not.toBeInTheDocument();
   });
 });

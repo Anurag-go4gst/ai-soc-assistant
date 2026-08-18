@@ -36,7 +36,7 @@ export function EcFollowUpBar({
       ) : null}
       {actionChips.length ? (
         <section>
-          <p className="soc-eyebrow text-cyan-400">Recommended actions</p>
+          <p className="soc-eyebrow text-cyan-400">Take action</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {actionChips.map((chip) => (
               <Button

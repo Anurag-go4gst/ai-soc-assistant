@@ -14,7 +14,7 @@ import type { EcActionRecord, EcFollowUpChip, EcScenarioSummary, ExperienceCente
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { experienceExecutionIsWaiting, type ExperienceExecutionProgressView } from '@/lib/experienceCenterExecution';
 import { scrollIntoScrollParent } from '@/lib/scrollIntoScrollParent';
-import { readinessLabelForActionChip } from '@/lib/ecOperationalLink';
+import { evidenceIdForChip, readinessLabelForActionChip } from '@/lib/ecOperationalLink';
 import { EcWelcomeHero } from '@/components/ec/EcWelcomeHero';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -35,6 +35,12 @@ function isActionChip(chip?: EcFollowUpChip | null): boolean {
   return chip.group === 'action' || Boolean(chip.leads_to_action);
 }
 
+function isEvidenceContinueChip(chip?: EcFollowUpChip | null): boolean {
+  if (!chip || isActionChip(chip)) return false;
+  const id = chip.follow_up_id;
+  return id.startsWith('show_') || id.startsWith('check_');
+}
+
 export function EcInvestigationWorkspace() {
   const [selectedId, setSelectedId] = useState('');
   const [envelope, setEnvelope] = useState<ExperienceCenterResponse | null>(null);
@@ -44,6 +50,7 @@ export function EcInvestigationWorkspace() {
   const [synthesizing, setSynthesizing] = useState(false);
   const [answerRevealKey, setAnswerRevealKey] = useState(0);
   const [operationalLink, setOperationalLink] = useState<string | null>(null);
+  const [highlightEvidenceId, setHighlightEvidenceId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stream, setStream] = useState<EcStreamMessage[]>([]);
@@ -141,6 +148,7 @@ export function EcInvestigationWorkspace() {
     setProgress(null);
     setActionProgress(null);
     setOperationalLink(null);
+    setHighlightEvidenceId(null);
     setSelectedId(scenario.scenario_id);
     pushUserMessage(queryText);
     try {
@@ -159,20 +167,23 @@ export function EcInvestigationWorkspace() {
     if (!envelope) return;
     const epoch = epochRef.current + 1;
     epochRef.current = epoch;
-    const keepAnswer = isActionChip(chip);
+    const keepAnswer = isActionChip(chip) || isEvidenceContinueChip(chip);
     setBusy(true);
     setError(null);
     pushUserMessage(chip?.label ?? followUpId);
-    const link = isActionChip(chip) ? readinessLabelForActionChip(chip) : null;
+    const link = readinessLabelForActionChip(chip);
+    const evidenceHighlight = evidenceIdForChip(chip);
     if (!keepAnswer) {
       setRevealed(false);
       setSynthesizing(false);
       setProgress(null);
       setActionProgress(null);
       setOperationalLink(null);
+      setHighlightEvidenceId(null);
     } else {
       setActionProgress(null);
       setOperationalLink(link);
+      setHighlightEvidenceId(evidenceHighlight);
     }
     try {
       const next = await followUpEcScenario(
@@ -210,6 +221,7 @@ export function EcInvestigationWorkspace() {
     setSynthesizing(false);
     setAnswerRevealKey(0);
     setOperationalLink(null);
+    setHighlightEvidenceId(null);
     setBusy(false);
     setError(null);
     setSelectedId('');
@@ -290,6 +302,7 @@ export function EcInvestigationWorkspace() {
                   embedded
                   revealActive={true}
                   revealKey={answerRevealKey}
+                  highlightEvidenceId={highlightEvidenceId}
                   onRevealStart={scrollToAnswerStart}
                   onRevealComplete={scrollToAnswerStart}
                 />

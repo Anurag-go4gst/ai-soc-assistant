@@ -1,9 +1,11 @@
 # AI SOC Assistant — Verified Handoff Review
 
-**Reviewed:** 2026-08-18  
+**Reviewed:** 2026-08-18 (updated with agent-onboarding guidance)  
 **Verifier:** agent audit against live repo at `/var/www/ai-soc-assistant`  
-**Verified HEAD:** `66973e1d41e0cf5475e74650bdc095d7f3144e7d` (`master` = `origin/master`)  
+**Verified HEAD:** `964db24471a9bc51a6685735477394e22785f077` (`master` = `origin/master`)  
 **Architecture SHA-256:** `c1c4ba8a88d8f245752188a76442102978eceb0c1bdb410717b789649fb9a034` (matches)
+
+> **Using this with Claude / Codex / ChatGPT?** Read [§0 Agent onboarding](#0-agent-onboarding--can-external-ai-generate-code-from-this-file) first. This file is the **project state + boundary** handoff. It is **not** a substitute for `architecture.md`, `AGENTS.md`, or reading the live codebase before writing new code.
 
 ---
 
@@ -78,7 +80,7 @@ flowchart TD
 | G2 freeze test | Mentioned briefly | **Expanded:** `test_races_freeze_files_unchanged_since_baseline` in `test_live_path_untouched_by_ec.py` **fails** against baseline `bf7c304` because `pipeline.py`, `mcp_execution_gate.py`, and `ChatPanel.tsx` changed (MCP #144 + Workstream B). Expected; do not "fix" Workstream B to satisfy obsolete baseline. |
 | G2 layer-1 test | Pre-existing failure | **Confirmed fails** — `EcInvestigationWorkspace.tsx` no longer contains `"Session active"`. |
 | `discovery.py` | "may exist" | **Confirmed:** `backend/app/connectors/mcp/discovery.py` exists alongside `discovery_snapshot.py`. |
-| RACES plan baselines table | Parallel worktree path | **Stale in plan prose:** references `/var/www/ai-soc-assistant-legacy-ec` and master pin `63f6769`. Worktree removed; current master is `66973e1`. |
+| RACES plan baselines table | Parallel worktree path | **Stale in plan prose:** references `/var/www/ai-soc-assistant-legacy-ec` and master pin `63f6769`. Worktree removed; current master is **`964db24`**. |
 | F1 / live isolation tests | 8 passed live, F1 preserved | **Re-verified 2026-08-18:** `test_f1_resource_plan_authority_degradation.py` + `test_live_chat_linear_progress.py` → **16 passed**. |
 | COE profile flags | Listed in §10 | **Confirmed** in `env/profiles/coe.env.example`. |
 | Executive summary | Code-side stable; qualification remains | **Accurate.** No substantive code claims contradicted. |
@@ -87,9 +89,206 @@ flowchart TD
 
 ---
 
-## 0. How to use this document
+## 0. Agent onboarding — can external AI generate code from this file?
 
-This file is the **verified, corrected** successor to the submitted handoff draft. Treat it as authoritative for repo state as of the verified HEAD above. If `master` has moved, re-run the fast orientation commands in §43 before coding.
+### 0.1 Verdict
+
+| Question | Answer |
+|----------|--------|
+| Will Claude/Codex/ChatGPT understand **project state** from `review.md` alone? | **Yes** — closures, open items, MCP/T4/EC status, and what not to reopen. |
+| Will they produce **correct, architecture-aligned new code** from `review.md` alone? | **No — not reliably.** They still need the frozen contract, operating rules, repo grep, and domain tracing. |
+| Is `review.md` a good **first attachment** for a new design session? | **Yes** — if you also attach or point to the companion docs below and give an explicit task scope. |
+
+**Rule of thumb:** `review.md` tells an agent **where the project is and what is frozen**. [`architecture.md`](architecture.md) tells it **what must remain true**. [`AGENTS.md`](AGENTS.md) tells it **how to work safely**. The **repo tree** tells it **what already exists**.
+
+### 0.2 Mandatory companion documents
+
+Attach or link these based on what you are building:
+
+| If you are designing… | Read first (in order) |
+|----------------------|------------------------|
+| **Any new backend feature** | `review.md` → [`architecture.md`](architecture.md) → [`AGENTS.md`](AGENTS.md) → grep the repo for existing symbols |
+| **Routing / intent / understanding** | + [`docs/architecture/routing_authority_map.md`](docs/architecture/routing_authority_map.md) · trace `understand_query` → `adjudicate_route` → `graph_node_route_contract` |
+| **T4 prompt/schema** | + [`docs/ai/t4_semantic_prompting_playbook.md`](docs/ai/t4_semantic_prompting_playbook.md) — do not query-patch |
+| **SPL / templates** | + `backend/app/spl/templates.json` · [`docs/architecture/spl_generation_audit.md`](docs/architecture/spl_generation_audit.md) |
+| **MCP / Splunk execution** | + [`contracts/splunk_mcp_connection_contract.md`](contracts/splunk_mcp_connection_contract.md) · `effective_catalog.py` · `mcp_execution_gate.py` |
+| **Experience Center / demo** | + `plans/2026-08-17_races-investigation-execution-ux.md` (closed — do not extend without new plan) · keep EC separate from production `/chat` |
+| **COE deploy / qualification** | + [`docs/coe/COE_PRODUCTION_READINESS_RUNBOOK.md`](docs/coe/COE_PRODUCTION_READINESS_RUNBOOK.md) · `env/profiles/coe.env.example` |
+| **New multi-step engineering phase** | + create `plans/YYYY-MM-DD_HHMM_<slug>.md` with checklist (template: [`.cursor/templates/plan-checklist-template.md`](.cursor/templates/plan-checklist-template.md)) |
+
+### 0.3 Stack and repo layout (not in architecture.md)
+
+| Layer | Stack | Key paths |
+|-------|-------|-----------|
+| Backend | Python 3.12, FastAPI, SQLAlchemy, pytest | `backend/app/` |
+| Frontend | React 18, TypeScript, Vite, Tailwind, Radix | `frontend/src/` |
+| Orchestration | LangGraph Resource Planner graph (default on COE profile) | `backend/app/graph/` |
+| DB | PostgreSQL 16 (pgvector-capable) | `docker-compose.yml` |
+| Deploy | Docker Compose; prod via Nginx at `https://cisco-vai.vnudge.com` | `frontend/dist` served by Nginx |
+
+**Run / test (agents must use these, not invent commands):**
+
+```bash
+# Backend tests (from repo root)
+cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/<relevant>.py -q
+
+# Governance gate (before claiming pipeline/MCP/SPL/LLM work done)
+./scripts/run_stage3_governance_regression.sh
+
+# Frontend build (any UI change; prod serves frontend/dist)
+cd frontend && npm run build
+
+# Dev stack
+./scripts/coe_preflight.sh --auto-port && docker compose up -d
+```
+
+### 0.4 Path decision — where new code belongs
+
+Before writing code, classify the work:
+
+| Path | Entry | Authority | New code allowed when… |
+|------|-------|-----------|------------------------|
+| **Production `/chat`** | `POST /api/chat` → `pipeline.py` / Resource Planner graph | Full governance: RQC → ResourcePlan → PhaseContract → SPL/MCP/HIL | User explicitly scopes production behavior; must preserve invariants below |
+| **Experience Center** | `/scenarios`, `routes_scenarios.py`, EC components | Showcase only; honest labeling; no production authority | Demo/UX/scenario work; must not change live `/chat` semantics |
+| **Legacy demoMode** | `ChatPanel` with `demoMode=true` | Shared EC presentation + selective HIL | Only the four priority scenarios or shared shell; `demoMode=false` must stay unchanged |
+| **Debug / operator** | `/api/debug/*` (gated) | Read-only diagnostics; redacted | Observability, qualification harnesses |
+| **Settings / config** | Settings UI + env profiles | Redacted status; no secret echo | COE flags, connector config — defaults stay safe |
+
+**If unsure:** default to a **new plan** under `plans/` and trace the full path before coding.
+
+### 0.5 Non-negotiable invariants for generated code
+
+Any external agent **must not violate** these when proposing or writing code:
+
+| # | Invariant | Wrong pattern | Right pattern |
+|---|-----------|---------------|-----------------|
+| 1 | `candidate_spl` never executable | Execute or approve raw LLM/template candidate | Only `normalized_spl` after `validate_spl` + gates |
+| 2 | LLM never calls MCP directly | `supports_tool_calling=true` or tool-use in model path | Backend mediates all MCP; LLM advisory/narration only |
+| 3 | T4 is not authority | T4 selects route, grants capability, or executes | T4 fills bounded semantic fields; deterministic merge wins |
+| 4 | Final RQC before ResourcePlan | Plan from provisional route/intent | `T1–T3 → sufficiency → T4? → merge → final RQC → route → ResourcePlan` |
+| 5 | ResourcePlan + PhaseContract = normal authority | dispatch-v2 or ad-hoc execution as default | Use existing planner hub; dispatch-v2 rollback-only |
+| 6 | MCP live calls need AUTH0 | Call `connector.call_tool` without exact grant | `splunk_call_authorization.py` grant bound to exact material |
+| 7 | MCP tool selection is deterministic | LLM or user preference overrides policy | Effective catalog ∩ capability resolver ∩ allowlist |
+| 8 | RAG is evidence-only | Prompt LLM directly from KB chunks | `SourceEvidence` / `StructuredContext` only |
+| 9 | HIL ≠ AUTH0 | Skip grant because analyst confirmed | Both where required; skip animation ≠ skip HIL |
+| 10 | EC ≠ production | Change `pipeline.py` for demo polish | EC/scenario paths only; prove with `test_live_chat_linear_progress.py` |
+| 11 | Fail closed | Guess index/sourcetype/route on ambiguity | Clarification or honest degrade |
+| 12 | No auto Cisco restart | `systemctl restart` from backend | Human/operator restart only |
+| 13 | Secrets | Commit `.env`, echo tokens in API | Redact; `url_configured` / `auth_configured` booleans only |
+| 14 | New MCP capability | Keyword route → tool | Extend structured ResourcePlan semantic first |
+| 15 | Specialist reports | Add a 5th specialist or execution side effects | Exactly four advisory specialists; no connector calls |
+
+### 0.6 Live routing surface (five skills)
+
+Production routing skills (closed set — do not add a 6th without architecture decision):
+
+| Skill | Typical use | SPL? | MCP? |
+|-------|-------------|------|------|
+| `alert_summary` | Alert/evidence summary | No | Rarely |
+| `spl_generation` | SPL ask / live posture | Candidate only | After validation + AUTH0 |
+| `attack_discovery` | Hunt / threat intel / live retrieval | Often | After gates |
+| `knowledge_recall` | SOP/playbook/MITRE/policy guidance | No | No |
+| `guided_investigation` | Out-of-registry hunt rescue | No execution | Discovery only; review-only |
+
+Routing quality is measured by `docs/evals/routing_truth_set_v1.json`, not parity goldens alone.
+
+### 0.7 Default-safe flag postures (repo defaults)
+
+New code must **default off** for dangerous behavior. COE profile may enable more — read `AI_SOC_ENV_PROFILE` before assuming runtime:
+
+| Flag | Repo default | Meaning |
+|------|--------------|---------|
+| `MCP_GLOBAL_EXECUTION_ENABLED` | `false` | Single live MCP kill switch |
+| `MCP_SERVER_MOCK_EXECUTION_ENABLED` | `false` | Mock execution |
+| `AI_SOC_PIPELINE_DISPATCH_V2_ENABLED` | `false` | Rollback/test only |
+| `AI_SOC_LIVE_CAPABILITY_ENFORCEMENT_ENABLED` | `false` | Route-level capability enforcement |
+| `AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED` | `false` | T4 hop (ON on development profile) |
+| `AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED` | `false` | Live narration |
+| `AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED` | `false` | Live narration |
+| `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` | `false` | Execution contract (ON on COE/development profile) |
+
+Do not flip these in code or tests without explicit user approval.
+
+### 0.8 Required workflow for new design work
+
+1. **Scope** — one sentence: production `/chat`, EC, COE config, or new plan?
+2. **Plan** — if multi-file or touches pipeline/MCP/SPL/LLM, create `plans/YYYY-MM-DD_HHMM_<slug>.md` with Do/Verify/Evidence checklist.
+3. **Grep first** — `rg -n '<symbol>' backend frontend` — extend, do not duplicate.
+4. **Trace end-to-end** — list the functions/nodes your change affects from HTTP entry to response.
+5. **Implement minimally** — match surrounding Pydantic models, import style, test layout.
+6. **Verify** — targeted pytest + domain gate (see §0.9).
+7. **Report** — commands run, pass/fail counts, files touched, invariants preserved.
+
+### 0.9 Validation gates by change type
+
+| You changed… | Minimum verification |
+|--------------|---------------------|
+| `pipeline.py`, planner, routing, intent | Affected pytest + `./scripts/run_stage3_governance_regression.sh` |
+| MCP connector/gate/authorization | `test_mcp_*`, `test_splunk_*`, governance regression |
+| SPL templates/validator | `test_spl_*`, template staleness scripts if applicable |
+| T4 prompt/schema | `test_t4_*.py` + read T4 playbook first |
+| Frontend UI | `npm run build` + relevant vitest |
+| EC / legacy demo only | `test_live_chat_linear_progress.py` + EC isolation tests |
+| Intent/routing labels | `scripts/eval_out_of_set_intent_probe.py --check` when intent changes |
+
+### 0.10 Sensitive files — architecture review required
+
+Unexpected changes to these need explicit user approval and invariant check:
+
+```
+architecture.md
+backend/app/chat/pipeline.py
+backend/app/chat/canonical_planning_orchestrator.py
+backend/app/orchestration/
+backend/app/connectors/mcp/
+backend/app/planner/
+backend/app/config.py
+backend/app/safeguards/spl_validator.py
+```
+
+### 0.11 Copy-paste bootstrap prompt for external agents
+
+Give the agent the repo (or relevant paths) **plus** this prompt:
+
+```text
+You are working on the AI SOC Assistant repo.
+
+1. Read review.md fully — project state, closures, and boundaries.
+2. Read architecture.md — frozen authority contract (do not modify).
+3. Read AGENTS.md — operating rules and verification gates.
+4. Verify: git rev-parse HEAD; sha256sum architecture.md
+5. Grep the repo for existing implementations before writing anything.
+6. My task: <DESCRIBE NEW DESIGN HERE>
+
+Hard rules:
+- candidate_spl is never executable; LLM never calls MCP; T4 is not authority.
+- ResourcePlan + PhaseContract is normal execution authority.
+- MCP requires effective catalog + capability resolver + exact-call AUTH0.
+- EC/demo changes must not alter production /chat (prove with test_live_chat_linear_progress.py).
+- Default dangerous flags off unless I explicitly approve.
+- If scope is multi-step, create a plans/ checklist before coding.
+
+Deliver: design or code + exact test commands you ran + which invariants you preserved.
+```
+
+### 0.12 What review.md does NOT contain
+
+Do not expect an external agent to infer these from `review.md` alone:
+
+- Full API schemas and Pydantic model definitions (read `backend/app/schemas/`)
+- Complete flag catalog (read `backend/app/config.py`, `env/profiles/`)
+- Every test and eval baseline (read `docs/evals/`, run targeted tests)
+- UI component library conventions (read `frontend/src/components/`)
+- Historical plan prose for completed work (read specific `plans/` file only if extending that domain)
+- Live Splunk/Cisco endpoint credentials (operator `.env` only)
+
+**If the agent cannot access the repo filesystem**, provide at minimum: `review.md` + `architecture.md` + `AGENTS.md` + the specific files in the task's call path.
+
+---
+
+## 0A. How to use this document
+
+This file is the **verified, corrected** project handoff. Treat it as authoritative for repo **state** as of the verified HEAD above. For **new code**, follow [§0 Agent onboarding](#0-agent-onboarding--can-external-ai-generate-code-from-this-file). If `master` has moved, re-run §43 before coding.
 
 ---
 
@@ -130,8 +329,8 @@ The remaining meaningful work is **not** another architecture/code cleanup loop.
 |------|--------|
 | Repository | `/var/www/ai-soc-assistant` |
 | Branch | `master` |
-| HEAD | `66973e1d41e0cf5475e74650bdc095d7f3144e7d` |
-| `origin/master` | `66973e1d41e0cf5475e74650bdc095d7f3144e7d` |
+| HEAD | `964db24471a9bc51a6685735477394e22785f077` |
+| `origin/master` | `964db24471a9bc51a6685735477394e22785f077` |
 | Working tree | **Mostly clean** — untracked only: `.cursor/hooks/.plan-create-requested` |
 | Active worktrees | `/var/www/ai-soc-assistant` only |
 
@@ -160,7 +359,7 @@ These files lag merged reality and should not mislead the next agent:
 | `CLAUDE.md` / `AGENTS.md` | Plan 8 **active** | Plan 8 **closed** on master |
 | `plans/2026-08-15_0602_…md` frontmatter | `complete_pending_user_merge` | Merged; body records 34/34 closure |
 | `plans/2026-08-17_1757_mcp-…md` frontmatter | `status: active` | Shipped via **PR #144** |
-| `plans/2026-08-17_races-…md` baselines | Parallel worktree + master `63f6769` | Worktree removed; master **`66973e1`** |
+| `plans/2026-08-17_races-…md` baselines | Parallel worktree + master `63f6769` | Worktree removed; master **`964db24`** |
 
 ---
 
@@ -342,7 +541,7 @@ MCP_SERVER_MOCK_EXECUTION_ENABLED=false
 | `coe-qualification-candidate-2026-08-16` | `9b02b27` (PR #141) | v1 |
 | `coe-qualification-candidate-2026-08-16-v2` | `bf7c304` (PR #142) | Annotated tag object `ba90b2a` |
 
-**v2 is older than RACES + MCP effective-catalog work.** Current master `66973e1`. Create a **new** qualification tag for the next COE cycle; do not repoint v2.
+**v2 is older than RACES + MCP effective-catalog work.** Current master `964db24`. Create a **new** qualification tag for the next COE cycle; do not repoint v2.
 
 ---
 
@@ -471,6 +670,7 @@ Do not weaken auth or use CI for real SMTP.
 
 ```
 66973e1  legacy-ec: complete convergence acceptance
+964db24  docs: add verified handoff review with architecture query flow
 b296a78  legacy-ec: reuse EC email transport
 7c37580  legacy-ec: add selective coordination actions
 7dce44d  legacy-ec: adopt shared execution presentation
@@ -593,7 +793,7 @@ Not an indictment of code quality — required live evidence and human approval 
 
 ## 40. Recommended Next Phase — COE / Live Qualification
 
-1. Baseline from `66973e1` — create **new** qualification tag.
+1. Baseline from `964db24` — create **new** qualification tag.
 2. Configure COE: Cisco endpoint, explicit T4 timeout, Splunk MCP endpoint/token/TLS, optional EC SMTP.
 3. T4/F3: real inference, cold/warm, p50/p95, concurrency, circuit, recovery, `/chat`.
 4. Splunk MCP: initialize, tools/list, discovery refresh, effective catalog proof, governed queries, AUTH0/RBAC/HIL, failure drills.
@@ -628,7 +828,7 @@ git worktree list && sha256sum architecture.md
 
 ```
 branch = master
-HEAD = origin/master = 66973e1d41e0cf5475e74650bdc095d7f3144e7d
+HEAD = origin/master = 964db24471a9bc51a6685735477394e22785f077
 working tree = clean except possible untracked .cursor/hooks/*
 architecture SHA = c1c4ba8a88d8f245752188a76442102978eceb0c1bdb410717b789649fb9a034
 ```
@@ -664,7 +864,7 @@ rg -n "LegacyDemoCoordinationAction|demo_coordination|waiting_for_analyst" front
 ### Final snapshot
 
 ```
-REPO=/var/www/ai-soc-assistant  MASTER=66973e1  ARCHITECTURE=frozen (hash verified)
+REPO=/var/www/ai-soc-assistant  MASTER=964db24  ARCHITECTURE=frozen (hash verified)
 F1=closed  T4_DESIGN=frozen  MCP_CODE_SIDE=closed  RACES_A=shipped  LEGACY_B=closed
 PLAN=complete 29/29  F3=open  LIVE_MCP_PROVEN=false  PRODUCTION_GO=NO_GO
 NEXT=COE/live qualification (operator evidence)

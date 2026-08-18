@@ -1,3 +1,13 @@
+export interface EcSourceEvidenceItem {
+  evidence_id: string;
+  source_type: string;
+  source_name: string;
+  preview_rows?: Array<Record<string, unknown>>;
+  provenance?: string | null;
+  tool_name?: string | null;
+  warnings?: string[];
+}
+
 export interface EcProvenanceStamp {
   kind: string;
   detail?: string | null;
@@ -107,6 +117,7 @@ export interface EcInvestigationOutcomePayload {
   unconfirmed: string[];
   missing_evidence: string[];
   mitre?: Array<Record<string, string>>;
+  closure_summary?: string | null;
 }
 
 export interface EcSiemCoverageRow {
@@ -232,7 +243,8 @@ export interface ExperienceCenterResponse {
   selected_skill?: string | null;
   route_source?: string;
   candidate_spl?: { candidate_spl?: string; execution_eligible?: boolean } | null;
-  spl_validation?: { approved?: boolean } | null;
+  spl_validation?: { approved?: boolean; warnings?: string[] } | null;
+  source_evidence?: EcSourceEvidenceItem[];
   ec_projection: EcProjection;
   ec_actions: EcActionRecord[];
   ec_followups: EcFollowUpChip[];

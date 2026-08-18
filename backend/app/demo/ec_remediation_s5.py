@@ -72,8 +72,8 @@ def build_s5_action_readiness(applied: list[str], actions: list[Any], version: i
     ]
     if "show_hardening_policy" in applied:
         rows[0] = EcActionReadinessRow(action="Review hardening policy", state="OBTAINED")
-    if "check_current_version" in applied or version:
-        rows[1] = EcActionReadinessRow(action="Confirm current version (cisco.get_version)", state="OBTAINED")
+    # Version evidence is obtained on every S5 turn (initial probe + any refresh).
+    rows[1] = EcActionReadinessRow(action="Confirm current version (cisco.get_version)", state="OBTAINED")
     if "create_change_ticket" in applied:
         rows[2] = EcActionReadinessRow(action="Create change ticket", state="OBTAINED")
     if "request_network_approval" in applied:
