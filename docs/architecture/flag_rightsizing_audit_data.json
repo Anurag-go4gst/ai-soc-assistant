@@ -2,6 +2,23 @@
   {
     "batch": null,
     "classification": "b_posture",
+    "config_field": "ai_soc_action_lane_live_proposals_enabled",
+    "default_env": "false",
+    "disposition": "keep",
+    "env_key": "AI_SOC_ACTION_LANE_LIVE_PROPOSALS_ENABLED",
+    "evidence": "rg: backend/app/actions/live_action_proposals.py, backend/app/config.py, backend/app/tests/test_live_action_proposals.py",
+    "git_intro": "2026-07-03 item 6.2 action lane UI wire-up",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/actions/live_action_proposals.py",
+      "backend/app/config.py",
+      "backend/app/tests/test_live_action_proposals.py"
+    ],
+    "risk_note": "Default false — surfaces pending action proposals on /chat; approve/deny via authenticated /api/actions."
+  },
+  {
+    "batch": null,
+    "classification": "b_posture",
     "config_field": "ai_soc_allow_mock_execution_without_hil_in_demo",
     "default_env": "true",
     "disposition": "keep_group",
@@ -17,7 +34,7 @@
       "backend/app/tests/test_mcp_execution_gate.py",
       "backend/app/tests/test_splunk_result_adapter_stage3m_s2.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -38,7 +55,7 @@
       "backend/app/tests/test_coe_rollout_config_sanity.py",
       "backend/app/tests/test_guided_investigation_llm_firewall.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -55,7 +72,7 @@
       "backend/app/environment/asset_registry_store.py",
       "backend/app/tests/test_asset_registry_store.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -70,7 +87,7 @@
     "read_sites": [
       "backend/app/threat/attack_data_resolver.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -86,7 +103,7 @@
       "backend/app/knowledge/mapping_exports.py",
       "backend/app/threat/attack_data_resolver.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -101,7 +118,7 @@
     "read_sites": [
       "backend/app/threat/attack_data_resolver.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -116,7 +133,55 @@
     "read_sites": [
       "backend/app/threat/attack_data_resolver.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_backend_host_port",
+    "default_env": "8010",
+    "disposition": "keep",
+    "env_key": "AI_SOC_BACKEND_HOST_PORT",
+    "evidence": "rg: docker-compose.yml; git: 4280260 feat(deploy): Mac staging profile and Docker port portability",
+    "git_intro": "4280260 2026-07-03 docker-compose backend port",
+    "profile_values": {},
+    "read_sites": [
+      "docker-compose.yml"
+    ],
+    "risk_note": "Docker host port mapping for backend."
+  },
+  {
+    "batch": "C",
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_catalogue_auto_execute_enabled",
+    "default_env": "false",
+    "disposition": "keep",
+    "env_key": "AI_SOC_CATALOGUE_AUTO_EXECUTE_ENABLED",
+    "evidence": "rg: backend/app/orchestration/catalogue_execution_eligibility.py, backend/app/orchestration/mcp_execution_gate.py; DG-5 COE kill-switch",
+    "git_intro": "2026-07-03 DG-5 catalogue-known auto-execute",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/orchestration/catalogue_execution_eligibility.py",
+      "backend/app/orchestration/mcp_execution_gate.py",
+      "backend/app/coverage/catalogue_execution_map.py",
+      "docs/architecture/catalogue_auto_execute_policy.md"
+    ],
+    "risk_note": "COE kill-switch — default false; enables catalogue-known HIL exemption only when pilot map signed."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_cors_allowed_origins",
+    "default_env": "http://localhost:3010,http://127.0.0.1:3010",
+    "disposition": "keep",
+    "env_key": "AI_SOC_CORS_ALLOWED_ORIGINS",
+    "evidence": "rg: backend/app/config.py",
+    "git_intro": "config.py CORS allowlist",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/config.py"
+    ],
+    "risk_note": "Operator CORS allowlist for dev/staging origins."
   },
   {
     "batch": "C",
@@ -141,7 +206,7 @@
       "backend/app/tests/test_curated_enrichment_gate_consolidation.py",
       "backend/app/tests/test_enrichment_aware_evidence_plan_phase5.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -159,7 +224,7 @@
       "backend/app/tests/test_guided_hunt_rescue.py",
       "scripts/eval_p3_contribution.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -177,7 +242,7 @@
       "backend/app/tests/test_guided_hunt_rescue.py",
       "scripts/eval_p3_contribution.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -192,7 +257,7 @@
     "read_sites": [
       "backend/app/api/routes_debug.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -216,7 +281,7 @@
       "backend/app/tests/test_user_registry.py",
       "frontend/src/pages/DebugPage.tsx"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -231,7 +296,7 @@
     "read_sites": [
       "backend/app/api/routes_debug.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -251,7 +316,267 @@
       "backend/app/tests/test_mcp_execution_gate.py",
       "backend/app/tests/test_splunk_result_adapter_stage3m_s2.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_allowlist",
+    "default_env": "—",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_ALLOWLIST",
+    "evidence": "rg: backend/app/demo/ec_email.py, backend/app/tests/test_ec_email_transport.py, backend/app/tests/test_legacy_demo_email_transport.py; git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/demo/ec_email.py",
+      "backend/app/tests/test_ec_email_transport.py",
+      "backend/app/tests/test_legacy_demo_email_transport.py"
+    ],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_appsec_team",
+    "default_env": "—",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_APPSEC_TEAM",
+    "evidence": "rg: (declared in .env.example; read via settings only); git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_firewall_team",
+    "default_env": "—",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_FIREWALL_TEAM",
+    "evidence": "rg: backend/app/tests/test_ec_email_transport.py; git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/tests/test_ec_email_transport.py"
+    ],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_from",
+    "default_env": "—",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_FROM",
+    "evidence": "rg: backend/app/demo/ec_email.py, backend/app/tests/test_ec_email_transport.py; git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/demo/ec_email.py",
+      "backend/app/tests/test_ec_email_transport.py"
+    ],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_incident_owner",
+    "default_env": "—",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_INCIDENT_OWNER",
+    "evidence": "rg: (declared in .env.example; read via settings only); git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_network_team",
+    "default_env": "—",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_NETWORK_TEAM",
+    "evidence": "rg: (declared in .env.example; read via settings only); git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_ot_team",
+    "default_env": "—",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_OT_TEAM",
+    "evidence": "rg: (declared in .env.example; read via settings only); git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_smtp_host",
+    "default_env": "—",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_SMTP_HOST",
+    "evidence": "rg: backend/app/demo/ec_email.py, backend/app/tests/test_ec_email_transport.py, backend/app/tests/test_legacy_demo_email_transport.py; git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/demo/ec_email.py",
+      "backend/app/tests/test_ec_email_transport.py",
+      "backend/app/tests/test_legacy_demo_email_transport.py"
+    ],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_smtp_password",
+    "default_env": "—",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_SMTP_PASSWORD",
+    "evidence": "rg: backend/app/demo/ec_email.py, backend/app/tests/test_ec_email_transport.py; git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/demo/ec_email.py",
+      "backend/app/tests/test_ec_email_transport.py"
+    ],
+    "risk_note": "EC outbound transport credential — operator infra, must stay env-only and redacted in status surfaces."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_smtp_port",
+    "default_env": "465",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_SMTP_PORT",
+    "evidence": "rg: backend/app/demo/ec_email.py, backend/app/tests/test_ec_email_transport.py; git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/demo/ec_email.py",
+      "backend/app/tests/test_ec_email_transport.py"
+    ],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_smtp_ssl",
+    "default_env": "true",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_SMTP_SSL",
+    "evidence": "rg: backend/app/demo/ec_email.py, backend/app/tests/test_ec_email_transport.py; git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/demo/ec_email.py",
+      "backend/app/tests/test_ec_email_transport.py"
+    ],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_smtp_user",
+    "default_env": "—",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_SMTP_USER",
+    "evidence": "rg: backend/app/demo/ec_email.py, backend/app/tests/test_ec_email_transport.py; git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/demo/ec_email.py",
+      "backend/app/tests/test_ec_email_transport.py"
+    ],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_soc_lead",
+    "default_env": "—",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_SOC_LEAD",
+    "evidence": "rg: backend/app/tests/test_legacy_demo_email_transport.py; git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/tests/test_legacy_demo_email_transport.py"
+    ],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_email_transport",
+    "default_env": "auto",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_EMAIL_TRANSPORT",
+    "evidence": "rg: backend/app/demo/ec_email.py, backend/app/tests/test_ec_email_transport.py, backend/app/tests/test_legacy_demo_email_transport.py; git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/demo/ec_email.py",
+      "backend/app/tests/test_ec_email_transport.py",
+      "backend/app/tests/test_legacy_demo_email_transport.py"
+    ],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_soar_base_url",
+    "default_env": "—",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_SOAR_BASE_URL",
+    "evidence": "rg: backend/app/demo/ec_soar.py, backend/app/tests/test_ec_soar_transport.py; git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/demo/ec_soar.py",
+      "backend/app/tests/test_ec_soar_transport.py"
+    ],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_soar_token",
+    "default_env": "—",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_SOAR_TOKEN",
+    "evidence": "rg: backend/app/demo/ec_soar.py; git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/demo/ec_soar.py"
+    ],
+    "risk_note": "EC outbound transport credential — operator infra, must stay env-only and redacted in status surfaces."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_ec_soar_transport",
+    "default_env": "auto",
+    "disposition": "keep",
+    "env_key": "AI_SOC_EC_SOAR_TRANSPORT",
+    "evidence": "rg: backend/app/demo/ec_soar.py, backend/app/tests/test_ec_soar_transport.py; git: b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "git_intro": "b1b92d7 2026-08-17 feat(ec): RACES execution UX, email actions, and cockpit polish",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/demo/ec_soar.py",
+      "backend/app/tests/test_ec_soar_transport.py"
+    ],
+    "risk_note": "EC outbound transport config (deployment-specific endpoint/recipient). Operator infra — keep as env, never hardcode."
   },
   {
     "batch": null,
@@ -276,7 +601,7 @@
       "backend/app/tests/test_p6_ood_llm_route_plan_lab.py",
       "backend/app/tests/test_splunk_stage3h.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -297,7 +622,7 @@
       "backend/app/tests/test_env_profiles.py",
       "scripts/select_env_profile.sh"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "A",
@@ -313,7 +638,22 @@
       "development": "stub_evidence"
     },
     "read_sites": [],
-    "risk_note": "Retired 7.1 Batch A \u2014 compat shim logs warning if env still set."
+    "risk_note": "Retired 7.1 Batch A — compat shim logs warning if env still set."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_frontend_host_port",
+    "default_env": "3010",
+    "disposition": "keep",
+    "env_key": "AI_SOC_FRONTEND_HOST_PORT",
+    "evidence": "rg: docker-compose.yml; git: 4280260 feat(deploy): Mac staging profile and Docker port portability",
+    "git_intro": "4280260 2026-07-03 docker-compose frontend port",
+    "profile_values": {},
+    "read_sites": [
+      "docker-compose.yml"
+    ],
+    "risk_note": "Docker host port mapping for Vite frontend."
   },
   {
     "batch": "C",
@@ -338,7 +678,7 @@
       "backend/app/tests/test_guided_hybrid_dispatch.py",
       "backend/app/tests/test_guided_hybrid_refinement.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": "C",
@@ -358,7 +698,7 @@
       "backend/app/llm/guided_llm_budget.py",
       "backend/app/tests/test_guided_investigation_llm_firewall.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -374,7 +714,7 @@
       "development": "15"
     },
     "read_sites": [],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -392,7 +732,7 @@
     "read_sites": [
       "backend/app/llm/guided_llm_budget.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -408,7 +748,7 @@
       "development": "90"
     },
     "read_sites": [],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -428,7 +768,7 @@
       "backend/app/llm/guided_llm_budget.py",
       "backend/app/tests/test_guided_investigation_llm_firewall.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -445,7 +785,22 @@
       "backend/app/chat/pipeline.py",
       "backend/app/tests/test_guided_mcp_discovery_lane.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_host_bind",
+    "default_env": "127.0.0.1",
+    "disposition": "keep",
+    "env_key": "AI_SOC_HOST_BIND",
+    "evidence": "rg: docker-compose.yml; git: 4280260 feat(deploy): Mac staging profile and Docker port portability",
+    "git_intro": "4280260 2026-07-03 docker-compose host bind",
+    "profile_values": {},
+    "read_sites": [
+      "docker-compose.yml"
+    ],
+    "risk_note": "Docker publish bind — operator infra, not app Settings field."
   },
   {
     "batch": null,
@@ -467,7 +822,7 @@
       "backend/app/graph/planner_led_shadow_graph.py",
       "backend/app/tests/test_langgraph_shadow_phase12.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -492,7 +847,7 @@
       "backend/app/tests/test_chat_error_envelope.py",
       "backend/app/tests/test_chat_graph_state_node_trace_s2.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -511,7 +866,7 @@
       "backend/app/api/routes_llm_lab.py",
       "backend/app/llm/connection_store.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -531,7 +886,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/tests/test_llm_settings_stage3jb.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -551,7 +906,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/tests/test_llm_settings_stage3jb.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -566,7 +921,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -582,7 +937,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/tests/test_analyst_summary_shadow_narration_stage3k_q1g.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -598,7 +953,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/tests/test_analyst_summary_shadow_narration_stage3k_q1g.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -623,7 +978,7 @@
       "backend/app/demo/captures/dns_beaconing_c2_hunt.json",
       "backend/app/demo/captures/failed_login_spike_app01.json"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -642,7 +997,7 @@
       "backend/app/api/routes_llm_lab.py",
       "backend/app/llm/connection_store.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -651,15 +1006,15 @@
     "default_env": "0.55",
     "disposition": "keep_group",
     "env_key": "AI_SOC_LLM_COMPOSE_HIL_THRESHOLD",
-    "evidence": "rg: backend/app/chat/pipeline.py, backend/app/synthesis/composition_confidence.py, backend/app/tests/test_out_of_catalog_composition.py; git: e8dad42 2026-06-14 feat: LLM utilization phases 1\u20132.5 (failover, sidecars, weak-case composition)",
-    "git_intro": "e8dad42 2026-06-14 feat: LLM utilization phases 1\u20132.5 (failover, sidecars, weak-case composition)",
+    "evidence": "rg: backend/app/chat/pipeline.py, backend/app/synthesis/composition_confidence.py, backend/app/tests/test_out_of_catalog_composition.py; git: e8dad42 2026-06-14 feat: LLM utilization phases 1–2.5 (failover, sidecars, weak-case composition)",
+    "git_intro": "e8dad42 2026-06-14 feat: LLM utilization phases 1–2.5 (failover, sidecars, weak-case composition)",
     "profile_values": {},
     "read_sites": [
       "backend/app/chat/pipeline.py",
       "backend/app/synthesis/composition_confidence.py",
       "backend/app/tests/test_out_of_catalog_composition.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -674,7 +1029,7 @@
     "read_sites": [
       "backend/app/llm/connection_store.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -694,7 +1049,7 @@
       "backend/app/tests/test_llm_runtime_control.py",
       "scripts/llm_control_watcher.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": "C",
@@ -715,7 +1070,7 @@
       "backend/app/tests/test_llm_runtime_control.py",
       "frontend/src/components/settings/LlmRuntimeHealthPanel.tsx"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -737,7 +1092,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/synthesis/governed_answer_composer.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -759,7 +1114,7 @@
       "backend/app/tests/test_llm_sidecar_governance_stage3k.py",
       "backend/app/tests/test_template_renderer_llm_assist_stage3k_q1d.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -784,7 +1139,7 @@
       "backend/app/llm/runtime_health.py",
       "backend/app/llm/sidecar_clients.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": "C",
@@ -809,7 +1164,7 @@
       "backend/app/demo/captures/dns_beaconing_c2_hunt.json",
       "backend/app/demo/captures/failed_login_spike_app01.json"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -827,7 +1182,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/tests/test_llm_settings_stage3jb.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -849,7 +1204,7 @@
       "backend/app/tests/test_llm_sidecar_governance_stage3k.py",
       "backend/app/tests/test_template_renderer_llm_assist_stage3k_q1d.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -867,7 +1222,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/tests/test_endpoint_resolver_dedup.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -884,7 +1239,7 @@
       "backend/app/llm/clients/endpoint_resolver.py",
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -902,7 +1257,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/tests/test_llm_sidecar_governance_stage3k.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -919,7 +1274,7 @@
       "backend/app/llm/clients/endpoint_resolver.py",
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -934,7 +1289,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -949,7 +1304,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -974,7 +1329,7 @@
       "backend/app/tests/test_explicit_spl_authoring.py",
       "backend/app/tests/test_guided_ambiguous_timeout_fallback.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -994,7 +1349,7 @@
       "backend/app/tests/test_intent_advisor_scheduling.py",
       "backend/app/tests/test_turn_llm_budget_deadline.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1009,7 +1364,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1024,7 +1379,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -1049,7 +1404,7 @@
       "backend/app/demo/captures/failed_login_spike_app01.json",
       "backend/app/demo/captures/guided_investigation_supply_chain.json"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -1071,7 +1426,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/tests/test_llm_settings_stage3jb.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1096,7 +1451,7 @@
       "backend/app/synthesis/governed_answer_composer.py",
       "backend/app/tests/test_endpoint_resolver_dedup.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1121,7 +1476,7 @@
       "backend/app/tests/test_endpoint_resolver_dedup.py",
       "backend/app/tests/test_endpoint_resolver_qwen.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1136,7 +1491,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1151,7 +1506,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1169,7 +1524,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1190,7 +1545,7 @@
       "backend/app/synthesis/governed_answer_composer.py",
       "backend/app/synthesis/live_narration.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": "C",
@@ -1209,7 +1564,7 @@
       "backend/app/tests/test_p5_mitre_candidate_mapping.py",
       "backend/app/threat/mitre_candidate_mapper.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -1224,7 +1579,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1239,7 +1594,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "B",
@@ -1282,7 +1637,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/tests/test_llm_settings_stage3jb.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1303,7 +1658,7 @@
       "backend/app/tests/test_llm_sidecar_governance_stage3k.py",
       "backend/app/tests/test_template_renderer_llm_assist_stage3k_q1d.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1322,7 +1677,7 @@
       "backend/app/synthesis/governed_answer_composer.py",
       "backend/app/tests/test_llm_settings_stage3jb.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1338,7 +1693,7 @@
       "backend/app/connectors/mcp/mcp_tool_planner.py",
       "backend/app/tests/test_mcp_tool_planner.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1347,13 +1702,13 @@
     "default_env": "",
     "disposition": "keep",
     "env_key": "AI_SOC_LLM_QWEN_API_KEY",
-    "evidence": "rg: backend/app/llm/clients/endpoint_resolver.py; git: e8dad42 2026-06-14 feat: LLM utilization phases 1\u20132.5 (failover, sidecars, weak-case composition)",
-    "git_intro": "e8dad42 2026-06-14 feat: LLM utilization phases 1\u20132.5 (failover, sidecars, weak-case composition)",
+    "evidence": "rg: backend/app/llm/clients/endpoint_resolver.py; git: e8dad42 2026-06-14 feat: LLM utilization phases 1–2.5 (failover, sidecars, weak-case composition)",
+    "git_intro": "e8dad42 2026-06-14 feat: LLM utilization phases 1–2.5 (failover, sidecars, weak-case composition)",
     "profile_values": {},
     "read_sites": [
       "backend/app/llm/clients/endpoint_resolver.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1362,8 +1717,8 @@
     "default_env": "",
     "disposition": "keep",
     "env_key": "AI_SOC_LLM_QWEN_BASE_URL",
-    "evidence": "rg: backend/app/llm/clients/endpoint_resolver.py, backend/app/llm/registry_settings.py, backend/app/tests/test_endpoint_resolver_qwen.py; git: e8dad42 2026-06-14 feat: LLM utilization phases 1\u20132.5 (failover, sidecars, weak-case composition)",
-    "git_intro": "e8dad42 2026-06-14 feat: LLM utilization phases 1\u20132.5 (failover, sidecars, weak-case composition)",
+    "evidence": "rg: backend/app/llm/clients/endpoint_resolver.py, backend/app/llm/registry_settings.py, backend/app/tests/test_endpoint_resolver_qwen.py; git: e8dad42 2026-06-14 feat: LLM utilization phases 1–2.5 (failover, sidecars, weak-case composition)",
+    "git_intro": "e8dad42 2026-06-14 feat: LLM utilization phases 1–2.5 (failover, sidecars, weak-case composition)",
     "profile_values": {},
     "read_sites": [
       "backend/app/llm/clients/endpoint_resolver.py",
@@ -1371,7 +1726,7 @@
       "backend/app/tests/test_endpoint_resolver_qwen.py",
       "backend/app/tests/test_mcp_tool_planner.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1380,8 +1735,8 @@
     "default_env": "",
     "disposition": "keep_group",
     "env_key": "AI_SOC_LLM_QWEN_MODEL",
-    "evidence": "rg: backend/app/llm/clients/endpoint_resolver.py, backend/app/llm/registry_settings.py, backend/app/tests/test_endpoint_resolver_qwen.py; git: e8dad42 2026-06-14 feat: LLM utilization phases 1\u20132.5 (failover, sidecars, weak-case composition)",
-    "git_intro": "e8dad42 2026-06-14 feat: LLM utilization phases 1\u20132.5 (failover, sidecars, weak-case composition)",
+    "evidence": "rg: backend/app/llm/clients/endpoint_resolver.py, backend/app/llm/registry_settings.py, backend/app/tests/test_endpoint_resolver_qwen.py; git: e8dad42 2026-06-14 feat: LLM utilization phases 1–2.5 (failover, sidecars, weak-case composition)",
+    "git_intro": "e8dad42 2026-06-14 feat: LLM utilization phases 1–2.5 (failover, sidecars, weak-case composition)",
     "profile_values": {},
     "read_sites": [
       "backend/app/llm/clients/endpoint_resolver.py",
@@ -1389,7 +1744,7 @@
       "backend/app/tests/test_endpoint_resolver_qwen.py",
       "backend/app/tests/test_mcp_tool_planner.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1398,8 +1753,8 @@
     "default_env": "false",
     "disposition": "keep_group",
     "env_key": "AI_SOC_LLM_QWEN_PRIMARY_ENABLED",
-    "evidence": "rg: backend/app/llm/clients/endpoint_resolver.py, backend/app/llm/endpoint_health.py, backend/app/llm/registry_settings.py; git: e8dad42 2026-06-14 feat: LLM utilization phases 1\u20132.5 (failover, sidecars, weak-case composition)",
-    "git_intro": "e8dad42 2026-06-14 feat: LLM utilization phases 1\u20132.5 (failover, sidecars, weak-case composition)",
+    "evidence": "rg: backend/app/llm/clients/endpoint_resolver.py, backend/app/llm/endpoint_health.py, backend/app/llm/registry_settings.py; git: e8dad42 2026-06-14 feat: LLM utilization phases 1–2.5 (failover, sidecars, weak-case composition)",
+    "git_intro": "e8dad42 2026-06-14 feat: LLM utilization phases 1–2.5 (failover, sidecars, weak-case composition)",
     "profile_values": {},
     "read_sites": [
       "backend/app/llm/clients/endpoint_resolver.py",
@@ -1410,7 +1765,7 @@
       "backend/app/tests/test_failover_seed_contract.py",
       "backend/app/tests/test_mcp_tool_planner.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1425,7 +1780,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1440,7 +1795,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1455,7 +1810,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1473,7 +1828,7 @@
       "backend/app/tests/test_final_synthesis_skip_policy.py",
       "backend/app/tests/test_live_synthesis_narration.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1488,7 +1843,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1501,7 +1856,7 @@
     "git_intro": "c3d13cc 2026-05-24 Stage 3J-B: Add LLM registry settings and status UI",
     "profile_values": {},
     "read_sites": [],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1514,7 +1869,7 @@
     "git_intro": "c3d13cc 2026-05-24 Stage 3J-B: Add LLM registry settings and status UI",
     "profile_values": {},
     "read_sites": [],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1527,7 +1882,7 @@
     "git_intro": "c3d13cc 2026-05-24 Stage 3J-B: Add LLM registry settings and status UI",
     "profile_values": {},
     "read_sites": [],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1540,7 +1895,7 @@
     "git_intro": "c3d13cc 2026-05-24 Stage 3J-B: Add LLM registry settings and status UI",
     "profile_values": {},
     "read_sites": [],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1553,7 +1908,7 @@
     "git_intro": "c3d13cc 2026-05-24 Stage 3J-B: Add LLM registry settings and status UI",
     "profile_values": {},
     "read_sites": [],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1566,7 +1921,7 @@
     "git_intro": "c3d13cc 2026-05-24 Stage 3J-B: Add LLM registry settings and status UI",
     "profile_values": {},
     "read_sites": [],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1582,7 +1937,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/tests/test_llm_route_plan_shadow_stage3k_q1f.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1598,7 +1953,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/tests/test_llm_route_plan_shadow_stage3k_q1f.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "A",
@@ -1632,7 +1987,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1647,7 +2002,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1663,7 +2018,7 @@
       "backend/app/chat/pipeline.py",
       "backend/app/tests/test_llm_spl_fallback.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -1688,7 +2043,7 @@
       "backend/app/planner/recipe_registry.py",
       "backend/app/spl/llm_fallback.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -1703,7 +2058,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1718,7 +2073,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1733,7 +2088,7 @@
     "read_sites": [
       "backend/app/llm/registry_settings.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1749,7 +2104,7 @@
       "backend/app/llm/t2_advisory_latency_policy.py",
       "backend/app/tests/test_t2_advisor_latency_hardening.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1765,7 +2120,7 @@
       "backend/app/llm/t2_advisory_latency_policy.py",
       "backend/app/tests/test_t2_advisor_latency_hardening.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1787,7 +2142,7 @@
       "backend/app/synthesis/governed_answer_composer.py",
       "backend/app/synthesis/live_narration.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1804,7 +2159,7 @@
       "backend/app/tests/test_llm_sidecar_governance_stage3k.py",
       "backend/app/tests/test_template_matcher_llm_assist_stage3k_q1c.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1821,7 +2176,7 @@
       "backend/app/tests/test_llm_sidecar_governance_stage3k.py",
       "backend/app/tests/test_template_matcher_llm_assist_stage3k_q1c.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1837,7 +2192,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/tests/test_template_renderer_llm_assist_stage3k_q1d.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1853,7 +2208,7 @@
       "backend/app/llm/registry_settings.py",
       "backend/app/tests/test_template_renderer_llm_assist_stage3k_q1d.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1878,7 +2233,7 @@
       "backend/app/llm/sidecar_clients.py",
       "backend/app/llm/turn_llm_budget.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1896,7 +2251,7 @@
     "read_sites": [
       "backend/app/llm/hybrid_role_graph.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1912,7 +2267,7 @@
       "backend/app/chat/spl_authoring_intent.py",
       "backend/app/tests/test_intent_advisor_scheduling_parity.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1928,7 +2283,7 @@
       "backend/app/spl/utility_spl_authoring.py",
       "backend/app/tests/test_utility_spl_llm_authoring.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1943,7 +2298,7 @@
     "read_sites": [
       "backend/app/spl/utility_spl_authoring.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -1958,7 +2313,7 @@
     "read_sites": [
       "backend/app/spl/utility_spl_authoring.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1973,7 +2328,7 @@
     "read_sites": [
       "backend/app/connectors/mcp/connection_store.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -1999,7 +2354,7 @@
       "backend/app/tests/test_pipeline_dispatch_phase5.py",
       "backend/app/tests/test_pipeline_dispatch_phase6.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -2019,7 +2374,7 @@
       "backend/app/tests/test_coe_rollout_config_sanity.py",
       "backend/app/tests/test_pipeline_split_routing_s5.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -2044,7 +2399,7 @@
       "backend/app/tests/test_langgraph_shadow_phase12.py",
       "backend/app/tests/test_mitre_evidence_branch_phase5b.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -2069,7 +2424,37 @@
       "backend/app/tests/test_langgraph_shadow_phase12.py",
       "backend/app/tests/test_planner_path_selection_phase3.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_postgres_host_port",
+    "default_env": "5434",
+    "disposition": "keep",
+    "env_key": "AI_SOC_POSTGRES_HOST_PORT",
+    "evidence": "rg: docker-compose.yml; git: 4280260 feat(deploy): Mac staging profile and Docker port portability",
+    "git_intro": "4280260 2026-07-03 docker-compose postgres port",
+    "profile_values": {},
+    "read_sites": [
+      "docker-compose.yml"
+    ],
+    "risk_note": "Docker host port mapping for Postgres."
+  },
+  {
+    "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "ai_soc_public_api_base_url",
+    "default_env": "",
+    "disposition": "keep",
+    "env_key": "AI_SOC_PUBLIC_API_BASE_URL",
+    "evidence": "rg: frontend/src/lib/runtimeMode.ts, docs/operations/mac-staging-docker-deploy.md",
+    "git_intro": "4280260 2026-07-03 Mac staging public API base URL",
+    "profile_values": {},
+    "read_sites": [
+      "frontend/src/lib/runtimeMode.ts"
+    ],
+    "risk_note": "Frontend runtime API base override for non-default host ports."
   },
   {
     "batch": "D",
@@ -2086,7 +2471,7 @@
       "backend/app/tests/test_hil_mock_execution_hardening.py",
       "scripts/audit_flag_inventory.py"
     ],
-    "risk_note": "Safety gate \u2014 hardcode fail-closed behavior before removing env key."
+    "risk_note": "Safety gate — hardcode fail-closed behavior before removing env key."
   },
   {
     "batch": "D",
@@ -2107,7 +2492,28 @@
       "backend/app/tests/test_mcp_execution_gate.py",
       "scripts/audit_flag_inventory.py"
     ],
-    "risk_note": "Safety gate \u2014 hardcode fail-closed behavior before removing env key."
+    "risk_note": "Safety gate — hardcode fail-closed behavior before removing env key."
+  },
+  {
+    "batch": null,
+    "classification": "b_posture",
+    "config_field": "ai_soc_resource_plan_execution_enabled",
+    "default_env": "false",
+    "disposition": "keep_group",
+    "env_key": "AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED",
+    "evidence": "rg: backend/app/planner/executor.py; git: d7c4d62 2026-08-11 wire ResourcePlan-driven execution order behind a default-false flag (C1-E4)",
+    "git_intro": "d7c4d62 2026-08-11 wire ResourcePlan-driven execution order behind a default-false flag (C1-E4)",
+    "profile_values": {
+      "coe": "false",
+      "development": "false",
+      "production": "false"
+    },
+    "read_sites": [
+      "backend/app/planner/executor.py",
+      "backend/app/tests/test_resource_plan_execution_activation.py",
+      "backend/app/tests/test_resource_plan_execution_wiring.py"
+    ],
+    "risk_note": "Plan 2 C0 EXECUTION-DRIVEN activation flag; default false through implementation and proof."
   },
   {
     "batch": "C",
@@ -2128,7 +2534,7 @@
       "backend/app/tests/test_runtime_enrichment_loader_s3.py",
       "backend/app/use_cases/content_enrichment.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": "C",
@@ -2148,7 +2554,7 @@
       "backend/app/chat/session_context.py",
       "backend/app/tests/test_batch5_session_context.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -2166,7 +2572,7 @@
     "read_sites": [
       "backend/app/chat/session_store.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -2186,7 +2592,7 @@
       "backend/app/tests/test_coe_rollout_config_sanity.py",
       "backend/app/tests/test_durable_session_store_s6d.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -2206,7 +2612,7 @@
       "backend/app/tests/test_coe_rollout_config_sanity.py",
       "backend/app/tests/test_durable_session_store_s6d.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -2230,7 +2636,7 @@
       "backend/app/tests/test_tenant_token_spl_and_allowlist.py",
       "scripts/abstract_templates_to_env_stems.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -2251,7 +2657,7 @@
       "backend/app/tests/test_spl_query_fidelity.py",
       "backend/app/tests/test_spl_source_resolve.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": "C",
@@ -2276,7 +2682,7 @@
       "backend/app/tests/test_cisco_live_chat_contract.py",
       "backend/app/tests/test_draft_preview_customization.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": "C",
@@ -2301,7 +2707,7 @@
       "backend/app/tests/test_guided_ambiguous_timeout_fallback.py",
       "backend/app/tests/test_langgraph_shadow_phase12.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": "C",
@@ -2326,7 +2732,7 @@
       "backend/app/tests/test_guided_investigation_llm_firewall.py",
       "backend/app/tests/test_live_data_request_routing.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": "C",
@@ -2349,7 +2755,7 @@
       "backend/app/tests/test_entity_headline_surfacing.py",
       "backend/app/tests/test_t2_answer_quality_p0.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": "C",
@@ -2374,7 +2780,7 @@
       "backend/app/tests/test_substantive_guidance_analyst_card.py",
       "backend/app/tests/test_track_b_output_contracts.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -2391,7 +2797,7 @@
       "backend/app/connectors/telemetry/read_store.py",
       "backend/app/tests/test_file_telemetry_sink.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -2416,7 +2822,7 @@
       "backend/app/tests/test_batch4_pipeline_trace_answer_guard.py",
       "backend/app/tests/test_batch5_session_context.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -2435,7 +2841,7 @@
       "backend/app/spl/template_registry.py",
       "backend/app/tests/test_template_env_knowledge_binding.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -2451,7 +2857,7 @@
       "backend/app/spl/utility_spl_authoring.py",
       "backend/app/tests/test_utility_spl_llm_authoring.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -2476,7 +2882,7 @@
       "backend/app/tests/test_ioc_registry_settings_api.py",
       "backend/app/tests/test_user_registry.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -2500,7 +2906,7 @@
       "scripts/rerun_powergrid_coe_targets.sh",
       "scripts/run_live_efficacy_100.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -2521,7 +2927,7 @@
       "backend/app/auth/user_registry.py",
       "backend/app/tests/test_user_registry.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -2540,7 +2946,7 @@
       "backend/app/auth/session.py",
       "backend/app/tests/test_auth.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -2565,7 +2971,7 @@
       "scripts/ask_chat.sh",
       "scripts/rerun_powergrid_coe_targets.sh"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -2583,7 +2989,7 @@
       "backend/app/tests/test_debug_api.py",
       "backend/app/tests/test_user_registry.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -2602,7 +3008,7 @@
     "read_sites": [
       "backend/app/auth/session.py"
     ],
-    "risk_note": "Read sites not fully traced \u2014 doubt rule applies."
+    "risk_note": "Read sites not fully traced — doubt rule applies."
   },
   {
     "batch": null,
@@ -2618,7 +3024,7 @@
       "development": "8010"
     },
     "read_sites": [],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": "C",
@@ -2644,7 +3050,7 @@
       "backend/app/demo/captures/brute_force_sop_guidance.json",
       "backend/app/demo/captures/cert_in_ot_reporting_obligation.json"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -2669,7 +3075,7 @@
       "backend/app/tests/test_chat_graph_state_node_trace_s2.py",
       "backend/app/tests/test_chat_routing.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": "C",
@@ -2687,7 +3093,7 @@
     "read_sites": [
       "backend/app/api/routes_settings.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -2708,7 +3114,7 @@
       "scripts/eval_stage3l_105_question_shadow_routes.py",
       "scripts/run_stage3_governance_regression.sh"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": "A",
@@ -2796,7 +3202,7 @@
       "backend/app/tests/test_precondition_dependency_state_stage3l_s7.py",
       "backend/app/tests/test_precondition_evaluation_shadow_stage3l_s7.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -2817,7 +3223,7 @@
       "backend/app/tests/test_precondition_dependency_state_stage3l_s7.py",
       "backend/app/tests/test_precondition_evaluation_shadow_stage3l_s7.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -2837,7 +3243,7 @@
       "backend/app/connectors/embeddings/__init__.py",
       "scripts/audit_flag_inventory.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -2855,7 +3261,7 @@
       "backend/app/evals/soc_clean_answer_eval.py",
       "scripts/audit_flag_inventory.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -2871,7 +3277,7 @@
       "backend/app/api/routes_settings.py",
       "scripts/audit_flag_inventory.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -2887,7 +3293,7 @@
       "development": "3010"
     },
     "read_sites": [],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -2912,7 +3318,7 @@
       "backend/app/routing/supporter_registry.py",
       "backend/app/tests/test_ioc_lookup_stage3k_q2.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -2937,7 +3343,7 @@
       "backend/app/tests/test_pattern_coverage_pack_stage3k_q4.py",
       "backend/app/tests/test_precondition_dependency_state_stage3l_s7.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -2962,7 +3368,7 @@
       "backend/app/tests/test_batch3_pilot_output_contracts.py",
       "backend/app/tests/test_batch4_pipeline_trace_answer_guard.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -2987,7 +3393,7 @@
       "backend/app/tests/test_guided_hybrid_trace_baseline.py",
       "backend/app/tests/test_guided_investigation_llm_firewall.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -3002,7 +3408,7 @@
     "read_sites": [
       "backend/app/connectors/llm/registry.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3018,7 +3424,7 @@
       "backend/app/connectors/llm/registry.py",
       "backend/app/tests/test_llm_registry.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -3043,7 +3449,7 @@
       "backend/app/tests/test_powergrid_soc_question_eval.py",
       "frontend/src/pages/LlmLabPage.tsx"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -3059,7 +3465,7 @@
       "backend/app/connectors/llm/registry.py",
       "backend/app/tests/test_llm_registry.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -3077,7 +3483,7 @@
     "read_sites": [
       "backend/app/connectors/llm/registry.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": "B",
@@ -3119,7 +3525,7 @@
       "backend/app/tests/test_llm_registry.py",
       "backend/app/tests/test_settings_status_safety.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3135,7 +3541,7 @@
       "backend/app/connectors/llm/registry.py",
       "backend/app/tests/test_llm_registry.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3151,7 +3557,7 @@
       "backend/app/connectors/llm/registry.py",
       "backend/app/tests/test_llm_registry.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3167,7 +3573,7 @@
       "backend/app/connectors/llm/registry.py",
       "backend/app/tests/test_llm_registry.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3183,7 +3589,7 @@
       "backend/app/connectors/llm/registry.py",
       "backend/app/tests/test_llm_registry.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3203,7 +3609,7 @@
       "backend/app/llm/sidecar_clients.py",
       "backend/app/routing/llm_route_plan_candidate.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": "D",
@@ -3223,7 +3629,7 @@
       "backend/app/orchestration/mcp_tool_selector.py",
       "scripts/audit_flag_inventory.py"
     ],
-    "risk_note": "Safety gate \u2014 hardcode fail-closed behavior before removing env key."
+    "risk_note": "Safety gate — hardcode fail-closed behavior before removing env key."
   },
   {
     "batch": null,
@@ -3247,7 +3653,7 @@
       "backend/app/tests/test_p3_mcp_live_readiness.py",
       "backend/app/tests/test_splunk_mcp_transport.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -3272,7 +3678,7 @@
       "backend/app/spl/spl_source_resolve.py",
       "backend/app/tests/test_connectors.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": "D",
@@ -3298,7 +3704,7 @@
       "backend/app/connectors/mcp/splunk_mcp_readiness.py",
       "backend/app/evals/golden_answer_runner.py"
     ],
-    "risk_note": "Safety gate \u2014 hardcode fail-closed behavior before removing env key."
+    "risk_note": "Safety gate — hardcode fail-closed behavior before removing env key."
   },
   {
     "batch": null,
@@ -3313,7 +3719,7 @@
     "read_sites": [
       "backend/app/connectors/mcp/splunk_mcp.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": "B",
@@ -3353,7 +3759,7 @@
     "read_sites": [
       "backend/app/connectors/mcp/splunk_mcp.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -3368,7 +3774,7 @@
     "read_sites": [
       "backend/app/connectors/mcp/splunk_mcp.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -3390,7 +3796,7 @@
       "backend/app/tests/test_p3_mcp_live_readiness.py",
       "backend/app/tests/test_provider_stage3i.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "D",
@@ -3416,7 +3822,7 @@
       "backend/app/evals/spl_draft_preview_eval.py",
       "backend/app/tests/test_batch5_session_context.py"
     ],
-    "risk_note": "Safety gate \u2014 hardcode fail-closed behavior before removing env key."
+    "risk_note": "Safety gate — hardcode fail-closed behavior before removing env key."
   },
   {
     "batch": null,
@@ -3431,7 +3837,7 @@
     "read_sites": [
       "scripts/cve_build_snapshot.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -3449,7 +3855,7 @@
     "read_sites": [
       "backend/app/routing/operation_audit.py"
     ],
-    "risk_note": "Read sites not fully traced \u2014 doubt rule applies."
+    "risk_note": "Read sites not fully traced — doubt rule applies."
   },
   {
     "batch": null,
@@ -3467,7 +3873,7 @@
     "read_sites": [
       "backend/app/api/routes_quality.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -3487,7 +3893,7 @@
       "backend/app/tests/test_quality_ledger.py",
       "frontend/src/pages/QualityPage.tsx"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -3503,7 +3909,7 @@
       "backend/app/api/routes_quality.py",
       "frontend/src/pages/QualityPage.tsx"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -3528,7 +3934,7 @@
       "backend/app/demo/captures/failed_login_spike_app01.json",
       "backend/app/demo/captures/guided_investigation_supply_chain.json"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3546,7 +3952,7 @@
     "read_sites": [
       "backend/app/api/routes_settings.py"
     ],
-    "risk_note": "Read sites not fully traced \u2014 doubt rule applies."
+    "risk_note": "Read sites not fully traced — doubt rule applies."
   },
   {
     "batch": null,
@@ -3565,7 +3971,7 @@
       "backend/app/routing/route_authority_compare.py",
       "backend/app/tests/test_route_authority_compare_stage3l_s3.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -3590,7 +3996,7 @@
       "backend/app/tests/test_p2_known_path_authority.py",
       "backend/app/tests/test_route_adjudication.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -3615,7 +4021,7 @@
       "backend/app/tests/test_p2_known_path_authority.py",
       "backend/app/tests/test_p2_semantic_intent.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -3634,7 +4040,7 @@
       "backend/app/routing/route_plan_validator.py",
       "backend/app/tests/test_p2_open_operations.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -3652,7 +4058,7 @@
     "read_sites": [
       "backend/app/routing/supporter_registry.py"
     ],
-    "risk_note": "Read sites not fully traced \u2014 doubt rule applies."
+    "risk_note": "Read sites not fully traced — doubt rule applies."
   },
   {
     "batch": "C",
@@ -3671,7 +4077,7 @@
       "backend/app/api/routes_settings.py",
       "backend/app/routing/skill_router.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -3691,7 +4097,7 @@
       "backend/app/routing/route_adjudicator.py",
       "backend/app/routing/skill_router.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -3712,7 +4118,7 @@
       "backend/app/tests/test_p6_ood_llm_route_plan_lab.py",
       "backend/app/tests/test_routing_governance_stage3jk0.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": "C",
@@ -3737,7 +4143,7 @@
       "backend/app/synthesis/analyst_summary_llm_assist.py",
       "backend/app/tests/test_analyst_summary_shadow_narration_stage3k_q1g.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -3762,7 +4168,7 @@
       "backend/app/demo/captures/failed_login_spike_app01.json",
       "backend/app/demo/captures/guided_investigation_supply_chain.json"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3778,7 +4184,7 @@
       "backend/app/knowledge/repository.py",
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3794,7 +4200,7 @@
       "backend/app/knowledge/repository.py",
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3809,7 +4215,7 @@
     "read_sites": [
       "backend/app/knowledge/repository.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -3824,7 +4230,7 @@
     "read_sites": [
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -3839,7 +4245,7 @@
     "read_sites": [
       "backend/app/knowledge/repository.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -3855,7 +4261,7 @@
       "backend/app/knowledge/hybrid.py",
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3870,7 +4276,7 @@
     "read_sites": [
       "backend/app/knowledge/repository.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -3889,7 +4295,7 @@
       "backend/app/knowledge/repository.py",
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -3909,7 +4315,7 @@
       "backend/app/knowledge/soc_kb_retriever.py",
       "backend/app/tests/test_soc_kb_stage3g.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -3924,7 +4330,7 @@
     "read_sites": [
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3937,7 +4343,7 @@
     "git_intro": null,
     "profile_values": {},
     "read_sites": [],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3952,7 +4358,7 @@
     "read_sites": [
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3967,7 +4373,7 @@
     "read_sites": [
       "backend/app/knowledge/repository.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -3980,7 +4386,7 @@
     "git_intro": null,
     "profile_values": {},
     "read_sites": [],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -3995,7 +4401,7 @@
     "read_sites": [
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -4015,7 +4421,7 @@
       "backend/app/knowledge/soc_kb_retriever.py",
       "backend/app/tests/test_soc_kb_stage3g1.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -4031,7 +4437,7 @@
       "backend/app/knowledge/ambiguity_assist.py",
       "backend/app/tests/test_soc_kb_stage3g1.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -4047,7 +4453,7 @@
       "backend/app/knowledge/ambiguity_assist.py",
       "backend/app/tests/test_soc_kb_stage3g1.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4062,7 +4468,7 @@
     "read_sites": [
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4077,7 +4483,7 @@
     "read_sites": [
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -4092,7 +4498,7 @@
     "read_sites": [
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -4111,7 +4517,7 @@
       "backend/app/knowledge/rag_evidence_lineage.py",
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4126,7 +4532,7 @@
     "read_sites": [
       "backend/app/knowledge/hybrid.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -4141,7 +4547,7 @@
     "read_sites": [
       "backend/app/knowledge/hybrid.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": "C",
@@ -4162,7 +4568,7 @@
       "backend/app/tests/test_soc_kb_stage3g.py",
       "backend/app/tests/test_soc_kb_stage3g1.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -4178,7 +4584,7 @@
       "backend/app/knowledge/hybrid.py",
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4197,7 +4603,7 @@
       "backend/app/knowledge/hybrid.py",
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4212,7 +4618,7 @@
     "read_sites": [
       "backend/app/knowledge/hybrid.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -4227,7 +4633,7 @@
     "read_sites": [
       "backend/app/knowledge/hybrid.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "C",
@@ -4252,7 +4658,7 @@
       "backend/app/knowledge/rag_evidence_lineage.py",
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Same value across all profile examples \u2014 fold into code default."
+    "risk_note": "Same value across all profile examples — fold into code default."
   },
   {
     "batch": null,
@@ -4272,7 +4678,7 @@
       "backend/app/knowledge/soc_kb_retriever.py",
       "backend/app/tests/test_soc_kb_stage3g.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4292,7 +4698,7 @@
       "backend/app/knowledge/soc_kb_retriever.py",
       "backend/app/tests/test_soc_kb_stage3g.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4308,7 +4714,7 @@
       "backend/app/knowledge/hybrid.py",
       "backend/app/knowledge/soc_kb_retriever.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4326,7 +4732,7 @@
       "backend/app/splunk/capabilities.py",
       "backend/app/tests/test_splunk_stage3h.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -4341,7 +4747,7 @@
     "read_sites": [
       "backend/app/splunk/capabilities.py"
     ],
-    "risk_note": "Read sites not fully traced \u2014 doubt rule applies."
+    "risk_note": "Read sites not fully traced — doubt rule applies."
   },
   {
     "batch": null,
@@ -4354,26 +4760,7 @@
     "git_intro": "e8fc037 2026-05-24 Stage 3H: Add Splunk MCP capability detection and SAIA fallback policy",
     "profile_values": {},
     "read_sites": [],
-    "risk_note": "Read sites not fully traced \u2014 doubt rule applies."
-  },
-  {
-    "batch": null,
-    "classification": "c_operator_infra",
-    "config_field": "splunk_allow_run_saved_search",
-    "default_env": "false",
-    "disposition": "keep",
-    "env_key": "SPLUNK_ALLOW_RUN_SAVED_SEARCH",
-    "evidence": "rg: backend/app/api/routes_settings.py, backend/app/connectors/mcp/connection_store.py, backend/app/orchestration/mcp_tool_selector.py; git: e8fc037 2026-05-24 Stage 3H: Add Splunk MCP capability detection and SAIA fallback policy",
-    "git_intro": "e8fc037 2026-05-24 Stage 3H: Add Splunk MCP capability detection and SAIA fallback policy",
-    "profile_values": {},
-    "read_sites": [
-      "backend/app/api/routes_settings.py",
-      "backend/app/connectors/mcp/connection_store.py",
-      "backend/app/orchestration/mcp_tool_selector.py",
-      "backend/app/splunk/capabilities.py",
-      "backend/app/splunk/spl_services.py"
-    ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "Read sites not fully traced — doubt rule applies."
   },
   {
     "batch": null,
@@ -4395,6 +4782,25 @@
   },
   {
     "batch": null,
+    "classification": "c_operator_infra",
+    "config_field": "splunk_allow_run_saved_search",
+    "default_env": "false",
+    "disposition": "keep",
+    "env_key": "SPLUNK_ALLOW_RUN_SAVED_SEARCH",
+    "evidence": "rg: backend/app/api/routes_settings.py, backend/app/connectors/mcp/connection_store.py, backend/app/orchestration/mcp_tool_selector.py; git: e8fc037 2026-05-24 Stage 3H: Add Splunk MCP capability detection and SAIA fallback policy",
+    "git_intro": "e8fc037 2026-05-24 Stage 3H: Add Splunk MCP capability detection and SAIA fallback policy",
+    "profile_values": {},
+    "read_sites": [
+      "backend/app/api/routes_settings.py",
+      "backend/app/connectors/mcp/connection_store.py",
+      "backend/app/orchestration/mcp_tool_selector.py",
+      "backend/app/splunk/capabilities.py",
+      "backend/app/splunk/spl_services.py"
+    ],
+    "risk_note": "General app config — retain unless proven dead."
+  },
+  {
+    "batch": null,
     "classification": "keep_unresolved",
     "config_field": "splunk_knowledge_object_discovery_allowed",
     "default_env": "true",
@@ -4406,7 +4812,7 @@
     "read_sites": [
       "backend/app/splunk/capabilities.py"
     ],
-    "risk_note": "Read sites not fully traced \u2014 doubt rule applies."
+    "risk_note": "Read sites not fully traced — doubt rule applies."
   },
   {
     "batch": null,
@@ -4431,7 +4837,7 @@
       "backend/app/tests/test_splunk_mcp_transport.py",
       "scripts/capture_stage3m_s5_live_mcp_schema.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -4448,7 +4854,7 @@
       "backend/app/connectors/mcp/connection_store.py",
       "backend/app/splunk/capabilities.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -4473,7 +4879,7 @@
       "backend/app/tests/test_splunk_mcp_transport.py",
       "scripts/audit_flag_inventory.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -4489,7 +4895,7 @@
       "backend/app/connectors/mcp/connection_store.py",
       "backend/app/splunk/capabilities.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -4513,7 +4919,7 @@
       "backend/app/tests/test_live_schema_capture_stage3m_s5.py",
       "backend/app/tests/test_splunk_mcp_transport.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": null,
@@ -4528,7 +4934,7 @@
     "read_sites": [
       "backend/app/splunk/capabilities.py"
     ],
-    "risk_note": "Read sites not fully traced \u2014 doubt rule applies."
+    "risk_note": "Read sites not fully traced — doubt rule applies."
   },
   {
     "batch": null,
@@ -4544,7 +4950,7 @@
       "backend/app/api/routes_settings.py",
       "backend/app/splunk/capabilities.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -4559,7 +4965,7 @@
     "read_sites": [
       "backend/app/splunk/capabilities.py"
     ],
-    "risk_note": "Read sites not fully traced \u2014 doubt rule applies."
+    "risk_note": "Read sites not fully traced — doubt rule applies."
   },
   {
     "batch": null,
@@ -4575,7 +4981,7 @@
       "backend/app/api/routes_settings.py",
       "backend/app/splunk/capabilities.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -4592,7 +4998,7 @@
       "backend/app/connectors/mcp/connection_store.py",
       "backend/app/splunk/capabilities.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -4608,7 +5014,7 @@
       "backend/app/api/routes_settings.py",
       "backend/app/splunk/spl_services.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -4624,7 +5030,7 @@
       "backend/app/api/routes_settings.py",
       "backend/app/splunk/spl_services.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -4640,7 +5046,7 @@
       "backend/app/api/routes_settings.py",
       "backend/app/splunk/spl_services.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -4656,7 +5062,7 @@
       "backend/app/api/routes_settings.py",
       "backend/app/splunk/spl_services.py"
     ],
-    "risk_note": "General app config \u2014 retain unless proven dead."
+    "risk_note": "General app config — retain unless proven dead."
   },
   {
     "batch": null,
@@ -4675,7 +5081,7 @@
       "backend/app/api/routes_settings.py",
       "backend/app/spl/policy.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4696,7 +5102,7 @@
       "backend/app/tests/test_slot_constraint_projection.py",
       "backend/app/tests/test_spl_query_fidelity.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4711,7 +5117,7 @@
     "read_sites": [
       "backend/app/spl/policy.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4736,7 +5142,7 @@
       "backend/app/tests/test_chat_control_plane_golden.py",
       "backend/app/tests/test_control_plane_behavior_matrix.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4751,7 +5157,7 @@
     "read_sites": [
       "backend/app/spl/policy.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4766,7 +5172,7 @@
     "read_sites": [
       "backend/app/spl/policy.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": "D",
@@ -4786,7 +5192,7 @@
       "backend/app/spl/policy.py",
       "scripts/audit_flag_inventory.py"
     ],
-    "risk_note": "Safety gate \u2014 hardcode fail-closed behavior before removing env key."
+    "risk_note": "Safety gate — hardcode fail-closed behavior before removing env key."
   },
   {
     "batch": null,
@@ -4805,7 +5211,7 @@
       "backend/app/connectors/mcp/splunk_mcp_readiness.py",
       "backend/app/spl/policy.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4824,7 +5230,7 @@
       "backend/app/connectors/mcp/splunk_mcp_readiness.py",
       "backend/app/spl/policy.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   },
   {
     "batch": null,
@@ -4845,7 +5251,7 @@
       "backend/app/spl/policy.py",
       "backend/app/spl/template_renderer_llm_assist.py"
     ],
-    "risk_note": "Operator-managed URL/credential/budget \u2014 keep in profile."
+    "risk_note": "Operator-managed URL/credential/budget — keep in profile."
   },
   {
     "batch": "D",
@@ -4865,7 +5271,7 @@
       "backend/app/spl/policy.py",
       "scripts/audit_flag_inventory.py"
     ],
-    "risk_note": "Safety gate \u2014 hardcode fail-closed behavior before removing env key."
+    "risk_note": "Safety gate — hardcode fail-closed behavior before removing env key."
   },
   {
     "batch": null,
@@ -4890,152 +5296,6 @@
       "backend/app/tests/test_chat_graph_state_node_trace_s2.py",
       "backend/app/tests/test_chat_progress_stream.py"
     ],
-    "risk_note": "Governance posture \u2014 group under master toggles in Phase 7."
-  },
-  {
-    "batch": "C",
-    "classification": "c_operator_infra",
-    "config_field": "ai_soc_catalogue_auto_execute_enabled",
-    "default_env": "false",
-    "disposition": "keep",
-    "env_key": "AI_SOC_CATALOGUE_AUTO_EXECUTE_ENABLED",
-    "evidence": "rg: backend/app/orchestration/catalogue_execution_eligibility.py, backend/app/orchestration/mcp_execution_gate.py; DG-5 COE kill-switch",
-    "git_intro": "2026-07-03 DG-5 catalogue-known auto-execute",
-    "profile_values": {},
-    "read_sites": [
-      "backend/app/orchestration/catalogue_execution_eligibility.py",
-      "backend/app/orchestration/mcp_execution_gate.py",
-      "backend/app/coverage/catalogue_execution_map.py",
-      "docs/architecture/catalogue_auto_execute_policy.md"
-    ],
-    "risk_note": "COE kill-switch \u2014 default false; enables catalogue-known HIL exemption only when pilot map signed."
-  },
-  {
-    "batch": null,
-    "classification": "c_operator_infra",
-    "config_field": "ai_soc_host_bind",
-    "default_env": "127.0.0.1",
-    "disposition": "keep",
-    "env_key": "AI_SOC_HOST_BIND",
-    "evidence": "rg: docker-compose.yml; git: 4280260 feat(deploy): Mac staging profile and Docker port portability",
-    "git_intro": "4280260 2026-07-03 docker-compose host bind",
-    "profile_values": {},
-    "read_sites": [
-      "docker-compose.yml"
-    ],
-    "risk_note": "Docker publish bind \u2014 operator infra, not app Settings field."
-  },
-  {
-    "batch": null,
-    "classification": "c_operator_infra",
-    "config_field": "ai_soc_backend_host_port",
-    "default_env": "8010",
-    "disposition": "keep",
-    "env_key": "AI_SOC_BACKEND_HOST_PORT",
-    "evidence": "rg: docker-compose.yml; git: 4280260 feat(deploy): Mac staging profile and Docker port portability",
-    "git_intro": "4280260 2026-07-03 docker-compose backend port",
-    "profile_values": {},
-    "read_sites": [
-      "docker-compose.yml"
-    ],
-    "risk_note": "Docker host port mapping for backend."
-  },
-  {
-    "batch": null,
-    "classification": "c_operator_infra",
-    "config_field": "ai_soc_frontend_host_port",
-    "default_env": "3010",
-    "disposition": "keep",
-    "env_key": "AI_SOC_FRONTEND_HOST_PORT",
-    "evidence": "rg: docker-compose.yml; git: 4280260 feat(deploy): Mac staging profile and Docker port portability",
-    "git_intro": "4280260 2026-07-03 docker-compose frontend port",
-    "profile_values": {},
-    "read_sites": [
-      "docker-compose.yml"
-    ],
-    "risk_note": "Docker host port mapping for Vite frontend."
-  },
-  {
-    "batch": null,
-    "classification": "c_operator_infra",
-    "config_field": "ai_soc_postgres_host_port",
-    "default_env": "5434",
-    "disposition": "keep",
-    "env_key": "AI_SOC_POSTGRES_HOST_PORT",
-    "evidence": "rg: docker-compose.yml; git: 4280260 feat(deploy): Mac staging profile and Docker port portability",
-    "git_intro": "4280260 2026-07-03 docker-compose postgres port",
-    "profile_values": {},
-    "read_sites": [
-      "docker-compose.yml"
-    ],
-    "risk_note": "Docker host port mapping for Postgres."
-  },
-  {
-    "batch": null,
-    "classification": "c_operator_infra",
-    "config_field": "ai_soc_public_api_base_url",
-    "default_env": "",
-    "disposition": "keep",
-    "env_key": "AI_SOC_PUBLIC_API_BASE_URL",
-    "evidence": "rg: frontend/src/lib/runtimeMode.ts, docs/operations/mac-staging-docker-deploy.md",
-    "git_intro": "4280260 2026-07-03 Mac staging public API base URL",
-    "profile_values": {},
-    "read_sites": [
-      "frontend/src/lib/runtimeMode.ts"
-    ],
-    "risk_note": "Frontend runtime API base override for non-default host ports."
-  },
-  {
-    "batch": null,
-    "classification": "c_operator_infra",
-    "config_field": "ai_soc_cors_allowed_origins",
-    "default_env": "http://localhost:3010,http://127.0.0.1:3010",
-    "disposition": "keep",
-    "env_key": "AI_SOC_CORS_ALLOWED_ORIGINS",
-    "evidence": "rg: backend/app/config.py",
-    "git_intro": "config.py CORS allowlist",
-    "profile_values": {},
-    "read_sites": [
-      "backend/app/config.py"
-    ],
-    "risk_note": "Operator CORS allowlist for dev/staging origins."
-  },
-  {
-    "batch": null,
-    "classification": "b_posture",
-    "config_field": "ai_soc_action_lane_live_proposals_enabled",
-    "default_env": "false",
-    "disposition": "keep",
-    "env_key": "AI_SOC_ACTION_LANE_LIVE_PROPOSALS_ENABLED",
-    "evidence": "rg: backend/app/actions/live_action_proposals.py, backend/app/config.py, backend/app/tests/test_live_action_proposals.py",
-    "git_intro": "2026-07-03 item 6.2 action lane UI wire-up",
-    "profile_values": {},
-    "read_sites": [
-      "backend/app/actions/live_action_proposals.py",
-      "backend/app/config.py",
-      "backend/app/tests/test_live_action_proposals.py"
-    ],
-    "risk_note": "Default false \u2014 surfaces pending action proposals on /chat; approve/deny via authenticated /api/actions."
-  },
-  {
-    "batch": null,
-    "classification": "b_posture",
-    "config_field": "ai_soc_resource_plan_execution_enabled",
-    "default_env": "false",
-    "disposition": "keep_group",
-    "env_key": "AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED",
-    "evidence": "rg: backend/app/planner/executor.py; git: d7c4d62 2026-08-11 wire ResourcePlan-driven execution order behind a default-false flag (C1-E4)",
-    "git_intro": "d7c4d62 2026-08-11 wire ResourcePlan-driven execution order behind a default-false flag (C1-E4)",
-    "profile_values": {
-      "coe": "false",
-      "development": "false",
-      "production": "false"
-    },
-    "read_sites": [
-      "backend/app/planner/executor.py",
-      "backend/app/tests/test_resource_plan_execution_activation.py",
-      "backend/app/tests/test_resource_plan_execution_wiring.py"
-    ],
-    "risk_note": "Plan 2 C0 EXECUTION-DRIVEN activation flag; default false through implementation and proof."
+    "risk_note": "Governance posture — group under master toggles in Phase 7."
   }
 ]

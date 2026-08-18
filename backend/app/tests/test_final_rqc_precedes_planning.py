@@ -20,8 +20,12 @@ from app.query_understanding.parser import understand_query
 from app.routing.select_route_from_understanding import select_route_from_understanding
 
 
-ORCHESTRATOR = Path("app/chat/canonical_planning_orchestrator.py")
-PLANNER = Path("app/chat/plan_evidence_from_canonical.py")
+# Repo-anchored, not cwd-relative: another test in the suite chdirs, so a
+# relative path here reads nothing and fails this static contract for the
+# wrong reason (passes standalone, fails in a full run).
+_APP = Path(__file__).resolve().parents[1]
+ORCHESTRATOR = _APP / "chat" / "canonical_planning_orchestrator.py"
+PLANNER = _APP / "chat" / "plan_evidence_from_canonical.py"
 
 
 @pytest.fixture(autouse=True)

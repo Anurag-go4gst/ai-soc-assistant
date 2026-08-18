@@ -84,8 +84,16 @@ def test_plan7_explicit_direction_supersedes_plan6_ladder_without_rewriting_hist
     assert merge_trace is not None
 
 
-def test_coe_profile_keeps_dispatch_v2_on() -> None:
+def test_coe_profile_follows_plan7_authority_not_the_plan6_seed() -> None:
+    """Plan 6 seeded COE with dispatch-v2; `1c6c247` realigned it to Plan 7/8.
+
+    The original assertion (dispatch-v2 on, ResourcePlan/T4 absent) described the
+    seed at Plan 6 closure. `1c6c247 ops: align COE authority profile` moved COE
+    onto ResourcePlan authority deliberately, and Plan 7 made that the sole normal
+    scheduler. Superseded like the ladder test above: the Plan 6 record stays
+    intact in the decision docs and repo defaults (pinned by the tests above),
+    while the deployed profile follows current authority.
+    """
     text = (_REPO / "env" / "profiles" / "coe.env.example").read_text(encoding="utf-8")
-    assert "AI_SOC_PIPELINE_DISPATCH_V2_ENABLED=true" in text
-    assert "AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED=true" not in text
-    assert "AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED=true" not in text
+    assert "AI_SOC_PIPELINE_DISPATCH_V2_ENABLED=false" in text
+    assert "AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED=true" in text
