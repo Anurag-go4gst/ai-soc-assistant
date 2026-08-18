@@ -383,4 +383,103 @@ describe('Flagship Experience Center UX', () => {
     expect(screen.getByText('S2 title')).toBeInTheDocument();
     expect(screen.queryByText('S1 title')).not.toBeInTheDocument();
   });
+
+  it('renders source evidence inside the SOC answer layer', () => {
+    const policyRule = 'A compromised device running version 14 must be upgraded to version 15';
+    const { container } = render(
+      <EcInvestigationAnswer
+        envelope={{
+          ...envelope,
+          scenario_id: 's5_cisco_hardening_remediation',
+          source_evidence: [
+            {
+              evidence_id: 'ev-s5-policy',
+              source_type: 'kb_fixture',
+              source_name: 'Enterprise hardening policy',
+              provenance: 'ec_scenario_policy',
+              preview_rows: [{ rule: policyRule }],
+            },
+          ],
+        }}
+      />,
+    );
+    const layer = container.querySelector('[data-ec-layer="soc-answer"]');
+    expect(layer).not.toBeNull();
+    expect(layer).toHaveTextContent(policyRule);
+  });
+
+  it('renders closure summary when present and omits the section otherwise', () => {
+    const summary = 'R-17 upgraded to version 15 with rollback plan recorded.';
+    const { container, rerender } = render(
+      <EcInvestigationAnswer
+        envelope={{
+          ...envelope,
+          ec_investigation_outcome: {
+            ...envelope.ec_investigation_outcome!,
+            closure_summary: summary,
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText(summary)).toBeInTheDocument();
+    expect(container.querySelector('[data-ec-section="closure-summary"]')).not.toBeNull();
+
+    rerender(
+      <EcInvestigationAnswer
+        envelope={{
+          ...envelope,
+          ec_investigation_outcome: {
+            ...envelope.ec_investigation_outcome!,
+            closure_summary: undefined,
+          },
+        }}
+      />,
+    );
+    expect(container.querySelector('[data-ec-section="closure-summary"]')).toBeNull();
+  });
+
+  it('renders credibility strip badges for S1 validator and S5 device MCP footnote', () => {
+    const { rerender } = render(
+      <EcInvestigationAnswer
+        envelope={{
+          ...envelope,
+          scenario_id: 's1_governed_splunk_investigation',
+          ec_provenance: { live_llm_called: false, live_mcp_called: false, live_rag_called: false },
+          ec_spl_governance: {
+            user_request: 'q',
+            time_range_supplied: true,
+            environment_governance: 'g',
+            why: 'w',
+            searches: [],
+            controls: [],
+            validation: {
+              engine: 'validate_spl',
+              provenance: 'production_validator_read_only',
+              search_1_approved: true,
+              search_2_approved: true,
+              override: false,
+            },
+            evidence_merge: 'm',
+            production_mcp_executed: false,
+            spl_not_required: false,
+          },
+          spl_validation: { warnings: ['demo_fixture_not_live_data'] },
+        }}
+      />,
+    );
+    expect(screen.getByText('SPL: production validate_spl')).toBeInTheDocument();
+    expect(screen.getByText('Fixture data · not live customer telemetry')).toBeInTheDocument();
+
+    rerender(
+      <EcInvestigationAnswer
+        envelope={{
+          ...envelope,
+          scenario_id: 's5_cisco_hardening_remediation',
+          ec_provenance: { live_llm_called: false, live_mcp_called: false, live_rag_called: false },
+        }}
+      />,
+    );
+    expect(screen.getByText(/Cisco device MCP \(simulated router API\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Foundation-Sec 8B LLM is not used here/)).toBeInTheDocument();
+  });
 });
