@@ -229,9 +229,10 @@ Never commit `.env` or session secrets. Postgres dev creds in `docker-compose.ym
 2. Set `SPLUNK_MCP_BASE_URL` and `SPLUNK_MCP_TOKEN` (bearer service account).
 3. Align `SPL_ALLOWED_INDEXES` / `SPL_ALLOWED_SOURCETYPES` to the deployment.
 4. `docker compose up -d` (or restart backend).
-5. Staging smoke — one approved search through `/chat` (confirm SPL → verify rows or honest empty).
-6. Set `schema_confirmed=true` in the contract doc after smoke passes (operator sign-off).
-7. Run `./scripts/run_stage3_governance_regression.sh`.
+5. **Refresh MCP discovery** — `POST /api/debug/mcp/discovery/refresh?server_name=<name>` (requires `AI_SOC_DEBUG_API_ENABLED` + `debug_access`, same gate as the rest of `/debug`). MCP discovery snapshots are process-memory only by design (every backend process re-verifies the live server catalog rather than trusting a stale persisted one) — after **any** backend restart, `GET /api/debug/readiness`'s `mcp_discovery[].mcp_discovery_verified` starts `false` again regardless of `MCP_GLOBAL_EXECUTION_ENABLED`. This step does not touch `TOOL_ALLOWLIST`, execution flags, or call an LLM — it only records what the server's real `tools/list` returned. See `GET /api/debug/mcp/catalog` for full per-tool drift detail.
+6. Staging smoke — one approved search through `/chat` (confirm SPL → verify rows or honest empty).
+7. Set `schema_confirmed=true` in the contract doc after smoke passes (operator sign-off).
+8. Run `./scripts/run_stage3_governance_regression.sh`.
 
 ### What must be verified at first live connect (may need a small transport patch)
 

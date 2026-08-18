@@ -11,6 +11,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.auth.session import require_auth
 from app.auth.user_registry import user_has_debug_access
 from app.config import settings
+from app.connectors.mcp.discovery_snapshot import build_snapshot_from_handshake, get_discovery_snapshot_store
+from app.connectors.mcp.effective_catalog import compute_effective_catalog
+from app.connectors.mcp.registry import load_mcp_registry_status
+from app.connectors.mcp.splunk_mcp import SplunkMcpConnector
 from app.connectors.telemetry.read_store import fetch_trace_bundle, fetch_trace_timeline, list_trace_runs
 from app.debug.readiness import build_debug_readiness
 
@@ -76,6 +80,69 @@ def debug_trace_bundle(
 @router.get("/debug/readiness")
 def debug_readiness(_user: dict[str, Any] = Depends(_require_debug_api_access)) -> dict[str, Any]:
     return build_debug_readiness()
+
+
+@router.get("/debug/mcp/catalog")
+def debug_mcp_catalog(_user: dict[str, Any] = Depends(_require_debug_api_access)) -> dict[str, Any]:
+    """Operator visibility into MCP tool discovery/effective-catalog state.
+
+    Never exposes tokens, credentials, AUTH0 grants, raw tool arguments, or
+    raw evidence rows -- only the safe projections already enforced by
+    DiscoverySnapshot.to_safe_dict() / EffectiveToolEntry / ServerOnlyToolEntry.
+    """
+    registry = load_mcp_registry_status()
+    store = get_discovery_snapshot_store()
+    servers: list[dict[str, Any]] = []
+    for server in registry.servers:
+        snapshot = store.get(server.name)
+        result = compute_effective_catalog(server, mode=registry.mode, snapshot=snapshot)
+        servers.append(
+            {
+                "server_name": server.name,
+                "mode": registry.mode,
+                "discovery_status": result.discovery_status,
+                "discovery_age_seconds": result.discovery_age_seconds,
+                "effective_approved_catalog": [
+                    {
+                        "name": entry.name,
+                        "capability": entry.capability,
+                        "blocked": entry.blocked,
+                        "drift_status": entry.drift_status,
+                        "executable": entry.executable,
+                        "schema_status": entry.schema_status,
+                        "schema_fingerprint": entry.schema_fingerprint,
+                        "server_present": entry.server_present,
+                    }
+                    for entry in result.effective_approved_catalog
+                ],
+                "server_discovered_catalog": [
+                    {"name": entry.name, "description": entry.description, "schema_fingerprint": entry.schema_fingerprint}
+                    for entry in result.server_discovered_catalog
+                ],
+            }
+        )
+    return {"servers": servers}
+
+
+@router.post("/debug/mcp/discovery/refresh")
+def debug_mcp_discovery_refresh(
+    server_name: str = Query(...),
+    _user: dict[str, Any] = Depends(_require_debug_api_access),
+) -> dict[str, Any]:
+    """Bounded operator-triggered discovery refresh. Never runs implicitly
+    or per-request on /chat -- this is the explicit action the discovery
+    lifecycle policy requires. Never falls back to MockMcpConnector; a
+    connector without a configured endpoint/token safely yields a
+    status="failed" snapshot (live_transport_unconfigured), not an
+    exception and not a fabricated result."""
+    registry = load_mcp_registry_status()
+    known = {server.name for server in registry.servers}
+    if server_name not in known:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown_mcp_server")
+    handshake_result = SplunkMcpConnector().handshake_initialize_and_list_tools()
+    snapshot = build_snapshot_from_handshake(server_name=server_name, handshake_result=handshake_result, source="operator_refresh")
+    get_discovery_snapshot_store().put(snapshot)
+    return snapshot.to_safe_dict()
 
 
 def _parse_since(value: str | None) -> datetime | None:

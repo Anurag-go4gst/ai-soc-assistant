@@ -7,8 +7,11 @@ connector drives the lifecycle once per call with alias normalization.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
+from app.connectors.mcp.discovery_snapshot import DiscoveredToolRecord, DiscoverySnapshot, get_discovery_snapshot_store
 from app.connectors.mcp.splunk_mcp import (
     SplunkMcpConnector,
     set_search_transport_factory,
@@ -308,6 +311,20 @@ def live_gate(monkeypatch):
 def test_gate_live_run_uses_real_adapter_and_live_provenance(live_gate) -> None:
     from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 
+    get_discovery_snapshot_store().put(
+        DiscoverySnapshot(
+            server_name="splunk_soc",
+            captured_at=time.time(),
+            source="operator_refresh",
+            status="ok",
+            tools=(
+                DiscoveredToolRecord(
+                    name="splunk_run_query",
+                    input_schema={"properties": {"search_query": {"type": "string"}}, "required": ["search_query"]},
+                ),
+            ),
+        )
+    )
     set_search_transport_factory(lambda: FakeTransport(["done"], rows=[{"user": "alice"}, {"user": "bob"}]))
     # Live registry runs always require per-call analyst confirmation (safety
     # hardening); supply it so this exercises the confirmed live-execution path.

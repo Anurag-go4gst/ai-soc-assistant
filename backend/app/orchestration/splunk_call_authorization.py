@@ -9,6 +9,7 @@ approval. LLM output cannot mint a grant.
 from __future__ import annotations
 
 import hashlib
+import json
 import time
 from typing import Any
 
@@ -39,8 +40,15 @@ def build_splunk_call_grant(
     mcp_endpoint: str | None = None,
     now: float | None = None,
     ttl_seconds: int = GRANT_TTL_SECONDS,
+    tool_arguments: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     spl = str(normalized_spl or "")
+    # Canonical execution material for non-SPL calls (saved search, read-only
+    # metadata): sorted-key JSON of the exact bound arguments, hashed the same
+    # way normalized_spl is. Absent for spl_search (empty string, stable
+    # component — preserves every existing fingerprint (in)equality).
+    canonical_args = json.dumps(tool_arguments, sort_keys=True, default=str) if tool_arguments else ""
+    canonical_arguments_hash = hashlib.sha256(canonical_args.encode("utf-8")).hexdigest() if canonical_args else ""
     issued = float(now if now is not None else time.time())
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -50,6 +58,7 @@ def build_splunk_call_grant(
         "selected_mcp_tool": str(selected_mcp_tool or ""),
         "normalized_spl": spl,
         "normalized_spl_sha256": hashlib.sha256(spl.encode("utf-8")).hexdigest() if spl else "",
+        "canonical_arguments_hash": canonical_arguments_hash,
         "earliest": str(earliest or _extract_token(spl, "earliest")),
         "latest": str(latest or _extract_token(spl, "latest")),
         "indexes": list(indexes) if indexes is not None else _extract_indexes(spl),
@@ -77,6 +86,7 @@ def build_splunk_call_grant(
             payload["selected_mcp_server"],
             payload["selected_mcp_tool"],
             payload["normalized_spl_sha256"],
+            payload["canonical_arguments_hash"],
             payload["earliest"],
             payload["latest"],
             ",".join(str(item) for item in payload["indexes"]),
@@ -115,6 +125,45 @@ def call_grant_from_validation(
         max_result_limit=int(settings.spl_max_result_limit),
         execution_intent=execution_intent,
         read_write_mode="read" if execution_intent in {"spl_search", "saved_search_execution"} else "write",
+        hil_required=hil_required,
+        rbac_role=rbac_role,
+        mcp_endpoint=normalize_mcp_endpoint_url(settings.splunk_mcp_base_url),
+        now=now,
+    )
+
+
+def call_grant_from_tool_call(
+    *,
+    trace_id: str,
+    selection: dict[str, Any],
+    tool_arguments: dict[str, Any],
+    rbac_role: str | None = None,
+    identity: str | None = None,
+    hil_required: bool = True,
+    execution_intent: str,
+    read_write_mode: str = "read",
+    now: float | None = None,
+) -> dict[str, Any]:
+    """Exact-call AUTH0 grant for non-SPL MCP tool calls (saved search,
+    read-only metadata/identity tools).
+
+    Same authorization type and invalidation semantics as
+    `call_grant_from_validation` — binds tool/server/identity/trace like the
+    SPL path, but the exact-call material is a canonicalized-argument hash
+    instead of normalized_spl (there is no SPL for these tools). A mutation
+    to tool, server, identity, or any bound argument invalidates the grant
+    via the same `grants_match` fingerprint comparison used for
+    `splunk_run_query`.
+    """
+    return build_splunk_call_grant(
+        trace_id=trace_id,
+        identity=identity,
+        selected_mcp_server=str(selection.get("selected_mcp_server") or ""),
+        selected_mcp_tool=str(selection.get("selected_mcp_tool") or ""),
+        tool_arguments=tool_arguments,
+        max_result_limit=int(settings.spl_max_result_limit),
+        execution_intent=execution_intent,
+        read_write_mode=read_write_mode,
         hil_required=hil_required,
         rbac_role=rbac_role,
         mcp_endpoint=normalize_mcp_endpoint_url(settings.splunk_mcp_base_url),

@@ -1,11 +1,34 @@
 from __future__ import annotations
 
+import time
 from typing import Any
 
+from app.connectors.mcp.discovery_snapshot import DiscoveredToolRecord, DiscoverySnapshot, get_discovery_snapshot_store
 from app.connectors.mcp.registry import McpRegistryStatus, McpServerStatus
 from app.orchestration.mcp_execution_gate import evaluate_mcp_execution
 from app.orchestration.mcp_execution_gate import _gate_review
 from app.orchestration.mcp_tool_selector import select_mcp_tool
+
+
+def _seed_verified_run_query_discovery(server_name: str, *, tool_name: str = "splunk_run_query") -> None:
+    """Registry-mode tests exercising a config/HIL/connector check downstream
+    of tool selection need a verified discovery snapshot -- the effective
+    catalog is now an execution prerequisite (see
+    effective_catalog.py::compute_effective_catalog), not observability-only."""
+    get_discovery_snapshot_store().put(
+        DiscoverySnapshot(
+            server_name=server_name,
+            captured_at=time.time(),
+            source="operator_refresh",
+            status="ok",
+            tools=(
+                DiscoveredToolRecord(
+                    name=tool_name,
+                    input_schema={"properties": {"search_query": {"type": "string"}}, "required": ["search_query"]},
+                ),
+            ),
+        )
+    )
 
 DATA_SILENCE_ADVISORY = {
     "active": True,
@@ -307,6 +330,7 @@ def test_registry_mode_without_credentials_blocks_for_config(monkeypatch) -> Non
     monkeypatch.setattr(settings, "splunk_mcp_enabled", False)
     monkeypatch.setattr(settings, "splunk_mcp_base_url", "")
     monkeypatch.setattr(settings, "splunk_mcp_token", "")
+    _seed_verified_run_query_discovery("splunk_soc", tool_name="run_splunk_query")
 
     execution, review = evaluate_mcp_execution(
         trace_id="trace-real",

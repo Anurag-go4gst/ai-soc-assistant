@@ -274,12 +274,14 @@ class _StreamableHttpToolTransport:
         tools_body = self._rpc(
             {"jsonrpc": "2.0", "id": "ai-soc-mcp-tools", "method": "tools/list", "params": {}}
         )
-        tools = _tool_names_from_list_result(tools_body.get("result") if isinstance(tools_body, dict) else None)
+        list_result = tools_body.get("result") if isinstance(tools_body, dict) else None
+        descriptors = _tool_descriptors_from_list_result(list_result)
         return {
             "status": "ok",
             "initialized": True,
             "initialize_ok": bool(init_body.get("result") if isinstance(init_body, dict) else False),
-            "tools": tools,
+            "tools": [descriptor["name"] for descriptor in descriptors],
+            "tool_descriptors": descriptors,
         }
 
     def submit(self, arguments: dict[str, Any]) -> str:
@@ -347,18 +349,59 @@ def _rows_from_mcp_result(result: Any) -> list[dict[str, Any]]:
 
 
 def _tool_names_from_list_result(result: Any) -> list[str]:
+    return [descriptor["name"] for descriptor in _tool_descriptors_from_list_result(result)]
+
+
+def _tool_descriptors_from_list_result(result: Any) -> list[dict[str, Any]]:
+    """Parse a real `tools/list` result into descriptors.
+
+    Every field here is UNTRUSTED discovery metadata — it never authorizes
+    anything by itself (see `discovery.py::classify_mcp_tool`, which is the
+    only local authority). This function only tolerates common/malformed
+    server shapes without raising; it does not interpret meaning.
+    """
+    from app.connectors.mcp.discovery import _safe_text  # local authority module owns redaction
+
     if not isinstance(result, dict):
         return []
     tools = result.get("tools")
     if not isinstance(tools, list):
         return []
-    names: list[str] = []
+    seen: set[str] = set()
+    descriptors: list[dict[str, Any]] = []
     for item in tools:
         if isinstance(item, dict) and item.get("name"):
-            names.append(str(item["name"]))
+            name = str(item["name"]).strip()
+            if not name or name in seen:
+                continue  # duplicate names collapse to first occurrence — deterministic
+            seen.add(name)
+            description = item.get("description")
+            input_schema = item.get("inputSchema")
+            annotations = item.get("annotations")
+            descriptors.append(
+                {
+                    "name": name,
+                    "description": _safe_text(str(description)) if isinstance(description, str) else "",
+                    "input_schema": input_schema if isinstance(input_schema, dict) else {},
+                    "input_schema_malformed": bool(input_schema is not None and not isinstance(input_schema, dict)),
+                    "annotations": annotations if isinstance(annotations, dict) else {},
+                }
+            )
         elif isinstance(item, str) and item.strip():
-            names.append(item.strip())
-    return names
+            name = item.strip()
+            if name in seen:
+                continue
+            seen.add(name)
+            descriptors.append(
+                {
+                    "name": name,
+                    "description": "",
+                    "input_schema": {},
+                    "input_schema_malformed": False,
+                    "annotations": {},
+                }
+            )
+    return descriptors
 
 
 def _transport_error_from_httpx(exc: BaseException) -> McpTransportError:

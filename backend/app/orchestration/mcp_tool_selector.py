@@ -4,6 +4,8 @@ from typing import Any
 
 from app.config import settings
 from app.connectors.mcp.discovery import BLOCKED_TOOL_TOKENS, safe_tool_name
+from app.connectors.mcp.effective_catalog import EffectiveCatalogResult
+from app.connectors.mcp.mcp_capability import resolve_capability_tool_name, validate_capability
 from app.connectors.mcp.mcp_rbac import is_tool_allowed_for_role, rbac_denial_reason, session_role_for_mcp_gate
 from app.connectors.mcp.registry import McpRegistryStatus, McpServerStatus, load_mcp_registry_status
 from app.orchestration.human_review import human_review
@@ -26,9 +28,52 @@ def select_mcp_tool(
     llm_tool_recommendation: dict[str, Any] | None = None,
     registry: McpRegistryStatus | None = None,
     rbac_role: str | None = None,
+    mcp_capability: str | None = None,
+    effective_catalog: "EffectiveCatalogResult | None" = None,
 ) -> dict[str, Any]:
     rbac_role = session_role_for_mcp_gate(rbac_role)
     registry = registry or load_mcp_registry_status()
+
+    # Bounded local capability vocabulary -> one fixed local tool mapping.
+    # Whatever proposed `mcp_capability` (planning layer, advisory
+    # specialist fill-blank pass) is never execution authority by itself --
+    # unknown values are rejected outright, never guessed or coerced, and
+    # never override an analyst's explicit `user_requested_mcp_tool`.
+    capability_resolved = False
+    if mcp_capability is not None and not user_requested_mcp_tool:
+        validated_capability = validate_capability(mcp_capability)
+        if validated_capability is None:
+            return _result(
+                trace_id=trace_id,
+                execution_intent=execution_intent,
+                status="requires_human_review",
+                reason="capability_unresolved",
+                human_review=human_review(
+                    "tool_selection_review",
+                    "capability_unresolved",
+                    "soc_lead",
+                    ["choose_different_mcp_tool", "reject_execution"],
+                    "The requested MCP capability is not a recognized capability.",
+                ),
+            )
+        resolved_tool_name = resolve_capability_tool_name(validated_capability)
+        if resolved_tool_name is None:
+            return _result(
+                trace_id=trace_id,
+                execution_intent=execution_intent,
+                status="requires_human_review",
+                reason="capability_unresolved",
+                human_review=human_review(
+                    "tool_selection_review",
+                    "capability_unresolved",
+                    "soc_lead",
+                    ["choose_different_mcp_tool", "reject_execution"],
+                    "The requested MCP capability has no local tool mapping.",
+                ),
+            )
+        user_requested_mcp_tool = resolved_tool_name
+        capability_resolved = True
+
     review = _preflight_review(selected_skill, execution_intent, spl_validation)
     if review:
         return _result(
@@ -64,7 +109,8 @@ def select_mcp_tool(
             None,
         )
         if requested is None:
-            return _review_result(trace_id, execution_intent, "tool_selection_review", "requested_tool_not_found")
+            reason = "capability_tool_not_in_local_allowlist" if capability_resolved else "requested_tool_not_found"
+            return _review_result(trace_id, execution_intent, "tool_selection_review", reason)
         if requested_tool == "splunk_run_saved_search" and not settings.splunk_allow_run_saved_search:
             return _review_result(trace_id, execution_intent, "tool_selection_review", "saved_search_execution_disabled")
         if _tool_blocked(requested):
@@ -74,7 +120,11 @@ def select_mcp_tool(
         rbac_review = _rbac_review(trace_id, execution_intent, str(requested.get("name") or requested_tool), rbac_role)
         if rbac_review is not None:
             return rbac_review
-        return _selected(trace_id, execution_intent, server, requested, "requested_safe_tool_selected_after_policy_check")
+        catalog_review = _effective_catalog_review(trace_id, execution_intent, effective_catalog, str(requested.get("name") or requested_tool))
+        if catalog_review is not None:
+            return catalog_review
+        reason = "capability_resolved_tool_selected" if capability_resolved else "requested_safe_tool_selected_after_policy_check"
+        return _selected(trace_id, execution_intent, server, requested, reason)
 
     eligible = [
         tool
@@ -90,8 +140,36 @@ def select_mcp_tool(
     ]
     if not rbac_eligible:
         return _review_result(trace_id, execution_intent, "policy_exception_request", "rbac_no_eligible_tool")
+    catalog_eligible = [
+        tool
+        for tool in rbac_eligible
+        if effective_catalog is None or effective_catalog.is_executable(str(tool.get("name") or ""))
+    ]
+    if not catalog_eligible:
+        return _review_result(trace_id, execution_intent, "tool_selection_review", "no_effective_catalog_eligible_tool")
 
-    return _selected(trace_id, execution_intent, server, rbac_eligible[0], "deterministic_safe_tool_selected")
+    return _selected(trace_id, execution_intent, server, catalog_eligible[0], "deterministic_safe_tool_selected")
+
+
+def _effective_catalog_review(
+    trace_id: str,
+    execution_intent: str,
+    effective_catalog: "EffectiveCatalogResult | None",
+    tool_name: str,
+) -> dict[str, Any] | None:
+    """When a caller supplies a verified effective catalog (dark-launch
+    optional today -- see plan item 6), a tool that is locally
+    approved/RBAC-eligible/intent-matching must still be `executable` there
+    before selection. The server never authorizes itself; this only adds a
+    verification requirement on top of existing local policy, never relaxes
+    it."""
+    if effective_catalog is None:
+        return None
+    if effective_catalog.is_executable(tool_name):
+        return None
+    entry = effective_catalog.entry_for(tool_name)
+    drift = entry.drift_status if entry is not None else "DISCOVERY_UNVERIFIED"
+    return _review_result(trace_id, execution_intent, "tool_selection_review", f"effective_catalog_blocked:{drift}")
 
 
 def _rbac_review(trace_id: str, execution_intent: str, tool_name: str, rbac_role: str | None) -> dict[str, Any] | None:

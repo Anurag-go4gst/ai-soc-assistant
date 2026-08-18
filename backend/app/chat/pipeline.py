@@ -3039,8 +3039,20 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
     execution_intent = "spl_search"
     requested_mcp_tool = request.requested_mcp_tool
     candidate_spl = state.get("candidate_spl")
+    # mcp_capability is a governed projection of the same structured signal
+    # that already decides execution_intent/requested_mcp_tool below (SPL
+    # generation's own `generation_mode` field) -- not a second, independent
+    # decision and never derived from raw query text. saved_search_primary is
+    # the one governed structural condition that proves saved-search
+    # equivalence today; every other reachable state here is a live event
+    # search. See docs/evals/mcp_tool_discovery_selection_audit_2026-08-17.md
+    # PLANNING_SEMANTIC_GAP note in the plan: metadata capabilities have no
+    # structured ResourcePlan representation yet and are deliberately left
+    # unwired here rather than guessed from keywords.
+    mcp_capability = "EVENT_SEARCH"
     if isinstance(candidate_spl, dict) and candidate_spl.get("generation_mode") == "saved_search_primary":
         execution_intent = "saved_search_execution"
+        mcp_capability = "SAVED_SEARCH_EXECUTION"
         if not requested_mcp_tool:
             requested_mcp_tool = str(candidate_spl.get("planned_tool") or "splunk_run_saved_search")
     execution, human_review = _execution_stage(
@@ -3052,6 +3064,7 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         requested_mcp_server=request.requested_mcp_server,
         requested_mcp_tool=requested_mcp_tool,
         execution_intent=execution_intent,
+        mcp_capability=mcp_capability,
         llm_lineage_auto_eligible=llm_lineage_auto_eligible,
         mcp_allowed=_mcp_allowed(state),
         execution_review_action=getattr(request, "execution_review_action", None),
@@ -6046,6 +6059,7 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
                 precondition_evaluation=state.get("route_plan_shadow", {}).get("precondition_evaluation"),
                 requested_mcp_server=request.requested_mcp_server,
                 requested_mcp_tool=request.requested_mcp_tool,
+                mcp_capability="EVENT_SEARCH",  # guided safe-catalog rail never proposes saved-search here
                 mcp_allowed=True,
                 rbac_role=state.get("session_role"),
             )
@@ -9541,6 +9555,7 @@ def _execution_stage(
     data_silence_advisory: dict[str, Any] | None = None,
     execution_intent: str = "spl_search",
     hook_idempotency: HookIdempotencyContext | None = None,
+    mcp_capability: str | None = None,
 ) -> tuple[dict, dict]:
     if spl_validation is None:
         return (
@@ -9597,6 +9612,7 @@ def _execution_stage(
         data_silence_advisory=data_silence_advisory,
         execution_intent=execution_intent,
         hook_idempotency=hook_idempotency,
+        mcp_capability=mcp_capability,
     )
 
 
