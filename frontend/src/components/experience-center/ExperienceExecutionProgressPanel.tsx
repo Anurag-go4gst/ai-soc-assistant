@@ -18,6 +18,8 @@ interface ExperienceExecutionProgressPanelProps {
   onRetry?: () => void;
   headerExtras?: ReactNode;
   testId?: string;
+  onCoordinationConfirm?: () => void;
+  onCoordinationSkip?: () => void;
 }
 
 function StepDescription({
@@ -103,6 +105,8 @@ export function ExperienceExecutionProgressPanel({
   onRetry,
   headerExtras,
   testId = 'experience-execution-progress-panel',
+  onCoordinationConfirm,
+  onCoordinationSkip,
 }: ExperienceExecutionProgressPanelProps) {
   const { steps, finalization } = state;
   const hasError = Boolean(state.error);
@@ -296,6 +300,63 @@ export function ExperienceExecutionProgressPanel({
             </div>
           </div>
         </div>
+      ) : null}
+
+      {state.coordinationAction?.status === 'waiting_for_analyst' ? (
+        <div
+          className="mt-3 rounded-lg border border-amber-500/35 bg-amber-500/[0.08] px-3 py-3"
+          data-testid="legacy-demo-coordination-panel"
+        >
+          <p className="text-xs font-medium uppercase tracking-wide text-amber-200/90">Analyst coordination</p>
+          <p className="mt-1 text-sm font-medium text-slate-100">{state.coordinationAction.label}</p>
+          <p className="mt-1 text-xs leading-5 text-slate-400">{state.coordinationAction.description}</p>
+          {state.coordinationAction.draft_summary ? (
+            <p className="mt-2 rounded-md border border-slate-800 bg-slate-950/50 px-2.5 py-2 font-mono text-[0.65rem] leading-5 text-slate-300">
+              {state.coordinationAction.draft_summary}
+            </p>
+          ) : null}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              data-testid="legacy-demo-coordination-confirm"
+              disabled={!state.coordinationAction.available}
+              onClick={onCoordinationConfirm}
+            >
+              Confirm coordination
+            </Button>
+            {!state.coordinationAction.hil_required && onCoordinationSkip ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                data-testid="legacy-demo-coordination-skip"
+                onClick={onCoordinationSkip}
+              >
+                Skip
+              </Button>
+            ) : null}
+          </div>
+          {state.coordinationAction.hil_required ? (
+            <p className="mt-2 text-[0.65rem] leading-5 text-slate-500">
+              Human confirmation required before the investigation continues.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {state.coordinationAction?.status === 'verifying' || state.coordinationAction?.status === 'completed' ? (
+        state.coordinationAction.result_message ? (
+          <div
+            className="mt-3 rounded-lg border border-cyan-500/25 bg-cyan-500/[0.06] px-3 py-3"
+            data-testid="legacy-demo-coordination-result"
+          >
+            <p className="text-xs font-medium text-cyan-200/90">
+              {state.coordinationAction.status === 'verifying' ? 'Verifying coordination' : 'Coordination recorded'}
+            </p>
+            <p className="mt-1 text-sm leading-5 text-slate-200">{state.coordinationAction.result_message}</p>
+          </div>
+        ) : null
       ) : null}
 
       <p className="mt-3 text-[0.65rem] leading-5 text-slate-500">

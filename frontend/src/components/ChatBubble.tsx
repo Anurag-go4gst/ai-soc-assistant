@@ -14,6 +14,7 @@ import { Stage3DTracePanel } from '@/components/Stage3DTracePanel';
 import { Badge } from '@/components/ui/badge';
 import type { InvestigationProgressState } from '@/lib/investigationProgress';
 import { investigationProgressToExperienceView } from '@/lib/investigationProgressToExperience';
+import type { LegacyDemoCoordinationAction } from '@/lib/legacyDemoCoordination';
 import { cn } from '@/lib/utils';
 import type {
   CandidateSplEnvelope,
@@ -36,6 +37,8 @@ export interface SocChatMessage {
   displayStage?: AssistantDisplayStage;
   investigationProgress?: InvestigationProgressState | null;
   progressDemoMode?: boolean;
+  demoScenarioId?: string | null;
+  coordinationAction?: LegacyDemoCoordinationAction | null;
   /** Capture provenance for the MCP-transport honesty badge (B6). */
   ecProvenance?: EcProvenance | null;
   traceId?: string;
@@ -60,9 +63,11 @@ interface ChatBubbleProps {
   investigationBusy?: boolean;
   onExecutionReview?: (payload: ChatExecutionReviewOptions, label: string) => void;
   onRetryFinalSynthesis?: () => void;
+  onCoordinationConfirm?: (progressId: string) => void;
+  onCoordinationSkip?: (progressId: string) => void;
 }
 
-export function ChatBubble({ message, investigationBusy = false, onExecutionReview, onRetryFinalSynthesis }: ChatBubbleProps) {
+export function ChatBubble({ message, investigationBusy = false, onExecutionReview, onRetryFinalSynthesis, onCoordinationConfirm, onCoordinationSkip }: ChatBubbleProps) {
   const isUser = message.role === 'user';
   const showProgress = !isUser && message.displayStage === 'progress' && message.investigationProgress;
   const showSummaryOnly = !isUser && message.displayStage === 'summary' && message.trace;
@@ -105,8 +110,24 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
         {showProgress && message.investigationProgress ? (
           (message.progressDemoMode ?? message.trace?.demo_mode) ? (
             <ExperienceExecutionProgressPanel
-              state={investigationProgressToExperienceView(message.investigationProgress, true)}
+              state={investigationProgressToExperienceView(
+                message.investigationProgress,
+                true,
+                message.coordinationAction,
+              )}
               onRetry={onRetryFinalSynthesis}
+              onCoordinationConfirm={
+                message.coordinationAction?.status === 'waiting_for_analyst' && onCoordinationConfirm
+                  ? () => onCoordinationConfirm(message.id)
+                  : undefined
+              }
+              onCoordinationSkip={
+                message.coordinationAction &&
+                !message.coordinationAction.hil_required &&
+                onCoordinationSkip
+                  ? () => onCoordinationSkip(message.id)
+                  : undefined
+              }
               headerExtras={
                 (message.ecProvenance ?? message.trace?.ec_provenance) ? (
                   <McpTransportBadge provenance={(message.ecProvenance ?? message.trace?.ec_provenance)!} />

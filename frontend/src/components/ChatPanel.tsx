@@ -23,11 +23,15 @@ import {
   applyStageLatencies,
   buildInvestigationProgressSteps,
   delay,
-  playInvestigationProgress,
   type InvestigationProgressError,
   type InvestigationProgressState,
   type InvestigationProgressStepStatus,
 } from '@/lib/investigationProgress';
+import {
+  injectLegacyCoordinationStep,
+  type LegacyDemoCoordinationAction,
+} from '@/lib/legacyDemoCoordination';
+import { playLegacyDemoInvestigationWithCoordination } from '@/lib/legacyDemoCoordinationPlayer';
 import type { ChatExecutionReviewOptions, DemoScenarioSummary, PlaceholderResponse } from '@/types/api';
 
 interface ChatPanelProps {
@@ -73,6 +77,10 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
   const [loading, setLoading] = useState(false);
   const [llmSplDraftMode, setLlmSplDraftMode] = useState(false);
   const investigationEpochRef = useRef(0);
+  const coordinationWaitRef = useRef<{
+    progressId: string | null;
+    resolve: ((decision: 'confirm' | 'skip') => void) | null;
+  }>({ progressId: null, resolve: null });
   const lastUserMessageRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(
     typeof window !== 'undefined' ? window.sessionStorage.getItem('ai_soc_session_id') : null,
@@ -109,11 +117,18 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     progressId: string,
     epoch: number,
     investigationProgress: InvestigationProgressState,
+    coordinationAction?: LegacyDemoCoordinationAction | null,
   ) => {
     if (isStaleInvestigation(epoch)) return;
     setMessages((current) =>
       current.map((message) =>
-        message.id === progressId ? { ...message, investigationProgress } : message,
+        message.id === progressId
+          ? {
+              ...message,
+              investigationProgress,
+              coordinationAction: coordinationAction ?? message.coordinationAction ?? null,
+            }
+          : message,
       ),
     );
   };
@@ -381,17 +396,21 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     expectedSkill?: string | null;
     expectedSources?: string[];
     demoMode: boolean;
+    demoScenarioId?: string | null;
     userMessage?: string;
     executionReview?: ChatExecutionReviewOptions;
   }) => {
     const epoch = investigationEpochRef.current;
     const progressId = `progress-${crypto.randomUUID()}`;
-    const { demoMode, fetcher, userMessage, executionReview } = options;
-    const steps = buildInvestigationProgressSteps({
+    const { demoMode, fetcher, userMessage, executionReview, demoScenarioId } = options;
+    const builtSteps = buildInvestigationProgressSteps({
       expectedSkill: options.expectedSkill,
       expectedSources: options.expectedSources,
       demoMode,
     });
+    const injected = injectLegacyCoordinationStep(builtSteps, demoScenarioId ?? null);
+    const steps = injected.steps;
+    let coordinationAction = injected.action;
     let progressSnapshot: InvestigationProgressState = {
       steps,
       activeStepIndex: 0,
@@ -408,6 +427,8 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
         displayStage: 'progress',
         investigationProgress: progressSnapshot,
         progressDemoMode: demoMode,
+        demoScenarioId: demoScenarioId ?? null,
+        coordinationAction,
       },
     ]);
     setLoading(true);
@@ -470,14 +491,34 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
       const replaySteps = applyStageLatencies(steps, response.ec_stage_latencies);
       let clearTimers: (() => void) | undefined;
       clearTimers = startFinalizationTimers(progressId, epoch, () => progressSnapshot);
-      await playInvestigationProgress(
+      await playLegacyDemoInvestigationWithCoordination(
         replaySteps,
-        (investigationProgress) => {
-          progressSnapshot = investigationProgress;
-          updateProgressMessage(progressId, epoch, investigationProgress);
+        ({ progress, action }) => {
+          progressSnapshot = progress;
+          if (action) coordinationAction = action;
+          updateProgressMessage(progressId, epoch, progressSnapshot, coordinationAction);
         },
-        { skipCompletion: true },
+        {
+          coordinationAction: injected.action,
+          skipCompletion: true,
+          isStale: () => isStaleInvestigation(epoch),
+          onCoordinationUpdate: (action) => {
+            coordinationAction = action;
+            updateProgressMessage(progressId, epoch, progressSnapshot, coordinationAction);
+          },
+          waitForAnalyst: () =>
+            new Promise<'confirm' | 'skip'>((resolve) => {
+              coordinationWaitRef.current = {
+                progressId,
+                resolve: (decision) => {
+                  if (isStaleInvestigation(epoch)) return;
+                  resolve(decision);
+                },
+              };
+            }),
+        },
       );
+      coordinationWaitRef.current = { progressId: null, resolve: null };
       clearTimers();
       await finishInvestigation(progressId, epoch, response);
     } catch (error) {
@@ -502,6 +543,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
 
   const handleClear = useCallback(() => {
     investigationEpochRef.current += 1;
+    coordinationWaitRef.current = { progressId: null, resolve: null };
     setLoading(false);
     sessionIdRef.current = null;
     if (typeof window !== 'undefined') {
@@ -537,6 +579,20 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     await runStagedInvestigation({ demoMode: false, userMessage: message });
   };
 
+  const handleCoordinationConfirm = (progressId: string) => {
+    if (coordinationWaitRef.current.progressId !== progressId || !coordinationWaitRef.current.resolve) return;
+    const resolve = coordinationWaitRef.current.resolve;
+    coordinationWaitRef.current = { progressId: null, resolve: null };
+    resolve('confirm');
+  };
+
+  const handleCoordinationSkip = (progressId: string) => {
+    if (coordinationWaitRef.current.progressId !== progressId || !coordinationWaitRef.current.resolve) return;
+    const resolve = coordinationWaitRef.current.resolve;
+    coordinationWaitRef.current = { progressId: null, resolve: null };
+    resolve('skip');
+  };
+
   const handleRunDemo = async (scenario: DemoScenarioSummary) => {
     const userMessage: SocChatMessage = {
       id: crypto.randomUUID(),
@@ -549,6 +605,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
       expectedSkill: scenario.expected_skill,
       expectedSources: scenario.expected_sources,
       demoMode: true,
+      demoScenarioId: scenario.scenario_id,
     });
   };
 
@@ -605,6 +662,8 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
                 message={message}
                 investigationBusy={loading}
                 onExecutionReview={handleExecutionReview}
+                onCoordinationConfirm={handleCoordinationConfirm}
+                onCoordinationSkip={handleCoordinationSkip}
                 onRetryFinalSynthesis={
                   message.displayStage === 'progress' && lastUserMessageRef.current
                     ? () => {

@@ -35,6 +35,18 @@ export interface ExperienceExecutionFinalization {
   showRetryHint?: boolean;
 }
 
+export interface ExperienceExecutionCoordinationActionView {
+  action_id: string;
+  action_type: string;
+  label: string;
+  status: string;
+  hil_required: boolean;
+  available: boolean;
+  description: string;
+  draft_summary?: string | null;
+  result_message?: string | null;
+}
+
 export interface ExperienceExecutionProgressView {
   steps: ExperienceExecutionStageView[];
   activeStepIndex: number;
@@ -44,6 +56,7 @@ export interface ExperienceExecutionProgressView {
   header?: string | null;
   resourceBadge?: string | null;
   demoMode?: boolean;
+  coordinationAction?: ExperienceExecutionCoordinationActionView | null;
   error?: ExperienceExecutionError | null;
   llmWarning?: { message: string; code?: string | null } | null;
   finalization?: ExperienceExecutionFinalization | null;

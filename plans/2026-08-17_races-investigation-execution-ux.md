@@ -372,13 +372,13 @@ Workstream B (other worktree, after H1-4 commit):
   - **Depends on:** H7-0
   - **Evidence:** Commit on `feat/legacy-ec-experience-convergence` @ master `63f6769`. ChatBubble `progressDemoMode=true` renders `ExperienceExecutionProgressPanel` via `investigationProgressToExperienceView`; live keeps `InvestigationProgressPanel` with `demoMode={false}`. TLS/bearer demo activity removed (`rg` empty in `investigationProgress.ts`). `test_live_chat_linear_progress.py` → `8 passed`. Vitest `ChatBubble.progress.test.tsx` + `ExperienceExecutionProgressPanel.test.tsx` → `6 passed`; EC workspace/player tests → `26 passed`. `npm run build` succeeded. ChatPanel/Cockpit/ChatPage still do not import `@/components/ec`. G2 `test_g2_layer1_workspace_does_not_interpolate_internal_ids` fails on master (EcInvestigationWorkspace copy drift) — pre-existing, not H7-1.
 
-- [ ] **H7-2** — Selective legacy demo coordination (not all 10) **NEXT**
+- [x] **H7-2** — Selective legacy demo coordination (not all 10) **DONE**
   - **Do:** **Workstream B only.** Audit frozen 10; add EC email/ticket/HIL only where useful (prioritize firewall coordinated incident, IR containment, CERT-In/OT, supply-chain). `demoMode=true` only. Do not wholesale-port S1–S7 FSMs.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_races_chatpanel_scenario_list_isolation.py -q`; live `/chat` tests still pass
   - **Depends on:** H7-1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `legacyDemoCoordination.ts` + player wired into ChatPanel demo path only; four priority scenarios inject `demo_coordination` HIL step. Vitest `legacyDemoCoordination.test.tsx` + progress shell tests → `26 passed`. `test_races_chatpanel_scenario_list_isolation.py` + `test_live_chat_linear_progress.py` → `11 passed`. `npm run build` succeeded. No `ec_email.py` / SMTP / backend changes. Live `demoMode=false` keeps `InvestigationProgressPanel` with no coordination UI.
 
-- [ ] **H7-3** — Legacy Send email reuses same EC transport **BLOCKED_ON_H7-2**
+- [ ] **H7-3** — Legacy Send email reuses same EC transport **NEXT**
   - **Do:** **Workstream B only.** One mail system. Same allowlist/idempotency/HIL.
   - **Verify:** same email pytest module; no second SMTP stack (`rg -n "smtplib" backend/app/demo/`)
   - **Depends on:** H7-2, H6A-1
@@ -408,7 +408,7 @@ H9-A browser walk depends on a running stack; if UI is down, record `BROWSER=BLO
 
 ## Drift log
 
-- 2026-08-17 rev 2: User approved implementation, visual **parity** (not “similar DNA”), S1–S7 completeness, **real allowlisted email**, and legacy ChatPanel **demoMode** freeze exception **in a separate worktree only**.
+- 2026-08-18: H7-1 fast-forward merged to `master` @ `7dce44d`; legacy worktree removed. Workstream B (H7-2+) now executes directly on `/var/www/ai-soc-assistant` `master` — historical worktree instructions above remain audit context only.
 - 2026-08-17: Rev 1 plan file was not present on this worktree (`plans/README.md` had been deleted in the working tree and was restored from git). Completeness matrix filled from current packs.
 - 2026-08-17: No in-repo mail transport exists. S3 currently auto-executes simulated `email_send` and tests forbid `smtplib` in the S3 pack — adapter must live outside packs.
 - 2026-08-17: POST `/demo/scenarios/{id}/run` already returns `ExperienceCenterResponse`; ChatPanel ignores extras. Do not add backend sleeps.
