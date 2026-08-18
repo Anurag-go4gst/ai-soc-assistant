@@ -19,8 +19,9 @@ Do **not** reopen [`plans/2026-08-16_2310_races-experience-center.md`](2026-08-1
 
 | Pin | Value |
 |-----|--------|
-| Master | `af93fb373d48efc1d5e8dd36795bc62fb026d868` |
+| Master | `63f6769b4119c756f5a5eed4ebe9d04270269c54` |
 | RACES merge | PR #143 @ `d4f9210303aac5f6ae964f0259fb9fc25dd59743` |
+| Workstream A merge | PR #145 @ `63f6769` |
 | Primary branch | `feat/races-investigation-execution-ux` |
 | Parallel legacy branch | `feat/legacy-ec-experience-convergence` (create after H1 presentation checkpoint) |
 | Parallel worktree | `/var/www/ai-soc-assistant-legacy-ec` |
@@ -363,21 +364,21 @@ Workstream B (other worktree, after H1-4 commit):
   - **Do:** After H1-4 commit exists, create `/var/www/ai-soc-assistant-legacy-ec` on `feat/legacy-ec-experience-convergence` from master and cherry-pick shared-shell commit(s). Do not implement B in the primary worktree.
   - **Verify:** `git -C /var/www/ai-soc-assistant-legacy-ec rev-parse --abbrev-ref HEAD` equals `feat/legacy-ec-experience-convergence`; ChatPanel still frozen on primary branch
   - **Depends on:** H1-4
-  - **Evidence:** Branch `feat/legacy-ec-experience-convergence` at `/var/www/ai-soc-assistant-legacy-ec` from master `af93fb3`; cherry-pick of presentation checkpoint `4e3fa94` → `24b51e5`. Primary `git diff -- frontend/src/components/ChatPanel.tsx` empty. H7-1+ not implemented on primary.
+  - **Evidence:** Branch `feat/legacy-ec-experience-convergence` at `/var/www/ai-soc-assistant-legacy-ec`; rebased onto master `63f6769` (dropped duplicate `24b51e5` shell commit already on master via PR #145). Primary `git diff -- frontend/src/components/ChatPanel.tsx` empty.
 
 - [x] **H7-1** — Legacy demoMode uses shared shell; remove TLS/bearer copy
   - **Do:** **Workstream B only.** ChatPanel `demoMode=true` renders `ExperienceExecutionProgressPanel`. Replace dishonest demo strings. Do not change `LIVE_LINEAR_STEPS` or `/chat/stream`.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_live_chat_linear_progress.py app/tests/test_races_g2_frontend_isolation.py -q`; ChatPanel/Cockpit still do not import `@/components/ec`; `rg -n "TLS handshake" frontend/src/lib/investigationProgress.ts` empty in demo activity (live block unchanged)
   - **Depends on:** H7-0
-  - **Evidence:** Done in `/var/www/ai-soc-assistant-legacy-ec`. ChatBubble `progressDemoMode=true` renders `ExperienceExecutionProgressPanel`; live keeps `InvestigationProgressPanel`. TLS/bearer demo activity removed (`rg` empty). Legacy pytest `test_live_chat_linear_progress.py` + G2 → `13 passed`. Vitest ChatBubble demo/live shell test → `10 passed` with experience-center tests. ChatPanel/Cockpit/ChatPage still do not import `@/components/ec`.
+  - **Evidence:** Commit on `feat/legacy-ec-experience-convergence` @ master `63f6769`. ChatBubble `progressDemoMode=true` renders `ExperienceExecutionProgressPanel` via `investigationProgressToExperienceView`; live keeps `InvestigationProgressPanel` with `demoMode={false}`. TLS/bearer demo activity removed (`rg` empty in `investigationProgress.ts`). `test_live_chat_linear_progress.py` → `8 passed`. Vitest `ChatBubble.progress.test.tsx` + `ExperienceExecutionProgressPanel.test.tsx` → `6 passed`; EC workspace/player tests → `26 passed`. `npm run build` succeeded. ChatPanel/Cockpit/ChatPage still do not import `@/components/ec`. G2 `test_g2_layer1_workspace_does_not_interpolate_internal_ids` fails on master (EcInvestigationWorkspace copy drift) — pre-existing, not H7-1.
 
-- [ ] **H7-2** — Selective legacy demo coordination (not all 10)
+- [ ] **H7-2** — Selective legacy demo coordination (not all 10) **NEXT**
   - **Do:** **Workstream B only.** Audit frozen 10; add EC email/ticket/HIL only where useful (prioritize firewall coordinated incident, IR containment, CERT-In/OT, supply-chain). `demoMode=true` only. Do not wholesale-port S1–S7 FSMs.
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_races_chatpanel_scenario_list_isolation.py -q`; live `/chat` tests still pass
   - **Depends on:** H7-1
   - **Evidence:** _(fill when done)_
 
-- [ ] **H7-3** — Legacy Send email reuses same EC transport
+- [ ] **H7-3** — Legacy Send email reuses same EC transport **BLOCKED_ON_H7-2**
   - **Do:** **Workstream B only.** One mail system. Same allowlist/idempotency/HIL.
   - **Verify:** same email pytest module; no second SMTP stack (`rg -n "smtplib" backend/app/demo/`)
   - **Depends on:** H7-2, H6A-1
@@ -395,7 +396,7 @@ Workstream B (other worktree, after H1-4 commit):
   - **Depends on:** H8-1
   - **Evidence:** Automated Verify (+ email tests) → `73 passed`. Invariant 7/7 PASS (EC email env keys are the user-approved H6A exception; no production `/api/actions`). Playwright: SPA boots at `http://127.0.0.1:3010/scenarios` to the Sign-in screen. `BROWSER=BLOCKED` for the S1–S7 click-walk — Experience Center login is required and credentials were not used from `.env`. Vite previously failed to mount because live `LIVE_LINEAR_STEPS` called demo `step()` before `DEMO_DURATION_SCALE` (pre-existing TDZ); live steps now use literal `durationMs` so labels/activity stay the same and `test_live_chat_linear_progress.py` still `8 passed`.
 
-- [ ] **H9-B** — Legacy acceptance (Workstream B)
+- [ ] **H9-B** — Legacy acceptance (Workstream B) **BLOCKED_ON_H7-3**
   - **Do:** Visual parity vs RACES shell; dishonest strings gone; selected demo scenarios; live `/chat` regression. Report `LEGACY_EC_CONVERGENCE_STATUS`.
   - **Verify:** live linear progress pytest + catalog isolation + G2 on the legacy worktree
   - **Depends on:** H7-3

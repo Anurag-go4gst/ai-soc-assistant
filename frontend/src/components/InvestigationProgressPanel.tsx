@@ -19,7 +19,7 @@ interface InvestigationProgressPanelProps {
  * claim auto-corrects when a scenario is re-captured against a real Splunk MCP.
  * `transport=fake` → "simulated lifecycle replay"; `transport=live` → "live".
  */
-function McpTransportBadge({ provenance }: { provenance: EcProvenance }) {
+export function McpTransportBadge({ provenance }: { provenance: EcProvenance }) {
   const transport = provenance.transport;
   if (transport !== 'fake' && transport !== 'live') {
     return null;

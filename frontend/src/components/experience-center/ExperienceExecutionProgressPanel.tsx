@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Circle, Clock, Loader2, MinusCircle, ShieldCheck } from 'lucide-react';
 import { scrollIntoScrollParent } from '@/lib/scrollIntoScrollParent';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,8 @@ import {
 interface ExperienceExecutionProgressPanelProps {
   state: ExperienceExecutionProgressView;
   onRetry?: () => void;
+  headerExtras?: ReactNode;
+  testId?: string;
 }
 
 function StepDescription({
@@ -96,7 +98,12 @@ function rowStatus(
   return 'pending';
 }
 
-export function ExperienceExecutionProgressPanel({ state, onRetry }: ExperienceExecutionProgressPanelProps) {
+export function ExperienceExecutionProgressPanel({
+  state,
+  onRetry,
+  headerExtras,
+  testId = 'experience-execution-progress-panel',
+}: ExperienceExecutionProgressPanelProps) {
   const { steps, finalization } = state;
   const hasError = Boolean(state.error);
   const inFinalization =
@@ -132,12 +139,13 @@ export function ExperienceExecutionProgressPanel({ state, onRetry }: ExperienceE
   return (
     <div
       className={EXPERIENCE_EXECUTION_PANEL_CHROME.root}
-      data-testid="experience-execution-progress-panel"
+      data-testid={testId}
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {headerIcon}
         <span className="text-sm font-semibold text-cyan-100">{headerLabel}</span>
         {state.demoMode ? <Badge variant="outline">Experience Center</Badge> : null}
+        {headerExtras}
         {state.resourceBadge ? (
           <Badge variant="outline" className="font-mono text-[0.6rem] border-slate-600/60 text-slate-400">
             {state.resourceBadge}

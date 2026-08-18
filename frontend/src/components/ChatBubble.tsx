@@ -8,10 +8,12 @@ import { EcVisualLanesPanel } from '@/components/EcVisualLanesPanel';
 import { HumanReviewCard } from '@/components/HumanReviewCard';
 import { ProposedActionsPanel } from '@/components/ProposedActionsPanel';
 import { InvestigationLineagePanel } from '@/components/InvestigationLineagePanel';
-import { InvestigationProgressPanel } from '@/components/InvestigationProgressPanel';
+import { InvestigationProgressPanel, McpTransportBadge } from '@/components/InvestigationProgressPanel';
+import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { Stage3DTracePanel } from '@/components/Stage3DTracePanel';
 import { Badge } from '@/components/ui/badge';
 import type { InvestigationProgressState } from '@/lib/investigationProgress';
+import { investigationProgressToExperienceView } from '@/lib/investigationProgressToExperience';
 import { cn } from '@/lib/utils';
 import type {
   CandidateSplEnvelope,
@@ -101,12 +103,24 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
           </div>
         )}
         {showProgress && message.investigationProgress ? (
-          <InvestigationProgressPanel
-            state={message.investigationProgress}
-            demoMode={message.progressDemoMode ?? message.trace?.demo_mode ?? false}
-            ecProvenance={message.ecProvenance ?? message.trace?.ec_provenance ?? null}
-            onRetryFinalSynthesis={onRetryFinalSynthesis}
-          />
+          (message.progressDemoMode ?? message.trace?.demo_mode) ? (
+            <ExperienceExecutionProgressPanel
+              state={investigationProgressToExperienceView(message.investigationProgress, true)}
+              onRetry={onRetryFinalSynthesis}
+              headerExtras={
+                (message.ecProvenance ?? message.trace?.ec_provenance) ? (
+                  <McpTransportBadge provenance={(message.ecProvenance ?? message.trace?.ec_provenance)!} />
+                ) : null
+              }
+            />
+          ) : (
+            <InvestigationProgressPanel
+              state={message.investigationProgress}
+              demoMode={false}
+              ecProvenance={message.ecProvenance ?? message.trace?.ec_provenance ?? null}
+              onRetryFinalSynthesis={onRetryFinalSynthesis}
+            />
+          )
         ) : null}
         {showSummaryOnly && message.trace?.planning_outcome ? (
           <PlanningOutcomeBanner outcome={message.trace.planning_outcome} />

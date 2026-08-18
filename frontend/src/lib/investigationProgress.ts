@@ -305,7 +305,6 @@ export function buildInvestigationProgressSteps(options?: {
     return LIVE_LINEAR_STEPS.map((item) => ({ ...item, activity: item.activity ? [...item.activity] : undefined }));
   }
 
-  const jobSid = generateJobSid();
   const steps: InvestigationProgressStep[] = [
     step(
       {
@@ -364,19 +363,15 @@ export function buildInvestigationProgressSteps(options?: {
       step(
         {
           id: 'mcp_connect',
-          label: demo ? 'Connecting Splunk MCP search' : 'Calling MCP search',
+          label: demo ? 'Replaying governed Splunk search' : 'Calling MCP search',
           description: demo
-            ? 'Connecting to the Splunk MCP server and running the governed search lifecycle.'
+            ? 'Replaying the governed Splunk search lifecycle from Experience Center fixtures.'
             : 'Checking Splunk MCP registry, transport, and tool policy.',
           activity: demo
             ? [
-                'Resolving splunk server from MCP registry…',
-                'TLS handshake 127.0.0.1 · bearer auth ✓',
-                'tools/list → splunk_run_query allowed for this skill ✓',
-                `Submitting search job · sid=${jobSid}`,
-                `Polling job ${jobSid} · 1/3…`,
-                `Polling job ${jobSid} · 2/3…`,
-                'Job dispatchState=DONE · results ready',
+                'Replaying governed Splunk search…',
+                'Preparing governed result set…',
+                'Reviewing search policy for this skill…',
               ]
             : [
                 'Resolving splunk server from MCP registry…',
@@ -395,7 +390,7 @@ export function buildInvestigationProgressSteps(options?: {
             : 'Packaging search results into governed SourceEvidence.',
           activity: demo
             ? [
-                `Fetching results · sid=${jobSid}…`,
+                'Preparing governed result set…',
                 'Normalizing fields and row counts…',
                 'SourceEvidence package attached · governed',
               ]
@@ -417,7 +412,7 @@ export function buildInvestigationProgressSteps(options?: {
           id: 'rag',
           label: 'Retrieving governed SOC knowledge',
           description: 'Retrieving approved SOP and playbook context into SourceEvidence.',
-          activity: ['Querying governed knowledge index…', 'Binding SOC-SOP citations to context…'],
+          activity: ['Reviewing SOC knowledge…', 'Binding SOC-SOP citations to context…'],
         },
         900,
       ),
