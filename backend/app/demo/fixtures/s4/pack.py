@@ -9,6 +9,9 @@ from app.demo.ec_siem_s4 import (
     S4_ADVISORY_ID,
     S4_GAP_CANDIDATE_SPL,
     S4_LAYER2_PATH,
+    S4_MONITOR_CANDIDATE_SPL,
+    S4_MONITOR_SCHEDULE,
+    S4_MONITOR_SEARCH_NAME,
     build_s4_action_readiness,
     build_s4_detection_opportunity,
     build_s4_evidence_findings,
@@ -61,7 +64,7 @@ S4_FOLLOWUPS = (
     C.chip("check_soar_playbooks", "Check SOAR playbooks"),
     C.chip("show_incident_response_plan", "Show IR plan (RAG)"),
     C.chip("apply_access_controls", "Apply access controls", action=True),
-    C.chip("deploy_splunk_monitoring", "Deploy Splunk monitoring", action=True),
+    C.chip("deploy_splunk_monitoring", "Prepare Splunk monitoring", action=True),
     C.chip("restrict_vpn_access", "Restrict VPN access", action=True),
     C.chip("enforce_mfa_vpn", "Enforce MFA on VPN", action=True),
     C.chip("request_agilus_patch", "Request patch via Agilus", action=True),
@@ -199,14 +202,18 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
                 "Splunk monitoring alert (candidate)",
                 [
                     {
-                        "alert_name": "EC_EdgeGate_VPN_ZeroDay_Monitor",
+                        "alert_name": S4_MONITOR_SEARCH_NAME,
                         "status": "candidate_prepared_not_deployed",
-                        "search": S4_GAP_CANDIDATE_SPL,
+                        "search": S4_MONITOR_CANDIDATE_SPL,
+                        "schedule": S4_MONITOR_SCHEDULE["cron"],
+                        "window": S4_MONITOR_SCHEDULE["window"],
+                        "trigger": S4_MONITOR_SCHEDULE["trigger"],
+                        "throttle": S4_MONITOR_SCHEDULE["throttle"],
                     }
                 ],
                 provenance="simulated_mcp",
                 tool_name="splunk_prepare_alert",
-                summary="Governed real-time monitoring search prepared — deployment requires approval",
+                summary="Scheduled monitoring search prepared (15-min window) — not deployed; deployment requires approval",
             )
         )
 
@@ -459,8 +466,15 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
 
             ec_actions.verify_action(control.action_id)
     if "generate_executive_summary" in applied:
+        from app.demo.fixtures.s4.investigation_findings import (
+            S4_AFFECTED_ASSETS,
+            S4_INTERNET_FACING_GATEWAYS,
+        )
+
+        affected_n = len(S4_AFFECTED_ASSETS)
+        total_n = len(S4_INTERNET_FACING_GATEWAYS)
         outcome["executive_summary"] = (
-            "Two of four internet-facing VPN gateways are running an affected fixture version. "
+            f"{affected_n} of {total_n} internet-facing VPN gateways are running an affected fixture version. "
             "Exploitation is not confirmed. Temporary hardening is available and requires approval."
         )
 

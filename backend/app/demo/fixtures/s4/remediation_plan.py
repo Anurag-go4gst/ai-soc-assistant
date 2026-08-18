@@ -82,7 +82,7 @@ def build_s4_remediation_conclusion(*, normalized: dict[str, Any]) -> dict[str, 
             f"Escalate step-up MFA to Identity/IAM — typically 4–24h IdP policy push, not an instant toggle.",
             f"Open P1 incident {S4_PLANNED_INCIDENT_ID} and emergency change {S4_PLANNED_CHANGE_ID} via ITSM.",
             f"Submit {patch} to all four gateways via Agilus MCP after change approval (job {S4_PLANNED_AGILUS_JOB}).",
-            f"Deploy temporary Splunk monitoring via Splunk MCP; notify network and SOC owners after upstream steps.",
+            f"Prepare a temporary Splunk monitoring candidate via Splunk MCP; notify network and SOC owners after upstream steps.",
             f"Prioritize deeper review on {anomalous} while compromise remains unconfirmed.",
         ],
     }
@@ -340,9 +340,9 @@ def finding_for_remediation_step(
 
     if step_id == "deploy_monitoring":
         headline, headlines_by_status = _headline_for_status(
-            queued="Queued — Splunk MCP alert candidate prepared (not deployed)",
-            running="Deploying Splunk detection via MCP",
-            complete="Splunk alert deployed — exploitation attempts on vulnerable gateways",
+            queued="Queued — Splunk MCP alert candidate not yet prepared",
+            running="Preparing Splunk alert candidate via MCP",
+            complete="Splunk alert candidate prepared — deployment requires approval",
             status=status,
             executed=executed,
         )

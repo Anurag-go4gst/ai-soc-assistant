@@ -906,7 +906,7 @@ _FOLLOW_UPS: dict[str, dict[str, EcExecutionJourney]] = {
                 ("Restrict WAN management", "execute", "Network MCP — compensating control on 4 gateways…"),
                 ("Enforce step-up MFA", "execute", "Identity MCP — emergency MFA policy applied…"),
                 ("Submit emergency patch", "execute", "Agilus MCP — CHG-29173 linked to patch job…"),
-                ("Deploy monitoring", "execute", "Splunk MCP — temporary alert candidate deployed…"),
+                ("Prepare monitoring", "execute", "Splunk MCP — alert candidate prepared, not deployed…"),
                 ("Notify stakeholders", "execute", "Email / Teams — network and SOC owners notified…"),
                 ("Verifying outcomes", "verify", "Confirming controls, tickets, and monitoring state…"),
             ],

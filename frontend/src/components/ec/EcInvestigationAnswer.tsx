@@ -5,6 +5,7 @@ import { EcAffectedSystemsTable } from '@/components/ec/EcAffectedSystemsTable';
 import { EcDataTable } from '@/components/ec/EcDataTable';
 import { EcCollapsibleEvidencePanel } from '@/components/ec/EcCollapsibleEvidence';
 import { EcSplArtifactPanel } from '@/components/ec/EcSplArtifactPanel';
+import { EcSplCodeBlock } from '@/components/ec/EcSplCodeBlock';
 import { EcSourceEvidencePanel } from '@/components/ec/EcSourceEvidencePanel';
 import { EcWhatWeFoundBlock } from '@/components/ec/EcWhatWeFoundBlock';
 import { EcAgentWorkflow } from '@/components/ec/EcAgentWorkflow';
@@ -383,7 +384,8 @@ export function EcInvestigationAnswer({
       {envelope.candidate_spl?.candidate_spl && !analyst.spl_code && !hideSpl ? (
         <EcRevealBlock>
           <EcSectionHeading>Candidate SPL</EcSectionHeading>
-          <p className="mt-2 text-sm text-slate-400">Review-only candidate — see Investigation path for full governance trace.</p>
+          <p className="mt-2 text-sm text-slate-400">Review-only candidate — not executed.</p>
+          <EcSplCodeBlock spl={envelope.candidate_spl.candidate_spl} className="mt-3" />
         </EcRevealBlock>
       ) : null}
 

@@ -159,7 +159,7 @@ S4_REMEDIATION_STEP_DEFS: tuple[dict[str, Any], ...] = (
     },
     {
         "id": "deploy_monitoring",
-        "title": "Deploy temporary Splunk monitoring",
+        "title": "Prepare temporary Splunk monitoring candidate",
         "summary": "Prepare governed real-time Splunk alert for exploitation attempts.",
         "follow_up_id": "deploy_splunk_monitoring",
         "tools": ["Splunk MCP"],
@@ -747,7 +747,7 @@ def build_s4_agent_workflow(
             {"item": "Temporary control applied", "status": "VERIFIED", "detail": "WAN management restricted on 4/4 gateways"},
             {"item": "Incident created", "status": "VERIFIED", "detail": "INC-48219"},
             {"item": "Change request exists", "status": "ACCEPTED", "detail": "CHG-29173 — awaiting Agilus callback"},
-            {"item": "Monitoring configured", "status": "APPLIED", "detail": "Splunk alert candidate deployed"},
+            {"item": "Monitoring prepared", "status": "CANDIDATE", "detail": "Splunk alert candidate prepared — not deployed"},
             {"item": "Stakeholder notification", "status": "REQUESTED", "detail": "Network + SOC owners notified"},
         ]
 
