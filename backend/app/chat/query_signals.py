@@ -87,6 +87,67 @@ _KNOWN_ALERT_SUMMARY_RE = re.compile(
 )
 
 
+
+# A term the user says they LACK is context, not a request. "We have no SOAR
+# playbook yet" is the reason an investigation is hard, not an ask for a
+# playbook — but plain substring containment reads the two identically, and a
+# single such hit was enough to bind soc_show_sop at 0.91 and set
+# spl_allowed=False on a P1 zero-day question.
+#
+# Scope is deliberately narrow: only the words immediately before the term, so
+# "no playbook exists" is negated while "the playbook says do not reboot" is not.
+_NEGATION_CUES = (
+    "no",
+    "not",
+    "without",
+    "lack",
+    "lacks",
+    "lacking",
+    "missing",
+    "absent",
+    "dont have",
+    "don't have",
+    "do not have",
+    "doesnt have",
+    "doesn't have",
+    "does not have",
+    "havent",
+    "haven't",
+    "have not",
+    "yet to",
+    "never had",
+)
+_NEGATION_WINDOW_WORDS = 6
+
+
+def term_is_negated(normalized_query: str, term: str) -> bool:
+    """True when every occurrence of `term` sits inside a negation window."""
+    if not term or term not in normalized_query:
+        return False
+    occurrences = 0
+    negated = 0
+    start = 0
+    while True:
+        idx = normalized_query.find(term, start)
+        if idx < 0:
+            break
+        occurrences += 1
+        prefix_words = normalized_query[:idx].split()[-_NEGATION_WINDOW_WORDS:]
+        window = " ".join(prefix_words)
+        if any(cue in window.split() for cue in _NEGATION_CUES) or any(
+            cue in window for cue in _NEGATION_CUES if " " in cue
+        ):
+            negated += 1
+        start = idx + len(term)
+    return occurrences > 0 and negated == occurrences
+
+
+def any_term_present_unnegated(normalized_query: str, terms) -> bool:
+    return any(
+        term in normalized_query and not term_is_negated(normalized_query, term)
+        for term in terms
+    )
+
 def detect_security_log_aggregation_investigation_query(
     query: str,
     *,
@@ -661,9 +722,9 @@ def extract_query_signals(
             "tell me what",
         )
     )
-    playbook_procedure = any(
-        term in normalized
-        for term in ("playbook", "runbook", "sop", "standard operating procedure", "procedure steps", "checklist")
+    playbook_procedure = any_term_present_unnegated(
+        normalized,
+        ("playbook", "runbook", "sop", "standard operating procedure", "procedure steps", "checklist"),
     )
     # A definition asks "what is/are/explain what <concept>" wanting an
     # explanation. A ranked or aggregated data ask ("what are the top 5 source
