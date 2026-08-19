@@ -55,6 +55,7 @@ AI SOC Assistant — internal experience-center scaffold for an AI-augmented SOC
 - Intent hygiene: SOP/playbook/runbook and MITRE prompts route to `knowledge_recall` (no SPL); MITRE ask without alert context → `intent_clarification` human-review. Chat UI is analyst-first (summary card on top, technical trace collapsed).
 - Guarded LLM adapter (`app/llm/adapter/`): validates role-specific schemas, forces deterministic overrides on conflict (SPL `execution_eligible=false`, clarification/severity/MITRE-status/SOP-citation/allowed-actions). The adapter **is** on live main paths — `adapt_llm_output` is called from `app/llm/mitre_risk_rationale.py`, `app/synthesis/analyst_summary_llm_assist.py`, `app/routing/llm_route_plan_candidate.py`, `app/spl/template_renderer_llm_assist.py`, `app/threat/mitre_candidate_mapper.py`. Semantic guards in `app/answer_guard/rules.py` only execute under the Answer Guard flag above.
 - The Experience Center (EC) is the **current active surface** and is isolated from production `/chat`: journeys/fixtures live in `backend/app/demo/` (`scenarios.py` + `ec_*.py`, S1–S7 flagships + Lab), frontend in `frontend/src/components/ec/`. EC changes must not alter production `/chat` live semantics or `architecture.md`.
+- EC agent workflow is a **registry, not a per-scenario branch** (`app/demo/ec_agent/`): a scenario registers an `AgentProfile` and emits `ec_agent_workflow`; `ec_turn`/`fixtures/registry` dispatch generically and the frontend keys off the payload (`lib/ecAgentWorkflow.ts`), so adopting a scenario needs **no** frontend change. S4 is the reference implementation. Adoption path and the `ec_agent_workflow` contract: [`docs/ec/agent_workflow_template.md`](docs/ec/agent_workflow_template.md); copy `app/demo/fixtures/_agent_template/` to start. **Chip visibility belongs to the backend** — agent mode emits no chips because the agent lane owns every action; do not reintroduce a frontend denylist.
 - Experience Center demo answers (`app/demo/scenarios.py`) are deterministic/`coe_synthetic_fixture`, calibrated to governed behavior (valid template SPL, explicit MITRE status, `execution_eligible=false`), never produced by a live model. EC SPL is sourced from the governed template registry (`_scoped_template_spl`) — edit `templates.json` and EC follows, no drift. EC surfaces the same LLM-sidecar/lineage/governance builders as live (`live_llm_called=false`, advisory). Frontend is served in prod by Nginx from `frontend/dist` — run `npm run build` in `frontend/` to publish UI changes; the docker `frontend` service is Vite dev only.
 - LLM-assisted routing: modes `deterministic_only`, `llm_shadow_only`, `llm_assisted_semantic`, `llm_primary_lab`. Route suggestions are advisory only, normalized through deterministic registries; final route selection stays deterministic. SPL optimizer field is `revalidation_approved`; candidate SPL stays non-executable. **This invariant was violated in practice until Plan 4 D3** — a validated advisory selected the final route on 49/77 truth-set rows and, on 10, replaced a deterministic route with a worse one (5 dropping a capability, 0 improvements), because `_deterministic_uncertain` was reused as the test for "may an advisory *overrule*". `governance.py::_advisory_may_replace_skill` now restricts replacement to a route that reached **no** conclusion (the `["needs_clarification"]` low-confidence fallback); floor-resolved and registry-backed routes are never replaced. The advisory still runs, agrees, warns and reports — enrichment is untouched, and a genuinely unresolved route stays promotable.
 - Five live router skills: `alert_summary`, `spl_generation`, `attack_discovery`, `knowledge_recall`, `guided_investigation`. `guided_investigation` is a deterministic rescue for out-of-registry hunts — review-only guidance, MCP execution stays disabled.
@@ -144,9 +145,19 @@ PYTHONPATH=backend:. python3 -m test_harness.harness.runner --json
 TELEMETRY_MODE=none PYTHONPATH=backend:. python3 -m test_harness.harness.runner --json
 ```
 
-Expected current baseline:
+Expected current baseline (measured 2026-08-19 on `53cf4e7`):
+- Backend pytest: **5829 passed, 0 failed** (3 skipped, 6 xfailed). Run it as
+  `cd backend && python3 -m pytest -q` — the bare form the governance script uses.
+  Two gotchas cost real time before: a full run from the repo root with
+  `PYTHONPATH=backend:.` is **not** the same environment, and `.pytest_cache`
+  `lastfailed` accumulates across filtered runs, so diff failure **names** from
+  `-rf` output rather than trusting counts or the cache.
+- Frontend: **85 passed** (`cd frontend && npm test`), build passes.
 - Governance regression script: PASS (0 pytest failures, harness 6/6).
-- Frontend build: passes.
+
+Master was **26 tests red** from 2026-08-16 to 2026-08-19 without anyone noticing —
+there is no CI in this repo, so a local full run is the only gate. Do not assume a
+failure is pre-existing: check it against master before attributing it.
 
 ## Layout
 
@@ -284,7 +295,7 @@ Most-relevant in-flight/recent plans:
 
 | Plan | Status |
 |------|--------|
-| `plans/2026-08-18_1522_ec-experience-center-defect-remediation.md` | **Active (rev 3.1).** EC-only defect + fidelity remediation for CTO/CSO demo: Layer-1 evidence surfacing, S5 gating, continue-chip UX, A1 Cisco HIL, B3 credibility strip, C1 journey copy; A2/B1/B2 deferred. `architecture.md` + production `/chat` frozen. Audit: `docs/evals/ec_architecture_fidelity_audit_2026-08-18.md`. |
+| `plans/2026-08-18_1522_ec-experience-center-defect-remediation.md` | **Done — merged PR #148 @ `996f9df`; follow-on S4 work merged PR #150 @ `53cf4e7`** (visible hunt SPL, distinct monitoring query, "prepared" not "deployed", reusable agent framework). Original scope (rev 3.1): EC-only defect + fidelity remediation for CTO/CSO demo: Layer-1 evidence surfacing, S5 gating, continue-chip UX, A1 Cisco HIL, B3 credibility strip, C1 journey copy; A2/B1/B2 deferred. `architecture.md` + production `/chat` frozen. Audit: `docs/evals/ec_architecture_fidelity_audit_2026-08-18.md`. |
 | `plans/2026-08-17_1757_mcp-effective-tool-catalog-and-authority.md` | **Active.** Truthful MCP tool discovery (server ∩ allowlist) + exact-call AUTH0 grant (`canonical_arguments_hash`) on every live MCP execution path, incl. the 5 read-only metadata/identity tools. |
 | `plans/2026-08-17_races-investigation-execution-ux.md` | **Complete (rev 2).** Shared EC execution-progress shell, S1–S7 operational completeness, allowlisted real outbound EC email, legacy ChatPanel `demoMode` convergence. |
 | `plans/2026-08-16_2310_races-experience-center.md` | **Done (34/34) — merged PR #143 @ `d4f9210`.** Isolated Experience Center flagships + Lab. Do not reopen. |
