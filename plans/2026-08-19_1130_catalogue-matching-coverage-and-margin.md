@@ -88,11 +88,39 @@ to fire. The margin is retained as the escalation seam item 4 needs, but it has
 **not** yet earned its place on measured evidence and must not be described as
 proven.
 
-**One bind changes on the 105** and needs adjudication before item 3 lands:
-`"Which users authenticated to VPN after repeated MFA failures"` moves
-`auth_failed_login_spike` -> `auth_mfa_failure_spike`. That looks like a
-correction rather than a regression, but the 105 are frozen and it is the
-owner's call.
+**One bind changes on the 105**, and the investigation reversed the first read
+of it. `"Which users authenticated to VPN after repeated MFA failures"` moves
+`auth_failed_login_spike` -> `auth_mfa_failure_spike`:
+
+```
+auth_mfa_failure_spike   score 1.33   matched ['mfa failure','mfa failures']   template = None
+auth_failed_login_spike  score 0.63   matched ['failure','failures']           template = auth_failed_login_spike
+```
+
+B is **right** on the match — a specific two-word phrase should beat a generic
+one. But the winning use case has **no SPL template**, and no template in
+`templates.json` declares `use_case_id = auth_mfa_failure_spike`
+(`cisco_duo_mfa_fatigue` is Cisco-Duo-specific, `enabled: false`,
+`production_ready: false`, and owns its own use case). So the better bind costs
+the governed SPL, and **every routing metric stays silent** because both use
+cases resolve to `attack_discovery` with identical capabilities.
+
+An "artifact-aware tie-break" (prefer the template-bearing candidate when
+scores are close) was implemented and **rejected on measurement**: the gap is
+0.70, so firing it would need a ~0.7 band that would swamp genuine distinctions
+catalogue-wide. The rejection is preserved in
+`scripts/eval_catalogue_bind_experiment.py`.
+
+**Conclusion: this is catalogue debt, not a matcher defect.** The blocking fix
+for item 3 is to give `auth_mfa_failure_spike` a validator-clean template (via
+`/spl-template-add` discipline: author, validate, regenerate the review sheet),
+after which either bind is safe. Distorting the scoring to reach an artifact is
+explicitly rejected.
+
+**Generalised lesson for item 3:** a bind that improves lexical precision while
+losing an artifact is invisible to the truth set, because route and capability
+verdicts are unchanged. Item 3's Verify must therefore assert artifact
+preservation across the 105, not only route stability.
 
 ## Defect classes (all four are structural, not vocabulary)
 
@@ -144,12 +172,15 @@ it. T4 is enabled on this host and never fired for the query above.
 - [ ] **3 — Coverage-weighted, specificity-aware scoring (approach B)**
   - **Do:** replace the additive formula with `coverage x IDF specificity` as
     prototyped in `scripts/eval_catalogue_bind_experiment.py`, coverage floor
-    **0.22** (plateau midpoint), drop the flat 0.62 floor. Resolve the
-    `auth_mfa_failure_spike` bind change with the owner first.
+    **0.22** (plateau midpoint), drop the flat 0.62 floor. BLOCKED until
+    `auth_mfa_failure_spike` has a validator-clean SPL template — otherwise
+    landing item 3 silently drops the SPL for that question.
   - **Verify:** `rt.neg.001` and `rt.verb.001-003` stop binding a knowledge use
     case; `rt.neg.005/006` still bind `soc_show_sop`; truth set shows
     `capability_inconsistent` **strictly below 18** and `route_ok` **not below
-    68**; full pytest 0 failures.
+    68**; **no question in the 105 loses a renderable SPL template relative to
+    the current binds** (artifact preservation, not just route stability);
+    full pytest 0 failures.
   - **Depends on:** 2
   - **Evidence:**
 

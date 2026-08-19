@@ -147,3 +147,20 @@ for floor in (0.10,0.14,0.18,0.22,0.26,0.30):
             if ai!=bi: changed+=1
         line.append(f"m={margin:.2f}: {fk}/{mp}/{changed}")
     print(f"  floor={floor:.2f}  " + "   ".join(line))
+
+
+
+# ---------- B' (REJECTED): artifact-aware tie-break ----------
+# Hypothesis: when two candidates share a skill and score closely, prefer the
+# one that can render an SPL template, so a "more precise" bind never costs the
+# artifact. MEASURED AND REJECTED on the only case it was meant to fix:
+#
+#   auth_mfa_failure_spike   1.33   ['mfa failure','mfa failures']   template=None
+#   auth_failed_login_spike  0.63   ['failure','failures']           template=auth_failed_login_spike
+#
+# A 0.70 gap. B is correctly preferring a specific two-word phrase over a
+# generic one — the question IS about MFA failures. Making the tie-break fire
+# would need a ~0.7 band, which would swamp genuine distinctions catalogue-wide.
+# The defect is not in the matcher: auth_mfa_failure_spike has no template and
+# no template declares use_case_id=auth_mfa_failure_spike. Fix the catalogue,
+# not the scoring. Kept here so the rejection stays reproducible.
