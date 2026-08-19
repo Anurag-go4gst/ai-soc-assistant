@@ -42,6 +42,58 @@ confidence = min(0.95, 0.62 + 0.05*len(matched) + boosts)
 Truth set after the negation fix and the 9 new rows: **68/85 route_ok,
 18 capability_inconsistent**.
 
+## Approach selection — measured, not chosen by intuition (2026-08-19)
+
+Three candidates were run against the 96-row truth set and the 105 catalogue
+questions before picking one. Reproduce with
+`scripts/eval_catalogue_bind_experiment.py`.
+
+| approach | false knowledge bind | missed procedure | 105-question binds changed |
+|---|---|---|---|
+| **A** current: substring + `0.62 + 0.05*n` | **2** | 0 | — (baseline) |
+| **B** coverage x IDF specificity + margin | **0** | **0** | **1** |
+| **C** repo trigram+token cosine ported from the 105 tier | 0 | 3 (best sweep: 1) | not run |
+
+`false knowledge bind` = the label requires SPL and the matcher bound a
+knowledge use case — the failure that produced "Governed SOP retrieved ... as
+requested" on a P1 zero-day.
+
+**Chosen: B.** C is rejected on evidence, not preference: swept at
+0.10/0.15/0.20/0.25/0.30 it never reaches zero on both axes (best case still
+misses a procedure row), because cosine over a use case's whole surface text
+discards the precision of the curated `intent_patterns`. Worth recording that
+the repo already runs C's *design* — threshold 0.65, margin 0.05, candidate
+floor 0.45 — for the 105-question tier in
+`app/coverage/semantic_question_index.py`. Reusing that design for the 65-use-case
+catalogue was the obvious first hypothesis and the measurement rejected it.
+
+**Threshold has a plateau, so it is not a guess.** Sweeping B's coverage floor:
+
+```
+floor   false_knowledge / missed_procedure / 105-binds-changed
+0.10          2 / 0 / 1
+0.14          1 / 0 / 1
+0.18          0 / 0 / 1     <-- plateau starts
+0.22          0 / 0 / 1     <-- recommended (middle of plateau)
+0.26          0 / 0 / 1
+0.30          0 / 1 / 1     <-- starts dropping real procedure asks
+```
+
+Recommended floor **0.22**, the middle of a plateau three steps wide, not an
+edge value.
+
+**Honest caveat on the margin gate:** margins of 0.00 / 0.06 / 0.12 produce
+identical results on this corpus — candidates rarely tie closely enough for it
+to fire. The margin is retained as the escalation seam item 4 needs, but it has
+**not** yet earned its place on measured evidence and must not be described as
+proven.
+
+**One bind changes on the 105** and needs adjudication before item 3 lands:
+`"Which users authenticated to VPN after repeated MFA failures"` moves
+`auth_failed_login_spike` -> `auth_mfa_failure_spike`. That looks like a
+correction rather than a regression, but the 105 are frozen and it is the
+owner's call.
+
 ## Defect classes (all four are structural, not vocabulary)
 
 1. **No coverage measure.** Match *count* is scored; the fraction of the query
@@ -89,9 +141,11 @@ it. T4 is enabled on this host and never fired for the query above.
   - **Depends on:** 1
   - **Evidence:**
 
-- [ ] **3 — Coverage-weighted, specificity-aware scoring**
-  - **Do:** replace the additive formula. Weight rarer terms higher (IDF over the
-    catalogue), scale by coverage, drop the flat 0.62 floor.
+- [ ] **3 — Coverage-weighted, specificity-aware scoring (approach B)**
+  - **Do:** replace the additive formula with `coverage x IDF specificity` as
+    prototyped in `scripts/eval_catalogue_bind_experiment.py`, coverage floor
+    **0.22** (plateau midpoint), drop the flat 0.62 floor. Resolve the
+    `auth_mfa_failure_spike` bind change with the owner first.
   - **Verify:** `rt.neg.001` and `rt.verb.001-003` stop binding a knowledge use
     case; `rt.neg.005/006` still bind `soc_show_sop`; truth set shows
     `capability_inconsistent` **strictly below 18** and `route_ok` **not below
