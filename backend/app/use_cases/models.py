@@ -49,3 +49,13 @@ class UseCaseSelection(BaseModel):
     required_sources: list[str] = Field(default_factory=list)
     optional_sources: list[str] = Field(default_factory=list)
     action_capability_tier: int
+    # Bind diagnostics (plan 2026-08-19_1130 item 1) — REPORTED, NEVER READ by
+    # selection. `confidence` above still decides. These exist so the
+    # distribution of coverage and runner-up margin can be measured on real
+    # traffic before any threshold is chosen: the current 0.62 floor is what
+    # happens when a threshold is picked by intuition.
+    coverage_ratio: float | None = None
+    specificity: float | None = None
+    coverage_score: float | None = None
+    runner_up_score: float | None = None
+    bind_margin: float | None = None

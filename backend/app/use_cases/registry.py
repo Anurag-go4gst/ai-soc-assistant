@@ -20,10 +20,48 @@ def get_use_case(use_case_id: str) -> UseCaseDefinition | None:
     return next((item for item in load_use_case_catalog() if item.use_case_id == use_case_id), None)
 
 
+# --- Bind diagnostics (plan 2026-08-19_1130 item 1) -------------------------
+# Measurement only. Nothing here feeds selection; `confidence` still decides.
+# Recorded so the coverage/margin distribution can be observed on real traffic
+# before item 3 chooses a threshold from data instead of intuition.
+import math as _math
+from collections import Counter as _Counter
+
+
+def _catalogue_document_frequency() -> _Counter:
+    df: _Counter = _Counter()
+    for use_case in load_use_case_catalog():
+        words = {w for pattern in _expanded_match_terms(use_case) for w in pattern.lower().split()}
+        for word in words:
+            df[word] += 1
+    return df
+
+
+def _term_specificity(word: str, df: _Counter, catalogue_size: int) -> float:
+    return _math.log(1 + catalogue_size / (1 + df.get(word, 0)))
+
+
+def _bind_diagnostics(normalized_query: str, matched: list[str], df: _Counter, catalogue_size: int) -> dict:
+    query_words = max(len(normalized_query.split()), 1)
+    matched_words = sum(len(pattern.split()) for pattern in matched)
+    coverage = matched_words / query_words
+    specificity = (
+        sum(_term_specificity(w, df, catalogue_size) for p in matched for w in p.lower().split())
+        / max(matched_words, 1)
+    )
+    return {
+        "coverage_ratio": round(coverage, 4),
+        "specificity": round(specificity, 4),
+        "coverage_score": round(coverage * specificity, 4),
+    }
+
+
 def match_use_cases(query: str, *, limit: int = 3) -> list[UseCaseSelection]:
     from app.chat.query_signals import term_is_negated
 
     normalized = " ".join(query.lower().split())
+    _df = _catalogue_document_frequency()
+    _catalogue_size = len(load_use_case_catalog())
     matches: list[UseCaseSelection] = []
     for use_case in load_use_case_catalog():
         # Containment alone reads "we have no SOAR playbook yet" as a request for
@@ -51,6 +89,7 @@ def match_use_cases(query: str, *, limit: int = 3) -> list[UseCaseSelection]:
             + _canonical_term_boost(matched, use_case.intent_patterns)
             + _intent_boost(normalized, use_case.use_case_id),
         )
+        diagnostics = _bind_diagnostics(normalized, matched, _df, _catalogue_size)
         matches.append(
             UseCaseSelection(
                 use_case_id=use_case.use_case_id,
@@ -64,10 +103,28 @@ def match_use_cases(query: str, *, limit: int = 3) -> list[UseCaseSelection]:
                 required_sources=use_case.required_sources,
                 optional_sources=use_case.optional_sources,
                 action_capability_tier=use_case.action_capability_tier,
+                **diagnostics,
             )
         )
     _demote_weak_modifier_overrides(matches)
-    return sorted(matches, key=lambda item: item.confidence, reverse=True)[:limit]
+    ordered = sorted(matches, key=lambda item: item.confidence, reverse=True)
+    # Runner-up margin is measured on the coverage score, not on `confidence`:
+    # confidence saturates at 0.95 and cannot express "these two are close".
+    if ordered:
+        # Attach to the bind that is actually made (ordered[0] — confidence still
+        # decides), not to whichever candidate happens to lead on coverage. The
+        # question this must answer is "how thin and how contested is the bind we
+        # committed", so the runner-up is the best OTHER candidate by coverage.
+        selected = ordered[0]
+        others = [item for item in ordered[1:] if item.coverage_score is not None]
+        runner_up = max((item.coverage_score for item in others), default=None)
+        selected.runner_up_score = runner_up
+        selected.bind_margin = (
+            round((selected.coverage_score or 0.0) - runner_up, 4)
+            if runner_up is not None
+            else None
+        )
+    return ordered[:limit]
 
 
 # Confidence floor a weak SPL-meta modifier (e.g. soc_generate_spl) is pushed
