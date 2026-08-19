@@ -21,10 +21,20 @@ def get_use_case(use_case_id: str) -> UseCaseDefinition | None:
 
 
 def match_use_cases(query: str, *, limit: int = 3) -> list[UseCaseSelection]:
+    from app.chat.query_signals import term_is_negated
+
     normalized = " ".join(query.lower().split())
     matches: list[UseCaseSelection] = []
     for use_case in load_use_case_catalog():
-        matched = [pattern for pattern in _expanded_match_terms(use_case) if pattern.lower() in normalized]
+        # Containment alone reads "we have no SOAR playbook yet" as a request for
+        # a playbook. A term the user says they LACK is context for the ask, not
+        # the ask — drop those before scoring, or one negated word out of forty
+        # binds a use case at 0.91 and closes spl_allowed/mcp_allowed.
+        matched = [
+            pattern
+            for pattern in _expanded_match_terms(use_case)
+            if pattern.lower() in normalized and not term_is_negated(normalized, pattern.lower())
+        ]
         # "advisory" alone is not evidence of a CERT-In hash/IOC match.  It
         # falsely captured generic threat-intelligence advisories and bypassed
         # the T2 answer-shape path with an unrelated compliance use case.
