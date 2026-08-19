@@ -153,7 +153,7 @@ Expected current baseline (measured 2026-08-19 on `53cf4e7`):
   `lastfailed` accumulates across filtered runs, so diff failure **names** from
   `-rf` output rather than trusting counts or the cache.
 - Frontend: **85 passed** (`cd frontend && npm test`), build passes.
-- Governance regression script: PASS (0 pytest failures, harness 6/6).
+- Governance regression script: PASS (verified 2026-08-19 on a clean tree at `53cf4e7`) — harness 6/6, dual-runtime parity 120 exact / 0 critical, Cisco 50/0/0, dispatch matrix 5/5, protected manifest `--check` ok.
 
 Master was **26 tests red** from 2026-08-16 to 2026-08-19 without anyone noticing —
 there is no CI in this repo, so a local full run is the only gate. Do not assume a
