@@ -700,6 +700,12 @@ S1_FOLLOW_UP_JOURNEYS = {
 }
 
 S2_FOLLOW_UP_JOURNEYS = {
+    "review_existing_detection": _continue("s2-detect", "review_existing_detection", [
+        ("Checking existing SIEM coverage", "plan", "Looking for approved prompt-injection saved searches…"),
+        ("Replaying existing detection", "gather", "EC_AI_Prompt_Injection_Detection returned 3 events…"),
+        ("Reviewing AI gateway events", "gather", "Instruction-override prompts on ai-8841/8842…"),
+        ("Reviewing tool-call audit", "evaluate", "export_customer_records denied — no execution receipt…"),
+    ]),
     "check_dlp": _continue("s2-dlp", "check_dlp", [
         ("Checking existing DLP coverage", "plan", "Looking for approved DLP saved searches…"),
         ("Reviewing available DLP data", "gather", "Checking Splunk DLP indexes and sourcetypes…"),
@@ -731,6 +737,48 @@ S2_FOLLOW_UP_JOURNEYS = {
     "disable_integration_credential": _iam_action("disable_integration_credential"),
     "verify_credential_state": _iam_action("verify_credential_state"),
     "update_incident": _ticket_action("update_incident"),
+    "generate_closure_summary": _closure_action("generate_closure_summary"),
+    "run_investigation": _continue(
+        "s2-inv-run",
+        "run_investigation",
+        [
+            ("Replaying existing detection", "gather", "EC_AI_Prompt_Injection_Detection — 3 injection-pattern events…"),
+            ("Reviewing AI gateway events", "gather", "Instruction-override prompts confirmed…"),
+            ("Checking tool authorization", "evaluate", "export_customer_records denied — not executed…"),
+            ("Checking DLP window", "gather", "No customer-record exfiltration…"),
+            ("Inspecting tool-call history", "gather", "No other unauthorized tools executed…"),
+            ("Checking identity / session", "gather", "Interactive session intact…"),
+            ("Auditing restricted-data logs", "gather", "No unauthorized customer_records reads…"),
+            ("Opening AI security policy", "evaluate", "Restricted-data export denied by policy…"),
+            ("Synthesizing findings", "outcome", "Attempted, blocked, breach not confirmed…"),
+        ],
+        header="Investigation in progress",
+    ),
+    "create_remediation_plan": _continue(
+        "s2-rem-plan",
+        "create_remediation_plan",
+        [
+            ("Reviewing investigation outcome", "evaluate", "Injection confirmed · tool blocked · data access not confirmed…"),
+            ("Drafting AI incident", "plan", "Impact=attempted_blocked ticket template…"),
+            ("Preparing credential disable", "plan", "ai-assistant-export-connector HIL…"),
+            ("Drafting AppSec notification", "plan", "Logical recipient APPSEC_TEAM…"),
+            ("Sequencing dependencies", "outcome", "Governed remediation plan ready for approval…"),
+        ],
+        header="Building remediation plan",
+    ),
+    "run_remediation": _continue(
+        "s2-rem-run",
+        "run_remediation",
+        [
+            ("Create AI incident", "execute", "ITSM — prompt injection blocked…"),
+            ("Disable export credential", "execute", "IAM — simulated HIL disable…"),
+            ("Notify AppSec", "execute", "Email — APPSEC_TEAM after approval…"),
+            ("Verify credential state", "verify", "Export connector simulated disabled…"),
+            ("Update incident", "execute", "Ticket — breach not confirmed…"),
+            ("Closure summary", "outcome", "Attempted, blocked, not a confirmed breach…"),
+        ],
+        header="Remediation in progress",
+    ),
 }
 
 S7_FOLLOW_UP_JOURNEYS = {

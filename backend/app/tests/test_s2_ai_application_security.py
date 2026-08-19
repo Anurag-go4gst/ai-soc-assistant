@@ -33,6 +33,19 @@ def test_s2_placeholder_compatible() -> None:
 
 def test_s2_prompt_injection_confirmed_blocked_tool_not_a_breach() -> None:
     envelope = run_experience_center_turn(S2_SCENARIO_ID, session_id="s2-d1").model_dump()
+    assert envelope["ec_agent_lifecycle"] == "PLAN_READY"
+    workflow = envelope["ec_agent_workflow"]
+    assert workflow["investigation_plan"]["editable"] is True
+    brief = " ".join(workflow["brief"]["objective"]).lower()
+    assert "prompt-injection" in brief or "prompt injection" in brief
+    assert "unauthorized tool" in brief
+    assert "restricted" in brief
+    assessment = envelope["analyst"]["assessment"].lower()
+    assert "prompt-injection" in assessment
+    assert "splunk" in assessment
+    assert "mcp" in assessment
+    assert "rag" in assessment
+    assert "collecting and analyzing logs" in assessment
     outcome = envelope["ec_investigation_outcome"]
     blob = " ".join(outcome["confirmed"]).lower()
     assert "prompt-injection" in blob or "prompt injection" in blob
@@ -48,9 +61,6 @@ def test_s2_prompt_injection_confirmed_blocked_tool_not_a_breach() -> None:
     assert envelope["production_side_effect"] is False
     assert envelope["ec_provenance"]["live_llm_called"] is False
     assert envelope["ec_provenance"]["live_mcp_called"] is False
-    assessment = envelope["analyst"]["assessment"].lower()
-    assert "attack attempted" in assessment
-    assert "breach not confirmed" in assessment
 
 
 def test_s2_follow_ups_advance_and_credential_disable_requires_approval(monkeypatch) -> None:

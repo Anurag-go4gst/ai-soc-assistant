@@ -20,6 +20,7 @@ from app.demo.ec_siem import (
     s2_gap_spl_validation,
 )
 from app.demo.fixtures import common as C
+from app.demo.fixtures.s2.agent_config import OPENING_NARRATIVE as S2_OPENING_BRIEFING
 
 S2_SCENARIO_ID = "s2_ai_prompt_injection"
 S2_FAMILY = "s2_ai_security"
@@ -28,6 +29,12 @@ S2_QUERY = (
     "attempts and whether any attempts resulted in unauthorized tool execution or restricted-data access."
 )
 S2_FOLLOWUPS = (
+    C.chip("run_investigation", "Run investigation", action=True),
+    C.chip("create_remediation_plan", "Continue to remediation plan", action=True),
+    C.chip("run_remediation", "Approve remediation", action=True),
+    C.chip("update_investigation_plan", "Update investigation plan"),
+    C.chip("update_remediation_plan", "Update remediation plan"),
+    C.chip("review_existing_detection", "Replay existing prompt-injection detection"),
     C.chip("check_dlp", "Check DLP window"),
     C.chip("check_tool_call_history", "Check broader tool-call history"),
     C.chip("check_identity", "Check identity / session context"),
@@ -39,6 +46,7 @@ S2_FOLLOWUPS = (
     C.chip("verify_credential_state", "Verify credential state", action=True),
     C.chip("update_incident", "Update incident ticket", action=True),
     C.chip("generate_closure_summary", "Generate closure summary"),
+    C.chip("generate_executive_summary", "Generate executive summary"),
 )
 S2_FOLLOWUP_IDS = frozenset(item.follow_up_id for item in S2_FOLLOWUPS)
 
@@ -87,6 +95,9 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
     awaiting = False
     extras: dict[str, Any] = {}
 
+    if "review_existing_detection" in applied:
+        C.set_status(state, "siem_detection", "OBTAINED", f"{S2_DETECTION_NAME} replayed (partial coverage)", "simulated_mcp")
+
     if "check_dlp" in applied:
         C.set_status(state, "dlp", "OBTAINED", "No customer-record exfiltration in the DLP window")
         extra.append(C.evidence("ev-s2-dlp", "dlp_fixture", "Simulated DLP", [{"channel": "ai_assistant", "exfil_confirmed": False, "alerts": 0}], provenance="simulated_mcp", tool_name="splunk_run_saved_search"))
@@ -104,12 +115,12 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
 
     if "check_identity" in applied:
         C.set_status(state, "identity", "OBTAINED", "Interactive user session intact; no hijack indicators")
-        extra.append(C.evidence("ev-s2-iam", "iam_fixture", "Identity context", [{"user": "ext-assistant-gw", "session_hijack": False}], provenance="simulated_mcp"))
+        extra.append(C.evidence("ev-s2-iam", "iam_fixture", "Identity context", [{"user": "ext-assistant-gw", "session_hijack": False}], provenance="simulated_mcp", tool_name="splunk_run_saved_search"))
         outcome["missing_evidence"] = [item for item in outcome["missing_evidence"] if "Identity" not in item]
 
     if "check_data_source" in applied:
         C.set_status(state, "data_source", "OBTAINED", "No restricted-table reads attributed to the blocked tool")
-        extra.append(C.evidence("ev-s2-data", "datastore_fixture", "Restricted-data access logs", [{"store": "customer_records", "unauthorized_read": False}], provenance="simulated_mcp"))
+        extra.append(C.evidence("ev-s2-data", "datastore_fixture", "Restricted-data access logs", [{"store": "customer_records", "unauthorized_read": False}], provenance="simulated_mcp", tool_name="splunk_run_saved_search"))
         outcome["missing_evidence"] = [item for item in outcome["missing_evidence"] if "data-source" not in item]
 
     if "show_ai_security_policy" in applied:
@@ -191,15 +202,71 @@ def _apply(applied: list[str], session_id: str, outcome: dict[str, Any], state: 
     return outcome, state, extra, list(ec_actions.list_actions_for_session(session_id, S2_SCENARIO_ID)), awaiting, extras
 
 
-def build_s2_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str], pending_action_id: str | None = None, awaiting_external: bool = False):
-    applied = list(applied_follow_up_ids)
+def _s2_executive_summary(applied: list[str], actions: list[Any]) -> list[str]:
+    del actions
+    if "generate_executive_summary" not in applied:
+        return []
+    return [
+        "Prompt-injection attempts against the customer-facing assistant: confirmed (existing detection reused; 3 gateway events).",
+        "Unauthorized tool execution: export_customer_records requested and blocked. No execution receipt.",
+        "Restricted-data access: not confirmed (DLP window clean; no unauthorized restricted-table reads).",
+        "Containment: AI incident opened; export-connector credential disable is simulated HIL; AppSec notified.",
+    ]
+
+
+def build_s2_turn(
+    *,
+    session_id: str,
+    turn: int,
+    applied_follow_up_ids: list[str],
+    pending_action_id: str | None = None,
+    awaiting_external: bool = False,
+    agent_state: dict[str, Any] | None = None,
+):
+    user_applied = list(applied_follow_up_ids)
     outcome = deepcopy(_base_outcome())
     state = deepcopy(_base_state())
     extra: list[dict[str, Any]] = []
-    outcome, state, extra, actions, awaiting, extras = _apply(applied, session_id, outcome, state, extra)
+    outcome, state, extra, actions, awaiting, extras = _apply(user_applied, session_id, outcome, state, extra)
+    from app.demo.fixtures.s2.agent_handler import (
+        build_s2_agent_workflow,
+        finalize_s2_remediation_after_apply,
+        get_s2_agent_state,
+        s2_followups_for_agent_mode,
+    )
+
+    resolved_agent_state = dict(agent_state or get_s2_agent_state(session_id, S2_FAMILY))
+    if resolved_agent_state.get("remediation_execute_pending"):
+        resolved_agent_state = finalize_s2_remediation_after_apply(
+            session_id=session_id,
+            family=S2_FAMILY,
+            scenario_id=S2_SCENARIO_ID,
+            agent_state=resolved_agent_state,
+            applied=user_applied,
+        )
+        if "verify_credential_state" not in user_applied and "disable_integration_credential" in user_applied:
+            user_applied = list(user_applied) + ["verify_credential_state"]
+        outcome = deepcopy(_base_outcome())
+        state = deepcopy(_base_state())
+        extra = []
+        outcome, state, extra, actions, awaiting, extras = _apply(user_applied, session_id, outcome, state, extra)
+
+    applied = user_applied
     disable = next((item for item in actions if item.kind == "iam_disable"), None)
-    chips = list(S2_FOLLOWUPS)
-    if disable is None or disable.state not in {"EXECUTED", "VERIFIED"}:
+    use_agent_ui = True
+    agent_workflow = build_s2_agent_workflow(
+        agent_state=resolved_agent_state,
+        applied=applied,
+        actions=actions,
+        outcome=outcome,
+        executive_summary=_s2_executive_summary(applied, actions),
+    )
+    agent_chips = s2_followups_for_agent_mode(
+        str(resolved_agent_state.get("lifecycle") or "PLAN_READY"),
+        applied=user_applied,
+    )
+    chips = agent_chips if use_agent_ui else list(S2_FOLLOWUPS)
+    if not use_agent_ui and (disable is None or disable.state not in {"EXECUTED", "VERIFIED"}):
         chips = [item for item in chips if item.follow_up_id != "verify_credential_state"]
 
     gap_validation = s2_gap_spl_validation()
@@ -237,8 +304,9 @@ def build_s2_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str
         turn=turn,
         applied=applied,
         chips=chips,
-        title="Prompt injection confirmed · execution blocked · restricted-data access not confirmed",
-        assessment=(
+        title="Prompt injection — tool execution blocked — restricted-data access not confirmed",
+        direct_line="" if use_agent_ui else None,
+        assessment=S2_OPENING_BRIEFING if use_agent_ui else (
             "Attack attempted, breach not confirmed. The assistant received instruction-override prompts and an "
             "unauthorized export_customer_records tool call. Authorization blocked execution. Restricted-data access, "
             "credential compromise, and session hijack are not confirmed."
@@ -269,15 +337,15 @@ def build_s2_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str
         ),
         layer2_path=S2_LAYER2_PATH,
         extra={
-            "ec_impact_legend": [
+            "ec_impact_legend": [] if use_agent_ui else [
                 "Attack: Confirmed",
                 "Control: Blocked",
                 "Impact: Not confirmed",
                 "Confidence: High",
             ],
-            "ec_status_summary": "P2 High · Attack: Confirmed · Control: Blocked · Impact: Not confirmed",
-            "ec_gap_spl_notice": "Additional governed SIEM search was required to resolve the evidence gap.",
-            "ec_gap_spl_layer2_only": True,
+            "ec_status_summary": None if use_agent_ui else "P2 High · Attack: Confirmed · Control: Blocked · Impact: Not confirmed",
+            "ec_gap_spl_notice": None if use_agent_ui else "Additional governed SIEM search was required to resolve the evidence gap.",
+            "ec_gap_spl_layer2_only": False if use_agent_ui else True,
             "candidate_spl": {
                 "candidate_spl": S2_GAP_CANDIDATE_SPL,
                 "execution_eligible": False,
@@ -298,11 +366,15 @@ def build_s2_turn(*, session_id: str, turn: int, applied_follow_up_ids: list[str
                 "exact_call_authorization": "APPROVED" if gap_validation.get("approved") else "BLOCKED",
                 "candidate_spl_not_executed": True,
             },
-            "ec_siem_coverage": siem_coverage.model_dump(),
-            "ec_siem_tool_traces": [item.model_dump() for item in build_s2_tool_traces(gap_validation=gap_validation)],
-            "ec_attack_chain": [item.model_dump() for item in build_s2_attack_chain()],
-            "ec_evidence_findings": [item.model_dump() for item in build_s2_evidence_findings()],
-            "ec_detection_opportunity": build_s2_detection_opportunity().model_dump(),
+            "ec_siem_coverage": None if use_agent_ui else siem_coverage.model_dump(),
+            "ec_siem_tool_traces": [] if use_agent_ui else [item.model_dump() for item in build_s2_tool_traces(gap_validation=gap_validation)],
+            "ec_attack_chain": [] if use_agent_ui else [item.model_dump() for item in build_s2_attack_chain()],
+            "ec_evidence_findings": [] if use_agent_ui else [item.model_dump() for item in build_s2_evidence_findings()],
+            "ec_detection_opportunity": None if use_agent_ui else build_s2_detection_opportunity().model_dump(),
+            "ec_opening_briefing": None if use_agent_ui else S2_OPENING_BRIEFING,
+            "ec_agent_workflow": agent_workflow,
+            "ec_agent_lifecycle": str(resolved_agent_state.get("lifecycle") or "PLAN_READY"),
+            "ec_workflow_state": str(resolved_agent_state.get("lifecycle") or "PLAN_READY"),
             **extras,
         },
         journey=journey_for(S2_SCENARIO_ID, applied),
