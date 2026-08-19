@@ -730,6 +730,8 @@ def _apply_follow_up_effects(
         actions.append(prepared)
     if "create_incident_ticket" in applied and "ticket_create" not in existing_kinds:
         ticket_body = {
+            "id": "INC-2026-89412",
+            "ticket_id": "INC-2026-89412",
             "indicator": PRIMARY_ATTACKER_IP,
             "affected_systems": [_JUMP, _HOST_B, _HOST_C],
             "severity": "P2 High",
@@ -851,10 +853,57 @@ def _assessment(applied: list[str]) -> str:
     )
 
 
+def _what_we_found_segments(applied: list[str]) -> list[dict[str, str]]:
+    segments: list[dict[str, str]] = [
+        {"type": "text", "text": "Splunk MCP connected. "},
+        {
+            "type": "evidence_link",
+            "text": S1_DETECTION_NAME,
+            "evidence_id": "ev-s1-existing-search",
+            "title": f"Splunk MCP saved search · {S1_SAVED_SEARCH_NAME}",
+        },
+        {"type": "text", "text": " was reused for the recent suspicious-IP window; "},
+        {
+            "type": "evidence_link",
+            "text": "30-day firewall search (older window)",
+            "evidence_id": "ev-s1-fw-search-1",
+            "title": "Splunk MCP ad-hoc SPL · earliest=-60d latest=-30d",
+        },
+        {"type": "text", "text": " and "},
+        {
+            "type": "evidence_link",
+            "text": "30-day firewall search (recent window)",
+            "evidence_id": "ev-s1-fw-search-2",
+            "title": "Splunk MCP ad-hoc SPL · earliest=-30d latest=now",
+        },
+        {
+            "type": "text",
+            "text": (
+                f" completed the 60-day history gap. All three internal systems show denied traffic in both windows. "
+                f"Jump host {_JUMP} also has 3 allowed connections with a firewall identity association to {_ACCOUNT} "
+                "— not established as successful authentication."
+            ),
+        },
+    ]
+    if "check_successful_auth" in applied:
+        segments.append(
+            {
+                "type": "text",
+                "text": (
+                    f" A follow-up auth search shows successful logons for {_ACCOUNT} on {_JUMP}; "
+                    "the auth source IP is not proven."
+                ),
+            }
+        )
+    if "check_privileged_accounts" in applied:
+        segments.append({"type": "text", "text": f" {_ACCOUNT} is a privileged jump-host service account."})
+    return segments
+
+
 def _what_we_found(applied: list[str]) -> str:
     text = (
-        f"Existing Splunk content ({S1_DETECTION_NAME}) was reused for recent suspicious-IP firewall activity. "
-        "Because full 60-day history was not covered, two governed 30+30 firewall searches completed the historical view. "
+        f"Splunk MCP connected. {S1_DETECTION_NAME} was reused via saved search for the recent suspicious-IP window; "
+        f"two governed ad-hoc SPL searches completed the remaining 60-day firewall history as 30+30 windows. "
         f"All three internal systems show denied traffic in both windows. Jump host {_JUMP} also has "
         f"3 allowed connections with a firewall identity association to {_ACCOUNT} — not established as successful authentication."
     )
@@ -1168,13 +1217,14 @@ def build_s1_turn(
         "direct_answer_summary": assessment,
         "one_sentence_finding": _what_we_found(applied),
         "what_we_found": _what_we_found(applied),
+        "what_we_found_segments": _what_we_found_segments(applied),
         "affected_systems": systems,
         "important_evidence": [
-            f"Existing Splunk search reused: {S1_DETECTION_NAME}",
+            f"Splunk MCP connected · saved search reused: {S1_DETECTION_NAME}",
+            "Splunk MCP ad-hoc SPL completed the 60-day firewall history gap (30+30 windows)",
             f"{PRIMARY_ATTACKER_IP} appears in both 30-day firewall windows against three internal systems",
             f"Jump host {_JUMP} has 3 allowed connections with firewall identity association to {_ACCOUNT}",
             f"{_HOST_B} and {_HOST_C} are deny-only in both windows",
-            "Governed 30+30 searches completed the 60-day firewall history gap",
         ],
         "unconfirmed_findings": _unconfirmed_copy(outcome),
         "recommended_actions": _recommended(applied),

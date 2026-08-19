@@ -96,6 +96,7 @@ def upsert_ec_session(
     pending_action_id: str | None = None,
     awaiting_external: bool | None = None,
     applied_follow_up_id: str | None = None,
+    agent_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     key = (session_id, family)
     with _store_lock:
@@ -123,6 +124,8 @@ def upsert_ec_session(
             applied = list(current.get("applied_follow_up_ids") or [])
             applied.append(applied_follow_up_id)
             current["applied_follow_up_ids"] = applied
+        if agent_state is not None:
+            current["agent_state"] = dict(agent_state)
         current["expires_at"] = _now() + _FSM_TTL
         _ec_sessions[key] = current
         return dict(current)

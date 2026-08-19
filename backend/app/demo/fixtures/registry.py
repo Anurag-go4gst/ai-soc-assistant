@@ -64,6 +64,7 @@ from app.demo.fixtures.s7.pack import (
     build_s7_turn,
     s7_analyst_override,
 )
+from app.demo.ec_agent.registry import has_agent_profile
 
 FLAGSHIP_SCENARIO_IDS = (
     S1_SCENARIO_ID,
@@ -181,17 +182,21 @@ def build_flagship_turn(
     applied_follow_up_ids: list[str],
     pending_action_id: str | None = None,
     awaiting_external: bool = False,
+    agent_state: dict[str, Any] | None = None,
 ) -> ExperienceCenterResponse | None:
     pack = PACKS.get(scenario_id)
     if pack is None:
         return None
-    return pack.build_turn(
-        session_id=session_id,
-        turn=turn,
-        applied_follow_up_ids=applied_follow_up_ids,
-        pending_action_id=pending_action_id,
-        awaiting_external=awaiting_external,
-    )
+    kwargs: dict[str, Any] = {
+        "session_id": session_id,
+        "turn": turn,
+        "applied_follow_up_ids": applied_follow_up_ids,
+        "pending_action_id": pending_action_id,
+        "awaiting_external": awaiting_external,
+    }
+    if has_agent_profile(scenario_id):
+        kwargs["agent_state"] = agent_state
+    return pack.build_turn(**kwargs)
 
 
 def analyst_override_for(scenario_id: str, base: dict[str, Any]) -> dict[str, Any] | None:

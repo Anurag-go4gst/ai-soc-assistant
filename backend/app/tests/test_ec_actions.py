@@ -36,3 +36,17 @@ def test_approve_execute_verify_has_no_production_side_effect() -> None:
     verified = ec_actions.verify_action(prepared.action_id)
     assert verified.state == "VERIFIED"
     assert verified.production_side_effect is False
+
+
+def test_ticket_receipt_uses_incident_id_and_demo_friendly_summary() -> None:
+    prepared = ec_actions.prepare_action(
+        kind="ticket_create",
+        label="Create incident ticket",
+        session_id="ec-ticket",
+        scenario_id="s1_governed_splunk_investigation",
+        extra={"ticket": {"id": "INC-2026-89412", "severity": "P2 High"}},
+    )
+    executed = ec_actions.execute_action(ec_actions.approve_action(prepared.action_id).action_id)
+    assert executed.receipt is not None
+    assert executed.receipt["summary"] == "Incident ticket INC-2026-89412 created and linked to this investigation."
+    assert executed.receipt["ticket"]["ticket_id"] == "INC-2026-89412"

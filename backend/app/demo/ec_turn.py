@@ -113,6 +113,7 @@ def run_experience_center_turn(
     *,
     session_id: str | None = None,
     follow_up_id: str | None = None,
+    agent_payload: dict[str, Any] | None = None,
 ) -> ExperienceCenterResponse:
     if scenario_id not in SCENARIOS:
         raise KeyError(scenario_id)
@@ -125,12 +126,25 @@ def run_experience_center_turn(
     active_session = session_id or f"ec-sess-{uuid4().hex[:10]}"
 
     if follow_up_id:
-        session_record = ec_fsm_store.apply_follow_up(
-            active_session,
-            family,
+        from app.demo.ec_agent.dispatch import handle_agent_follow_up
+
+        handled = handle_agent_follow_up(
+            session_id=active_session,
+            family=family,
             scenario_id=scenario_id,
             follow_up_id=follow_up_id,
+            agent_payload=agent_payload,
+            session_record=ec_fsm_store.get_ec_session(active_session, family) or {},
         )
+        if handled is not None:
+            session_record = handled
+        else:
+            session_record = ec_fsm_store.apply_follow_up(
+                active_session,
+                family,
+                scenario_id=scenario_id,
+                follow_up_id=follow_up_id,
+            )
     else:
         existing = ec_fsm_store.get_ec_session(active_session, family)
         session_record = existing or ec_fsm_store.upsert_ec_session(
@@ -140,6 +154,16 @@ def run_experience_center_turn(
             turn=0,
         )
 
+    from app.demo.ec_agent.dispatch import maybe_init_agent_session
+
+    session_record = maybe_init_agent_session(
+        scenario_id=scenario_id,
+        session_id=active_session,
+        family=family,
+        session_record=session_record,
+        follow_up_id=follow_up_id,
+    )
+
     flagship = build_flagship_turn(
         scenario_id,
         session_id=active_session,
@@ -147,6 +171,7 @@ def run_experience_center_turn(
         applied_follow_up_ids=list(session_record.get("applied_follow_up_ids") or []),
         pending_action_id=session_record.get("pending_action_id"),
         awaiting_external=bool(session_record.get("awaiting_external")),
+        agent_state=session_record.get("agent_state"),
     )
     if flagship is not None:
         return flagship

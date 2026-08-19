@@ -34,6 +34,7 @@ backend/data/threat_intel/
 .cursor/hooks/DISABLE_LOOP_ASAP_ON_STOP
 .cursor/hooks/.verify-requested
 .cursor/hooks/.loop-asap-requested
+.cursor/hooks/.plan-create-requested
 plans/.active-plan
 
 # Playwright MCP browser-walk artifacts (scripts/ec_browser_walk_audit.mjs)

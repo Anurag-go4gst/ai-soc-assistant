@@ -28,6 +28,31 @@ S4_GAP_CANDIDATE_SPL = (
     "| head 100"
 )
 
+# Scheduled monitoring candidate — deliberately NOT the hunt query above.
+# The hunt looks back 7 days over uri+action to sample what already happened;
+# this runs every 15 minutes over a rolling window, groups by destination
+# gateway, and is what an alert would actually key on. Both carry the governed
+# 100-row cap because SPL_MAX_RESULT_LIMIT applies to scheduled searches too.
+S4_MONITOR_SEARCH_NAME = "EC_EdgeGate_VPN_ZeroDay_Monitor"
+S4_MONITOR_CANDIDATE_SPL = (
+    "search index=pgcil_soc sourcetype=pgcil:vpn earliest=-15m latest=now "
+    "(uri=\"*/api/v1/mgmt/session*\" OR url=\"*/mgmt/session*\") "
+    "| stats count values(src) as src values(action) as action by dest uri "
+    "| head 100"
+)
+S4_MONITOR_SCHEDULE = {
+    "cron": "*/15 * * * *",
+    "window": "15m",
+    "trigger": "count > 0",
+    "throttle": "60m",
+    "status": "candidate_prepared_not_deployed",
+}
+
+
+def s4_monitor_spl_validation() -> dict[str, Any]:
+    return validate_spl(S4_MONITOR_CANDIDATE_SPL, template_profile=_s4_spl_profile())
+
+
 S4_LAYER2_PATH = [
     "Understanding",
     "Advisory context",

@@ -118,6 +118,16 @@ def test_s1_evidence_merged_and_affected_systems() -> None:
     assert dumped["production_side_effect"] is False
 
 
+def test_s1_what_we_found_segments_link_saved_search_and_mcp_searches() -> None:
+    envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-links")
+    analyst = envelope.model_dump()["analyst"]
+    assert analyst["what_we_found"].startswith("Splunk MCP connected.")
+    segments = analyst["what_we_found_segments"]
+    assert segments[0]["text"] == "Splunk MCP connected. "
+    link_ids = [item["evidence_id"] for item in segments if item["type"] == "evidence_link"]
+    assert link_ids == ["ev-s1-existing-search", "ev-s1-fw-search-1", "ev-s1-fw-search-2"]
+
+
 def test_s1_outcome_confirmed_unconfirmed_missing_no_compromise_claim() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-outcome")
     outcome = envelope.model_dump()["ec_investigation_outcome"]
@@ -212,6 +222,7 @@ def test_s1_every_follow_up_advances_state_and_updates_evidence(monkeypatch) -> 
             assert ticket["state"] in {"PREPARED", "APPROVAL_REQUIRED"}
             assert ticket["production_side_effect"] is False
             assert ticket.get("draft") is not None
+            assert ticket["draft"].get("id") == "INC-2026-89412"
 
 
 def test_s1_follow_up_never_imports_production_actions() -> None:

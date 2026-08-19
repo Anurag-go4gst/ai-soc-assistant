@@ -208,6 +208,7 @@ def envelope(
     table: list[dict[str, Any]] | None = None,
     severity: str = "P2 High",
     journey: Any | None = None,
+    direct_line: str | None = None,
 ) -> ExperienceCenterResponse:
     remaining = [chip for chip in chips if chip.follow_up_id not in applied]
     pending = pending_action_id
@@ -217,6 +218,7 @@ def envelope(
     analyst = {
         "finding_title": title,
         "severity_label": severity,
+        "direct_answer_line": direct_line,
         "assessment": assessment,
         "direct_answer_summary": assessment,
         "one_sentence_finding": found,

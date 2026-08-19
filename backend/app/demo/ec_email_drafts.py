@@ -311,6 +311,87 @@ def s3_reply_firewall_team_email(*, applied: list[str]) -> dict[str, Any]:
     )
 
 
+def s4_wan_restriction_escalation_email(
+    *,
+    assets: list[str],
+    advisory_id: str,
+    anomalous: list[str] | None = None,
+) -> dict[str, Any]:
+    asset_line = ", ".join(assets)
+    anomalous_line = ", ".join(anomalous or [])
+    body = _header("Network Operations Team", "Zero-Day Advisory Response SOP §3 (temporary exposure containment)")
+    body += _section(
+        "WHY THIS IS REQUIRED",
+        [
+            f"Advisory {advisory_id} — WAN management listener exposed on affected EdgeGate firmware",
+            f"{len(assets)} internet-facing VPN gateways confirmed on vulnerable builds",
+            "Compensating control requested: disable WAN management listener; restrict control plane to management VRF",
+            "Splunk hunt returned 0 advisory-specific IOC hits — containment is exposure-driven, not compromise-confirmed",
+        ],
+    )
+    body += _section(
+        "AFFECTED ASSETS",
+        [line for line in [asset_line, f"Deeper auth review requested on: {anomalous_line}" if anomalous_line else ""] if line],
+    )
+    body += _section(
+        "REQUESTED ACTION",
+        [
+            "Schedule emergency change window to disable WAN management listener on listed gateways",
+            "Confirm rollback plan and maintenance notification list",
+            "Reply with change reference — AI SOC will link to incident package",
+        ],
+    )
+    return _email_envelope(
+        logical_recipient="NETWORK_TEAM",
+        to="NETWORK_TEAM",
+        subject=f"[Urgent] WAN management restriction — {advisory_id} ({len(assets)} gateways)",
+        body=body,
+    )
+
+
+def s4_identity_mfa_escalation_email(
+    *,
+    assets: list[str],
+    advisory_id: str,
+    anomalous: list[str] | None = None,
+) -> dict[str, Any]:
+    asset_line = ", ".join(assets)
+    anomalous_line = ", ".join(anomalous or [])
+    body = _header("Identity / IAM Operations", "Zero-Day Advisory Response SOP §3.2 (step-up authentication)")
+    body += _section(
+        "WHY THIS IS REQUIRED",
+        [
+            f"Advisory {advisory_id} — elevated risk on internet-facing VPN while patch change is prepared",
+            "Investigation flagged privileged auth anomalies on two gateways (not compromise-confirmed)",
+            "Step-up MFA cannot be applied via Identity MCP in this tenant (read-only connector)",
+            "Emergency conditional-access policy required before or during WAN restriction change window",
+        ],
+    )
+    body += _section(
+        "SCOPE",
+        [line for line in [
+            f"VPN gateways: {asset_line}",
+            f"Priority session review: {anomalous_line}" if anomalous_line else "",
+            "Applies to active sessions and new authentications until patch verified",
+        ] if line],
+    )
+    body += _section(
+        "REQUESTED ACTION",
+        [
+            "Open IAM emergency change for step-up MFA / conditional access on VPN IdP integration",
+            "Target SLA: policy published within 4–24 hours (not instant)",
+            "Confirm user re-authentication comms plan — expect session prompts",
+            "Reply with IAM change ticket reference for SOC incident linkage",
+        ],
+    )
+    return _email_envelope(
+        logical_recipient="IDENTITY_IAM_TEAM",
+        to="IDENTITY_IAM_TEAM",
+        subject=f"[IAM Change] Step-up MFA for VPN — {advisory_id}",
+        body=body,
+    )
+
+
 def s4_network_team_email(*, applied: list[str], advisory_id: str) -> dict[str, Any]:
     ticket_line = _ticket_status(
         applied,
@@ -329,8 +410,9 @@ def s4_network_team_email(*, applied: list[str], advisory_id: str) -> dict[str, 
     body += _section(
         "CURRENT ASSESSMENT",
         [
-            "Two of four gateways run an affected fixture version — exposure PARTIAL",
+            "4 of 12 internet-facing gateways run affected firmware — exposure PARTIAL",
             "Exploitation in environment: NOT CONFIRMED",
+            "VPN-GW-01 and VPN-GW-02 flagged for deeper compromise review",
             "Vulnerable asset ≠ compromised asset per advisory handling policy",
         ],
     )

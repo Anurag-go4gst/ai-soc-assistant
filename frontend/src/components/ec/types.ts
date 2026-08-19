@@ -5,6 +5,8 @@ export interface EcSourceEvidenceItem {
   preview_rows?: Array<Record<string, unknown>>;
   provenance?: string | null;
   tool_name?: string | null;
+  query_or_request_summary?: string | null;
+  executed_spl?: string | null;
   warnings?: string[];
 }
 
@@ -57,6 +59,202 @@ export interface EcActionRecord {
   receipt?: Record<string, unknown> | null;
   verify_result?: Record<string, unknown> | null;
   draft?: Record<string, unknown> | null;
+}
+
+export interface EcVpnGatewayPostureRow {
+  gateway: string;
+  site: string;
+  version: string;
+  affected: boolean;
+  health: string;
+  active_sessions?: number;
+  wan_mgmt_listener?: string;
+}
+
+export interface EcCapabilityPlanRow {
+  integration: string;
+  status: string;
+  detail: string;
+}
+
+export interface EcAgilusPatchStatus {
+  product: string;
+  patch_id: string;
+  patch_title: string;
+  targets: string[];
+  status: 'ANALYZED' | 'READY_TO_SUBMIT' | 'AWAITING_CALLBACK' | 'APPLIED';
+  job_id?: string | null;
+  ticket_id?: string | null;
+  detail: string;
+}
+
+export interface EcInvestigationPhaseStep {
+  id: string;
+  title: string;
+  status: string;
+  plan_summary: string;
+  action_label?: string;
+  follow_up_id?: string;
+  connector_mode?: string;
+  connector_available?: boolean;
+  fallback_label?: string;
+  executed?: boolean;
+  detail?: string | null;
+  spl_preview?: string | null;
+  hil_action?: boolean;
+  bullets?: string[];
+}
+
+export interface EcAgentStepFinding {
+  headline_finding?: string;
+  headlines_by_status?: Partial<Record<'QUEUED' | 'RUNNING' | 'COMPLETE' | 'SKIPPED', string>>;
+  key_evidence?: string[];
+  affected_entities?: string[];
+  quantitative_summary?: Record<string, string | number>;
+  confidence?: string;
+  caveat?: string;
+  evidence_sources?: Array<{
+    source: string;
+    evidence_id?: string;
+    provenance?: string;
+    tool?: string;
+  }>;
+  details?: Record<string, unknown>;
+  attention_state?: 'NORMAL' | 'ATTENTION' | 'RISK' | 'NO_MATCH' | 'INFORMATIONAL';
+}
+
+export interface EcAgentPlanStep {
+  id: string;
+  title: string;
+  summary?: string;
+  follow_up_id?: string | null;
+  tools?: string[];
+  selected?: boolean;
+  optional?: boolean;
+  default_selected?: boolean;
+  status?: string;
+  result?: string | null;
+  finding?: EcAgentStepFinding | null;
+  provenance?: string;
+  added_by_agent?: boolean;
+  reason?: string;
+  hil_required?: boolean;
+}
+
+export interface EcAgentWorkflowPayload {
+  lifecycle: string;
+  phase?: 'plan' | 'investigation_complete' | 'remediation';
+  opening_narrative?: string;
+  brief?: {
+    what_i_know?: string[];
+    objective?: string[];
+  };
+  action_plan?: {
+    summary?: string;
+    steps?: string[];
+  };
+  investigation_plan?: {
+    editable?: boolean;
+    summary?: string;
+    primary_cta?: string;
+    secondary_cta?: string;
+    steps?: EcAgentPlanStep[];
+  };
+  investigation_results?: {
+    header?: string;
+    steps?: EcAgentPlanStep[];
+  };
+  investigation_summary?: {
+    title?: string;
+    steps_completed?: number;
+    steps_total?: number;
+    metrics?: Array<{ label: string; value: string | number }>;
+  } | null;
+  normalized_state?: {
+    affected_asset_ids?: string[];
+    anomalous_asset_ids?: string[];
+    patch_id?: string;
+    patch_scope_asset_ids?: string[];
+    compromise_status?: string;
+  };
+  remediation_plan?: {
+    editable?: boolean;
+    summary?: string;
+    primary_cta?: string;
+    secondary_cta?: string;
+    visible?: boolean;
+    steps?: EcAgentPlanStep[];
+  };
+  remediation_summary?: {
+    title?: string;
+    steps_completed?: number;
+    steps_total?: number;
+    plan_steps?: string;
+    metrics?: Array<{ label: string; value: string | number }>;
+  } | null;
+  remediation_conclusion?: {
+    title?: string;
+    headline?: string;
+    narrative_points?: string[];
+  } | null;
+  remediation_results?: {
+    header?: string;
+    steps?: EcAgentPlanStep[];
+  };
+  execution_progress?: {
+    phase?: string;
+    header?: string;
+    steps?: EcAgentPlanStep[];
+  };
+  hil_prompt?: {
+    title?: string;
+    body?: string;
+    approve_label?: string;
+    skip_label?: string;
+    approve_follow_up_id?: string;
+    skip_follow_up_id?: string;
+    connector?: string;
+    connection_trace?: Array<{ label: string; status: string }>;
+  } | null;
+  remediation_offer?: {
+    title?: string;
+    body?: string;
+    yes_label?: string;
+    no_label?: string;
+    yes_follow_up_id?: string;
+    no_follow_up_id?: string;
+  } | null;
+  unconfirmed?: string[];
+  missing_evidence?: string[];
+  executive_summary?: string[];
+  investigation_conclusion?: {
+    title?: string;
+    headline?: string;
+    narrative?: string;
+    narrative_points?: string[];
+    exposure?: string;
+    compromise?: string;
+    confidence?: number;
+    findings?: string[];
+    evidence_summary?: Array<{ source: string; detail: string; provenance: string }>;
+  } | null;
+  next_step_cta?: {
+    label?: string;
+    follow_up_id?: string;
+  } | null;
+  final_summary?: {
+    title?: string;
+    headline?: string;
+    severity?: string;
+    affected?: string;
+    compromise?: string;
+    completed?: string[];
+    in_progress?: string[];
+    risk_from?: string;
+    risk_to?: string;
+    risk_note?: string;
+  } | null;
+  verification?: Array<{ item: string; status: string; detail: string }>;
 }
 
 export interface EcAffectedSystem {
@@ -209,6 +407,13 @@ export interface EcResourceCompositionRow {
   note?: string;
 }
 
+export interface EcAnalystTextSegment {
+  type: 'text' | 'evidence_link';
+  text: string;
+  evidence_id?: string;
+  title?: string | null;
+}
+
 export interface EcAnalystPayload {
   finding_title?: string | null;
   one_sentence_finding?: string | null;
@@ -216,6 +421,7 @@ export interface EcAnalystPayload {
   direct_answer_line?: string | null;
   assessment?: string | null;
   what_we_found?: string | null;
+  what_we_found_segments?: EcAnalystTextSegment[] | null;
   severity_label?: string | null;
   recommended_actions?: string[];
   splunk_results_table?: Array<Record<string, unknown>>;
@@ -287,6 +493,20 @@ export interface ExperienceCenterResponse {
   ec_spl_governance_summary?: string;
   ec_gap_spl_notice?: string;
   ec_gap_spl_layer2_only?: boolean;
+  ec_executive_summary?: string[];
+  ec_opening_briefing?: string;
+  ec_vpn_gateway_posture?: EcVpnGatewayPostureRow[];
+  ec_capability_plan?: EcCapabilityPlanRow[];
+  ec_agilus_patch?: EcAgilusPatchStatus | null;
+  ec_investigation_phases?: EcInvestigationPhase[];
+  ec_agent_workflow?: EcAgentWorkflowPayload | null;
+  ec_agent_lifecycle?: string;
+}
+
+export interface EcInvestigationPhase {
+  phase: string;
+  title: string;
+  steps: EcInvestigationPhaseStep[];
 }
 
 export interface EcExecutionResource {

@@ -238,6 +238,16 @@ function SoarDraftCard({
   );
 }
 
+function ticketIdFromReceipt(action: EcActionRecord): string | null {
+  const receipt = action.receipt;
+  if (!receipt || typeof receipt !== 'object') return null;
+  const ticket = (receipt as Record<string, unknown>).ticket;
+  if (!ticket || typeof ticket !== 'object') return null;
+  const record = ticket as Record<string, unknown>;
+  const id = record.ticket_id ?? record.id;
+  return typeof id === 'string' && id.trim() ? id : null;
+}
+
 function TicketDraftCard({
   action,
   busy,
@@ -255,7 +265,7 @@ function TicketDraftCard({
         <h4 className="text-sm font-semibold text-slate-100">{action.label}</h4>
         <Badge variant={done ? 'success' : 'outline'}>{action.state}</Badge>
       </div>
-      <p className="mt-1 text-xs text-slate-500">Simulated ITSM draft · no live ServiceNow change</p>
+      <p className="mt-1 text-xs text-slate-500">ServiceNow incident draft · confirm to create and link to this investigation</p>
       <dl className="mt-3 space-y-1 text-xs">
         {Object.entries(draft).map(([key, value]) => (
           <DraftLine key={key} label={key.replace(/_/g, ' ')} value={Array.isArray(value) ? value.join(', ') : String(value ?? '')} />
@@ -280,7 +290,12 @@ function TicketDraftCard({
         </Button>
       ) : null}
       {action.receipt ? (
-        <p className="mt-2 text-xs text-emerald-300">{String(action.receipt.summary ?? 'Ticket recorded')}</p>
+        <div className="mt-2 space-y-1 text-xs text-emerald-300">
+          {ticketIdFromReceipt(action) ? (
+            <p className="font-mono text-sm text-emerald-200">{ticketIdFromReceipt(action)}</p>
+          ) : null}
+          <p>{String(action.receipt.summary ?? 'Ticket recorded')}</p>
+        </div>
       ) : null}
     </article>
   );

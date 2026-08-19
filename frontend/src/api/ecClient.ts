@@ -29,12 +29,17 @@ export async function followUpEcScenario(
   scenarioId: string,
   followUpId: string,
   sessionId?: string,
+  agentPayload?: Record<string, unknown>,
 ): Promise<ExperienceCenterResponse> {
   const response = await fetch(`${API_BASE_URL}/demo/scenarios/${encodeURIComponent(scenarioId)}/follow-up`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ follow_up_id: followUpId, session_id: sessionId ?? null }),
+    body: JSON.stringify({
+      follow_up_id: followUpId,
+      session_id: sessionId ?? null,
+      agent_payload: agentPayload ?? null,
+    }),
   });
   return readJson(response, 'EC follow-up');
 }

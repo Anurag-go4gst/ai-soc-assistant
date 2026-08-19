@@ -21,7 +21,7 @@ from app.demo.fixtures import common as C
 S3_SCENARIO_ID = "s3_firewall_team_coordination"
 S3_FAMILY = "s3_firewall_coordination"
 S3_QUERY = (
-    "Malicious activity from this IP is confirmed. Follow our company's firewall-block process "
+    f"Malicious activity from {PRIMARY_ATTACKER_IP} is confirmed. Follow our company's firewall-block process "
     "and coordinate the block with the firewall team."
 )
 S3_FOLLOWUPS = (
@@ -359,6 +359,10 @@ def build_s3_turn(
         applied=applied,
         chips=list(S3_FOLLOWUPS),
         title=f"Coordinate firewall-block process for {PRIMARY_ATTACKER_IP}",
+        direct_line=(
+            f"Confirmed malicious indicator: {PRIMARY_ATTACKER_IP} (incident {INCIDENT_ID}). "
+            "Prior SIEM investigation evidence is reused — no new Splunk search is required for this coordination step."
+        ),
         assessment=(
             f"Confirmed SIEM evidence for {PRIMARY_ATTACKER_IP} is reused — no new Splunk search is required. "
             "Follow the company firewall-block process with the firewall team. "
