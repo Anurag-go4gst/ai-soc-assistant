@@ -1,6 +1,9 @@
 """Experience Center agent lifecycle — EC-only orchestration simulation.
 
 Not imported by production /chat. S4 zero-day is the reference implementation.
+
+Reusable framework: ``app/demo/ec_agent/`` + ``docs/ec/agent_workflow_template.md``.
+Copy ``fixtures/_agent_template/`` when adding a new agent-workflow scenario.
 """
 
 from __future__ import annotations
@@ -720,6 +723,7 @@ def build_s4_agent_workflow(
 
     if lifecycle == LIFECYCLE_COMPLETE:
         workflow["final_summary"] = {
+            "title": "Zero-day response completed",
             "headline": "Exposure contained",
             "severity": "P1",
             "affected": "4 affected gateways",

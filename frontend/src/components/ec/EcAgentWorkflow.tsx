@@ -576,7 +576,7 @@ export function EcAgentWorkflow({
 
       {workflow.final_summary && workflow.lifecycle === 'COMPLETE' ? (
         <section className="space-y-3 rounded-lg border border-emerald-500/25 bg-emerald-950/15 p-4">
-          <EcSectionHeading>Zero-day response completed</EcSectionHeading>
+          <EcSectionHeading>{workflow.final_summary.title ?? 'Response completed'}</EcSectionHeading>
           <p className="text-lg font-semibold text-slate-50">{workflow.final_summary.headline}</p>
           <p className="text-sm text-slate-300">
             {workflow.final_summary.severity} · {workflow.final_summary.affected} · {workflow.final_summary.compromise}

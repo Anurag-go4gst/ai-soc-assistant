@@ -9,6 +9,7 @@ import { EcSplCodeBlock } from '@/components/ec/EcSplCodeBlock';
 import { EcSourceEvidencePanel } from '@/components/ec/EcSourceEvidencePanel';
 import { EcWhatWeFoundBlock } from '@/components/ec/EcWhatWeFoundBlock';
 import { EcAgentWorkflow } from '@/components/ec/EcAgentWorkflow';
+import { isAgentWorkflowMode } from '@/lib/ecAgentWorkflow';
 import {
   EcAgilusPatchPanel,
   EcCapabilityPlanPanel,
@@ -114,7 +115,7 @@ export function EcInvestigationAnswer({
   const isS1 = envelope.scenario_id === 's1_governed_splunk_investigation';
   const isS4 = envelope.scenario_id === 's4_zero_day_no_playbook';
   const agentWorkflow = envelope.ec_agent_workflow;
-  const agentMode = isS4 && Boolean(agentWorkflow);
+  const agentMode = isAgentWorkflowMode(envelope);
   const actionPlan = analyst.recommended_actions ?? [];
   const attackChainPrimary = Boolean(envelope.ec_attack_chain?.length);
   const showNarrative =

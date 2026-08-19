@@ -243,6 +243,7 @@ export interface EcAgentWorkflowPayload {
     follow_up_id?: string;
   } | null;
   final_summary?: {
+    title?: string;
     headline?: string;
     severity?: string;
     affected?: string;

@@ -126,9 +126,9 @@ def run_experience_center_turn(
     active_session = session_id or f"ec-sess-{uuid4().hex[:10]}"
 
     if follow_up_id:
-        from app.demo.ec_agent_lifecycle import handle_s4_agent_follow_up
+        from app.demo.ec_agent.dispatch import handle_agent_follow_up
 
-        handled = handle_s4_agent_follow_up(
+        handled = handle_agent_follow_up(
             session_id=active_session,
             family=family,
             scenario_id=scenario_id,
@@ -154,6 +154,16 @@ def run_experience_center_turn(
             turn=0,
         )
 
+    from app.demo.ec_agent.dispatch import maybe_init_agent_session
+
+    session_record = maybe_init_agent_session(
+        scenario_id=scenario_id,
+        session_id=active_session,
+        family=family,
+        session_record=session_record,
+        follow_up_id=follow_up_id,
+    )
+
     flagship = build_flagship_turn(
         scenario_id,
         session_id=active_session,
@@ -164,22 +174,6 @@ def run_experience_center_turn(
         agent_state=session_record.get("agent_state"),
     )
     if flagship is not None:
-        if (
-            scenario_id == "s4_zero_day_no_playbook"
-            and not follow_up_id
-            and not list(session_record.get("applied_follow_up_ids") or [])
-        ):
-            from app.demo.ec_agent_lifecycle import init_s4_agent_state
-            from app.demo.fixtures.s4.pack import S4_PLAN_PREREAD
-
-            init_s4_agent_state(active_session, family, scenario_id)
-            for auto_id in S4_PLAN_PREREAD:
-                session_record = ec_fsm_store.upsert_ec_session(
-                    active_session,
-                    family,
-                    scenario_id=scenario_id,
-                    applied_follow_up_id=auto_id,
-                )
         return flagship
 
     payload = run_demo_scenario(scenario_id)

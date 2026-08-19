@@ -64,6 +64,7 @@ from app.demo.fixtures.s7.pack import (
     build_s7_turn,
     s7_analyst_override,
 )
+from app.demo.ec_agent.registry import has_agent_profile
 
 FLAGSHIP_SCENARIO_IDS = (
     S1_SCENARIO_ID,
@@ -193,7 +194,7 @@ def build_flagship_turn(
         "pending_action_id": pending_action_id,
         "awaiting_external": awaiting_external,
     }
-    if scenario_id == S4_SCENARIO_ID:
+    if has_agent_profile(scenario_id):
         kwargs["agent_state"] = agent_state
     return pack.build_turn(**kwargs)
 

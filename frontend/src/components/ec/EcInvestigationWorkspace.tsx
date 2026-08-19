@@ -15,6 +15,13 @@ import { ExperienceExecutionProgressPanel } from '@/components/experience-center
 import { experienceExecutionIsWaiting, type ExperienceExecutionProgressView } from '@/lib/experienceCenterExecution';
 import { scrollIntoScrollParent } from '@/lib/scrollIntoScrollParent';
 import { evidenceIdForChip, readinessLabelForActionChip } from '@/lib/ecOperationalLink';
+import {
+  agentLifecycleScrollTarget,
+  isAgentExecutiveSummaryFollowUp,
+  isAgentInlineProgressFollowUp,
+  isAgentWorkflowMode,
+  suppressesAgentExecutionProgressPanel,
+} from '@/lib/ecAgentWorkflow';
 import { EcWelcomeHero } from '@/components/ec/EcWelcomeHero';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -33,20 +40,6 @@ function delay(ms: number): Promise<void> {
 function isActionChip(chip?: EcFollowUpChip | null): boolean {
   if (!chip) return false;
   return chip.group === 'action' || Boolean(chip.leads_to_action);
-}
-
-function isS4AgentExecutiveSummaryFollowUp(scenarioId: string | undefined, followUpId: string): boolean {
-  return scenarioId === 's4_zero_day_no_playbook' && followUpId === 'generate_executive_summary';
-}
-
-function isS4AgentInlineProgress(scenarioId: string | undefined, followUpId: string, keepAnswer: boolean): boolean {
-  return (
-    scenarioId === 's4_zero_day_no_playbook' &&
-    keepAnswer &&
-    ['run_investigation', 'approve_investigation_vuln_scan', 'skip_investigation_vuln_scan', 'create_remediation_plan', 'run_remediation'].includes(
-      followUpId,
-    )
-  );
 }
 
 function scrollAgentSection(selector: string, block: ScrollLogicalPosition = 'start') {
@@ -100,7 +93,7 @@ export function EcInvestigationWorkspace() {
 
   useEffect(() => {
     if (!progress) return;
-    if (envelope?.scenario_id === 's4_zero_day_no_playbook' && envelope.ec_agent_workflow) return;
+    if (suppressesAgentExecutionProgressPanel(envelope)) return;
     window.requestAnimationFrame(() => {
       scrollIntoScrollParent(progressAnchorRef.current, { block: 'start', behavior: 'smooth' });
     });
@@ -153,12 +146,10 @@ export function EcInvestigationWorkspace() {
       setRevealed(true);
       if (next.ec_agent_lifecycle === 'INVESTIGATION_COMPLETE') {
         scrollAgentSection('[data-ec-section="investigation-summary"]', 'start');
-      } else if (next.ec_agent_lifecycle === 'REMEDIATION_PLAN_READY') {
-        scrollAgentSection('[data-ec-section="remediation-summary"]', 'start');
-      } else if (next.ec_agent_lifecycle === 'INVESTIGATION_NEEDS_APPROVAL') {
-        scrollAgentSection('[data-ec-section="agent-hil"]');
       } else {
-        scrollToAnswerStart();
+        const agentTarget = agentLifecycleScrollTarget(next.ec_agent_lifecycle);
+        if (agentTarget) scrollAgentSection(agentTarget, agentTarget.includes('summary') ? 'start' : 'nearest');
+        else scrollToAnswerStart();
       }
       return;
     }
@@ -242,9 +233,9 @@ export function EcInvestigationWorkspace() {
     if (!envelope) return;
     const epoch = epochRef.current + 1;
     epochRef.current = epoch;
-    const executiveSummaryOnly = isS4AgentExecutiveSummaryFollowUp(envelope.scenario_id, followUpId);
+    const executiveSummaryOnly = isAgentExecutiveSummaryFollowUp(envelope, followUpId);
     const keepAnswer = options?.keepAnswer ?? (isActionChip(chip) || isEvidenceContinueChip(chip) || executiveSummaryOnly);
-    const agentInlineProgress = isS4AgentInlineProgress(envelope.scenario_id, followUpId, Boolean(keepAnswer));
+    const agentInlineProgress = isAgentInlineProgressFollowUp(envelope, followUpId, Boolean(keepAnswer));
     setBusy(true);
     setError(null);
     pushUserMessage(chip?.label ?? followUpId, { scrollMode: executiveSummaryOnly ? 'none' : agentInlineProgress ? 'answer' : 'end' });
@@ -320,7 +311,7 @@ export function EcInvestigationWorkspace() {
   };
 
   const showAnswer = revealed && envelope && !synthesizing;
-  const agentMode = envelope?.scenario_id === 's4_zero_day_no_playbook' && Boolean(envelope?.ec_agent_workflow);
+  const agentMode = isAgentWorkflowMode(envelope);
   const showWelcomeIdle =
     !busy && !showAnswer && !progress && !synthesizing && stream.length === 0;
   const activeSkill = envelope?.selected_skill;
@@ -346,7 +337,7 @@ export function EcInvestigationWorkspace() {
             </EcChatBubble>
           ) : null}
 
-          {progress && !(envelope?.scenario_id === 's4_zero_day_no_playbook' && envelope.ec_agent_workflow) ? (
+          {progress && !suppressesAgentExecutionProgressPanel(envelope) ? (
             <EcChatBubble role="assistant">
               <div ref={progressAnchorRef} className="space-y-3">
                 <div className="flex items-center gap-2 text-sm text-cyan-200">
