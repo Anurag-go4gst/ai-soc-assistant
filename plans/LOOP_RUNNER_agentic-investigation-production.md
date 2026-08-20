@@ -20,11 +20,13 @@ architecture review" line). Do not start P0 while `status: draft`.
 
 ## Agent loop
 
-1. Reconcile: `git status && git log --oneline -5` in this worktree. Read the plan's Dependency
-   order, Stop conditions, Drift log, and **Two environments** section before any item.
-   This worktree has no Foundation-Sec / live Splunk / live email. Run pytest with mocks here.
-   Do not skip an item because "COE has the model." Live COE smoke is P13 after deploy, not a
-   substitute for the item's Verify command.
+1. Reconcile: `git status && git log --oneline -5` in this checkout. Read the plan's Dependency
+   order, Stop conditions, Drift log, and **Implementation vs COE live acceptance environment**
+   before any item. `/var/www/ai-soc-mcp` is an implementation checkout only — no `/chat` stack
+   runs from here; do not use it as the live acceptance environment. Run pytest with mocks here.
+   Model/MCP services may still be reachable on this host. Live acceptance is
+   `/var/www/ai-soc-assistant` after deploy. Do not skip an item because "COE has the model."
+   A live COE result never substitutes for this checkout's Verify command.
 2. Audit: `.cursor/hooks/audit-plan-discipline.sh plans/2026-08-21_0034_agentic-investigation-production.md` — fix every GAP.
 3. Pick the **first unchecked** checklist item whose **Depends on** are all checked, in order
    `P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7 → P8 → (P9 optional) → P10 → P11 → P13` (`P12` may run

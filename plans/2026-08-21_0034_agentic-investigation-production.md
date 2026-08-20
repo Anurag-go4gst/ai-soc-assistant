@@ -140,11 +140,26 @@ Acceptance tests for this requirement are listed under P0, P3, and P13, and in �
 
 This plan must not be hard-wired to today's tool set. Adding a server or action tomorrow must not require a new orchestrator, a new planner, or a second `/chat` runtime.
 
-### What is live on this COE (operator fact, 2026-08-21)
+### What exists on this COE host (operator fact, 2026-08-21)
 
-- **Splunk MCP is live** on this COE (`MCP_MODE=registry`, Splunk connector implemented). Investigation scenarios that need search must be able to use it after envelope + AUTH0 + HIL — not treat Splunk as a fictional/unproven connector.
-- **Allowlisted email is live** on this COE (Experience Center SMTP path in [`backend/app/demo/ec_email.py`](../backend/app/demo/ec_email.py)). Remediation/coordination may send email. Investigation remains read-only; email is a **write** and belongs on the remediation envelope.
-- **Repo-seeded `MCP_GLOBAL_EXECUTION_ENABLED` in [`env/profiles/coe.env.example`](../env/profiles/coe.env.example) is `false`.** Execution and discovery are independent. A live Splunk endpoint can still have `tools/list` unverified after restart (discovery snapshot is **process-memory only**). CapabilitySnapshot must tell those states apart.
+Canonical Splunk status — use this wording everywhere; do not say both “live” and “not live”:
+
+```text
+Splunk MCP capability/service exists on the COE host,
+but the currently deployed /chat stack is not yet configured to use it live.
+Before P6 live acceptance, configure/verify the deployed stack and refresh discovery.
+```
+
+At plan-authoring time, `/var/www/ai-soc-assistant/.env` had `MCP_MODE=mock` and an empty `SPLUNK_MCP_BASE_URL`. The Splunk connector is implemented in the repo (`splunk_mcp.py`). That is **not** the same as the deployed `/chat` stack currently using it. Re-check before any P6/P7/P13 live-Splunk step:
+
+```text
+grep -E 'MCP_MODE|SPLUNK_MCP_BASE_URL|SPLUNK_MCP_ENABLED' /var/www/ai-soc-assistant/.env
+```
+
+Treat `MCP_MODE=mock` or an empty base URL as “deployed stack not live yet.” Configure via the go-live runbook (`docs/coe/COE_GIT_DEPLOY_RUNBOOK.md`, `contracts/splunk_mcp_connection_contract.md`), then refresh discovery. Do not treat Splunk as a fictional/unproven connector, and do not claim the deployed `/chat` stack is already on live Splunk.
+
+- **Allowlisted email transport exists** on this COE (Experience Center SMTP path in [`backend/app/demo/ec_email.py`](../backend/app/demo/ec_email.py)). Remediation/coordination may send email after a production `/chat` adapter (P11). Investigation remains read-only; email is a **write** and belongs on the remediation envelope.
+- **Repo-seeded `MCP_GLOBAL_EXECUTION_ENABLED` in [`env/profiles/coe.env.example`](../env/profiles/coe.env.example) is `false`.** Execution and discovery are independent. A configured Splunk endpoint can still have `tools/list` unverified after restart (discovery snapshot is **process-memory only**). CapabilitySnapshot must tell those states apart.
 
 Do not copy Experience Center fixtures, chips, or `simulated_mcp` receipts into production `/chat`. Reuse **contracts and transports**, not demo packs.
 
@@ -248,40 +263,29 @@ Production email: extract or share the allowlisted SMTP transport behind a produ
 **Environment facts (single physical host, two checkouts):**
 
 ```text
-host: srv1399719
+host: srv1399719   (single physical host; both checkouts)
 
-implementation worktree: /var/www/ai-soc-mcp        (this checkout)
-  = source/worktree only
-  = NOT a deployed application stack
-  = no Foundation-Sec, no live Splunk MCP, no live email reachable from here
-  = do not claim live /chat, live T4, live MCP, or live email results from this checkout
-    unless a stack is explicitly started here for a one-off check (not the default)
+/var/www/ai-soc-mcp
+  = implementation checkout only
+  = no deployed /chat stack running from this checkout
+  = do not use it as the live acceptance environment
 
-deployed COE runtime: /var/www/ai-soc-assistant      (different checkout, same host)
-  = production-like /chat stack (docker compose)
-  = T4 / reasoning model services reachable
-  = Splunk MCP reachable (confirm registry mode before relying on it — see note below)
-  = allowlisted email transport available
+/var/www/ai-soc-assistant
+  = deployed COE runtime
+  = live acceptance happens here
 ```
 
-No second server is required for live investigation testing. Both checkouts are on `srv1399719`.
+The actual model / MCP / email services can still be reachable from this same host. The distinction is **not** network reachability. It is that `ai-soc-mcp` has no running application stack, so pytest here is mock/DET, and live `/chat` acceptance is against the deployed stack only.
 
-**Operator note (verify before any P6/P7/P11/P13 live-Splunk step):** at plan-authoring time the
-deployed checkout's `.env` showed `MCP_MODE=mock` and an empty `SPLUNK_MCP_BASE_URL` — i.e. Splunk
-is **not currently live** on the deployed stack, despite the "operator fact" stated earlier in this
-document. Before trusting any "Splunk MCP is live" line elsewhere in this plan for a live-acceptance
-step: `grep -E 'MCP_MODE|SPLUNK_MCP_BASE_URL|SPLUNK_MCP_ENABLED' /var/www/ai-soc-assistant/.env` on
-the deployed checkout and treat `MCP_MODE=mock` or an empty base URL as "not live yet" — go live via
-the go-live runbook (`docs/coe/COE_GIT_DEPLOY_RUNBOOK.md`, `contracts/splunk_mcp_connection_contract.md`)
-before executing that step's live-acceptance instructions, or run it against a recorded live fixture
-instead and say so in the item's Evidence.
+No second server is required for live investigation testing.
 
-**Stage A — implementation worktree.** All production code changes are authored in
+Splunk status for live-acceptance steps: see **What exists on this COE host** above. Do not treat “service exists on host” as “deployed `/chat` is already in live Splunk mode.”
+
+**Stage A — implementation checkout.** All production code changes are authored in
 `/var/www/ai-soc-mcp`. Use it for: code changes, unit tests, contract tests, negative/security
-tests, static checks, `/invariant-check`, the governance regression suite, git commits. Do not
-attempt to prove live `/chat`, live T4, live Splunk MCP, or live SMTP/email from this checkout
-unless a stack is explicitly started here — the default assumption is that this worktree is not a
-deployed runtime.
+tests, static checks, `/invariant-check`, the governance regression suite, git commits. Do not use
+this checkout as the live acceptance environment. Do not start a second `/chat` stack here to
+prove live T4, Splunk MCP, or SMTP — live acceptance is against `/var/www/ai-soc-assistant`.
 
 **Stage B — deploy the exact tested commit to the COE runtime.** After a phase passes its local
 verification gates and is committed here:
@@ -389,10 +393,7 @@ execution flag off      → snapshot may still be available; MCP call does not r
 RBAC deny               → snapshot may still be available; this turn does not execute
 ```
 
-Do not point this worktree at the COE LLM to iterate prompts (same rule as the T4 playbook). Do not
-skip mock gates in this worktree because the COE deploy has a model — the worktree's Verify command
-is never satisfied by a live COE result, and a live COE result never substitutes for the worktree's
-own Verify command.
+Do not iterate prompts against the live model from this implementation checkout (same rule as the T4 playbook). Do not skip mock gates here because the deployed stack has a model — this checkout's Verify command is never satisfied by a live COE result, and a live COE result never substitutes for this checkout's own Verify command.
 
 ---
 
@@ -412,9 +413,9 @@ Edit / Cancel → ApprovedInvestigationEnvelope`. Verify Cancel and Edit do not 
 + PhaseContract → RP hub`. Evidence may stop after one bounded hop if P7 is not yet landed (P5 has
 no PlanDelta by design — see P5's `Do`).
 
-**P6.** Must include real COE Splunk MCP proof (after confirming Splunk is genuinely live per the
-operator note above — not a recorded fixture, unless Splunk is confirmed still in mock mode, in
-which case say so in Evidence and use a recorded fixture instead). Required path:
+**P6.** Must include real COE Splunk MCP proof **after** the deployed stack is configured and
+discovery refreshed (canonical Splunk status above). Not a recorded fixture unless configuration
+is still mock — if so, say so in Evidence. Required path:
 
 ```text
 /chat → approved envelope → ResourcePlan → candidate SPL → deterministic validation
@@ -518,7 +519,7 @@ Class values: `EXISTS` | `PARTIAL` | `MISSING` | `MISPLACED`.
 
 - **CapabilitySnapshot — MISSING.** No need × availability projection.
 
-- **MCP tools/list discovery — PARTIAL.** Process-memory snapshot ∩ allowlist exists ([`effective_catalog.py`](../backend/app/connectors/mcp/effective_catalog.py)). Postgres schema `0007` exists; durable store is **not** implemented. After every backend restart, `mcp_discovery_verified` starts false until `POST /api/debug/mcp/discovery/refresh`. COE Splunk MCP is **live**; discovery must still be refreshed independently of execution flags. Broader multi-server catalog activation (plan `2026-08-17_1757`) is not fully wired into live `pipeline.py` selection.
+- **MCP tools/list discovery — PARTIAL.** Process-memory snapshot ∩ allowlist exists ([`effective_catalog.py`](../backend/app/connectors/mcp/effective_catalog.py)). Postgres schema `0007` exists; durable store is **not** implemented. After every backend restart, `mcp_discovery_verified` starts false until `POST /api/debug/mcp/discovery/refresh`. Splunk MCP **service exists on the COE host**; the deployed `/chat` stack is not yet configured to use it live. Discovery must still be refreshed independently of execution flags. Broader multi-server catalog activation (plan `2026-08-17_1757`) is not fully wired into live `pipeline.py` selection.
 
 - **Resource Planner graph / composed_dispatch — EXISTS.** Sole normal hub; currently one-pass.
 
@@ -736,7 +737,7 @@ Explanation follow-up (`Why did you call this suspicious?`) answers from Investi
 
 All new **runtime** flags default **false**. Flag-off must preserve current production **scheduling/execution** semantics for that seam. The P2 `skills/catalog.json` guided-row correction is **not** a flag; flag-off does not restore old catalog JSON. Do not reuse `ai_soc_t4_semantic_understanding_enabled` for planner/envelope/loop work. Extra reasoning hops inherit F3 serving risk: sequential, timeout, circuit-break, human-only restart.
 
-After every phase, remain disabled: production GO, EC fixtures on `/chat`, `llm_plan_bridge` as authority, a capability DB/service, writes inside investigation PlanDelta, agent→MCP, peer agent mesh. Do not turn off COE Splunk or email as a side effect of landing investigation flags.
+After every phase, remain disabled: production GO, EC fixtures on `/chat`, `llm_plan_bridge` as authority, a capability DB/service, writes inside investigation PlanDelta, agent→MCP, peer agent mesh. Do not turn off the host Splunk MCP **service** or email transport as a side effect of landing investigation flags. Do not claim the deployed `/chat` stack is already in live Splunk mode.
 
 ---
 
@@ -764,7 +765,7 @@ After every phase, remain disabled: production GO, EC fixtures on `/chat`, `llm_
 
 **Rollback.** Flag off.
 
-**Must remain disabled.** Planner LLM, envelope HIL, guided unveto, iteration, T4 expansion, remediation writes. Do **not** disable COE Splunk MCP as a side effect of this phase; investigation still must not call MCP until P4–P6.
+**Must remain disabled.** Planner LLM, envelope HIL, guided unveto, iteration, T4 expansion, remediation writes. Do **not** disable the host Splunk MCP **service** as a side effect of this phase; investigation still must not call MCP until P4–P6, and the deployed `/chat` stack still needs live Splunk configuration before P6 acceptance.
 
 ---
 
@@ -774,7 +775,7 @@ After every phase, remain disabled: production GO, EC fixtures on `/chat`, `llm_
 
 **Why now.** Planner (P3) and missing-tool behavior (convergence) need a single vocabulary. Must exist before unveto so "required but unavailable" is representable without a weaker route.
 
-**Reuse.** Skill catalog, resource registry, MCP discovery snapshot ∩ allowlist ([`effective_catalog.py`](../backend/app/connectors/mcp/effective_catalog.py)), capability **classification** (globally unsafe/blocked tool classes), live COE Splunk registry status, email as a registered action kind (not a demo import). Do **not** join current-user RBAC into the snapshot.
+**Reuse.** Skill catalog, resource registry, MCP discovery snapshot ∩ allowlist ([`effective_catalog.py`](../backend/app/connectors/mcp/effective_catalog.py)), capability **classification** (globally unsafe/blocked tool classes), Splunk registry/discovery views (availability is presence, not “deployed stack is live”), email as a registered action kind (not a demo import). Do **not** join current-user RBAC into the snapshot.
 
 **Files.** New module e.g. `backend/app/chat/capability_snapshot.py`; thin wiring from canonical planning after Final RQC; unit tests. Snapshot construction must read discovery views even when `MCP_GLOBAL_EXECUTION_ENABLED=false` (execution-off must not hide a discovered tool).
 
@@ -827,7 +828,7 @@ Split two kinds of change:
 
 **Rollback.** Catalog: git revert. Runtime: flag off (old scheduling only).
 
-**Must remain disabled.** Envelope, compiler, T4-as-planner. Investigation MCP calls still wait for P4–P6 even though COE Splunk is live.
+**Must remain disabled.** Envelope, compiler, T4-as-planner. Investigation MCP calls still wait for P4–P6 even though a Splunk MCP **service exists on the host**. The deployed `/chat` stack is not yet configured to use it live.
 
 ---
 
@@ -911,7 +912,7 @@ Split two kinds of change:
 
 **Rollback.** Flag off. Do not re-enable hybrid as a second authority.
 
-**Must remain disabled.** PlanDelta, writes, domain mesh, second loop. Live Splunk stays callable from this seam once envelope+AUTH0 exist (P6).
+**Must remain disabled.** PlanDelta, writes, domain mesh, second loop. Splunk stays callable from this seam once the deployed stack is configured live and envelope+AUTH0 exist (P6).
 
 ---
 
@@ -921,7 +922,7 @@ Split two kinds of change:
 
 **Why now.** Loop (P5) is useless if the second Splunk call reuses a blanket grant or never reaches AUTH0.
 
-**Reuse.** [`splunk_call_authorization.py`](../backend/app/orchestration/splunk_call_authorization.py) (`normalized_spl` + `canonical_arguments_hash`). Splunk pipeline: candidate SPL → mapping/postprocess → validation → `normalized_spl` → exact-call → **live COE Splunk MCP**. Same grant shape must accept a future Agilius/SOAR tool name + argument hash without a new executor.
+**Reuse.** [`splunk_call_authorization.py`](../backend/app/orchestration/splunk_call_authorization.py) (`normalized_spl` + `canonical_arguments_hash`). Splunk pipeline: candidate SPL → mapping/postprocess → validation → `normalized_spl` → exact-call → Splunk MCP **once the deployed stack is configured live**. Same grant shape must accept a future Agilius/SOAR tool name + argument hash without a new executor.
 
 **Files.** AUTH0 + MCP gate; RP loop argument binding; tests from `test_mcp_authority_gap_closure.py` plus a second-call / second-server hash fixture (fake Agilius args allowed — no live Agilius). A later P7 PlanDelta that changes SPL reuses this grant rule; P6 does not implement PlanDelta.
 
@@ -933,7 +934,7 @@ Split two kinds of change:
 
 **Negative / security.** LLM cannot mint a grant. Unavailable or undiscovered tool cannot execute. Execution flag off cannot run even if discovery succeeded. Snapshot availability is not AUTH0.
 
-**Acceptance.** Two Splunk calls with different `normalized_spl` require two grants — pytest here; live COE Splunk in P13. Discovery-unverified server cannot execute.
+**Acceptance.** Two Splunk calls with different `normalized_spl` require two grants — pytest here; deployed-stack Splunk in P13 **after** configure/verify + discovery refresh. Discovery-unverified server cannot execute.
 
 **Dependencies.** P5.
 
@@ -972,7 +973,7 @@ P7 owns: no-progress fingerprint, gap-driven adaptation, hypothesis/evidence rea
 
 **Negative / security.** Duplicate fingerprint stop. Budget/timeout stop. Domain agent cannot invoke MCP. Two investigation loops forbidden (`grep` no second while-loop executor).
 
-**Acceptance.** Scenario A mocked in this worktree. Live COE Splunk in P13. Flag off = P5 stop-on-gap.
+**Acceptance.** Scenario A mocked in this checkout. Deployed-stack Splunk in P13 after configure/verify + discovery refresh. Flag off = P5 stop-on-gap.
 
 **Dependencies.** P5, P6.
 
@@ -1191,7 +1192,7 @@ Do **not** require same wording, same fixtures, same demo data, or same EC compo
 
 **Negative / security.** Full list in §7.
 
-**Acceptance.** Architecture review sign-off on measured probes. `EXPERIENCE CENTER BEHAVIORAL PARITY` gate PASS. Production GO remains deferred. F3 serving remains a known risk. **Splunk MCP is live on this COE** — P13 must include a discovery refresh check plus at least one governed live search (envelope + AUTH0), not a claim that Splunk is unproven. Agilius still unproven until onboarded.
+**Acceptance.** Architecture review sign-off on measured probes. `EXPERIENCE CENTER BEHAVIORAL PARITY` gate PASS. Production GO remains deferred. F3 serving remains a known risk. Splunk MCP **service exists on the COE host**; the deployed `/chat` stack is not yet configured to use it live. P13 live acceptance: configure/verify that stack, refresh discovery, then at least one governed search (envelope + AUTH0). Do not treat Splunk as an unproven connector, and do not skip configuration. Agilius still unproven until onboarded.
 
 **Dependencies.** P0–P8, P10; P7 required for adaptive-gap and EC parity; P11–P12 as applicable; P9 skipped unless enabled.
 
@@ -1220,13 +1221,13 @@ Do **not** reuse T4 flags for any of the above.
 
 COE-specific (already present; this plan does not flip them as a side effect of P0):
 
-- Splunk MCP live / `MCP_MODE=registry` — keep using it for investigation once P4–P6 exist.
+- Splunk MCP **service exists on the host**; deployed `/chat` is not yet live-configured (`MCP_MODE=mock` / empty URL at authoring). Before P6 live acceptance: configure/verify registry mode + URL/token, then refresh discovery. This plan does not flip those keys as a side effect of P0.
 - `MCP_GLOBAL_EXECUTION_ENABLED` remains the execution switch; discovery refresh is required regardless of its value.
-- Allowlisted email remains live for remediation once a production adapter exists; it is not an investigation tool.
+- Allowlisted email transport exists for remediation once a production adapter exists; it is not an investigation tool.
 
 Global invariants that stay off/forbidden unless a later approved plan says otherwise: EC→production fixtures, `llm_plan_bridge` authority, capability service, unbounded ReAct, unregistered Agilius/SOAR/firewall execution.
 
-Serving: this worktree has **no** LLM. P3/P7 Verify is mocked-provider + fail-closed. Probe investigation_planner (and later reasoners) on COE :8081 **after** mock gates, before leaving planner flags on. Sequential hops only. Circuit-break + human restart. If F3 is still red, keep planner flags false on COE.
+Serving: `/var/www/ai-soc-mcp` has no running `/chat` stack, so P3/P7 Verify is mocked-provider + fail-closed. Model services may still be reachable on this host. Probe investigation_planner (and later reasoners) on the **deployed** stack (`/var/www/ai-soc-assistant`) **after** mock gates, before leaving planner flags on. Sequential hops only. Circuit-break + human restart. If F3 is still red, keep planner flags false on the deployed stack.
 
 ---
 
@@ -1321,7 +1322,7 @@ The implementation must include tests proving:
 - EC fixtures cannot enter production path
 - T1–T3 investigation-shaped RQC cannot bypass envelope / RP hub in favor of a weaker route-specific answer
 - semantically equivalent queries resolved through T1–T3 versus T4 produce equivalent investigation plans/outcomes given the same capabilities and evidence
-- discovery-unverified MCP cannot execute even if Splunk is live on COE
+- discovery-unverified MCP cannot execute even if the Splunk MCP **service exists** on the COE host
 - execution-off cannot run a discovered tool
 - adding a registry/allowlist row does not require a new planner
 - investigation PlanDelta cannot send email (write)
@@ -1362,7 +1363,7 @@ Counter-fixture: T1–T3 `needs_splunk=true` investigation must **not** emit tod
 - Expanding T4 into investigation/PlanDelta/remediation planning
 - Reviving `llm_plan_bridge` as authority
 
-**Not deferred on this COE:** Splunk MCP (live); allowlisted email (live, needs production `/chat` adapter in P11).
+**Not deferred on this COE:** Splunk MCP **connector/service exists on the host** (deployed `/chat` live configuration is a P6 precondition, not a missing connector); allowlisted email transport exists (needs production `/chat` adapter in P11).
 
 ---
 
@@ -1517,7 +1518,7 @@ VERIFICATION when Live acceptance by phase marks the phase required).
 
 - Exact flag names in `config.py` / `.env.example` are TBD at implement; this plan binds **behavior**, not the final env key spelling.
 - T1 vs T4 parity fixtures must be authored from real semantically equivalent pairs; they do not exist yet.
-- Operator asserted Splunk MCP and email are live on **COE**, not in this worktree. Worktree P13 is mocked; live smoke is a COE deploy step.
+- Splunk MCP **service exists on the COE host**; the deployed `/chat` stack is not yet configured to use it live. P13 live smoke is on `/var/www/ai-soc-assistant` after configure/verify + discovery refresh. Implementation-checkout P13 pytest stays mocked.
 - Durable discovery store is unimplemented (schema `0007` only).
 - P9 has no Verify that requires implementation unless review opts in.
 - `architecture.md` “RBAC-relevant policy posture” / “role-scoped” snapshot wording is **not** edited here; this plan’s P1 contract is two axes only (see CapabilitySnapshot section). Architecture review must accept that interpretation or revise architecture.md in a later approved change.
@@ -1528,12 +1529,12 @@ VERIFICATION when Live acceptance by phase marks the phase required).
 - 2026-08-21: Added **T1–T4 downstream convergence** — understanding-only; one investigation runtime after Final RQC; T1–T3 facts are inputs not bypasses; no weaker route-specific fallback when tools are missing; T1 vs T4 parity tests required.
 - 2026-08-21: Audit note — `_bind_final_route_from_rqc` already precedes ResourcePlan; `architecture.md` "often from provisional family" is slightly stale vs code. Remaining MISPLACED item is RP-before-approval, not route-before-plan.
 - 2026-08-21: Re-audit — live RP guided path is `composed_dispatch` → executor rag-only schedule, not graph `rag_only`. Composer C0 does not veto MCP from catalog `blocked_tools`; EvidencePlan + executor + RQC overlay are the contradiction. Discovery snapshot is in-memory only.
-- 2026-08-21: COE facts — **Splunk MCP live**; **email live** (EC SMTP); execution flag and discovery remain independent. Plan must stay extensible for Agilius/SOAR/firewall via registry+allowlist+discovery, not a new orchestrator. Do not import EC demo modules into production `/chat`.
+- 2026-08-21: COE facts — Splunk MCP **connector/service exists on the host**; deployed `/chat` live use is a later configuration step. Email transport exists (EC SMTP). Execution flag and discovery remain independent. Plan must stay extensible for Agilius/SOAR/firewall via registry+allowlist+discovery, not a new orchestrator. Do not import EC demo modules into production `/chat`.
 - 2026-08-21: Deferred list no longer treats Splunk or email as missing connectors. Agilius remains unonboarded.
 - 2026-08-21: Review pass — content spot-checked against live code (`skills/catalog.json` guided row, `evidence_planner.py` guided family) and confirmed accurate. Added: `## Commit discipline` (one commit per phase, invariant-check + regression gates before commit) and a **Commit** line on all 14 checklist items; explicit **new test file** names for P0/P1/P2 (previously named individual tests with no file, which would have forced an executing agent to guess where to put them); `loop_runner` now points at `plans/LOOP_RUNNER_agentic-investigation-production.md` (created this pass, frontmatter previously said `none`).
-- 2026-08-21: **This worktree has no LLM / live MCP / live email.** Implementation and Verify are mock/DET here. Live production `/chat` tests run after deploy to COE. Fail-closed when the model is missing is required on both.
+- 2026-08-21: **`/var/www/ai-soc-mcp` is an implementation checkout only** (no `/chat` stack running from it). Verify is mock/DET here. Live production `/chat` tests run after deploy to `/var/www/ai-soc-assistant`. Model/MCP services may still be reachable on the same host. Fail-closed when the model is missing is required on both.
 - 2026-08-21: Correction pass (FIX 1–7) — CapabilitySnapshot is need × availability only (RBAC/AUTH0/HIL/envelope/execution are later gates; no `executable` field). P2 splits permanent `catalog.json` correction (`git revert`) from runtime `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED`. P5 is execution/sufficiency seam with honest stop; P7 owns PlanDelta into that seam. Production ChatPanel UX + follow-up continuity + P13 `EXPERIENCE CENTER BEHAVIORAL PARITY` gate. T1–T4 convergence unchanged.
-- 2026-08-21: COE deployment model pass — expanded "Two environments" into **Implementation vs COE live acceptance environment**: named the exact host (`srv1399719`) and exact deployed path (`/var/www/ai-soc-assistant`, distinct from this worktree `/var/www/ai-soc-mcp`); Stage A/Stage B commit→deploy model; 15-step phase execution model; flag-first deployment rule; model/T4 latency-check rule; Splunk discovery-after-restart honesty rule; deployment safety checklist (stop, do not force-reset the deployed checkout, on unexpected modifications); rollback preference (flag off, else redeploy last-known-good commit, never manual edits in the deployed checkout); Phase evidence template (LOCAL VERIFICATION + COE LIVE VERIFICATION). Added **Live acceptance by phase** (P0–P13, which phases need a COE deploy and what to prove there). Commit discipline gained a deploy step; Checklist intro now points every item's Evidence at the template. Loop runner gained a deploy step (step 9) with the same safety checks. Operator note: this pass found the deployed checkout's `.env` currently `MCP_MODE=mock` with empty `SPLUNK_MCP_BASE_URL` — Splunk is not actually live on the deployed stack right now despite the earlier "operator fact" line; P6/P7/P11/P13 must re-check this before running live-Splunk steps. `architecture.md` not touched.
+- 2026-08-21: Wording fix — Splunk MCP **capability/service exists on the COE host**, but the deployed `/chat` stack is **not yet configured to use it live** (`MCP_MODE=mock`, empty `SPLUNK_MCP_BASE_URL` at authoring). Before P6 live acceptance: configure/verify + refresh discovery. `/var/www/ai-soc-mcp` = implementation checkout only (no running stack; not the live-acceptance environment). `/var/www/ai-soc-assistant` = deployed COE runtime (live acceptance). Distinction is stack-running-from-checkout, not network reachability. Removed leftover “Splunk is live” / “Splunk is not live” dual wording.
 
 ---
 
