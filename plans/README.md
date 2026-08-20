@@ -18,6 +18,7 @@ If Cursor also writes a plan under `.cursor/plans/` or `/root/.cursor/plans/`, *
 
 | Plan | Status |
 |------|--------|
+| [`2026-08-21_0034_agentic-investigation-production.md`](2026-08-21_0034_agentic-investigation-production.md) | **Draft — READY FOR ARCHITECTURE REVIEW.** Production `/chat` implementation plan for the 2026-08-20 `architecture.md` investigation target (envelope before ResourcePlan, guided unveto, PlanDelta, T1–T4 downstream convergence). Docs only; do not implement until review. T1–T3 catalogue patch remains a separate workstream. |
 | [`2026-08-20_2130_ec-s1-connected-remediation.md`](2026-08-20_2130_ec-s1-connected-remediation.md) | **Done (4/4).** S1 rem as connected SOC: one monitoring chain, CREATED/SENT/ACTIVE/NOT_REQUIRED, View SPL + request/response, auto executive summary, RESPONSE COMPLETE with risk remaining MEDIUM. EC/demo only. Branch `feat/ec-s1-s7-agent-framework`. |
 | [`2026-08-20_1630_ec-s1-analyst-question-polish.md`](2026-08-20_1630_ec-s1-analyst-question-polish.md) | **Done (5/5).** Reorder S1 around who/what/succeeded; honest detection wording; unexplained permits; metrics/provenance/empty-UI polish. EC/demo only. Branch `feat/ec-s1-s7-agent-framework`. |
 | [`2026-08-20_1438_ec-s1-investigation-sop-polish.md`](2026-08-20_1438_ec-s1-investigation-sop-polish.md) | **Done (7/7).** Polish S1: allowed-session deep-dive (ADDED BY AGENT), EC-only RAG SOP, Yes/Not-now remediation, honest IOC/TI/LLM wording. EC/demo only. Branch `feat/ec-s1-s7-agent-framework`. |
