@@ -1,0 +1,26 @@
+# Cloud-Agent-only compose override. Applied by scripts/cloud_agent_bootstrap.sh
+# via `-f docker-compose.yml -f docker-compose.cloud-agent.yml`. NOT auto-loaded,
+# so it never changes the COE `docker compose` path.
+#
+# It moves the frontend node_modules off the host bind mount (which lives on the
+# nested VM's overlay filesystem, where `npm install` renames fail with ENOTEMPTY)
+# onto a Docker-managed named volume backed by a plain directory. `npm install`
+# then does same-filesystem renames and succeeds; the volume also persists across
+# container recreates so later boots reuse a warm install.
+services:
+  frontend:
+    # Dependencies are installed once into the named volume by
+    # scripts/cloud_agent_bootstrap.sh (prepare_frontend_deps, `npm ci` via
+    # `docker run`), so the service skips the base image's per-boot `npm install`
+    # and starts Vite directly — faster boots and no redundant install to crash.
+    command: sh -c "npm run dev -- --host 0.0.0.0 --port 3010"
+    volumes:
+      - ai_soc_frontend_node_modules:/app/node_modules
+
+volumes:
+  # Fixed name (not project-prefixed) so the bootstrap `docker run` and this
+  # service reference the exact same volume. Marked external because the bootstrap
+  # `docker run` creates/populates it before the service starts.
+  ai_soc_frontend_node_modules:
+    external: true
+    name: ai_soc_frontend_node_modules
