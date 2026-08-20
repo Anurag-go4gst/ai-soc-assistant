@@ -21,15 +21,38 @@ Add/edit a governed SPL template without tripping the deterministic validator or
 
 1. **Write the entry.** Match an existing sibling's shape (e.g. `auth_failed_login_spike`). Reuse an existing use-case family before inventing one. Include `returned_fields` and `validation_rules`.
 2. **Restore timestamp-only siblings.** Editing one template can perturb the 9 timestamp-only sibling entries — verify they are unchanged after your edit (diff `templates.json`; only your intended entry should differ beyond timestamps).
-3. **Regenerate derived sheets** (do NOT hand-edit them):
+3. **Regenerate derived artifacts — THREE of them, in dependency order** (do NOT hand-edit):
    ```bash
    cd /var/www/ai-soc-assistant
-   PYTHONPATH=backend:. python3 scripts/build_soc_validation_sheets.py
+   PYTHONPATH=backend:. python3 scripts/build_soc_capability_crosswalk.py   # 1st
+   PYTHONPATH=backend:. python3 scripts/build_soc_validation_sheets.py      # 2nd — reads the crosswalk
+   PYTHONPATH=backend:. python3 scripts/build_row_authority_report.py --check --warn-eval-drift \
+     || PYTHONPATH=backend:. python3 scripts/build_row_authority_report.py --refresh   # 3rd
    ```
-   This refreshes `docs/validation/spl_template_review_sheet.json` and related sheets. Then confirm the staleness gate passes:
+   Then confirm all three gates, in the same order:
    ```bash
+   PYTHONPATH=backend:. python3 scripts/build_soc_capability_crosswalk.py --check
    PYTHONPATH=backend:. python3 scripts/build_soc_validation_sheets.py --check
+   PYTHONPATH=backend:. python3 scripts/build_row_authority_report.py --check
    ```
+
+   **Order matters, and `--check` will lie if you get it wrong.** `--check` compares an
+   artifact against what its generator emits *right now* — not against current inputs. Adding
+   one template and regenerating only the sheets gives a green sheets `--check` while the
+   sheets were built from a stale crosswalk; governance then fails on the crosswalk, you fix
+   that, and governance fails on the sheets again. Chain:
+
+   ```
+   catalog.json / templates.json
+       -> docs/evals/soc_capability_crosswalk.json   (governance --check)
+       -> docs/validation/*.json  (10 sheets)        (governance --check)
+       -> docs/evals/row_authority_report.json/.md   (pytest test_row_authority_report)
+   ```
+
+   `row_authority_report` has its own rules in `docs/evals/ARTIFACT_REFRESH_POLICY.md` —
+   run `--check --warn-eval-drift` before `--refresh` so unrelated eval drift is not swept in.
+   Its documented "commit when" includes "catalogue authority inputs changed", which adding a
+   template is.
 4. **Validate the SPL deterministically** — run the relevance/validator evals:
    ```bash
    PYTHONPATH=backend:. python3 scripts/eval_spl_relevance.py --check
@@ -42,4 +65,15 @@ Add/edit a governed SPL template without tripping the deterministic validator or
 6. **EC parity.** If the template backs an Experience Center scenario, EC follows automatically via `_scoped_template_spl(template_id, host=)` — do not hardcode SPL in `app/demo/scenarios.py`.
 
 ## Done when
-templates.json valid + siblings intact + sheets regenerated (`--check` clean) + relevance eval clean + governance regression PASS. Commit templates.json and the regenerated sheets together, one scoped commit.
+templates.json valid + siblings intact + **all three** derived artifacts regenerated in order
+(crosswalk, sheets, row-authority report; every `--check` clean) + relevance eval clean +
+protected-manifest hashes updated for `templates.json`/`catalog.json` if either changed +
+governance regression PASS. Commit templates.json, catalog.json, the regenerated artifacts and
+the manifest together, one scoped commit.
+
+### Slot gotcha (costs a wrong "fix" if missed)
+Templates carry `<auth_index>` / `<auth_sourcetype>` placeholders **by design**. Validating the
+raw `spl_text` returns `disallowed_index` / `disallowed_sourcetype` — that is expected, and an
+existing sibling fails the same way. Validation happens after `graph_node_spl_source_resolve`
+fills the slots. Validate the **slot-resolved** form; do not hardcode a concrete index to make
+the validator happy, or you break the source-profile mechanism.
