@@ -957,16 +957,21 @@ class LlmConnectionSaveRequest(BaseModel):
     model: str = ""
     api_key: str = ""
     timeout_seconds: int = 120
+    # Reasoning hop (Foundation-Sec reasoning). Blank switches the hop off.
+    reasoning_base_url: str = ""
+    reasoning_model: str = ""
 
 
 @router.get("/settings/llm/connection")
 def get_llm_connection(_user: dict = Depends(require_auth)) -> dict:
     """Effective LLM connection config (override merged onto env). Redacted."""
-    from app.llm.connection_store import effective_connection
+    from app.llm.connection_store import CONNECTION_PRESETS, effective_connection
 
     return {
         "connection": effective_connection(),
         "supported_modes": list(SUPPORTED_AI_SOC_LLM_MODES),
+        # Deployment presets (VPS / COE). Pre-fill only — the operator still saves.
+        "presets": [dict(preset) for preset in CONNECTION_PRESETS],
     }
 
 
@@ -992,6 +997,12 @@ def save_llm_connection(payload: LlmConnectionSaveRequest, user: dict = Depends(
             errors.append("base_url_should_end_with_v1")
         if not payload.model.strip():
             errors.append("model_required")
+    reasoning_url = payload.reasoning_base_url.strip()
+    if reasoning_url:
+        if not reasoning_url.rstrip("/").endswith("/v1"):
+            errors.append("reasoning_base_url_should_end_with_v1")
+        if not payload.reasoning_model.strip():
+            errors.append("reasoning_model_required")
     if errors:
         return {"saved": False, "validation_errors": errors, "connection": effective_connection()}
 
@@ -1003,6 +1014,8 @@ def save_llm_connection(payload: LlmConnectionSaveRequest, user: dict = Depends(
         api_key=payload.api_key,
         timeout_seconds=payload.timeout_seconds,
         updated_by=str(user.get("username") or "unknown"),
+        reasoning_base_url=payload.reasoning_base_url,
+        reasoning_model=payload.reasoning_model,
     )
     return {"saved": True, "validation_errors": [], "connection": effective_connection()}
 

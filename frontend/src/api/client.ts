@@ -357,12 +357,29 @@ export interface LlmConnectionConfig {
   model: string;
   api_key_configured: boolean;
   timeout_seconds: number;
+  /** Foundation-Sec reasoning hop. Blank = hop off (reasoning roles use the primary). */
+  reasoning_base_url: string;
+  reasoning_model: string;
   source: 'override' | 'env';
+}
+
+/** Deployment endpoint preset (VPS / COE). Pre-fills the form; never auto-saves. */
+export interface LlmConnectionPreset {
+  id: string;
+  label: string;
+  description: string;
+  mode: string;
+  base_url: string;
+  model: string;
+  reasoning_base_url: string;
+  reasoning_model: string;
+  timeout_seconds: number;
 }
 
 export interface LlmConnectionResponse {
   connection: LlmConnectionConfig;
   supported_modes: string[];
+  presets?: LlmConnectionPreset[];
 }
 
 export interface LlmConnectionSaveResult {
@@ -386,6 +403,8 @@ export async function saveLlmConnection(payload: {
   model: string;
   api_key: string;
   timeout_seconds: number;
+  reasoning_base_url: string;
+  reasoning_model: string;
 }): Promise<LlmConnectionSaveResult> {
   const response = await fetch(`${API_BASE_URL}/settings/llm/connection`, {
     method: 'POST',

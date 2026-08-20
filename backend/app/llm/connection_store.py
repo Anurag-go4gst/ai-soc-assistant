@@ -7,9 +7,15 @@ Lets an operator set the LLM endpoint from the Settings UI instead of editing
 and the Ask LLM lab — honors them with no restart.
 
 Only the connection-relevant keys are overridable here (enabled / mode / local
-endpoint / model / api key / timeout). Everything else stays env-governed. The
-api key is persisted to ``backend/data/llm_connection.json`` (git-ignored) and is
-never echoed back by the API — only an ``api_key_configured`` boolean.
+endpoint / model / api key / timeout, plus the Foundation-Sec reasoning hop).
+Everything else stays env-governed. The api key is persisted to
+``backend/data/llm_connection.json`` (git-ignored) and is never echoed back by the
+API — only an ``api_key_configured`` boolean.
+
+A saved override **shadows** ``.env`` on every startup, so editing the env profile
+after a save changes nothing until the override is re-saved. An empty
+``reasoning_base_url`` means the reasoning hop is **off** (the resolver's
+``_configured()`` check drops it) — it does not revert that hop to the env value.
 """
 
 from __future__ import annotations
@@ -30,7 +36,42 @@ _FIELD_TO_SETTING = {
     "model": "ai_soc_llm_local_model",
     "api_key": "ai_soc_llm_local_api_key",
     "timeout_seconds": "ai_soc_llm_timeout_seconds",
+    # Reasoning hop — prepended to the failover chain for REASONING_ROLES only
+    # (endpoint_resolver.py). Blank switches the hop off rather than falling back
+    # to env, so a VPS<->COE switch cannot leave a dead endpoint in the chain.
+    "reasoning_base_url": "ai_soc_llm_foundation_sec_reasoning_base_url",
+    "reasoning_model": "ai_soc_llm_foundation_sec_reasoning_model",
 }
+
+
+# Operator-selectable endpoint presets for the Settings UI. These are deployment
+# addresses already committed in env/profiles/*.env.example — not secrets, and not
+# flags: choosing one only pre-fills the form, the operator still saves explicitly.
+# Keep in sync with env/profiles/coe.env.example and development.env.example.
+CONNECTION_PRESETS: tuple[dict[str, Any], ...] = (
+    {
+        "id": "vps_dev",
+        "label": "VPS dev — llama-server on host (:8081)",
+        "description": "Foundation-Sec 8B instruct GGUF on the VPS host. No reasoning hop.",
+        "mode": "local",
+        "base_url": "http://host.docker.internal:8081/v1",
+        "model": "foundation-sec-1.1-8b-instruct-q8_0.gguf",
+        "reasoning_base_url": "",
+        "reasoning_model": "",
+        "timeout_seconds": 120,
+    },
+    {
+        "id": "coe_lan",
+        "label": "COE Velocis LAN — instruct :8004 + reasoning :8003",
+        "description": "Office-network vLLM. Reasoning roles use 10.52.1.13:8003; everything else 10.52.1.13:8004.",
+        "mode": "local",
+        "base_url": "http://10.52.1.13:8004/v1",
+        "model": "foundation-sec-instruct",
+        "reasoning_base_url": "http://10.52.1.13:8003/v1",
+        "reasoning_model": "foundation-sec-reasoning",
+        "timeout_seconds": 120,
+    },
+)
 
 
 def _store_path() -> Path:
@@ -98,6 +139,8 @@ def save_connection(
     api_key: str | None,
     timeout_seconds: int,
     updated_by: str,
+    reasoning_base_url: str = "",
+    reasoning_model: str = "",
 ) -> dict[str, Any]:
     """Persist the connection override, then apply it to the live settings.
 
@@ -112,6 +155,8 @@ def save_connection(
         "base_url": str(base_url).strip(),
         "model": str(model).strip(),
         "timeout_seconds": int(timeout_seconds),
+        "reasoning_base_url": str(reasoning_base_url or "").strip(),
+        "reasoning_model": str(reasoning_model or "").strip(),
         "updated_by": str(updated_by or "unknown"),
     }
     if api_key:
@@ -138,5 +183,7 @@ def effective_connection() -> dict[str, Any]:
         "model": settings.ai_soc_llm_local_model,
         "api_key_configured": bool((settings.ai_soc_llm_local_api_key or "").strip()),
         "timeout_seconds": settings.ai_soc_llm_timeout_seconds,
+        "reasoning_base_url": settings.ai_soc_llm_foundation_sec_reasoning_base_url,
+        "reasoning_model": settings.ai_soc_llm_foundation_sec_reasoning_model,
         "source": "override" if _read_document() else "env",
     }
