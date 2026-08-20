@@ -1,7 +1,7 @@
 ---
 name: agentic-investigation-production
 overview: "Bring production /chat onto the 2026-08-20 architecture.md investigation target: Final RQC → CapabilitySnapshot → reasoning InvestigationPlanProposal → DET validation → user Run/Edit/Cancel → ApprovedInvestigationEnvelope → ResourcePlan + PhaseContract → RP iterative hub. T1–T4 are understanding only; downstream investigation is one runtime."
-status: draft
+status: active
 date: 2026-08-21
 canonical_plan: plans/2026-08-21_0034_agentic-investigation-production.md
 loop_runner: plans/LOOP_RUNNER_agentic-investigation-production.md
@@ -10,8 +10,8 @@ loop_runner: plans/LOOP_RUNNER_agentic-investigation-production.md
 # Agentic investigation — production implementation plan
 
 **Canonical architecture:** [`architecture.md`](../architecture.md) (2026-08-20 investigation target).
-**Does not modify:** production `/chat` code, `architecture.md`, `architecture.plan8-frozen-2026-08-15.md`, the in-flight T1–T3 catalogue/matching patch, or `working.md`.
-**This file is the implementation plan only.** Do not start code until architecture review approves it.
+**Does not modify:** `architecture.md`, `architecture.plan8-frozen-2026-08-15.md`, the in-flight T1–T3 catalogue/matching patch, or `working.md`.
+**Architecture review:** approved by operator mission 2026-08-21 (`AUTO EXECUTE THE APPROVED AGENTIC INVESTIGATION PLAN`). Execution authorized.
 
 ## Objective
 
@@ -1416,12 +1416,21 @@ Execution is **not** authorized until architecture review. Items stay unchecked.
 **Evidence** line uses the **Phase evidence template** (LOCAL VERIFICATION always; COE LIVE
 VERIFICATION when Live acceptance by phase marks the phase required).
 
-- [ ] **P0** — Investigation-shaped turns do not compile ResourcePlan before approval; T4 cannot plan; T1–T3 investigation RQCs use the same wait-state
+- [x] **P0** — Investigation-shaped turns do not compile ResourcePlan before approval; T4 cannot plan; T1–T3 investigation RQCs use the same wait-state
   - **Do:** Gate `_commit_planned_outcome` / `plan_evidence_from_canonical` so investigation-shaped Final RQCs persist without `resource_plan`; pin T4 merge cannot emit planner/tool grants; pin T1–T3 `needs_splunk` investigations do not take a weaker one-pass path when the new flag is on
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_final_route_precedes_resource_plan.py app/tests/test_final_rqc_precedes_planning.py app/tests/test_p0_investigation_authority_order.py -q` — create `backend/app/tests/test_p0_investigation_authority_order.py` (new file) holding `test_investigation_no_resource_plan_before_approval`, `test_t4_cannot_become_investigation_planner`, `test_t13_investigation_does_not_bypass_common_lifecycle`
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P0): ...`; phase-boundary → also run governance regression first
   - **Depends on:** architecture review approval of this plan
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION
+    - commit: _(filled after commit)_
+    - pytest `test_final_route_precedes_resource_plan.py` + `test_final_rqc_precedes_planning.py` + `test_p0_investigation_authority_order.py` → **11 passed**
+    - /invariant-check → PASS (no MCP/SPL/EC/secret issues; new flag default false; no asserts weakened; wait-state keys already on ChatPipelineState)
+    - `./scripts/run_stage3_governance_regression.sh` → **stage3_governance_regression: PASS**
+    - Flag: `AI_SOC_INVESTIGATION_PLAN_BEFORE_RESOURCE_PLAN_ENABLED` / `ai_soc_investigation_plan_before_resource_plan_enabled` default false
+    - Outcome status added: `awaiting_investigation_plan` (no EvidencePlan/ResourcePlan)
+    COE LIVE VERIFICATION _(filled after deploy)_
+    - _(pending)_
 
 - [ ] **P1** — CapabilitySnapshot need × availability projection
   - **Do:** Add deterministic snapshot module joining catalog, registry, MCP discovery ∩ allowlist, and **global** capability classification (including live email kind and Splunk); attach after Final RQC; do **not** join current-user RBAC; no `executable` field; treat discovery-unverified vs execution-off as distinct from "tool does not exist"; keep schema open for new MCP_SERVERS rows
@@ -1539,5 +1548,5 @@ VERIFICATION when Live acceptance by phase marks the phase required).
 ---
 
 ```text
-PLAN STATUS: READY FOR ARCHITECTURE REVIEW
+PLAN STATUS: ACTIVE — EXECUTION AUTHORIZED
 ```

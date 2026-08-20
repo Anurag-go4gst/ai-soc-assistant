@@ -13,6 +13,7 @@ Invariants enforced here rather than by convention:
 ===========================  ==============  ==============  =========================
 ``planned``                  required        required        ``canonical_input``
 ``clarification_required``   absent          absent          ``clarification`` + handoff
+``awaiting_investigation_plan`` absent       absent          ``canonical_input`` (P0+)
 ``policy_blocked``           optional        absent          ``policy_reason``
 any failure status           absent          absent          ``failure``
 ===========================  ==============  ==============  =========================
@@ -27,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 CanonicalPlanningStatus = Literal[
     "planned",
     "clarification_required",
+    "awaiting_investigation_plan",
     "resolution_failed",
     "planning_failed",
     "policy_blocked",
@@ -49,6 +51,7 @@ FAILURE_STATUSES: frozenset[str] = frozenset(
 #: Statuses that must never carry a committed ResourcePlan.
 NON_EXECUTING_STATUSES: frozenset[str] = FAILURE_STATUSES | {
     "clarification_required",
+    "awaiting_investigation_plan",
     "policy_blocked",
 }
 
@@ -117,6 +120,14 @@ class CanonicalPlanningOutcome(BaseModel):
                 raise ValueError("clarification_required outcome must not carry an evidence_plan")
             return self
 
+        if self.status == "awaiting_investigation_plan":
+            # P0 wait-state: Final RQC + owner bound; no EvidencePlan / ResourcePlan yet.
+            if self.evidence_plan is not None:
+                raise ValueError("awaiting_investigation_plan outcome must not carry an evidence_plan")
+            if self.canonical_input is None:
+                raise ValueError("awaiting_investigation_plan outcome requires canonical_input")
+            return self
+
         if self.status == "policy_blocked":
             if not self.policy_reason:
                 raise ValueError("policy_blocked outcome requires policy_reason")
@@ -162,6 +173,17 @@ def clarification_outcome(
             handoff_version=handoff_version,
             reason=reason,
         ),
+    )
+
+
+def awaiting_investigation_plan_outcome(
+    *,
+    canonical_input: dict[str, Any],
+) -> CanonicalPlanningOutcome:
+    """P0: investigation-shaped Final RQC waits for plan proposal / envelope (no ResourcePlan)."""
+    return CanonicalPlanningOutcome(
+        status="awaiting_investigation_plan",
+        canonical_input=canonical_input,
     )
 
 

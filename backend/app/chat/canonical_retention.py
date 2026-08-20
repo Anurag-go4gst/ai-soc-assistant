@@ -24,6 +24,7 @@ _ACTIVE_HANDOFF_STATUSES: frozenset[str] = frozenset(
     {
         "created",
         "awaiting_clarification",
+        "awaiting_investigation_plan",
         "resumed",
         "planning",
         "executing",

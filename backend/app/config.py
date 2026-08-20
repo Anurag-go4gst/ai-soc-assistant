@@ -423,6 +423,9 @@ class Settings(BaseSettings):
     # Plan 5 B5: live fail-closed capability enforcement from ResolvedQueryContract.
     # Default false. Activation is a named STOP gate (B_LIVE_CAPABILITY_ENFORCEMENT).
     ai_soc_live_capability_enforcement_enabled: bool = False
+    # Agentic investigation P0: investigation-shaped Final RQCs wait for plan/envelope
+    # before ResourcePlan commit. Default false — flag-off preserves immediate RP commit.
+    ai_soc_investigation_plan_before_resource_plan_enabled: bool = False
     # Canonical handoff durable store TTL (PostgreSQL).
     ai_soc_handoff_store_ttl_minutes: int = 60
     # Item 28 — bounded retention purge for canonical_handoffs / canonical_planning_events.

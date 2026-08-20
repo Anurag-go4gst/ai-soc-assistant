@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 HandoffStatus = Literal[
     "created",
     "awaiting_clarification",
+    "awaiting_investigation_plan",
     "resumed",
     "planning",
     "plan_committed",
@@ -62,6 +63,7 @@ class CanonicalHandoffRecord(BaseModel):
         mapping = {
             "in_progress": "planning",
             "clarification_required": "awaiting_clarification",
+            "awaiting_investigation_plan": "awaiting_investigation_plan",
             "committed": "plan_committed",
             "planning_failed": "failed",
             "resolution_failed": "failed",

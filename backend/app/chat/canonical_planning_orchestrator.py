@@ -18,6 +18,7 @@ from app.chat.canonical_handoff_store import (
     save_handoff,
 )
 from app.chat.contracts.canonical_planning_outcome import (
+    awaiting_investigation_plan_outcome,
     clarification_outcome,
     planned_outcome,
     policy_blocked_outcome,
@@ -34,6 +35,7 @@ from app.chat.lane_router import is_known_catalogue_match, lane_for_match_path
 from app.chat.canonical_policy_boundary import resolve_canonical_policy_block_reason
 from app.chat.canonical_mode import build_typed_planning_failure_state
 from app.chat.plan_evidence_from_canonical import plan_evidence_from_canonical
+from app.chat.investigation_shaped import is_investigation_shaped_final_rqc
 from app.chat.planning_telemetry import (
     emit_clarification_requested,
     emit_guided_resolution_started,
@@ -48,6 +50,7 @@ from app.chat.planning_telemetry import (
 from app.chat.post_guided_completeness import evaluate_post_guided_completeness
 from app.chat.query_signals import extract_query_signals
 from app.chat.reference_qualification import extract_reference_ids, qualify_reference_query
+from app.config import settings
 
 ChatPipelineState = dict[str, Any]
 
@@ -812,6 +815,10 @@ def _commit_planned_outcome(
 
     ``plan_evidence_from_canonical`` stays the sole plan creator; this stage only
     persists around it and projects the committed plan onto the returned state.
+
+    When ``ai_soc_investigation_plan_before_resource_plan_enabled`` is on,
+    investigation-shaped Final RQCs stop here without calling the plan creator
+    (P0 wait-state — no ResourcePlan until envelope approval in P4).
     """
     state, lane, canonical = _bind_final_route_from_rqc(
         state,
@@ -832,11 +839,28 @@ def _commit_planned_outcome(
     gap = lane.gap
     completeness = lane.completeness
 
+    primary_skill = str(
+        (canonical.routing.primary_skill if canonical is not None else None)
+        or routed.get("skill")
+        or intent_classification.get("primary_intent")
+        or ""
+    )
+    investigation_wait = bool(
+        settings.ai_soc_investigation_plan_before_resource_plan_enabled
+        and is_investigation_shaped_final_rqc(
+            resolved_query_contract=resolved_query_contract,
+            primary_skill=primary_skill,
+            intent_classification=intent_classification,
+            query_understanding=qu,
+        )
+    )
+    handoff_status = "awaiting_investigation_plan" if investigation_wait else "in_progress"
+
     save_handoff(
         CanonicalHandoffRecord(
             handoff_id=handoff_id,
             handoff_version=handoff_version,
-            status="in_progress",
+            status=handoff_status,  # type: ignore[arg-type]
             trace_id=str(trace_id) if trace_id else None,
             session_id=str(session_id) if session_id else None,
             original_query=intake.query,
@@ -853,10 +877,37 @@ def _commit_planned_outcome(
         state,
         handoff_id=handoff_id,
         handoff_version=handoff_version,
-        handoff_status="in_progress",
+        handoff_status=handoff_status,
         trace_id=str(trace_id) if trace_id else None,
         session_id=str(session_id) if session_id else None,
     ) or state
+
+    if investigation_wait:
+        outcome = awaiting_investigation_plan_outcome(canonical_input=canonical.model_dump())
+        wait_state: ChatPipelineState = {
+            **state,
+            "routed": routed,
+            "intent_classification": intent_classification,
+            "query_to_intent": query_to_intent,
+            "resolved_query_contract": resolved_query_contract,
+            "canonical_planning_input": canonical.model_dump(),
+            "canonical_planning_outcome": outcome.model_dump(),
+            "gap_resolution": gap.model_dump() if gap else None,
+            "known_completeness": completeness.model_dump() if completeness else None,
+            "processing_lane": lane.processing_lane,
+            "resolved_tier": lane.resolved_tier,
+            "initial_tier": intake.initial_tier,
+            "observed_catalogue_match_path": intake.observed_match_path,
+            "effective_catalogue_match_path": intake.effective_match_path,
+            "handoff_id": handoff_id,
+            "handoff_version": handoff_version,
+            "pending_handoff_id": handoff_id,
+            "pending_handoff_version": handoff_version,
+        }
+        wait_state.pop("evidence_plan", None)
+        wait_state.pop("execution", None)
+        wait_state.pop("mcp_evidence", None)
+        return wait_state
 
     try:
         evidence_plan, consumed, ignored = plan_evidence_from_canonical(
