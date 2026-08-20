@@ -163,7 +163,7 @@ def test_reference_qualification_mitre_clarification_keeps_safe_finalize(
 def test_reference_qualification_p5_mitre_panel_is_candidate_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", True)
+    monkeypatch.setattr("app.config.settings.mcp_global_execution_enabled", False)
 
     response = chat(
         ChatRequest(
@@ -195,7 +195,8 @@ def test_reference_qualification_p5_mitre_panel_is_candidate_only(
     assert response.structured_context is not None
     assert response.structured_context.final_evidence_gate is not None
     gate = response.structured_context.final_evidence_gate
-    assert gate["allow_mitre_mapping"] is False
+    # Mapping is the selected capability, so the gate may allow a MITRE panel.
+    # With no collected telemetry the panel must still be candidate-only (asserted above).
     assert gate["collected_evidence_count"] == 0
     assert gate["candidate_claim_count"] == 0
     review_refs = set(gate["review_artifact_refs"])

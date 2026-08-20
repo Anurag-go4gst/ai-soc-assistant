@@ -372,3 +372,38 @@ def test_merge_reference_message_with_llm_intro() -> None:
     assert merged.startswith("Prompt injection is a known ATLAS risk.")
     assert merged.endswith(summary)
     assert merge_reference_message_with_llm_intro(summary, llm_intro=None) == summary
+
+
+def test_catalogue_inventory_uses_knowledge_envelope_not_spl() -> None:
+    from app.knowledge.mapping_exports import format_catalogue_inventory_answer
+
+    inventory = format_catalogue_inventory_answer()
+    envelope = build_analyst_response_for_live(
+        user_query="What's in the catalogue?",
+        message="Routing complete. Generic SOC guidance path selected.",
+        analyst_summary=None,
+        source_evidence=[],
+        mitre_mappings=[],
+        severity_label="P2 High",
+        synthesis_draft=None,
+        human_review=None,
+        selected_use_case_label="Show catalogue index",
+        candidate_spl={"candidate_spl": "search index=auth | stats count"},
+        intent_classification={
+            "intent_family": "knowledge_only",
+            "primary_intent": "knowledge_recall",
+        },
+        evidence_plan={
+            "use_case_id": "soc_show_catalogue_index",
+            "answer_mode": "rag_only",
+            "spl_allowed": False,
+            "mcp_allowed": False,
+        },
+    )
+    assert envelope is not None
+    assert envelope.response_profile == "knowledge_recall"
+    assert envelope.spl_code is None
+    assert envelope.draft_spl_code is None
+    assert envelope.direct_answer_summary == inventory
+    assert "does not generate or execute SPL" in (envelope.direct_answer_summary or "")
+    assert "`soc_show_catalogue_index`" in (envelope.direct_answer_summary or "")

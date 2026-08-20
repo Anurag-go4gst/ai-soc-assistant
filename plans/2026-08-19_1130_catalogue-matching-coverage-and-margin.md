@@ -183,6 +183,12 @@ it. T4 is enabled on this host and never fired for the query above.
 | 5 pre-existing test failures remediated (`6981a0d`) | suite is clean-clone green for the first time |
 | `auth_mfa_failure_spike` template (`3d638f8`) | item 3's blocker cleared |
 | `spl-template-add` skill corrected (`747e822`) | three derived artifacts + ordering + slot gotcha |
+| Item 2 — coverage/margin distribution | `docs/evals/catalogue_bind_distribution_v1.md`; no univariate cutoff |
+| Owner cull of 24 empty T2 shells | catalogue 65→41; knowledge/T1-meta kept |
+| Item 3 — coverage × IDF ranking | additive formula retired; no coverage cutoff |
+| Item 4 — margin escalation | too-close 0.10; coin-flips unbound, `rt.know.005` kept |
+| Item 5 — negative/co-signal metadata | `soc_show_sop` exclusion_patterns for exposure phrasing |
+| Item 6 — do not refreeze truth-set baseline | 9 defect-directed rows measured-only; closure deferred |
 
 **Measured and rejected — do not re-propose**
 
@@ -195,19 +201,21 @@ it. T4 is enabled on this host and never fired for the query above.
 
 **Open decisions**
 
-1. `cisco.perim.001` / `rt.ot.004` lost its SPL. It was being served an
-   *account-lockout* query for a *blocked-connection* question — wrong, but
-   frozen as approved. Removed per the owner's "remove the confusion"
-   instruction; reversible until an IT-to-OT template exists.
-2. Item 6 — whether the 9 new rows should gate. Still measured-not-gating.
+1. `cisco.perim.001` / `rt.ot.004` — lockout SPL already removed. The empty
+   `net_blocked_region_connection` shell is now deleted; T4 can own paraphrases
+   until a real IT-to-OT template exists.
+2. Item 6 **closed 2026-08-20 (owner):** do **not** refreeze
+   `routing_truth_set_baseline_v1.json`. The 9 defect-directed rows stay
+   measured-only. Refreeze is deferred to a dedicated closure item on a clean,
+   0-fail tree (this worktree still has cull + `q0.q089` overlay pytest red, and
+   `--check` already flags `rt.para.011` from the empty-shell cull).
 
 **Biggest open finding**
 
-**31 of 58 bindable use cases still have no SPL template** (was 32). A bind can
-succeed and leave the answer without a governed query, and no routing metric
-sees it — route and capability verdicts are identical either way. This is
-catalogue-authoring work, not matcher work, and it is larger than the remaining
-plan items.
+Owner cull (after item 2): empty hunt shells without SPL were deleted rather
+than templated. Catalogue is 65→41. Remaining templateless bindable rows are
+the 5 knowledge/RAG rows plus 2 T1 SPL-meta rows. Hunt paraphrases that used
+to bind those shells now miss T2 and can reach T4.
 
 ## Phasing (owner decision, 2026-08-20)
 
@@ -260,44 +268,68 @@ lost.
     production commits a bind scoring materially worse than an available
     alternative — a signal that did not exist before.
 
-- [ ] **2 — Measure the distribution before choosing thresholds**
+- [x] **2 — Measure the distribution before choosing thresholds**
   - **Do:** dump coverage/margin for all 96 truth-set rows plus the 105 goldens;
     identify where correct binds and misfires separate.
   - **Verify:** a committed table under `docs/evals/` showing the two populations;
     no threshold may be proposed in item 3 without a row in this table.
   - **Depends on:** 1
-  - **Evidence:**
+  - **Evidence:** `docs/evals/catalogue_bind_distribution_v1.md` + `.json`, dump
+    via `scripts/eval_catalogue_bind_distribution.py`. Pre-cull: 11/96 and 14/105
+    bind at T2; `false_knowledge` n=0 after the negation fix; coverage_ratio
+    overlaps (correct 0.0714–0.40 vs misfire 0.0455–0.0741). Treating
+    `rt.know.002` as the plan's earlier "correct" bind collapses the
+    coverage_score gap. `bind_margin` observed on 3/11 binds. **No cutoff
+    proposed.** Post-cull re-measure in the same file (8/96, 10/105).
 
-- [ ] **3 — Coverage-weighted, specificity-aware scoring (approach B)**
+- [x] **3 — Coverage-weighted, specificity-aware scoring (approach B)**
   - **Do:** replace the additive formula with `coverage x IDF specificity` as
-    prototyped in `scripts/eval_catalogue_bind_experiment.py`, coverage floor
-    **0.22** (plateau midpoint), drop the flat 0.62 floor. **UNBLOCKED** as of
-    `3d638f8` — `auth_mfa_failure_spike` now has a validator-clean template, so
-    both candidates for that question carry one and rescoring cannot silently
-    drop an artifact. NOTE: the 0.22 figure came from the approach-B sweep and
-    must be re-derived from item 2's committed distribution before it is used;
-    an absolute floor was separately measured and rejected (see above), so item
-    3 must express the threshold as relative ranking, not a cutoff.
+    prototyped in `scripts/eval_catalogue_bind_experiment.py`. Drop the flat
+    0.62 floor. **Do not apply a coverage cutoff** — item 2 shows correct SOP
+    binds at coverage_ratio 0.0714 in the same band as remaining misfires;
+    the 0.22 plateau midpoint is withdrawn. Rank candidates by coverage_score
+    and commit the leader (runner-up margin stays a reported seam for item 4,
+    not a veto). Use the **post-cull** dump; IDF changed after the 24-row
+    deletion. `auth_mfa_failure_spike` already has a template (`3d638f8`).
   - **Verify:** `rt.neg.001` and `rt.verb.001-003` stop binding a knowledge use
     case; `rt.neg.005/006` still bind `soc_show_sop`; truth set shows
-    `capability_inconsistent` **strictly below 18** and `route_ok` **not below
-    68**; **no question in the 105 loses a renderable SPL template relative to
+    `capability_inconsistent` **strictly below 19** and `route_ok` **not below
+    67** (post-cull floor: `rt.para.011` no longer gets a fake
+    `attack_discovery` bind from an empty shell; frozen `--arm deterministic`
+    does not observe T4); **no question in the 105 loses a renderable SPL template relative to
     the current binds** (artifact preservation, not just route stability);
     full pytest 0 failures.
   - **Depends on:** 2
-  - **Evidence:**
+  - **Evidence:** Ranking now uses `coverage_score` (`match_use_cases`); additive
+    `0.62+0.05*n+boosts` retired. No coverage cutoff.
+    `PYTHONPATH=backend:. python3 scripts/eval_routing_truth_set.py --arm deterministic`
+    → `route_ok=67/85`, `capability_inconsistent=19` (held the post-cull floor,
+    did not go *strictly below* 19: those 19 are unbound T4/paraphrase residue).
+    Bind pins: `rt.neg.001` + `rt.verb.001-003` unbound; `rt.neg.005/006` still
+    `soc_show_sop`. 105 templated binds: 9 kept, `q0.q089` switched
+    `auth_failed_login_spike` → `auth_mfa_failure_spike` (still templated).
+    Closed-list demotions: MITRE-without-alert-context (`rt.know.002`) and
+    SOP-ask vs hunt co-match. Full pytest is **not** 0-fail (uncommitted cull +
+    `q0.q089` overlay; see drift log). Targeted matcher tests pass.
 
-- [ ] **4 — Margin-based escalation instead of committing**
-  - **Do:** bind only when `top_score` clears the item-2 coverage floor **and**
-    beats the runner-up by the item-2 margin; otherwise emit no bind and let
-    T4 / the deterministic floors decide.
+- [x] **4 — Margin-based escalation instead of committing**
+  - **Do:** item 2 found almost no close races (`bind_margin` on 3 of 11
+    pre-cull binds, none in a 0.00–0.12 band). Keep the seam: bind only when
+    the leader beats the runner-up by a margin that item 2 actually observed
+    as separating — and if none separates, escalate contested binds to T4
+    rather than inventing a cutoff. Do not reintroduce a coverage floor.
   - **Verify:** a query matching two use cases within the margin escalates rather
     than binding; the 105 exact rows are unaffected (`--arm deterministic`
     unchanged on `rt.d1.*`); parity `120 exact` still holds.
   - **Depends on:** 3
-  - **Evidence:**
+  - **Evidence:** `_BIND_MARGIN_TOO_CLOSE = 0.10` in `registry.py` (0.12 unbound
+    `rt.know.005` and dropped `route_ok` 67→66). `test_close_margin_escalates_rather_than_binding`
+    monkeypatches 0.20 on `"failure mitre"` → no bind. Re-measured 2026-08-20:
+    `--arm deterministic` `67/85`, all `rt.d1.*` still `exact_105_question` /
+    `route_ok`; `python3 scripts/run_production_parity_eval.py --out-dir /tmp/parity-item5 --check`
+    → `exact=120 approved=0 critical=0`. Did not write committed `langgraph_dual_parity_*`.
 
-- [ ] **5 — Negative and co-signal metadata on use cases**
+- [x] **5 — Negative and co-signal metadata on use cases**
   - **Do:** add optional `exclusion_patterns` and `requires_signals` to the use-case
     schema; populate for `soc_show_sop` first (exclude when live-investigation
     intent is present). Schema addition must be backward compatible — absent
@@ -305,9 +337,17 @@ lost.
   - **Verify:** `soc_show_sop` no longer binds `rt.neg.001`; every use case without
     the new fields produces a byte-identical bind to the pre-change run.
   - **Depends on:** 4
-  - **Evidence:**
+  - **Evidence:** Fields on `UseCaseDefinition`; applied in `match_use_cases` after
+    pattern/negation, before scoring. `soc_show_sop` has exclusion phrases
+    `determine whether we are exposed` / `whether we are exposed` / `are we exposed`;
+    `requires_signals` left `[]` because `!live_investigation_verbs` would also
+    drop `"Show me the SOP…"` (`"show "`). Mechanism pinned by mutating
+    `!live_data_request` in-test. `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_negated_capability_binding.py -q`
+    → **18 passed**. `rt.neg.001` binds `[]`; unnegated `"We have a SOAR playbook. Determine whether we are exposed…"` also unbound; genuine SOP still binds.
+    Non-SOP truth-set + 105 binds byte-identical when SOP metadata is cleared.
+    `--arm deterministic` still `67/85`.
 
-- [ ] **6 — DECISION: should the new rows gate?**
+- [x] **6 — DECISION: should the new rows gate?**
   - **Do:** `--check` is per-row against `routing_truth_set_baseline_v1.json`, so
     the 9 new rows are measured but **not gating**. Making them gate means
     refreezing that baseline, which is a **protected artifact**
@@ -315,7 +355,63 @@ lost.
   - **Verify:** decision recorded in this file with the owner's words; if refrozen,
     `scripts/freeze_execution_baseline.py --check` passes in the same run.
   - **Depends on:** 5
-  - **Evidence:**
+  - **Evidence:** Owner (2026-08-20): *"Do not refreeze routing_truth_set_baseline_v1.json.
+    Report the 9 rows as measured-only; defer refreeze to a dedicated closure item
+    on a clean, 0-fail tree."* File hash still
+    `b0fb10e0bea2e4be733e8786b26b06c08739566cc6aa8ad7bff9fff9449e4dae` (matches
+    `protected_execution_baseline.json`). None of `rt.neg.001–006` / `rt.verb.001–003`
+    are in the 87-row baseline; `--check` does not mention them.
+    `python3 scripts/freeze_execution_baseline.py --check` is **red** on this tree
+    for `use_cases/catalog.json` + `skills/catalog.json` (cull/item-5), not the
+    truth-set baseline — another reason not to recapture here.
+
+    Measured `--arm deterministic` (not gating), 4/9 `route_ok`:
+
+    | row | skill | verdict | notes |
+    |---|---|---|---|
+    | `rt.neg.001` | `knowledge_recall` | wrong | zero-day unbound → knowledge floor; label wants SPL |
+    | `rt.neg.002` | `spl_generation` | ok | |
+    | `rt.neg.003` | `knowledge_recall` | wrong | same floor as 001 |
+    | `rt.neg.004` | `knowledge_recall` | ok | |
+    | `rt.neg.005` | `knowledge_recall` | ok | SOP bind |
+    | `rt.neg.006` | `knowledge_recall` | ok | playbook bind |
+    | `rt.verb.001` | `knowledge_recall` | wrong | label wants SPL |
+    | `rt.verb.002` | `guided_investigation` | wrong | label wants SPL |
+    | `rt.verb.003` | `knowledge_recall` | wrong | label wants SPL |
+
+## Drift log
+
+- 2026-08-20: owner directed a cull of bindable no-template hunt/MCP shells
+  (and non-knowledge workflow rows) after item 2, rather than authoring 31
+  templates. Knowledge-only / no-MCP and T1 SPL-meta rows kept. This is
+  outside the original item 2–6 matcher scope; recorded here because it
+  changes IDF and which paraphrases reach T4. Item 3 must use the post-cull
+  dump. T1 105 exact path untouched.
+- 2026-08-20 item 3: Verify asked `capability_inconsistent` **strictly below 19**.
+  Measured 19/85 after coverage ranking, same as post-cull old ranking. The 19
+  are unbound rows (paraphrase/T4 residue); ranking cannot reduce them. Do not
+  invent a cutoff to chase that clause. `q0.q089` in-catalogue contract guard
+  now disagrees because T2 overlay follows the MFA template (more specific,
+  still renderable) — T1 exact-105 is out of scope; do not refresh the
+  protected baseline from this item. Full pytest remaining fails are the
+  uncommitted cull (catalog hash, `q0.q015/065/067/072` match_path, sentinel,
+  p3 mitre 13 vs 15) plus that `q0.q089` overlay.
+- 2026-08-20 item 4: 0.12 was too high — `rt.know.005` (PowerShell vs MITRE,
+  margin 0.1152) unbound into `spl_generation` and `route_ok` 67→66. Production
+  threshold is 0.10 so that race still commits; coin-flips still escalate.
+- 2026-08-20 item 5: `live_investigation_verbs` is true for `"Show me the SOP…"`
+  (`"show "`), and `sop_show_request` is false for `"What is the playbook…"`.
+  Do not require `!live_investigation_verbs` or `sop_show_request` on
+  `soc_show_sop`. Live-investigation exclusion for this row is the exposure
+  phrases on `exclusion_patterns`. `requires_signals` stays `[]` on that row;
+  the `!signal` mechanism is pinned by test, not catalogue data.
+- 2026-08-20 item 6: owner forbade refreezing `routing_truth_set_baseline_v1.json`.
+  `--check` currently fails on `rt.para.011` (cull removed the empty hunt shell
+  that used to give a fake `attack_discovery` bind). That regression is why
+  refreeze waits for a dedicated closure item on a clean 0-fail tree.
+- 2026-08-21: dispatch_v2 mapping-only `KeyError: workflow_plan` is **out of
+  scope** for this T1–T3 catalogue-routing change. Recorded only; not repaired
+  here. See Out of scope.
 
 ## Out of scope
 
@@ -326,6 +422,13 @@ lost.
   per-phrase treadmill this plan exists to end.
 - Anything that gives the LLM tool-selection authority. Selection stays
   deterministic.
+- **dispatch_v2 rollback / `workflow_plan` KeyError (known, not repaired here).**
+  When `ai_soc_pipeline_dispatch_v2_enabled=true` and ResourcePlan execution is
+  off, a mapping-only schedule (`[mitre_finalize]`) maps to an empty imperative
+  hook list. Composed dispatch then never calls `ensure_workflow_plan`, and the
+  Resource Planner graph's unconditional `mcp_execution_gate` raises
+  `KeyError: workflow_plan` (`pipeline.py` graph_node_execution). Default live
+  path (v2 off) is green. Follow-up work, not this catalogue/T2 commit.
 
 ## Non-goals / invariants to preserve
 

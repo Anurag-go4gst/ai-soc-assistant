@@ -1097,3 +1097,32 @@ def catalogue_question_index_csv_rows(payload: dict[str, Any] | None = None) -> 
             }
         )
     return rows
+
+
+def format_catalogue_inventory_answer() -> str:
+    """Analyst-facing listing from the generated catalogue/question index.
+
+    The JSON/markdown index files are projections of this builder. They are
+    never matcher sources — T2 still binds only through intent_patterns.
+    """
+    index = build_catalogue_question_index()
+    counts = index.get("counts") or {}
+    lines = [
+        "This is a knowledge/meta listing of the governed catalogue. It is not a hunt and does not generate or execute SPL.",
+        (
+            f"Use cases: {counts.get('use_cases', 0)} "
+            f"({counts.get('use_cases_bindable', 0)} bindable, "
+            f"{counts.get('use_cases_with_template', 0)} with an SPL template)."
+        ),
+        (
+            f"Frozen 105 questions: {counts.get('questions', 0)} "
+            f"({counts.get('questions_binding_a_use_case', 0)} currently bind a use case)."
+        ),
+        "",
+        "Use cases:",
+    ]
+    for use_case in index.get("use_cases") or []:
+        use_case_id = str(use_case.get("use_case_id") or "")
+        display_name = str(use_case.get("display_name") or use_case_id)
+        lines.append(f"- {display_name} (`{use_case_id}`)")
+    return "\n".join(lines)

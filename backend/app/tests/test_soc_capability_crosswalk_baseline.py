@@ -68,9 +68,9 @@ def crosswalk() -> dict:
 def test_crosswalk_file_exists_with_schema(crosswalk: dict) -> None:
     assert REQUIRED_TOP_LEVEL_KEYS.issubset(crosswalk.keys())
     assert crosswalk["row_counts"]["question_rows"] == 105
-    assert crosswalk["row_counts"]["use_case_rows"] == 68
+    assert crosswalk["row_counts"]["use_case_rows"] == 45
     assert crosswalk["row_counts"]["github_skill_rows"] == 12
-    assert crosswalk["row_counts"]["catalog_use_cases"] == 65
+    assert crosswalk["row_counts"]["catalog_use_cases"] == 42
     assert crosswalk["row_counts"]["enrichment_records"] == 13
     assert crosswalk["row_counts"]["enrichment_only_use_cases"] == 3
 
@@ -136,7 +136,7 @@ def test_knowledge_export_includes_soc_capability_crosswalk() -> None:
 
     assert payload["artifact"] == "soc_capability_crosswalk"
     assert payload["row_counts"]["question_rows"] == 105
-    assert payload["row_counts"]["use_case_rows"] == 68
+    assert payload["row_counts"]["use_case_rows"] == 45
     assert payload["row_counts"]["github_skill_rows"] == 12
     assert len(payload["question_rows"]) == 105
     assert payload["mitre_metadata_role"] == MITRE_METADATA_ROLE
@@ -146,7 +146,7 @@ def test_knowledge_export_csv_includes_row_kinds() -> None:
     response = export_mapping_artifact("crosswalk", file_format="csv")
     body = response.body.decode("utf-8")
     assert "row_kind" in body.splitlines()[0]
-    assert body.count("\n") >= 105 + 49 + 7
+    assert body.count("\n") >= 105 + 45 + 7
 
 
 def test_generator_is_not_imported_by_runtime_chat_path() -> None:

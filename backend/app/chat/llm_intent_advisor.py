@@ -55,6 +55,12 @@ def intent_advisor_consumable(
     # Command-mode spines (danger-tiered MCP plan) never spend advisory budget.
     if sig.get("command_mode_active") or sig.get("explicit_run_spl"):
         return False, "intent_advisory_command_mode"
+    from app.chat.answer_shape_router import classify_answer_shape
+
+    if classify_answer_shape(query).primary_shape == "reference_taxonomy":
+        # Deterministic taxonomy floor already owns the turn; promotion would
+        # only fight that floor.
+        return False, SKIP_NO_CONSUMER
     if match_path in {"out_of_registry", "near_105_question", "semantic_105_question"}:
         # Promotion lane (out_of_registry) or the pinned paraphrase-confirmation
         # lane (near/semantic 105 rows keep the advisor as match co-signer).

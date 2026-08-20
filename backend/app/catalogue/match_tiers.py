@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 from app.chat.lane_router import T1_PATHS, T2_PATHS, T3_PATHS
 from app.query_understanding.parser import understand_query
-from app.use_cases.registry import match_use_cases
+from app.use_cases.registry import has_intent_pattern_hit, match_use_cases
 
 CatalogueTier = Literal["T0", "T1", "T2", "T3", "T4"]
 BindingCandidateTier = Literal["T1", "T2", "T3", "T4"]
@@ -193,7 +193,9 @@ def build_catalogue_binding_candidate(
         mapped = _use_case_catalog_match(query, alias_applied=False)
     if mapped is None:
         normalized, alias_applied = normalize_query_aliases(query)
-        if alias_applied:
+        # Typo-alias may bind a first hit. It must not resurrect a T2 abstain
+        # (negation / exclusion / margin) by re-matching rewritten text.
+        if alias_applied and not has_intent_pattern_hit(query):
             mapped = _use_case_catalog_match(normalized, alias_applied=True)
     if mapped is None:
         mapped = CatalogueMatchResult(

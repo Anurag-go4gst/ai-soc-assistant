@@ -15,7 +15,7 @@ from app.catalogue.match_tiers import (
 )
 from app.chat.query_signals import extract_query_signals
 from app.use_cases.models import UseCaseSelection
-from app.use_cases.registry import get_use_case
+from app.use_cases.registry import get_use_case, has_intent_pattern_hit, match_use_cases
 
 _EXACT_AUTHORITY_PATHS = frozenset(
     {
@@ -186,10 +186,15 @@ def apply_live_catalogue_bind(
         selected_use_case=selected_use_case,
         catalogue=catalogue,
     ):
-        bound = _selection_from_catalogue(catalogue)
-        if bound is not None:
-            use_case_out = bound
-            mappings["use_case_ids"] = [bound.use_case_id]
-            mappings["catalogue_bind_reason"] = catalogue.match_reason
+        original_committed = match_use_cases(query)
+        resurrecting_abstain = not original_committed and (
+            not catalogue.alias_applied or has_intent_pattern_hit(query)
+        )
+        if not resurrecting_abstain:
+            bound = _selection_from_catalogue(catalogue)
+            if bound is not None:
+                use_case_out = bound
+                mappings["use_case_ids"] = [bound.use_case_id]
+                mappings["catalogue_bind_reason"] = catalogue.match_reason
 
     return use_case_out, routed_out, mappings, catalogue

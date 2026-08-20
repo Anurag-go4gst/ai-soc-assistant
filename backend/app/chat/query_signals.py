@@ -708,7 +708,8 @@ def extract_query_signals(
         or negative_credential_dumping
     )
     mitre_explain = bool(_TECHNIQUE_ID_RE.search(query)) and any(
-        term in normalized for term in ("explain", "what is", "describe", "meaning of")
+        term in normalized
+        for term in ("explain", "what is", "what does", "describe", "meaning of", "cover")
     )
     analyst_action = any(
         term in normalized

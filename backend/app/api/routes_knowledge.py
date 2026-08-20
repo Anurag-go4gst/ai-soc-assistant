@@ -236,8 +236,8 @@ def export_mapping_artifact(
     elif normalized in {"catalogue_question_index", "catalogue_index", "catalogue_questions"}:
         # Linked view: which use case serves which question, which entries are
         # unbindable, and which can win a bind but carry no SPL template. That
-        # last flag matters — 32 of 58 bindable use cases have no template, so a
-        # bind can succeed and still leave the answer without a governed SPL.
+        # last flag matters — hunt shells without a template were removed from
+        # the bindable catalogue so a T2 bind cannot steal T4 without SPL.
         payload = build_catalogue_question_index()
         csv_rows = catalogue_question_index_csv_rows(payload)
         filename = f"ai_soc_catalogue_question_index.{file_format}"

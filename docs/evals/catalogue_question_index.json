@@ -1,11 +1,12 @@
 {
+  "artifact": "catalogue_question_index",
   "schema_version": "catalogue_question_index_v1",
   "counts": {
-    "use_cases": 65,
+    "use_cases": 42,
     "questions": 105,
-    "use_cases_bindable": 58,
-    "use_cases_with_template": 33,
-    "questions_binding_a_use_case": 14
+    "use_cases_bindable": 35,
+    "use_cases_with_template": 34,
+    "questions_binding_a_use_case": 10
   },
   "use_cases": [
     {
@@ -76,22 +77,6 @@
       "binds_a_105_question": false
     },
     {
-      "use_case_id": "auth_impossible_travel",
-      "display_name": "Impossible travel",
-      "category": "Authentication / Identity",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "impossible travel"
-      ],
-      "example_queries": [
-        "Investigate impossible travel"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
       "use_case_id": "auth_privileged_login_anomaly",
       "display_name": "Privileged account login anomaly",
       "category": "Authentication / Identity",
@@ -107,23 +92,6 @@
       ],
       "bindable": true,
       "has_spl_template": true,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "auth_service_account_abnormal_login",
-      "display_name": "Service account abnormal login",
-      "category": "Authentication / Identity",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "service account",
-        "svc account"
-      ],
-      "example_queries": [
-        "Investigate service account abnormal login"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
       "binds_a_105_question": false
     },
     {
@@ -149,7 +117,7 @@
       "display_name": "MFA failure spike",
       "category": "Authentication / Identity",
       "primary_skill": "attack_discovery",
-      "default_spl_template": null,
+      "default_spl_template": "auth_mfa_failure_spike",
       "intent_patterns": [
         "mfa failure",
         "mfa failures"
@@ -158,24 +126,8 @@
         "Investigate MFA failure spike"
       ],
       "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "auth_disabled_account_login",
-      "display_name": "Login from disabled account",
-      "category": "Authentication / Identity",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "disabled account"
-      ],
-      "example_queries": [
-        "Check login from disabled account"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
+      "has_spl_template": true,
+      "binds_a_105_question": true
     },
     {
       "use_case_id": "auth_after_hours_critical_asset",
@@ -213,90 +165,6 @@
       "binds_a_105_question": false
     },
     {
-      "use_case_id": "net_new_outbound_destination",
-      "display_name": "New outbound destination",
-      "category": "Network / Firewall",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "new outbound destination"
-      ],
-      "example_queries": [
-        "Find new outbound destinations"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "net_port_scanning",
-      "display_name": "Suspicious port scanning",
-      "category": "Network / Firewall",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "port scanning",
-        "port scan"
-      ],
-      "example_queries": [
-        "Investigate port scanning"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "net_east_west_anomaly",
-      "display_name": "East-west traffic anomaly",
-      "category": "Network / Firewall",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "east-west traffic",
-        "east west traffic"
-      ],
-      "example_queries": [
-        "Investigate east-west traffic anomaly"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "net_blocked_region_connection",
-      "display_name": "Connection to blocked country/region",
-      "category": "Network / Firewall",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "blocked country",
-        "blocked region"
-      ],
-      "example_queries": [
-        "Check connection to blocked country"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "net_repeated_critical_asset_connections",
-      "display_name": "Repeated connection attempts to critical asset",
-      "category": "Network / Firewall",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "repeated connection",
-        "critical asset connections"
-      ],
-      "example_queries": [
-        "Repeated connection attempts to critical asset"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": true
-    },
-    {
       "use_case_id": "net_vpn_login_anomaly",
       "display_name": "VPN login anomaly",
       "category": "Network / Firewall",
@@ -311,40 +179,6 @@
       ],
       "bindable": true,
       "has_spl_template": true,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "dns_unusual_query_volume",
-      "display_name": "Unusual DNS query volume",
-      "category": "Network / Firewall",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "dns query volume",
-        "unusual dns"
-      ],
-      "example_queries": [
-        "Show unusual DNS query volume"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": true
-    },
-    {
-      "use_case_id": "dns_tunneling_candidate",
-      "display_name": "DNS tunneling candidate",
-      "category": "Network / Firewall",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "dns tunneling",
-        "dns tunnel"
-      ],
-      "example_queries": [
-        "Investigate DNS tunneling candidate"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
       "binds_a_105_question": false
     },
     {
@@ -379,7 +213,6 @@
         "unpatched cves",
         "cross-reference",
         "cross reference",
-        "mitre att&ck",
         "affected hosts"
       ],
       "example_queries": [
@@ -423,103 +256,6 @@
       "binds_a_105_question": true
     },
     {
-      "use_case_id": "edr_new_service_creation",
-      "display_name": "New service creation",
-      "category": "Endpoint / EDR",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "new service creation"
-      ],
-      "example_queries": [
-        "Investigate new service creation"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "edr_scheduled_task_creation",
-      "display_name": "Scheduled task creation",
-      "category": "Endpoint / EDR",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "scheduled task"
-      ],
-      "example_queries": [
-        "Investigate scheduled task creation"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": true
-    },
-    {
-      "use_case_id": "edr_lateral_movement_candidate",
-      "display_name": "Lateral movement candidate",
-      "category": "Endpoint / EDR",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "lateral movement"
-      ],
-      "example_queries": [
-        "Investigate lateral movement candidate"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": true
-    },
-    {
-      "use_case_id": "edr_credential_dumping_signal",
-      "display_name": "Credential dumping signal",
-      "category": "Endpoint / EDR",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "credential dumping"
-      ],
-      "example_queries": [
-        "Investigate credential dumping signal"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "edr_malware_alert_summary",
-      "display_name": "Malware alert summarization",
-      "category": "Endpoint / EDR",
-      "primary_skill": "alert_summary",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "malware alert"
-      ],
-      "example_queries": [
-        "Summarize malware alert"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "edr_isolation_recommendation",
-      "display_name": "Endpoint isolation recommendation",
-      "category": "Endpoint / EDR",
-      "primary_skill": "action_planning",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "endpoint isolation",
-        "isolate endpoint"
-      ],
-      "example_queries": [
-        "Recommend endpoint isolation"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
       "use_case_id": "soc_show_sop",
       "display_name": "Show SOP/playbook",
       "category": "SOC / Knowledge / Analyst workflow",
@@ -530,10 +266,48 @@
         "playbook",
         "runbook",
         "standard operating procedure",
-        "standard-operating-procedure"
+        "standard-operating-procedure",
+        "which sop",
+        "what is the sop",
+        "show me the sop",
+        "show sop",
+        "what is the playbook",
+        "show me the playbook",
+        "which playbook",
+        "show me the runbook",
+        "which runbook"
       ],
       "example_queries": [
         "Show SOP for brute-force investigation"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "soc_show_catalogue_index",
+      "display_name": "Show catalogue index",
+      "category": "SOC / Knowledge / Analyst workflow",
+      "primary_skill": "knowledge_recall",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "what questions do you support",
+        "what's in the catalogue",
+        "whats in the catalogue",
+        "what is in the catalogue",
+        "what's in the catalog",
+        "whats in the catalog",
+        "what is in the catalog",
+        "show catalogue",
+        "show catalog",
+        "list use cases",
+        "list the use cases"
+      ],
+      "example_queries": [
+        "What questions do you support?",
+        "What's in the catalogue?",
+        "Show catalogue",
+        "List use cases"
       ],
       "bindable": true,
       "has_spl_template": false,
@@ -691,80 +465,17 @@
       "intent_patterns": [
         "mitre",
         "att&ck",
+        "mitre technique",
         "attack technique",
         "map this alert",
-        "map the alert"
+        "map the alert",
+        "map to mitre",
+        "map to att&ck",
+        "to mitre",
+        "to att&ck"
       ],
       "example_queries": [
         "Map this alert to MITRE"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "soc_create_investigation_note",
-      "display_name": "Create investigation note",
-      "category": "SOC / Knowledge / Analyst workflow",
-      "primary_skill": "investigation_notes",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "investigation note"
-      ],
-      "example_queries": [
-        "Create investigation note"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "soc_summarize_alert_evidence",
-      "display_name": "Summarize alert evidence",
-      "category": "SOC / Knowledge / Analyst workflow",
-      "primary_skill": "alert_summary",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "summarize alert",
-        "summarize evidence"
-      ],
-      "example_queries": [
-        "Summarize alert evidence"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "soc_recommend_next_pivots",
-      "display_name": "Recommend next pivots",
-      "category": "SOC / Knowledge / Analyst workflow",
-      "primary_skill": "action_planning",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "next pivots",
-        "recommend pivots"
-      ],
-      "example_queries": [
-        "Recommend next pivots"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "soc_draft_ticket",
-      "display_name": "Draft ticket",
-      "category": "SOC / Knowledge / Analyst workflow",
-      "primary_skill": "ticket_drafting",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "draft ticket",
-        "create ticket",
-        "draft incident"
-      ],
-      "example_queries": [
-        "Draft ticket for this alert"
       ],
       "bindable": true,
       "has_spl_template": false,
@@ -782,76 +493,6 @@
       ],
       "example_queries": [
         "Compare current alert with past incidents"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "ot_unexpected_command",
-      "display_name": "Unexpected command to OT/grid asset",
-      "category": "OT / Critical infrastructure later",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "unexpected command",
-        "grid asset command"
-      ],
-      "example_queries": [
-        "Unexpected command to OT asset"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "ot_it_to_ot_auth_anomaly",
-      "display_name": "IT-to-OT authentication anomaly",
-      "category": "OT / Critical infrastructure later",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "it-to-ot",
-        "it to ot"
-      ],
-      "example_queries": [
-        "Investigate IT-to-OT authentication anomaly"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "ot_critical_asset_after_hours",
-      "display_name": "Critical asset after-hours access",
-      "category": "OT / Critical infrastructure later",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "critical asset after-hours",
-        "critical asset after hours"
-      ],
-      "example_queries": [
-        "Critical asset after-hours access"
-      ],
-      "bindable": true,
-      "has_spl_template": false,
-      "binds_a_105_question": false
-    },
-    {
-      "use_case_id": "ot_protocol_anomaly",
-      "display_name": "OT protocol anomaly",
-      "category": "OT / Critical infrastructure later",
-      "primary_skill": "attack_discovery",
-      "default_spl_template": null,
-      "intent_patterns": [
-        "ot protocol anomaly",
-        "modbus anomaly",
-        "dnp3 anomaly",
-        "iec-104 anomaly"
-      ],
-      "example_queries": [
-        "Investigate OT protocol anomaly"
       ],
       "bindable": true,
       "has_spl_template": false,
@@ -1215,7 +856,7 @@
       "bind_matched_patterns": [
         "beaconing"
       ],
-      "bind_coverage_score": 0.5853
+      "bind_coverage_score": 0.5152
     },
     {
       "question_ref": "q0.q009",
@@ -1269,11 +910,9 @@
       "question_ref": "q0.q015",
       "question": "Which hosts have repeated connections to rare destinations?",
       "proposed_primary_skill": "threshold_anomaly",
-      "binds_use_case_id": "net_repeated_critical_asset_connections",
-      "bind_matched_patterns": [
-        "repeated connection"
-      ],
-      "bind_coverage_score": 0.7802
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
     },
     {
       "question_ref": "q0.q016",
@@ -1339,7 +978,7 @@
       "bind_matched_patterns": [
         "beaconing"
       ],
-      "bind_coverage_score": 0.5853
+      "bind_coverage_score": 0.5152
     },
     {
       "question_ref": "q0.q024",
@@ -1526,7 +1165,7 @@
         "failed login",
         "failed logins"
       ],
-      "bind_coverage_score": 1.6013
+      "bind_coverage_score": 1.5103
     },
     {
       "question_ref": "q0.q047",
@@ -1552,7 +1191,7 @@
       "bind_matched_patterns": [
         "suspicious powershell"
       ],
-      "bind_coverage_score": 1.152
+      "bind_coverage_score": 1.1598
     },
     {
       "question_ref": "q0.q050",
@@ -1635,7 +1274,7 @@
         "failure",
         "failures"
       ],
-      "bind_coverage_score": 0.6328
+      "bind_coverage_score": 0.5427
     },
     {
       "question_ref": "q0.q060",
@@ -1647,7 +1286,7 @@
         "after repeated failures",
         "after repeated failure"
       ],
-      "bind_coverage_score": 2.829
+      "bind_coverage_score": 2.626
     },
     {
       "question_ref": "q0.q061",
@@ -1666,7 +1305,7 @@
         "failed login",
         "failed logins"
       ],
-      "bind_coverage_score": 1.201
+      "bind_coverage_score": 1.1327
     },
     {
       "question_ref": "q0.q063",
@@ -1688,11 +1327,9 @@
       "question_ref": "q0.q065",
       "question": "Which endpoints created new scheduled tasks?",
       "proposed_primary_skill": "behavioral_detection_binding",
-      "binds_use_case_id": "edr_scheduled_task_creation",
-      "bind_matched_patterns": [
-        "scheduled task"
-      ],
-      "bind_coverage_score": 1.1705
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
     },
     {
       "question_ref": "q0.q066",
@@ -1706,13 +1343,9 @@
       "question_ref": "q0.q067",
       "question": "Which hosts are generating unusual DNS query volumes?",
       "proposed_primary_skill": "threshold_anomaly",
-      "binds_use_case_id": "dns_unusual_query_volume",
-      "bind_matched_patterns": [
-        "dns query volume",
-        "unusual dns",
-        "Unusual DNS query volume"
-      ],
-      "bind_coverage_score": 3.1416
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
     },
     {
       "question_ref": "q0.q068",
@@ -1750,11 +1383,9 @@
       "question_ref": "q0.q072",
       "question": "Which hosts show signs of lateral movement?",
       "proposed_primary_skill": "behavioral_detection_binding",
-      "binds_use_case_id": "edr_lateral_movement_candidate",
-      "bind_matched_patterns": [
-        "lateral movement"
-      ],
-      "bind_coverage_score": 1.0033
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
     },
     {
       "question_ref": "q0.q073",
@@ -1812,7 +1443,7 @@
       "bind_matched_patterns": [
         "suspicious process"
       ],
-      "bind_coverage_score": 0.8229
+      "bind_coverage_score": 0.8284
     },
     {
       "question_ref": "q0.q080",
@@ -1871,7 +1502,7 @@
         "failed login",
         "failed logins"
       ],
-      "bind_coverage_score": 0.8734
+      "bind_coverage_score": 0.8238
     },
     {
       "question_ref": "q0.q087",
@@ -1893,12 +1524,12 @@
       "question_ref": "q0.q089",
       "question": "Which users authenticated to VPN after repeated MFA failures?",
       "proposed_primary_skill": "sequence_detection",
-      "binds_use_case_id": "auth_failed_login_spike",
+      "binds_use_case_id": "auth_mfa_failure_spike",
       "bind_matched_patterns": [
-        "failure",
-        "failures"
+        "mfa failure",
+        "mfa failures"
       ],
-      "bind_coverage_score": 0.6328
+      "bind_coverage_score": 1.1445
     },
     {
       "question_ref": "q0.q090",

@@ -363,7 +363,7 @@
       "execution_status": "requires_human_review",
       "human_review_required": true,
       "mapped_question_ref": "q0.q015",
-      "match_path": "exact_105_plus_use_case_catalog",
+      "match_path": "exact_105_question",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "route": "attack_discovery",
@@ -1478,7 +1478,7 @@
       "execution_status": "skipped",
       "human_review_required": true,
       "mapped_question_ref": "q0.q065",
-      "match_path": "exact_105_plus_use_case_catalog",
+      "match_path": "exact_105_question",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "route": "attack_discovery",
@@ -1520,7 +1520,7 @@
       "execution_status": "requires_human_review",
       "human_review_required": true,
       "mapped_question_ref": "q0.q067",
-      "match_path": "exact_105_plus_use_case_catalog",
+      "match_path": "exact_105_question",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "route": "attack_discovery",
@@ -1619,7 +1619,7 @@
       "execution_status": "skipped",
       "human_review_required": true,
       "mapped_question_ref": "q0.q072",
-      "match_path": "exact_105_plus_use_case_catalog",
+      "match_path": "exact_105_question",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "route": "attack_discovery",
@@ -1987,21 +1987,15 @@
     "105:q0.q089": {
       "analyst_enabled_sections": [
         "analyst_action_guidance",
-        "evidence_checklist",
-        "investigation_guidance",
-        "limitations",
-        "procedural_steps",
-        "triage_checklist"
+        "severity_assessment",
+        "spl_artifact"
       ],
       "answer_shape": "hunt",
       "contract_answer_mode": "live_investigation",
       "enabled_sections": [
         "analyst_action_guidance",
-        "evidence_checklist",
-        "investigation_guidance",
-        "limitations",
-        "procedural_steps",
-        "triage_checklist"
+        "severity_assessment",
+        "spl_artifact"
       ],
       "execution_eligible": false,
       "execution_status": "requires_human_review",
@@ -2011,8 +2005,8 @@
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "route": "attack_discovery",
-      "severity_label": "P3 Medium",
-      "spl_approved": false
+      "severity_label": "Not assigned from this question alone",
+      "spl_approved": true
     },
     "105:q0.q090": {
       "analyst_enabled_sections": [
