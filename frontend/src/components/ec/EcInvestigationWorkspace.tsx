@@ -18,6 +18,7 @@ import { evidenceIdForChip, readinessLabelForActionChip } from '@/lib/ecOperatio
 import {
   agentLifecycleScrollTarget,
   isAgentExecutiveSummaryFollowUp,
+  isAgentImmediateRevealFollowUp,
   isAgentInlineProgressFollowUp,
   isAgentWorkflowMode,
   suppressesAgentExecutionProgressPanel,
@@ -43,10 +44,19 @@ function isActionChip(chip?: EcFollowUpChip | null): boolean {
 }
 
 function scrollAgentSection(selector: string, block: ScrollLogicalPosition = 'start') {
-  window.requestAnimationFrame(() => {
-    const panel = document.querySelector(selector);
-    scrollIntoScrollParent(panel instanceof HTMLElement ? panel : null, { block, behavior: 'smooth' });
-  });
+  const attempt = (triesLeft: number) => {
+    window.requestAnimationFrame(() => {
+      const panel = document.querySelector(selector);
+      if (panel instanceof HTMLElement) {
+        scrollIntoScrollParent(panel, { block, behavior: 'smooth' });
+        return;
+      }
+      if (triesLeft > 0) {
+        window.setTimeout(() => attempt(triesLeft - 1), 50);
+      }
+    });
+  };
+  attempt(8);
 }
 
 function isEvidenceContinueChip(chip?: EcFollowUpChip | null): boolean {
@@ -144,12 +154,15 @@ export function EcInvestigationWorkspace() {
       setProgress(null);
       setEnvelope(next);
       setRevealed(true);
-      if (next.ec_agent_lifecycle === 'INVESTIGATION_COMPLETE') {
-        scrollAgentSection('[data-ec-section="investigation-summary"]', 'start');
+      const agentTarget = agentLifecycleScrollTarget(next.ec_agent_lifecycle);
+      if (agentTarget) {
+        const block =
+          agentTarget.includes('summary') || agentTarget.includes('recommended-remediation')
+            ? 'start'
+            : 'nearest';
+        scrollAgentSection(agentTarget, block);
       } else {
-        const agentTarget = agentLifecycleScrollTarget(next.ec_agent_lifecycle);
-        if (agentTarget) scrollAgentSection(agentTarget, agentTarget.includes('summary') ? 'start' : 'nearest');
-        else scrollToAnswerStart();
+        scrollToAnswerStart();
       }
       return;
     }
@@ -234,11 +247,15 @@ export function EcInvestigationWorkspace() {
     const epoch = epochRef.current + 1;
     epochRef.current = epoch;
     const executiveSummaryOnly = isAgentExecutiveSummaryFollowUp(envelope, followUpId);
+    const immediateReveal = isAgentImmediateRevealFollowUp(envelope, followUpId, Boolean(options?.keepAnswer));
     const keepAnswer = options?.keepAnswer ?? (isActionChip(chip) || isEvidenceContinueChip(chip) || executiveSummaryOnly);
     const agentInlineProgress = isAgentInlineProgressFollowUp(envelope, followUpId, Boolean(keepAnswer));
+    const remFollowUp = followUpId === 'run_remediation' || followUpId === 'create_remediation_plan';
     setBusy(true);
     setError(null);
-    pushUserMessage(chip?.label ?? followUpId, { scrollMode: executiveSummaryOnly ? 'none' : agentInlineProgress ? 'answer' : 'end' });
+    pushUserMessage(chip?.label ?? followUpId, {
+      scrollMode: executiveSummaryOnly || remFollowUp ? 'none' : agentInlineProgress ? 'answer' : 'end',
+    });
     const link = readinessLabelForActionChip(chip);
     const evidenceHighlight = evidenceIdForChip(chip);
     if (!keepAnswer) {
@@ -269,6 +286,15 @@ export function EcInvestigationWorkspace() {
         setEnvelope(next);
         setRevealed(true);
         scrollAgentSection('[data-ec-section="executive-summary"]', 'start');
+        return;
+      }
+      if (immediateReveal) {
+        setEnvelope(next);
+        setRevealed(true);
+        const agentTarget = agentLifecycleScrollTarget(next.ec_agent_lifecycle);
+        if (agentTarget) {
+          scrollAgentSection(agentTarget, 'start');
+        }
         return;
       }
       await playThenReveal(next, epoch, { keepAnswer, agentInlineProgress });

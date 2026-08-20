@@ -20,8 +20,8 @@ def test_s4_agent_profile_is_registered() -> None:
 def test_agent_dispatch_returns_none_for_non_agent_scenario() -> None:
     handled = handle_agent_follow_up(
         session_id="ec-framework",
-        family="s1_governed_splunk",
-        scenario_id="s1_governed_splunk_investigation",
+        family="s3_firewall_coord",
+        scenario_id="s3_firewall_team_coordination",
         follow_up_id="run_investigation",
         agent_payload={},
         session_record={},

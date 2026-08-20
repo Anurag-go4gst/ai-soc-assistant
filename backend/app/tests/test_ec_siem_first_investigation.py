@@ -146,12 +146,21 @@ def test_s1_reuse_first_gap_searches_only_after_existing_content() -> None:
 
 def test_s1_assessment_does_not_claim_all_communication_paths() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-scope-lang").model_dump()
-    blob = envelope["analyst"]["assessment"].lower()
-    assert "firewall-observed" in blob or "firewall telemetry" in blob
-    assert "dns, proxy, vpn" in blob or "dns/proxy/vpn" in blob
-    assert "not confirmed" in blob
+    assert envelope["ec_agent_lifecycle"] == "PLAN_READY"
     unconfirmed = " ".join(envelope["ec_investigation_outcome"]["unconfirmed"]).lower()
     assert "all communication" in unconfirmed or "dns / proxy / vpn" in unconfirmed
+    after = run_experience_center_turn(
+        S1_SCENARIO_ID,
+        session_id="s1-scope-lang",
+        follow_up_id="run_investigation",
+    ).model_dump()
+    points = " ".join(
+        (after["ec_agent_workflow"].get("investigation_conclusion") or {}).get("narrative_points") or []
+    ).lower()
+    assert "firewall" in points
+    assert "not confirmed" in (
+        (after["ec_agent_workflow"].get("investigation_conclusion") or {}).get("headline") or ""
+    ).lower()
 
 
 def test_s1_jump_host_pivot_and_scope_cards() -> None:

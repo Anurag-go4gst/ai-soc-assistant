@@ -23,14 +23,14 @@ _INITIAL_ARCHITECTURE_KEYS = (
 INITIAL_ARCHITECTURE_STEP_COUNT = len(_INITIAL_ARCHITECTURE_KEYS)
 
 S1_INITIAL_TITLES = (
-    "Decomposing suspicious-IP investigation",
+    "Decomposing newly observed IP review",
     "Planning evidence and resources",
     "Selecting governed MCP tools",
     "Connecting to Splunk MCP",
-    "Reusing approved suspicious-IP investigation content",
+    "Identifying IP and expected role",
     "Validating governed SPL searches",
     "Executing governed Splunk searches",
-    "Correlating communication and affected systems",
+    "Assessing existing Splunk detection coverage",
     "Applying governed LLM advisory",
     "Building InvestigationOutcome and next options",
 )
@@ -200,14 +200,14 @@ def s1_initial() -> EcExecutionJourney:
     splunk_saved = ("Splunk", "splunk_run_saved_search")
     titles = S1_INITIAL_TITLES
     specs = [
-        InitialStepSpec("understand", titles[0], semantic_type="understand", duration_ms_hint=800, activity=["Decomposing communication, affected systems, and auth questions…"]),
-        InitialStepSpec("resource-plan", titles[1], semantic_type="plan", duration_ms_hint=850, activity=["Mapping evidence needs and governed resources…", "Resource plan locked for suspicious-IP hunt…"]),
+        InitialStepSpec("understand", titles[0], semantic_type="understand", duration_ms_hint=800, activity=["Decomposing last-30-days verification, novelty, and SOP questions…"]),
+        InitialStepSpec("resource-plan", titles[1], semantic_type="plan", duration_ms_hint=850, activity=["Mapping evidence needs and governed resources…", "Resource plan locked for newly observed IP review…"]),
         InitialStepSpec("mcp-select", titles[2], semantic_type="plan", duration_ms_hint=800, activity=["Selecting splunk_run_query and knowledge-object tools…", "Applying MCP execution gates…"]),
         InitialStepSpec("mcp-connect", titles[3], semantic_type="plan", duration_ms_hint=1000, activity=["Resolving Splunk MCP from registry…", "Connector ready for governed search…"], system=splunk[0], operation=splunk[1]),
-        InitialStepSpec("evidence", titles[4], semantic_type="gather", duration_ms_hint=1000, activity=["Executing approved saved search…", "Partial coverage — historical gap remains…"], system=splunk_saved[0], operation=splunk_saved[1], outcome_change="coverage=PARTIAL"),
+        InitialStepSpec("evidence", titles[4], semantic_type="gather", duration_ms_hint=1000, activity=["Looking up inventory identity…", "Registered MCP endpoint — not a listed IOC…"], system="SOC-KB", operation="retrieve_soc_kb", outcome_change="identity=registered_mcp"),
         InitialStepSpec("spl-validate", titles[5], semantic_type="evaluate", duration_ms_hint=900, activity=["Running deterministic SPL validator on bounded 30-day windows…"]),
-        InitialStepSpec("mcp-execute", titles[6], semantic_type="gather", duration_ms_hint=1300, activity=["Executing governed Splunk search…", "Executing second governed search…", "Polling Splunk MCP job…"], system=splunk[0], operation=splunk[1]),
-        InitialStepSpec("correlate", titles[7], semantic_type="correlate", duration_ms_hint=900, activity=["Merging firewall evidence across windows…", "Jump host 10.20.1.10 is the priority pivot…"]),
+        InitialStepSpec("mcp-execute", titles[6], semantic_type="gather", duration_ms_hint=1300, activity=["Executing requested last-30-days search…", "Executing prior novelty window…", "Polling Splunk MCP job…"], system=splunk[0], operation=splunk[1]),
+        InitialStepSpec("correlate", titles[7], semantic_type="evaluate", duration_ms_hint=900, activity=["Assessing existing IOC detection coverage…", "No alert — IP not present in the IOC list used by this detection…"], system=splunk_saved[0], operation=splunk_saved[1], outcome_change="coverage=PARTIAL"),
         InitialStepSpec("llm-advisory", titles[8], semantic_type="evaluate", duration_ms_hint=1200, activity=_LLM_ACTIVITY),
         InitialStepSpec("outcome", titles[9], semantic_type="outcome", duration_ms_hint=900, activity=["Separating confirmed, unconfirmed, and missing evidence…", "Preparing investigation and response options…"]),
     ]
@@ -653,10 +653,10 @@ S1_FOLLOW_UP_JOURNEYS = {
         "s1-ti",
         "check_threat_intel",
         [
-            ("Selecting threat-intelligence source", "plan", "Selecting the EC TI fixture…"),
-            ("Looking up indicator", "gather", "Looking up the suspicious IP…"),
-            ("Evaluating reputation/context", "evaluate", "Fixture lists a suspicious scanner, not a live feed…"),
-            ("Updating outcome", "outcome", "Updating InvestigationOutcome…"),
+            ("Selecting local threat-intelligence source", "plan", "EC TI fixture only — no internet reputation…"),
+            ("Looking up indicator", "gather", "Looking up the newly observed IP…"),
+            ("Evaluating local IOC content", "evaluate", "Not present in local IOC / TI evidence…"),
+            ("Updating outcome", "outcome", "Unlisted is not benign…"),
         ],
     ),
     "compare_previous_incidents": _continue(
@@ -668,6 +668,130 @@ S1_FOLLOW_UP_JOURNEYS = {
             ("Comparing entities/tactics", "correlate", "Comparing indicator and jump host…"),
             ("Evaluating linkage", "evaluate", "Campaign linkage stays unconfirmed…"),
             ("Updating InvestigationOutcome", "outcome", "Updating supported context…"),
+        ],
+    ),
+    "raise_mcp_monitoring": _continue(
+        "s1-monitor",
+        "raise_mcp_monitoring",
+        [
+            ("Selecting monitoring SOP", "plan", "Standard SOP is raise monitoring before a HIL block…"),
+            ("Drafting MCP IP notable", "gather", "Preparing a new notable for the newly registered MCP endpoint…"),
+            ("Holding for analyst approval", "hil", "Monitoring draft is HIL — not auto-deployed…"),
+            ("Updating InvestigationOutcome", "outcome", "Monitoring drafted; block still optional…"),
+        ],
+    ),
+    "review_existing_notable": _continue(
+        "s1-notable",
+        "review_existing_notable",
+        [
+            ("Assessing existing Splunk detection coverage", "evaluate", "No alert — IP not in the IOC list used by this detection…"),
+        ],
+    ),
+    "lookup_inventory_identity": _continue(
+        "s1-identity",
+        "lookup_inventory_identity",
+        [
+            ("Looking up inventory identity", "gather", "SOC-KB: registered MCP endpoint…"),
+        ],
+    ),
+    "search_firewall_30d": _continue(
+        "s1-fw-30d",
+        "search_firewall_30d",
+        [
+            ("Running last-30-days firewall search", "gather", "3 allowed / 922 denied on the jump host…"),
+            ("Running novelty window", "gather", "Prior 30 days empty — newly observed…"),
+        ],
+    ),
+    "retrieve_sop": _continue(
+        "s1-sop",
+        "retrieve_sop",
+        [
+            ("Retrieving enterprise SOP", "gather", "SOC-KB: newly observed external / MCP endpoint SOP…"),
+            ("Reading monitoring vs block criteria", "evaluate", "Default is 14-day targeted monitoring…"),
+        ],
+    ),
+    "investigate_permitted_sessions": _continue(
+        "s1-allows",
+        "investigate_permitted_sessions",
+        [
+            ("Drilling allowed sessions", "gather", "Three permits on 10.20.1.10 ports 443/8443…"),
+            ("Correlating authentication", "correlate", "svc_jump_ops logons exist; src IP not proven…"),
+            ("Checking follow-on activity", "evaluate", "Deny-only on peer hosts — no supporting jump-host follow-on signal…"),
+        ],
+    ),
+    "run_investigation": _continue(
+        "s1-inv-run",
+        "run_investigation",
+        [
+            ("Identifying the IP", "gather", "Inventory: registered MCP endpoint…"),
+            ("Searching last 30 days", "gather", "3 allowed / 922 denied on jump host…"),
+            ("Investigating permitted sessions", "correlate", "Added by agent — three permits unexplained…"),
+            ("Checking novelty window", "gather", "Prior 30 days empty…"),
+            ("Checking local TI", "gather", "Unlisted in local IOC/TI…"),
+            ("Assessing Splunk detection coverage", "evaluate", "No alert — IP not in IOC list…"),
+            ("Retrieving SOP", "gather", "Enterprise monitoring and blocking SOP…"),
+            ("Synthesizing findings", "outcome", "Registered MCP endpoint · permits unexplained · malicious use not confirmed…"),
+        ],
+        header="Investigation in progress",
+    ),
+    "create_remediation_plan": _continue(
+        "s1-rem-plan",
+        "create_remediation_plan",
+        [
+            ("Reviewing investigation outcome", "evaluate", "Three permits unexplained · SOP threshold not met…"),
+            ("Drafting targeted monitoring", "plan", "14-day notable/watch — not auto-deployed…"),
+            ("Preparing detection candidate", "plan", "LLM candidate → validate_spl → not deployed…"),
+            ("Preparing conditional block", "plan", "HIL request only — not executed…"),
+            ("Sequencing dependencies", "outcome", "Remediation plan ready for approval…"),
+        ],
+        header="Building remediation plan",
+    ),
+    "decline_remediation_plan": _continue(
+        "s1-rem-decline",
+        "decline_remediation_plan",
+        [
+            ("Holding remediation", "outcome", "Investigation stands; no remediation created…"),
+        ],
+    ),
+    "prepare_monitoring_detection": _continue(
+        "s1-detect",
+        "prepare_monitoring_detection",
+        [
+            ("Validating candidate SPL", "evaluate", "Deterministic validate_spl — not deployed…"),
+        ],
+    ),
+    "monitor_affected_hosts": _continue(
+        "s1-host-watch",
+        "monitor_affected_hosts",
+        [
+            ("Arming host watch", "execute", "14-day watch on jump host and deny-only peers…"),
+        ],
+    ),
+    "monitor_residual": _continue(
+        "s1-residual",
+        "monitor_residual",
+        [
+            ("Arming residual watch", "execute", "Indicator watch for remainder of 14-day window…"),
+        ],
+    ),
+    "run_remediation": _continue(
+        "s1-rem-run",
+        "run_remediation",
+        [
+            ("Raise MCP IP monitoring", "execute", "HIL notable draft…"),
+            ("Prepare firewall block", "execute", "SOAR ip_block after approval…"),
+            ("Create incident", "execute", "ITSM — malicious use not confirmed…"),
+            ("Notify firewall team", "execute", "Email — FIREWALL_TEAM after approval…"),
+            ("Verify firewall rule", "verify", "Simulated rule after execute…"),
+            ("Closure summary", "outcome", "Monitoring raised · malicious use not confirmed…"),
+        ],
+        header="Remediation in progress",
+    ),
+    "generate_executive_summary": _continue(
+        "s1-exec",
+        "generate_executive_summary",
+        [
+            ("Writing executive summary", "outcome", "New MCP endpoint · monitoring raised · not confirmed malicious…"),
         ],
     ),
     "check_successful_auth": _continue(
@@ -782,14 +906,77 @@ S2_FOLLOW_UP_JOURNEYS = {
 }
 
 S7_FOLLOW_UP_JOURNEYS = {
+    "review_splunk_telemetry": _continue("s7-splunk", "review_splunk_telemetry", [
+        ("Selecting Splunk MCP", "plan", "Selecting Splunk unauthorized-access telemetry…"),
+        ("Replaying OT access events", "gather", "Unauthorized-access events for OT-RTU-14 / 10.80.4.14…"),
+        ("Updating InvestigationOutcome", "outcome", "Telemetry confirmed — not yet an incident…"),
+    ]),
+    "review_cmdb_record": _continue("s7-cmdb", "review_cmdb_record", [
+        ("Reading CMDB record", "gather", "OT-RTU-14 listed as retired…"),
+        ("Detecting conflict", "evaluate", "Splunk activity vs CMDB retired — do not force an incident…"),
+    ]),
     "check_ot_inventory": _continue("s7-otinv", "check_ot_inventory", [
         ("Selecting OT inventory", "plan", "Selecting OT inventory…"),
         ("Retrieving asset state", "gather", "OT inventory shows the device active…"),
         ("Updating InvestigationOutcome", "outcome", "CMDB may be stale — still not a forced incident…"),
     ]),
+    "check_firewall_activity": _continue("s7-fw", "check_firewall_activity", [
+        ("Selecting firewall telemetry", "plan", "Selecting Splunk-indexed OT firewall logs…"),
+        ("Reviewing east-west allows", "gather", "Allow to 10.80.4.14 from ot-eng in the same window…"),
+    ]),
+    "check_arp_mac": _continue("s7-arp", "check_arp_mac", [
+        ("Reading switch ARP/MAC", "gather", "MAC still answering on vlan ot-4…"),
+        ("Updating InvestigationOutcome", "outcome", "Network evidence supports a live endpoint…"),
+    ]),
+    "confirm_stale_identity": _continue("s7-stale", "confirm_stale_identity", [
+        ("Checking recycled identity", "evaluate", "Telemetry belongs to a recycled asset tag…"),
+        ("Updating InvestigationOutcome", "outcome", "Not an incident — data-quality correction…"),
+    ]),
     "ask_ot_team": _email_action("ask_ot_team", wait_inbound=True),
+    "ingest_ot_response": _continue("s7-ot-ingest", "ingest_ot_response", [
+        ("Ingesting OT reply", "gather", "Fixture-backed OT team response…"),
+        ("Resolving conflict", "outcome", "Path A or B evidenced from OT confirmation…"),
+    ]),
     "create_incident_ticket": _ticket_action("create_incident_ticket"),
     "recommend_cmdb_correction": _ticket_action("recommend_cmdb_correction"),
+    "generate_closure_summary": _closure_action("generate_closure_summary"),
+    "run_investigation": _continue(
+        "s7-inv-run",
+        "run_investigation",
+        [
+            ("Replaying Splunk telemetry", "gather", "Unauthorized-access events for OT-RTU-14…"),
+            ("Loading CMDB record", "gather", "Asset listed as retired…"),
+            ("Checking OT inventory", "gather", "Device active on cell 4…"),
+            ("Checking firewall window", "gather", "East-west allow to 10.80.4.14…"),
+            ("Checking ARP/MAC", "gather", "MAC still answering on the OT VLAN…"),
+            ("Synthesizing findings", "outcome", "Real concern — CMDB stale — not Splunk-alone…"),
+        ],
+        header="Investigation in progress",
+    ),
+    "create_remediation_plan": _continue(
+        "s7-rem-plan",
+        "create_remediation_plan",
+        [
+            ("Reviewing investigation outcome", "evaluate", "Device active · CMDB stale · conflict resolved…"),
+            ("Drafting OT email", "plan", "Logical recipient OT_TEAM…"),
+            ("Preparing incident ticket", "plan", "INC-OT-14 only after Path A…"),
+            ("Preparing CMDB correction", "plan", "CHG-CMDB-14 data-quality…"),
+            ("Sequencing dependencies", "outcome", "Governed remediation plan ready for approval…"),
+        ],
+        header="Building remediation plan",
+    ),
+    "run_remediation": _continue(
+        "s7-rem-run",
+        "run_remediation",
+        [
+            ("Ask OT team", "execute", "Email — OT_TEAM after approval…"),
+            ("Ingest OT reply", "gather", "Device never decommissioned; CMDB not updated…"),
+            ("Create incident", "execute", "ITSM — active device, stale CMDB…"),
+            ("CMDB correction", "execute", "ITSM — data-quality ticket…"),
+            ("Closure summary", "outcome", "Real concern after conflict resolution…"),
+        ],
+        header="Remediation in progress",
+    ),
 }
 
 

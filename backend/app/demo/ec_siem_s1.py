@@ -51,7 +51,7 @@ def build_s1_siem_coverage() -> EcSiemCoverageAssessment:
                 object_type="saved_search",
                 name=S1_DETECTION_NAME,
                 status="existing",
-                purpose="Recent suspicious-IP firewall activity and initial affected systems",
+                purpose="Existing IOC detection assessed; no alert — IP not present in the IOC list used by this detection",
                 coverage="PARTIAL",
                 reused=True,
                 execution_ref=f"saved_search:{S1_SAVED_SEARCH_NAME}",
@@ -60,10 +60,10 @@ def build_s1_siem_coverage() -> EcSiemCoverageAssessment:
         required_evidence=[
             {
                 "evidence_id": "q1_communication",
-                "question": f"What communication involving {PRIMARY_ATTACKER_IP} is visible?",
+                "question": f"What communication involving {PRIMARY_ATTACKER_IP} is visible in the last 30 days?",
                 "coverage": "PARTIAL",
-                "source_status": "firewall_reused_plus_gap",
-                "resolution": "Existing search + governed 30+30 firewall history",
+                "source_status": "firewall_requested_window_plus_novelty",
+                "resolution": "Existing notable did not fire; requested 30 days + prior novelty window",
             },
             {
                 "evidence_id": "q2_affected_systems",
@@ -88,7 +88,7 @@ def build_s1_siem_coverage() -> EcSiemCoverageAssessment:
             },
             {
                 "evidence_id": "q5_compromise",
-                "question": "Does evidence support compromise or lateral movement?",
+                "question": "Does evidence confirm malicious use or attributable authentication?",
                 "coverage": "NONE",
                 "source_status": "unconfirmed",
                 "resolution": "Requires identity, endpoint, and broader communication evidence",
@@ -103,7 +103,7 @@ def build_s1_siem_coverage() -> EcSiemCoverageAssessment:
         ],
         generated_searches=[
             EcSiemGeneratedSearch(
-                evidence_requirement="Full 60-day firewall history (historical gap)",
+                evidence_requirement="Requested last 30 days plus prior 30-day novelty window",
                 candidate_created=True,
                 validator_status="PASS",
                 normalized=True,
@@ -119,9 +119,9 @@ def build_s1_siem_coverage() -> EcSiemCoverageAssessment:
         ],
         coverage_rows=[
             EcSiemCoverageRow(
-                investigation_need="Suspicious-IP firewall activity",
-                siem_status="Existing content",
-                decision="Reused",
+                investigation_need="Newly observed IP / MCP identity",
+                siem_status="Existing IOC notable did not fire",
+                decision="Evaluated",
             ),
             EcSiemCoverageRow(
                 investigation_need="Current affected systems",
@@ -129,7 +129,7 @@ def build_s1_siem_coverage() -> EcSiemCoverageAssessment:
                 decision="Correlated",
             ),
             EcSiemCoverageRow(
-                investigation_need="Full 60-day history",
+                investigation_need="Last 30 days plus novelty window",
                 siem_status="Partial",
                 decision="30+30 governed search",
             ),
@@ -159,10 +159,10 @@ def build_s1_siem_coverage() -> EcSiemCoverageAssessment:
 
 def build_s1_investigation_scope() -> EcInvestigationScope:
     return EcInvestigationScope(
-        time_range="60 days — environment governance applied because the analyst provided no time range",
+        time_range="Last 30 days requested; prior 30-day window used only to confirm the IP is newly observed",
         telemetry_queried=["Firewall (pgcil_soc / pgcil:firewall)"],
         telemetry_sources=[
-            EcTelemetrySourceRow(source="Firewall", status="OBTAINED", detail="Existing saved search reused + 30+30 gap searches"),
+            EcTelemetrySourceRow(source="Firewall", status="OBTAINED", detail="Existing notable evaluated (did not fire) + last 30 days + novelty window"),
             EcTelemetrySourceRow(source="DNS", status="AVAILABLE_NOT_QUERIED", detail="pgcil:dns index available in environment KB"),
             EcTelemetrySourceRow(source="Proxy / web", status="AVAILABLE_NOT_QUERIED", detail="Not queried in initial investigation"),
             EcTelemetrySourceRow(source="VPN", status="AVAILABLE_NOT_QUERIED", detail="pgcil:vpn available; not queried"),
@@ -194,6 +194,10 @@ def build_s1_action_readiness(applied: list[str], actions: list[Any]) -> list[Ec
     fw_state = getattr(firewall, "state", None) if firewall else None
     rows = [
         EcActionReadinessRow(action="Investigate jump host", state="RECOMMENDED"),
+        EcActionReadinessRow(
+            action="Raise MCP IP monitoring",
+            state="READY_FOR_REVIEW" if "raise_mcp_monitoring" in applied else "READY",
+        ),
         EcActionReadinessRow(action="Create incident ticket", state="READY"),
         EcActionReadinessRow(action="Notify firewall/security team", state="READY"),
         EcActionReadinessRow(
@@ -208,7 +212,7 @@ def build_s1_action_readiness(applied: list[str], actions: list[Any]) -> list[Ec
         EcActionReadinessRow(action=f"Disable {_ACCOUNT}", state="NOT_RECOMMENDED_YET"),
     ]
     if fw_state == "EXECUTED":
-        rows[4] = EcActionReadinessRow(action="Execute IP block", state="EXECUTED")
+        rows[5] = EcActionReadinessRow(action="Execute IP block", state="EXECUTED")
     return rows
 
 
@@ -222,7 +226,7 @@ def build_s1_tool_traces(search_1: dict[str, Any], search_2: dict[str, Any]) -> 
             provenance="simulated_mcp",
         ),
         EcSiemToolTrace(
-            purpose="Reuse approved suspicious-IP search",
+            purpose="Assess existing Splunk detection coverage",
             capability="Firewall activity saved search",
             mcp_tool="splunk_run_saved_search",
             mode="READ",
@@ -230,7 +234,7 @@ def build_s1_tool_traces(search_1: dict[str, Any], search_2: dict[str, Any]) -> 
             provenance="simulated_mcp",
         ),
         EcSiemToolTrace(
-            purpose="Resolve 60-day historical firewall gap (window 1)",
+            purpose="Prior 30-day novelty window (is this IP new?)",
             capability="Governed SPL search",
             mcp_tool="splunk_run_query",
             mode="READ",
@@ -241,7 +245,7 @@ def build_s1_tool_traces(search_1: dict[str, Any], search_2: dict[str, Any]) -> 
             provenance="simulated_mcp",
         ),
         EcSiemToolTrace(
-            purpose="Resolve 60-day historical firewall gap (window 2)",
+            purpose="Requested last 30 days of firewall communication",
             capability="Governed SPL search",
             mcp_tool="splunk_run_query",
             mode="READ",

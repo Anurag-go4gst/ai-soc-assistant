@@ -7,22 +7,22 @@ const scenarios: EcScenarioSummary[] = [
     scenario_id: 's1_governed_splunk_investigation',
     label: 'S1 · Governed Splunk investigation',
     category: 'Flagship',
-    query: 'Find all communication involving suspicious IP 198.51.100.42 and identify affected systems.',
-    canonical_query: 'Find all communication involving suspicious IP 198.51.100.42 and identify affected systems.',
-    aliases: ['suspicious IP 198.51.100.42 communication'],
+    query: 'We have seen a new IP 198.51.100.42. Check and verify over the last 30 days whether it is malicious, and what is the standard SOP to raise monitoring and block it if required.',
+    canonical_query: 'We have seen a new IP 198.51.100.42. Check and verify over the last 30 days whether it is malicious, and what is the standard SOP to raise monitoring and block it if required.',
+    aliases: ['new IP 198.51.100.42', 'suspicious IP 198.51.100.42 communication'],
     expected_skill: 'attack_discovery',
   },
 ];
 
 describe('ecQuerySuggestions', () => {
   it('shows suggestions after two characters with fuzzy match', () => {
-    const rows = suggestEcQueries(scenarios, 'suspicious ip');
+    const rows = suggestEcQueries(scenarios, 'new ip');
     expect(rows.length).toBeGreaterThan(0);
     expect(rows[0].question).toMatch(/198\.51\.100\.42/);
   });
 
   it('resolves natural phrasing to scenario', () => {
-    const match = resolveEcQueryLocal(scenarios, 'find communication suspicious ip systems');
+    const match = resolveEcQueryLocal(scenarios, 'verify new ip 198.51.100.42 last 30 days');
     expect(match?.scenario_id).toBe('s1_governed_splunk_investigation');
   });
 

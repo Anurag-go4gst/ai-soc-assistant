@@ -5,7 +5,6 @@ export const DEFAULT_AGENT_INLINE_PROGRESS_FOLLOWUPS = new Set([
   'run_investigation',
   'approve_investigation_vuln_scan',
   'skip_investigation_vuln_scan',
-  'create_remediation_plan',
   'run_remediation',
 ]);
 
@@ -26,6 +25,24 @@ export function isAgentExecutiveSummaryFollowUp(
   return isAgentWorkflowMode(envelope) && followUpId === 'generate_executive_summary';
 }
 
+/** Agent follow-ups that reveal the next workflow state immediately (no execution journey). */
+export const AGENT_IMMEDIATE_REVEAL_FOLLOWUPS = new Set([
+  'create_remediation_plan',
+  'decline_remediation_plan',
+]);
+
+export function isAgentImmediateRevealFollowUp(
+  envelope: ExperienceCenterResponse | null | undefined,
+  followUpId: string,
+  keepAnswer: boolean,
+): boolean {
+  return (
+    isAgentWorkflowMode(envelope) &&
+    keepAnswer &&
+    AGENT_IMMEDIATE_REVEAL_FOLLOWUPS.has(followUpId)
+  );
+}
+
 export function isAgentInlineProgressFollowUp(
   envelope: ExperienceCenterResponse | null | undefined,
   followUpId: string,
@@ -43,9 +60,13 @@ export function agentLifecycleScrollTarget(
 ): string | null {
   switch (lifecycle) {
     case 'INVESTIGATION_COMPLETE':
-      return '[data-ec-section="investigation-summary"]';
+      return '[data-ec-section="executive-summary"]';
     case 'REMEDIATION_PLAN_READY':
-      return '[data-ec-section="remediation-summary"]';
+    case 'REMEDIATING':
+    case 'VERIFYING':
+      return '[data-ec-section="recommended-remediation"]';
+    case 'COMPLETE':
+      return '[data-ec-section="executive-summary"]';
     case 'INVESTIGATION_NEEDS_APPROVAL':
       return '[data-ec-section="agent-hil"]';
     default:

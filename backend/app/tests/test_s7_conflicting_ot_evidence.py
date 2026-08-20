@@ -82,7 +82,16 @@ def test_s7_path_b_recycled_identity_no_incident(monkeypatch) -> None:
     assert "No active compromise" in " ".join(body["ec_investigation_outcome"]["confirmed"]) or "no active compromise" in str(body["ec_investigation_outcome"]).lower()
     ids = {item["follow_up_id"] for item in body["ec_followups"]}
     assert "create_incident_ticket" not in ids
-    assert "recommend_cmdb_correction" in ids
+    correction = client.post(
+        f"/demo/scenarios/{S7_SCENARIO_ID}/follow-up",
+        json={"follow_up_id": "recommend_cmdb_correction", "session_id": session_id},
+    )
+    assert correction.status_code == 200, correction.text
+    tickets = [item for item in correction.json()["ec_actions"] if item["kind"] == "ticket_create"]
+    assert tickets
+    assert all(item["state"] == "EXECUTED" for item in tickets)
+    assert all(item["production_side_effect"] is False for item in tickets)
+    assert "INC-OT-14" not in str(correction.json()["ec_actions"])
 
 
 def test_s7_initial_journey_lingers_on_conflict() -> None:

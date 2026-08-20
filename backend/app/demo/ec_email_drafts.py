@@ -100,19 +100,20 @@ def s1_firewall_team_email(
     body += _section(
         "INVESTIGATION REFERENCE",
         [
-            f"Scenario: S1 governed suspicious-IP investigation",
+            f"Scenario: S1 newly observed IP / MCP endpoint review",
             f"Indicator: {PRIMARY_ATTACKER_IP}",
             f"Primary jump host: {jump}",
             f"Additional internal targets: {host_b}, {host_c}",
             f"Service account observed: {account}",
-            "Evidence window: governed 60-day coverage (two bounded 30-day Splunk searches)",
+            "Evidence window: requested last 30 days plus prior 30-day novelty window (empty)",
         ],
     )
     body += _section(
         "CONFIRMED FINDINGS",
         [
-            "Coordinated probing and password-guessing pattern (MITRE T1110.001)",
-            "Firewall allow/deny mix consistent with scanning against internal jump infrastructure",
+            "Newly observed IP identified as a newly registered MCP endpoint",
+            "Existing IOC-based suspicious-IP notable did not fire",
+            "Firewall communication in the requested last 30 days; prior novelty window empty",
             "Governed Splunk searches completed and validated",
         ],
     )
@@ -120,8 +121,8 @@ def s1_firewall_team_email(
         "UNCONFIRMED / REQUIRES YOUR INPUT",
         [
             "Account compromise",
-            "Lateral movement",
-            "Malicious process activity on endpoints",
+            "Whether the three permitted jump-host sessions are attributable to this IP",
+            "Malicious use of the newly observed MCP endpoint",
             "Whether vendor or business exceptions explain observed allows",
         ],
     )
@@ -132,16 +133,17 @@ def s1_firewall_team_email(
     body += _section(
         "REQUESTED ACTION",
         [
-            "Review the indicator and affected systems above",
-            "If you concur, initiate block via SOAR playbook ip_block (not a direct production change from this console)",
-            "Confirm whether any active whitelist/exception applies to this indicator",
-            "Reply with change ticket reference or escalation path if block cannot proceed",
+            "Note that 14-day targeted monitoring is the SOP first step for this indicator",
+            "Review the newly observed MCP IP and affected systems above",
+            "Confirm whether any active whitelist/exception applies",
+            "Do not treat this notice as a block-approval request — SOP threshold is not met",
+            "Reply if you have business context that explains the three permitted sessions",
         ],
     )
     return _email_envelope(
         logical_recipient="FIREWALL_TEAM",
         to="FIREWALL_TEAM",
-        subject=f"[SOC Action Required] Firewall review & block request — indicator {PRIMARY_ATTACKER_IP}",
+        subject=f"[SOC] 14-day monitoring in place — indicator {PRIMARY_ATTACKER_IP}",
         body=body,
     )
 

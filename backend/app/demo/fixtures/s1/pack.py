@@ -1,4 +1,4 @@
-"""S1 flagship: governed 60-day suspicious-IP investigation as two bounded 30-day searches."""
+"""S1 flagship: newly observed IP review (last 30 days + novelty window) as two bounded searches."""
 
 from __future__ import annotations
 
@@ -27,13 +27,24 @@ from app.demo.ec_response import (
     EcSessionState,
     ExperienceCenterResponse,
 )
+from app.demo.fixtures.s1.agent_config import IDENTITY_PROMOTION
+from app.demo.fixtures.s1.agent_config import OPENING_NARRATIVE as S1_OPENING_BRIEFING
+from app.demo.fixtures.s1.agent_config import PLAN_READY_TITLE, SEVERITY_LABEL, SEVERITY_REASON
+from app.demo.fixtures.s1.llm_advisory import (
+    candidate_monitoring_spl,
+    novelty_window_spl,
+    permitted_session_spl,
+    requested_30d_spl,
+)
+from app.demo.fixtures.s1.sop_rag import sop_source_evidence
 from app.safeguards.spl_validator import validate_spl
 from app.spl.template_registry import get_spl_template, load_spl_templates
 
 S1_SCENARIO_ID = "s1_governed_splunk_investigation"
 S1_FAMILY = "s1_governed_splunk"
 S1_QUERY = (
-    f"Find all communication involving suspicious IP {PRIMARY_ATTACKER_IP} and identify affected systems."
+    f"We have seen a new IP {PRIMARY_ATTACKER_IP}. Check and verify over the last 30 days whether it is "
+    "malicious, and what is the standard SOP to raise monitoring and block it if required."
 )
 
 _JUMP = "10.20.1.10"
@@ -41,15 +52,8 @@ _HOST_B = "10.20.4.55"
 _HOST_C = "10.20.8.90"
 _ACCOUNT = "svc_jump_ops"
 
-_SEARCH_1_SPL = (
-    f"search index=pgcil_soc sourcetype=pgcil:firewall earliest=-60d latest=-30d "
-    f"(src={PRIMARY_ATTACKER_IP} OR dest={PRIMARY_ATTACKER_IP}) "
-    "| stats count as event_count count(eval(action=\"deny\")) as deny_count "
-    "count(eval(action=\"allow\")) as allow_count min(_time) as first_seen max(_time) as last_seen "
-    "dc(dest_port) as distinct_ports values(dest_port) as dest_ports values(action) as actions by src, dest "
-    "| sort -event_count | head 100"
-)
-_SEARCH_2_SPL = _SEARCH_1_SPL.replace("earliest=-60d latest=-30d", "earliest=-30d latest=now")
+_SEARCH_1_SPL = novelty_window_spl()
+_SEARCH_2_SPL = requested_30d_spl()
 
 
 def _firewall_template_profile() -> dict[str, Any]:
@@ -68,44 +72,8 @@ def _validate_search(spl: str) -> dict[str, Any]:
 
 
 def _search_1_rows() -> list[dict[str, Any]]:
-    return [
-        {
-            "src": PRIMARY_ATTACKER_IP,
-            "dest": _JUMP,
-            "event_count": 920,
-            "deny_count": 920,
-            "allow_count": 0,
-            "actions": "deny",
-            "dest_ports": "443,8443,22",
-            "first_seen": "2026-06-18T04:12:00Z",
-            "last_seen": "2026-07-16T21:40:00Z",
-            "search_window": "earliest=-60d latest=-30d",
-        },
-        {
-            "src": PRIMARY_ATTACKER_IP,
-            "dest": _HOST_B,
-            "event_count": 610,
-            "deny_count": 610,
-            "allow_count": 0,
-            "actions": "deny",
-            "dest_ports": "22,443",
-            "first_seen": "2026-06-20T11:03:00Z",
-            "last_seen": "2026-07-15T18:22:00Z",
-            "search_window": "earliest=-60d latest=-30d",
-        },
-        {
-            "src": PRIMARY_ATTACKER_IP,
-            "dest": _HOST_C,
-            "event_count": 480,
-            "deny_count": 480,
-            "allow_count": 0,
-            "actions": "deny",
-            "dest_ports": "3389,443",
-            "first_seen": "2026-06-22T09:18:00Z",
-            "last_seen": "2026-07-14T07:55:00Z",
-            "search_window": "earliest=-60d latest=-30d",
-        },
-    ]
+    # Prior 30-day novelty window: empty. This IP is newly observed.
+    return []
 
 
 def _search_2_rows() -> list[dict[str, Any]]:
@@ -155,14 +123,14 @@ def _merged_systems() -> list[dict[str, Any]]:
         {
             "system": _JUMP,
             "role": "Jump host",
-            "activity": "Denied probing plus 3 allowed connections",
-            "first_seen": "2026-06-18T04:12:00Z",
+            "activity": "Denied probing plus 3 allowed connections (requested 30-day window)",
+            "first_seen": "2026-07-18T02:08:00Z",
             "last_seen": "2026-08-16T16:44:00Z",
-            "allowed_denied": "3 allowed / 1842 denied",
+            "allowed_denied": "3 allowed / 922 denied",
             "identity_auth_context": f"Firewall telemetry associates {_ACCOUNT} with the 3 allow events",
             "auth_correlation": f"Firewall telemetry associates {_ACCOUNT} with the 3 allow events",
             "risk_note": "Highest-priority host; account use is correlated, not confirmed as compromise",
-            "deny_count": 1842,
+            "deny_count": 922,
             "allow_count": 3,
             "ports": "443,8443,22",
         },
@@ -170,13 +138,13 @@ def _merged_systems() -> list[dict[str, Any]]:
             "system": _HOST_B,
             "role": "Internal host",
             "activity": "Denied connections only",
-            "first_seen": "2026-06-20T11:03:00Z",
+            "first_seen": "2026-07-19T13:41:00Z",
             "last_seen": "2026-08-15T19:02:00Z",
-            "allowed_denied": "0 allowed / 1260 denied",
+            "allowed_denied": "0 allowed / 650 denied",
             "identity_auth_context": "None in firewall results",
             "auth_correlation": "None in firewall results",
-            "risk_note": "Perimeter blocks held; no allowed traffic in either window",
-            "deny_count": 1260,
+            "risk_note": "Perimeter blocks held; no allowed traffic in the requested 30-day window",
+            "deny_count": 650,
             "allow_count": 0,
             "ports": "22,443",
         },
@@ -184,13 +152,13 @@ def _merged_systems() -> list[dict[str, Any]]:
             "system": _HOST_C,
             "role": "Internal host",
             "activity": "Denied connections only",
-            "first_seen": "2026-06-22T09:18:00Z",
+            "first_seen": "2026-07-21T08:12:00Z",
             "last_seen": "2026-08-14T22:17:00Z",
-            "allowed_denied": "0 allowed / 980 denied",
+            "allowed_denied": "0 allowed / 500 denied",
             "identity_auth_context": "None in firewall results",
             "auth_correlation": "None in firewall results",
-            "risk_note": "RDP/SSL deny pattern; no allowed traffic in either window",
-            "deny_count": 980,
+            "risk_note": "RDP/SSL deny pattern; no allowed traffic in the requested 30-day window",
+            "deny_count": 500,
             "allow_count": 0,
             "ports": "3389,443",
         },
@@ -212,7 +180,7 @@ def _source_evidence_item(
         "source_name": title,
         "tool_name": "splunk_run_query",
         "collection_status": "collected",
-        "query_or_request_summary": f"Simulated Splunk search receipt · {window}",
+        "query_or_request_summary": f"Splunk MCP search · {window}",
         "executed_spl": spl,
         "result_count": len(rows),
         "fields_returned": fields,
@@ -226,7 +194,7 @@ def _source_evidence_item(
         "provider_used": "splunk_mcp_fixture",
         "saved_search_name": None,
         "output_type": "fixture_preview",
-        "provenance": "simulated_mcp",
+        "provenance": "governed_search",
         "created_at": "2026-08-16T00:00:00Z",
     }
 
@@ -237,21 +205,21 @@ def search_governance_policy() -> dict[str, Any]:
         "provenance": "ec_scenario_policy",
         "kind": "ec_scenario_policy",
         "detail": "ec_search_governance_policy",
-        "user_supplied_time_range": False,
+        "user_supplied_time_range": True,
         "coverage_days": 60,
         "window_days": 30,
         "split": "30+30",
         "windows": [
             {
                 "search_id": "search_1",
-                "label": "First 30-day window",
+                "label": "Prior 30-day novelty window",
                 "earliest": "-60d",
                 "latest": "-30d",
                 "days": 30,
             },
             {
                 "search_id": "search_2",
-                "label": "Next 30-day window",
+                "label": "Requested last 30 days",
                 "earliest": "-30d",
                 "latest": "now",
                 "days": 30,
@@ -261,8 +229,9 @@ def search_governance_policy() -> dict[str, Any]:
         "sourcetype": "pgcil:firewall",
         "forbid_index_wildcard": True,
         "why": (
-            "Historical suspicious-IP investigations cover 60 days using two bounded 30-day searches "
-            "instead of one unrestricted search."
+            "The analyst asked for the last 30 days. A second bounded 30-day window checks whether this IP "
+            "is newly observed. Existing IOC-based suspicious-IP notables would not fire for a newly "
+            "registered MCP endpoint."
         ),
         "visitor_summary": "Environment search governance applied.",
         "not_production_spl_policy": True,
@@ -272,6 +241,64 @@ def search_governance_policy() -> dict[str, Any]:
 
 def _followup_catalog() -> tuple[EcFollowUpChip, ...]:
     return (
+        EcFollowUpChip(
+            follow_up_id="run_investigation",
+            label="Run investigation",
+            group="action",
+            leads_to_action=True,
+        ),
+        EcFollowUpChip(
+            follow_up_id="create_remediation_plan",
+            label="Yes, create remediation plan",
+            group="action",
+            leads_to_action=True,
+        ),
+        EcFollowUpChip(
+            follow_up_id="decline_remediation_plan",
+            label="Not now",
+            group="continue",
+        ),
+        EcFollowUpChip(
+            follow_up_id="run_remediation",
+            label="Approve remediation",
+            group="action",
+            leads_to_action=True,
+        ),
+        EcFollowUpChip(
+            follow_up_id="update_investigation_plan",
+            label="Update investigation plan",
+            group="continue",
+        ),
+        EcFollowUpChip(
+            follow_up_id="update_remediation_plan",
+            label="Update remediation plan",
+            group="continue",
+        ),
+        EcFollowUpChip(
+            follow_up_id="review_existing_notable",
+            label="Assess existing Splunk detection coverage",
+            group="continue",
+        ),
+        EcFollowUpChip(
+            follow_up_id="lookup_inventory_identity",
+            label="Identify the IP and its expected role",
+            group="continue",
+        ),
+        EcFollowUpChip(
+            follow_up_id="search_firewall_30d",
+            label="Investigate network activity — last 30 days",
+            group="continue",
+        ),
+        EcFollowUpChip(
+            follow_up_id="retrieve_sop",
+            label="Retrieve monitoring and blocking SOP",
+            group="continue",
+        ),
+        EcFollowUpChip(
+            follow_up_id="investigate_permitted_sessions",
+            label="Investigate permitted sessions and authentication",
+            group="continue",
+        ),
         EcFollowUpChip(
             follow_up_id="check_successful_auth",
             label="Check successful authentications",
@@ -295,6 +322,27 @@ def _followup_catalog() -> tuple[EcFollowUpChip, ...]:
         EcFollowUpChip(
             follow_up_id="compare_previous_incidents",
             label="Compare with previous incidents",
+            group="continue",
+        ),
+        EcFollowUpChip(
+            follow_up_id="raise_mcp_monitoring",
+            label="Raise targeted monitoring",
+            group="action",
+            leads_to_action=True,
+        ),
+        EcFollowUpChip(
+            follow_up_id="prepare_monitoring_detection",
+            label="Prepare monitoring detection candidate",
+            group="action",
+        ),
+        EcFollowUpChip(
+            follow_up_id="monitor_affected_hosts",
+            label="Monitor affected internal systems",
+            group="continue",
+        ),
+        EcFollowUpChip(
+            follow_up_id="monitor_residual",
+            label="Monitor for residual activity",
             group="continue",
         ),
         EcFollowUpChip(
@@ -332,34 +380,43 @@ def _followup_catalog() -> tuple[EcFollowUpChip, ...]:
             label="Generate closure / executive summary",
             group="action",
         ),
+        EcFollowUpChip(
+            follow_up_id="generate_executive_summary",
+            label="Generate executive summary",
+            group="action",
+        ),
     )
 
 
-S1_FOLLOWUP_IDS = frozenset(chip.follow_up_id for chip in _followup_catalog())
+S1_FOLLOWUPS = _followup_catalog()
+S1_FOLLOWUP_IDS = frozenset(chip.follow_up_id for chip in S1_FOLLOWUPS)
 
 
 def _base_evidence_state() -> list[dict[str, Any]]:
     return [
         {
             "id": "siem_existing_search",
-            "label": "Existing Splunk suspicious-IP search",
+            "label": "Existing Splunk suspicious-IP notable",
             "status": "OBTAINED",
             "provenance": "simulated_mcp",
-            "detail": f"{S1_DETECTION_NAME} replayed (partial coverage)",
+            "detail": (
+                f"{S1_DETECTION_NAME} evaluated — did not fire "
+                "(IP is not present in the IOC lookup/content used by the existing notable)"
+            ),
         },
         {
             "id": "splunk_fw_search_1",
             "label": "Splunk firewall search 1",
             "status": "OBTAINED",
             "provenance": "simulated_mcp",
-            "detail": "First 30-day window (-60d to -30d)",
+            "detail": "Prior 30-day novelty window (-60d to -30d): no prior hits",
         },
         {
             "id": "splunk_fw_search_2",
             "label": "Splunk firewall search 2",
             "status": "OBTAINED",
             "provenance": "simulated_mcp",
-            "detail": "Next 30-day window (-30d to now)",
+            "detail": "Requested last 30 days (-30d to now)",
         },
         {
             "id": "auth_correlation",
@@ -367,6 +424,13 @@ def _base_evidence_state() -> list[dict[str, Any]]:
             "status": "OBTAINED",
             "provenance": "experience_center_fixture",
             "detail": f"Firewall allow events on {_JUMP} associated with {_ACCOUNT} (not successful authentication)",
+        },
+        {
+            "id": "mcp_monitoring",
+            "label": "MCP IP monitoring notable",
+            "status": "MISSING",
+            "provenance": "experience_center_fixture",
+            "detail": "14-day Splunk monitoring is not yet deployed",
         },
         {
             "id": "successful_auth",
@@ -432,18 +496,39 @@ def _base_evidence_state() -> list[dict[str, Any]]:
             "detail": "Historical ticket comparison not yet run",
         },
         {
+            "id": "mcp_identity",
+            "label": "Inventory identity",
+            "status": "AVAILABLE_NOT_QUERIED",
+            "provenance": "experience_center_fixture",
+            "detail": "SOC-KB / inventory identity not yet retrieved",
+        },
+        {
+            "id": "sop_rag",
+            "label": "Newly observed external / MCP endpoint SOP",
+            "status": "AVAILABLE_NOT_QUERIED",
+            "provenance": "experience_center_fixture",
+            "detail": "Enterprise SOC SOP not yet retrieved",
+        },
+        {
+            "id": "permitted_sessions",
+            "label": "Permitted communication / authentication",
+            "status": "MISSING",
+            "provenance": "experience_center_fixture",
+            "detail": "Allowed-session drill not yet run",
+        },
+        {
             "id": "team_email",
             "label": "Firewall/security team email",
             "status": "MISSING",
             "provenance": "experience_center_fixture",
-            "detail": "Outbound team notification not prepared",
+            "detail": "SOC notification not yet sent",
         },
         {
             "id": "firewall_verify",
             "label": "Firewall rule verification",
             "status": "MISSING",
             "provenance": "experience_center_fixture",
-            "detail": "No simulated rule verification until execute completes",
+            "detail": "Firewall rule verification is only required after an approved block",
         },
         {
             "id": "incident_update",
@@ -464,23 +549,24 @@ def _base_evidence_state() -> list[dict[str, Any]]:
 
 def _base_outcome() -> dict[str, Any]:
     return {
-        "disposition": "suspicious",
+        "disposition": "needs_monitoring",
         "confirmed": [
-            f"Suspicious IP {PRIMARY_ATTACKER_IP} communicated with {_JUMP}, {_HOST_B}, and {_HOST_C} in firewall telemetry",
-            "Traffic was observed across both historical 30-day windows",
-            "Denied traffic exists on all three affected systems",
-            f"At least one relevant allowed connection exists on jump host {_JUMP}",
+            f"Newly observed IP {PRIMARY_ATTACKER_IP} communicated with {_JUMP}, {_HOST_B}, and {_HOST_C} in the requested last 30 days",
+            "Prior 30-day novelty window has no hits — this IP is newly observed",
+            "Denied traffic exists on all three affected systems in the requested window",
+            f"Jump host {_JUMP} has 3 allowed / 922 denied in the requested window",
             f"Firewall telemetry associates {_ACCOUNT} with allowed events on {_JUMP}",
         ],
         "supported": [
-            "Persistent external probing and multi-port deny activity across three internal destinations",
+            "Firewall deny volume in the last 30 days is consistent with probing; malicious use is not confirmed",
         ],
         "unconfirmed": [
             "Successful account compromise",
-            "Successful authentication attributable to the suspicious IP",
+            "Successful authentication attributable to this IP",
+            "Whether the three permitted sessions are expected MCP business traffic",
+            "Malicious use of the newly observed IP",
             "Valid-account abuse (T1078)",
             "Password guessing (T1110.001) — requires authentication failure evidence",
-            "Lateral movement from the jump host to peer systems",
             "All communication paths (DNS/proxy/VPN/endpoint network not yet assessed)",
         ],
         "missing_evidence": [
@@ -563,8 +649,8 @@ def _apply_follow_up_effects(
             outcome["confirmed"].append(
                 f"Successful logons for {_ACCOUNT} on {_JUMP} exist in the recent window"
             )
-        if "Auth log source IP is the suspicious indicator" not in outcome["unconfirmed"]:
-            outcome["unconfirmed"].append("Auth log source IP is the suspicious indicator")
+        if "Auth log source IP is the newly observed IP" not in outcome["unconfirmed"]:
+            outcome["unconfirmed"].append("Auth log source IP is the newly observed IP")
 
     if "check_privileged_accounts" in applied:
         _set_status(
@@ -640,7 +726,7 @@ def _apply_follow_up_effects(
             evidence_state,
             "threat_intel",
             "OBTAINED",
-            f"{PRIMARY_ATTACKER_IP} is listed in the EC TI fixture as a suspicious scanning source (TEST-NET-2 documentation range); not a live intel feed",
+            f"{PRIMARY_ATTACKER_IP} is not present in local IOC / threat-intelligence evidence (unlisted, not benign)",
         )
         extra_evidence.append(
             {
@@ -651,10 +737,11 @@ def _apply_follow_up_effects(
                 "preview_rows": [
                     {
                         "indicator": PRIMARY_ATTACKER_IP,
-                        "category": "suspicious_scanner",
+                        "category": "unlisted",
                         "feed": "ec_ti_fixture",
                         "live_feed": False,
-                        "note": "TEST-NET-2 documentation address used as the EC suspicious-IP fixture",
+                        "internet_reputation": False,
+                        "note": "Not present in local IOC / threat-intelligence evidence. Unlisted is not benign.",
                     }
                 ],
                 "result_count": 1,
@@ -663,9 +750,9 @@ def _apply_follow_up_effects(
             }
         )
         outcome["missing_evidence"] = [item for item in outcome["missing_evidence"] if "Threat intelligence" not in item]
-        if f"{PRIMARY_ATTACKER_IP} is listed as a suspicious scanning source in the EC TI fixture" not in outcome["confirmed"]:
+        if f"{PRIMARY_ATTACKER_IP} is not present in local IOC / threat-intelligence evidence" not in outcome["confirmed"]:
             outcome["confirmed"].append(
-                f"{PRIMARY_ATTACKER_IP} is listed as a suspicious scanning source in the EC TI fixture"
+                f"{PRIMARY_ATTACKER_IP} is not present in local IOC / threat-intelligence evidence"
             )
 
     if "compare_previous_incidents" in applied:
@@ -699,7 +786,156 @@ def _apply_follow_up_effects(
                 f"Historical ticket {INCIDENT_ID} shares this indicator and jump host; campaign linkage is unconfirmed"
             )
 
+    if "lookup_inventory_identity" in applied or "review_existing_notable" in applied:
+        identity_line = (
+            f"Identity: registered MCP endpoint ({PRIMARY_ATTACKER_IP}) — inventory/SOC-KB evidence"
+        )
+        if identity_line not in outcome["confirmed"]:
+            outcome["confirmed"].append(identity_line)
+        _set_status(
+            evidence_state,
+            "mcp_identity",
+            "OBTAINED",
+            f"Identity: registered MCP endpoint ({PRIMARY_ATTACKER_IP})",
+        )
+
+    if "retrieve_sop" in applied:
+        _set_status(
+            evidence_state,
+            "sop_rag",
+            "OBTAINED",
+            "Enterprise SOP retrieved: targeted monitoring default; block requires threshold + Network/SOC HIL",
+        )
+        extra_evidence.append(sop_source_evidence())
+        if "SOP retrieved: targeted monitoring is the default" not in outcome["supported"]:
+            outcome["supported"].append(
+                "SOP retrieved: targeted monitoring is the default; blocking remains conditional"
+            )
+
+    if "investigate_permitted_sessions" in applied:
+        _set_status(
+            evidence_state,
+            "permitted_sessions",
+            "OBTAINED",
+            f"Three allowed sessions on {_JUMP} (443/8443); authentication not attributable to {PRIMARY_ATTACKER_IP}",
+        )
+        extra_evidence.append(
+            _source_evidence_item(
+                "ev-s1-permitted-sessions",
+                "Permitted firewall sessions (allow drill)",
+                [
+                    {
+                        "src": PRIMARY_ATTACKER_IP,
+                        "dest": _JUMP,
+                        "dest_role": "jump_host",
+                        "criticality": "high",
+                        "dest_port": 443,
+                        "service": "HTTPS",
+                        "action": "allow",
+                        "allow_count": 2,
+                        "first_seen": "2026-07-18T02:08:00Z",
+                        "last_seen": "2026-08-16T16:40:00Z",
+                    },
+                    {
+                        "src": PRIMARY_ATTACKER_IP,
+                        "dest": _JUMP,
+                        "dest_role": "jump_host",
+                        "criticality": "high",
+                        "dest_port": 8443,
+                        "service": "TLS-alt",
+                        "action": "allow",
+                        "allow_count": 1,
+                        "first_seen": "2026-08-16T16:44:00Z",
+                        "last_seen": "2026-08-16T16:44:00Z",
+                    },
+                ],
+                permitted_session_spl(),
+                "earliest=-30d latest=now",
+            )
+        )
+        if f"Three permitted sessions on jump host {_JUMP}" not in outcome["confirmed"]:
+            outcome["confirmed"].append(
+                f"Three permitted sessions on jump host {_JUMP} (443/8443); auth source IP not proven"
+            )
+
+    if "prepare_monitoring_detection" in applied:
+        _set_status(
+            evidence_state,
+            "monitoring_candidate",
+            "OBTAINED",
+            "Candidate monitoring SPL validated and authorized for splunk_run_query",
+        )
+        extra_evidence.append(
+            _source_evidence_item(
+                "ev-s1-monitoring-candidate",
+                "14-day Splunk monitoring SPL",
+                [
+                    {
+                        "name": "EC_New_External_IP_Permitted_Session_Watch",
+                        "status": "validated",
+                        "window": "14d",
+                        "llm_output_is_evidence": False,
+                    }
+                ],
+                candidate_monitoring_spl(),
+                "earliest=-14d latest=now",
+            )
+        )
+
+    if "monitor_affected_hosts" in applied:
+        _set_status(
+            evidence_state,
+            "host_watch",
+            "OBTAINED",
+            f"14-day watch on {_JUMP}, {_HOST_B}, {_HOST_C}",
+        )
+
+    if "monitor_residual" in applied:
+        _set_status(
+            evidence_state,
+            "residual_watch",
+            "OBTAINED",
+            f"Residual-activity watch armed for {PRIMARY_ATTACKER_IP}",
+        )
+
     existing_kinds = {item.kind for item in actions}
+    if "raise_mcp_monitoring" in applied:
+        if "notify" not in existing_kinds:
+            prepared = ec_actions.prepare_action(
+                kind="notify",
+                label=f"Deploy Splunk monitoring for newly observed MCP IP {PRIMARY_ATTACKER_IP}",
+                session_id=session_id,
+                scenario_id=S1_SCENARIO_ID,
+                extra={
+                    "indicator": PRIMARY_ATTACKER_IP,
+                    "requested_action": "raise_monitoring",
+                    "auto_block": False,
+                    "monitoring": {
+                        "kind": "new_notable",
+                        "name": "EC_New_External_IP_Permitted_Session_Watch",
+                        "indicator": PRIMARY_ATTACKER_IP,
+                        "reason": (
+                            f"{PRIMARY_ATTACKER_IP} is a newly registered MCP endpoint outside the existing "
+                            "IOC-based notable. SOP is to deploy 14-day monitoring first; block stays conditional."
+                        ),
+                    },
+                },
+            )
+            actions.append(prepared)
+        notify = next((item for item in actions if item.kind == "notify"), None)
+        deployed = notify is not None and notify.state in {"EXECUTED", "VERIFIED"}
+        _set_status(
+            evidence_state,
+            "mcp_monitoring",
+            "OBTAINED",
+            (
+                "Baseline monitoring query executed via splunk_run_query; schedule saved search manually"
+                if deployed
+                else "Baseline monitoring query authorized via splunk_run_query"
+            ),
+        )
+        if deployed and "Baseline monitoring query executed via splunk_run_query" not in outcome["supported"]:
+            outcome["supported"].append("Baseline monitoring query executed via splunk_run_query")
     if "prepare_firewall_block" in applied and "firewall_block" not in existing_kinds:
         prepared = ec_actions.prepare_action(
             kind="firewall_block",
@@ -715,9 +951,10 @@ def _apply_follow_up_effects(
                     "indicator": PRIMARY_ATTACKER_IP,
                     "action": "block",
                     "reason": (
-                        f"SOC Experience Center request to block {PRIMARY_ATTACKER_IP} after governed "
-                        f"60-day review of {_JUMP}, {_HOST_B}, and {_HOST_C}. Compromise is unconfirmed; "
-                        "containment is HIL-gated and must go through SOAR / firewall MCP if configured."
+                        f"SOC Experience Center request to block {PRIMARY_ATTACKER_IP} after a last-30-days "
+                        f"review of {_JUMP}, {_HOST_B}, and {_HOST_C}. This IP is a newly observed MCP "
+                        "endpoint; malicious use is unconfirmed. Containment is HIL-gated and must go "
+                        "through SOAR / firewall MCP if configured."
                     ),
                 },
                 "verify_payload": {
@@ -738,7 +975,7 @@ def _apply_follow_up_effects(
             "disposition": outcome["disposition"],
             "confirmed": list(outcome["confirmed"]),
             "unconfirmed": list(outcome["unconfirmed"]),
-            "timeline": "Governed 60-day coverage as two 30-day windows",
+            "timeline": "Requested last 30 days plus prior 30-day novelty window",
             "recommended_next_step": "Review firewall block request and identity evidence before containment",
             "production_side_effect": False,
         }
@@ -752,19 +989,19 @@ def _apply_follow_up_effects(
         actions.append(prepared)
 
     if "email_firewall_team" in applied:
+        ticket_executed = any(
+            item.kind == "ticket_create" and item.state == "EXECUTED" for item in actions
+        )
+        email_extra = ec_email_drafts.s1_firewall_team_email(
+            applied=applied,
+            jump=_JUMP,
+            host_b=_HOST_B,
+            host_c=_HOST_C,
+            account=_ACCOUNT,
+            ticket_executed=ticket_executed,
+        )
         email = next((item for item in actions if item.kind == "email_send"), None)
         if email is None:
-            ticket_executed = any(
-                item.kind == "ticket_create" and item.state == "EXECUTED" for item in actions
-            )
-            email_extra = ec_email_drafts.s1_firewall_team_email(
-                applied=applied,
-                jump=_JUMP,
-                host_b=_HOST_B,
-                host_c=_HOST_C,
-                account=_ACCOUNT,
-                ticket_executed=ticket_executed,
-            )
             email = ec_actions.prepare_action(
                 kind="email_send",
                 label="Email firewall/security team",
@@ -777,14 +1014,19 @@ def _apply_follow_up_effects(
             evidence_state,
             "team_email",
             "OBTAINED",
-            "Draft prepared for logical recipient FIREWALL_TEAM; not transmitted until Send email",
+            (
+                "SOC notification delivered to FIREWALL_TEAM"
+                if email is not None and email.state in {"EXECUTED", "VERIFIED"}
+                else "SOC notification queued for FIREWALL_TEAM"
+            ),
         )
         extras["ec_email"] = {
             "to": email_extra["email"]["to"],
             "logical_recipient": "FIREWALL_TEAM",
             "subject": email_extra["email"]["subject"],
-            "status": "draft_pending_send",
-            "not_transmitted": True,
+            "status": "sent" if email is not None and email.state in {"EXECUTED", "VERIFIED"} else "draft_pending_send",
+            "not_transmitted": not (email is not None and email.state in {"EXECUTED", "VERIFIED"}),
+            "sent_at": "2026-08-16T17:02:11Z" if email is not None and email.state in {"EXECUTED", "VERIFIED"} else None,
         }
 
     if "verify_firewall_block" in applied:
@@ -826,13 +1068,25 @@ def _apply_follow_up_effects(
                 extra={"ticket": ticket_body},
             )
             actions.append(prepared)
-        _set_status(evidence_state, "incident_update", "MISSING", "Ticket update draft is waiting for confirmation")
+            updated = prepared
+        applied_update = updated is not None and updated.state in {"EXECUTED", "VERIFIED"}
+        _set_status(
+            evidence_state,
+            "incident_update",
+            "OBTAINED",
+            (
+                "Incident updated · monitoring active · block threshold not met"
+                if applied_update
+                else "Incident update queued"
+            ),
+        )
 
     if "generate_closure_summary" in applied:
         outcome["closure_summary"] = (
-            f"Suspicious IP {PRIMARY_ATTACKER_IP} investigated over governed 60-day coverage (30+30). "
-            "Probing is supported; account compromise and lateral movement remain unconfirmed. "
-            "Firewall block is HIL-gated and is not auto-applied from initial evidence."
+            f"Newly observed IP {PRIMARY_ATTACKER_IP} investigated over the requested last 30 days "
+            "(prior window empty). Identified as a new MCP endpoint. Monitoring is the SOP first step; "
+            "firewall block is HIL-gated and is not auto-applied from initial evidence. "
+            "Malicious use and attributable authentication remain unconfirmed."
         )
         _set_status(evidence_state, "closure", "OBTAINED", "Executive closure summary generated")
 
@@ -844,11 +1098,22 @@ def _assessment(applied: list[str]) -> str:
     if "check_endpoint_activity" in applied:
         extra = " Endpoint review did not confirm malicious process activity."
     if "check_threat_intel" in applied:
-        extra += f" Indicator {PRIMARY_ATTACKER_IP} is listed as a suspicious scanning source in the EC threat-intel fixture."
+        extra += (
+            f" Indicator {PRIMARY_ATTACKER_IP} is not present in local IOC / threat-intelligence evidence."
+        )
+    identity = (
+        "It is identified as a registered MCP endpoint — existing IOC-based detections would not have fired. "
+        if "lookup_inventory_identity" in applied or "review_existing_notable" in applied
+        else "Inventory identity is pending SOC-KB evidence. "
+    )
     return (
-        f"Firewall telemetry shows suspicious activity from {PRIMARY_ATTACKER_IP} against {_JUMP}, {_HOST_B}, and {_HOST_C} "
-        "during a governed 60-day review. This is firewall-observed communication only — DNS, proxy, VPN, and endpoint "
-        "network paths were not queried. Persistent probing is supported; account compromise and lateral movement are not confirmed."
+        f"A newly observed IP {PRIMARY_ATTACKER_IP} was reviewed over the requested last 30 days. "
+        f"Firewall telemetry shows communication with {_JUMP}, {_HOST_B}, and {_HOST_C}. "
+        "The prior 30-day window is empty, so this IP is new to the environment. "
+        + identity
+        + "Standard SOP is to raise monitoring first and prepare a HIL block only if a blocking threshold is met. "
+        "Malicious use is not confirmed. This is firewall-observed communication only — DNS, proxy, VPN, and endpoint "
+        "network paths were not queried. Account compromise is not confirmed."
         + extra
     )
 
@@ -862,26 +1127,31 @@ def _what_we_found_segments(applied: list[str]) -> list[dict[str, str]]:
             "evidence_id": "ev-s1-existing-search",
             "title": f"Splunk MCP saved search · {S1_SAVED_SEARCH_NAME}",
         },
-        {"type": "text", "text": " was reused for the recent suspicious-IP window; "},
+        {"type": "text", "text": " was evaluated and did not fire — the IP is not present in the IOC lookup/content used by the existing notable; "},
         {
             "type": "evidence_link",
-            "text": "30-day firewall search (older window)",
+            "text": "30-day novelty window (prior)",
             "evidence_id": "ev-s1-fw-search-1",
             "title": "Splunk MCP ad-hoc SPL · earliest=-60d latest=-30d",
         },
-        {"type": "text", "text": " and "},
+        {"type": "text", "text": " is empty, and "},
         {
             "type": "evidence_link",
-            "text": "30-day firewall search (recent window)",
+            "text": "requested last 30 days",
             "evidence_id": "ev-s1-fw-search-2",
             "title": "Splunk MCP ad-hoc SPL · earliest=-30d latest=now",
         },
         {
             "type": "text",
             "text": (
-                f" completed the 60-day history gap. All three internal systems show denied traffic in both windows. "
-                f"Jump host {_JUMP} also has 3 allowed connections with a firewall identity association to {_ACCOUNT} "
-                "— not established as successful authentication."
+                f" shows firewall communication with {_JUMP}, {_HOST_B}, and {_HOST_C}. "
+                + (
+                    "The IP is a registered MCP endpoint. "
+                    if "lookup_inventory_identity" in applied or "review_existing_notable" in applied
+                    else "Inventory identity is pending. "
+                )
+                + f"Jump host {_JUMP} has 3 allowed connections "
+                f"with a firewall identity association to {_ACCOUNT} — not established as successful authentication."
             ),
         },
     ]
@@ -901,10 +1171,17 @@ def _what_we_found_segments(applied: list[str]) -> list[dict[str, str]]:
 
 
 def _what_we_found(applied: list[str]) -> str:
+    identity = (
+        f"The IP is identified as a registered MCP endpoint. "
+        if "lookup_inventory_identity" in applied or "review_existing_notable" in applied
+        else ""
+    )
     text = (
-        f"Splunk MCP connected. {S1_DETECTION_NAME} was reused via saved search for the recent suspicious-IP window; "
-        f"two governed ad-hoc SPL searches completed the remaining 60-day firewall history as 30+30 windows. "
-        f"All three internal systems show denied traffic in both windows. Jump host {_JUMP} also has "
+        f"Splunk MCP connected. {S1_DETECTION_NAME} was evaluated and did not fire because "
+        f"{PRIMARY_ATTACKER_IP} is not present in the IOC lookup/content used by the existing notable. "
+        f"The prior 30-day novelty window is empty; "
+        f"the requested last 30 days show firewall communication with {_JUMP}, {_HOST_B}, and {_HOST_C}. "
+        f"{identity}Jump host {_JUMP} has "
         f"3 allowed connections with a firewall identity association to {_ACCOUNT} — not established as successful authentication."
     )
     if "check_successful_auth" in applied:
@@ -919,8 +1196,9 @@ def _recommended_investigations(applied: list[str]) -> list[str]:
         "Check successful authentications for the jump-host service account",
         "Review privileged-account context without assuming compromise",
         "Check endpoint activity on the jump host",
-        "Check threat intelligence for the suspicious IP",
+        "Check threat intelligence for the newly observed IP",
         "Compare with previous incidents",
+        "Raise monitoring for this MCP IP (SOP first step)",
         "Assess DNS / proxy / VPN communication if broader coverage is required",
     ]
     mapping = {
@@ -929,6 +1207,7 @@ def _recommended_investigations(applied: list[str]) -> list[str]:
         "check_endpoint_activity": 2,
         "check_threat_intel": 3,
         "compare_previous_incidents": 4,
+        "raise_mcp_monitoring": 5,
     }
     return [step for idx, step in enumerate(steps) if not any(mapping.get(fid) == idx for fid in applied)]
 
@@ -938,9 +1217,10 @@ def _recommended(applied: list[str]) -> list[str]:
         "Review successful authentications and identity context for the jump-host service account",
         "Check privileged-account impact without assuming compromise",
         "Query endpoint activity on the jump host",
-        "Check threat intelligence for the suspicious IP",
+        "Check threat intelligence for the newly observed IP",
         "Compare with previous incidents before containment",
-        "Prepare a firewall block request only after analyst approval",
+        "Raise monitoring for this newly observed MCP IP (SOP first step; HIL notable, not auto-deployed)",
+        "Prepare a firewall block request only if required and after analyst approval",
         "Open an incident ticket with confirmed vs unconfirmed findings",
         "Email the firewall/security team after reviewing the draft",
         "Verify a simulated firewall rule only after execute",
@@ -952,12 +1232,13 @@ def _recommended(applied: list[str]) -> list[str]:
         "check_endpoint_activity": 2,
         "check_threat_intel": 3,
         "compare_previous_incidents": 4,
-        "prepare_firewall_block": 5,
-        "create_incident_ticket": 6,
-        "email_firewall_team": 7,
-        "verify_firewall_block": 8,
-        "update_incident": 9,
-        "generate_closure_summary": 10,
+        "raise_mcp_monitoring": 5,
+        "prepare_firewall_block": 6,
+        "create_incident_ticket": 7,
+        "email_firewall_team": 8,
+        "verify_firewall_block": 9,
+        "update_incident": 10,
+        "generate_closure_summary": 11,
     }
     remaining = [step for idx, step in enumerate(steps) if not any(mapping.get(fid) == idx for fid in applied)]
     return remaining or ["Document the investigation outcome and keep compromise unconfirmed until identity evidence lands."]
@@ -971,14 +1252,14 @@ def _spl_governance(search_1: dict[str, Any], search_2: dict[str, Any]) -> dict[
     policy = search_governance_policy()
     return {
         "user_request": S1_QUERY,
-        "time_range_supplied": False,
+        "time_range_supplied": True,
         "environment_governance": policy["visitor_summary"],
         "policy": policy,
         "why": policy["why"],
         "searches": [
             {
                 "search_id": "search_1",
-                "label": "Search 1 · first 30-day window",
+                "label": "Search 1 · prior 30-day novelty window",
                 "earliest": "-60d",
                 "latest": "-30d",
                 "candidate_spl": _SEARCH_1_SPL,
@@ -989,7 +1270,7 @@ def _spl_governance(search_1: dict[str, Any], search_2: dict[str, Any]) -> dict[
             },
             {
                 "search_id": "search_2",
-                "label": "Search 2 · next 30-day window",
+                "label": "Search 2 · requested last 30 days",
                 "earliest": "-30d",
                 "latest": "now",
                 "candidate_spl": _SEARCH_2_SPL,
@@ -1016,7 +1297,7 @@ def _spl_governance(search_1: dict[str, Any], search_2: dict[str, Any]) -> dict[
             "search_2_approved": bool(search_2.get("approved")),
             "override": False,
         },
-        "evidence_merge": "Both simulated search receipts were merged into one investigation by dest host",
+        "evidence_merge": "Both Splunk search receipts were merged into one investigation by dest host",
         "production_mcp_executed": False,
         "spl_not_required": False,
     }
@@ -1036,10 +1317,10 @@ def _projection(
     return EcProjection(
         understanding=EcProjectionView(
             title="Understanding",
-            summary="Visitor asked for communications involving a suspicious IP and named no time range.",
+            summary="Visitor asked to verify a newly observed IP over the last 30 days and the SOP to raise monitoring or block if required.",
             items=[
                 f"indicator={PRIMARY_ATTACKER_IP}",
-                "time_range_supplied=false",
+                "time_range_supplied=true",
                 "route_source=ec_fixture_selected",
             ],
             provenance=EcProvenanceStamp(kind="ec_fixture_selected", detail="attack_discovery"),
@@ -1052,7 +1333,7 @@ def _projection(
         ),
         phase_contract=EcProjectionView(
             title="Environment search governance",
-            summary="Environment search governance applied: 60-day coverage as two bounded 30-day searches.",
+            summary="Environment search governance applied: requested last 30 days plus a prior 30-day novelty window.",
             items=[
                 "ec_search_governance_policy",
                 "split=30+30",
@@ -1073,7 +1354,7 @@ def _projection(
         ),
         investigation_outcome=EcProjectionView(
             title="InvestigationOutcome",
-            summary=f"Disposition {outcome['disposition']}. Compromise and lateral movement remain unconfirmed.",
+            summary=f"Disposition {outcome['disposition']}. Malicious use remains unconfirmed.",
             items=[
                 "production InvestigationOutcome field unused",
                 *[f"confirmed: {item}" for item in outcome["confirmed"]],
@@ -1095,7 +1376,7 @@ def _candidate_spl_envelope(trace_id: str, search_1: dict[str, Any]) -> dict[str
         "generation_mode": "ec_search_governance_policy",
         "confidence": 0.9,
         "assumptions": [
-            "Visitor supplied no time range; EC search-governance policy selected 30+30 windows.",
+            "Visitor asked for the last 30 days; a prior 30-day novelty window checks whether the IP is newly observed.",
             "COE synthetic fixture; analyst must review before any execution.",
         ],
         "warnings": ["demo_fixture_not_live_data"],
@@ -1128,6 +1409,34 @@ def _layer2_path() -> list[str]:
     return list(S1_LAYER2_PATH)
 
 
+def _mcp_identity_evidence() -> dict[str, Any]:
+    return {
+        "evidence_id": "ev-s1-mcp-identity",
+        "trace_id": "pending",
+        "source_type": "knowledge_fixture",
+        "source_name": "Newly observed MCP endpoint identity",
+        "tool_name": "retrieve_soc_kb",
+        "collection_status": "collected",
+        "query_or_request_summary": f"Identity lookup for {PRIMARY_ATTACKER_IP}",
+        "result_count": 1,
+        "fields_returned": ["indicator", "identity", "covered_by_suspicious_ip_notable"],
+        "preview_rows": [
+            {
+                "indicator": PRIMARY_ATTACKER_IP,
+                "identity": "registered MCP endpoint",
+                "covered_by_suspicious_ip_notable": False,
+                "note": (
+                    "Existing IOC-based known-malicious-IP content does not cover this registered MCP endpoint. "
+                    "This is a new concern; Splunk would not have treated the IP as a known-bad IOC."
+                ),
+            }
+        ],
+        "provenance": "experience_center_fixture",
+        "warnings": ["coe_synthetic_fixture"],
+        "output_type": "fixture_preview",
+    }
+
+
 def _existing_detection_evidence() -> dict[str, Any]:
     return {
         "evidence_id": "ev-s1-existing-search",
@@ -1136,14 +1445,52 @@ def _existing_detection_evidence() -> dict[str, Any]:
         "source_name": S1_DETECTION_NAME,
         "tool_name": "splunk_run_saved_search",
         "collection_status": "collected",
-        "query_or_request_summary": f"saved_search={S1_SAVED_SEARCH_NAME} · recent window",
-        "result_count": 3,
-        "fields_returned": ["src", "dest", "event_count", "actions"],
-        "preview_rows": _search_2_rows(),
+        "query_or_request_summary": f"saved_search={S1_SAVED_SEARCH_NAME} · evaluated, notable did not fire",
+        "result_count": 1,
+        "fields_returned": ["saved_search", "fired", "reason"],
+        "preview_rows": [
+            {
+                "saved_search": S1_SAVED_SEARCH_NAME,
+                "fired": False,
+                "reason": (
+                    f"{PRIMARY_ATTACKER_IP} is not present in the IOC lookup/content used by this notable"
+                ),
+            }
+        ],
         "provenance": "simulated_mcp",
         "warnings": ["coe_synthetic_fixture", "partial_coverage_only"],
         "output_type": "fixture_preview",
     }
+
+
+def _s1_executive_summary(applied: list[str]) -> list[str]:
+    if not applied:
+        return []
+    rem_done = "raise_mcp_monitoring" in applied or "create_incident_ticket" in applied
+    bullets = [
+        f"Newly observed IP {PRIMARY_ATTACKER_IP}: existing IOC notable did not fire "
+        "(IP not in that lookup/content).",
+        "Last 30 days: 3 permitted jump-host sessions on 10.20.1.10 (443/8443) remain unexplained; prior window empty.",
+        (
+            "Identity: registered MCP endpoint — a new concern, not a listed IOC. Malicious use is not confirmed."
+            if "lookup_inventory_identity" in applied or "review_existing_notable" in applied
+            else "Inventory identity is established only after SOC-KB evidence."
+        ),
+        "Current risk: MEDIUM. Monitoring: pending. Blocking: CONDITIONAL — SOP threshold is not met.",
+    ]
+    if rem_done:
+        bullets[-1] = (
+            "Current risk: MEDIUM. Baseline query: EXECUTED. Saved search: schedule manually. "
+            "Blocking: CONDITIONAL — SOP threshold is not met."
+        )
+        bullets.extend(
+            [
+                "Baseline monitoring query executed via splunk_run_query for 198.51.100.42, "
+                "jump-host 443/8443, and svc_jump_ops — schedule EC_New_External_IP_Permitted_Session_Watch in Splunk next.",
+                f"Incident INC-2026-89412 created; SOC notified; incident updated. IP block not required at current SOP threshold.",
+            ]
+        )
+    return bullets
 
 
 def build_s1_turn(
@@ -1153,63 +1500,139 @@ def build_s1_turn(
     applied_follow_up_ids: list[str],
     pending_action_id: str | None = None,
     awaiting_external: bool = False,
+    agent_state: dict[str, Any] | None = None,
 ) -> ExperienceCenterResponse:
     search_1 = _validate_search(_SEARCH_1_SPL)
     search_2 = _validate_search(_SEARCH_2_SPL)
-    if not search_1.get("approved") or not search_2.get("approved"):
+    search_m = _validate_search(candidate_monitoring_spl())
+    if not search_1.get("approved") or not search_2.get("approved") or not search_m.get("approved"):
         raise RuntimeError(
             "S1 fixture SPL failed real validate_spl; fix the EC SPL fixture. "
-            f"search_1={search_1.get('reject_reasons')} search_2={search_2.get('reject_reasons')}"
+            f"search_1={search_1.get('reject_reasons')} search_2={search_2.get('reject_reasons')} "
+            f"monitoring={search_m.get('reject_reasons')}"
         )
 
     trace_id = f"demo-{S1_SCENARIO_ID}-{uuid4().hex[:8]}"
-    applied = list(applied_follow_up_ids)
+    user_applied = list(applied_follow_up_ids)
     outcome = deepcopy(_base_outcome())
     evidence_state = deepcopy(_base_evidence_state())
     extra_evidence: list[dict[str, Any]] = []
     outcome, evidence_state, extra_evidence, actions, extras = _apply_follow_up_effects(
-        applied,
+        user_applied,
         session_id=session_id,
         outcome=outcome,
         evidence_state=evidence_state,
         extra_evidence=extra_evidence,
     )
+    from app.demo.fixtures.s1.agent_handler import (
+        build_s1_agent_workflow,
+        finalize_s1_remediation_after_apply,
+        get_s1_agent_state,
+        s1_followups_for_agent_mode,
+    )
+
+    resolved_agent_state = dict(agent_state or get_s1_agent_state(session_id, S1_FAMILY))
+    if resolved_agent_state.get("remediation_execute_pending"):
+        resolved_agent_state = finalize_s1_remediation_after_apply(
+            session_id=session_id,
+            family=S1_FAMILY,
+            scenario_id=S1_SCENARIO_ID,
+            agent_state=resolved_agent_state,
+            applied=user_applied,
+        )
+        if "verify_firewall_block" not in user_applied:
+            executed_block = next(
+                (
+                    item
+                    for item in ec_actions.list_actions_for_session(session_id, S1_SCENARIO_ID)
+                    if item.kind == "firewall_block" and item.state in {"EXECUTED", "VERIFIED"}
+                ),
+                None,
+            )
+            if executed_block is not None:
+                user_applied = list(user_applied) + ["verify_firewall_block"]
+        outcome = deepcopy(_base_outcome())
+        evidence_state = deepcopy(_base_evidence_state())
+        extra_evidence = []
+        outcome, evidence_state, extra_evidence, actions, extras = _apply_follow_up_effects(
+            user_applied,
+            session_id=session_id,
+            outcome=outcome,
+            evidence_state=evidence_state,
+            extra_evidence=extra_evidence,
+        )
+
+    applied = user_applied
     pending = pending_action_id
     if not pending:
         prepared = next((item for item in actions if item.state in {"PREPARED", "APPROVAL_REQUIRED"}), None)
         pending = prepared.action_id if prepared else None
 
+    use_agent_ui = True
+    agent_workflow = build_s1_agent_workflow(
+        agent_state=resolved_agent_state,
+        applied=applied,
+        actions=actions,
+        outcome=outcome,
+        executive_summary=_s1_executive_summary(applied),
+    )
+    agent_chips = s1_followups_for_agent_mode(
+        str(resolved_agent_state.get("lifecycle") or "PLAN_READY"),
+        applied=user_applied,
+    )
+
     source_evidence = [
         _existing_detection_evidence(),
         _source_evidence_item(
             "ev-s1-fw-search-1",
-            "Simulated Splunk firewall search 1",
+            "Splunk firewall search · prior 30-day window",
             _search_1_rows(),
             _SEARCH_1_SPL,
             "earliest=-60d latest=-30d",
         ),
         _source_evidence_item(
             "ev-s1-fw-search-2",
-            "Simulated Splunk firewall search 2",
+            "Splunk firewall search · last 30 days",
             _search_2_rows(),
             _SEARCH_2_SPL,
             "earliest=-30d latest=now",
         ),
-        *extra_evidence,
     ]
+    if "lookup_inventory_identity" in applied or "review_existing_notable" in applied:
+        source_evidence.append(_mcp_identity_evidence())
+    source_evidence.extend(extra_evidence)
     for item in source_evidence:
         item["trace_id"] = trace_id
 
-    remaining = [chip for chip in _followup_catalog() if chip.follow_up_id not in applied]
+    remaining = list(agent_chips) if use_agent_ui else [chip for chip in S1_FOLLOWUPS if chip.follow_up_id not in applied]
     firewall = next((item for item in actions if item.kind == "firewall_block"), None)
-    if firewall is None or firewall.state not in {"EXECUTED", "VERIFIED"}:
+    if not use_agent_ui and (firewall is None or firewall.state not in {"EXECUTED", "VERIFIED"}):
         remaining = [chip for chip in remaining if chip.follow_up_id != "verify_firewall_block"]
     systems = _merged_systems()
-    assessment = _assessment(applied)
+    assessment = S1_OPENING_BRIEFING if use_agent_ui else _assessment(applied)
+    lifecycle = str(resolved_agent_state.get("lifecycle") or "PLAN_READY")
+    identity_established = "lookup_inventory_identity" in applied or "review_existing_notable" in applied
+    finding_title = PLAN_READY_TITLE
+    if identity_established:
+        finding_title = f"Newly observed IP {PRIMARY_ATTACKER_IP} — {IDENTITY_PROMOTION}"
+    important_evidence = [
+        (
+            f"Splunk MCP connected · existing notable evaluated "
+            f"(IP not in IOC lookup/content): {S1_DETECTION_NAME}"
+        ),
+        "Requested last 30 days show firewall communication; prior 30-day novelty window is empty",
+        f"Jump host {_JUMP} has 3 allowed connections with firewall identity association to {_ACCOUNT}",
+        f"{_HOST_B} and {_HOST_C} are deny-only in the requested 30-day window",
+    ]
+    if identity_established:
+        important_evidence.insert(
+            2,
+            f"{IDENTITY_PROMOTION} ({PRIMARY_ATTACKER_IP}) — inventory/SOC-KB evidence",
+        )
     analyst = {
-        "finding_title": f"Suspicious IP observed across three internal systems — compromise not confirmed",
-        "severity_label": "P2 High",
-        "direct_answer_line": (
+        "finding_title": finding_title,
+        "severity_label": SEVERITY_LABEL,
+        "direct_answer_line": "" if use_agent_ui else (
             f"Three internal systems identified in firewall telemetry ({_JUMP}, {_HOST_B}, {_HOST_C}); "
             "broader DNS/proxy/VPN/endpoint communication is not yet complete."
         ),
@@ -1219,13 +1642,7 @@ def build_s1_turn(
         "what_we_found": _what_we_found(applied),
         "what_we_found_segments": _what_we_found_segments(applied),
         "affected_systems": systems,
-        "important_evidence": [
-            f"Splunk MCP connected · saved search reused: {S1_DETECTION_NAME}",
-            "Splunk MCP ad-hoc SPL completed the 60-day firewall history gap (30+30 windows)",
-            f"{PRIMARY_ATTACKER_IP} appears in both 30-day firewall windows against three internal systems",
-            f"Jump host {_JUMP} has 3 allowed connections with firewall identity association to {_ACCOUNT}",
-            f"{_HOST_B} and {_HOST_C} are deny-only in both windows",
-        ],
+        "important_evidence": important_evidence,
         "unconfirmed_findings": _unconfirmed_copy(outcome),
         "recommended_actions": _recommended(applied),
         "key_fields": [PRIMARY_ATTACKER_IP, _JUMP, _HOST_B, _HOST_C, _ACCOUNT],
@@ -1328,11 +1745,8 @@ def build_s1_turn(
         "ec_layer2_path": _layer2_path(),
         "production_side_effect": False,
         "ec_execution_journey": journey_for(S1_SCENARIO_ID, applied).model_dump(),
-        "ec_status_summary": (
-            "P2 High · Activity: Confirmed · Systems: 3 · Allowed on jump host · "
-            "Account compromise: Not confirmed · Lateral movement: Not confirmed"
-        ),
-        "ec_impact_legend": [
+        "ec_status_summary": SEVERITY_REASON,
+        "ec_impact_legend": [] if use_agent_ui else [
             "Activity: Confirmed",
             "Systems identified: 3",
             "Allowed communication: Jump host only",
@@ -1351,9 +1765,13 @@ def build_s1_turn(
             )
         ],
         "ec_spl_governance_summary": (
-            "Existing SIEM coverage did not satisfy the complete 60-day historical requirement, so the assistant "
-            "ran two governed 30-day firewall searches to complete the view."
+            "Existing IOC detection did not generate an alert because the IP is not present in that lookup/content, "
+            "so the assistant ran the requested last-30-days search plus a prior 30-day novelty window."
         ),
+        "ec_opening_briefing": None if use_agent_ui else S1_OPENING_BRIEFING,
+        "ec_agent_workflow": agent_workflow,
+        "ec_agent_lifecycle": str(resolved_agent_state.get("lifecycle") or "PLAN_READY"),
+        "ec_workflow_state": str(resolved_agent_state.get("lifecycle") or "PLAN_READY"),
         **extras,
     }
     return ExperienceCenterResponse.model_validate(envelope)
@@ -1367,15 +1785,16 @@ def s1_analyst_override(scenario_id: str, base: dict[str, Any]) -> dict[str, Any
     return {
         **base,
         "severity_label": "P2 High",
-        "finding_title": f"Governed 60-day investigation of {PRIMARY_ATTACKER_IP}",
+        "finding_title": PLAN_READY_TITLE,
         "one_sentence_finding": _what_we_found([]),
         "direct_answer_summary": assessment,
         "initial_assessment": [
             assessment,
-            "Visitor supplied no time range; environment search governance applied 30+30 windows.",
-            "Account compromise and lateral movement remain unconfirmed.",
+            "Visitor asked for the last 30 days; a prior window confirms the IP is newly observed.",
+            "Identity is established only after inventory/SOC-KB evidence. Raise monitoring first; HIL block only if a SOP threshold is met.",
+            "Account compromise remains unconfirmed. Malicious use is not confirmed.",
         ],
-        "splunk_status_line": "Simulated Splunk receipts · pgcil_soc/pgcil:firewall · 30+30 merge",
+        "splunk_status_line": "Simulated Splunk receipts · pgcil_soc/pgcil:firewall · last 30 days + novelty window",
         "splunk_results_table": [
             {
                 "System": row["system"],
@@ -1436,24 +1855,29 @@ def build_s1_demo_scenarios() -> dict[str, Any]:
             rag_available=False,
             selected_use_case_id="net_firewall_deny_spike",
             candidate_spl=_SEARCH_1_SPL,
-            aliases=(),
+            aliases=(
+                f"Find all communication involving suspicious IP {PRIMARY_ATTACKER_IP} and identify affected systems.",
+                f"new IP {PRIMARY_ATTACKER_IP}",
+                f"verify if {PRIMARY_ATTACKER_IP} is malicious",
+            ),
             analyst_summary=_assessment([]),
             trace_explanation=[
-                "Visitor supplied no time range.",
-                "EC search-governance policy applied 60-day coverage as two bounded 30-day searches.",
+                "Visitor asked to verify a newly observed IP over the last 30 days.",
+                "A prior 30-day novelty window is empty, so the IP is new. Inventory identity is established only after SOC-KB evidence.",
+                "Existing IOC detection: No alert — IP not present in the IOC list used by this detection. SOP: raise monitoring, then HIL block if a threshold is met.",
                 "Both candidate SPLs pass real validate_spl; candidate SPL remains non-executable.",
             ],
             source_evidence=[
                 _source_evidence_item(
                     "ev-s1-fw-search-1",
-                    "Simulated Splunk firewall search 1",
+                    "Splunk firewall search · prior 30-day window",
                     _search_1_rows(),
                     _SEARCH_1_SPL,
                     "earliest=-60d latest=-30d",
                 ),
                 _source_evidence_item(
                     "ev-s1-fw-search-2",
-                    "Simulated Splunk firewall search 2",
+                    "Splunk firewall search · last 30 days",
                     _search_2_rows(),
                     _SEARCH_2_SPL,
                     "earliest=-30d latest=now",

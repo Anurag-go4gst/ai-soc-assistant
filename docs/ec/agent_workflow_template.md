@@ -185,6 +185,7 @@ sequenceDiagram
 | Scenario | Why |
 |----------|-----|
 | **S2** AI prompt injection | Converted — three-question investigation + HIL containment |
+| **S7** Conflicting OT evidence | Converted — Splunk vs retired CMDB; no forced incident from Splunk alone |
 | **S5** Cisco hardening | Already has phased remediation + HIL actions |
 | **S3** Firewall coordination | Email/team coordination maps to artifact dialogs |
 | **S1** Splunk investigation | Strong investigation steps; remediation optional |

@@ -107,7 +107,7 @@ export interface EcInvestigationPhaseStep {
 
 export interface EcAgentStepFinding {
   headline_finding?: string;
-  headlines_by_status?: Partial<Record<'QUEUED' | 'RUNNING' | 'COMPLETE' | 'SKIPPED', string>>;
+  headlines_by_status?: Partial<Record<string, string>>;
   key_evidence?: string[];
   affected_entities?: string[];
   quantitative_summary?: Record<string, string | number>;
@@ -250,6 +250,7 @@ export interface EcAgentWorkflowPayload {
     compromise?: string;
     completed?: string[];
     in_progress?: string[];
+    deferred?: string[];
     risk_from?: string;
     risk_to?: string;
     risk_note?: string;

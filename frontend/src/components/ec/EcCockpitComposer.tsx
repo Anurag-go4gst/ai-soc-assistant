@@ -59,6 +59,16 @@ export function EcCockpitComposer({
     () => scenarios.find((item) => item.scenario_id === selectedId) ?? scenarios[0],
     [scenarios, selectedId],
   );
+  const seededScenarioRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!selected?.query) return;
+    if (seededScenarioRef.current === selected.scenario_id) return;
+    // Native <select> does not fire onChange when the first option is already selected,
+    // so S1 (catalog default) never filled the box until the visitor picked another scenario.
+    seededScenarioRef.current = selected.scenario_id;
+    setText(selected.query);
+  }, [selected]);
 
   const flagship = scenarios.filter((item) => item.category === 'Flagship' || /^s[1-7]_/.test(item.scenario_id));
   const rest = scenarios.filter((item) => !flagship.some((row) => row.scenario_id === item.scenario_id));
@@ -161,7 +171,10 @@ export function EcCockpitComposer({
               setQueryError(null);
               onSelect(event.target.value);
               const next = scenarios.find((item) => item.scenario_id === event.target.value);
-              if (next) setText(next.query);
+              if (next) {
+                seededScenarioRef.current = next.scenario_id;
+                setText(next.query);
+              }
             }}
           >
             {flagship.length ? (
@@ -226,7 +239,7 @@ export function EcCockpitComposer({
             rows={4}
             className="min-h-[112px] max-h-56 flex-1 resize-y border-slate-700/80 bg-slate-950/60 text-base leading-relaxed transition-shadow focus-visible:ring-cyan-500/40"
             disabled={disabled || !scenarios.length}
-            placeholder="Ask V.AI SOC — suspicious IP, firewall block, zero-day exposure, OT evidence… (/clear to reset)"
+            placeholder="Ask V.AI SOC — new IP, firewall block, zero-day exposure, OT evidence… (/clear to reset)"
             value={text}
             onChange={(event) => {
               setText(event.target.value);
