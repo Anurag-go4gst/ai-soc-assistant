@@ -4,7 +4,7 @@
     {
       "id": "coe",
       "label": "COE (Velocis LAN)",
-      "description": "COE final testing: Foundation-Sec 8B reasoning @ 10.52.1.13:8002, full control plane, live-ready Splunk MCP registry with MCP_GLOBAL_EXECUTION_ENABLED=false, PowerGrid source profiles.",
+      "description": "COE final testing: Foundation-Sec 8B instruct @ 10.52.1.13:8004 (primary) + reasoning @ 10.52.1.13:8003, full control plane, live-ready Splunk MCP registry with MCP_GLOBAL_EXECUTION_ENABLED=false, PowerGrid source profiles.",
       "example_file": "coe.env.example",
       "recommended_for": ["coe", "velocis", "powergrid"]
     },
@@ -25,7 +25,7 @@
     {
       "id": "mac-staging",
       "label": "Mac Staging (COE vLLM)",
-      "description": "Mac Docker staging: app runs locally on Mac, LLM inference points to COE vLLM at 10.52.1.13:8002, mock MCP execution, SPL fallback disabled, used before COE deployment.",
+      "description": "Mac Docker staging: app runs locally on Mac, LLM inference points to COE vLLM at 10.52.1.13:8004 (instruct) / 10.52.1.13:8003 (reasoning), mock MCP execution, SPL fallback disabled, used before COE deployment.",
       "example_file": "mac-staging.env.example",
       "recommended_for": ["mac", "staging", "coe-vllm-validation"]
     }

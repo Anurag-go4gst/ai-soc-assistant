@@ -70,13 +70,47 @@ Live Splunk requires `MCP_MODE=registry` plus operator credentials.
 
 ## COE LLM endpoint
 
-| Field | Value |
-|-------|--------|
-| Base URL | `http://10.52.1.13:8002/v1` |
-| Model | `foundation-sec-8b-reasoning` |
-| Qwen failover (optional) | `http://10.52.1.13:8000/v1` / `./qwen72b` |
+Office-network only — these IPs are unreachable from the VPS dev host, so the
+`coe.env.example` values cannot be smoke-tested outside the Velocis LAN.
 
-See `docs/coe/COE_FOUNDATION_SEC_8B_REASONING_HANDOFF.md` for smoke-test notes.
+| Role | Base URL | Served model name |
+|------|----------|-------------------|
+| Instruct (primary) | `http://10.52.1.13:8004/v1` | `foundation-sec-instruct` |
+| Reasoning (reasoning roles only) | `http://10.52.1.13:8003/v1` | `foundation-sec-reasoning` |
+| Qwen failover (optional) | `http://10.52.1.13:8000/v1` | `./qwen72b` |
+
+Both are OpenAI-compatible; `model` must match the served name exactly. No API key.
+
+Reasoning is prepended to the failover chain only for `REASONING_ROLES`
+(`backend/app/llm/clients/endpoint_resolver.py`); every other role uses instruct.
+
+Smoke from inside the backend container before trusting a COE run:
+
+```bash
+curl http://10.52.1.13:8004/v1/chat/completions -H 'Content-Type: application/json' \
+  -d '{"model":"foundation-sec-instruct","messages":[{"role":"user","content":"hi"}]}'
+```
+
+See `docs/coe/COE_FOUNDATION_SEC_8B_REASONING_HANDOFF.md` for the earlier `:8002`
+smoke-test notes and the caveats that are still unverified on these endpoints.
+
+### Switching endpoints without editing `.env`
+
+**Settings → LLM Connection** has a *Deployment preset* picker (`VPS dev` /
+`COE Velocis LAN`). Choosing one fills the form; **Save & apply** persists it to
+`backend/data/llm_connection.json` and applies live — no restart, no redeploy. It
+repoints the primary endpoint (every governed role **and** the Ask LLM lab) plus the
+reasoning hop in one save, so switching sites cannot strand the other site's
+reasoning URL in the failover chain.
+
+Two operator gotchas:
+
+- A saved override **shadows `.env` on every startup**. Editing the env profile after
+  a save changes nothing until the override is re-saved or the JSON file removed.
+- **Test connection** verifies the **saved** connection, not the form — so the order
+  is pick preset → Save & apply → Test. It exercises the primary endpoint only;
+  check the reasoning endpoint with the `curl :8003` step in
+  [`docs/coe/COE_FOUNDATION_SEC_8B_REASONING_HANDOFF.md`](../docs/coe/COE_FOUNDATION_SEC_8B_REASONING_HANDOFF.md).
 
 ## Deprecated files
 

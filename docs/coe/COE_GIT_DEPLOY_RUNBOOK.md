@@ -162,9 +162,14 @@ AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS=<operator-supplied-seconds>
 
 Reachability rule: the URL must resolve **from inside the backend container**, not just from the host shell.
 
+You can also skip the `.env` edit entirely: **Settings → LLM Connection** has a
+*Deployment preset* picker (`VPS dev` / `COE Velocis LAN`) that sets the primary and
+reasoning endpoints live, no restart. A saved override shadows `.env` until re-saved.
+See [`env/README.md`](../../env/README.md#switching-endpoints-without-editing-env).
+
 | LLM runs on | Use |
 |-------------|-----|
-| A separate COE server | Its routable IP/hostname, e.g. `http://10.52.1.13:8002/v1` |
+| A separate COE server | Its routable IP/hostname, e.g. `http://10.52.1.13:8004/v1` (instruct) |
 | The same host, bound to `127.0.0.1` | `http://host.docker.internal:<port>/v1` — compose already maps `host.docker.internal` to the host gateway |
 
 `host.docker.internal` does **not** resolve from the host shell, so the preflight's optional vLLM probe reports `Could not resolve host` in that configuration. That warning is expected and does not block deployment. Verify from inside the container instead, after Step 5:
