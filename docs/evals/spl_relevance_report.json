@@ -4,6 +4,7 @@
     "auth_after_hours_critical_asset",
     "auth_failed_login_spike",
     "auth_failed_login_top_users_exclude_service_accounts",
+    "auth_mfa_failure_spike",
     "auth_new_source_ip_login",
     "auth_privileged_login_anomaly",
     "auth_success_after_failure",
@@ -53,8 +54,8 @@
       "relevant": 40,
       "relevant_pct": 87.0,
       "lanes": {
-        "template": 23,
-        "draft": 17,
+        "template": 24,
+        "draft": 16,
         "none": 6
       },
       "classes": {
@@ -2483,7 +2484,7 @@
       "question": "Investigate MFA failure spike",
       "pattern_type": "Authentication / Identity",
       "row_class": "spl_expected",
-      "lane": "draft",
+      "lane": "template",
       "relevant": true,
       "mismatches": [],
       "checks": {

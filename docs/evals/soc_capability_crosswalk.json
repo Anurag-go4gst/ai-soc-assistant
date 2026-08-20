@@ -11,7 +11,7 @@
     "proposed_use_cases_present": true,
     "triage_scores_present": true
   },
-  "generated_at": "2026-08-12T11:31:01+00:00",
+  "generated_at": "2026-08-20T10:48:30+00:00",
   "github_skill_rows": [
     {
       "acceptance_means": "accepted_for_enrichment_only",
@@ -4143,8 +4143,8 @@
       "question_match_status": "n/a_use_case_only",
       "rag_status": "missing",
       "runtime_support_status": "planned",
-      "spl_template_id": null,
-      "spl_template_status": "unavailable",
+      "spl_template_id": "auth_mfa_failure_spike",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "auth_mfa_failure_spike",
       "validation_status": "needs_soc_review"

@@ -1,5 +1,5 @@
 {
-  "bank_path": "/var/www/ai-soc-assistant/docs/evals/cisco_powergrid_question_bank.json",
+  "bank_path": "/var/www/ai-soc-mcp/docs/evals/cisco_powergrid_question_bank.json",
   "critical_violations": 0,
   "fail": 0,
   "min_wave": "wave3",

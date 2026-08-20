@@ -2,7 +2,7 @@
 
 Governed imperative `/chat` response quality — evaluation only; no LangGraph cutover.
 
-- Generated: `2026-08-19T08:29:44.021350+00:00`
+- Generated: `2026-08-20T11:13:08.003414+00:00`
 - Schema: `2026-06-08-clean-answer-v1`
 - Total evaluated: **120**
 - 105-question rows loaded: **105**
@@ -13,7 +13,7 @@ Governed imperative `/chat` response quality — evaluation only; no LangGraph c
 - Critical failures: **0**
 - Major failures: **0**
 - Display failures: **0**
-- Average runtime: **35** ms
+- Average runtime: **36** ms
 
 ## Human-review evidence
 
@@ -26,7 +26,7 @@ Governed imperative `/chat` response quality — evaluation only; no LangGraph c
 - MCP execution flags enforced (disabled): **True**
 - LangGraph orchestration enabled: **False**
 - Live composer mode: **False**
-- LLM provider configured: **True**
+- LLM provider configured: **False**
 - SPL/MCP execution enabled: **False** (must be false)
 
 ## Failure categories

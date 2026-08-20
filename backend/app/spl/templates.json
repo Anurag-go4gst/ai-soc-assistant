@@ -1996,6 +1996,53 @@
       "answer_sections_supported": [],
       "time_bound_required": true,
       "result_limit_required": true
+    },
+    {
+      "template_id": "auth_mfa_failure_spike",
+      "status": "active",
+      "use_case_id": "auth_mfa_failure_spike",
+      "required_entities": [],
+      "default_time_window": "earliest=-60m latest=now",
+      "spl_text": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-60m latest=now action=failure (mfa=* OR factor=* OR authentication_method=mfa) | stats count as mfa_failures dc(user) as distinct_users values(src) as src min(_time) as first_seen max(_time) as last_seen by user | where mfa_failures >= 5 | sort -mfa_failures | head 100",
+      "returned_fields": [
+        "user",
+        "src",
+        "mfa_failures",
+        "distinct_users",
+        "first_seen",
+        "last_seen"
+      ],
+      "validation_rules": {
+        "allowed_indexes": [
+          "pgcil_soc"
+        ],
+        "allowed_sourcetypes": [
+          "pgcil:auth"
+        ],
+        "allowed_commands": [
+          "search",
+          "stats",
+          "where",
+          "sort",
+          "head"
+        ],
+        "required_time_bounds": true,
+        "result_limit_required": true
+      },
+      "result_limits": {
+        "max_rows": 100
+      },
+      "severity_inputs": [
+        "mfa_failures",
+        "distinct_users",
+        "src",
+        "user"
+      ],
+      "answer_sections_supported": [
+        "splunk_results_table",
+        "mitre_mappings",
+        "recommended_actions"
+      ]
     }
   ]
 }
