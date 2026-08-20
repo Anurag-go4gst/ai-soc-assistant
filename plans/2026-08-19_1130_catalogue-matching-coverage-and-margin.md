@@ -169,6 +169,24 @@ Consequence worth stating separately: **T4 semantic understanding only runs when
 T1–T3 fail to bind.** A confident misfire suppresses the layer that would catch
 it. T4 is enabled on this host and never fired for the query above.
 
+## Phasing (owner decision, 2026-08-20)
+
+**Phase 1 — this plan. Exact matching hygiene.** Make binding more exact: remove
+obvious non-matchers, cut the high false-positive and false-negative cases.
+Lexical and deterministic only.
+
+**Phase 2 — separate plan, not started.** Semantic understanding: embeddings,
+vector/semantic metadata on use cases, or sending top-k candidates to an LLM for
+adjudication. Explicitly deferred — do not pull any of it into phase 1.
+
+Evidence that phase 2 is genuinely needed, already measured: a clear paraphrase
+of catalogue row `q0.q004` — *"Show me any machines that talked to known-bad IP
+addresses in the last day"* — gets **no semantic match** and falls to
+`out_of_registry`, while the verbatim row matches at score 1.0. The existing
+paraphrase tier (`app/coverage/semantic_question_index.py`, threshold 0.65)
+does not cover it. That is a phase-2 problem and is recorded here so it is not
+lost.
+
 ## Stop conditions
 
 - All items checked with recorded evidence, **or**

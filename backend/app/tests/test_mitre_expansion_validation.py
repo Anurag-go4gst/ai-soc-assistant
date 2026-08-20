@@ -4,6 +4,8 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 _SCRIPT = (
     Path(__file__).resolve().parents[3]
     / "scripts"
@@ -15,7 +17,28 @@ mev = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(mev)
 
 
+
+_AUDIT_PATH = Path(__file__).resolve().parents[3] / "docs/evals/out/llm_mitre_catalogue_audit.json"
+
+
+def _require_audit_artifact() -> None:
+    """Skip when the LLM audit artifact is absent.
+
+    docs/evals/out/* is gitignored, and this artifact is produced by
+    scripts/llm_mitre_catalogue_audit.py, which calls a LIVE model. It can
+    therefore never be regenerated inside the test suite — conftest blocks live
+    LLM calls by design. These tests consume the audit when an operator has run
+    it; without it there is nothing to validate.
+    """
+    if not _AUDIT_PATH.is_file():
+        pytest.skip(
+            "docs/evals/out/llm_mitre_catalogue_audit.json absent (gitignored, "
+            "produced by a live-LLM run of scripts/llm_mitre_catalogue_audit.py "
+            "--full --write-report)."
+        )
+
 def test_extraction_yields_out_of_subset_candidates():
+    _require_audit_artifact()
     candidates, bundle = mev.extract_candidates()
     # Post-G5 bulk promotion: 98-technique bundle (15 curated + 83 promoted). The
     # 83 promote_candidate IDs are now in-bundle, so the only out-of-subset proposals
@@ -33,6 +56,7 @@ def test_extraction_yields_out_of_subset_candidates():
 
 
 def test_disposition_pending_when_resolver_absent():
+    _require_audit_artifact()
     candidates, _ = mev.extract_candidates()
     rows = mev.disposition(candidates, resolver=None)
     assert len(rows) == len(candidates)
@@ -51,6 +75,7 @@ class _FakeResolver:
 
 
 def test_disposition_classifies_attack_data_absent_as_deprecated():
+    _require_audit_artifact()
     from app.threat.attack_data_resolver import AttackDataResolver
 
     candidates, _ = mev.extract_candidates()

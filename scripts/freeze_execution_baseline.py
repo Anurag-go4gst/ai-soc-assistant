@@ -112,6 +112,18 @@ def capture(out: Path) -> int:
     return 0
 
 
+
+#: Members that only exist after a build. Absent-because-unbuilt must not be
+#: reported as drift; absent-while-the-build-tree-exists still must.
+_BUILD_OUTPUT_ROOTS: tuple[str, ...] = ("frontend/dist/",)
+
+
+def _is_unbuilt_artifact(rel: str) -> bool:
+    for root in _BUILD_OUTPUT_ROOTS:
+        if rel.startswith(root) and not (ROOT / root.rstrip("/")).exists():
+            return True
+    return False
+
 def check(src: Path) -> int:
     try:
         payload = json.loads(src.read_text(encoding="utf-8"))
@@ -142,6 +154,15 @@ def check(src: Path) -> int:
             if old is None:
                 drift.append(f"[{group}] {rel}: was absent, now present")
             elif new is None:
+                if _is_unbuilt_artifact(rel):
+                    # "Not built yet" is not "deleted". frontend/dist is a build
+                    # output and is gitignored, so on a fresh clone or worktree
+                    # this fired DELETED and turned the gate red for a checkout
+                    # nobody had run `npm run build` in. Protection is preserved
+                    # where it matters: if the dist tree exists and the mirror is
+                    # missing from it, that IS a deletion and still fails below.
+                    print(f"  [{group}] {rel}: skipped — not built in this checkout")
+                    continue
                 drift.append(f"[{group}] {rel}: DELETED")
             else:
                 drift.append(f"[{group}] {rel}: {old[:12]} -> {new[:12]}")
