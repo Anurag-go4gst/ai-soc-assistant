@@ -169,6 +169,46 @@ Consequence worth stating separately: **T4 semantic understanding only runs when
 T1–T3 fail to bind.** A confident misfire suppresses the layer that would catch
 it. T4 is enabled on this host and never fired for the query above.
 
+## Progress (2026-08-20)
+
+**Done**
+
+| | |
+|---|---|
+| Negated capability no longer binds as a request (`48fb2e1`) | *"we have no SOAR playbook"* stopped binding `soc_show_sop` |
+| 9 defect-directed truth-set rows (`492157b`) | 87 -> 96; the defect is measurable for the first time |
+| Item 1 — bind instrumentation (`79eebe9`) | coverage/margin reported, behaviour unchanged |
+| Ambiguous `'locked'` pattern removed + leading-boundary rule (`6981a0d`) | `'locked'` was matching inside `"blocked"` |
+| Catalogue/question reference index (`6981a0d`) | `docs/catalogue_and_questions.md` + JSON + a `/knowledge` export |
+| 5 pre-existing test failures remediated (`6981a0d`) | suite is clean-clone green for the first time |
+| `auth_mfa_failure_spike` template (`3d638f8`) | item 3's blocker cleared |
+| `spl-template-add` skill corrected (`747e822`) | three derived artifacts + ordering + slot gotcha |
+
+**Measured and rejected — do not re-propose**
+
+- **Absolute coverage floor.** Correct binds sit at 0.14 and 0.27, the same band
+  as the misbind at 0.14. A floor at 0.35 caused 3 truth-set regressions.
+- **Artifact-aware tie-break.** The `auth_mfa_failure_spike` case is a 0.70 score
+  gap, not a tie; firing it would need a band that swamps real distinctions.
+- **Approach C** (repo cosine ported from the 105 tier): never reaches zero on
+  both axes across a 0.10-0.30 sweep.
+
+**Open decisions**
+
+1. `cisco.perim.001` / `rt.ot.004` lost its SPL. It was being served an
+   *account-lockout* query for a *blocked-connection* question — wrong, but
+   frozen as approved. Removed per the owner's "remove the confusion"
+   instruction; reversible until an IT-to-OT template exists.
+2. Item 6 — whether the 9 new rows should gate. Still measured-not-gating.
+
+**Biggest open finding**
+
+**31 of 58 bindable use cases still have no SPL template** (was 32). A bind can
+succeed and leave the answer without a governed query, and no routing metric
+sees it — route and capability verdicts are identical either way. This is
+catalogue-authoring work, not matcher work, and it is larger than the remaining
+plan items.
+
 ## Phasing (owner decision, 2026-08-20)
 
 **Phase 1 — this plan. Exact matching hygiene.** Make binding more exact: remove
@@ -201,7 +241,7 @@ lost.
 
 ## Checklist
 
-- [ ] **1 — Instrument coverage/margin without changing behaviour**
+- [x] **1 — Instrument coverage/margin without changing behaviour**
   - **Do:** compute and record, per bind, `coverage_ratio` (matched span ÷ query
     length), `top_score`, `runner_up_score`, `margin`; emit into the existing
     routing trace. No thresholds, no behaviour change.
@@ -209,7 +249,16 @@ lost.
     reports **68/85 route_ok, 18 capability_inconsistent** (byte-identical to
     the pre-change run); trace shows the new fields on all 96 rows.
   - **Depends on:** —
-  - **Evidence:**
+  - **Evidence:** `79eebe9`. `coverage_ratio` / `specificity` / `coverage_score` /
+    `runner_up_score` / `bind_margin` on `UseCaseSelection`, reported only —
+    `confidence` still decides. Truth set unchanged (68/85 route_ok, 0
+    regressions); backend 5835 passed at the time of the commit, 5837 now.
+    Margin is measured on `coverage_score`, not `confidence`, which saturates at
+    0.95 and cannot express "these two are close"; and it attaches to the bind
+    actually committed, not to whichever candidate leads on coverage. Already
+    earning its place: the MFA question reports `bind_margin = -0.69`, i.e.
+    production commits a bind scoring materially worse than an available
+    alternative — a signal that did not exist before.
 
 - [ ] **2 — Measure the distribution before choosing thresholds**
   - **Do:** dump coverage/margin for all 96 truth-set rows plus the 105 goldens;
@@ -222,9 +271,13 @@ lost.
 - [ ] **3 — Coverage-weighted, specificity-aware scoring (approach B)**
   - **Do:** replace the additive formula with `coverage x IDF specificity` as
     prototyped in `scripts/eval_catalogue_bind_experiment.py`, coverage floor
-    **0.22** (plateau midpoint), drop the flat 0.62 floor. BLOCKED until
-    `auth_mfa_failure_spike` has a validator-clean SPL template — otherwise
-    landing item 3 silently drops the SPL for that question.
+    **0.22** (plateau midpoint), drop the flat 0.62 floor. **UNBLOCKED** as of
+    `3d638f8` — `auth_mfa_failure_spike` now has a validator-clean template, so
+    both candidates for that question carry one and rescoring cannot silently
+    drop an artifact. NOTE: the 0.22 figure came from the approach-B sweep and
+    must be re-derived from item 2's committed distribution before it is used;
+    an absolute floor was separately measured and rejected (see above), so item
+    3 must express the threshold as relative ranking, not a cutoff.
   - **Verify:** `rt.neg.001` and `rt.verb.001-003` stop binding a knowledge use
     case; `rt.neg.005/006` still bind `soc_show_sop`; truth set shows
     `capability_inconsistent` **strictly below 18** and `route_ok` **not below
