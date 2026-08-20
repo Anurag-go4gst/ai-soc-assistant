@@ -122,6 +122,38 @@ losing an artifact is invisible to the truth set, because route and capability
 verdicts are unchanged. Item 3's Verify must therefore assert artifact
 preservation across the 105, not only route stability.
 
+## REJECTED: an absolute coverage floor (measured 2026-08-20)
+
+Tried as an interim guard ahead of item 3 — veto any bind whose
+`coverage_score` falls below a floor, leaving scoring untouched. **Rejected: the
+good and bad populations overlap.**
+
+```
+rt.know.002  soc_map_alert_mitre           coverage 0.14   CORRECT bind
+rt.know.005  edr_powershell_suspicious_..  coverage 0.27   CORRECT bind
+zero-day     soc_show_sop                  coverage 0.14   THE DEFECT
+```
+
+A floor at 0.35 produced **3 truth-set regressions** (`rt.know.002` fell to
+`attack_discovery`, `rt.know.005` to `spl_generation`). There is no floor that
+blocks the misbind without taking correct binds with it.
+
+Two measurement errors made on the way to this, both worth remembering:
+
+- A 3-question probe suggested legitimate binds sit at 0.50–0.54 versus 0.14 for
+  the misbind — "clean separation". Wrong: the sample was three questions, and
+  the truth set immediately produced correct binds at 0.14 and 0.27.
+- A sweep reported "0 of the 105 lost" at every floor. True but meaningless:
+  **91 of the 105 never bind at T2 at all** — they are served by T1 exact match
+  — so the metric was measuring almost nothing. Any future 105-based check must
+  state how many rows it actually exercises.
+
+**Consequence for item 3:** approach B's advantage must come from *relative*
+ranking between candidates plus the runner-up margin, not from an absolute
+threshold — B scored 0/0 because it re-ranks, not because it vetoes. Item 2 must
+explicitly test whether the good/bad populations separate on any single
+statistic before item 3 relies on one.
+
 ## Defect classes (all four are structural, not vocabulary)
 
 1. **No coverage measure.** Match *count* is scored; the fraction of the query
