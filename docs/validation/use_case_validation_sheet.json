@@ -1,9 +1,9 @@
 {
   "artifact": "soc_validation_use_cases",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-07-06T12:53:35+00:00",
+  "generated_at": "2026-08-20T17:15:54+00:00",
   "row_counts": {
-    "use_cases": 68
+    "use_cases": 45
   },
   "rows": [
     {
@@ -31,19 +31,6 @@
       "tests_added": true,
       "use_case_id": "auth_after_hours_critical_asset",
       "validation_status": "tests_added"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "auth_disabled_account_login",
-      "validation_status": "needs_soc_review"
     },
     {
       "catalog_present": true,
@@ -79,20 +66,7 @@
       "rag_status": "missing",
       "review_decision": "",
       "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "auth_impossible_travel",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "auth_mfa_failure_spike",
       "validation_status": "needs_soc_review"
@@ -122,19 +96,6 @@
       "tests_added": true,
       "use_case_id": "auth_privileged_login_anomaly",
       "validation_status": "tests_added"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "auth_service_account_abnormal_login",
-      "validation_status": "needs_soc_review"
     },
     {
       "catalog_present": true,
@@ -281,97 +242,6 @@
     },
     {
       "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "dns_tunneling_candidate",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "dns_unusual_query_volume",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "edr_credential_dumping_signal",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "knowledge_recall",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "edr_isolation_recommendation",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "edr_lateral_movement_candidate",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "alert_summary",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "edr_malware_alert_summary",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "edr_new_service_creation",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
       "enrichment_present": true,
       "live_execution_skill": "attack_discovery",
       "notes": "",
@@ -382,19 +252,6 @@
       "tests_added": true,
       "use_case_id": "edr_powershell_suspicious_command",
       "validation_status": "tests_added"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "edr_scheduled_task_creation",
-      "validation_status": "needs_soc_review"
     },
     {
       "catalog_present": true,
@@ -450,32 +307,6 @@
     },
     {
       "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "net_blocked_region_connection",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "net_east_west_anomaly",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
       "enrichment_present": true,
       "live_execution_skill": "attack_discovery",
       "notes": "",
@@ -486,45 +317,6 @@
       "tests_added": true,
       "use_case_id": "net_firewall_deny_spike",
       "validation_status": "tests_added"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "net_new_outbound_destination",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "net_port_scanning",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "net_repeated_critical_asset_connections",
-      "validation_status": "needs_soc_review"
     },
     {
       "catalog_present": true,
@@ -547,35 +339,9 @@
       "rag_status": "missing",
       "review_decision": "",
       "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "ot_critical_asset_after_hours",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
       "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "ot_firmware_drift",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "ot_it_to_ot_auth_anomaly",
       "validation_status": "needs_soc_review"
     },
     {
@@ -599,35 +365,9 @@
       "rag_status": "missing",
       "review_decision": "",
       "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "ot_protocol_anomaly",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
       "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "ot_tftp_hmi",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "attack_discovery",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "ot_unexpected_command",
       "validation_status": "needs_soc_review"
     },
     {
@@ -757,32 +497,6 @@
       "runtime_support_status": "planned",
       "spl_template_status": "unavailable",
       "tests_added": false,
-      "use_case_id": "soc_create_investigation_note",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "knowledge_recall",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "soc_draft_ticket",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "knowledge_recall",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
       "use_case_id": "soc_environment_hygiene",
       "validation_status": "needs_soc_review"
     },
@@ -861,7 +575,7 @@
       "runtime_support_status": "planned",
       "spl_template_status": "unavailable",
       "tests_added": false,
-      "use_case_id": "soc_recommend_next_pivots",
+      "use_case_id": "soc_show_catalogue_index",
       "validation_status": "needs_soc_review"
     },
     {
@@ -876,19 +590,6 @@
       "tests_added": true,
       "use_case_id": "soc_show_sop",
       "validation_status": "tests_added"
-    },
-    {
-      "catalog_present": true,
-      "enrichment_present": false,
-      "live_execution_skill": "alert_summary",
-      "notes": "",
-      "rag_status": "missing",
-      "review_decision": "",
-      "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
-      "tests_added": false,
-      "use_case_id": "soc_summarize_alert_evidence",
-      "validation_status": "needs_soc_review"
     }
   ],
   "schema_version": "2026-06-08-phase10-v1",

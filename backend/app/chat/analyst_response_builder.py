@@ -25,8 +25,6 @@ _INVESTIGATION_GUIDANCE_USE_CASES = frozenset(
     {
         "edr_powershell_suspicious_command",
         "dns_beaconing_candidate",
-        "dns_tunneling_candidate",
-        "dns_unusual_query_volume",
         "edr_suspicious_process",
     }
 )
@@ -289,6 +287,35 @@ def build_analyst_response_for_live(
             mitre_mappings=mitre_mappings,
             user_query=user_query,
         )
+    if str(plan.get("use_case_id") or "") == "soc_show_catalogue_index":
+        from app.knowledge.mapping_exports import format_catalogue_inventory_answer
+
+        inventory = format_catalogue_inventory_answer()
+        lead = inventory.split("\n", 1)[0]
+        envelope = AnalystResponseEnvelope(
+            scenario_label=selected_use_case_label,
+            finding_title=selected_use_case_label or "Catalogue index",
+            one_sentence_finding=lead,
+            direct_answer_summary=inventory,
+            response_profile="knowledge_recall",
+            execution_status=str(execution_payload.get("status") or "skipped") or None,
+            spl_code=None,
+            draft_spl_code=None,
+            spl_draft_preview=None,
+        )
+        if contract is not None:
+            envelope = apply_final_answer_readability(envelope, contract)
+            envelope = envelope.model_copy(
+                update={
+                    "direct_answer_summary": inventory,
+                    "one_sentence_finding": lead,
+                    "spl_code": None,
+                    "draft_spl_code": None,
+                    "spl_draft_preview": None,
+                    "response_profile": "knowledge_recall",
+                }
+            )
+        return envelope
     spl_code, draft_spl_code, draft_preview, table = _resolve_spl_surfaces_from_contract(
         contract=contract,
         candidate_spl=candidate_spl if isinstance(candidate_spl, dict) else None,

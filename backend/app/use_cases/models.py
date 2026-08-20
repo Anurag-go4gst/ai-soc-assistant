@@ -8,6 +8,13 @@ class UseCaseDefinition(BaseModel):
     display_name: str
     category: str
     intent_patterns: list[str] = Field(default_factory=list)
+    # Optional bind constraints (plan 2026-08-19_1130 item 5). Absent / empty
+    # lists are a no-op — the row matches exactly as it did before these fields.
+    # `exclusion_patterns`: substring veto (same leading-boundary rule as
+    # intent_patterns). `requires_signals`: names from extract_query_signals;
+    # prefix `!` means the signal must be absent/false.
+    exclusion_patterns: list[str] = Field(default_factory=list)
+    requires_signals: list[str] = Field(default_factory=list)
     example_queries: list[str] = Field(default_factory=list)
     required_entities: list[str] = Field(default_factory=list)
     optional_entities: list[str] = Field(default_factory=list)
@@ -49,3 +56,11 @@ class UseCaseSelection(BaseModel):
     required_sources: list[str] = Field(default_factory=list)
     optional_sources: list[str] = Field(default_factory=list)
     action_capability_tier: int
+    # Bind diagnostics (plan 2026-08-19_1130). `coverage_score` ranks the bind
+    # (item 3). `confidence` is a 0–1 squash of that score for QU consumers.
+    # `bind_margin` below `_BIND_MARGIN_TOO_CLOSE` (item 4) returns no bind.
+    coverage_ratio: float | None = None
+    specificity: float | None = None
+    coverage_score: float | None = None
+    runner_up_score: float | None = None
+    bind_margin: float | None = None

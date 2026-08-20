@@ -1,13 +1,27 @@
 ---
 name: mcp-effective-tool-catalog-and-authority
 overview: "Make MCP tool discovery truthful (server ∩ allowlist) and close the AUTH0/HIL authority gap on read-only MCP tools before any capability-based selection goes live"
-status: active
+status: done_build_activation_deferred
 date: 2026-08-17
 canonical_plan: plans/2026-08-17_1757_mcp-effective-tool-catalog-and-authority.md
 loop_runner: plans/LOOP_RUNNER_TEMPLATE.md
 ---
 
 # MCP Effective Tool Catalog & Authority Convergence
+
+> **STATUS — closed 2026-08-19.** Checklist **10/10**, no open items. Frontmatter
+> was still `active` until this update; the work finished 2026-08-17.
+>
+> **Built, not activated.** Per the Follow-up Closure below, the effective-catalog /
+> capability / resolver mechanism is implemented and tested but **not wired into the
+> live `pipeline.py` call path** — activation is a separate governance-reviewed
+> decision and is *not* part of this plan's closure. Live tool selection therefore
+> still runs the pre-existing path: `_select_server()` returns `MCP_DEFAULT_SERVER`
+> (question text is never an input) and `_tool_matches_intent()` maps four
+> Splunk-shaped `execution_intent` values. `asset_lookup` and `ticket_lookup`
+> capabilities exist but no intent addresses them, so they are unreachable.
+>
+> Do not cite this plan as evidence that capability-based selection is live.
 
 ## DECISION RECORDED — 2026-08-17 (item 3 resolved, implemented)
 

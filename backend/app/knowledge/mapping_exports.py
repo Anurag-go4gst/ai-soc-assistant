@@ -997,3 +997,132 @@ def soc_validation_csv_rows(artifact: str) -> list[dict[str, Any]] | None:
         if isinstance(row, dict):
             flattened.append({k: _flatten_validation_cell(v) for k, v in row.items()})
     return flattened
+
+
+def build_catalogue_question_index() -> dict[str, Any]:
+    """Linked catalogue/question index for analyst reference and the /knowledge page.
+
+    Same shape as scripts/build_catalogue_question_index.py writes to
+    docs/evals/catalogue_question_index.json — one builder, so the committed
+    reference doc and the live page cannot drift apart.
+
+    The per-entry flags exist because two defects came from exactly these gaps:
+    an unbindable entry looks like dead weight but is a template-registry
+    binding, and a bindable entry with no SPL template can win a bind and leave
+    the answer without a governed query.
+    """
+    from app.coverage.question_runtime_map import list_question_runtime_entries
+    from app.use_cases.registry import load_use_case_catalog, match_use_cases
+
+    catalogue = load_use_case_catalog()
+    questions: list[dict[str, Any]] = []
+    for entry in list_question_runtime_entries():
+        text = entry.get("question") or entry.get("query")
+        if not text:
+            continue
+        matches = match_use_cases(text)
+        top = matches[0] if matches else None
+        questions.append(
+            {
+                "question_ref": entry.get("question_ref"),
+                "question": text,
+                "proposed_primary_skill": entry.get("proposed_primary_skill"),
+                "binds_use_case_id": top.use_case_id if top else None,
+                "bind_matched_patterns": list(top.matched_patterns) if top else [],
+                "bind_coverage_score": top.coverage_score if top else None,
+            }
+        )
+
+    bound = {q["binds_use_case_id"] for q in questions if q["binds_use_case_id"]}
+    use_cases = [
+        {
+            "use_case_id": uc.use_case_id,
+            "display_name": uc.display_name,
+            "category": uc.category,
+            "primary_skill": uc.primary_skill,
+            "default_spl_template": uc.default_spl_template,
+            "intent_patterns": list(uc.intent_patterns or []),
+            "example_queries": list(uc.example_queries or []),
+            "bindable": bool(uc.intent_patterns),
+            "has_spl_template": bool(uc.default_spl_template),
+            "binds_a_105_question": uc.use_case_id in bound,
+        }
+        for uc in catalogue
+    ]
+
+    return {
+        "artifact": "catalogue_question_index",
+        "schema_version": "catalogue_question_index_v1",
+        "counts": {
+            "use_cases": len(use_cases),
+            "questions": len(questions),
+            "use_cases_bindable": sum(1 for u in use_cases if u["bindable"]),
+            "use_cases_with_template": sum(1 for u in use_cases if u["has_spl_template"]),
+            "questions_binding_a_use_case": sum(1 for q in questions if q["binds_use_case_id"]),
+        },
+        "use_cases": use_cases,
+        "questions": questions,
+    }
+
+
+def catalogue_question_index_csv_rows(payload: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    data = payload or build_catalogue_question_index()
+    rows: list[dict[str, Any]] = []
+    for u in data["use_cases"]:
+        rows.append(
+            {
+                "row_kind": "use_case",
+                "id": u["use_case_id"],
+                "text": u["display_name"],
+                "skill": u["primary_skill"],
+                "spl_template": u["default_spl_template"] or "",
+                "bindable": u["bindable"],
+                "has_spl_template": u["has_spl_template"],
+                "serves_105_question": u["binds_a_105_question"],
+                "patterns": "; ".join(u["intent_patterns"]),
+            }
+        )
+    for q in data["questions"]:
+        rows.append(
+            {
+                "row_kind": "question",
+                "id": q["question_ref"] or "",
+                "text": q["question"],
+                "skill": q["proposed_primary_skill"] or "",
+                "spl_template": "",
+                "bindable": "",
+                "has_spl_template": "",
+                "serves_105_question": "",
+                "patterns": q["binds_use_case_id"] or "",
+            }
+        )
+    return rows
+
+
+def format_catalogue_inventory_answer() -> str:
+    """Analyst-facing listing from the generated catalogue/question index.
+
+    The JSON/markdown index files are projections of this builder. They are
+    never matcher sources — T2 still binds only through intent_patterns.
+    """
+    index = build_catalogue_question_index()
+    counts = index.get("counts") or {}
+    lines = [
+        "This is a knowledge/meta listing of the governed catalogue. It is not a hunt and does not generate or execute SPL.",
+        (
+            f"Use cases: {counts.get('use_cases', 0)} "
+            f"({counts.get('use_cases_bindable', 0)} bindable, "
+            f"{counts.get('use_cases_with_template', 0)} with an SPL template)."
+        ),
+        (
+            f"Frozen 105 questions: {counts.get('questions', 0)} "
+            f"({counts.get('questions_binding_a_use_case', 0)} currently bind a use case)."
+        ),
+        "",
+        "Use cases:",
+    ]
+    for use_case in index.get("use_cases") or []:
+        use_case_id = str(use_case.get("use_case_id") or "")
+        display_name = str(use_case.get("display_name") or use_case_id)
+        lines.append(f"- {display_name} (`{use_case_id}`)")
+    return "\n".join(lines)

@@ -6,7 +6,7 @@ data source, metric/aggregation, and entity? No LLM, no app behavior change.
 | Corpus | Relevant | Total | % | Lanes |
 |--------|----------|-------|---|-------|
 | 105 canonical | 87 | 102 | 85.3 | {'draft': 102} |
-| Catalogue (spl-expected) | 40 | 46 | 87.0 | {'template': 23, 'draft': 17, 'none': 6} |
+| Catalogue (spl-expected) | 40 | 46 | 87.0 | {'template': 24, 'draft': 16, 'none': 6} |
 
 Catalogue row classes: {'spl_expected': 46, 'justified_no_spl': 12, 'deferred': 7} — `justified_no_spl`
 (analyst-workflow / knowledge skills) and `deferred` (OT "later") are

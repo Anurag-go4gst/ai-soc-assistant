@@ -1,10 +1,10 @@
 {
-  "catalog_count": 65,
+  "catalog_count": 42,
   "catalog_path": "backend/app/use_cases/catalog.json",
   "manifest_path": "backend/app/coverage/pattern_coverage_v1.json",
   "projection_mismatches": [],
   "question_105_count": 105,
-  "row_count": 170,
+  "row_count": 147,
   "rows": [
     {
       "blockers": [
@@ -6288,38 +6288,6 @@
         "t0_exact_authority_not_explicit",
         "t0_exact_authority_false"
       ],
-      "default_spl_template": null,
-      "display_name": "Login from disabled account",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [
-        "T1078"
-      ],
-      "optional_sources": [
-        "identity"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "auth_disabled_account_login",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "auth_disabled_account_login",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
       "default_spl_template": "auth_failed_login_spike",
       "display_name": "Failed login spike",
       "existing_s3_authority_ready": null,
@@ -6389,39 +6357,7 @@
         "t0_exact_authority_not_explicit",
         "t0_exact_authority_false"
       ],
-      "default_spl_template": null,
-      "display_name": "Impossible travel",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [
-        "T1078"
-      ],
-      "optional_sources": [
-        "identity"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "auth_impossible_travel",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "auth_impossible_travel",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
+      "default_spl_template": "auth_mfa_failure_spike",
       "display_name": "MFA failure spike",
       "existing_s3_authority_ready": null,
       "human_review_required": null,
@@ -6511,38 +6447,6 @@
       "s3_authority_ready": false,
       "t0_exact_authority": null,
       "use_case_id": "auth_privileged_login_anomaly",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "Service account abnormal login",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [
-        "T1078"
-      ],
-      "optional_sources": [
-        "identity"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "auth_service_account_abnormal_login",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "auth_service_account_abnormal_login",
       "use_case_type": null
     },
     {
@@ -6897,224 +6801,6 @@
         "t0_exact_authority_not_explicit",
         "t0_exact_authority_false"
       ],
-      "default_spl_template": null,
-      "display_name": "DNS tunneling candidate",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [
-        "T1071.004"
-      ],
-      "optional_sources": [],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "dns_tunneling_candidate",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "dns_tunneling_candidate",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "Unusual DNS query volume",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [
-        "T1071.004"
-      ],
-      "optional_sources": [],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "dns_unusual_query_volume",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "dns_unusual_query_volume",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "Credential dumping signal",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [
-        "T1003"
-      ],
-      "optional_sources": [
-        "edr"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "edr_credential_dumping_signal",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "edr_credential_dumping_signal",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "Endpoint isolation recommendation",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [],
-      "optional_sources": [
-        "edr"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "rag:sop"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "edr_isolation_recommendation",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "edr_isolation_recommendation",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "Lateral movement candidate",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [
-        "T1021"
-      ],
-      "optional_sources": [
-        "edr",
-        "identity"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "edr_lateral_movement_candidate",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "edr_lateral_movement_candidate",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "Malware alert summarization",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [],
-      "optional_sources": [
-        "edr",
-        "rag:sop"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "edr_malware_alert_summary",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "edr_malware_alert_summary",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "New service creation",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [
-        "T1543"
-      ],
-      "optional_sources": [
-        "edr"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "edr_new_service_creation",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "edr_new_service_creation",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
       "default_spl_template": "edr_powershell_suspicious_command",
       "display_name": "PowerShell suspicious command",
       "existing_s3_authority_ready": null,
@@ -7140,38 +6826,6 @@
       "s3_authority_ready": false,
       "t0_exact_authority": null,
       "use_case_id": "edr_powershell_suspicious_command",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "Scheduled task creation",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [
-        "T1053"
-      ],
-      "optional_sources": [
-        "edr"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "edr_scheduled_task_creation",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "edr_scheduled_task_creation",
       "use_case_type": null
     },
     {
@@ -7243,64 +6897,6 @@
         "t0_exact_authority_not_explicit",
         "t0_exact_authority_false"
       ],
-      "default_spl_template": null,
-      "display_name": "Connection to blocked country/region",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [],
-      "optional_sources": [],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "net_blocked_region_connection",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "net_blocked_region_connection",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "East-west traffic anomaly",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [],
-      "optional_sources": [
-        "asset_inventory"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "net_east_west_anomaly",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "net_east_west_anomaly",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
       "default_spl_template": "firewall_deny_spike",
       "display_name": "Firewall deny spike",
       "existing_s3_authority_ready": null,
@@ -7324,95 +6920,6 @@
       "s3_authority_ready": false,
       "t0_exact_authority": null,
       "use_case_id": "net_firewall_deny_spike",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "New outbound destination",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [],
-      "optional_sources": [
-        "asset_inventory"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "net_new_outbound_destination",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "net_new_outbound_destination",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "Suspicious port scanning",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [
-        "T1046"
-      ],
-      "optional_sources": [],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "net_port_scanning",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "net_port_scanning",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "Repeated connection attempts to critical asset",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [],
-      "optional_sources": [],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk",
-        "asset_inventory"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "net_repeated_critical_asset_connections",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "net_repeated_critical_asset_connections",
       "use_case_type": null
     },
     {
@@ -7452,39 +6959,6 @@
         "t0_exact_authority_not_explicit",
         "t0_exact_authority_false"
       ],
-      "default_spl_template": null,
-      "display_name": "Critical asset after-hours access",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [
-        "T1078"
-      ],
-      "optional_sources": [
-        "identity"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk",
-        "asset_inventory"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "ot_critical_asset_after_hours",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "ot_critical_asset_after_hours",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
       "default_spl_template": "ot_firmware_drift",
       "display_name": "OT firmware drift",
       "existing_s3_authority_ready": null,
@@ -7509,39 +6983,6 @@
       "s3_authority_ready": false,
       "t0_exact_authority": null,
       "use_case_id": "ot_firmware_drift",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "IT-to-OT authentication anomaly",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [
-        "T1078"
-      ],
-      "optional_sources": [
-        "identity"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk",
-        "asset_inventory"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "ot_it_to_ot_auth_anomaly",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "ot_it_to_ot_auth_anomaly",
       "use_case_type": null
     },
     {
@@ -7580,36 +7021,6 @@
         "t0_exact_authority_not_explicit",
         "t0_exact_authority_false"
       ],
-      "default_spl_template": null,
-      "display_name": "OT protocol anomaly",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [],
-      "optional_sources": [
-        "ot_inventory"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "ot_protocol_anomaly",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "ot_protocol_anomaly",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
       "default_spl_template": "ot_tftp_hmi",
       "display_name": "OT TFTP from HMI",
       "existing_s3_authority_ready": null,
@@ -7634,37 +7045,6 @@
       "s3_authority_ready": false,
       "t0_exact_authority": null,
       "use_case_id": "ot_tftp_hmi",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "Unexpected command to OT/grid asset",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [],
-      "optional_sources": [
-        "ot_inventory"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "mcp:splunk",
-        "asset_inventory"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "ot_unexpected_command",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "ot_unexpected_command",
       "use_case_type": null
     },
     {
@@ -7930,66 +7310,6 @@
         "t0_exact_authority_false"
       ],
       "default_spl_template": null,
-      "display_name": "Create investigation note",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [],
-      "optional_sources": [
-        "rag:sop"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "source_evidence"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "soc_create_investigation_note",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "soc_create_investigation_note",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "Draft ticket",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [],
-      "optional_sources": [
-        "ticketing"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "source_evidence"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "soc_draft_ticket",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "soc_draft_ticket",
-      "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
       "display_name": "SOC environment hygiene",
       "existing_s3_authority_ready": null,
       "human_review_required": null,
@@ -8138,28 +7458,24 @@
         "t0_exact_authority_false"
       ],
       "default_spl_template": null,
-      "display_name": "Recommend next pivots",
+      "display_name": "Show catalogue index",
       "existing_s3_authority_ready": null,
       "human_review_required": null,
       "llm_advisory_recommended": null,
       "may_skip_llm": false,
       "mitre_candidates": [],
-      "optional_sources": [
-        "rag:sop"
-      ],
+      "optional_sources": [],
       "question": null,
       "question_ref": null,
       "registry_tier": null,
-      "required_sources": [
-        "source_evidence"
-      ],
+      "required_sources": [],
       "requires_t2_shape_check": null,
       "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "soc_recommend_next_pivots",
+      "row_id": "soc_show_catalogue_index",
       "row_kind": "catalog",
       "s3_authority_ready": false,
       "t0_exact_authority": null,
-      "use_case_id": "soc_recommend_next_pivots",
+      "use_case_id": "soc_show_catalogue_index",
       "use_case_type": null
     },
     {
@@ -8189,42 +7505,12 @@
       "t0_exact_authority": null,
       "use_case_id": "soc_show_sop",
       "use_case_type": null
-    },
-    {
-      "blockers": [
-        "t0_exact_authority_not_explicit",
-        "t0_exact_authority_false"
-      ],
-      "default_spl_template": null,
-      "display_name": "Summarize alert evidence",
-      "existing_s3_authority_ready": null,
-      "human_review_required": null,
-      "llm_advisory_recommended": null,
-      "may_skip_llm": false,
-      "mitre_candidates": [],
-      "optional_sources": [
-        "rag:sop"
-      ],
-      "question": null,
-      "question_ref": null,
-      "registry_tier": null,
-      "required_sources": [
-        "source_evidence"
-      ],
-      "requires_t2_shape_check": null,
-      "row_authority_status": "catalog_weak_needs_enrichment",
-      "row_id": "soc_summarize_alert_evidence",
-      "row_kind": "catalog",
-      "s3_authority_ready": false,
-      "t0_exact_authority": null,
-      "use_case_id": "soc_summarize_alert_evidence",
-      "use_case_type": null
     }
   ],
   "runtime_map_path": "backend/app/coverage/question_runtime_map_v1.json",
   "schema_version": "2026-06-row-authority-v1",
   "status_counts": {
-    "catalog_weak_needs_enrichment": 65,
+    "catalog_weak_needs_enrichment": 42,
     "exact_known_needs_clarification": 4,
     "exact_known_needs_detection_binding": 28,
     "exact_known_needs_lookup": 9,

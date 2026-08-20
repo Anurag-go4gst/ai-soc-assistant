@@ -55,8 +55,6 @@ _CATALOG_PROJECTION_WHEN_INACTIVE = frozenset(
         "edr_powershell_suspicious_command",
         "dns_beaconing_candidate",
         "critical_notable_mitre_review",
-        "dns_tunneling_candidate",
-        "dns_unusual_query_volume",
         "edr_suspicious_process",
         "email_phishing_header_review",
         "net_vpn_login_anomaly",

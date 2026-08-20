@@ -1536,6 +1536,7 @@ export interface KnowledgeMappingSummary {
 export type KnowledgeExportArtifact =
   | 'question_runtime_map'
   | 'use_case_catalog'
+  | 'catalogue_question_index'
   | 'soc_capability_crosswalk'
   | 'skill_coverage_matrix'
   | 'github_skill_discovery_index'

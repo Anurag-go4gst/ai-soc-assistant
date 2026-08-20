@@ -63,7 +63,11 @@ _EVIDENCE_SUPPORTED_CLAIM_FIELDS = _SEVERITY_PROSE_FIELDS
 # empty promise to the analyst. Unmapped sections are skipped, not failed.
 _SECTION_BACKING: dict[str, tuple[str, ...]] = {
     "draft_spl_preview": ("spl_draft_preview", "draft_spl_code"),
-    "spl_artifact": ("spl_code",),
+    # A draft-only SPL (lab preview, not governed/normalized) still legitimately
+    # backs the spl_artifact section — enhance_answer_contract_for_t2_surfacing
+    # enables it from spl_draft_preview alone, and _honesty_limitations below
+    # already treats spl_code/draft_spl_code/draft preview as equivalent.
+    "spl_artifact": ("spl_code", "draft_spl_code"),
     "limitations": ("limitations",),
     # review_notice backs guidance on refusal/HIL answers ("no containment
     # action was performed; change approval required").
