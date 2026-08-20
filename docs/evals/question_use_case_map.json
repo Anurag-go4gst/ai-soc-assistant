@@ -8,14 +8,6 @@
     "After editing, re-run: python3 scripts/build_skill_coverage_matrix.py && python3 scripts/build_skill_coverage_matrix.py --check"
   ],
   "mappings": {
-    "q0.q011": {
-      "question_id": "q0.q011",
-      "use_case_id": "edr_lateral_movement_candidate",
-      "mapping_status": "curated_manual",
-      "mapping_source_file": "docs/evals/question_use_case_map.json",
-      "mapping_confidence": "high",
-      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=lateral_movement; question 'Which hosts made SMB connections to many peers?' describes SMB peer-to-peer lateral movement, the canonical indicator for use_case_id=edr_lateral_movement_candidate in backend/app/use_cases/catalog.json; no other catalog use_case covers SMB peer-lateral-movement detection."
-    },
     "q0.q031": {
       "question_id": "q0.q031",
       "use_case_id": "dns_beaconing_candidate",
@@ -47,22 +39,6 @@
       "mapping_source_file": "docs/evals/question_use_case_map.json",
       "mapping_confidence": "high",
       "evidence_note": "Exact stable template evidence: backend/app/coverage/pattern_coverage_v1.json entry cov.q062.auth_failed_login_spike_raw has question_ref=q0.q062 and template_ref=auth_failed_login_spike; backend/app/use_cases/catalog.json has exactly one use case with default_spl_template=auth_failed_login_spike."
-    },
-    "q0.q072": {
-      "question_id": "q0.q072",
-      "use_case_id": "edr_lateral_movement_candidate",
-      "mapping_status": "curated_manual",
-      "mapping_source_file": "docs/evals/question_use_case_map.json",
-      "mapping_confidence": "high",
-      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=lateral_movement; question 'Which hosts show signs of lateral movement?' explicitly names the detection family use_case_id=edr_lateral_movement_candidate in backend/app/use_cases/catalog.json; intent_patterns for that use_case include 'lateral movement' which exactly matches the question's framing."
-    },
-    "q0.q074": {
-      "question_id": "q0.q074",
-      "use_case_id": "edr_lateral_movement_candidate",
-      "mapping_status": "curated_manual",
-      "mapping_source_file": "docs/evals/question_use_case_map.json",
-      "mapping_confidence": "high",
-      "evidence_note": "backend/app/coverage/question_runtime_map_v1.json field pattern_type=lateral_movement; question 'Which hosts show SMB connections to many peers?' describes SMB peer-lateral-movement (paraphrase of q0.q011); use_case_id=edr_lateral_movement_candidate in backend/app/use_cases/catalog.json is the authoritative anchor for this detection pattern."
     },
     "q0.q089": {
       "question_id": "q0.q089",

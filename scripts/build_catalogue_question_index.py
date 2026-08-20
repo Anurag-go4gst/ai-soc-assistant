@@ -22,61 +22,9 @@ OUT_MD = ROOT / "docs" / "catalogue_and_questions.md"
 
 
 def build() -> dict:
-    from app.coverage.question_runtime_map import list_question_runtime_entries
-    from app.use_cases.registry import load_use_case_catalog, match_use_cases
+    from app.knowledge.mapping_exports import build_catalogue_question_index
 
-    catalogue = load_use_case_catalog()
-    questions = [
-        {
-            "question_ref": entry.get("question_ref"),
-            "question": entry.get("question") or entry.get("query"),
-            "proposed_primary_skill": entry.get("proposed_primary_skill"),
-        }
-        for entry in list_question_runtime_entries()
-    ]
-    questions = [q for q in questions if q["question"]]
-
-    # Which use case (if any) the deterministic matcher binds for each question.
-    for q in questions:
-        matches = match_use_cases(q["question"])
-        top = matches[0] if matches else None
-        q["binds_use_case_id"] = top.use_case_id if top else None
-        q["bind_matched_patterns"] = list(top.matched_patterns) if top else []
-        q["bind_coverage_score"] = top.coverage_score if top else None
-
-    bound = {q["binds_use_case_id"] for q in questions if q["binds_use_case_id"]}
-
-    use_cases = []
-    for uc in catalogue:
-        patterns = list(uc.intent_patterns or [])
-        use_cases.append(
-            {
-                "use_case_id": uc.use_case_id,
-                "display_name": uc.display_name,
-                "category": uc.category,
-                "primary_skill": uc.primary_skill,
-                "default_spl_template": uc.default_spl_template,
-                "intent_patterns": patterns,
-                "example_queries": list(uc.example_queries or []),
-                # Flags an operator can act on:
-                "bindable": bool(patterns),
-                "has_spl_template": bool(uc.default_spl_template),
-                "binds_a_105_question": uc.use_case_id in bound,
-            }
-        )
-
-    return {
-        "schema_version": "catalogue_question_index_v1",
-        "counts": {
-            "use_cases": len(use_cases),
-            "questions": len(questions),
-            "use_cases_bindable": sum(1 for u in use_cases if u["bindable"]),
-            "use_cases_with_template": sum(1 for u in use_cases if u["has_spl_template"]),
-            "questions_binding_a_use_case": sum(1 for q in questions if q["binds_use_case_id"]),
-        },
-        "use_cases": use_cases,
-        "questions": questions,
-    }
+    return build_catalogue_question_index()
 
 
 def render_markdown(payload: dict) -> str:

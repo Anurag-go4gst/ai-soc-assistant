@@ -27,7 +27,8 @@ def test_use_case_catalog_loads_required_soc_use_cases() -> None:
     assert "auth_failed_login_spike" in ids
     assert "soc_show_sop" in ids
     assert "soc_map_alert_mitre" in ids
-    assert "ot_protocol_anomaly" in ids
+    assert "soc_generate_spl" in ids
+    assert "ot_protocol_anomaly" not in ids
     assert all(item.primary_skill for item in catalog)
     assert all(item.output_template for item in catalog)
 
@@ -148,13 +149,20 @@ def test_query_understanding_near_matches_105_question_paraphrase() -> None:
 
 
 def test_query_understanding_expands_use_case_catalog_with_examples() -> None:
-    result = understand_query("Recommend endpoint isolation")
+    result = understand_query("Show SOP for brute-force investigation")
 
     assert result.mapped_question_ref is None
-    assert result.mapped_use_case_ids == ["edr_isolation_recommendation"]
-    assert result.primary_intent == "action_planning"
+    assert result.mapped_use_case_ids == ["soc_show_sop"]
+    assert result.primary_intent == "knowledge_recall"
     assert result.use_case_match_source == "expanded_catalog"
     assert result.deterministic_match_path == "use_case_catalog"
+
+
+def test_empty_hunt_shell_no_longer_binds_and_leaves_t4_path() -> None:
+    result = understand_query("Recommend endpoint isolation")
+
+    assert result.mapped_use_case_ids == []
+    assert result.deterministic_match_path == "out_of_registry"
 
 
 def test_query_understanding_recommends_llm_advisory_for_out_of_registry_query() -> None:

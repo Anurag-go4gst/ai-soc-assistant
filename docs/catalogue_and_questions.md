@@ -3,8 +3,8 @@
 **Generated** by `scripts/build_catalogue_question_index.py`. Do not hand-edit;
 regenerate instead. Machine-readable copy: `docs/evals/catalogue_question_index.json`.
 
-- Use cases: **65** (58 bindable, 33 with an SPL template)
-- Questions: **105** (14 bind a use case)
+- Use cases: **42** (35 bindable, 34 with an SPL template)
+- Questions: **105** (10 bind a use case)
 
 A use case with no `intent_patterns` is **unbindable by design** — the `sample_*`
 entries exist as SPL template-registry bindings, not as things user text can match.
@@ -16,33 +16,18 @@ entries exist as SPL template-registry bindings, not as things user text can mat
 | `auth_failed_login_spike` | attack_discovery | `auth_failed_login_spike` | yes | yes | `failed login`, `failed logins`, `failure`, `failures` (+2) |
 | `auth_success_after_failure` | attack_discovery | `auth_success_after_failure` | yes | yes | `successful login after`, `successful vpn login after`, `successful vpn logins after`, `success after` (+8) |
 | `auth_new_source_ip_login` | attack_discovery | `auth_new_source_ip` | yes | no | `new source ip`, `new source`, `unusual source`, `unusual source ips` |
-| `auth_impossible_travel` | attack_discovery | — | yes | no | `impossible travel` |
 | `auth_privileged_login_anomaly` | attack_discovery | `privileged_account_failure` | yes | no | `privileged account`, `admin login`, `privileged login` |
-| `auth_service_account_abnormal_login` | attack_discovery | — | yes | no | `service account`, `svc account` |
 | `auth_account_lockout_trend` | alert_summary | `auth_account_lockout_trend` | yes | no | `lockout`, `lockouts`, `account_locked` |
-| `auth_mfa_failure_spike` | attack_discovery | — | yes | no | `mfa failure`, `mfa failures` |
-| `auth_disabled_account_login` | attack_discovery | — | yes | no | `disabled account` |
+| `auth_mfa_failure_spike` | attack_discovery | `auth_mfa_failure_spike` | yes | yes | `mfa failure`, `mfa failures` |
 | `auth_after_hours_critical_asset` | attack_discovery | `after_hours_login_critical_asset` | yes | no | `after-hours login`, `after hours login`, `critical asset after hours` |
 | `net_firewall_deny_spike` | attack_discovery | `firewall_deny_spike` | yes | no | `firewall deny`, `deny spike` |
-| `net_new_outbound_destination` | attack_discovery | — | yes | no | `new outbound destination` |
-| `net_port_scanning` | attack_discovery | — | yes | no | `port scanning`, `port scan` |
-| `net_east_west_anomaly` | attack_discovery | — | yes | no | `east-west traffic`, `east west traffic` |
-| `net_blocked_region_connection` | attack_discovery | — | yes | no | `blocked country`, `blocked region` |
-| `net_repeated_critical_asset_connections` | attack_discovery | — | yes | yes | `repeated connection`, `critical asset connections` |
 | `net_vpn_login_anomaly` | attack_discovery | `vpn_failure_spike` | yes | no | `vpn login`, `vpn anomaly` |
-| `dns_unusual_query_volume` | attack_discovery | — | yes | yes | `dns query volume`, `unusual dns` |
-| `dns_tunneling_candidate` | attack_discovery | — | yes | no | `dns tunneling`, `dns tunnel` |
 | `dns_beaconing_candidate` | attack_discovery | `dns_beaconing_candidate` | yes | yes | `beaconing`, `beacon pattern`, `dns beaconing`, `beaconing candidate` |
-| `critical_notable_mitre_review` | attack_discovery | `notable_critical_review_mitre` | yes | no | `critical alerts`, `critical alert`, `unpatched cve`, `unpatched cves` (+4) |
+| `critical_notable_mitre_review` | attack_discovery | `notable_critical_review_mitre` | yes | no | `critical alerts`, `critical alert`, `unpatched cve`, `unpatched cves` (+3) |
 | `edr_suspicious_process` | attack_discovery | `edr_suspicious_process` | yes | yes | `suspicious process` |
 | `edr_powershell_suspicious_command` | attack_discovery | `edr_powershell_suspicious_command` | yes | yes | `powershell suspicious`, `suspicious powershell` |
-| `edr_new_service_creation` | attack_discovery | — | yes | no | `new service creation` |
-| `edr_scheduled_task_creation` | attack_discovery | — | yes | yes | `scheduled task` |
-| `edr_lateral_movement_candidate` | attack_discovery | — | yes | yes | `lateral movement` |
-| `edr_credential_dumping_signal` | attack_discovery | — | yes | no | `credential dumping` |
-| `edr_malware_alert_summary` | alert_summary | — | yes | no | `malware alert` |
-| `edr_isolation_recommendation` | action_planning | — | yes | no | `endpoint isolation`, `isolate endpoint` |
-| `soc_show_sop` | knowledge_recall | — | yes | no | `sop`, `playbook`, `runbook`, `standard operating procedure` (+1) |
+| `soc_show_sop` | knowledge_recall | — | yes | no | `sop`, `playbook`, `runbook`, `standard operating procedure` (+10) |
+| `soc_show_catalogue_index` | knowledge_recall | — | yes | no | `what questions do you support`, `what's in the catalogue`, `whats in the catalogue`, `what is in the catalogue` (+7) |
 | `aws_security_group_modifications` | spl_generation | `aws_security_group_modifications` | yes | no | `aws security group`, `security group modifications`, `security groups`, `cloudtrail security group` (+2) |
 | `aws_console_success_logins_by_user` | spl_generation | `aws_console_success_logins_by_user` | yes | no | `aws console logins`, `aws console login`, `successful aws console`, `console logins by user` (+2) |
 | `aws_iam_policy_modifications` | spl_generation | `aws_iam_policy_modifications` | yes | no | `aws iam policies`, `iam policies`, `iam policy modifications`, `attached policies` (+3) |
@@ -50,16 +35,8 @@ entries exist as SPL template-registry bindings, not as things user text can mat
 | `soc_generate_spl` | spl_generation | — | yes | no | `generate spl for`, `write spl for`, `create spl for`, `produce spl for` (+7) |
 | `soc_explain_spl` | knowledge_recall | — | yes | no | `explain spl` |
 | `soc_optimize_spl` | spl_generation | — | yes | no | `optimize spl` |
-| `soc_map_alert_mitre` | mitre_mapping | — | yes | no | `mitre`, `att&ck`, `attack technique`, `map this alert` (+1) |
-| `soc_create_investigation_note` | investigation_notes | — | yes | no | `investigation note` |
-| `soc_summarize_alert_evidence` | alert_summary | — | yes | no | `summarize alert`, `summarize evidence` |
-| `soc_recommend_next_pivots` | action_planning | — | yes | no | `next pivots`, `recommend pivots` |
-| `soc_draft_ticket` | ticket_drafting | — | yes | no | `draft ticket`, `create ticket`, `draft incident` |
+| `soc_map_alert_mitre` | mitre_mapping | — | yes | no | `mitre`, `att&ck`, `mitre technique`, `attack technique` (+6) |
 | `soc_compare_past_incidents` | knowledge_recall | — | yes | no | `past incidents`, `compare current alert` |
-| `ot_unexpected_command` | attack_discovery | — | yes | no | `unexpected command`, `grid asset command` |
-| `ot_it_to_ot_auth_anomaly` | attack_discovery | — | yes | no | `it-to-ot`, `it to ot` |
-| `ot_critical_asset_after_hours` | attack_discovery | — | yes | no | `critical asset after-hours`, `critical asset after hours` |
-| `ot_protocol_anomaly` | attack_discovery | — | yes | no | `ot protocol anomaly`, `modbus anomaly`, `dnp3 anomaly`, `iec-104 anomaly` |
 | `cisco_cleartext_to_rtu` | attack_discovery | `cisco_cleartext_to_rtu` | yes | no | `cleartext http`, `cleartext vnc`, `cleartext telnet`, `cleartext ftp` (+4) |
 | `cisco_stealthwatch_scan_with_asset` | attack_discovery | `cisco_stealthwatch_scan_with_asset` | yes | no | `stealthwatch`, `horizontal scan`, `substation automation` |
 | `cisco_duo_mfa_fatigue` | attack_discovery | `cisco_duo_mfa_fatigue` | yes | no | `duo`, `mfa fatigue`, `push denied` |
@@ -90,14 +67,14 @@ entries exist as SPL template-registry bindings, not as things user text can mat
 | `q0.q005` | Which hosts contacted suspicious external domains? | — | — |
 | `q0.q006` | Which DNS queries have unusually long names? | — | — |
 | `q0.q007` | Which DNS queries look like DGA activity? | — | — |
-| `q0.q008` | Which hosts show possible beaconing behavior? | `dns_beaconing_candidate` | 0.5853 |
+| `q0.q008` | Which hosts show possible beaconing behavior? | `dns_beaconing_candidate` | 0.5152 |
 | `q0.q009` | Which hosts communicated with many unique external IPs? | — | — |
 | `q0.q010` | Which hosts are generating the most SMB traffic? | — | — |
 | `q0.q011` | Which hosts made SMB connections to many peers? | — | — |
 | `q0.q012` | Which systems used unusual destination ports? | — | — |
 | `q0.q013` | Which systems generated large outbound data transfers? | — | — |
 | `q0.q014` | Which hosts showed potential data exfiltration to cloud apps? | — | — |
-| `q0.q015` | Which hosts have repeated connections to rare destinations? | `net_repeated_critical_asset_connections` | 0.7802 |
+| `q0.q015` | Which hosts have repeated connections to rare destinations? | — | — |
 | `q0.q016` | Which hosts contacted the same external IP many times? | — | — |
 | `q0.q017` | Which hosts generated the most DNS queries? | — | — |
 | `q0.q018` | Which domains were queried by multiple hosts? | — | — |
@@ -105,7 +82,7 @@ entries exist as SPL template-registry bindings, not as things user text can mat
 | `q0.q020` | Which networks saw traffic to high-risk ports? | — | — |
 | `q0.q021` | Which hosts communicated with foreign IP ranges? | — | — |
 | `q0.q022` | Which hosts contacted IPs in an IOC lookup? | — | — |
-| `q0.q023` | Which hosts showed possible command-and-control beaconing? | `dns_beaconing_candidate` | 0.5853 |
+| `q0.q023` | Which hosts showed possible command-and-control beaconing? | `dns_beaconing_candidate` | 0.5152 |
 | `q0.q024` | Which internal hosts generated outbound traffic after DNS lookups? | — | — |
 | `q0.q025` | Which hosts used unusual protocols? | — | — |
 | `q0.q026` | Which hosts have unusually high connection counts to one destination? | — | — |
@@ -128,10 +105,10 @@ entries exist as SPL template-registry bindings, not as things user text can mat
 | `q0.q043` | Which hosts show consistent low-volume outbound connections? | — | — |
 | `q0.q044` | Which rules are generating the most alerts? | — | — |
 | `q0.q045` | What happened for this specific notable event? | — | — |
-| `q0.q046` | Which users have excessive failed logins? | `auth_failed_login_spike` | 1.6013 |
+| `q0.q046` | Which users have excessive failed logins? | `auth_failed_login_spike` | 1.5103 |
 | `q0.q047` | Is one IP attacking many accounts? | — | — |
 | `q0.q048` | Did a user log in from impossible locations? | — | — |
-| `q0.q049` | Which hosts ran suspicious PowerShell? | `edr_powershell_suspicious_command` | 1.152 |
+| `q0.q049` | Which hosts ran suspicious PowerShell? | `edr_powershell_suspicious_command` | 1.1598 |
 | `q0.q050` | Did Office apps spawn cmd or PowerShell? | — | — |
 | `q0.q051` | What unusual processes ran on critical servers? | — | — |
 | `q0.q052` | Did any host contact known malicious IPs? | — | — |
@@ -141,37 +118,37 @@ entries exist as SPL template-registry bindings, not as things user text can mat
 | `q0.q056` | Which users are logging in outside normal hours? | — | — |
 | `q0.q057` | Did any endpoint run this suspicious hash? | — | — |
 | `q0.q058` | Which users or hosts have the highest risk scores? | — | — |
-| `q0.q059` | Which source IPs generated the most authentication failures today? | `auth_failed_login_spike` | 0.6328 |
-| `q0.q060` | Which accounts had a successful login after repeated failures? | `auth_success_after_failure` | 2.829 |
+| `q0.q059` | Which source IPs generated the most authentication failures today? | `auth_failed_login_spike` | 0.5427 |
+| `q0.q060` | Which accounts had a successful login after repeated failures? | `auth_success_after_failure` | 2.626 |
 | `q0.q061` | Which users logged in from new countries today? | — | — |
-| `q0.q062` | Which hosts show a spike in failed logins? | `auth_failed_login_spike` | 1.201 |
+| `q0.q062` | Which hosts show a spike in failed logins? | `auth_failed_login_spike` | 1.1327 |
 | `q0.q063` | Which endpoints spawned script interpreters recently? | — | — |
 | `q0.q064` | Which hosts executed encoded PowerShell commands? | — | — |
-| `q0.q065` | Which endpoints created new scheduled tasks? | `edr_scheduled_task_creation` | 1.1705 |
+| `q0.q065` | Which endpoints created new scheduled tasks? | — | — |
 | `q0.q066` | Which systems contacted rare external destinations? | — | — |
-| `q0.q067` | Which hosts are generating unusual DNS query volumes? | `dns_unusual_query_volume` | 3.1416 |
+| `q0.q067` | Which hosts are generating unusual DNS query volumes? | — | — |
 | `q0.q068` | Which internal hosts contacted known command-and-control domains? | — | — |
 | `q0.q069` | Which users accessed privileged applications unusually? | — | — |
 | `q0.q070` | Which users changed their password multiple times in a short window? | — | — |
 | `q0.q071` | Which accounts were disabled or re-enabled today? | — | — |
-| `q0.q072` | Which hosts show signs of lateral movement? | `edr_lateral_movement_candidate` | 1.0033 |
+| `q0.q072` | Which hosts show signs of lateral movement? | — | — |
 | `q0.q073` | Which systems had multiple remote service creations? | — | — |
 | `q0.q074` | Which hosts show SMB connections to many peers? | — | — |
 | `q0.q075` | Which endpoints created suspicious archive files? | — | — |
 | `q0.q076` | Which hosts uploaded large amounts of data to cloud services? | — | — |
 | `q0.q077` | Which endpoints accessed USB storage recently? | — | — |
 | `q0.q078` | Which systems had repeated malware detections? | — | — |
-| `q0.q079` | Which files were modified by suspicious processes? | `edr_suspicious_process` | 0.8229 |
+| `q0.q079` | Which files were modified by suspicious processes? | `edr_suspicious_process` | 0.8284 |
 | `q0.q080` | Which hosts spawned shells from email clients? | — | — |
 | `q0.q081` | Which users received and opened phishing attachments? | — | — |
 | `q0.q082` | Which domains were queried by multiple hosts in a short period? | — | — |
 | `q0.q083` | Which hosts have suspicious parent-child process chains? | — | — |
 | `q0.q084` | Which accounts have the most risk events? | — | — |
 | `q0.q085` | Which assets have accumulated risk from multiple detections? | — | — |
-| `q0.q086` | Which users were involved in both failed logins and privilege changes? | `auth_failed_login_spike` | 0.8734 |
+| `q0.q086` | Which users were involved in both failed logins and privilege changes? | `auth_failed_login_spike` | 0.8238 |
 | `q0.q087` | Which hosts are communicating with unusual ports externally? | — | — |
 | `q0.q088` | Which endpoints have multiple persistence indicators? | — | — |
-| `q0.q089` | Which users authenticated to VPN after repeated MFA failures? | `auth_failed_login_spike` | 0.6328 |
+| `q0.q089` | Which users authenticated to VPN after repeated MFA failures? | `auth_mfa_failure_spike` | 1.1445 |
 | `q0.q090` | Which assets are generating the most notable events? | — | — |
 | `q0.q091` | Which alerts are still open and unresolved? | — | — |
 | `q0.q092` | Which users had access to sensitive systems and then large outbound transfers? | — | — |

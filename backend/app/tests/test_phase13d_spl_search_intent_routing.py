@@ -31,6 +31,10 @@ def _chat(query: str):
     return chat(ChatRequest(message=query))
 
 
+# pg.dns.002 ("unusual DNS queries … How should SOC triage this?") is not in
+# this list: the templateless `dns_unusual_query_volume` shell was culled, so
+# the question is out-of-catalogue guided investigation rather than a fake T2
+# hunt bind. Explicit DNS *search* rows (pg.dns.003/005) stay below.
 @pytest.mark.parametrize(
     ("query", "question_id"),
     [
@@ -53,10 +57,6 @@ def _chat(query: str):
         (
             "Search firewall logs for denied traffic from OT assets to the internet.",
             "pg.fw.009",
-        ),
-        (
-            "We observed unusual DNS queries from an OT monitoring server. How should SOC triage this?",
-            "pg.dns.002",
         ),
         (
             "Look for DNS queries from OT servers to newly observed domains in the last 24 hours.",
@@ -137,6 +137,23 @@ def test_success_after_failure_outranks_failed_login_spike() -> None:
     signals = extract_query_signals(query)
     assert signals["success_after_failure"] is True
     assert match_use_cases(query, limit=3)[0].use_case_id == "auth_success_after_failure"
+
+
+def test_mfa_failure_outranks_generic_failed_login_on_coverage() -> None:
+    """Item 3: coverage × IDF ranking, not additive confidence.
+
+    Both rows match 'failure(s)'; the more specific MFA patterns must win.
+    Under the retired 0.62+0.05*n formula both sat at 0.78 and the generic
+    spike was committed (bind_margin −0.69 on the MFA question).
+    """
+    query = "Find MFA failures for privileged users in the last 24 hours."
+    ordered = match_use_cases(query, limit=3)
+    assert ordered[0].use_case_id == "auth_mfa_failure_spike"
+    ids = [item.use_case_id for item in ordered]
+    if "auth_failed_login_spike" in ids:
+        mfa = next(item for item in ordered if item.use_case_id == "auth_mfa_failure_spike")
+        generic = next(item for item in ordered if item.use_case_id == "auth_failed_login_spike")
+        assert (mfa.coverage_score or 0) > (generic.coverage_score or 0)
 
 
 def test_mcp_execution_stays_disabled_for_explicit_search() -> None:

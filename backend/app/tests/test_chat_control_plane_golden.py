@@ -177,7 +177,8 @@ def test_mitre_failed_login_context_maps_t1110_and_blocks_negated_techniques(
     assert mapping_by_id["T1110.001"]["Status"] == "Requires Validation"
     assert mapping_by_id["T1110.003"]["Status"] == "Requires Validation"
     assert mapping_by_id["T1110.001"]["Confidence"] == "Moderate - analyst validation required"
-    assert response.analyst_response.severity_label == "P3 Medium"
+    # Mapping-only path: no hunt severity policy. Incident severity stays unassigned.
+    assert response.analyst_response.severity_label == "Not assigned from this question alone"
     assert "password" in str(mapping_by_id["T1110.001"]["Evidence"]).lower()
     assert "password policy discovery" not in str(mapping_by_id["T1110.001"]["Evidence"]).lower()
 

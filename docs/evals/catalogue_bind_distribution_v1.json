@@ -1,0 +1,3375 @@
+{
+  "schema_version": "catalogue_bind_distribution_v1",
+  "plan": "plans/2026-08-19_1130_catalogue-matching-coverage-and-margin.md",
+  "item": 2,
+  "matcher": "production match_use_cases; confidence still decides",
+  "counts": {
+    "truth_set_rows": 96,
+    "truth_set_bound": 8,
+    "truth_set_unbound": 88,
+    "class_counts": {
+      "no_bind": 87,
+      "correct_bind": 6,
+      "wrong_family": 2,
+      "missed_procedure": 1
+    },
+    "questions_105": 105,
+    "questions_105_binding_at_t2": 10,
+    "questions_105_unbound_at_t2": 95,
+    "bind_margin_observed": 3,
+    "bind_margin_abs_lt_0_12": 1,
+    "bind_margin_negative": 1,
+    "catalogue": 41,
+    "bindable": 34,
+    "bindable_without_template": 7
+  },
+  "population_stats": {
+    "coverage_ratio": {
+      "correct_bind": {
+        "n": 6,
+        "min": 0.0714,
+        "p25": 0.0952,
+        "median": 0.1429,
+        "p75": 0.2368,
+        "max": 0.4,
+        "mean": 0.1815
+      },
+      "misfire": {
+        "n": 2,
+        "min": 0.0455,
+        "p25": 0.0455,
+        "median": 0.0598,
+        "p75": 0.0741,
+        "max": 0.0741,
+        "mean": 0.0598
+      },
+      "false_knowledge": {
+        "n": 0
+      }
+    },
+    "specificity": {
+      "correct_bind": {
+        "n": 6,
+        "min": 2.4281,
+        "p25": 2.553,
+        "median": 2.8106,
+        "p75": 3.0681,
+        "max": 3.0681,
+        "mean": 2.7897
+      },
+      "misfire": {
+        "n": 2,
+        "min": 2.1574,
+        "p25": 2.1574,
+        "median": 2.4215,
+        "p75": 2.6856,
+        "max": 2.6856,
+        "mean": 2.4215
+      },
+      "false_knowledge": {
+        "n": 0
+      }
+    },
+    "coverage_score": {
+      "correct_bind": {
+        "n": 6,
+        "min": 0.2191,
+        "p25": 0.2431,
+        "median": 0.4383,
+        "p75": 0.5751,
+        "max": 1.0212,
+        "mean": 0.4892
+      },
+      "misfire": {
+        "n": 2,
+        "min": 0.1221,
+        "p25": 0.1221,
+        "median": 0.1409,
+        "p75": 0.1598,
+        "max": 0.1598,
+        "mean": 0.1409
+      },
+      "false_knowledge": {
+        "n": 0
+      }
+    },
+    "bind_margin": {
+      "correct_bind": {
+        "n": 2,
+        "min": 0.1152,
+        "p25": 0.1152,
+        "median": 0.2383,
+        "p75": 0.3613,
+        "max": 0.3613,
+        "mean": 0.2383
+      },
+      "misfire": {
+        "n": 1,
+        "min": -0.2473,
+        "p25": -0.2473,
+        "median": -0.2473,
+        "p75": -0.2473,
+        "max": -0.2473,
+        "mean": -0.2473
+      },
+      "false_knowledge": {
+        "n": 0
+      }
+    }
+  },
+  "overlap": {
+    "coverage_ratio": {
+      "correct_vs_misfire": {
+        "separates": false,
+        "correct_range": [
+          0.0714,
+          0.4
+        ],
+        "misfire_range": [
+          0.0455,
+          0.0741
+        ],
+        "gap": null
+      },
+      "correct_vs_false_knowledge": {
+        "separates": false,
+        "reason": "empty population"
+      }
+    },
+    "specificity": {
+      "correct_vs_misfire": {
+        "separates": false,
+        "correct_range": [
+          2.4281,
+          3.0681
+        ],
+        "misfire_range": [
+          2.1574,
+          2.6856
+        ],
+        "gap": null
+      },
+      "correct_vs_false_knowledge": {
+        "separates": false,
+        "reason": "empty population"
+      }
+    },
+    "coverage_score": {
+      "correct_vs_misfire": {
+        "separates": true,
+        "correct_range": [
+          0.2191,
+          1.0212
+        ],
+        "misfire_range": [
+          0.1221,
+          0.1598
+        ],
+        "gap": -0.8991
+      },
+      "correct_vs_false_knowledge": {
+        "separates": false,
+        "reason": "empty population"
+      }
+    },
+    "bind_margin": {
+      "correct_vs_misfire": {
+        "separates": true,
+        "correct_range": [
+          0.1152,
+          0.3613
+        ],
+        "misfire_range": [
+          -0.2473,
+          -0.2473
+        ],
+        "gap": -0.6086
+      },
+      "correct_vs_false_knowledge": {
+        "separates": false,
+        "reason": "empty population"
+      }
+    }
+  },
+  "univariate_separates": {
+    "coverage_ratio": false,
+    "specificity": false,
+    "coverage_score": true,
+    "bind_margin": true
+  },
+  "truth_set_rows": [
+    {
+      "row_id": "rt.d1.001",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.002",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.003",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.004",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.005",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.006",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.007",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.008",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.009",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.010",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.011",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.012",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.013",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.014",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d1.015",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.001",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "guided_investigation",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.002",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "guided_investigation",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.003",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.004",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.005",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.006",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "guided_investigation",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.007",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.008",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.009",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.010",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "spl_generation",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.011",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.012",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.013",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.014",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.015",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "guided_investigation",
+        "attack_discovery",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.016",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.017",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "spl_generation",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.018",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.019",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.020",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "guided_investigation",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.021",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.022",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.023",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.024",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "guided_investigation",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.025",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.026",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.027",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "guided_investigation",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.028",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.029",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "guided_investigation",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.030",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "guided_investigation",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.031",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "guided_investigation",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.032",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "guided_investigation",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.033",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.034",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.035",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.036",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.037",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "guided_investigation",
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.038",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.d2.039",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.hunt.001",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.hunt.002",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.hunt.003",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.hunt.004",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.hunt.005",
+      "class": "correct_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": "edr_powershell_suspicious_command",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "suspicious powershell"
+      ],
+      "confidence": 0.95,
+      "coverage_ratio": 0.4,
+      "specificity": 2.553,
+      "coverage_score": 1.0212,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": true
+    },
+    {
+      "row_id": "rt.hunt.006",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.hunt.007",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.alert.001",
+      "class": "correct_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery"
+      ],
+      "use_case_id": "auth_success_after_failure",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "followed by a successful login",
+        "failed logins followed by"
+      ],
+      "confidence": 0.95,
+      "coverage_ratio": 0.2368,
+      "specificity": 2.4281,
+      "coverage_score": 0.5751,
+      "runner_up_score": 0.2138,
+      "bind_margin": 0.3613,
+      "has_spl_template": true
+    },
+    {
+      "row_id": "rt.alert.002",
+      "class": "wrong_family",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "alert_summary",
+        "guided_investigation"
+      ],
+      "use_case_id": "net_vpn_login_anomaly",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "vpn login"
+      ],
+      "confidence": 0.73,
+      "coverage_ratio": 0.0741,
+      "specificity": 2.1574,
+      "coverage_score": 0.1598,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": true
+    },
+    {
+      "row_id": "rt.alert.003",
+      "class": "no_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation",
+        "alert_summary",
+        "attack_discovery"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.know.001",
+      "class": "correct_bind",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": "soc_show_sop",
+      "primary_skill": "knowledge_recall",
+      "matched_patterns": [
+        "sop"
+      ],
+      "confidence": 0.9099999999999999,
+      "coverage_ratio": 0.0714,
+      "specificity": 3.0681,
+      "coverage_score": 0.2191,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": false
+    },
+    {
+      "row_id": "rt.know.002",
+      "class": "wrong_family",
+      "required_spl": false,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "knowledge_recall",
+        "guided_investigation"
+      ],
+      "use_case_id": "soc_map_alert_mitre",
+      "primary_skill": "mitre_mapping",
+      "matched_patterns": [
+        "mitre"
+      ],
+      "confidence": 0.9099999999999999,
+      "coverage_ratio": 0.0455,
+      "specificity": 2.6856,
+      "coverage_score": 0.1221,
+      "runner_up_score": 0.3694,
+      "bind_margin": -0.2473,
+      "has_spl_template": false
+    },
+    {
+      "row_id": "rt.know.005",
+      "class": "correct_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "knowledge_recall"
+      ],
+      "use_case_id": "edr_powershell_suspicious_command",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "suspicious powershell"
+      ],
+      "confidence": 0.95,
+      "coverage_ratio": 0.0952,
+      "specificity": 2.553,
+      "coverage_score": 0.2431,
+      "runner_up_score": 0.1279,
+      "bind_margin": 0.1152,
+      "has_spl_template": true
+    },
+    {
+      "row_id": "rt.ot.001",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.ot.002",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.ot.003",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.ot.004",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.ot.005",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.001",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.002",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.003",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.004",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.005",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.006",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.007",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.008",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.009",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.010",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.011",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.012",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.013",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.014",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "alert_summary",
+        "attack_discovery",
+        "knowledge_recall",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.para.015",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "attack_discovery",
+        "spl_generation"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.neg.001",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "spl_generation",
+        "attack_discovery"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.neg.002",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "spl_generation",
+        "attack_discovery"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.neg.003",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "spl_generation",
+        "attack_discovery"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.neg.004",
+      "class": "missed_procedure",
+      "required_spl": false,
+      "forbidden_spl": true,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.neg.005",
+      "class": "correct_bind",
+      "required_spl": false,
+      "forbidden_spl": true,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": "soc_show_sop",
+      "primary_skill": "knowledge_recall",
+      "matched_patterns": [
+        "sop"
+      ],
+      "confidence": 0.9099999999999999,
+      "coverage_ratio": 0.1429,
+      "specificity": 3.0681,
+      "coverage_score": 0.4383,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": false
+    },
+    {
+      "row_id": "rt.neg.006",
+      "class": "correct_bind",
+      "required_spl": false,
+      "forbidden_spl": true,
+      "acceptable_skills": [
+        "knowledge_recall"
+      ],
+      "use_case_id": "soc_show_sop",
+      "primary_skill": "knowledge_recall",
+      "matched_patterns": [
+        "playbook"
+      ],
+      "confidence": 0.9099999999999999,
+      "coverage_ratio": 0.1429,
+      "specificity": 3.0681,
+      "coverage_score": 0.4383,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": false
+    },
+    {
+      "row_id": "rt.verb.001",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "spl_generation",
+        "attack_discovery"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.verb.002",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "spl_generation",
+        "attack_discovery"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    },
+    {
+      "row_id": "rt.verb.003",
+      "class": "no_bind",
+      "required_spl": true,
+      "forbidden_spl": false,
+      "acceptable_skills": [
+        "spl_generation",
+        "attack_discovery"
+      ],
+      "use_case_id": null,
+      "primary_skill": null,
+      "matched_patterns": [],
+      "confidence": null,
+      "coverage_ratio": null,
+      "specificity": null,
+      "coverage_score": null,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": null
+    }
+  ],
+  "questions_105_binding": [
+    {
+      "question_ref": "q0.q008",
+      "binds": true,
+      "use_case_id": "dns_beaconing_candidate",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "beaconing"
+      ],
+      "coverage_ratio": 0.1667,
+      "specificity": 3.0681,
+      "coverage_score": 0.5113,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": true
+    },
+    {
+      "question_ref": "q0.q023",
+      "binds": true,
+      "use_case_id": "dns_beaconing_candidate",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "beaconing"
+      ],
+      "coverage_ratio": 0.1667,
+      "specificity": 3.0681,
+      "coverage_score": 0.5113,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": true
+    },
+    {
+      "question_ref": "q0.q046",
+      "binds": true,
+      "use_case_id": "auth_failed_login_spike",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "failed login",
+        "failed logins"
+      ],
+      "coverage_ratio": 0.6667,
+      "specificity": 2.0315,
+      "coverage_score": 1.3543,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": true
+    },
+    {
+      "question_ref": "q0.q049",
+      "binds": true,
+      "use_case_id": "edr_powershell_suspicious_command",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "suspicious powershell"
+      ],
+      "coverage_ratio": 0.4,
+      "specificity": 2.553,
+      "coverage_score": 1.0212,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": true
+    },
+    {
+      "question_ref": "q0.q059",
+      "binds": true,
+      "use_case_id": "auth_failed_login_spike",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "failure",
+        "failures"
+      ],
+      "coverage_ratio": 0.2222,
+      "specificity": 2.4204,
+      "coverage_score": 0.5379,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": true
+    },
+    {
+      "question_ref": "q0.q060",
+      "binds": true,
+      "use_case_id": "auth_success_after_failure",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "successful login after",
+        "after repeated failures",
+        "after repeated failure"
+      ],
+      "coverage_ratio": 1.0,
+      "specificity": 2.5943,
+      "coverage_score": 2.5943,
+      "runner_up_score": 0.5379,
+      "bind_margin": 2.0564,
+      "has_spl_template": true
+    },
+    {
+      "question_ref": "q0.q062",
+      "binds": true,
+      "use_case_id": "auth_failed_login_spike",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "failed login",
+        "failed logins"
+      ],
+      "coverage_ratio": 0.5,
+      "specificity": 2.0315,
+      "coverage_score": 1.0158,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": true
+    },
+    {
+      "question_ref": "q0.q079",
+      "binds": true,
+      "use_case_id": "edr_suspicious_process",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "suspicious process"
+      ],
+      "coverage_ratio": 0.2857,
+      "specificity": 2.553,
+      "coverage_score": 0.7294,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": true
+    },
+    {
+      "question_ref": "q0.q086",
+      "binds": true,
+      "use_case_id": "auth_failed_login_spike",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "failed login",
+        "failed logins"
+      ],
+      "coverage_ratio": 0.3636,
+      "specificity": 2.0315,
+      "coverage_score": 0.7387,
+      "runner_up_score": null,
+      "bind_margin": null,
+      "has_spl_template": true
+    },
+    {
+      "question_ref": "q0.q089",
+      "binds": true,
+      "use_case_id": "auth_failed_login_spike",
+      "primary_skill": "attack_discovery",
+      "matched_patterns": [
+        "failure",
+        "failures"
+      ],
+      "coverage_ratio": 0.2222,
+      "specificity": 2.4204,
+      "coverage_score": 0.5379,
+      "runner_up_score": 1.1347,
+      "bind_margin": -0.5968,
+      "has_spl_template": true
+    }
+  ],
+  "catalogue_inventory": [
+    {
+      "use_case_id": "auth_failed_login_spike",
+      "display_name": "Failed login spike",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "auth_failed_login_spike",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "auth_sop",
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "failed login",
+        "failed logins",
+        "failure",
+        "failures",
+        "brute force",
+        "abnormally high"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "auth_success_after_failure",
+      "display_name": "Successful login after failures",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "auth_success_after_failure",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "auth_sop"
+      ],
+      "intent_patterns": [
+        "successful login after",
+        "successful vpn login after",
+        "successful vpn logins after",
+        "success after",
+        "success following",
+        "after failures",
+        "after repeated failures",
+        "after repeated failure",
+        "followed by a successful login",
+        "failures followed by",
+        "failed logins followed by",
+        "login failures followed by"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "auth_new_source_ip_login",
+      "display_name": "New source IP login",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "auth_new_source_ip",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "auth_sop"
+      ],
+      "intent_patterns": [
+        "new source ip",
+        "new source",
+        "unusual source",
+        "unusual source ips"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "auth_privileged_login_anomaly",
+      "display_name": "Privileged account login anomaly",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "privileged_account_failure",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "auth_sop"
+      ],
+      "intent_patterns": [
+        "privileged account",
+        "admin login",
+        "privileged login"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "auth_account_lockout_trend",
+      "display_name": "Account lockouts over time",
+      "primary_skill": "alert_summary",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "auth_account_lockout_trend",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "auth_sop"
+      ],
+      "intent_patterns": [
+        "lockout",
+        "lockouts",
+        "account_locked"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "auth_mfa_failure_spike",
+      "display_name": "MFA failure spike",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "auth_mfa_failure_spike",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "auth_sop"
+      ],
+      "intent_patterns": [
+        "mfa failure",
+        "mfa failures"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "auth_after_hours_critical_asset",
+      "display_name": "After-hours login to critical asset",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "after_hours_login_critical_asset",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk",
+        "asset_inventory"
+      ],
+      "rag_collections": [
+        "auth_sop"
+      ],
+      "intent_patterns": [
+        "after-hours login",
+        "after hours login",
+        "critical asset after hours"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "net_firewall_deny_spike",
+      "display_name": "Firewall deny spike",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "firewall_deny_spike",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "network_sop"
+      ],
+      "intent_patterns": [
+        "firewall deny",
+        "deny spike"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "net_vpn_login_anomaly",
+      "display_name": "VPN login anomaly",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "vpn_failure_spike",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "auth_sop"
+      ],
+      "intent_patterns": [
+        "vpn login",
+        "vpn anomaly"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "dns_beaconing_candidate",
+      "display_name": "Beaconing pattern candidate",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "dns_beaconing_candidate",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "dns_sop"
+      ],
+      "intent_patterns": [
+        "beaconing",
+        "beacon pattern",
+        "dns beaconing",
+        "beaconing candidate"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "critical_notable_mitre_review",
+      "display_name": "Critical alert MITRE + CVE review",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "notable_critical_review_mitre",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "alert_triage_sop"
+      ],
+      "intent_patterns": [
+        "critical alerts",
+        "critical alert",
+        "unpatched cve",
+        "unpatched cves",
+        "cross-reference",
+        "cross reference",
+        "mitre att&ck",
+        "affected hosts"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "edr_suspicious_process",
+      "display_name": "Suspicious process execution",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "edr_suspicious_process",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "edr_sop"
+      ],
+      "intent_patterns": [
+        "suspicious process"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "edr_powershell_suspicious_command",
+      "display_name": "PowerShell suspicious command",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "edr_powershell_suspicious_command",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "edr_sop"
+      ],
+      "intent_patterns": [
+        "powershell suspicious",
+        "suspicious powershell"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "soc_show_sop",
+      "display_name": "Show SOP/playbook",
+      "primary_skill": "knowledge_recall",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [
+        "rag:sop"
+      ],
+      "rag_collections": [
+        "auth_sop",
+        "network_sop",
+        "edr_sop"
+      ],
+      "intent_patterns": [
+        "sop",
+        "playbook",
+        "runbook",
+        "standard operating procedure",
+        "standard-operating-procedure"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "aws_security_group_modifications",
+      "display_name": "AWS security group modifications",
+      "primary_skill": "spl_generation",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "aws_security_group_modifications",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk",
+        "splunk:aws_cloudtrail"
+      ],
+      "rag_collections": [
+        "spl_examples"
+      ],
+      "intent_patterns": [
+        "aws security group",
+        "security group modifications",
+        "security groups",
+        "cloudtrail security group",
+        "security group ingress",
+        "security group egress"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "aws_console_success_logins_by_user",
+      "display_name": "AWS Console successful logins by user",
+      "primary_skill": "spl_generation",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "aws_console_success_logins_by_user",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk",
+        "splunk:aws_cloudtrail"
+      ],
+      "rag_collections": [
+        "spl_examples"
+      ],
+      "intent_patterns": [
+        "aws console logins",
+        "aws console login",
+        "successful aws console",
+        "console logins by user",
+        "signin.amazonaws.com",
+        "consolelogin"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "aws_iam_policy_modifications",
+      "display_name": "AWS IAM policy modifications",
+      "primary_skill": "spl_generation",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "aws_iam_policy_modifications",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk",
+        "splunk:aws_cloudtrail"
+      ],
+      "rag_collections": [
+        "spl_examples"
+      ],
+      "intent_patterns": [
+        "aws iam policies",
+        "iam policies",
+        "iam policy modifications",
+        "attached policies",
+        "attach policies",
+        "changed aws iam policies",
+        "iam policy changes"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "auth_failed_login_top_users_exclude_service_accounts",
+      "display_name": "Top failed-login users excluding service accounts",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "auth_failed_login_top_users_exclude_service_accounts",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "auth_sop",
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "top users with failed login count",
+        "failed login count",
+        "exclude service accounts",
+        "excluding service accounts",
+        "top failed-login users"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "soc_generate_spl",
+      "display_name": "Generate SPL",
+      "primary_skill": "spl_generation",
+      "use_case_type": "meta_output_artifact",
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [],
+      "rag_collections": [
+        "spl_examples"
+      ],
+      "intent_patterns": [
+        "generate spl for",
+        "write spl for",
+        "create spl for",
+        "produce spl for",
+        "give me spl to",
+        "draft spl to detect",
+        "draft spl to find",
+        "draft spl to summarize",
+        "write me a spl query for",
+        "write me a spl for",
+        "write a spl query for"
+      ],
+      "registry_tier": "t1_spl_native"
+    },
+    {
+      "use_case_id": "soc_explain_spl",
+      "display_name": "Explain SPL",
+      "primary_skill": "knowledge_recall",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [
+        "rag:sop"
+      ],
+      "rag_collections": [
+        "spl_examples"
+      ],
+      "intent_patterns": [
+        "explain spl"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "soc_optimize_spl",
+      "display_name": "Optimize SPL",
+      "primary_skill": "spl_generation",
+      "use_case_type": "meta_output_artifact",
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [],
+      "rag_collections": [
+        "spl_examples"
+      ],
+      "intent_patterns": [
+        "optimize spl"
+      ],
+      "registry_tier": "t1_spl_native"
+    },
+    {
+      "use_case_id": "soc_map_alert_mitre",
+      "display_name": "Map alert to MITRE",
+      "primary_skill": "mitre_mapping",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [
+        "mitre:enterprise"
+      ],
+      "rag_collections": [
+        "mitre_notes"
+      ],
+      "intent_patterns": [
+        "mitre",
+        "att&ck",
+        "attack technique",
+        "map this alert",
+        "map the alert"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "soc_compare_past_incidents",
+      "display_name": "Compare current alert with past incidents",
+      "primary_skill": "knowledge_recall",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [
+        "rag:sop"
+      ],
+      "rag_collections": [
+        "past_incidents"
+      ],
+      "intent_patterns": [
+        "past incidents",
+        "compare current alert"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "cisco_cleartext_to_rtu",
+      "display_name": "Cisco cleartext sessions to Phase-1 RTUs",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "cisco_cleartext_to_rtu",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "cleartext http",
+        "cleartext vnc",
+        "cleartext telnet",
+        "cleartext ftp",
+        "cleartext session",
+        "phase-1 rtu",
+        "firepower",
+        "vnc"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "cisco_stealthwatch_scan_with_asset",
+      "display_name": "Stealthwatch scan with OT asset context",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "cisco_stealthwatch_scan_with_asset",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "stealthwatch",
+        "horizontal scan",
+        "substation automation"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "cisco_duo_mfa_fatigue",
+      "display_name": "Cisco Duo MFA fatigue",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "cisco_duo_mfa_fatigue",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "duo",
+        "mfa fatigue",
+        "push denied"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "ot_firmware_drift",
+      "display_name": "OT firmware drift",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "ot_firmware_drift",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "firmware drift",
+        "asset lookup",
+        "network banner"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "ot_master_spoof",
+      "display_name": "OT master station spoof",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "ot_master_spoof",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "master station",
+        "broadcast polling",
+        "transformer"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "ot_tftp_hmi",
+      "display_name": "OT TFTP from HMI",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "ot_tftp_hmi",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "tftp",
+        "hmi tftp",
+        "tftp backup",
+        "configuration backup"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "physical_access_impossible",
+      "display_name": "Impossible physical access",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "physical_access_impossible",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "physical badge",
+        "impossible travel",
+        "substation login"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "cii_scan_detection",
+      "display_name": "CII scan detection",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "cii_scan_detection",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "cii",
+        "critical infrastructure scan"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "loto_breaker_correlation",
+      "display_name": "LOTO breaker correlation",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "loto_breaker_correlation",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "loto",
+        "breaker command",
+        "manual repair"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "cert_in_hash_match",
+      "display_name": "CERT-In hash match",
+      "primary_skill": "attack_discovery",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": true,
+      "default_spl_template": "cert_in_hash_match",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "cert-in",
+        "file hash",
+        "advisory"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "soc_environment_hygiene",
+      "display_name": "SOC environment hygiene",
+      "primary_skill": "knowledge_recall",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [],
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "environment hygiene",
+        "log generation formats",
+        "ingest latency indicators",
+        "storage pool",
+        "source discovery",
+        "active analytical tracking rules",
+        "operational node version",
+        "logging boundaries"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "sample_network_top_outbound_src",
+      "display_name": "Analytics anchor \u2014 network top-N outbound source connections (sample template binding)",
+      "primary_skill": "spl_generation",
+      "use_case_type": "analytics_anchor",
+      "bindable": false,
+      "has_spl_template": true,
+      "default_spl_template": "sample_network_top_outbound_src_tstats",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [],
+      "intent_patterns": [],
+      "registry_tier": "sample"
+    },
+    {
+      "use_case_id": "sample_dns_top_query_hosts",
+      "display_name": "Analytics anchor \u2014 DNS top-N query volume by host (sample template binding)",
+      "primary_skill": "spl_generation",
+      "use_case_type": "analytics_anchor",
+      "bindable": false,
+      "has_spl_template": true,
+      "default_spl_template": "sample_dns_top_query_hosts_from_datamodel",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [],
+      "intent_patterns": [],
+      "registry_tier": "sample"
+    },
+    {
+      "use_case_id": "sample_auth_failed_login_top_users",
+      "display_name": "Analytics anchor \u2014 auth failed-login top users by count (sample template binding)",
+      "primary_skill": "spl_generation",
+      "use_case_type": "analytics_anchor",
+      "bindable": false,
+      "has_spl_template": true,
+      "default_spl_template": "sample_auth_failed_login_top_users_tstats",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [],
+      "intent_patterns": [],
+      "registry_tier": "sample"
+    },
+    {
+      "use_case_id": "sample_ioc_correlation_indicator_match",
+      "display_name": "Detection anchor \u2014 IOC indicator correlation (sample, matrix-only)",
+      "primary_skill": "spl_generation",
+      "use_case_type": "detection_anchor",
+      "bindable": false,
+      "has_spl_template": true,
+      "default_spl_template": "sample_ioc_correlation_indicator_match",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [],
+      "intent_patterns": [],
+      "registry_tier": "sample"
+    },
+    {
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "display_name": "Detection anchor \u2014 threshold / volume anomaly (sample, matrix-only)",
+      "primary_skill": "spl_generation",
+      "use_case_type": "detection_anchor",
+      "bindable": false,
+      "has_spl_template": true,
+      "default_spl_template": "sample_threshold_anomaly_volume_spike",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [],
+      "intent_patterns": [],
+      "registry_tier": "sample"
+    },
+    {
+      "use_case_id": "sample_powershell_suspicious_execution",
+      "display_name": "Detection anchor \u2014 suspicious PowerShell / process execution (sample, matrix-only)",
+      "primary_skill": "spl_generation",
+      "use_case_type": "detection_anchor",
+      "bindable": false,
+      "has_spl_template": true,
+      "default_spl_template": "sample_powershell_suspicious_execution",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [],
+      "intent_patterns": [],
+      "registry_tier": "sample"
+    },
+    {
+      "use_case_id": "sample_dlp_exfiltration_volume",
+      "display_name": "Detection anchor \u2014 DLP / data exfiltration volume (sample, matrix-only)",
+      "primary_skill": "spl_generation",
+      "use_case_type": "detection_anchor",
+      "bindable": false,
+      "has_spl_template": true,
+      "default_spl_template": "sample_dlp_exfiltration_volume",
+      "requires_mcp": true,
+      "required_sources": [
+        "mcp:splunk"
+      ],
+      "rag_collections": [],
+      "intent_patterns": [],
+      "registry_tier": "sample"
+    }
+  ],
+  "templateless_bindable": [
+    {
+      "use_case_id": "soc_show_sop",
+      "display_name": "Show SOP/playbook",
+      "primary_skill": "knowledge_recall",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [
+        "rag:sop"
+      ],
+      "rag_collections": [
+        "auth_sop",
+        "network_sop",
+        "edr_sop"
+      ],
+      "intent_patterns": [
+        "sop",
+        "playbook",
+        "runbook",
+        "standard operating procedure",
+        "standard-operating-procedure"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "soc_generate_spl",
+      "display_name": "Generate SPL",
+      "primary_skill": "spl_generation",
+      "use_case_type": "meta_output_artifact",
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [],
+      "rag_collections": [
+        "spl_examples"
+      ],
+      "intent_patterns": [
+        "generate spl for",
+        "write spl for",
+        "create spl for",
+        "produce spl for",
+        "give me spl to",
+        "draft spl to detect",
+        "draft spl to find",
+        "draft spl to summarize",
+        "write me a spl query for",
+        "write me a spl for",
+        "write a spl query for"
+      ],
+      "registry_tier": "t1_spl_native"
+    },
+    {
+      "use_case_id": "soc_explain_spl",
+      "display_name": "Explain SPL",
+      "primary_skill": "knowledge_recall",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [
+        "rag:sop"
+      ],
+      "rag_collections": [
+        "spl_examples"
+      ],
+      "intent_patterns": [
+        "explain spl"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "soc_optimize_spl",
+      "display_name": "Optimize SPL",
+      "primary_skill": "spl_generation",
+      "use_case_type": "meta_output_artifact",
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [],
+      "rag_collections": [
+        "spl_examples"
+      ],
+      "intent_patterns": [
+        "optimize spl"
+      ],
+      "registry_tier": "t1_spl_native"
+    },
+    {
+      "use_case_id": "soc_map_alert_mitre",
+      "display_name": "Map alert to MITRE",
+      "primary_skill": "mitre_mapping",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [
+        "mitre:enterprise"
+      ],
+      "rag_collections": [
+        "mitre_notes"
+      ],
+      "intent_patterns": [
+        "mitre",
+        "att&ck",
+        "attack technique",
+        "map this alert",
+        "map the alert"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "soc_compare_past_incidents",
+      "display_name": "Compare current alert with past incidents",
+      "primary_skill": "knowledge_recall",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [
+        "rag:sop"
+      ],
+      "rag_collections": [
+        "past_incidents"
+      ],
+      "intent_patterns": [
+        "past incidents",
+        "compare current alert"
+      ],
+      "registry_tier": "catalog_default"
+    },
+    {
+      "use_case_id": "soc_environment_hygiene",
+      "display_name": "SOC environment hygiene",
+      "primary_skill": "knowledge_recall",
+      "use_case_type": null,
+      "bindable": true,
+      "has_spl_template": false,
+      "default_spl_template": null,
+      "requires_mcp": false,
+      "required_sources": [],
+      "rag_collections": [
+        "splunk_context"
+      ],
+      "intent_patterns": [
+        "environment hygiene",
+        "log generation formats",
+        "ingest latency indicators",
+        "storage pool",
+        "source discovery",
+        "active analytical tracking rules",
+        "operational node version",
+        "logging boundaries"
+      ],
+      "registry_tier": "catalog_default"
+    }
+  ]
+}

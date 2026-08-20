@@ -64,8 +64,8 @@ def test_s1b_coverage_matrix_warnings_decreased_and_sample_mappings_present() ->
     assert isinstance(matrix, list)
     mapped = [row for row in matrix if row["mapping_status"] != "missing_authoritative_mapping"]
     unmapped = [row for row in matrix if row["mapping_status"] == "missing_authoritative_mapping"]
-    assert len(mapped) == 41
-    assert len(unmapped) == 64
+    assert len(mapped) == 38
+    assert len(unmapped) == 67
 
     sample_mapped = [row for row in mapped if row.get("use_case_id") in S1B_SAMPLE_ANCHORS]
     assert len(sample_mapped) == 30

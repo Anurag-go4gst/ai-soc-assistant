@@ -13,17 +13,14 @@ from app.use_cases.registry import load_use_case_catalog
 from contracts.skill_enum import SKILL_ENUM
 
 
-def test_catalog_non_enum_collapses_to_knowledge_recall_without_clarification() -> None:
-    understanding = understand_query("Recommend endpoint isolation")
-    base, provenance = select_route_from_understanding(understanding, "Recommend endpoint isolation")
+def test_catalog_non_enum_collapses_to_knowledge_recall() -> None:
+    understanding = understand_query("Map this alert to MITRE")
+    base, provenance = select_route_from_understanding(understanding, "Map this alert to MITRE")
 
-    assert understanding.mapped_use_case_ids == ["edr_isolation_recommendation"]
+    assert understanding.mapped_use_case_ids == ["soc_map_alert_mitre"]
     assert base["skill"] == "knowledge_recall"
-    assert "needs_clarification" not in base["tool_plan"]
-    assert provenance.get("collapsed_from") == "action_planning"
-    assert provenance.get("use_case_id") == "edr_isolation_recommendation"
-    assert understanding.primary_intent == "action_planning"
-    assert provenance.get("requested_output_type") in {"action_plan", "investigation"}
+    assert provenance.get("collapsed_from") == "mitre_mapping"
+    assert provenance.get("use_case_id") == "soc_map_alert_mitre"
 
 
 def test_catalog_enum_skill_routes_attack_discovery() -> None:

@@ -50,4 +50,4 @@ def test_shallow_golden_jsonl_files_exist() -> None:
     assert c_path.is_file()
     assert fixture.is_file()
     assert sum(1 for line in q_path.read_text(encoding="utf-8").splitlines() if line.strip()) == 105
-    assert sum(1 for line in c_path.read_text(encoding="utf-8").splitlines() if line.strip()) == 46
+    assert sum(1 for line in c_path.read_text(encoding="utf-8").splitlines() if line.strip()) == 23

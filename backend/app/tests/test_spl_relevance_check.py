@@ -159,11 +159,6 @@ _USE_CASE_QUERY = {
     "net_vpn_login_anomaly": "Investigate VPN login anomaly",
     "edr_suspicious_process": "Investigate suspicious process execution",
     "auth_after_hours_critical_asset": "Investigate after-hours login to critical asset",
-    "edr_credential_dumping_signal": "Investigate credential dumping signal",
-    "auth_impossible_travel": "Investigate impossible travel",
-    "net_blocked_region_connection": "Check connection to blocked country",
-    "auth_service_account_abnormal_login": "Investigate service account abnormal login",
-    "auth_disabled_account_login": "Check login from disabled account",
 }
 
 
