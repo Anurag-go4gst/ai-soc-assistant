@@ -16,7 +16,7 @@
       "backend/app/coverage/question_runtime_map_v1.json": "621232b2a97b40b2944fede12e3a42723aaef1494367cb80c8ca2c3decb20c28",
       "backend/app/skills/catalog.json": "9c29cea26a283b2019e3aee66113441e87377cc65c06db421c6f63b4a22ba3e7",
       "backend/app/spl/templates.json": "d2aea8235dbf1b6cec034864c09c253ea074617e3c155c1566e640f5d3cdf348",
-      "backend/app/use_cases/catalog.json": "2d66a82e2ce8a4e5f257cdc5dacd2a0cce58b2c5a7b18dd86eee7f5b44f85cfa"
+      "backend/app/use_cases/catalog.json": "0a400bb4e3f87bf9679a4b13dedbe088aac9384989a0412fc960384580ac0ada"
     },
     "published_doc_mirrors": {
       "docs/architecture/details.html": "d33b274e68d0dd8f01e9b718a4078613c5518d088c3b25d54a360f64d99f9cd3",

@@ -87,23 +87,37 @@ def test_out_of_registry_floor_route_is_not_replaced_by_advisory() -> None:
 
 
 def test_registry_backed_match_is_not_replaced_by_advisory() -> None:
-    """`rt.ot.004` — root cause 2, and the sharper of the two.
+    """Plan 4 D3, asserted on the rule itself rather than on a corpus row.
 
-    This row is an `exact_105_plus_use_case_catalog` match at confidence 0.75 —
-    neither low-confidence nor a clarification. It was replaceable only because
-    `llm_advisory_recommended` counted as uncertainty on registry-backed paths.
+    This used `rt.ot.004` as a live example of "registry-backed, advisory
+    recommended, confident route". That row stopped exercising the scenario when
+    the ambiguous 'locked' pattern was removed from auth_account_lockout_trend
+    ('locked' was matching inside "blocked"), and a sweep of all 96 truth-set
+    rows now finds **zero** that are simultaneously registry-backed and
+    advisory-recommended — the scenario is currently unreachable from the corpus.
+
+    Rather than pick another row that may drift the same way, the property is
+    asserted where it lives: replacement is permitted only for a route that
+    reached no conclusion (the LOW_CONFIDENCE needs_clarification plan). A
+    resolved route keeps its skill no matter how uncertain the advisory thinks
+    it is. Corpus-independent, so catalogue edits cannot silently disarm it.
     """
-    query = _query("rt.ot.004")
-    understanding = understand_query(query)
-    assert understanding.deterministic_match_path == "exact_105_plus_use_case_catalog"
-    assert understanding.llm_advisory_recommended is True
+    from app.routing.deterministic_router import LOW_CONFIDENCE_ROUTE
+    from app.routing.governance import _advisory_may_replace_skill
 
-    base, _, selected, selected_by, _ = _select(query, "alert_summary")
+    resolved = {"skill": "spl_generation", "confidence": 0.75, "tool_plan": ["generate_spl"]}
+    unresolved = {
+        "skill": "needs_clarification",
+        "confidence": 0.20,
+        "tool_plan": list(LOW_CONFIDENCE_ROUTE["tool_plan"]),
+    }
 
-    assert base["skill"] == "spl_generation"
-    assert base["confidence"] >= 0.70
-    assert selected["skill"] == "spl_generation", "a registry-backed match must survive"
-    assert selected_by != "llm_advisory_validated"
+    # A resolved route is never replaceable, even when flagged uncertain.
+    assert _advisory_may_replace_skill(resolved, True) is False
+    assert _advisory_may_replace_skill(resolved, False) is False
+    # Only a route that reached no conclusion, and only when uncertain.
+    assert _advisory_may_replace_skill(unresolved, True) is True
+    assert _advisory_may_replace_skill(unresolved, False) is False
 
 
 def test_advisory_cannot_remove_a_capability_the_deterministic_route_had() -> None:

@@ -3,16 +3,41 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 
 def test_answer_expectation_matrix_covers_105_and_catalog() -> None:
     matrix_path = Path(__file__).resolve().parents[3] / "docs/evals/out/answer_expectation_matrix.json"
-    assert matrix_path.is_file(), "run scripts/generate_answer_expectation_matrix.py"
+    if not matrix_path.is_file():
+        # docs/evals/out/* is gitignored, so this artifact does not exist in a
+        # fresh clone or worktree and the suite was red there for anyone who
+        # had not run the generator.
+        #
+        # Deliberately NOT auto-generated from a fixture: running
+        # scripts/generate_answer_expectation_matrix.py rewrites the tracked
+        # goldens, and those have been hand-reconciled since they were last
+        # generated (e.g. catalog.soc_generate_spl expects spl_generation with
+        # the note "Reconciled to catalogue/runtime authority", which the
+        # generator reverts to knowledge_recall / "Auto-generated shallow
+        # expectation"). A test must not silently rewrite expectations.
+        pytest.skip(
+            "docs/evals/out/answer_expectation_matrix.json absent (gitignored). "
+            "Generate with: PYTHONPATH=backend:. python3 "
+            "scripts/generate_answer_expectation_matrix.py — note it also "
+            "rewrites tracked goldens, so review its diff before committing."
+        )
     payload = json.loads(matrix_path.read_text(encoding="utf-8"))
     rows = payload.get("rows") or []
     q_rows = [row for row in rows if row.get("row_kind") == "question_105"]
     c_rows = [row for row in rows if row.get("row_kind") == "use_case_catalog"]
     assert len(q_rows) == 105
-    assert len(c_rows) == 46
+    # Derived from the catalogue, not a literal. This asserted 46 while the
+    # catalogue holds 65, so it failed for anyone who actually generated the
+    # matrix — the literal silently went stale as use cases were added, and the
+    # test only looked green because the artifact was usually absent.
+    from app.use_cases.registry import load_use_case_catalog
+
+    assert len(c_rows) == len(load_use_case_catalog())
     assert all(row.get("expected_outcome_category") for row in rows)
 
 

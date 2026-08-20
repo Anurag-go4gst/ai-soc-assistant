@@ -1,0 +1,2032 @@
+{
+  "schema_version": "catalogue_question_index_v1",
+  "counts": {
+    "use_cases": 65,
+    "questions": 105,
+    "use_cases_bindable": 58,
+    "use_cases_with_template": 33,
+    "questions_binding_a_use_case": 14
+  },
+  "use_cases": [
+    {
+      "use_case_id": "auth_failed_login_spike",
+      "display_name": "Failed login spike",
+      "category": "Authentication / Identity",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "auth_failed_login_spike",
+      "intent_patterns": [
+        "failed login",
+        "failed logins",
+        "failure",
+        "failures",
+        "brute force",
+        "abnormally high"
+      ],
+      "example_queries": [
+        "Investigate failed login spike on APP-01"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": true
+    },
+    {
+      "use_case_id": "auth_success_after_failure",
+      "display_name": "Successful login after failures",
+      "category": "Authentication / Identity",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "auth_success_after_failure",
+      "intent_patterns": [
+        "successful login after",
+        "successful vpn login after",
+        "successful vpn logins after",
+        "success after",
+        "success following",
+        "after failures",
+        "after repeated failures",
+        "after repeated failure",
+        "followed by a successful login",
+        "failures followed by",
+        "failed logins followed by",
+        "login failures followed by"
+      ],
+      "example_queries": [
+        "Generate SPL for successful login after failures"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": true
+    },
+    {
+      "use_case_id": "auth_new_source_ip_login",
+      "display_name": "New source IP login",
+      "category": "Authentication / Identity",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "auth_new_source_ip",
+      "intent_patterns": [
+        "new source ip",
+        "new source",
+        "unusual source",
+        "unusual source ips"
+      ],
+      "example_queries": [
+        "Show new source IP logins"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "auth_impossible_travel",
+      "display_name": "Impossible travel",
+      "category": "Authentication / Identity",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "impossible travel"
+      ],
+      "example_queries": [
+        "Investigate impossible travel"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "auth_privileged_login_anomaly",
+      "display_name": "Privileged account login anomaly",
+      "category": "Authentication / Identity",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "privileged_account_failure",
+      "intent_patterns": [
+        "privileged account",
+        "admin login",
+        "privileged login"
+      ],
+      "example_queries": [
+        "Investigate privileged account login anomaly"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "auth_service_account_abnormal_login",
+      "display_name": "Service account abnormal login",
+      "category": "Authentication / Identity",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "service account",
+        "svc account"
+      ],
+      "example_queries": [
+        "Investigate service account abnormal login"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "auth_account_lockout_trend",
+      "display_name": "Account lockouts over time",
+      "category": "Authentication / Identity",
+      "primary_skill": "alert_summary",
+      "default_spl_template": "auth_account_lockout_trend",
+      "intent_patterns": [
+        "lockout",
+        "lockouts",
+        "account_locked"
+      ],
+      "example_queries": [
+        "Show account lockouts over time"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "auth_mfa_failure_spike",
+      "display_name": "MFA failure spike",
+      "category": "Authentication / Identity",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "mfa failure",
+        "mfa failures"
+      ],
+      "example_queries": [
+        "Investigate MFA failure spike"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "auth_disabled_account_login",
+      "display_name": "Login from disabled account",
+      "category": "Authentication / Identity",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "disabled account"
+      ],
+      "example_queries": [
+        "Check login from disabled account"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "auth_after_hours_critical_asset",
+      "display_name": "After-hours login to critical asset",
+      "category": "Authentication / Identity",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "after_hours_login_critical_asset",
+      "intent_patterns": [
+        "after-hours login",
+        "after hours login",
+        "critical asset after hours"
+      ],
+      "example_queries": [
+        "Investigate after-hours login to critical asset"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "net_firewall_deny_spike",
+      "display_name": "Firewall deny spike",
+      "category": "Network / Firewall",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "firewall_deny_spike",
+      "intent_patterns": [
+        "firewall deny",
+        "deny spike"
+      ],
+      "example_queries": [
+        "Investigate firewall deny spike"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "net_new_outbound_destination",
+      "display_name": "New outbound destination",
+      "category": "Network / Firewall",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "new outbound destination"
+      ],
+      "example_queries": [
+        "Find new outbound destinations"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "net_port_scanning",
+      "display_name": "Suspicious port scanning",
+      "category": "Network / Firewall",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "port scanning",
+        "port scan"
+      ],
+      "example_queries": [
+        "Investigate port scanning"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "net_east_west_anomaly",
+      "display_name": "East-west traffic anomaly",
+      "category": "Network / Firewall",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "east-west traffic",
+        "east west traffic"
+      ],
+      "example_queries": [
+        "Investigate east-west traffic anomaly"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "net_blocked_region_connection",
+      "display_name": "Connection to blocked country/region",
+      "category": "Network / Firewall",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "blocked country",
+        "blocked region"
+      ],
+      "example_queries": [
+        "Check connection to blocked country"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "net_repeated_critical_asset_connections",
+      "display_name": "Repeated connection attempts to critical asset",
+      "category": "Network / Firewall",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "repeated connection",
+        "critical asset connections"
+      ],
+      "example_queries": [
+        "Repeated connection attempts to critical asset"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": true
+    },
+    {
+      "use_case_id": "net_vpn_login_anomaly",
+      "display_name": "VPN login anomaly",
+      "category": "Network / Firewall",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "vpn_failure_spike",
+      "intent_patterns": [
+        "vpn login",
+        "vpn anomaly"
+      ],
+      "example_queries": [
+        "Investigate VPN login anomaly"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "dns_unusual_query_volume",
+      "display_name": "Unusual DNS query volume",
+      "category": "Network / Firewall",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "dns query volume",
+        "unusual dns"
+      ],
+      "example_queries": [
+        "Show unusual DNS query volume"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": true
+    },
+    {
+      "use_case_id": "dns_tunneling_candidate",
+      "display_name": "DNS tunneling candidate",
+      "category": "Network / Firewall",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "dns tunneling",
+        "dns tunnel"
+      ],
+      "example_queries": [
+        "Investigate DNS tunneling candidate"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "dns_beaconing_candidate",
+      "display_name": "Beaconing pattern candidate",
+      "category": "Network / Firewall",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "dns_beaconing_candidate",
+      "intent_patterns": [
+        "beaconing",
+        "beacon pattern",
+        "dns beaconing",
+        "beaconing candidate"
+      ],
+      "example_queries": [
+        "Investigate beaconing pattern candidate"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": true
+    },
+    {
+      "use_case_id": "critical_notable_mitre_review",
+      "display_name": "Critical alert MITRE + CVE review",
+      "category": "SOC / Alert triage",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "notable_critical_review_mitre",
+      "intent_patterns": [
+        "critical alerts",
+        "critical alert",
+        "unpatched cve",
+        "unpatched cves",
+        "cross-reference",
+        "cross reference",
+        "mitre att&ck",
+        "affected hosts"
+      ],
+      "example_queries": [
+        "Show me all critical alerts in the last 6 hours, cross-reference with MITRE ATT&CK, and check if any affected hosts have unpatched CVEs"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "edr_suspicious_process",
+      "display_name": "Suspicious process execution",
+      "category": "Endpoint / EDR",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "edr_suspicious_process",
+      "intent_patterns": [
+        "suspicious process"
+      ],
+      "example_queries": [
+        "Investigate suspicious process execution"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": true
+    },
+    {
+      "use_case_id": "edr_powershell_suspicious_command",
+      "display_name": "PowerShell suspicious command",
+      "category": "Endpoint / EDR",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "edr_powershell_suspicious_command",
+      "intent_patterns": [
+        "powershell suspicious",
+        "suspicious powershell"
+      ],
+      "example_queries": [
+        "Investigate PowerShell suspicious command"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": true
+    },
+    {
+      "use_case_id": "edr_new_service_creation",
+      "display_name": "New service creation",
+      "category": "Endpoint / EDR",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "new service creation"
+      ],
+      "example_queries": [
+        "Investigate new service creation"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "edr_scheduled_task_creation",
+      "display_name": "Scheduled task creation",
+      "category": "Endpoint / EDR",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "scheduled task"
+      ],
+      "example_queries": [
+        "Investigate scheduled task creation"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": true
+    },
+    {
+      "use_case_id": "edr_lateral_movement_candidate",
+      "display_name": "Lateral movement candidate",
+      "category": "Endpoint / EDR",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "lateral movement"
+      ],
+      "example_queries": [
+        "Investigate lateral movement candidate"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": true
+    },
+    {
+      "use_case_id": "edr_credential_dumping_signal",
+      "display_name": "Credential dumping signal",
+      "category": "Endpoint / EDR",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "credential dumping"
+      ],
+      "example_queries": [
+        "Investigate credential dumping signal"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "edr_malware_alert_summary",
+      "display_name": "Malware alert summarization",
+      "category": "Endpoint / EDR",
+      "primary_skill": "alert_summary",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "malware alert"
+      ],
+      "example_queries": [
+        "Summarize malware alert"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "edr_isolation_recommendation",
+      "display_name": "Endpoint isolation recommendation",
+      "category": "Endpoint / EDR",
+      "primary_skill": "action_planning",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "endpoint isolation",
+        "isolate endpoint"
+      ],
+      "example_queries": [
+        "Recommend endpoint isolation"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "soc_show_sop",
+      "display_name": "Show SOP/playbook",
+      "category": "SOC / Knowledge / Analyst workflow",
+      "primary_skill": "knowledge_recall",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "sop",
+        "playbook",
+        "runbook",
+        "standard operating procedure",
+        "standard-operating-procedure"
+      ],
+      "example_queries": [
+        "Show SOP for brute-force investigation"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "aws_security_group_modifications",
+      "display_name": "AWS security group modifications",
+      "category": "Cloud / AWS",
+      "primary_skill": "spl_generation",
+      "default_spl_template": "aws_security_group_modifications",
+      "intent_patterns": [
+        "aws security group",
+        "security group modifications",
+        "security groups",
+        "cloudtrail security group",
+        "security group ingress",
+        "security group egress"
+      ],
+      "example_queries": [
+        "Write SPL to determine who made modifications to any AWS security groups"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "aws_console_success_logins_by_user",
+      "display_name": "AWS Console successful logins by user",
+      "category": "Cloud / AWS",
+      "primary_skill": "spl_generation",
+      "default_spl_template": "aws_console_success_logins_by_user",
+      "intent_patterns": [
+        "aws console logins",
+        "aws console login",
+        "successful aws console",
+        "console logins by user",
+        "signin.amazonaws.com",
+        "consolelogin"
+      ],
+      "example_queries": [
+        "Write SPL to find successful AWS Console logins by user in the last 24 hours"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "aws_iam_policy_modifications",
+      "display_name": "AWS IAM policy modifications",
+      "category": "Cloud / AWS",
+      "primary_skill": "spl_generation",
+      "default_spl_template": "aws_iam_policy_modifications",
+      "intent_patterns": [
+        "aws iam policies",
+        "iam policies",
+        "iam policy modifications",
+        "attached policies",
+        "attach policies",
+        "changed aws iam policies",
+        "iam policy changes"
+      ],
+      "example_queries": [
+        "Write SPL to determine who changed AWS IAM policies or attached policies to users or roles"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "auth_failed_login_top_users_exclude_service_accounts",
+      "display_name": "Top failed-login users excluding service accounts",
+      "category": "Authentication / Identity",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "auth_failed_login_top_users_exclude_service_accounts",
+      "intent_patterns": [
+        "top users with failed login count",
+        "failed login count",
+        "exclude service accounts",
+        "excluding service accounts",
+        "top failed-login users"
+      ],
+      "example_queries": [
+        "Show top users with failed login count in the last 24 hours and exclude service accounts"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "soc_generate_spl",
+      "display_name": "Generate SPL",
+      "category": "SOC / Knowledge / Analyst workflow",
+      "primary_skill": "spl_generation",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "generate spl for",
+        "write spl for",
+        "create spl for",
+        "produce spl for",
+        "give me spl to",
+        "draft spl to detect",
+        "draft spl to find",
+        "draft spl to summarize",
+        "write me a spl query for",
+        "write me a spl for",
+        "write a spl query for"
+      ],
+      "example_queries": [
+        "Generate SPL for failed logins",
+        "Write me a SPL query for failed logins"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "soc_explain_spl",
+      "display_name": "Explain SPL",
+      "category": "SOC / Knowledge / Analyst workflow",
+      "primary_skill": "knowledge_recall",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "explain spl"
+      ],
+      "example_queries": [
+        "Explain this SPL"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "soc_optimize_spl",
+      "display_name": "Optimize SPL",
+      "category": "SOC / Knowledge / Analyst workflow",
+      "primary_skill": "spl_generation",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "optimize spl"
+      ],
+      "example_queries": [
+        "Optimize this SPL"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "soc_map_alert_mitre",
+      "display_name": "Map alert to MITRE",
+      "category": "SOC / Knowledge / Analyst workflow",
+      "primary_skill": "mitre_mapping",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "mitre",
+        "att&ck",
+        "attack technique",
+        "map this alert",
+        "map the alert"
+      ],
+      "example_queries": [
+        "Map this alert to MITRE"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "soc_create_investigation_note",
+      "display_name": "Create investigation note",
+      "category": "SOC / Knowledge / Analyst workflow",
+      "primary_skill": "investigation_notes",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "investigation note"
+      ],
+      "example_queries": [
+        "Create investigation note"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "soc_summarize_alert_evidence",
+      "display_name": "Summarize alert evidence",
+      "category": "SOC / Knowledge / Analyst workflow",
+      "primary_skill": "alert_summary",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "summarize alert",
+        "summarize evidence"
+      ],
+      "example_queries": [
+        "Summarize alert evidence"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "soc_recommend_next_pivots",
+      "display_name": "Recommend next pivots",
+      "category": "SOC / Knowledge / Analyst workflow",
+      "primary_skill": "action_planning",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "next pivots",
+        "recommend pivots"
+      ],
+      "example_queries": [
+        "Recommend next pivots"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "soc_draft_ticket",
+      "display_name": "Draft ticket",
+      "category": "SOC / Knowledge / Analyst workflow",
+      "primary_skill": "ticket_drafting",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "draft ticket",
+        "create ticket",
+        "draft incident"
+      ],
+      "example_queries": [
+        "Draft ticket for this alert"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "soc_compare_past_incidents",
+      "display_name": "Compare current alert with past incidents",
+      "category": "SOC / Knowledge / Analyst workflow",
+      "primary_skill": "knowledge_recall",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "past incidents",
+        "compare current alert"
+      ],
+      "example_queries": [
+        "Compare current alert with past incidents"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "ot_unexpected_command",
+      "display_name": "Unexpected command to OT/grid asset",
+      "category": "OT / Critical infrastructure later",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "unexpected command",
+        "grid asset command"
+      ],
+      "example_queries": [
+        "Unexpected command to OT asset"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "ot_it_to_ot_auth_anomaly",
+      "display_name": "IT-to-OT authentication anomaly",
+      "category": "OT / Critical infrastructure later",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "it-to-ot",
+        "it to ot"
+      ],
+      "example_queries": [
+        "Investigate IT-to-OT authentication anomaly"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "ot_critical_asset_after_hours",
+      "display_name": "Critical asset after-hours access",
+      "category": "OT / Critical infrastructure later",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "critical asset after-hours",
+        "critical asset after hours"
+      ],
+      "example_queries": [
+        "Critical asset after-hours access"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "ot_protocol_anomaly",
+      "display_name": "OT protocol anomaly",
+      "category": "OT / Critical infrastructure later",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "ot protocol anomaly",
+        "modbus anomaly",
+        "dnp3 anomaly",
+        "iec-104 anomaly"
+      ],
+      "example_queries": [
+        "Investigate OT protocol anomaly"
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "cisco_cleartext_to_rtu",
+      "display_name": "Cisco cleartext sessions to Phase-1 RTUs",
+      "category": "Network / Firewall",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "cisco_cleartext_to_rtu",
+      "intent_patterns": [
+        "cleartext http",
+        "cleartext vnc",
+        "cleartext telnet",
+        "cleartext ftp",
+        "cleartext session",
+        "phase-1 rtu",
+        "firepower",
+        "vnc"
+      ],
+      "example_queries": [
+        "Flag cleartext HTTP or VNC toward Phase-1 RTUs"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "cisco_stealthwatch_scan_with_asset",
+      "display_name": "Stealthwatch scan with OT asset context",
+      "category": "Network / Firewall",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "cisco_stealthwatch_scan_with_asset",
+      "intent_patterns": [
+        "stealthwatch",
+        "horizontal scan",
+        "substation automation"
+      ],
+      "example_queries": [
+        "Identify Stealthwatch horizontal scanning in OT network"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "cisco_duo_mfa_fatigue",
+      "display_name": "Cisco Duo MFA fatigue",
+      "category": "Authentication / Identity",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "cisco_duo_mfa_fatigue",
+      "intent_patterns": [
+        "duo",
+        "mfa fatigue",
+        "push denied"
+      ],
+      "example_queries": [
+        "Show Duo push denials before final approval"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "ot_firmware_drift",
+      "display_name": "OT firmware drift",
+      "category": "OT / Critical infrastructure later",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "ot_firmware_drift",
+      "intent_patterns": [
+        "firmware drift",
+        "asset lookup",
+        "network banner"
+      ],
+      "example_queries": [
+        "Cross-reference OT banners against asset inventory firmware"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "ot_master_spoof",
+      "display_name": "OT master station spoof",
+      "category": "OT / Critical infrastructure later",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "ot_master_spoof",
+      "intent_patterns": [
+        "master station",
+        "broadcast polling",
+        "transformer"
+      ],
+      "example_queries": [
+        "Flag non-whitelisted master polling sources"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "ot_tftp_hmi",
+      "display_name": "OT TFTP from HMI",
+      "category": "OT / Critical infrastructure later",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "ot_tftp_hmi",
+      "intent_patterns": [
+        "tftp",
+        "hmi tftp",
+        "tftp backup",
+        "configuration backup"
+      ],
+      "example_queries": [
+        "Identify cleartext TFTP from substation HMIs"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "physical_access_impossible",
+      "display_name": "Impossible physical access",
+      "category": "Compliance / Governance",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "physical_access_impossible",
+      "intent_patterns": [
+        "physical badge",
+        "impossible travel",
+        "substation login"
+      ],
+      "example_queries": [
+        "Flag login while badge at different substation"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "cii_scan_detection",
+      "display_name": "CII scan detection",
+      "category": "Compliance / Governance",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "cii_scan_detection",
+      "intent_patterns": [
+        "cii",
+        "critical infrastructure scan"
+      ],
+      "example_queries": [
+        "List scanning against CII registry nodes"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "loto_breaker_correlation",
+      "display_name": "LOTO breaker correlation",
+      "category": "Compliance / Governance",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "loto_breaker_correlation",
+      "intent_patterns": [
+        "loto",
+        "breaker command",
+        "manual repair"
+      ],
+      "example_queries": [
+        "Correlate LOTO events with breaker commands"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "cert_in_hash_match",
+      "display_name": "CERT-In hash match",
+      "category": "Compliance / Governance",
+      "primary_skill": "attack_discovery",
+      "default_spl_template": "cert_in_hash_match",
+      "intent_patterns": [
+        "cert-in",
+        "file hash",
+        "advisory"
+      ],
+      "example_queries": [
+        "Match downloads against CERT-In hash block list"
+      ],
+      "bindable": true,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "soc_environment_hygiene",
+      "display_name": "SOC environment hygiene",
+      "category": "Environment Knowledge / Metadata",
+      "primary_skill": "knowledge_recall",
+      "default_spl_template": null,
+      "intent_patterns": [
+        "environment hygiene",
+        "log generation formats",
+        "ingest latency indicators",
+        "storage pool",
+        "source discovery",
+        "active analytical tracking rules",
+        "operational node version",
+        "logging boundaries"
+      ],
+      "example_queries": [
+        "List the total distinct log generation formats transmitting operational updates along with immediate pipeline ingest latency indicators."
+      ],
+      "bindable": true,
+      "has_spl_template": false,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "sample_network_top_outbound_src",
+      "display_name": "Analytics anchor \u2014 network top-N outbound source connections (sample template binding)",
+      "category": "Network / Firewall",
+      "primary_skill": "spl_generation",
+      "default_spl_template": "sample_network_top_outbound_src_tstats",
+      "intent_patterns": [],
+      "example_queries": [],
+      "bindable": false,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "sample_dns_top_query_hosts",
+      "display_name": "Analytics anchor \u2014 DNS top-N query volume by host (sample template binding)",
+      "category": "Network / Firewall",
+      "primary_skill": "spl_generation",
+      "default_spl_template": "sample_dns_top_query_hosts_from_datamodel",
+      "intent_patterns": [],
+      "example_queries": [],
+      "bindable": false,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "sample_auth_failed_login_top_users",
+      "display_name": "Analytics anchor \u2014 auth failed-login top users by count (sample template binding)",
+      "category": "Authentication / Identity",
+      "primary_skill": "spl_generation",
+      "default_spl_template": "sample_auth_failed_login_top_users_tstats",
+      "intent_patterns": [],
+      "example_queries": [],
+      "bindable": false,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "sample_ioc_correlation_indicator_match",
+      "display_name": "Detection anchor \u2014 IOC indicator correlation (sample, matrix-only)",
+      "category": "Threat Intelligence / IOC",
+      "primary_skill": "spl_generation",
+      "default_spl_template": "sample_ioc_correlation_indicator_match",
+      "intent_patterns": [],
+      "example_queries": [],
+      "bindable": false,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "sample_threshold_anomaly_volume_spike",
+      "display_name": "Detection anchor \u2014 threshold / volume anomaly (sample, matrix-only)",
+      "category": "Analytics / Threshold",
+      "primary_skill": "spl_generation",
+      "default_spl_template": "sample_threshold_anomaly_volume_spike",
+      "intent_patterns": [],
+      "example_queries": [],
+      "bindable": false,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "sample_powershell_suspicious_execution",
+      "display_name": "Detection anchor \u2014 suspicious PowerShell / process execution (sample, matrix-only)",
+      "category": "Endpoint / EDR",
+      "primary_skill": "spl_generation",
+      "default_spl_template": "sample_powershell_suspicious_execution",
+      "intent_patterns": [],
+      "example_queries": [],
+      "bindable": false,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    },
+    {
+      "use_case_id": "sample_dlp_exfiltration_volume",
+      "display_name": "Detection anchor \u2014 DLP / data exfiltration volume (sample, matrix-only)",
+      "category": "Data Loss Prevention",
+      "primary_skill": "spl_generation",
+      "default_spl_template": "sample_dlp_exfiltration_volume",
+      "intent_patterns": [],
+      "example_queries": [],
+      "bindable": false,
+      "has_spl_template": true,
+      "binds_a_105_question": false
+    }
+  ],
+  "questions": [
+    {
+      "question_ref": "q0.q001",
+      "question": "What incident or alert network events are high or critical right now?",
+      "proposed_primary_skill": "notable_risk_lookup",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q002",
+      "question": "Which source IPs generated the most outbound connections?",
+      "proposed_primary_skill": "aggregate_and_rank",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q003",
+      "question": "Which destination IPs received the most connections?",
+      "proposed_primary_skill": "aggregate_and_rank",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q004",
+      "question": "Which hosts contacted known malicious IPs today?",
+      "proposed_primary_skill": "lookup_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q005",
+      "question": "Which hosts contacted suspicious external domains?",
+      "proposed_primary_skill": "lookup_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q006",
+      "question": "Which DNS queries have unusually long names?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q007",
+      "question": "Which DNS queries look like DGA activity?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q008",
+      "question": "Which hosts show possible beaconing behavior?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": "dns_beaconing_candidate",
+      "bind_matched_patterns": [
+        "beaconing"
+      ],
+      "bind_coverage_score": 0.5853
+    },
+    {
+      "question_ref": "q0.q009",
+      "question": "Which hosts communicated with many unique external IPs?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q010",
+      "question": "Which hosts are generating the most SMB traffic?",
+      "proposed_primary_skill": "aggregate_and_rank",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q011",
+      "question": "Which hosts made SMB connections to many peers?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q012",
+      "question": "Which systems used unusual destination ports?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q013",
+      "question": "Which systems generated large outbound data transfers?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q014",
+      "question": "Which hosts showed potential data exfiltration to cloud apps?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q015",
+      "question": "Which hosts have repeated connections to rare destinations?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": "net_repeated_critical_asset_connections",
+      "bind_matched_patterns": [
+        "repeated connection"
+      ],
+      "bind_coverage_score": 0.7802
+    },
+    {
+      "question_ref": "q0.q016",
+      "question": "Which hosts contacted the same external IP many times?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q017",
+      "question": "Which hosts generated the most DNS queries?",
+      "proposed_primary_skill": "aggregate_and_rank",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q018",
+      "question": "Which domains were queried by multiple hosts?",
+      "proposed_primary_skill": "aggregate_and_rank",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q019",
+      "question": "Which hosts queried domains with suspicious subdomains?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q020",
+      "question": "Which networks saw traffic to high-risk ports?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q021",
+      "question": "Which hosts communicated with foreign IP ranges?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q022",
+      "question": "Which hosts contacted IPs in an IOC lookup?",
+      "proposed_primary_skill": "lookup_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q023",
+      "question": "Which hosts showed possible command-and-control beaconing?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": "dns_beaconing_candidate",
+      "bind_matched_patterns": [
+        "beaconing"
+      ],
+      "bind_coverage_score": 0.5853
+    },
+    {
+      "question_ref": "q0.q024",
+      "question": "Which internal hosts generated outbound traffic after DNS lookups?",
+      "proposed_primary_skill": "multi_signal_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q025",
+      "question": "Which hosts used unusual protocols?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q026",
+      "question": "Which hosts have unusually high connection counts to one destination?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q027",
+      "question": "Which DNS queries resolved to suspicious top-level domains?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q028",
+      "question": "Which hosts showed peer-to-peer style communication?",
+      "proposed_primary_skill": null,
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q029",
+      "question": "Which systems accessed the internet through rare ports?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q030",
+      "question": "Which hosts contacted external IPs after hours?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q031",
+      "question": "Which hosts repeatedly contacted the same destination at regular intervals?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q032",
+      "question": "Which hosts had both DNS and network anomalies?",
+      "proposed_primary_skill": "multi_signal_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q033",
+      "question": "Which hosts communicated with suspicious destination domains and IPs?",
+      "proposed_primary_skill": "lookup_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q034",
+      "question": "Which destination IPs were contacted by many hosts?",
+      "proposed_primary_skill": "aggregate_and_rank",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q035",
+      "question": "Which hosts generated the largest DNS response volumes?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q036",
+      "question": "Which hosts reached known malicious domains from lookup data?",
+      "proposed_primary_skill": "lookup_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q037",
+      "question": "Which hosts showed likely proxy or tunneling behavior?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q038",
+      "question": "Which hosts had large inbound traffic from a single source?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q039",
+      "question": "Which hosts downloaded large volumes from the internet?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q040",
+      "question": "Which hosts initiated traffic to rare countries?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q041",
+      "question": "Which systems have repeated hits to the same suspicious URL path?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q042",
+      "question": "Which hosts contacted both malicious IPs and domains?",
+      "proposed_primary_skill": "lookup_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q043",
+      "question": "Which hosts show consistent low-volume outbound connections?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q044",
+      "question": "Which rules are generating the most alerts?",
+      "proposed_primary_skill": "aggregate_and_rank",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q045",
+      "question": "What happened for this specific notable event?",
+      "proposed_primary_skill": "notable_risk_lookup",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q046",
+      "question": "Which users have excessive failed logins?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": "auth_failed_login_spike",
+      "bind_matched_patterns": [
+        "failed login",
+        "failed logins"
+      ],
+      "bind_coverage_score": 1.6013
+    },
+    {
+      "question_ref": "q0.q047",
+      "question": "Is one IP attacking many accounts?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q048",
+      "question": "Did a user log in from impossible locations?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q049",
+      "question": "Which hosts ran suspicious PowerShell?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": "edr_powershell_suspicious_command",
+      "bind_matched_patterns": [
+        "suspicious powershell"
+      ],
+      "bind_coverage_score": 1.152
+    },
+    {
+      "question_ref": "q0.q050",
+      "question": "Did Office apps spawn cmd or PowerShell?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q051",
+      "question": "What unusual processes ran on critical servers?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q052",
+      "question": "Did any host contact known malicious IPs?",
+      "proposed_primary_skill": "lookup_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q053",
+      "question": "Are there suspicious DNS queries indicating C2 or DGA behavior?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q054",
+      "question": "Who is sending large amounts of data outbound?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q055",
+      "question": "Did anyone get added to Administrators?",
+      "proposed_primary_skill": "entity_context_lookup",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q056",
+      "question": "Which users are logging in outside normal hours?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q057",
+      "question": "Did any endpoint run this suspicious hash?",
+      "proposed_primary_skill": "lookup_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q058",
+      "question": "Which users or hosts have the highest risk scores?",
+      "proposed_primary_skill": "notable_risk_lookup",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q059",
+      "question": "Which source IPs generated the most authentication failures today?",
+      "proposed_primary_skill": "aggregate_and_rank",
+      "binds_use_case_id": "auth_failed_login_spike",
+      "bind_matched_patterns": [
+        "failure",
+        "failures"
+      ],
+      "bind_coverage_score": 0.6328
+    },
+    {
+      "question_ref": "q0.q060",
+      "question": "Which accounts had a successful login after repeated failures?",
+      "proposed_primary_skill": "sequence_detection",
+      "binds_use_case_id": "auth_success_after_failure",
+      "bind_matched_patterns": [
+        "successful login after",
+        "after repeated failures",
+        "after repeated failure"
+      ],
+      "bind_coverage_score": 2.829
+    },
+    {
+      "question_ref": "q0.q061",
+      "question": "Which users logged in from new countries today?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q062",
+      "question": "Which hosts show a spike in failed logins?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": "auth_failed_login_spike",
+      "bind_matched_patterns": [
+        "failed login",
+        "failed logins"
+      ],
+      "bind_coverage_score": 1.201
+    },
+    {
+      "question_ref": "q0.q063",
+      "question": "Which endpoints spawned script interpreters recently?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q064",
+      "question": "Which hosts executed encoded PowerShell commands?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q065",
+      "question": "Which endpoints created new scheduled tasks?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": "edr_scheduled_task_creation",
+      "bind_matched_patterns": [
+        "scheduled task"
+      ],
+      "bind_coverage_score": 1.1705
+    },
+    {
+      "question_ref": "q0.q066",
+      "question": "Which systems contacted rare external destinations?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q067",
+      "question": "Which hosts are generating unusual DNS query volumes?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": "dns_unusual_query_volume",
+      "bind_matched_patterns": [
+        "dns query volume",
+        "unusual dns",
+        "Unusual DNS query volume"
+      ],
+      "bind_coverage_score": 3.1416
+    },
+    {
+      "question_ref": "q0.q068",
+      "question": "Which internal hosts contacted known command-and-control domains?",
+      "proposed_primary_skill": "lookup_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q069",
+      "question": "Which users accessed privileged applications unusually?",
+      "proposed_primary_skill": "entity_context_lookup",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q070",
+      "question": "Which users changed their password multiple times in a short window?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q071",
+      "question": "Which accounts were disabled or re-enabled today?",
+      "proposed_primary_skill": "entity_context_lookup",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q072",
+      "question": "Which hosts show signs of lateral movement?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": "edr_lateral_movement_candidate",
+      "bind_matched_patterns": [
+        "lateral movement"
+      ],
+      "bind_coverage_score": 1.0033
+    },
+    {
+      "question_ref": "q0.q073",
+      "question": "Which systems had multiple remote service creations?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q074",
+      "question": "Which hosts show SMB connections to many peers?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q075",
+      "question": "Which endpoints created suspicious archive files?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q076",
+      "question": "Which hosts uploaded large amounts of data to cloud services?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q077",
+      "question": "Which endpoints accessed USB storage recently?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q078",
+      "question": "Which systems had repeated malware detections?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q079",
+      "question": "Which files were modified by suspicious processes?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": "edr_suspicious_process",
+      "bind_matched_patterns": [
+        "suspicious process"
+      ],
+      "bind_coverage_score": 0.8229
+    },
+    {
+      "question_ref": "q0.q080",
+      "question": "Which hosts spawned shells from email clients?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q081",
+      "question": "Which users received and opened phishing attachments?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q082",
+      "question": "Which domains were queried by multiple hosts in a short period?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q083",
+      "question": "Which hosts have suspicious parent-child process chains?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q084",
+      "question": "Which accounts have the most risk events?",
+      "proposed_primary_skill": "notable_risk_lookup",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q085",
+      "question": "Which assets have accumulated risk from multiple detections?",
+      "proposed_primary_skill": "notable_risk_lookup",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q086",
+      "question": "Which users were involved in both failed logins and privilege changes?",
+      "proposed_primary_skill": "multi_signal_correlation",
+      "binds_use_case_id": "auth_failed_login_spike",
+      "bind_matched_patterns": [
+        "failed login",
+        "failed logins"
+      ],
+      "bind_coverage_score": 0.8734
+    },
+    {
+      "question_ref": "q0.q087",
+      "question": "Which hosts are communicating with unusual ports externally?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q088",
+      "question": "Which endpoints have multiple persistence indicators?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q089",
+      "question": "Which users authenticated to VPN after repeated MFA failures?",
+      "proposed_primary_skill": "sequence_detection",
+      "binds_use_case_id": "auth_failed_login_spike",
+      "bind_matched_patterns": [
+        "failure",
+        "failures"
+      ],
+      "bind_coverage_score": 0.6328
+    },
+    {
+      "question_ref": "q0.q090",
+      "question": "Which assets are generating the most notable events?",
+      "proposed_primary_skill": "notable_risk_lookup",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q091",
+      "question": "Which alerts are still open and unresolved?",
+      "proposed_primary_skill": "notable_risk_lookup",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q092",
+      "question": "Which users had access to sensitive systems and then large outbound transfers?",
+      "proposed_primary_skill": "multi_signal_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q093",
+      "question": "Which hosts showed both process execution and suspicious DNS within 24 hours?",
+      "proposed_primary_skill": "multi_signal_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q094",
+      "question": "Which logs are missing from key security sources?",
+      "proposed_primary_skill": "metadata_discovery",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q095",
+      "question": "Which sources stopped sending events recently?",
+      "proposed_primary_skill": "metadata_discovery",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q096",
+      "question": "Which users performed privileged actions from non-admin workstations?",
+      "proposed_primary_skill": "entity_context_lookup",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q097",
+      "question": "Which systems show signs of webshell activity?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q098",
+      "question": "Which hosts downloaded executables from the internet?",
+      "proposed_primary_skill": "behavioral_detection_binding",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q099",
+      "question": "Which detections involved the same user and host repeatedly?",
+      "proposed_primary_skill": "multi_signal_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q100",
+      "question": "Which users triggered multiple different detections?",
+      "proposed_primary_skill": "multi_signal_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q101",
+      "question": "Which devices are generating the most endpoint alerts?",
+      "proposed_primary_skill": "aggregate_and_rank",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q102",
+      "question": "Which users are accessing resources from unusual hosts?",
+      "proposed_primary_skill": "threshold_anomaly",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q103",
+      "question": "For any flagged host or user, what is its asset criticality, business owner, and identity/privilege status?",
+      "proposed_primary_skill": "entity_context_lookup",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q104",
+      "question": "What is the full activity timeline for a given entity in the N hours before and after a detection?",
+      "proposed_primary_skill": "multi_signal_correlation",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    },
+    {
+      "question_ref": "q0.q105",
+      "question": "Has this entity, IP, domain, or notable been seen or investigated before, and what was the prior disposition?",
+      "proposed_primary_skill": "notable_risk_lookup",
+      "binds_use_case_id": null,
+      "bind_matched_patterns": [],
+      "bind_coverage_score": null
+    }
+  ]
+}

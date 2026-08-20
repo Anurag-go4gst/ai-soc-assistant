@@ -11,6 +11,10 @@ from fastapi.responses import Response
 from app.auth.session import require_auth
 from app.config import settings
 from app.coverage.question_runtime_map import list_question_runtime_entries, load_question_runtime_map
+from app.knowledge.mapping_exports import (
+    build_catalogue_question_index,
+    catalogue_question_index_csv_rows,
+)
 from app.knowledge.import_prompt import build_extraction_prompt
 from app.knowledge.soc_kb_intake_template import build_soc_kb_intake_template, soc_kb_intake_contract
 from app.knowledge.repository import get_knowledge_repository
@@ -229,6 +233,14 @@ def export_mapping_artifact(
         }
         csv_rows = [use_case_catalog_csv_row(row) for row in rows]
         filename = f"ai_soc_use_case_catalog.{file_format}"
+    elif normalized in {"catalogue_question_index", "catalogue_index", "catalogue_questions"}:
+        # Linked view: which use case serves which question, which entries are
+        # unbindable, and which can win a bind but carry no SPL template. That
+        # last flag matters — 32 of 58 bindable use cases have no template, so a
+        # bind can succeed and still leave the answer without a governed SPL.
+        payload = build_catalogue_question_index()
+        csv_rows = catalogue_question_index_csv_rows(payload)
+        filename = f"ai_soc_catalogue_question_index.{file_format}"
     elif normalized in {"soc_capability_crosswalk", "capability_crosswalk", "crosswalk"}:
         payload = build_soc_capability_crosswalk_export_payload()
         csv_rows = soc_capability_crosswalk_csv_rows()

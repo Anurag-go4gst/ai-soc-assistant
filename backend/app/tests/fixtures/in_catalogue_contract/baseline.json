@@ -3219,26 +3219,23 @@
     "cisco50:cisco.perim.001": {
       "analyst_enabled_sections": [
         "analyst_action_guidance",
-        "severity_assessment",
-        "spl_artifact"
+        "draft_spl_preview"
       ],
       "answer_shape": "hunt",
       "contract_answer_mode": "live_investigation",
       "enabled_sections": [
-        "analyst_action_guidance",
-        "severity_assessment",
-        "spl_artifact"
+        "analyst_action_guidance"
       ],
       "execution_eligible": false,
       "execution_status": "requires_human_review",
       "human_review_required": true,
       "mapped_question_ref": "cisco.perim.001",
-      "match_path": "exact_105_plus_use_case_catalog",
+      "match_path": "exact_105_question",
       "mitre_answer_visible": false,
       "mitre_technique_ids": [],
       "route": "spl_generation",
       "severity_label": "Not assigned from this question alone",
-      "spl_approved": true
+      "spl_approved": false
     },
     "cisco50:cisco.perim.002": {
       "analyst_enabled_sections": [

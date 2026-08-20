@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import json
 from functools import lru_cache
 from pathlib import Path
@@ -26,6 +28,24 @@ def get_use_case(use_case_id: str) -> UseCaseDefinition | None:
 # before item 3 chooses a threshold from data instead of intuition.
 import math as _math
 from collections import Counter as _Counter
+
+
+def _pattern_present(normalized_query: str, pattern: str) -> bool:
+    """Containment, but the pattern must START at a word boundary.
+
+    Plain `in` let 'locked' match inside 'blocked', binding
+    auth_account_lockout_trend to "show any blocked connection attempts" — two
+    unrelated concepts joined by a substring accident.
+
+    Only the LEADING edge is anchored. The trailing edge stays free on purpose:
+    across the truth set and the 105 catalogue questions, every other mid-word
+    hit was plural morphology that should keep matching — 'scheduled task' in
+    "scheduled tasks", 'mfa failure' in "mfa failures", 'suspicious process' in
+    "suspicious processes". Anchoring both edges would have removed 10 good
+    matches to fix 1 bad one; anchoring the leading edge removes exactly the
+    bad one, measured.
+    """
+    return re.search(r"(?<![a-z0-9])" + re.escape(pattern), normalized_query) is not None
 
 
 def _catalogue_document_frequency() -> _Counter:
@@ -71,7 +91,8 @@ def match_use_cases(query: str, *, limit: int = 3) -> list[UseCaseSelection]:
         matched = [
             pattern
             for pattern in _expanded_match_terms(use_case)
-            if pattern.lower() in normalized and not term_is_negated(normalized, pattern.lower())
+            if _pattern_present(normalized, pattern.lower())
+            and not term_is_negated(normalized, pattern.lower())
         ]
         # "advisory" alone is not evidence of a CERT-In hash/IOC match.  It
         # falsely captured generic threat-intelligence advisories and bypassed

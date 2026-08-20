@@ -36,6 +36,7 @@ import { ARCHITECTURE_QUERY_FLOW_DOC_HREF } from '@/lib/architectureDoc';
 const EXPORT_FILENAMES: Record<KnowledgeExportArtifact, string> = {
   question_runtime_map: 'ai_soc_question_runtime_map_105',
   use_case_catalog: 'ai_soc_use_case_catalog',
+  catalogue_question_index: 'ai_soc_catalogue_question_index',
   soc_capability_crosswalk: 'ai_soc_soc_capability_crosswalk',
   skill_coverage_matrix: 'ai_soc_skill_coverage_matrix_105',
   github_skill_discovery_index: 'ai_soc_github_skill_discovery_index',
@@ -174,7 +175,11 @@ export function KnowledgePage() {
   const githubSkillRows = mappingSummary?.row_counts.github_skill_rows ?? 12;
   const questionRows = mappingSummary?.row_counts.question_rows ?? 105;
   const useCaseRows = mappingSummary?.row_counts.use_case_rows ?? 49;
-  const catalogUseCases = mappingSummary?.row_counts.catalog_use_cases ?? 46;
+  // No numeric fallback: this read `?? 46` while the catalogue held 65, so the
+  // page confidently displayed a stale count whenever the summary was absent.
+  // The same 46 literal was also asserted in a test. Show nothing rather than a
+  // wrong number.
+  const catalogUseCases = mappingSummary?.row_counts.catalog_use_cases ?? null;
   const liveRouteSkills = mappingSummary?.live_route_skills ?? [];
   const allowedExecutionSkills = mappingSummary?.allowed_live_execution_skills ?? [];
 
@@ -214,7 +219,9 @@ export function KnowledgePage() {
               <div className="flex flex-wrap gap-2">
                 <Badge variant="outline">{questionRows} questions</Badge>
                 <Badge variant="outline">{useCaseRows} crosswalk use-case rows</Badge>
-                <Badge variant="outline">{catalogUseCases} catalog use cases</Badge>
+                <Badge variant="outline">
+                  {catalogUseCases === null ? 'catalog use cases —' : `${catalogUseCases} catalog use cases`}
+                </Badge>
                 <Badge variant="outline">{githubSkillRows} GitHub skill rows</Badge>
                 <Badge variant="outline">{mappingSummary.questions_with_use_case_id} questions with curated use-case id</Badge>
               </div>
@@ -374,6 +381,13 @@ export function KnowledgePage() {
                 description="Catalog rows joined with content_enrichment metadata: domain, GitHub refs, evidence, workflow, SPL status, and preserved mitre_registry."
                 onJson={() => downloadExport('use_case_catalog', 'json')}
                 onCsv={() => downloadExport('use_case_catalog', 'csv')}
+              />
+              <ExportBlock
+                title="Catalogue ↔ question index"
+                description="Which use case serves which of the 105 questions, plus two flags an operator can act on: entries that cannot bind at all (sample_* template bindings), and entries that CAN win a bind but carry no SPL template — a bind that succeeds and still leaves the answer without a governed query."
+                badge="reference"
+                onJson={() => downloadExport('catalogue_question_index', 'json')}
+                onCsv={() => downloadExport('catalogue_question_index', 'csv')}
               />
               <ExportBlock
                 title="GitHub Skill Discovery Index"
@@ -653,7 +667,7 @@ function ExportBlock({
 }: {
   title: string;
   description: string;
-  badge?: 'recommended' | 'factory';
+  badge?: 'recommended' | 'factory' | 'reference';
   jsonOnly?: boolean;
   onJson: () => void;
   onCsv?: () => void;

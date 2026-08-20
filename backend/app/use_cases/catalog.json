@@ -535,8 +535,7 @@
       "intent_patterns": [
         "lockout",
         "lockouts",
-        "account_locked",
-        "locked"
+        "account_locked"
       ],
       "example_queries": [
         "Show account lockouts over time"
