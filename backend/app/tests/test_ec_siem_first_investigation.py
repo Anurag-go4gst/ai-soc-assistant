@@ -52,26 +52,38 @@ def test_s2_gap_spl_passes_validator_and_candidate_not_equal_normalized_executio
 
 def test_s2_reuse_first_partial_coverage_gap_search_only() -> None:
     envelope = run_experience_center_turn(S2_SCENARIO_ID, session_id="s2-siem-reuse").model_dump()
-    coverage = envelope["ec_siem_coverage"]
-    assert coverage["coverage_status"] == "PARTIAL"
-    existing = coverage["existing_content"][0]
-    assert existing["reused"] is True
-    assert existing["coverage"] == "PARTIAL"
-    assert coverage["generated_searches"][0]["candidate_created"] is True
-    assert coverage["generated_searches"][0]["normalized"] is True
-    # detection replay should appear in source evidence before gap query
+    coverage = build_s2_siem_coverage(dlp_obtained=False)
+    assert coverage.coverage_status == "PARTIAL"
+    existing = coverage.existing_content[0]
+    assert existing.reused is True
+    assert existing.coverage == "PARTIAL"
+    assert coverage.generated_searches[0].candidate_created is True
+    assert coverage.generated_searches[0].normalized is True
     evidence_ids = [item["evidence_id"] for item in envelope["source_evidence"]]
     assert "ev-s2-detection" in evidence_ids
     assert evidence_ids.index("ev-s2-detection") < evidence_ids.index("ev-s2-tool")
+    note = str(envelope["candidate_spl"]["note"]).lower()
+    assert "reused" in note or "gap" in note
 
 
 def test_detection_existence_does_not_confirm_breach() -> None:
+    from app.demo.ec_siem import build_s2_attack_chain
+
     envelope = run_experience_center_turn(S2_SCENARIO_ID, session_id="s2-siem-breach").model_dump()
     outcome = envelope["ec_investigation_outcome"]
     assert "Restricted customer-data access" in outcome["unconfirmed"]
     assessment = envelope["analyst"]["assessment"].lower()
-    assert "breach not confirmed" in assessment
-    assert envelope["ec_attack_chain"][-1]["status"] == "not_confirmed"
+    assert "confirmed breach" not in assessment
+    assert envelope["ec_agent_lifecycle"] == "PLAN_READY"
+    assert build_s2_attack_chain()[-1].status == "not_confirmed"
+    after = run_experience_center_turn(
+        S2_SCENARIO_ID,
+        session_id="s2-siem-breach",
+        follow_up_id="run_investigation",
+    ).model_dump()
+    headline = (after["ec_agent_workflow"]["investigation_conclusion"] or {}).get("headline", "").lower()
+    assert "not confirmed" in headline
+    assert "blocked" in headline
 
 
 def test_ec_projection_has_no_saia_tools() -> None:
@@ -91,8 +103,8 @@ def test_layer2_shows_verified_mcp_tools_only() -> None:
 
 
 def test_s2_siem_coverage_card_fields_visitor_readable() -> None:
-    envelope = run_experience_center_turn(S2_SCENARIO_ID, session_id="s2-siem-card").model_dump()
-    rows = envelope["ec_siem_coverage"]["coverage_rows"]
+    coverage = build_s2_siem_coverage(dlp_obtained=False)
+    rows = [row.model_dump() for row in coverage.coverage_rows]
     assert rows[0]["investigation_need"] == "Prompt injection"
     assert rows[0]["decision"] == "Reused"
     blob = json.dumps(rows).lower()
@@ -134,12 +146,21 @@ def test_s1_reuse_first_gap_searches_only_after_existing_content() -> None:
 
 def test_s1_assessment_does_not_claim_all_communication_paths() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-scope-lang").model_dump()
-    blob = envelope["analyst"]["assessment"].lower()
-    assert "firewall-observed" in blob or "firewall telemetry" in blob
-    assert "dns, proxy, vpn" in blob or "dns/proxy/vpn" in blob
-    assert "not confirmed" in blob
+    assert envelope["ec_agent_lifecycle"] == "PLAN_READY"
     unconfirmed = " ".join(envelope["ec_investigation_outcome"]["unconfirmed"]).lower()
     assert "all communication" in unconfirmed or "dns / proxy / vpn" in unconfirmed
+    after = run_experience_center_turn(
+        S1_SCENARIO_ID,
+        session_id="s1-scope-lang",
+        follow_up_id="run_investigation",
+    ).model_dump()
+    points = " ".join(
+        (after["ec_agent_workflow"].get("investigation_conclusion") or {}).get("narrative_points") or []
+    ).lower()
+    assert "firewall" in points
+    assert "not confirmed" in (
+        (after["ec_agent_workflow"].get("investigation_conclusion") or {}).get("headline") or ""
+    ).lower()
 
 
 def test_s1_jump_host_pivot_and_scope_cards() -> None:

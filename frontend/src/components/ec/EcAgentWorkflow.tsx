@@ -1,23 +1,58 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Clock } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import type { EcAgentPlanStep, EcAgentWorkflowPayload } from '@/components/ec/types';
 import type { ExperienceExecutionProgressView } from '@/lib/experienceCenterExecution';
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { EcInvestigationResultList, EcInvestigationSummaryStrip } from '@/components/ec/EcInvestigationResultList';
 import { EcSectionHeading } from '@/components/ec/EcSectionHeading';
-import { useRemediationStepAnimation } from '@/components/ec/useRemediationStepAnimation';
+import { scrollIntoScrollParent } from '@/lib/scrollIntoScrollParent';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 function statusBadgeClass(status: string): string {
   const token = status.toUpperCase();
-  if (token === 'COMPLETE' || token === 'VERIFIED' || token === 'APPLIED') {
+  if (token === 'COMPLETE' || token === 'VERIFIED' || token === 'APPLIED' || token === 'CREATED' || token === 'SENT' || token === 'DEPLOYED' || token === 'ACTIVE') {
     return 'border-emerald-500/40 text-emerald-100';
   }
+  if (token === 'NOT_REQUIRED') return 'border-slate-600 text-slate-300';
   if (token === 'RUNNING') return 'border-cyan-500/40 text-cyan-100';
   if (token === 'FAILED' || token === 'BLOCKED') return 'border-rose-500/40 text-rose-100';
   return 'border-slate-600 text-slate-300';
+}
+
+function splitLabeledPoint(point: string): { label: string | null; body: string } {
+  const match = point.trim().match(/^([A-Za-z][A-Za-z0-9 /&-]{1,40}):\s+([\s\S]+)$/);
+  if (!match) return { label: null, body: point.trim() };
+  return { label: match[1], body: match[2].trim() };
+}
+
+function ConclusionPoints({ points }: { points: string[] }) {
+  const items = points.filter((point) => point.trim());
+  if (!items.length) return null;
+  return (
+    <ol className="mt-3 space-y-2" data-ec-section="conclusion-points">
+      {items.map((point, index) => {
+        const { label, body } = splitLabeledPoint(point);
+        return (
+          <li
+            key={`${index}-${point.slice(0, 48)}`}
+            className="flex gap-3 rounded-md border border-slate-800/80 bg-slate-950/45 px-3 py-2.5"
+          >
+            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/15 text-xs font-semibold text-cyan-100">
+              {index + 1}
+            </span>
+            <div className="min-w-0 space-y-1">
+              {label ? (
+                <p className="text-sm font-semibold tracking-wide text-cyan-100">{label}</p>
+              ) : null}
+              <p className="text-sm leading-relaxed text-slate-300">{body}</p>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
 function ConnectionTrace({
@@ -27,13 +62,15 @@ function ConnectionTrace({
   connector?: string;
   steps: Array<{ label: string; status: string }>;
 }) {
+  const visible = steps.filter((step) => step.label?.trim());
+  if (!visible.length) return null;
   return (
     <div className="mt-4 rounded-lg border border-slate-800/80 bg-slate-950/50 p-3">
       {connector ? (
         <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300/90">{connector}</p>
       ) : null}
       <ol className="mt-2 space-y-2">
-        {steps.map((step) => {
+        {visible.map((step) => {
           const status = step.status.toLowerCase();
           const dotClass =
             status === 'complete'
@@ -179,7 +216,6 @@ export function EcAgentWorkflow({
   const [invSelected, setInvSelected] = useState<Set<string>>(() => new Set(defaultInvSelected));
   const [remSelected, setRemSelected] = useState<Set<string>>(() => new Set(defaultRemSelected));
   const [editingInv, setEditingInv] = useState(false);
-  const autoRemediationKeyRef = useRef<string | null>(null);
 
   const remPlanStepIds = useMemo(
     () =>
@@ -189,51 +225,47 @@ export function EcAgentWorkflow({
     [remSteps, workflow.remediation_results?.steps],
   );
 
-  const planAnimationActive =
-    workflow.lifecycle === 'REMEDIATION_PLAN_READY' && Boolean(workflow.remediation_results?.steps?.length);
-  const { phase: planAnimPhase, statusByStepId: planStatusOverrides } = useRemediationStepAnimation(
-    remPlanStepIds,
-    planAnimationActive,
-    { terminalStatus: 'VALIDATED' },
-  );
+  useEffect(() => {
+    if (workflow.lifecycle !== 'REMEDIATION_PLAN_READY') return;
+    const ids = defaultRemSelected.length ? defaultRemSelected : remPlanStepIds;
+    if (!ids.length) return;
+    setRemSelected((current) => (current.size ? current : new Set(ids)));
+  }, [defaultRemSelected, remPlanStepIds, workflow.lifecycle]);
+
+  const remExecuting =
+    Boolean(executionProgress) ||
+    workflow.lifecycle === 'REMEDIATING' ||
+    workflow.lifecycle === 'VERIFYING';
+  const remPlanReview = workflow.lifecycle === 'REMEDIATION_PLAN_READY' && !remExecuting;
+  const remComplete = workflow.lifecycle === 'COMPLETE' || workflow.lifecycle === 'PARTIAL';
 
   useEffect(() => {
-    if (planAnimPhase !== 'done') return;
-    if (workflow.lifecycle !== 'REMEDIATION_PLAN_READY') return;
-    if (busy) return;
-    const autoKey = `${sessionId ?? 'session'}:remediation-plan-validated`;
-    if (autoRemediationKeyRef.current === autoKey) return;
-    autoRemediationKeyRef.current = autoKey;
-    onRunRemediation([...remSelected]);
-  }, [busy, onRunRemediation, planAnimPhase, remSelected, sessionId, workflow.lifecycle]);
+    if (
+      !['REMEDIATION_PLAN_READY', 'REMEDIATING', 'VERIFYING', 'COMPLETE'].includes(workflow.lifecycle)
+    ) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      const panel = document.querySelector('[data-ec-section="recommended-remediation"]');
+      scrollIntoScrollParent(panel instanceof HTMLElement ? panel : null, {
+        block: 'start',
+        behavior: 'smooth',
+      });
+    }, 60);
+    return () => window.clearTimeout(timer);
+  }, [workflow.lifecycle]);
 
-  const remQueueBanner =
-    planAnimPhase === 'queued' || planAnimPhase === 'completing' ? (
-      <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-sm text-amber-50">
-        <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
-        <div>
-          <p className="font-medium">Validating remediation plan</p>
-          <p className="mt-1 text-amber-100/85">
-            We are checking each action against policy and connector readiness. You do not need to stay on this page —
-            we will notify you when validation finishes and orchestration begins.
-          </p>
-        </div>
+  const remPlanReviewBanner = remPlanReview ? (
+    <div className="flex items-start gap-2 rounded-lg border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-50">
+      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" aria-hidden="true" />
+      <div>
+        <p className="font-medium">Review remediation plan</p>
+        <p className="mt-1 text-cyan-100/85">
+          Expand each step to review SPL, tickets, and email drafts. Nothing runs until you approve.
+        </p>
       </div>
-    ) : null;
-
-  const planValidatedBanner =
-    planAnimPhase === 'done' && workflow.lifecycle === 'REMEDIATION_PLAN_READY' ? (
-      <div className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-sm text-emerald-50">
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
-        <div>
-          <p className="font-medium">Remediation plan validated</p>
-          <p className="mt-1 text-emerald-100/85">
-            All selected actions passed validation. Orchestration is starting — use Email or Ticket on each step when
-            actions are ready.
-          </p>
-        </div>
-      </div>
-    ) : null;
+    </div>
+  ) : null;
   const artifactContext = {
     scenarioId,
     sessionId,
@@ -249,6 +281,15 @@ export function EcAgentWorkflow({
   const progressSteps =
     workflow.execution_progress?.steps ??
     (workflow.execution_progress?.phase === 'investigation' ? invSteps : remSteps);
+  const remScopedProgress = Boolean(executionProgress && remExecuting);
+  const progressPanel = executionProgress ? (
+    <section
+      className="rounded-lg border border-cyan-500/25 bg-cyan-950/15 p-4"
+      data-ec-section="agent-execution-progress"
+    >
+      <ExperienceExecutionProgressPanel state={executionProgress} />
+    </section>
+  ) : null;
 
   return (
     <div className="w-full max-w-none space-y-6" data-ec-section="agent-workflow">
@@ -346,14 +387,7 @@ export function EcAgentWorkflow({
         </section>
       ) : null}
 
-      {executionProgress ? (
-        <section
-          className="rounded-lg border border-cyan-500/25 bg-cyan-950/15 p-4"
-          data-ec-section="agent-execution-progress"
-        >
-          <ExperienceExecutionProgressPanel state={executionProgress} />
-        </section>
-      ) : null}
+      {executionProgress && !remScopedProgress ? progressPanel : null}
 
       {workflow.hil_prompt && isPlanTurn ? (
         <section className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-4" data-ec-section="agent-hil">
@@ -408,73 +442,21 @@ export function EcAgentWorkflow({
               {workflow.investigation_conclusion.headline}
             </p>
           ) : null}
-          {workflow.investigation_conclusion.narrative_points?.length ? (
-            <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-slate-300">
-              {workflow.investigation_conclusion.narrative_points.map((point) => (
-                <li key={point} className="flex gap-2">
-                  <span className="text-slate-500">·</span>
-                  <span>{point}</span>
-                </li>
-              ))}
-            </ul>
+          {workflow.investigation_conclusion.narrative_points?.filter((point) => point.trim()).length ? (
+            <ConclusionPoints points={workflow.investigation_conclusion.narrative_points} />
           ) : workflow.investigation_conclusion.narrative ? (
-            <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-slate-300">
-              {workflow.investigation_conclusion.narrative
+            <ConclusionPoints
+              points={workflow.investigation_conclusion.narrative
                 .split(/(?<=[.!?])\s+/)
-                .filter(Boolean)
-                .map((point) => (
-                  <li key={point} className="flex gap-2">
-                    <span className="text-slate-500">·</span>
-                    <span>{point}</span>
-                  </li>
-                ))}
-            </ul>
+                .filter((point) => point.trim())}
+            />
           ) : null}
         </section>
       ) : null}
 
-      {isInvestigationCompleteTurn && workflow.next_step_cta && !showRemediationPlan ? (
-        <section className="flex flex-wrap gap-2" data-ec-section="investigation-next-step">
-          <Button
-            type="button"
-            disabled={busy}
-            className="bg-cyan-600 hover:bg-cyan-600/90"
-            onClick={() => onCreateRemediationPlan?.()}
-          >
-            {workflow.next_step_cta.label ?? 'Continue to remediation plan'}
-          </Button>
-        </section>
-      ) : null}
+      {isInvestigationCompleteTurn && remScopedProgress ? progressPanel : null}
 
-      {!isPlanTurn && workflow.unconfirmed?.length ? (
-        <section className="rounded-lg border border-amber-500/20 bg-amber-950/10 p-4" data-ec-section="outstanding-uncertainty">
-          <EcSectionHeading>Still unresolved</EcSectionHeading>
-          <ul className="mt-2 space-y-1.5 text-sm text-slate-200">
-            {workflow.unconfirmed.map((item) => (
-              <li key={item} className="flex gap-2 leading-relaxed">
-                <span className="text-amber-400/80">·</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {!isPlanTurn && workflow.missing_evidence?.length ? (
-        <section className="rounded-lg border border-slate-800/80 bg-slate-900/35 p-4">
-          <EcSectionHeading>Optional evidence not collected</EcSectionHeading>
-          <ul className="mt-2 space-y-1.5 text-sm text-slate-300">
-            {workflow.missing_evidence.map((item) => (
-              <li key={item} className="flex gap-2">
-                <span className="text-slate-500">·</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {!isPlanTurn && workflow.executive_summary?.length ? (
+      {!isPlanTurn && workflow.executive_summary?.length && workflow.lifecycle !== 'COMPLETE' ? (
         <section
           className="rounded-lg border border-cyan-500/20 bg-cyan-950/20 p-4"
           data-ec-section="executive-summary"
@@ -496,44 +478,108 @@ export function EcAgentWorkflow({
         </section>
       ) : null}
 
+      {isInvestigationCompleteTurn && workflow.remediation_offer && !showRemediationPlan ? (
+        <section
+          className="space-y-3 rounded-lg border border-cyan-500/25 bg-cyan-950/15 px-4 py-3"
+          data-ec-section="remediation-offer"
+        >
+          <p className="text-sm font-semibold text-slate-50">
+            {workflow.remediation_offer.title ?? 'Continue to remediation plan?'}
+          </p>
+          {workflow.remediation_offer.body ? (
+            <p className="text-sm leading-relaxed text-slate-300">{workflow.remediation_offer.body}</p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              disabled={busy}
+              className="bg-cyan-600 hover:bg-cyan-600/90"
+              onClick={() => onCreateRemediationPlan?.()}
+            >
+              {workflow.remediation_offer.yes_label ?? 'Yes, create remediation plan'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => onDeclineRemediationPlan?.()}
+            >
+              {workflow.remediation_offer.no_label ?? 'Not now'}
+            </Button>
+          </div>
+        </section>
+      ) : isInvestigationCompleteTurn && workflow.next_step_cta && !showRemediationPlan ? (
+        <section className="flex flex-wrap gap-2" data-ec-section="investigation-next-step">
+          <Button
+            type="button"
+            disabled={busy}
+            className="bg-cyan-600 hover:bg-cyan-600/90"
+            onClick={() => onCreateRemediationPlan?.()}
+          >
+            {workflow.next_step_cta.label ?? 'Continue to remediation plan'}
+          </Button>
+        </section>
+      ) : null}
+
+      {!isPlanTurn && workflow.unconfirmed?.filter((item) => item.trim()).length ? (
+        <section className="rounded-lg border border-amber-500/20 bg-amber-950/10 p-4" data-ec-section="outstanding-uncertainty">
+          <EcSectionHeading>Still unresolved</EcSectionHeading>
+          <ul className="mt-2 space-y-1.5 text-sm text-slate-200">
+            {workflow.unconfirmed.filter((item) => item.trim()).map((item) => (
+              <li key={item} className="flex gap-2 leading-relaxed">
+                <span className="text-amber-400/80">·</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {!isPlanTurn && workflow.missing_evidence?.filter((item) => item.trim()).length ? (
+        <section className="rounded-lg border border-slate-800/80 bg-slate-900/35 p-4">
+          <EcSectionHeading>Optional evidence not collected</EcSectionHeading>
+          <ul className="mt-2 space-y-1.5 text-sm text-slate-300">
+            {workflow.missing_evidence.filter((item) => item.trim()).map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="text-slate-500">·</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {(isRemediationTurn && showRemediationPlan) ? (
         <section className="space-y-4" data-ec-section="recommended-remediation">
-          {workflow.remediation_summary ? (
+          {remScopedProgress ? progressPanel : null}
+          {remPlanReview && workflow.remediation_summary ? (
             <div data-ec-section="remediation-summary">
               <EcInvestigationSummaryStrip summary={workflow.remediation_summary} />
             </div>
           ) : null}
 
-          {workflow.remediation_conclusion ? (
+          {remPlanReview && workflow.remediation_conclusion ? (
             <section className="rounded-lg border border-slate-800/70 bg-slate-900/35 px-4 py-3">
               <EcSectionHeading>{workflow.remediation_conclusion.title ?? 'Remediation approach'}</EcSectionHeading>
               {workflow.remediation_conclusion.headline ? (
                 <p className="mt-2 text-sm font-semibold text-slate-50">{workflow.remediation_conclusion.headline}</p>
               ) : null}
-              {workflow.remediation_conclusion.narrative_points?.length ? (
-                <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-slate-300">
-                  {workflow.remediation_conclusion.narrative_points.map((point) => (
-                    <li key={point} className="flex gap-2">
-                      <span className="text-slate-500">·</span>
-                      <span>{point}</span>
-                    </li>
-                  ))}
-                </ul>
+              {workflow.remediation_conclusion.narrative_points?.filter((point) => point.trim()).length ? (
+                <ConclusionPoints points={workflow.remediation_conclusion.narrative_points} />
               ) : null}
             </section>
           ) : null}
 
-          {remQueueBanner}
-          {planValidatedBanner}
+          {remPlanReviewBanner}
 
-          {workflow.remediation_results?.steps?.length ? (
+          {remPlanReview && workflow.remediation_results?.steps?.length ? (
             <EcInvestigationResultList
               header={workflow.remediation_results.header ?? 'Remediation plan'}
               steps={workflow.remediation_results.steps}
               anomalousAssetIds={anomalousAssetIds}
-              selectable={false}
+              selectable
+              expandDetails
               selectedIds={remSelected}
-              statusOverrides={planStatusOverrides}
               variant="remediation"
               {...artifactContext}
               onToggleStep={(id, checked) => {
@@ -545,11 +591,13 @@ export function EcAgentWorkflow({
                 });
               }}
             />
-          ) : (
+          ) : null}
+
+          {remPlanReview && !workflow.remediation_results?.steps?.length ? (
             <ProposedPlan
               steps={remSteps}
               summary={workflow.remediation_plan?.summary}
-              editable={false}
+              editable
               selectedIds={remSelected}
               onToggle={(id, checked) => {
                 setRemSelected((current) => {
@@ -560,12 +608,42 @@ export function EcAgentWorkflow({
                 });
               }}
             />
-          )}
+          ) : null}
+
+          {remPlanReview ? (
+            <div className="flex flex-wrap gap-2" data-ec-section="remediation-approve">
+              <Button
+                type="button"
+                disabled={busy || remSelected.size === 0}
+                className="bg-cyan-600 hover:bg-cyan-600/90"
+                onClick={() => onRunRemediation([...remSelected])}
+              >
+                {workflow.remediation_plan?.primary_cta ?? 'Approve remediation'}
+              </Button>
+            </div>
+          ) : null}
+
+          {remComplete && workflow.remediation_summary ? (
+            <div data-ec-section="remediation-summary">
+              <EcInvestigationSummaryStrip summary={workflow.remediation_summary} />
+            </div>
+          ) : null}
+
+          {remComplete && workflow.remediation_results?.steps?.length ? (
+            <EcInvestigationResultList
+              header={workflow.remediation_results.header ?? 'Remediation results'}
+              steps={workflow.remediation_results.steps}
+              anomalousAssetIds={anomalousAssetIds}
+              variant="remediation"
+              expandDetails
+              {...artifactContext}
+            />
+          ) : null}
 
         </section>
       ) : null}
 
-      {isRemediationTurn && workflow.execution_progress?.phase === 'remediation' ? (
+      {isRemediationTurn && remExecuting && workflow.execution_progress?.phase === 'remediation' ? (
         <RemediationProgressList
           header={workflow.execution_progress.header ?? 'Remediation in progress'}
           steps={workflow.execution_progress.steps ?? remSteps}
@@ -575,32 +653,38 @@ export function EcAgentWorkflow({
       ) : null}
 
       {workflow.final_summary && workflow.lifecycle === 'COMPLETE' ? (
-        <section className="space-y-3 rounded-lg border border-emerald-500/25 bg-emerald-950/15 p-4">
+        <section className="space-y-3 rounded-lg border border-emerald-500/25 bg-emerald-950/15 p-4" data-ec-section="executive-summary">
           <EcSectionHeading>{workflow.final_summary.title ?? 'Response completed'}</EcSectionHeading>
           <p className="text-lg font-semibold text-slate-50">{workflow.final_summary.headline}</p>
           <p className="text-sm text-slate-300">
-            {workflow.final_summary.severity} · {workflow.final_summary.affected} · {workflow.final_summary.compromise}
+            Current risk: {workflow.final_summary.risk_from ?? workflow.final_summary.risk_to} ·{' '}
+            {workflow.final_summary.severity} · {workflow.final_summary.affected} · malicious use:{' '}
+            {workflow.final_summary.compromise}
           </p>
-          <EcSectionHeading>Completed</EcSectionHeading>
           <ul className="space-y-1 text-sm text-slate-200">
             {(workflow.final_summary.completed ?? []).map((item) => (
               <li key={item}>✓ {item}</li>
             ))}
+            {(workflow.final_summary.deferred ?? []).map((item) => (
+              <li key={item} className="text-slate-400">— {item}</li>
+            ))}
           </ul>
           {(workflow.final_summary.in_progress ?? []).length ? (
-            <>
-              <EcSectionHeading>Still in progress</EcSectionHeading>
-              <ul className="space-y-1 text-sm text-amber-100">
-                {(workflow.final_summary.in_progress ?? []).map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </>
+            <p className="text-sm text-amber-100">
+              Still in progress: {(workflow.final_summary.in_progress ?? []).join(' · ')}
+            </p>
           ) : null}
-          <p className="text-sm font-medium text-cyan-100">
-            Current risk: {workflow.final_summary.risk_from} → {workflow.final_summary.risk_to}
-          </p>
           <p className="text-sm text-slate-300">{workflow.final_summary.risk_note}</p>
+          {workflow.executive_summary?.length ? (
+            <ul className="space-y-2 border-t border-emerald-500/15 pt-3 text-sm leading-relaxed text-slate-100">
+              {workflow.executive_summary.map((item) => (
+                <li key={item} className="flex gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400" aria-hidden="true" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </section>
       ) : null}
 

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EcActionFlow } from '@/components/ec/EcActionFlow';
 import { EcCoordinationPanels } from '@/components/ec/EcCoordinationPanels';
@@ -186,6 +186,14 @@ describe('Flagship Experience Center UX', () => {
     expect(layer1?.textContent).not.toMatch(/experience_center_fixture/);
     expect(layer1?.textContent).not.toMatch(/simulated_phase10_action/);
     expect(screen.queryByText('ec-sess-secret123')).not.toBeInTheDocument();
+  });
+
+  it('fills the composer with the first flagship question without requiring a catalog change', async () => {
+    render(<EcInvestigationWorkspace />);
+    expect(await screen.findByRole('option', { name: /S1 · Governed large-scale investigation/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/\/clear to reset/i)).toHaveValue('q1');
+    });
   });
 
   it('keeps provenance identifiers in Layer 2, not visitor chrome', async () => {

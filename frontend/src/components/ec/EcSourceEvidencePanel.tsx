@@ -6,8 +6,11 @@ function provenanceLabel(provenance: string | null | undefined): string {
   switch (provenance) {
     case 'experience_center_fixture':
       return 'Experience Center fixture';
+    case 'governed_search':
+    case 'governed_saved_search':
+      return 'Splunk MCP';
     case 'simulated_mcp':
-      return 'Simulated MCP';
+      return 'Splunk MCP';
     case 'ec_scenario_policy':
       return 'EC scenario policy';
     default:
@@ -25,7 +28,13 @@ function sourceTypeLabel(sourceType: string): string {
       return 'Cisco MCP fixture';
     case 'kb_fixture':
       return 'Knowledge base fixture';
+    case 'knowledge_fixture':
+      return 'SOC-KB / inventory fixture';
+    case 'rag':
+      return 'SOC-KB / RAG';
     case 'itsm_fixture':
+      return 'ITSM fixture';
+    case 'ticket_fixture':
       return 'ITSM fixture';
     default:
       return sourceType;

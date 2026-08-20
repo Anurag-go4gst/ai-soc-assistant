@@ -83,7 +83,7 @@ export function EcQueryAutocomplete({
         <Input
           className="mt-1"
           disabled={disabled}
-          placeholder="Type a question (e.g. suspicious IP, firewall block, zero-day…)"
+          placeholder="Type a question (e.g. new IP, firewall block, zero-day…)"
           value={value}
           onChange={(event) => {
             onChange(event.target.value);

@@ -26,7 +26,9 @@ describe('EcInvestigationWorkspace /clear', () => {
   it('resets the cockpit stream when the user types /clear', async () => {
     render(<EcInvestigationWorkspace />);
     const input = await screen.findByPlaceholderText(/\/clear to reset/i);
+    expect(await screen.findByDisplayValue('Find suspicious IP')).toBeInTheDocument();
     fireEvent.change(input, { target: { value: '/clear' } });
+    expect(await screen.findByDisplayValue('/clear')).toBeInTheDocument();
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(screen.getByText(/AI Investigation Cockpit/i)).toBeInTheDocument();
     expect(screen.queryByText(/SOC Answer/i)).not.toBeInTheDocument();

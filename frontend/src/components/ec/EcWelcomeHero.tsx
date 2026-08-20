@@ -1,7 +1,7 @@
 import { Activity, Bot, Sparkles } from 'lucide-react';
 
 const STARTER_HINTS = [
-  'Suspicious IP or beaconing traffic',
+  'Newly observed IP review',
   'Firewall-team coordination',
   'Zero-day exposure with no playbook',
   'Conflicting OT evidence',

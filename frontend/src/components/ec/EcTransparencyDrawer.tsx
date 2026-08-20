@@ -34,9 +34,14 @@ function EcGapSplPanel({ envelope }: { envelope: ExperienceCenterResponse }) {
 }
 
 function PathCard({ view }: { view: EcProjectionView }) {
-  const items = view.items.filter((item) => item.trim() && item.trim() !== '-');
+  const items = (view.items ?? []).filter((item) => item.trim() && item.trim() !== '-');
+  const summary = view.summary?.trim() ?? '';
+  if (!summary && !items.length) return null;
   return (
-    <article className="rounded-lg border border-slate-700/80 bg-slate-900/60 p-4 ring-1 ring-slate-800/50">
+    <article
+      className="rounded-lg border border-slate-700/80 bg-slate-900/60 p-4 ring-1 ring-slate-800/50"
+      data-ec-path-card={view.title}
+    >
       <div className="flex items-center justify-between gap-2">
         <h4 className="text-sm font-semibold text-slate-50">{view.title}</h4>
         <Badge variant="outline" className="border-slate-600 text-slate-300">{view.provenance.kind}</Badge>
@@ -78,30 +83,38 @@ export function EcInvestigationOutcomeCard({
         <Badge>{outcome.disposition}</Badge>
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
+        {outcome.confirmed?.length ? (
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-300">Confirmed</p>
           <ul className="mt-2 space-y-1.5 text-sm text-slate-200">
-            {outcome.confirmed.map((item) => <li key={item}>{item}</li>)}
+            {outcome.confirmed.filter(Boolean).map((item) => <li key={item}>{item}</li>)}
           </ul>
         </div>
+        ) : null}
+        {outcome.unconfirmed?.length ? (
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.1em] text-amber-300">Unconfirmed</p>
           <ul className="mt-2 space-y-1.5 text-sm text-amber-50/90">
-            {outcome.unconfirmed.map((item) => <li key={item}>{item}</li>)}
+            {outcome.unconfirmed.filter(Boolean).map((item) => <li key={item}>{item}</li>)}
           </ul>
         </div>
+        ) : null}
+        {outcome.supported?.length ? (
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-300">Supported</p>
           <ul className="mt-2 space-y-1.5 text-sm text-slate-300">
-            {outcome.supported.map((item) => <li key={item}>{item}</li>)}
+            {outcome.supported.filter(Boolean).map((item) => <li key={item}>{item}</li>)}
           </ul>
         </div>
+        ) : null}
+        {outcome.missing_evidence?.length ? (
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-300">Missing evidence</p>
           <ul className="mt-2 space-y-1.5 text-sm text-slate-400">
-            {outcome.missing_evidence.map((item) => <li key={item}>{item}</li>)}
+            {outcome.missing_evidence.filter(Boolean).map((item) => <li key={item}>{item}</li>)}
           </ul>
         </div>
+        ) : null}
       </div>
     </article>
   );
@@ -193,13 +206,13 @@ export function EcTransparencyDrawer({
   envelope: ExperienceCenterResponse;
 }) {
   const projection = envelope.ec_projection;
-  const path = envelope.ec_layer2_path ?? [
+  const path = (envelope.ec_layer2_path ?? [
     'Understanding',
     'Resources',
     'Controls',
     'Evidence',
     'Outcome',
-  ];
+  ]).filter((item) => item.trim());
   return (
     <details
       className="rounded-xl border border-slate-700/80 bg-slate-900/40 p-5 ring-1 ring-slate-800/50 open:bg-slate-900/55"

@@ -53,14 +53,22 @@ def test_s1_run_demo_scenario_still_placeholder_compatible() -> None:
     assert payload["candidate_spl"]["execution_eligible"] is False
 
 
-def test_s1_initial_query_has_no_time_range() -> None:
+def test_s1_initial_query_asks_last_30_days_not_suspicious_ioc() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-c1")
     dumped = envelope.model_dump()
     assert dumped["analyst"]["finding_title"]
     policy = dumped["ec_search_governance_policy"]
-    assert policy["user_supplied_time_range"] is False
-    assert "time range" not in S1_QUERY.lower()
-    assert dumped["ec_spl_governance"]["time_range_supplied"] is False
+    assert policy["user_supplied_time_range"] is True
+    assert "last 30 days" in S1_QUERY.lower()
+    assert "suspicious" not in S1_QUERY.lower()
+    assert dumped["ec_spl_governance"]["time_range_supplied"] is True
+    outcome = dumped["ec_investigation_outcome"]
+    assert outcome["disposition"] == "needs_monitoring"
+    blob = " ".join(outcome["confirmed"]).lower()
+    assert "newly observed" in blob
+    assert dumped["analyst"]["finding_title"] == (
+        f"Newly observed IP {PRIMARY_ATTACKER_IP} — malicious use not confirmed"
+    )
 
 
 def test_s1_search_governance_is_30_plus_30() -> None:
@@ -131,7 +139,7 @@ def test_s1_what_we_found_segments_link_saved_search_and_mcp_searches() -> None:
 def test_s1_outcome_confirmed_unconfirmed_missing_no_compromise_claim() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-outcome")
     outcome = envelope.model_dump()["ec_investigation_outcome"]
-    assert outcome["disposition"] == "suspicious"
+    assert outcome["disposition"] == "needs_monitoring"
     assert outcome["confirmed"]
     assert outcome["unconfirmed"]
     assert outcome["missing_evidence"]
@@ -183,6 +191,7 @@ def test_s1_every_follow_up_advances_state_and_updates_evidence(monkeypatch) -> 
         "check_endpoint_activity",
         "check_threat_intel",
         "compare_previous_incidents",
+        "raise_mcp_monitoring",
         "prepare_firewall_block",
         "create_incident_ticket",
     ):
@@ -213,6 +222,11 @@ def test_s1_every_follow_up_advances_state_and_updates_evidence(monkeypatch) -> 
             assert PRIMARY_ATTACKER_IP in str(body["ec_investigation_outcome"])
         if follow_up_id == "compare_previous_incidents":
             assert statuses["previous_incidents"] == "OBTAINED"
+        if follow_up_id == "raise_mcp_monitoring":
+            monitor = next(item for item in body["ec_actions"] if item["kind"] == "notify")
+            assert monitor["state"] in {"PREPARED", "APPROVAL_REQUIRED"}
+            assert monitor["production_side_effect"] is False
+            assert "mcp" in str(monitor).lower() or "monitoring" in str(monitor).lower()
         if follow_up_id == "prepare_firewall_block":
             block = next(item for item in body["ec_actions"] if item["kind"] == "firewall_block")
             assert block["state"] in {"PREPARED", "APPROVAL_REQUIRED"}
@@ -239,10 +253,8 @@ def test_s1_follow_up_never_imports_production_actions() -> None:
 def test_s1_operational_email_is_hil_draft_not_auto_sent() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-ops-email")
     ids = {chip.follow_up_id for chip in envelope.ec_followups}
-    assert "email_firewall_team" in ids
-    assert "update_incident" in ids
-    assert "generate_closure_summary" in ids
-    assert "verify_firewall_block" not in ids
+    assert "email_firewall_team" not in ids
+    assert envelope.ec_agent_lifecycle == "PLAN_READY"
 
     emailed = run_experience_center_turn(
         S1_SCENARIO_ID,

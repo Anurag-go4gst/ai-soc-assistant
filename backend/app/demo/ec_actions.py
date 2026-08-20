@@ -209,6 +209,25 @@ def execute_action(
         return _to_model(record)
 
 
+def record_fixture_execution(action_id: str, *, summary: str) -> EcActionRecord:
+    """EC fixture connected-action receipt when live transport is unmapped/unconfigured."""
+    with _lock:
+        record = _require(action_id)
+        if record["state"] not in {"APPROVED", "FAILED", "EXECUTED"}:
+            raise ValueError(f"ec_action_not_fixture_executable:{record['state']}")
+        record["state"] = "EXECUTED"
+        record["production_side_effect"] = False
+        record["receipt"] = {
+            "status": "SUCCESS",
+            "execution_mode": "ec_fixture_connected",
+            "production_side_effect": False,
+            "external_side_effect": False,
+            "summary": summary,
+            "provenance": "experience_center_fixture",
+        }
+        return _to_model(record)
+
+
 def verify_action(action_id: str, snapshot: dict[str, Any] | None = None) -> EcActionRecord:
     restore_action_if_needed(action_id, snapshot)
     with _lock:

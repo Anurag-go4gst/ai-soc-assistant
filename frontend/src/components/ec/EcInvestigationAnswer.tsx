@@ -1,4 +1,5 @@
-import type { EcAffectedSystem, ExperienceCenterResponse } from '@/components/ec/types';
+import { Badge } from '@/components/ui/badge';
+import type { EcAffectedSystem, EcSourceEvidenceItem, ExperienceCenterResponse } from '@/components/ec/types';
 import { EcAnswerTitle, EcSectionHeading } from '@/components/ec/EcSectionHeading';
 import { EcAnswerReveal, EcRevealBlock, EcStreamingText } from '@/components/ec/EcAnswerReveal';
 import { EcAffectedSystemsTable } from '@/components/ec/EcAffectedSystemsTable';
@@ -36,7 +37,33 @@ import {
   EcSplGovernanceSummary,
   EcWorkflowTransitionPanel,
 } from '@/components/ec/EcInvestigationQuality';
-import { Badge } from '@/components/ui/badge';
+
+function sourceEvidenceHint(items: EcSourceEvidenceItem[]): string {
+  const labels: string[] = [];
+  const seen = new Set<string>();
+  const add = (label: string) => {
+    if (seen.has(label)) return;
+    seen.add(label);
+    labels.push(label);
+  };
+  for (const item of items) {
+    const blob = `${item.source_type} ${item.source_name} ${item.tool_name ?? ''} ${item.provenance ?? ''}`.toLowerCase();
+    if (blob.includes('agilus')) add('Agilus');
+    if (blob.includes('splunk')) add('Splunk MCP');
+    if (
+      blob.includes('soc-kb') ||
+      blob.includes('retrieve_soc_kb') ||
+      blob.includes('rag') ||
+      blob.includes('knowledge')
+    ) {
+      add('SOC-KB / RAG');
+    }
+    if (blob.includes('identity') || blob.includes('inventory')) add('inventory fixture');
+    if (blob.includes('itsm') || blob.includes('ticket')) add('ITSM');
+  }
+  if (!labels.length) return `${items.length} items`;
+  return `${items.length} items — collected from ${labels.join(', ')}.`;
+}
 
 function systemsFrom(envelope: ExperienceCenterResponse): EcAffectedSystem[] {
   const analyst = envelope.analyst ?? envelope.analyst_response ?? {};
@@ -102,11 +129,14 @@ export function EcInvestigationAnswer({
   const assessment = analyst.assessment || analyst.direct_answer_summary || envelope.analyst_summary;
   const found = analyst.what_we_found || analyst.one_sentence_finding || envelope.analyst_summary;
   const systems = systemsFrom(envelope);
-  const important = analyst.important_evidence ?? [];
-  const unconfirmed = analyst.unconfirmed_findings?.length
+  const important = (analyst.important_evidence ?? []).filter((item) => item.trim());
+  const unconfirmed = (analyst.unconfirmed_findings?.length
     ? analyst.unconfirmed_findings
-    : envelope.ec_investigation_outcome?.unconfirmed ?? [];
-  const missing = analyst.missing_evidence ?? envelope.ec_investigation_outcome?.missing_evidence ?? [];
+    : envelope.ec_investigation_outcome?.unconfirmed ?? []
+  ).filter((item) => item.trim());
+  const missing = (analyst.missing_evidence ?? envelope.ec_investigation_outcome?.missing_evidence ?? []).filter(
+    (item) => item.trim(),
+  );
   const statusSummary = envelope.ec_status_summary;
   const applicability = envelope.ec_applicability ?? [];
   const tableRows = systems.length ? [] : (analyst.splunk_results_table ?? []);
@@ -119,24 +149,29 @@ export function EcInvestigationAnswer({
   const actionPlan = analyst.recommended_actions ?? [];
   const attackChainPrimary = Boolean(envelope.ec_attack_chain?.length);
   const showNarrative =
+    !agentMode &&
     !attackChainPrimary &&
     !isS4 &&
     assessment &&
     assessment.trim() !== (directLine?.trim() ?? '');
   const showWhatWeFound =
+    !agentMode &&
     !attackChainPrimary &&
     !isS4 &&
     found &&
     found.trim() !== (assessment?.trim() ?? '') &&
     found.trim() !== (directLine?.trim() ?? '');
   const showFindingsTable =
-    envelope.ec_evidence_findings?.length && !attackChainPrimary;
+    !agentMode && Boolean(envelope.ec_evidence_findings?.length) && !attackChainPrimary;
 
   const collapsibleEvidence =
-    envelope.ec_siem_coverage ||
-    envelope.ec_spl_governance_summary ||
-    envelope.ec_evidence_reuse?.length ||
-    envelope.ec_investigation_scope;
+    !agentMode &&
+    Boolean(
+      envelope.ec_siem_coverage ||
+        envelope.ec_spl_governance_summary ||
+        envelope.ec_evidence_reuse?.length ||
+        envelope.ec_investigation_scope,
+    );
   const inlineResourceComposition = envelope.ec_resource_composition?.length && !isS1;
 
   const content = (
@@ -292,7 +327,7 @@ export function EcInvestigationAnswer({
         </EcRevealBlock>
       ) : null}
 
-      {envelope.ec_investigation_pivot ? (
+      {envelope.ec_investigation_pivot && !agentMode ? (
         <EcRevealBlock>
           <EcInvestigationPivotCard pivot={envelope.ec_investigation_pivot} />
         </EcRevealBlock>
@@ -390,15 +425,13 @@ export function EcInvestigationAnswer({
         </EcRevealBlock>
       ) : null}
 
-      {!agentMode ? (
+      {!agentMode && unconfirmed.length ? (
         <EcRevealBlock>
           <EcSectionHeading variant="warning">What remains unconfirmed</EcSectionHeading>
           <ul className="mt-3 space-y-2 text-sm text-amber-50/95">
-            {unconfirmed.length ? unconfirmed.map((item) => (
+            {unconfirmed.map((item) => (
               <li key={item} className="rounded-md border border-amber-500/20 bg-amber-950/20 px-3 py-2">{item}</li>
-            )) : (
-              <li className="text-amber-100/80">No additional unconfirmed claims beyond the governed fixture evidence.</li>
-            )}
+            ))}
           </ul>
         </EcRevealBlock>
       ) : null}
@@ -434,7 +467,7 @@ export function EcInvestigationAnswer({
         <EcRevealBlock>
           <EcCollapsibleEvidencePanel
             summary="Source evidence"
-            hint={`${envelope.source_evidence.length} items — how each was collected (Splunk MCP, Agilus, RAG, ITSM).`}
+            hint={sourceEvidenceHint(envelope.source_evidence)}
           >
             <EcSourceEvidencePanel items={envelope.source_evidence} highlightEvidenceId={highlightEvidenceId} />
           </EcCollapsibleEvidencePanel>
