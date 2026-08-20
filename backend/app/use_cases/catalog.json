@@ -637,7 +637,7 @@
       "optional_sources": [
         "identity"
       ],
-      "default_spl_template": null,
+      "default_spl_template": "auth_mfa_failure_spike",
       "rag_collections": [
         "auth_sop"
       ],

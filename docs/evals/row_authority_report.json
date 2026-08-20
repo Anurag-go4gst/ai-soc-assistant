@@ -6421,7 +6421,7 @@
         "t0_exact_authority_not_explicit",
         "t0_exact_authority_false"
       ],
-      "default_spl_template": null,
+      "default_spl_template": "auth_mfa_failure_spike",
       "display_name": "MFA failure spike",
       "existing_s3_authority_ready": null,
       "human_review_required": null,

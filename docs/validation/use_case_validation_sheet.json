@@ -1,7 +1,7 @@
 {
   "artifact": "soc_validation_use_cases",
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-07-06T12:53:35+00:00",
+  "generated_at": "2026-08-20T10:49:05+00:00",
   "row_counts": {
     "use_cases": 68
   },
@@ -92,7 +92,7 @@
       "rag_status": "missing",
       "review_decision": "",
       "runtime_support_status": "planned",
-      "spl_template_status": "unavailable",
+      "spl_template_status": "active",
       "tests_added": false,
       "use_case_id": "auth_mfa_failure_spike",
       "validation_status": "needs_soc_review"
