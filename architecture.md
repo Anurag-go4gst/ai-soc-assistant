@@ -73,7 +73,7 @@ production GO remains deferred; F3 T4 serving and live MCP remain unproven
 | D2 | Investigation product | One-pass guided / recommend-only was an implementation gap against Example D | Governed LLM-assisted planning, bounded iteration, user-approved envelopes |
 | D3 | `guided_investigation` | Ownership in principle; catalogs/EvidencePlan still vetoed SPL/MCP | Owner of broad investigation; **must not** veto composable RAG + SPL + MCP |
 | D4 | T4 vs planning | T4 was the only named semantic LLM hop | T4 stays meaning-only. Investigation / PlanDelta / domain / remediation planning are **different reasoning roles** |
-| D5 | Capability view | Read-only join allowed; richer snapshot was §25 extension | `CapabilitySnapshot` records **point-in-time availability and policy posture**. It does not decide per-call execution eligibility. No new service |
+| D5 | Capability view | Read-only join allowed; richer snapshot was §25 extension | `CapabilitySnapshot` records **need × availability** (two independent axes). It does not decide per-call execution eligibility. No new service |
 | D6 | Investigation plan | ResourcePlan from DET EvidencePlan; LLM plan rails retired | `InvestigationPlanProposal` → DET `ValidatedInvestigationPlan` → user approval → DET compiler → authoritative ResourcePlan + PhaseContract. Do not revive `llm_plan_bridge` |
 | D7 | User plan approval | SPL confirm + action-lane ticket mock only | Investigation: Run / Edit / Cancel on the validated plan. Remediation: Approve / Edit / Cancel. Approved plans are **immutable versions** |
 | D8 | Iteration | `PlanDelta` was §25 / `NOT_REQUIRED_FOR_CURRENT_SCOPE` | Bounded PlanDelta is in scope, **read-only**, append-only revisions. Writes cannot enter the investigation loop |
@@ -87,7 +87,8 @@ production GO remains deferred; F3 T4 serving and live MCP remain unproven
 Review corrections after the first 2026-08-20 draft (same decision; do not treat the first draft wording as canonical):
 
 ```text
-CapabilitySnapshot is availability/policy posture, not per-call executability
+CapabilitySnapshot is need × availability, not per-call executability
+need and availability are independent (recommended + unavailable is valid)
 authoritative ResourcePlan + PhaseContract exist only after user approval + DET compile
 investigation is read-only; writes belong to remediation
 domain agents are reasoning workers, not execution workers
@@ -231,7 +232,7 @@ The complete ResourcePlan + PhaseContract may use multiple capabilities.
 
 Do not "solve" investigation by routing every hunt to `spl_generation`. Ownership stays `guided_investigation` (or whichever owner the final RQC selects); required work is expressed on the ResourcePlan.
 
-Plan 8 already stated this principle. Production catalogs and EvidencePlan still contradicted it. This decision makes the non-veto **mandatory**, not aspirational.
+Plan 8 already stated this principle. Production still violates it: `backend/app/skills/catalog.json` `guided_investigation.blocked_tools` still includes `mcp_execution`, and EvidencePlan still hardcodes SPL/MCP off. That is an **IMPLEMENTATION GAP**. This document does not claim the veto has been removed. The target remains: owner, not RAG-only capability boundary.
 
 ---
 
@@ -375,17 +376,30 @@ Also include RBAC-relevant **policy posture** (forbidden / not_granted / require
 
 Do not introduce another source of truth or capability database.
 
-Every capability in the snapshot is classified at snapshot time:
+Every snapshot row has **two independent dimensions**. They are not a single exclusive enum. A capability may be recommended **and** unavailable.
 
 ```text
-recommended   needed or useful for the Final RQC, even if not automatable
-available     registered, discovered, and not forbidden by current policy posture
-unavailable   unimplemented, fixture-only, undiscovered, or policy-forbidden
+capability_need:   required | recommended | optional
+availability:      available | unavailable
 ```
 
-`executable` is **not** a snapshot field. Per-call execution eligibility is decided later, after an approved envelope exists, by exact-call authorization (identity, tool, normalized arguments, read-only vs write, RBAC, HIL, envelope version / remediation-plan version).
+```text
+need answers:     is this capability relevant to the Final RQC / plan?
+availability:     is it registered, discovered, and not policy-forbidden at snapshot time?
+```
 
-A required security step may still be **recommended** when direct automation is unavailable. It must be represented as unavailable, manual, or an alternate workflow — never as a falsely executed step.
+`executable` is **not** a snapshot field. CapabilitySnapshot does **not** authorize execution. Per-call execution eligibility is decided later, after an approved envelope exists, by policy, RBAC, HIL, PhaseContract, envelope version, and exact-call authorization.
+
+Example that must remain valid:
+
+```text
+network_indicator_block
+  capability_need = recommended
+  availability    = unavailable
+  resolution      = propose manual / network-team workflow; do not fake execution
+```
+
+A required or recommended security step with `availability=unavailable` is represented as unavailable, manual, or an alternate workflow — never as a falsely executed step.
 
 LLMs must not invent tools outside the snapshot. Domain agents receive a **role-scoped** view of the snapshot, not the entire tool estate.
 
@@ -395,29 +409,16 @@ LLMs must not invent tools outside the snapshot. Domain agents receive a **role-
 
 Investigation and remediation are separate envelopes.
 
+The canonical `ApprovedInvestigationEnvelope` field list lives in **§13.1**. Do not define a competing variant here.
+
 ```text
 INVESTIGATION PLAN READY
   [Run investigation]  [Edit plan]  [Cancel]
 ```
 
-`Run` establishes a bounded **read-only** `ApprovedInvestigationEnvelope` as an **immutable version**:
+`Run` creates an immutable **read-only** envelope version (§13.1).
 
-```text
-envelope_version
-objective
-entities / targets
-time scope
-source / index scope
-approved evidence categories
-allowed read-only capabilities
-hop / cost / timeout budget
-PlanDelta policy (auto-inside-envelope vs HIL-on-scope-expand)
-prohibited actions (all writes)
-```
-
-The approved plan version is not rewritten in place. PlanDelta produces **append-only revisions** against that version.
-
-Safe read-only steps inside that envelope may execute iteratively without asking the user after every query. PlanDelta may adapt, re-query, or reorder **read-only** work. A write cannot enter the investigation loop; it moves to remediation.
+Safe read-only adaptation inside that envelope may execute without repeated user approval. Material scope expansion requires HIL. Writes are not investigation PlanDelta; they belong to remediation.
 
 If the user **Edits** the plan:
 
@@ -456,8 +457,9 @@ PLAN
                       ↓
                     DET validation against envelope + snapshot + policy + budget
                       ↓
-                    execute next bounded step
-                    OR HIL if scope/write expands
+                    execute next bounded read-only step
+                    OR HIL if material scope expansion
+                    OR reject-to-remediation if the proposal is a write
                     OR stop (no progress / fingerprint unchanged / budget / policy)
 ```
 
@@ -504,9 +506,16 @@ policy configuration
 action_tool / action-lane capabilities
 ```
 
-A deterministic `CapabilitySnapshot` **[CHANGED 2026-08-20]** joins those sources (plus live MCP discovery ∩ allowlist plus RBAC-relevant capability state) into the only tool vocabulary a planner or reasoner may see.
+A deterministic `CapabilitySnapshot` **[CHANGED 2026-08-20]** joins those sources (plus live MCP discovery ∩ allowlist plus RBAC-relevant policy posture) into the only tool vocabulary a planner or reasoner may see.
 
-Each joined row carries `recommended | available | unavailable` at snapshot time (see §2.10). It does **not** carry `executable`. T4 may receive short capability **descriptions** for meaning; it still cannot select or grant tools. Domain agents receive a role-scoped slice of this snapshot, not the full estate.
+Each joined row carries **two independent fields** (see §2.10):
+
+```text
+capability_need    required | recommended | optional
+availability       available | unavailable
+```
+
+It does **not** carry execution authorization. T4 may receive short capability **descriptions** for meaning; it still cannot select or grant tools. Domain agents receive a role-scoped slice of this snapshot, not the full estate.
 
 A read-only planner/T4 view may join existing metadata where needed.
 
@@ -584,7 +593,7 @@ PHASE 4 — FINAL ResolvedQueryContract [DET]
   ↓
 clarification OR final owner
   ↓
-PHASE 4b — CapabilitySnapshot [DET: availability / policy posture]
+PHASE 4b — CapabilitySnapshot [DET: need × availability; not execution authorization]
   ↓
 PHASE 5 — InvestigationPlanProposal [LLM reasoning, non-authoritative]
            → ValidatedInvestigationPlan [DET]
@@ -639,9 +648,9 @@ FINAL USER RESPONSE
 PHASE 11 — safe session / follow-up continuity [DET]
 ```
 
-**CURRENTLY IMPLEMENTED:** T1–T3 → optional T4 → RQC → ResourcePlan (often from provisional family) → RP hub one-pass. Catalogue-T4 `guided_investigation` is RAG / recommend-only. No CapabilitySnapshot, no investigation envelope, no PlanDelta on the RP graph, no remediation offer.
+**CURRENTLY IMPLEMENTED:** T1–T3 → optional T4 → RQC → ResourcePlan (often from provisional family) → RP hub one-pass. Catalogue-T4 `guided_investigation` is RAG / recommend-only because live `skills/catalog.json` still `blocked_tools` includes `mcp_execution` (and EvidencePlan still turns SPL/MCP off). That is an **implementation gap**, not a change to this target. No CapabilitySnapshot, no investigation envelope, no PlanDelta on the RP graph, no remediation offer.
 
-**IMPLEMENTATION GAP:** everything in the TARGET flow after final owner that is not the current one-pass ResourcePlan + RAG dispatch.
+**IMPLEMENTATION GAP:** everything in the TARGET flow after final owner that is not the current one-pass ResourcePlan + RAG dispatch, including unvetoing guided SPL/MCP in catalog/EvidencePlan **without** claiming it is already fixed.
 
 Bounded `PlanDelta` is on the investigation **target** path. It remains evidence-targeted, envelope-scoped, **read-only**, append-only, and never an open autonomous loop. Unbounded ReAct is forbidden. Writes cannot sneak into investigation.
 
@@ -1036,7 +1045,7 @@ conditions
 success criteria
 ```
 
-It should not hard-code tool names unless a named registered capability is truly required. Deterministic validation binds evidence needs to CapabilitySnapshot rows (`recommended` / `available` / `unavailable`) and produces a `ValidatedInvestigationPlan`. That validated plan is what the user sees. It is **not** yet a ResourcePlan.
+It should not hard-code tool names unless a named registered capability is truly required. Deterministic validation binds evidence needs to CapabilitySnapshot rows using both axes (`capability_need` and `availability`) and produces a `ValidatedInvestigationPlan`. A row with `capability_need=recommended` and `availability=unavailable` stays on the plan as a manual/alternate step. That validated plan is what the user sees. It is **not** yet a ResourcePlan.
 
 ```text
 InvestigationPlanProposal     [LLM, advisory]
@@ -1079,19 +1088,43 @@ INVESTIGATION PLAN READY
   [Cancel]
 ```
 
-`Run` creates a bounded **read-only** `ApprovedInvestigationEnvelope` as an **immutable version**:
+`Run` creates a bounded **read-only** `ApprovedInvestigationEnvelope` as an **immutable version**. This is the **canonical field list**. Other sections reference it; they must not invent a second schema.
 
 ```text
 envelope_version
+
 objective
-entities / targets
+targets / entities
 time scope
 approved evidence categories
 allowed read-only capabilities
 source / index scope where relevant
-budget
-hop / iteration limit
-prohibited actions   # all writes
+
+budget:
+  hop limit
+  timeout
+  cost / resource limits where applicable
+
+PlanDelta policy:
+  automatic bounded read-only delta allowed inside envelope
+  HIL required for material scope expansion
+
+prohibited actions
+  # all writes; investigation is evidence gathering only
+```
+
+Semantics (same everywhere):
+
+```text
+safe read-only adaptation inside approved envelope
+  → may execute without repeated user approval
+
+material scope expansion
+  → HIL (new envelope version; re-enter understanding if Final RQC is stale)
+
+write / remediation
+  → not part of investigation PlanDelta
+  → RemediationPlan → Approve / Edit / Cancel → Phase 10
 ```
 
 The approved version is not mutated. Later PlanDelta objects are **append-only revisions** that reference `envelope_version` and a prior revision fingerprint.
@@ -1113,7 +1146,7 @@ edit changes meaning, entities, time, or objective so Final RQC is stale
 
 Clarification (Phase 4) still terminates before any plan. Envelope HIL is not a substitute for missing meaning; it is approval of already-understood work.
 
-Safe read-only hops inside the envelope do not require per-query confirmation. Each MCP call still requires exact-call authorization. Scope expansion requires HIL. Writes are not investigation work.
+Safe read-only hops inside the envelope do not require per-query confirmation. Each MCP call still requires exact-call authorization. Scope expansion follows the §13.1 PlanDelta policy (HIL). Writes are not investigation work and must not continue inside this loop even with HIL; they become remediation.
 
 Reuse existing HIL/handoff persistence and, where it fits, `execution_review_action`. Do not copy Experience Center chip contracts into production.
 
@@ -1534,16 +1567,17 @@ PlanDeltaProposal [LLM reasoning, advisory]
 DET checks:
   same envelope_version / investigation objective
   same approved targets / time / index scope
-  tool appears as available in CapabilitySnapshot (role-scoped view if a domain agent proposed it)
+  availability = available on the (role-scoped) CapabilitySnapshot
   read-only
-  not a write / side-effect
+  not a write / side-effect   # writes never continue here, including via HIL
   RBAC / policy okay for a later exact-call
   budget / hop cap okay
   fingerprint is not identical to a prior unsuccessful delta
+  PlanDelta policy allows automatic in-envelope read-only delta
   ↓
 append revision → exact-call authorize → execute next bounded step
-OR HIL if scope would expand
-OR reject-to-remediation if the proposal is a write
+OR HIL if material scope expansion (new envelope version)
+OR reject and route to remediation if the proposal is a write
 OR stop
 ```
 
@@ -1553,7 +1587,8 @@ Example:
 Initial search: 922 denied + 3 allowed
 Reasoning: allowed sessions materially matter
 Proposal: add authentication correlation
-DET: inside envelope, read-only, tool exists → execute automatically
+DET: inside envelope, read-only, availability=available → execute automatically
+  (new exact-call grant; prior grant is invalid)
 ```
 
 If the proposed delta materially expands scope, it requires user/HIL approval of a new envelope version (and RQC re-entry if meaning changed). If it introduces a write, it is **not** an investigation PlanDelta; offer it only as remediation.
@@ -1955,31 +1990,41 @@ Final RQC:
     prepare/send email according to policy
 
 Phase 4b
-CapabilitySnapshot: only registered, discovered, allowed tools
+CapabilitySnapshot:
+  two axes per capability (need, availability)
+  not execution authorization
+  example: ticket_create may be recommended and available
+           isolate_endpoint may be recommended and unavailable
 
 Phase 5
-optional reasoning investigation-plan proposal
-DET validate → ResourcePlan:
-  retrieve context
-  generate SPL
-  execute validated search
-  assess evidence
-user Run / Edit / Cancel (investigation envelope)
+InvestigationPlanProposal [reasoning LLM, non-authoritative]
+  goal, evidence needed, dependencies, conditions, success criteria
+→ ValidatedInvestigationPlan [DET]
+user Run / Edit / Cancel
+→ ApprovedInvestigationEnvelope [immutable version; §13.1]
+  read-only evidence gathering only
 
 Phase 6
-PhaseContract:
-  SPL validation
-  RBAC/HIL/MCP requirements
+DET compiler
+→ authoritative ResourcePlan + PhaseContract
+  retrieve context
+  generate SPL
+  execute validated search (read-only)
+  assess evidence
+  (ticket/email are requested actions, not investigation steps)
 
 Phase 7
-execute investigation (repeated Splunk allowed as new exact-call grants)
+RP hub executes the compiled plan
+  repeated Splunk allowed as new exact-call grants
+  no writes
 
 Phase 8
 minimal EvidenceState
 → evidence sufficiency
-→ bounded PlanDelta if gaps remain inside envelope
+→ bounded read-only PlanDelta if gaps remain inside envelope
 → InvestigationOutcome:
-  disposition
+  investigation_status: completed | incomplete | blocked | cancelled
+  disposition: suspicious | benign | inconclusive
   supported/unconfirmed hypotheses
   governed findings and evidence refs
   action eligibility
@@ -1990,12 +2035,12 @@ final synthesis:
   explain supporting evidence and limitations
   no action authority in prose
 
-ask: Create remediation plan?  Yes / Not now
-  — skip the question if Final RQC already requested contingent action;
-    still require Approve / Edit / Cancel before any write
+skip "Create remediation plan?" because Final RQC already requested
+  contingent ticket/email if serious
+still require Approve / Edit / Cancel before any write
 
 Phase 10
-RemediationPlanProposal (when warranted or user said Yes)
+RemediationPlanProposal (because outcome warrants action)
   DET validate
   user Approve / Edit / Cancel
   consume final RQC + InvestigationOutcome
@@ -2008,7 +2053,7 @@ RemediationPlanProposal (when warranted or user said Yes)
   verification
   post-action monitoring where required
   collect receipts
-if Not now / Cancel: skip writes
+if Cancel: skip writes
 
 Final user response
   incorporate governed action receipts or failures
@@ -2127,9 +2172,9 @@ guided refinement gate (imperative path; not the live RP graph loop)
 | T1–T3 before T4 | required | yes | keep |
 | semantic T4 meaning-only | required | yes, when hop runs | F3 serving; hop often skipped |
 | Final RQC before plan | required | **misplaced** — plan can commit from provisional family | correction #1 still open |
-| `guided_investigation` owner, composable RAG+SPL+MCP | required | skill catalog + EvidencePlan **veto** SPL/MCP; RAG/recommend-only | unveto catalog/EvidencePlan; do not reroute to `spl_generation` |
-| CapabilitySnapshot (recommended/available/unavailable) | required | separate registries; live MCP snapshot exists | no joined projection; must **not** include `executable` |
-| InvestigationPlanProposal → ValidatedInvestigationPlan → approval → compile | required | `InvestigationPlan` + validator exist; live path commits ResourcePlan before approval | wire sequence; no ResourcePlan before approval |
+| `guided_investigation` owner, composable RAG+SPL+MCP | required | **still violated:** `skills/catalog.json` blocks `mcp_execution` / write / remediation; EvidencePlan is RAG/`recommend_only` | unveto catalog+EvidencePlan at implementation time; do not reroute to `spl_generation`; **not fixed in this architecture drop** |
+| CapabilitySnapshot (need × availability, two axes) | required | separate registries; live MCP snapshot exists | no joined projection; must **not** include execution authorization |
+| InvestigationPlanProposal → ValidatedInvestigationPlan → approval → compile | required | `InvestigationPlan` + validator exist; live path commits ResourcePlan **before** approval | wire sequence; no ResourcePlan before approval |
 | ApprovedInvestigationEnvelope immutable versions | required | SPL confirm + action-lane only | missing |
 | RP hub sole iterative executor | required | RP `composed_dispatch` is one-pass RAG for guided; hybrid loop is imperative-only | move loop into hub |
 | Bounded read-only PlanDelta (append-only) | required | Plan 8 deferred; observer/reasoner do not mutate plan | missing contract |
@@ -2252,7 +2297,7 @@ The current system must nevertheless preserve a design that does not prevent the
 
 40. **[NEW 2026-08-20]** T4 is meaning-only. Investigation planning, PlanDelta reasoning, domain-agent reasoning, and remediation planning are different roles and use the reasoning model family. Instruct remains the family for T4, concise transformation, and narration.
 
-41. **[NEW 2026-08-20]** `CapabilitySnapshot` records point-in-time `recommended | available | unavailable` posture. It is not per-call execution eligibility. LLM-invented tools are forbidden. Domain agents receive a role-scoped snapshot view.
+41. **[NEW 2026-08-20]** `CapabilitySnapshot` records two independent fields per row: `capability_need` (`required` / `recommended` / `optional`) and `availability` (`available` / `unavailable`). Need and availability are not mutually exclusive. The snapshot is not per-call execution eligibility. LLM-invented tools are forbidden. Domain agents receive a role-scoped snapshot view.
 
 42. **[NEW 2026-08-20]** Authority sequence is InvestigationPlanProposal → ValidatedInvestigationPlan → user approval → DET compiler → ResourcePlan + PhaseContract. There is no authoritative ResourcePlan before approval.
 
