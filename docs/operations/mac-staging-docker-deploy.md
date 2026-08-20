@@ -26,8 +26,10 @@ AI_SOC_CORS_ALLOWED_ORIGINS=http://localhost:3100,http://127.0.0.1:3100
 
 AI_SOC_LLM_ENABLED=true
 AI_SOC_LLM_MODE=local
-AI_SOC_LLM_LOCAL_BASE_URL=http://10.52.1.13:8002/v1
-AI_SOC_LLM_LOCAL_MODEL=foundation-sec-8b-reasoning
+AI_SOC_LLM_LOCAL_BASE_URL=http://10.52.1.13:8004/v1
+AI_SOC_LLM_LOCAL_MODEL=foundation-sec-instruct
+AI_SOC_LLM_FOUNDATION_SEC_REASONING_BASE_URL=http://10.52.1.13:8003/v1
+AI_SOC_LLM_FOUNDATION_SEC_REASONING_MODEL=foundation-sec-reasoning
 AI_SOC_LLM_TIMEOUT_SECONDS=120
 AI_SOC_LLM_MAX_INPUT_TOKENS=12000
 AI_SOC_LLM_MAX_OUTPUT_TOKENS=1024
@@ -58,7 +60,7 @@ APP_AUTH_SESSION_SECRET=<operator-secret>
 - Frontend: `http://127.0.0.1:3100` (or your `AI_SOC_FRONTEND_HOST_PORT`)
 - Backend API: `http://127.0.0.1:8110/api` (or your `AI_SOC_BACKEND_HOST_PORT`)
 
-The backend container calls COE vLLM at `AI_SOC_LLM_LOCAL_BASE_URL` (default profile: `http://10.52.1.13:8002/v1`). COE vLLM must be reachable from the Mac host and from inside the backend container.
+The backend container calls COE vLLM at `AI_SOC_LLM_LOCAL_BASE_URL` (default profile: `http://10.52.1.13:8004/v1`, served name `foundation-sec-instruct`; reasoning roles use `http://10.52.1.13:8003/v1` / `foundation-sec-reasoning`). COE vLLM must be reachable from the Mac host and from inside the backend container.
 
 ## Changing ports
 

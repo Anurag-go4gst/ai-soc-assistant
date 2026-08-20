@@ -2,8 +2,8 @@
 """Standalone COE vLLM prompt probe.
 
 Runs without the full AI-SOC app. Configure with:
-  VLLM_BASE_URL=http://10.52.1.13:8002/v1
-  VLLM_MODEL=foundation-sec-8b-reasoning
+  VLLM_BASE_URL=http://10.52.1.13:8004/v1   # instruct; reasoning is :8003
+  VLLM_MODEL=foundation-sec-instruct        # or foundation-sec-reasoning on :8003
   VLLM_API_KEY=optional
 
 Reports both raw model output (model behavior) and post-sanitizer output using the
@@ -31,8 +31,8 @@ if str(_BACKEND_ROOT) not in sys.path:
 
 from app.llm.sanitize_user_facing_prose import sanitize_user_facing_prose
 
-BASE_URL = os.getenv("VLLM_BASE_URL", "http://10.52.1.13:8002/v1").rstrip("/")
-MODEL = os.getenv("VLLM_MODEL", "foundation-sec-8b-reasoning")
+BASE_URL = os.getenv("VLLM_BASE_URL", "http://10.52.1.13:8004/v1").rstrip("/")
+MODEL = os.getenv("VLLM_MODEL", "foundation-sec-instruct")
 API_KEY = os.getenv("VLLM_API_KEY", "")
 TIMEOUT_SECONDS = int(os.getenv("VLLM_TIMEOUT_SECONDS", "120"))
 

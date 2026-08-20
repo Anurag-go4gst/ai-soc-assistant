@@ -2,6 +2,13 @@
 
 Verified by Velocis smoke script against `http://10.52.1.13:8002/v1` (vLLM).
 
+> **Superseded endpoint (2026-08-19).** This document records a verification event
+> against `http://10.52.1.13:8002/v1` and is kept as-is for that record. The COE
+> deployment has since moved to two endpoints — instruct `:8004` and reasoning `:8003`.
+> Current wiring: [`docs/architecture/llm_endpoint_wiring.md`](../architecture/llm_endpoint_wiring.md)
+> and `env/profiles/coe.env.example`. See **2026-08-19 update** at the end.
+
+
 ## Verified endpoint facts
 
 | Field | Value |
@@ -114,3 +121,59 @@ Using MODEL=foundation-sec-8b-reasoning
 ..."content":"{}"... finish_reason":"stop"...
 === 5) Done ===
 ```
+
+
+---
+
+## 2026-08-19 update — new COE model deployments (not yet smoke-tested)
+
+Velocis supplied two OpenAI-compatible deployments, available only on the office
+network. These replace the single `:8002` endpoint above in all committed profiles.
+
+| Model | Served name | Base URL |
+|-------|-------------|----------|
+| Foundation-Sec-8B Instruct | `foundation-sec-instruct` | `http://10.52.1.13:8004/v1` |
+| Foundation-Sec-8B Reasoning | `foundation-sec-reasoning` | `http://10.52.1.13:8003/v1` |
+
+Committed in `env/profiles/coe.env.example` and `env/profiles/mac-staging.env.example`.
+No code change was required — `backend/app/llm/clients/endpoint_resolver.py` already
+resolves `AI_SOC_LLM_LOCAL_*`, `AI_SOC_LLM_FOUNDATION_SEC_INSTRUCT_*` and
+`AI_SOC_LLM_FOUNDATION_SEC_REASONING_*`.
+
+**Status: unverified.** The VPS dev host cannot reach `10.52.1.13`, so no smoke has
+been run against `:8003` / `:8004`. Everything in the verified-facts table above
+(`max_model_len` 16,384, `owned_by: vllm`, auth-free) is an assumption on these
+endpoints until re-measured. The two known caveats — JSON `response_format`
+returning `{}` and reasoning tags leaking into `content` — are likewise **unknown**
+on the new deployment.
+
+### Operator smoke at COE (run before trusting a demo)
+
+```bash
+# 1) Vendor-supplied instruct check
+curl http://10.52.1.13:8004/v1/chat/completions -H 'Content-Type: application/json' \
+  -d '{"model":"foundation-sec-instruct","messages":[{"role":"user","content":"hi"}]}'
+
+# 2) Reasoning endpoint
+curl http://10.52.1.13:8003/v1/chat/completions -H 'Content-Type: application/json' \
+  -d '{"model":"foundation-sec-reasoning","messages":[{"role":"user","content":"hi"}]}'
+
+# 3) Confirm served names and context window
+curl -sS http://10.52.1.13:8004/v1/models
+curl -sS http://10.52.1.13:8003/v1/models
+
+# 4) JSON mode — re-test the :8002 caveat
+curl -sS -m 120 http://10.52.1.13:8004/v1/chat/completions -H 'Content-Type: application/json' \
+  -d '{"model":"foundation-sec-instruct","response_format":{"type":"json_object"},
+       "messages":[{"role":"user","content":"Return JSON {\"ok\":true}"}]}'
+
+# 5) Same probes from inside the backend container (host reachability != container reachability)
+docker compose exec backend curl -sS -m 20 http://10.52.1.13:8004/v1/models
+```
+
+If step 5 fails while step 3 passes, the container has no route to the LAN — fix
+networking, not the profile. If step 4 returns `{}`, keep
+`AI_SOC_LLM_SPL_FALLBACK_ENABLED` off for the demo.
+
+Raise `AI_SOC_LLM_MAX_INPUT_TOKENS` from the profile's `6500` only after step 3
+confirms the new `max_model_len`.

@@ -137,6 +137,41 @@ def _mcp_env_keys() -> set[str]:
 
 
 @pytest.fixture()
+def isolated_llm_connection_store_apply() -> Iterator[None]:
+    """Snapshot every global `app.llm.connection_store.apply_to_settings()` mutates.
+
+    Sibling of `isolated_connection_store_apply` for the LLM side. The LLM store
+    writes the six mapped connection attributes plus four derived selector/provider
+    attributes that no caller passes explicitly — those derived writes are the ones
+    that leak (found 2026-08-19: an endpoint round-trip test flipped
+    `ai_soc_llm_enabled` and broke the risk-rationale budget test).
+    Request this fixture in any test that calls the LLM `save_connection()` or
+    `apply_to_settings()`.
+    """
+    from app.config import settings
+
+    touched_settings = (
+        "ai_soc_llm_connection_store_path",
+        "ai_soc_llm_enabled",
+        "ai_soc_llm_mode",
+        "ai_soc_llm_local_base_url",
+        "ai_soc_llm_local_model",
+        "ai_soc_llm_local_api_key",
+        "ai_soc_llm_timeout_seconds",
+        "ai_soc_llm_foundation_sec_reasoning_base_url",
+        "ai_soc_llm_foundation_sec_reasoning_model",
+        "ai_soc_llm_active_model",
+        "ai_soc_llm_available_models",
+        "ai_soc_llm_default_model",
+        "ai_soc_llm_default_provider",
+    )
+    settings_snapshot = {key: getattr(settings, key) for key in touched_settings}
+    yield
+    for key, value in settings_snapshot.items():
+        setattr(settings, key, value)
+
+
+@pytest.fixture()
 def isolated_connection_store_apply() -> Iterator[None]:
     """Snapshot every global `connection_store.apply_to_settings()` mutates.
 
