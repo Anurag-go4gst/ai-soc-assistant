@@ -46,7 +46,8 @@ These Plan 8 invariants remain authoritative:
 deterministic authority over routing, clarification, capability authorization,
   PhasePolicy / PhaseContract, SPL validation, RBAC, HIL, MCP invocation,
   side-effect authorization, retry/fallback, final validation
-T1–T3 before T4; T4 only for unresolved meaning
+T1–T3 before T4; T1–T3 is complete governed happy-path match or abstain
+T4 owns semantic understanding only when T1–T3 abstains (no partial semantic lock + field-level T4 fill)
 Final ResolvedQueryContract before authoritative planning
 primary_skill is ownership, not a capability veto
 candidate SPL is never executable
@@ -83,6 +84,7 @@ production GO remains deferred; F3 T4 serving and live MCP remain unproven
 | D12 | Model roles | `semantic_t4` / narration = instruct | Instruct: T4, concise transform, narration. Reasoning: investigation planner, evidence reasoner, PlanDelta reasoner, domain-agent reasoning, remediation planner |
 | D13 | Dual dispatch | Imperative hybrid vs RP `composed_dispatch` | One hub. Bounded loop lives inside the Resource Planner execution hub |
 | D14 | T1–T3 workstream | Not called out | Catalogue matching / T2 commit hygiene remains a **separate** in-flight patch and is out of scope here |
+| D15 | Understanding authority | Partial T1–T3 semantic lock + field-level T4 fill of unresolved fields | **[CHANGED 2026-08-21]** T1–T3 = complete governed happy-path match **or abstain**. No partially committed T1–T3 semantic contract is sent to T4 for field patching. T4 performs full semantic understanding when T1–T3 abstains; DET validation produces Final RQC. Both paths share one downstream runtime |
 
 Review corrections after the first 2026-08-20 draft (same decision; do not treat the first draft wording as canonical):
 
@@ -171,22 +173,85 @@ LLMs do not acquire execution authority.
 
 ---
 
-## 2.2 T1–T3 first, T4 only for unresolved meaning
+## 2.2 T1–T3 complete match or abstain; T4 only after abstain **[CHANGED 2026-08-21]**
 
-T1–T3 deterministically resolve everything that can be reliably established.
+T1–T3 are the governed happy-path resolver. They do **not** emit a partially committed semantic contract for T4 to patch field-by-field.
 
-They identify:
+T1–T3 must either:
 
 ```text
-known / authoritative fields
-unresolved semantic fields
+A. ACCEPT a COMPLETE, sufficiently confident governed match
+   → commit the complete deterministic understanding contract
+   → skip T4
+
+B. ABSTAIN completely from semantic authority
+   → T4 performs semantic understanding of the request
 ```
 
-T4 receives the unresolved semantic responsibility plus locked context.
+Abstain whenever the match is incomplete, low-confidence, low-margin, semantically incompatible, or otherwise not fully governed.
 
-T4 must not regenerate the complete query contract when only part of it is unresolved.
+### Explicit user literals vs derived observations **[NEW 2026-08-21]**
 
-A heavily semantic request may legitimately have many unresolved fields and therefore use T4 extensively.
+These are different. Do not collapse them into a partial T1–T3 semantic contract.
+
+**A. Explicit user literal constraints**
+
+Facts stated directly and unambiguously by the user remain **binding DET validation constraints** even when T1–T3 **abstains** from semantic authority. They originate from USER_INTENT, not from a T1–T3 semantic commit. Examples:
+
+```text
+exact IP / domain / hash
+username / hostname / asset identifier
+explicit index
+explicit sourcetype
+explicit time expression
+explicit requested output form
+explicit execution constraint (e.g. "do not execute")
+explicit action prohibition or scope limitation
+```
+
+They are **not** a partial T1–T3 semantic contract and must not be treated as locked T1–T3 semantic fields for field-level T4 patching.
+
+T4 may receive them in structured form for grounding.
+
+T4 **MUST NOT** materially contradict them.
+
+DET **MUST reject** a T4 proposal that materially contradicts an unambiguous explicit user literal.
+
+Example:
+
+```text
+User: "create a SPL for 10.0.0.8 for the last 2 hours; do not execute it"
+
+T1–T3 may ABSTAIN on semantic happy-path classification.
+
+Nevertheless these remain explicit user constraints:
+  10.0.0.8
+  last 2 hours
+  do_not_execute
+
+T4 may determine the semantic goal (SPL authoring) but may not change those constraints.
+
+A proposal using 10.0.0.5 / 24 hours / execute=true MUST be rejected deterministically.
+```
+
+**B. Derived observations / hints**
+
+Deterministically inferred or extracted-but-not-certain interpretations on an abstain path remain **NON-AUTHORITATIVE** observations. Examples:
+
+```text
+inferred source family
+guessed objective
+inferred investigation type
+likely product/vendor interpretation
+candidate catalogue family
+semantic similarity candidate
+```
+
+T4 may use or reject these. They do **not** constrain T4 merely because T1–T3 produced them, and they do **not** recreate partial semantic authority.
+
+When T1–T3 **accepts**, the complete deterministic contract is authoritative and T4 is not invoked.
+
+A heavily semantic or out-of-catalogue request that cannot be fully governed by T1–T3 must abstain and use T4 — not a half-bound catalogue row plus field-level T4 repair.
 
 ---
 
@@ -195,22 +260,30 @@ A heavily semantic request may legitimately have many unresolved fields and ther
 The canonical order is:
 
 ```text
-T1–T3
-→ sufficiency
-→ optional T4
-→ deterministic T4 validation/merge
+T1–T3 (ACCEPT complete governed match OR ABSTAIN)
+→ if ABSTAIN: optional bounded T4 semantic understanding [LLM instruct]
+→ deterministic validation of the accepted T1–T3 contract OR of the T4 proposal
 → FINAL ResolvedQueryContract
 → clarification OR final route/owner
 → CapabilitySnapshot [DET projection of availability / policy posture]
-→ InvestigationPlanProposal [LLM, non-authoritative]
-→ ValidatedInvestigationPlan [DET]
-→ user Run / Edit / Cancel
-→ ApprovedInvestigationEnvelope [immutable version]
-→ DET compiler
-→ authoritative ResourcePlan + PhaseContract
+→ (only when Final RQC is investigation-shaped)
+  InvestigationPlanProposal [LLM, non-authoritative]
+  → ValidatedInvestigationPlan [DET]
+  → user Run / Edit / Cancel
+  → ApprovedInvestigationEnvelope [immutable version]
+  → DET compiler
+  → authoritative ResourcePlan + PhaseContract
+→ (non-investigation Final RQCs use the same CapabilitySnapshot / owner /
+   downstream seams appropriate to that contract — SPL authoring, knowledge,
+   MITRE, comparison, remediation request, etc. — without inventing a second
+   understanding or investigation runtime)
 ```
 
+T1–T3 complete match and T4-validated understanding **converge** on one Final RQC and one downstream architecture. There is no T1–T3 investigation runtime versus T4 investigation runtime.
+
 ResourcePlan must never be committed from an earlier provisional interpretation and then followed by final route adjudication.
+
+Non-investigation Final RQCs must not be forced through `InvestigationOutcome` merely because T4 ran.
 
 An LLM `InvestigationPlanProposal` is **not** a ResourcePlan. A DET `ValidatedInvestigationPlan` is what the user approves. ResourcePlan + PhaseContract become authoritative **only after** that approval and the DET compiler. Do not hold a ResourcePlan/PhaseContract both before and after approval.
 
@@ -579,15 +652,13 @@ New MCP servers/tools may register new capabilities without changing the orchest
 Request/session [DET]
   ↓
 PHASE 1 — T1–T3 deterministic understanding [DET]
-  ↓
-UNDERSTANDING sufficiency [DET]
-  ├─ sufficient ──────────────────────────────┐
-  └─ unresolved semantic meaning              │
-       ↓                                      │
-     PHASE 2 — optional bounded T4 [LLM instruct, meaning-only]
-       ↓                                      │
-     PHASE 3 — deterministic validation/merge │
-       └──────────────────────────────────────┘
+  ├─ COMPLETE + CONFIDENT governed match ──── ACCEPT complete contract ──┐
+  └─ otherwise ABSTAIN (no partial semantic authority)                   │
+       ↓                                                                │
+     PHASE 2 — bounded T4 semantic understanding [LLM instruct]          │
+       ↓                                                                │
+     PHASE 3 — deterministic validation of T4 proposal                  │
+       └────────────────────────────────────────────────────────────────┘
   ↓
 PHASE 4 — FINAL ResolvedQueryContract [DET]
   ↓
@@ -595,6 +666,7 @@ clarification OR final owner
   ↓
 PHASE 4b — CapabilitySnapshot [DET: need × availability; not execution authorization]
   ↓
+(when Final RQC is investigation-shaped)
 PHASE 5 — InvestigationPlanProposal [LLM reasoning, non-authoritative]
            → ValidatedInvestigationPlan [DET]
            → user Run / Edit / Cancel
@@ -622,6 +694,8 @@ PHASE 8 — EVIDENCE sufficiency [DET]
   ↓
 InvestigationOutcome [HYBRID → DET-governed structured result]
   status ≠ security disposition
+  (investigation-shaped Final RQCs only; do not force non-investigation
+   Final RQCs through InvestigationOutcome merely because T4 ran)
   ↓
 PHASE 9 — grounded narration [LLM instruct]
   ↓
@@ -648,13 +722,13 @@ FINAL USER RESPONSE
 PHASE 11 — safe session / follow-up continuity [DET]
 ```
 
-**CURRENTLY IMPLEMENTED:** T1–T3 → optional T4 → RQC → ResourcePlan (often from provisional family) → RP hub one-pass. Catalogue-T4 `guided_investigation` is RAG / recommend-only because live `skills/catalog.json` still `blocked_tools` includes `mcp_execution` (and EvidencePlan still turns SPL/MCP off). That is an **implementation gap**, not a change to this target. No CapabilitySnapshot, no investigation envelope, no PlanDelta on the RP graph, no remediation offer.
+**CURRENTLY IMPLEMENTED:** T1–T3 → optional T4 → RQC → ResourcePlan (often from provisional family) → RP hub one-pass. Live understanding still partially locks T1–T3 semantic fields and asks T4 to fill unresolved fields — that is an **implementation gap** against the 2026-08-21 complete-or-abstain target. Catalogue-T4 `guided_investigation` is RAG / recommend-only because live `skills/catalog.json` still `blocked_tools` includes `mcp_execution` (and EvidencePlan still turns SPL/MCP off). That is a separate **implementation gap**, not a change to this target. No CapabilitySnapshot, no investigation envelope, no PlanDelta on the RP graph, no remediation offer.
 
 **IMPLEMENTATION GAP:** everything in the TARGET flow after final owner that is not the current one-pass ResourcePlan + RAG dispatch, including unvetoing guided SPL/MCP in catalog/EvidencePlan **without** claiming it is already fixed.
 
 Bounded `PlanDelta` is on the investigation **target** path. It remains evidence-targeted, envelope-scoped, **read-only**, append-only, and never an open autonomous loop. Unbounded ReAct is forbidden. Writes cannot sneak into investigation.
 
-T1–T3 catalogue matching remains a separate workstream and is not redesigned here.
+T1–T3 catalogue matching algorithms / truth-set / T2 commit hygiene remain a separate workstream. This document’s 2026-08-21 change defines only the **authority posture** for whatever match T1–T3 produce: complete accept or abstain — not a redesign of the matcher itself.
 
 ---
 
@@ -680,12 +754,14 @@ Controlled previous contract/evidence references may be used.
 
 ---
 
-# 7. Phase 1 — T1–T3 Deterministic Understanding `[DET]`
+# 7. Phase 1 — T1–T3 Deterministic Understanding `[DET]` **[CHANGED 2026-08-21]**
 
-T1–T3 resolve deterministically known information such as:
+T1–T3 attempt a **complete governed happy-path** resolution. They may use exact match, catalogue/shape resolution, and candidate retrieval with confidence, margin, and semantic compatibility.
+
+On **ACCEPT**, T1–T3 establish the complete deterministic understanding contract, including where known:
 
 ```text
-goal/intent where known
+goal/intent
 entities
 time scope
 user constraints
@@ -713,15 +789,77 @@ investigation-specific filters
 
 These constraints are resolved into the final RQC and passed downstream. The SPL LLM or template renderer must not be expected to rediscover them opportunistically from free text.
 
-Output:
+## T1–T3 acceptance contract
+
+Accept only when **all** of the following hold:
 
 ```text
-partial ResolvedQueryContract
-+
-known/locked fields
-+
-unresolved semantic fields
+match is complete for the governed happy path
+confidence meets the governed threshold
+winner margin is sufficient when candidates compete
+semantic compatibility with the catalogue/tool vocabulary holds
+no material semantic dimension remains ungoverned
 ```
+
+Output on ACCEPT:
+
+```text
+complete deterministic understanding contract
+(T4 skipped)
+```
+
+## T1–T3 abstain contract
+
+Abstain (no partial semantic authority) when any of the following hold:
+
+```text
+incomplete match
+low confidence
+low margin / ambiguous candidates
+semantic incompatibility
+otherwise not fully governed
+```
+
+On ABSTAIN, T1–T3 must not commit a partial semantic contract for T4 to patch. Pass separately:
+
+```text
+explicit user literal constraints   # binding DET validation constraints
+optional derived observations/hints # non-authoritative; T4 may use or reject
+```
+
+Output on ABSTAIN:
+
+```text
+ABSTAIN from semantic authority
++
+explicit user literal constraints (binding for DET; not a T1–T3 semantic commit)
++
+optional non-authoritative derived observations
+→ Phase 2 T4
+```
+
+## Future T3 vector / embedding matching **[NEW 2026-08-21]**
+
+Embeddings / vector similarity are **candidate retrieval and ranking only** inside T3. They are not an independent authority tier and never receive route, capability, tool, execution, or evidence authority.
+
+Intended T3 candidate pool:
+
+```text
+T3
+  ├── lexical / catalogue candidates
+  └── embedding / vector candidates
+             ↓
+     deterministic compatibility
+     confidence threshold
+     winner margin
+     completeness requirement
+             ↓
+      ACCEPT COMPLETE
+          or
+        ABSTAIN → T4
+```
+
+Do not implement embeddings until a separate measured workstream; this architecture only requires that T3 authority remain complete-or-abstain when they arrive.
 
 ---
 
@@ -735,7 +873,7 @@ Do not build multiple overlapping contracts.
 
 Question:
 
-> Do we know enough about the request to create the authoritative query contract?
+> Did T1–T3 accept a complete governed happy-path match, or did they abstain so T4 must produce a semantic proposal for deterministic validation into Final RQC?
 
 ## EVIDENCE stage
 
@@ -760,20 +898,22 @@ The architecture depends on the role, not permanently on one model name.
 
 ---
 
-## T4 input contract
+## T4 input contract **[CHANGED 2026-08-21]**
 
-A deterministic prompt builder provides a compact payload:
+T4 runs only after T1–T3 **abstain**. A deterministic prompt builder provides a compact payload:
 
 ```text
 original query
-relevant prior safe context
-LOCKED_FIELDS
-UNRESOLVED_FIELDS
-allowed semantic vocabulary
-short relevant capability descriptions
+trusted system vocabulary / required structured-output schema
+short relevant capability descriptions (meaning aids only; not grants)
 1–3 curated few-shot examples
-required structured-output schema
+EXPLICIT_USER_LITERAL_CONSTRAINTS
+  (binding for DET validation; grounding for T4; not a T1–T3 semantic contract)
+optional DERIVED_OBSERVATIONS / HINTS
+  (non-authoritative; T4 may use or reject)
 ```
+
+T4 must **not** receive a partially committed T1–T3 semantic contract, locked T1–T3 semantic fields, or an unresolved-field patch list asking it to fill individual semantic slots on a half-bound match.
 
 Few-shot examples are prompt assets.
 
@@ -805,14 +945,17 @@ authorize remediation
 set RBAC
 set HIL
 change policy
-override locked T1–T3 facts
+materially contradict unambiguous explicit user literal constraints
+treat derived observations/hints as locked authority
 grant capabilities
 select final route authority
 propose or commit an investigation ResourcePlan
 select tools from CapabilitySnapshot as execution authority
 ```
 
-**[CHANGED 2026-08-20]** T4 is not the investigation planner. Completing unresolved meaning is a different job from proposing a whole investigation strategy. Investigation planning, evidence reasoning, PlanDelta reasoning, domain-agent reasoning, and remediation planning use the **reasoning** model family (see §9.1). Expanding T4 into those roles is forbidden.
+When T1–T3 **accepted**, T4 is not invoked and therefore cannot rewrite that contract. When T1–T3 **abstained**, T4 proposes meaning subject to explicit user literal constraints; only deterministic validation creates Final RQC authority.
+
+**[CHANGED 2026-08-20]** T4 is not the investigation planner. Semantic understanding after T1–T3 abstain is a different job from proposing a whole investigation strategy. Investigation planning, evidence reasoning, PlanDelta reasoning, domain-agent reasoning, and remediation planning use the **reasoning** model family (see §9.1). Expanding T4 into those roles is forbidden.
 
 ---
 
@@ -923,21 +1066,26 @@ The existing serving/client/runtime seam owns any future circuit breaker and bac
 
 ---
 
-# 11. Phase 3 — T4 Validation + Merge `[DET]`
+# 11. Phase 3 — T4 Validation `[DET]` **[CHANGED 2026-08-21]**
 
-Validate:
+Runs only on the T1–T3 **abstain** path after T4 returns a structured semantic proposal.
+
+Validate the proposal against:
 
 ```text
-schema
-field eligibility
-locked-field integrity
-known semantic vocabulary
+original user query
+trusted schemas / field eligibility
+known semantic / catalogue / tool vocabulary
+deterministic policy
+explicit user literal constraints from the query   # binding; see §2.2
 time/entity validity
 prohibition integrity
 clarification consistency
 ```
 
-T4 changes only unresolved semantic fields.
+**Explicit-literal rejection rule.** DET **MUST reject** a T4 proposal that materially contradicts an unambiguous explicit user literal (IP/domain/hash, identity, index/sourcetype, time, requested output form, execution constraint such as do_not_execute, action prohibition, or scope limitation). Derived observations/hints are not binding and do not trigger this rejection merely by disagreement.
+
+T4 output is a **proposal**, not Final RQC. Deterministic code accepts, rejects, or requires clarification. There is no field-level merge onto a partially committed T1–T3 semantic contract.
 
 Derived fields such as:
 
@@ -947,13 +1095,25 @@ evidence requirements
 route hints
 ```
 
-are recomputed deterministically from the final understanding.
+are recomputed deterministically from the validated understanding.
+
+Only after successful deterministic validation does the system create the FINAL ResolvedQueryContract.
 
 ---
 
 # 12. Phase 4 — Final ResolvedQueryContract + Route `[DET]`
 
 The final RQC is the authoritative interpretation of the current turn.
+
+It is produced by **exactly one** of:
+
+```text
+T1–T3 ACCEPT of a complete governed happy-path contract
+  OR
+deterministic validation of a T4 semantic proposal after T1–T3 ABSTAIN
+```
+
+Both paths converge here. Final RQC determines product behavior (SPL authoring, knowledge recall, MITRE mapping, investigation, comparison, remediation request, or other governed operation). Investigation-shaped Final RQCs follow the canonical investigation lifecycle; non-investigation Final RQCs must not be forced through InvestigationOutcome merely because T4 was used.
 
 Conceptually it includes:
 
@@ -971,7 +1131,7 @@ provenance
 confidence
 ```
 
-The final RQC carries authoritative entities and constraints, including explicit source/destination, identity, host, network, geography, event/result, time and investigation filters where applicable. Every downstream representation is derived from this contract and must preserve locked constraints.
+The final RQC carries authoritative entities and constraints, including explicit source/destination, identity, host, network, geography, event/result, time and investigation filters where applicable. Every downstream representation is derived from this contract and must preserve Final-RQC constraints.
 
 Canonical SPL constraint flow:
 
@@ -1972,13 +2132,15 @@ Flow:
 ```text
 Phase 1
 T1–T3
-→ event/time/account/geo/requested actions known
+→ ACCEPT complete governed match when possible
+→ otherwise ABSTAIN (no partial semantic contract)
 
 Phase 2
-T4 only if semantic assessment needs resolution
+T4 only after T1–T3 ABSTAIN (full semantic proposal; observations as hints only)
 
 Phase 3
-T4 validation
+deterministic validation of T4 proposal → Final RQC
+(or Phase 3 skipped when T1–T3 ACCEPTed)
 
 Phase 4
 Final RQC:
@@ -2094,10 +2256,10 @@ The T1–T3 catalogue/matching patch does not change this posture and must not b
 ## Exists / substantially built
 
 ```text
-T1–T3 deterministic understanding
+T1–T3 deterministic understanding (complete-or-abstain target)
 ResolvedQueryContract
 T4 semantic seam
-deterministic T4 merge rules
+deterministic T4 proposal validation
 route adjudication
 ResourcePlan
 PhaseRegistry
@@ -2122,6 +2284,8 @@ MCP discovery snapshot ∩ allowlist (process-memory)
 guided refinement gate (imperative path; not the live RP graph loop)
 ```
 
+**IMPLEMENTATION GAP (understanding):** live code may still partially lock T1–T3 semantic fields and ask T4 to fill unresolved fields. Target is complete-or-abstain (D15 / §2.2).
+
 ---
 
 ## Known minimum authority corrections
@@ -2129,10 +2293,14 @@ guided refinement gate (imperative path; not the live RP graph loop)
 ```text
 1. Final RQC must precede clarification/route/ResourcePlan.
 
-2. T1–T3 must expose known/locked versus unresolved semantic fields.
+2. **[CHANGED 2026-08-21]** T1–T3 must either ACCEPT a complete governed
+   happy-path understanding contract or ABSTAIN completely from semantic
+   authority. Do not emit a partial T1–T3 semantic contract for T4 to patch.
 
-3. T4 must operate on the unresolved semantic responsibility,
-   with compact few-shot prompting and deterministic validation.
+3. **[CHANGED 2026-08-21]** When T1–T3 abstain, T4 performs semantic
+   understanding of the request (observations as non-authoritative hints only).
+   Deterministic validation of the T4 proposal produces Final RQC. T4 is
+   skipped when T1–T3 accept.
 
 4. Primary skill must not veto cross-capability ResourcePlan work.
    **[CHANGED 2026-08-20]** This is now a required product correction for
@@ -2152,6 +2320,8 @@ guided refinement gate (imperative path; not the live RP graph loop)
 
 9. A minimal governed InvestigationOutcome seam must exist between EVIDENCE
    sufficiency and synthesis/actions, preferably by extending existing result packages.
+   InvestigationOutcome applies to investigation-shaped Final RQCs; do not force
+   non-investigation Final RQCs through it merely because T4 ran.
 
 10. SPL generation must preserve mandatory final-RQC constraints through source
     mapping, postprocessing and normalized validation.
@@ -2169,8 +2339,8 @@ guided refinement gate (imperative path; not the live RP graph loop)
 
 | Concept | Target | Currently implemented | Gap |
 |---|---|---|---|
-| T1–T3 before T4 | required | yes | keep |
-| semantic T4 meaning-only | required | yes, when hop runs | F3 serving; hop often skipped |
+| T1–T3 complete-or-abstain before T4 | required | **partial lock + field fill still live** | converge to D15 / §2.2 |
+| semantic T4 meaning-only (after abstain) | required | yes, when hop runs | F3 serving; hop often skipped; no partial semantic lock input |
 | Final RQC before plan | required | **misplaced** — plan can commit from provisional family | correction #1 still open |
 | `guided_investigation` owner, composable RAG+SPL+MCP | required | **still violated:** `skills/catalog.json` blocks `mcp_execution` / write / remediation; EvidencePlan is RAG/`recommend_only` | unveto catalog+EvidencePlan at implementation time; do not reroute to `spl_generation`; **not fixed in this architecture drop** |
 | CapabilitySnapshot (need × availability, two axes) | required | separate registries; live MCP snapshot exists | no joined projection; must **not** include execution authorization |
@@ -2217,11 +2387,11 @@ The current system must nevertheless preserve a design that does not prevent the
 
 # 26. Architecture invariants
 
-1. T1–T3 deterministic understanding runs before T4.
+1. **[CHANGED 2026-08-21]** T1–T3 deterministic understanding runs first and either ACCEPTs a complete governed happy-path contract or ABSTAINs completely from semantic authority.
 
-2. T4 addresses unresolved semantic meaning.
+2. **[CHANGED 2026-08-21]** T4 runs only after T1–T3 abstain and performs semantic understanding of the request. Explicit user literals remain binding DET constraints; derived observations are non-authoritative hints only. T4 does not patch individual unresolved fields on a partially committed T1–T3 semantic contract.
 
-3. Locked T1–T3 facts cannot be rewritten by T4.
+3. **[CHANGED 2026-08-21]** When T1–T3 accept, that complete contract is authoritative and T4 is skipped. When T1–T3 abstain, only deterministic validation of the T4 proposal creates Final RQC authority.
 
 4. T4 is **meaning-only** (instruct-class) and cannot execute tools, grant capabilities, or act as the investigation planner.
 
@@ -2316,6 +2486,10 @@ The current system must nevertheless preserve a design that does not prevent the
 49. **[NEW 2026-08-20]** This architecture must not disturb the in-flight T1–T3 catalogue/matching workstream. Matcher, truth-set baseline, and T2 commit hygiene changes are out of scope here.
 
 50. **[NEW 2026-08-20]** A user plan edit that changes Final RQC meaning, entities, time, or objective re-enters understanding. It must not compile against a stale RQC.
+
+51. **[NEW 2026-08-21]** T1–T3 understanding authority is complete governed happy-path match or abstain. Future T3 embedding/vector similarity is candidate retrieval/ranking only and never receives route, capability, tool, execution, or evidence authority. T1–T3 complete match and T4-validated understanding converge on one Final RQC and one downstream runtime.
+
+52. **[NEW 2026-08-21]** After T1–T3 abstain, unambiguous explicit user literals remain binding DET validation constraints (not a partial T1–T3 semantic contract). T4 may receive them for grounding but MUST NOT materially contradict them. DET MUST reject a T4 proposal that materially contradicts them. Derived observations/hints remain non-authoritative and do not constrain T4 merely because they were extracted.
 
 ---
 
