@@ -35,6 +35,10 @@ class SessionPins(BaseModel):
     last_execution_status: str | None = None
     last_human_review_status: str | None = None
     pending_execution_confirmation: dict[str, Any] | None = None
+    # P10: the remediation plan the analyst is currently looking at. Approve and Edit
+    # act on this exact plan across turns, so an approved envelope can only ever
+    # contain steps that were actually shown.
+    pending_remediation_plan: dict[str, Any] | None = None
     pending_handoff_id: str | None = None
     pending_handoff_version: int | None = None
     original_query: str | None = None

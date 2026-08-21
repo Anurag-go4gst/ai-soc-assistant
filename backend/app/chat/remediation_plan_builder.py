@@ -16,9 +16,30 @@ from __future__ import annotations
 from typing import Any
 
 from app.actions.capability_policy import BLOCKED_EXECUTION_ACTIONS
+from app.chat.capability_snapshot import KNOWN_ACTION_KINDS
 from app.chat.contracts.remediation_plan import (
     RemediationStep,
     ValidatedRemediationPlan,
+)
+
+#: What counts as *remediation*. ``ActionCapability.allowed_actions`` at tier 1 is an
+#: answer-affordance vocabulary — "summarize", "explain", "show_sop" — not a set of
+#: things that change the estate. Treating those as remediation steps produced plans
+#: like "Perform summarize manually", so the builder filters to real actions only.
+REMEDIATION_ACTION_KINDS: frozenset[str] = frozenset(
+    {*KNOWN_ACTION_KINDS, *BLOCKED_EXECUTION_ACTIONS}
+)
+
+#: Answer affordances that must never appear as a remediation step.
+_ANSWER_AFFORDANCES: frozenset[str] = frozenset(
+    {
+        "summarize",
+        "explain",
+        "show_sop",
+        "generate_spl",
+        "draft_investigation_note",
+        "run_saved_search",
+    }
 )
 
 #: Deterministic verification text per known action kind. A capability with no
@@ -105,13 +126,43 @@ def build_deterministic_remediation_plan(
     availability = _snapshot_availability(snapshot)
     eligibility = _as_dict(outcome.get("action_eligibility"))
 
-    allowed = [str(item) for item in eligibility.get("allowed_actions") or []]
-    unavailable = [str(item) for item in eligibility.get("unavailable_actions") or []]
+    raw_allowed = [str(item) for item in eligibility.get("allowed_actions") or []]
+    raw_unavailable = [str(item) for item in eligibility.get("unavailable_actions") or []]
 
     steps: list[RemediationStep] = []
     manual_only: list[str] = []
     warnings: list[str] = []
+    dropped: list[str] = []
     seen: set[str] = set()
+
+    def _remediation_only(values: list[str]) -> list[str]:
+        """Drop answer affordances; keep everything else.
+
+        An unrecognized identifier is kept deliberately: a not-yet-onboarded connector
+        such as an Agilius patch submission is a real remediation action, and it must
+        surface as an honest manual step rather than vanish from the plan. Only the
+        known answer-affordance vocabulary is filtered out.
+        """
+        kept: list[str] = []
+        for value in values:
+            if value in _ANSWER_AFFORDANCES:
+                dropped.append(f"answer_affordance_is_not_remediation:{value}")
+                continue
+            kept.append(value)
+        return kept
+
+    allowed = _remediation_only(raw_allowed)
+    unavailable = _remediation_only(raw_unavailable)
+
+    # A registered write capability the snapshot reports as available is a real
+    # remediation option even when the tier-1 action vocabulary never mentions it.
+    for capability_id, row_availability in sorted(availability.items()):
+        if (
+            capability_id in KNOWN_ACTION_KINDS
+            and row_availability == "available"
+            and capability_id not in allowed
+        ):
+            allowed.append(capability_id)
 
     for capability_id in allowed:
         if capability_id in seen:
@@ -158,6 +209,7 @@ def build_deterministic_remediation_plan(
         manual_only_steps=manual_only,
         plan_source="deterministic_only",
         validation_warnings=warnings,
+        dropped_reasons=list(dict.fromkeys(dropped))[:32],
         derived_from_investigation_status=(
             str(outcome["investigation_status"]) if outcome.get("investigation_status") else None
         ),

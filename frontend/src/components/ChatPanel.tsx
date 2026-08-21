@@ -581,6 +581,16 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     await runStagedInvestigation({ demoMode: false, userMessage: originalQuery, reviewOptions: payload });
   };
 
+  const handleRemediationReview = async (
+    payload: ChatRemediationReviewOptions,
+    label: string,
+    originalQuery: string,
+  ) => {
+    const userMessage: SocChatMessage = { id: crypto.randomUUID(), role: 'user', content: label };
+    setMessages((current) => [...current, userMessage]);
+    await runStagedInvestigation({ demoMode: false, userMessage: originalQuery, reviewOptions: payload });
+  };
+
   const handleSend = async (message: string) => {
     if (isClearChatCommand(message)) {
       handleClear();
@@ -676,6 +686,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
                 investigationBusy={loading}
                 onExecutionReview={handleExecutionReview}
                 onInvestigationReview={handleInvestigationReview}
+                onRemediationReview={handleRemediationReview}
                 onCoordinationConfirm={handleCoordinationConfirm}
                 onCoordinationSkip={handleCoordinationSkip}
                 onRetryFinalSynthesis={

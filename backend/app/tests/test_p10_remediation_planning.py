@@ -297,3 +297,104 @@ def test_no_connector_module_is_imported_by_the_planning_path() -> None:
         assert "smtp" not in source.lower()
     assert not hasattr(runtime, "send_email")
     assert not hasattr(builder, "send_email")
+
+
+# ------------------------------------------- defects found by live COE probing
+
+
+def test_tier1_answer_affordances_never_become_remediation_steps() -> None:
+    """Live probe produced steps like "Perform summarize manually".
+
+    ``ActionCapability.allowed_actions`` at tier 1 is an answer-affordance vocabulary,
+    not a set of estate-changing actions. Those must not enter a remediation plan.
+    """
+    plan = build_deterministic_remediation_plan(
+        investigation_outcome=_outcome(
+            action_eligibility={
+                "allowed_actions": [
+                    "summarize",
+                    "explain",
+                    "show_sop",
+                    "generate_spl",
+                    "draft_investigation_note",
+                ],
+                "unavailable_actions": ["run_saved_search", "block_ip"],
+            }
+        ),
+        capability_snapshot=_snapshot(),
+    )
+    capability_ids = {step.capability_id for step in plan.steps}
+    for affordance in (
+        "summarize",
+        "explain",
+        "show_sop",
+        "generate_spl",
+        "draft_investigation_note",
+        "run_saved_search",
+    ):
+        assert affordance not in capability_ids
+    assert "block_ip" in capability_ids
+    assert any(reason.startswith("answer_affordance_is_not_remediation") for reason in plan.dropped_reasons)
+
+
+def test_unonboarded_connector_is_kept_as_a_manual_step() -> None:
+    """An unknown identifier is a future connector, not an affordance — keep it visible."""
+    plan = build_deterministic_remediation_plan(
+        investigation_outcome=_outcome(
+            action_eligibility={"allowed_actions": ["agilus_submit_patch"], "unavailable_actions": []}
+        ),
+        capability_snapshot=_snapshot(),
+    )
+    step = next(item for item in plan.steps if item.capability_id == "agilus_submit_patch")
+    assert step.execution_mode == "manual_or_alternate"
+
+
+def test_available_write_capability_enters_the_plan_without_a_tier1_mention() -> None:
+    """A registered, available connector is a real option even if tier 1 never lists it."""
+    plan = build_deterministic_remediation_plan(
+        investigation_outcome=_outcome(
+            action_eligibility={"allowed_actions": ["summarize"], "unavailable_actions": []}
+        ),
+        capability_snapshot=_snapshot(email_send="available"),
+    )
+    step = next(item for item in plan.steps if item.capability_id == "email_send")
+    assert step.execution_mode == "execute"
+
+
+def test_approve_binds_to_the_plan_shown_on_an_earlier_turn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Create and Approve arrive on separate /chat turns; state does not carry the plan."""
+    from app.chat.session_store import (
+        SessionPins,
+        clear_all_session_pins_for_tests,
+        get_session_pins,
+        save_session_pins,
+    )
+
+    clear_all_session_pins_for_tests()
+    session_id = "session-remediation-1"
+    save_session_pins(SessionPins(session_id=session_id))
+
+    create_state = {
+        "session_id": session_id,
+        "investigation_outcome": _outcome(),
+        "capability_snapshot": _snapshot(email_send="available"),
+    }
+    created = handle_remediation_review(create_state, action="create")
+    shown = [step["step_id"] for step in created["remediation_approval"]["validated_plan"]["steps"]]
+    assert shown
+
+    pins = get_session_pins(session_id)
+    assert pins is not None and pins.pending_remediation_plan is not None
+
+    # A later turn: fresh state, same session, no approval payload carried over.
+    approve_state = {
+        "session_id": session_id,
+        "investigation_outcome": _outcome(),
+        "capability_snapshot": _snapshot(email_send="available"),
+    }
+    approved = handle_remediation_review(approve_state, action="approve")
+    envelope = approved["approved_remediation_envelope"]
+    assert [step["step_id"] for step in envelope["approved_steps"]] == shown
+    assert get_session_pins(session_id).pending_remediation_plan is None

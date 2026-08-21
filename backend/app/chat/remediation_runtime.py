@@ -188,6 +188,46 @@ def _apply_edits(
     return edited, warnings
 
 
+def _load_pending_plan(state: dict[str, Any]) -> ValidatedRemediationPlan | None:
+    """The plan the analyst is looking at, which may have been shown on a prior turn."""
+    approval_raw = _as_dict(state.get("remediation_approval"))
+    plan_raw = approval_raw.get("validated_plan")
+    if isinstance(plan_raw, dict):
+        return ValidatedRemediationPlan.model_validate(plan_raw)
+    session_id = state.get("session_id")
+    if not session_id:
+        return None
+    from app.chat.session_store import get_session_pins
+
+    pins = get_session_pins(str(session_id))
+    pending = getattr(pins, "pending_remediation_plan", None) if pins is not None else None
+    if not isinstance(pending, dict):
+        return None
+    try:
+        return ValidatedRemediationPlan.model_validate(pending)
+    except Exception:  # noqa: BLE001 - a stale/incompatible pin is simply absent
+        return None
+
+
+def _remember_pending_plan(
+    state: dict[str, Any], plan: ValidatedRemediationPlan | None
+) -> None:
+    """Persist (or clear) the shown plan so a later Approve binds to the same steps."""
+    session_id = state.get("session_id")
+    if not session_id:
+        return
+    from app.chat.session_store import get_session_pins, save_session_pins
+
+    pins = get_session_pins(str(session_id))
+    if pins is None:
+        return
+    save_session_pins(
+        pins.model_copy(
+            update={"pending_remediation_plan": plan.model_dump(mode="json") if plan else None}
+        )
+    )
+
+
 def handle_remediation_review(
     state: dict[str, Any],
     *,
@@ -200,14 +240,13 @@ def handle_remediation_review(
     normalized = str(action or "").strip().lower()
     outcome = _as_dict(state.get("investigation_outcome"))
     approval_raw = _as_dict(state.get("remediation_approval"))
-    plan_raw = approval_raw.get("validated_plan")
-    plan = (
-        ValidatedRemediationPlan.model_validate(plan_raw) if isinstance(plan_raw, dict) else None
-    )
+    plan = _load_pending_plan(state)
 
     if normalized == "decline":
+        _remember_pending_plan(state, None)
         approval = _approval_state(status="declined", plan=None)
     elif normalized == "cancel":
+        _remember_pending_plan(state, None)
         approval = _approval_state(status="cancelled", plan=plan)
     elif normalized == "create":
         plan, trace = build_validated_remediation_plan(
@@ -216,6 +255,7 @@ def handle_remediation_review(
             turn_budget=turn_budget,
             raw_output_provider=raw_output_provider,
         )
+        _remember_pending_plan(state, plan)
         approval = _approval_state(status="awaiting_approval", plan=plan)
         return {
             **state,
@@ -226,6 +266,7 @@ def handle_remediation_review(
         if plan is None:
             raise ValueError("remediation_plan_missing_for_edit")
         edited, warnings = _apply_edits(plan, RemediationPlanEdits.model_validate(edits or {}))
+        _remember_pending_plan(state, edited)
         approval = _approval_state(
             status="edited_revalidated",
             plan=edited,
@@ -247,6 +288,7 @@ def handle_remediation_review(
             ),
         )
         approval = _approval_state(status="approved", plan=plan, envelope=envelope)
+        _remember_pending_plan(state, None)
         return {
             **state,
             "remediation_approval": approval.model_dump(mode="json"),

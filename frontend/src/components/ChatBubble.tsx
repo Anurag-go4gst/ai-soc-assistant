@@ -10,6 +10,7 @@ import { ProposedActionsPanel } from '@/components/ProposedActionsPanel';
 import { InvestigationLineagePanel } from '@/components/InvestigationLineagePanel';
 import { InvestigationProgressPanel, McpTransportBadge } from '@/components/InvestigationProgressPanel';
 import { InvestigationPlanApprovalCard } from '@/components/InvestigationPlanApprovalCard';
+import { RemediationPlanApprovalCard } from '@/components/RemediationPlanApprovalCard';
 import { InvestigationOutcomeCard } from '@/components/InvestigationOutcomeCard';
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { Stage3DTracePanel } from '@/components/Stage3DTracePanel';
@@ -22,6 +23,7 @@ import type {
   CandidateSplEnvelope,
   ChatExecutionReviewOptions,
   ChatInvestigationReviewOptions,
+  ChatRemediationReviewOptions,
   EcProvenance,
   ExecutionEnvelope,
   HumanReviewEnvelope,
@@ -66,12 +68,13 @@ interface ChatBubbleProps {
   investigationBusy?: boolean;
   onExecutionReview?: (payload: ChatExecutionReviewOptions, label: string) => void;
   onInvestigationReview?: (payload: ChatInvestigationReviewOptions, label: string, originalQuery: string) => void;
+  onRemediationReview?: (payload: ChatRemediationReviewOptions, label: string, originalQuery: string) => void;
   onRetryFinalSynthesis?: () => void;
   onCoordinationConfirm?: (progressId: string) => void;
   onCoordinationSkip?: (progressId: string) => void;
 }
 
-export function ChatBubble({ message, investigationBusy = false, onExecutionReview, onInvestigationReview, onRetryFinalSynthesis, onCoordinationConfirm, onCoordinationSkip }: ChatBubbleProps) {
+export function ChatBubble({ message, investigationBusy = false, onExecutionReview, onInvestigationReview, onRemediationReview, onRetryFinalSynthesis, onCoordinationConfirm, onCoordinationSkip }: ChatBubbleProps) {
   const isUser = message.role === 'user';
   const showProgress = !isUser && message.displayStage === 'progress' && message.investigationProgress;
   const showSummaryOnly = !isUser && message.displayStage === 'summary' && message.trace;
@@ -170,6 +173,14 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
             outcome={message.trace.investigation_outcome}
             progress={message.trace.investigation_progress}
             runStatus={message.trace.investigation_run_status}
+          />
+        ) : null}
+        {showFullAnswer && message.trace?.remediation_approval ? (
+          <RemediationPlanApprovalCard
+            approval={message.trace.remediation_approval}
+            busy={investigationBusy}
+            originalQuery={message.trace.user_query}
+            onReview={onRemediationReview}
           />
         ) : null}
         {showFullAnswer && message.trace?.ec_visual_lanes ? (
