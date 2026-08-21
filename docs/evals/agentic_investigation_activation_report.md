@@ -141,7 +141,31 @@ phase of this plan owns, and needs its own decision.
 
 ---
 
-## 8. Production GO
+## 8. Gates
+
+| Gate | Result |
+|---|---|
+| backend pytest (implementation checkout) | **6048 passed**, 0 failed, 6 skipped, 6 xfailed |
+| P13 E2E acceptance suite | 38 passed |
+| P0–P13 investigation slice | 90 passed |
+| production frontend `npm run build` | PASS |
+| governance regression | see closure note below |
+
+Baselines advanced during this work, each verified before touching and none advanced to
+silence a finding:
+
+- **RACES freeze → `9f1ec922`.** P10/P11/P13 changed `pipeline.py`, `responses.py` and
+  `ChatPanel.tsx` as production investigation work; no EC/demo authority entered the live path.
+- **Sentinel re-frozen.** The P12 Firewall Blocking SOP makes `pg.unsafe.001` cite policy and
+  give procedural steps. Causation was confirmed against pre-seed fixtures, and the governance
+  verdict is unchanged — still `out_of_registry` / `knowledge_recall` / `clarification_required`
+  with `execution_eligible` null. Two additive sections on one row: the sanctioned re-freeze case.
+- **Skill-KB fixture ordering re-normalized** through the existing importer after the P12 seed
+  appended rows. Content unchanged (120 docs, seed present).
+
+---
+
+## 9. Production GO
 
 Unchanged: **deferred**. Live reasoning, live Splunk, and a real outbound send remain
 unproven on this host. The architecture is complete and active regardless.
