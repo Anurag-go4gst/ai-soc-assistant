@@ -9,7 +9,7 @@ import type {
 
 interface InvestigationOutcomeCardProps {
   outcome: InvestigationOutcomeEnvelope;
-  progress?: InvestigationProgressEvent[];
+  progress?: InvestigationProgressEvent[] | null;
   runStatus?: InvestigationRunStatus | null;
 }
 
@@ -17,7 +17,13 @@ export function InvestigationOutcomeCard({ outcome, progress = [], runStatus }: 
   const [remediationChoice, setRemediationChoice] = useState<'yes' | 'not_now' | null>(null);
   if (!outcome.investigation_status) return null;
 
-  const supported = [...outcome.findings, ...outcome.supported_hypotheses];
+  const progressItems = asArray<InvestigationProgressEvent>(progress);
+  const findings = asArray<string>(outcome.findings);
+  const supportedHypotheses = asArray<string>(outcome.supported_hypotheses);
+  const unconfirmedHypotheses = asArray<string>(outcome.unconfirmed_hypotheses);
+  const missingEvidence = asArray<string>(outcome.missing_evidence);
+  const limitations = asArray<string>(outcome.limitations);
+  const supported = [...findings, ...supportedHypotheses];
   const isEmptyCompletion = outcome.investigation_status === 'completed' && supported.length === 0;
 
   return (
@@ -36,11 +42,11 @@ export function InvestigationOutcomeCard({ outcome, progress = [], runStatus }: 
         </Badge>
       </div>
 
-      {progress.length ? (
+      {progressItems.length ? (
         <div className="mt-4" aria-label="Operational progress">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-300">Operational progress</h4>
           <ol className="mt-2 space-y-2">
-            {progress.map((step, index) => (
+            {progressItems.map((step, index) => (
               <li key={step.step_id || `${step.purpose}-${index}`} className="rounded-lg border border-slate-800 bg-slate-900/70 p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={step.status === 'failed' ? 'destructive' : 'secondary'}>{humanize(step.status)}</Badge>
@@ -66,11 +72,11 @@ export function InvestigationOutcomeCard({ outcome, progress = [], runStatus }: 
       <ConclusionList
         icon={<AlertTriangle className="h-4 w-4 text-amber-300" />}
         title="Not confirmed"
-        items={outcome.unconfirmed_hypotheses}
+        items={unconfirmedHypotheses}
         tone="warning"
       />
-      <ConclusionList title="Important missing evidence" items={outcome.missing_evidence} />
-      <ConclusionList title="Limitations" items={outcome.limitations ?? []} />
+      <ConclusionList title="Important missing evidence" items={missingEvidence} />
+      <ConclusionList title="Limitations" items={limitations} />
 
       {(outcome.recommended_next_action || runStatus?.next_action) ? (
         <div className="mt-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] px-3 py-2">
@@ -110,6 +116,10 @@ export function InvestigationOutcomeCard({ outcome, progress = [], runStatus }: 
       ) : null}
     </section>
   );
+}
+
+function asArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
 }
 
 function ConclusionList({

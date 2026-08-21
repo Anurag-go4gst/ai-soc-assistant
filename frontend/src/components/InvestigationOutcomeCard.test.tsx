@@ -59,6 +59,26 @@ describe('InvestigationOutcomeCard', () => {
     expect(container.textContent).not.toContain('Finding: -');
   });
 
+  it('does not crash when backend sends null progress or nullable outcome lists', () => {
+    render(
+      <InvestigationOutcomeCard
+        outcome={outcome({
+          investigation_status: 'completed',
+          findings: null as unknown as InvestigationOutcomeEnvelope['findings'],
+          supported_hypotheses: null as unknown as InvestigationOutcomeEnvelope['supported_hypotheses'],
+          unconfirmed_hypotheses: null as unknown as InvestigationOutcomeEnvelope['unconfirmed_hypotheses'],
+          missing_evidence: null as unknown as InvestigationOutcomeEnvelope['missing_evidence'],
+          limitations: null as unknown as InvestigationOutcomeEnvelope['limitations'],
+          remediation_offer_required: false,
+        })}
+        progress={null}
+      />,
+    );
+
+    expect(screen.getByText('status: completed')).toBeInTheDocument();
+    expect(screen.getByText('No matching governed evidence was found for the approved scope.')).toBeInTheDocument();
+  });
+
   it('offers a separate remediation-plan transition without executing an action', () => {
     render(<InvestigationOutcomeCard outcome={outcome()} />);
     expect(screen.getByText('Create remediation plan?')).toBeInTheDocument();

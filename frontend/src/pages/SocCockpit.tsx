@@ -114,17 +114,19 @@ function TraceStat({ label, value }: { label: string; value: string }) {
 }
 
 function TraceSummaryStrip({ trace }: { trace: PlaceholderResponse | null }) {
+  const toolPlan = Array.isArray(trace?.tool_plan) ? trace.tool_plan : [];
+  const workflowSteps = Array.isArray(trace?.workflow_plan?.steps) ? trace.workflow_plan.steps : [];
   const stats: Array<{ label: string; value: string }> = [
     { label: 'Route', value: trace?.selected_skill ?? '—' },
     { label: 'Confidence', value: typeof trace?.confidence === 'number' ? trace.confidence.toFixed(2) : '—' },
-    { label: 'Plan', value: trace?.tool_plan?.join(' → ') ?? '—' },
+    { label: 'Plan', value: toolPlan.length ? toolPlan.join(' → ') : '—' },
     {
       label: 'Compare',
       value: typeof trace?.disagreement === 'boolean' ? (trace.disagreement ? 'disagree' : 'agree') : '—',
     },
     {
       label: 'Workflow',
-      value: trace?.workflow_plan ? `${trace.workflow_plan.steps.length} steps · ${trace.workflow_plan.status}` : '—',
+      value: trace?.workflow_plan ? `${workflowSteps.length} steps · ${trace.workflow_plan.status}` : '—',
     },
   ];
   return (
