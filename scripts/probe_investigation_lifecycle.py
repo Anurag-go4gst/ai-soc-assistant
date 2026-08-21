@@ -25,6 +25,7 @@ import json
 import sys
 import time
 import urllib.error
+import uuid
 import urllib.request
 from http.cookiejar import CookieJar
 from pathlib import Path
@@ -153,6 +154,70 @@ def summarize(payload: dict[str, Any], elapsed: float) -> dict[str, Any]:
     }
 
 
+def run_lifecycle(session: ChatSession, query: str, timeout: float) -> list[dict[str, Any]]:
+    """Drive query -> Run -> remediation create -> approve, reporting each hop.
+
+    Stops at the first hop that does not offer the next affordance, and says why —
+    a missing affordance is a finding, not something to route around.
+    """
+    steps: list[dict[str, Any]] = []
+    # One session id for every hop: an investigation decision is bound to the
+    # session that owns the plan, so a fresh session is correctly refused.
+    session_id = str(uuid.uuid4())
+    payload, elapsed = session.chat(query, timeout=timeout, session_id=session_id)
+    steps.append({"hop": "initial", **summarize(payload, elapsed)})
+
+    approval = _get(payload, "investigation_approval") or {}
+    if approval.get("status") not in {"awaiting_approval", "edited_revalidated"}:
+        steps.append({"hop": "run", "skipped": f"no approval affordance ({approval.get('status')})"})
+        return steps
+
+    payload, elapsed = session.chat(
+        query,
+        timeout=timeout,
+        session_id=session_id,
+        investigation_review_action="run",
+        investigation_handoff_id=approval.get("handoff_id"),
+        investigation_handoff_version=approval.get("handoff_version"),
+    )
+    steps.append({"hop": "run", **summarize(payload, elapsed)})
+
+    remediation = payload.get("remediation_approval") or {}
+    if remediation.get("status") != "offered":
+        steps.append({"hop": "remediation_create", "skipped": f"no offer ({remediation.get('status')})"})
+        return steps
+
+    payload, elapsed = session.chat(
+        query, timeout=timeout, session_id=session_id, remediation_review_action="create"
+    )
+    created = payload.get("remediation_approval") or {}
+    steps.append(
+        {
+            "hop": "remediation_create",
+            "elapsed_seconds": round(elapsed, 1),
+            "status": created.get("status"),
+            "plan_summary": created.get("plan_summary"),
+            "validated_plan": created.get("validated_plan"),
+        }
+    )
+    if created.get("status") not in {"awaiting_approval", "edited_revalidated"}:
+        return steps
+
+    payload, elapsed = session.chat(
+        query, timeout=timeout, session_id=session_id, remediation_review_action="approve"
+    )
+    approved = payload.get("remediation_approval") or {}
+    steps.append(
+        {
+            "hop": "remediation_approve",
+            "elapsed_seconds": round(elapsed, 1),
+            "status": approved.get("status"),
+            "approved_remediation_envelope": payload.get("approved_remediation_envelope"),
+        }
+    )
+    return steps
+
+
 def run_one(session: ChatSession, label: str, query: str, timeout: float) -> dict[str, Any]:
     try:
         payload, elapsed = session.chat(query, timeout=timeout)
@@ -168,6 +233,7 @@ def main() -> int:
     parser.add_argument("--env-path", default=DEFAULT_ENV_PATH)
     parser.add_argument("--query")
     parser.add_argument("--suite", action="store_true")
+    parser.add_argument("--lifecycle", action="store_true")
     parser.add_argument("--timeout", type=float, default=600.0)
     parser.add_argument("--out", help="write full JSON results here")
     args = parser.parse_args()
@@ -177,8 +243,11 @@ def main() -> int:
         print("login_failed: check APP_AUTH_USER / APP_AUTH_PASSWORD", file=sys.stderr)
         return 2
 
-    cases = SUITE_QUERIES if args.suite else [("adhoc", args.query or SUITE_QUERIES[0][1])]
-    results = [run_one(session, label, query, args.timeout) for label, query in cases]
+    if args.lifecycle:
+        results = run_lifecycle(session, args.query or SUITE_QUERIES[3][1], args.timeout)
+    else:
+        cases = SUITE_QUERIES if args.suite else [("adhoc", args.query or SUITE_QUERIES[0][1])]
+        results = [run_one(session, label, query, args.timeout) for label, query in cases]
 
     for result in results:
         print(json.dumps(result, indent=1, sort_keys=True))
