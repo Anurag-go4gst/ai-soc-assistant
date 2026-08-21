@@ -126,7 +126,19 @@ def test_ec_changes_stay_within_allowlist() -> None:
 # production routes removed an EC shortcut, P7 joined the canonical RP/AUTH0 seam,
 # and P11 wired approved action execution. These are approved production authority
 # corrections; the freeze continues from their exact reviewed commit.
-RACES_BASELINE_SHA = "08c8b40c"
+# Advanced to 3a5f500104fb7a9ba609fc70aeb4af5894cee2eb (fix(spl): enforce request
+# authority and semantic fidelity), the only commit since 08c8b40c that modified a
+# protected freeze path. Audited before approval: the pipeline.py change is uniformly
+# tightening — execution_eligible/execution_enabled pinned false, mcp_allowed narrowed,
+# optimization_revalidation_approved false, and the replacement authoring predicate is
+# strictly more restrictive than the one it replaced (it additionally requires
+# sufficient_for_spl_authoring and response_shape == "spl_only"). All four deletions are
+# replaced by stricter variants. No Final RQC, normalized_spl, exact-call, MCP, HIL/RBAC,
+# Resource Planner, or evidence authority was weakened, and the commit touches no
+# app/demo/ file, so it is production SPL governance work rather than RACES/EC work.
+# Operator-approved for this commit only; later protected-file changes are NOT blessed,
+# which is why the baseline is pinned to 3a5f5001 and not to HEAD.
+RACES_BASELINE_SHA = "3a5f500104fb7a9ba609fc70aeb4af5894cee2eb"
 
 
 def _git_name_only(rev_range: str) -> list[str]:
