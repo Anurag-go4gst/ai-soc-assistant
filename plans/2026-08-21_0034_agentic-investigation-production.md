@@ -1563,12 +1563,24 @@ VERIFICATION when Live acceptance by phase marks the phase required).
     - existing `AI_SOC_INVESTIGATION_PLANNER_ENABLED` remains false/absent on COE, so P7 does not call an unreachable model and P5 honest stop remains active
     - `LIVE_REASONING_PROOF = DEFERRED_COE_CONFIGURATION`; `LIVE_SPLUNK_ITERATION_PROOF = DEFERRED_COE_CONFIGURATION`; per user direction no unreachable LLM/MCP retries were attempted
 
-- [ ] **P8** — InvestigationOutcome + production presentation
+- [x] **P8** — InvestigationOutcome + production presentation
   - **Do:** Split `investigation_status` vs security `disposition`; ChatPanel renders conclusion (supported vs unconfirmed), operational progress, empty-finding copy, and remediation Yes/Not now; no EC fixtures
   - **Verify:** pytest scenario B; blocked status + inconclusive disposition; no `Finding: -`; progress JSON has no chain-of-thought; frontend tests do not import `app/demo`; narration cannot upgrade inconclusive
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P8): ...`; phase-boundary → also run governance regression first
   - **Depends on:** P5
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - implementation commit: `e478b1ca`; explicit default-off rollout flag: `949f7f4c`; RACES freeze maintenance through exact deploy head: `fb5ad815`
+    - backend P8 contract/rollback/P5/P7/response/LangGraph slice after rollout flag → **45 passed**; broader P0–P8/synthesis/response/final-evidence slice → **87 passed**
+    - production outcome tests prove `blocked + inconclusive`, cancelled status, scenario-B pattern stays inconclusive, unsourced LLM proposal cannot upgrade disposition, redundant remediation ask is skipped, and legacy v1 shape remains when flag-off
+    - frontend outcome/progress tests → **6 passed**; production frontend build PASS; deployed bundle contains conclusion + remediation offer; new card has no EC/demo imports
+    - RACES/live-path + EC canonical-purity sentinel → **33 passed** before rollout follow-up; focused final RACES sentinel → **8 passed**
+    - selective phase-boundary governance per user direction: protected artifacts **15 unchanged**; sentinel **17/17**; answer quality **17/17**; generator checks PASS; manifest/operation audits PASS; harness **6/6**. The redundant 10–15 minute full backend gate was not rerun after a prior P5 full-suite pass.
+    - `/invariant-check` → PASS: no new MCP/LLM/SPL execution authority, no new state channel, no EC authority, no secrets, flag defaults false, and outcome remains presentation-only/write-ineligible
+    COE DEPLOYMENT / RUNTIME VERIFICATION — PASS / ENVIRONMENT DEFERRED (2026-08-21)
+    - deployed exact `fb5ad815`; backend image + production frontend build PASS; `/api/health` PASS
+    - flag-off deployed-container smoke PASS (`investigation_outcome_v1`, no `investigation_status`); then `AI_SOC_INVESTIGATION_OUTCOME_V2_ENABLED=true`, backend recreated, and flag-on deployed-container acceptance PASS (`blocked/inconclusive`, scenario-B inconclusive, remediation offer/skip); P8 left enabled
+    - P0/P1/P2/P4/P5 enabled; P6 execution control enabled in governed mock mode; P3 remains disabled because the reasoning LLM is unreachable from the VPS; P7 remains disabled because it depends on the same P3 reasoner. Live Splunk remains unconfigured (`MCP_MODE=mock`) and was not retried per user direction.
 
 - [ ] **P9** — Domain workers (optional; default skip)
   - **Do:** Only if review records a measured need; otherwise check this item as cancelled with evidence "not required"
