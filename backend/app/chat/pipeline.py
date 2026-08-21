@@ -5619,6 +5619,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             else state.get("llm_intent_advisory")
         ),
         evidence_plan=state.get("evidence_plan"),
+        capability_snapshot=state.get("capability_snapshot"),
         validated_investigation_plan=state.get("validated_investigation_plan"),
         investigation_planning_trace=state.get("investigation_planning_trace"),
         investigation_approval=state.get("investigation_approval"),

@@ -565,6 +565,7 @@ class PlaceholderResponse(BaseModel):
     foundation_sec_governance: FoundationSecGovernance | None = None
     spl_template: dict[str, object] | None = None
     evidence_plan: dict[str, object] | None = None
+    capability_snapshot: dict[str, object] | None = None
     validated_investigation_plan: dict[str, object] | None = None
     investigation_planning_trace: dict[str, object] | None = None
     investigation_approval: dict[str, object] | None = None

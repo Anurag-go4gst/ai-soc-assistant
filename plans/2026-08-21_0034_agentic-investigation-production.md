@@ -1582,12 +1582,20 @@ VERIFICATION when Live acceptance by phase marks the phase required).
     - flag-off deployed-container smoke PASS (`investigation_outcome_v1`, no `investigation_status`); then `AI_SOC_INVESTIGATION_OUTCOME_V2_ENABLED=true`, backend recreated, and flag-on deployed-container acceptance PASS (`blocked/inconclusive`, scenario-B inconclusive, remediation offer/skip); P8 left enabled
     - P0/P1/P2/P4/P5 enabled; P6 execution control enabled in governed mock mode; P3 remains disabled because the reasoning LLM is unreachable from the VPS; P7 remains disabled because it depends on the same P3 reasoner. Live Splunk remains unconfigured (`MCP_MODE=mock`) and was not retried per user direction.
 
-- [ ] **P9** — Domain workers (optional; default skip)
+- [x] **P9** — Domain workers — `P9 = SKIPPED_NOT_REQUIRED`
   - **Do:** Only if review records a measured need; otherwise check this item as cancelled with evidence "not required"
   - **Verify:** if skipped, flag absent/false and no worker MCP imports; if built, worker-cannot-call-MCP test
-  - **Commit:** one commit per Commit discipline (skip-and-record-cancelled counts as the phase's commit if code changes; a doc-only skip needs no commit)
+  - **Commit:** doc-only skip — no commit of its own
   - **Depends on:** P7
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    DECISION — `P9 = SKIPPED_NOT_REQUIRED` (2026-08-21)
+    - IMPLEMENTATION = NOT_REQUIRED; FEATURE ACTIVATION = N/A (no flag exists); LIVE PROOF = N/A
+    - No measured need was recorded. The single evidence reasoner plus the bounded P7
+      PlanDelta seam covers every scenario reached so far; nothing overflowed one hop.
+    - `AI_SOC_DOMAIN_REASONING_WORKERS_ENABLED` was never introduced, so "flag absent"
+      is satisfied by construction and there are no worker modules to import MCP.
+    - The four advisory specialists remain auditors; they were not promoted.
+    - Reopening this phase requires a measured overflow, not a checkbox.
 
 - [ ] **P10** — Remediation proposal + Approve/Edit/Cancel
   - **Do:** Conditional ask; reasoning proposal; DET; no side effects
