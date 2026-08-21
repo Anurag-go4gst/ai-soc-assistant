@@ -29,6 +29,7 @@ from app.schemas.responses import (
 PLANNING_OUTCOME_STATUSES: frozenset[str] = frozenset(
     {
         "planned",
+        "awaiting_investigation_plan",
         "clarification_required",
         "resolution_failed",
         "planning_failed",
@@ -49,6 +50,7 @@ RECONCILIATION_REASON_ALLOWLIST: frozenset[str] = frozenset(
 _DEFAULT_RECONCILIATION_REASON = "execution_outcome_uncertain"
 
 _STATUS_USER_MESSAGE: dict[str, str] = {
+    "awaiting_investigation_plan": "Investigation plan is ready for analyst review.",
     "clarification_required": "More detail is needed before this investigation can proceed.",
     "policy_blocked": "This request was blocked by SOC policy.",
     "planning_failed": "Investigation planning could not be completed for this question.",
@@ -63,6 +65,7 @@ _STATUS_USER_MESSAGE: dict[str, str] = {
 }
 
 _STATUS_RECOVERY_HINT: dict[str, str] = {
+    "awaiting_investigation_plan": "",
     "clarification_required": "Provide the requested context and send your message again.",
     "policy_blocked": "Use a read-only investigation request or follow your escalation SOP.",
     "planning_failed": "Retry with a shorter question. Contact the SOC platform team if this persists.",
@@ -173,7 +176,7 @@ def build_planning_outcome_summary(
     # Persistence failure is a deterministic authority signal. The composed
     # answer body and any LLM/review prose must not replace it.
     preferred = None
-    if status not in {"planned", "persistence_failed"}:
+    if status not in {"planned", "awaiting_investigation_plan", "persistence_failed"}:
         preferred = safe_review or message
     user_message = _safe_user_line(preferred, default_message)
     recovery_hint = _safe_user_line(None, default_hint)

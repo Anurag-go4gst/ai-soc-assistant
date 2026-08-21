@@ -398,6 +398,9 @@ class ChatPipelineState(TypedDict, total=False):
     query_to_intent: dict[str, Any] | None
     resolved_query_contract: dict[str, Any] | None
     capability_snapshot: dict[str, Any] | None
+    investigation_plan_proposal: dict[str, Any] | None
+    validated_investigation_plan: dict[str, Any] | None
+    investigation_planning_trace: dict[str, Any] | None
     llm_intent_advisory: LLMIntentAdvisory | None
     # LangGraph silently drops any state key not declared here (see executor
     # guide). shape_advisory was set by graph_node_query_understanding but
@@ -5541,6 +5544,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             else state.get("llm_intent_advisory")
         ),
         evidence_plan=state.get("evidence_plan"),
+        validated_investigation_plan=state.get("validated_investigation_plan"),
+        investigation_planning_trace=state.get("investigation_planning_trace"),
         route_adjudication=state.get("route_adjudication"),
         control_plane_trace=control_plane_trace,
         answer_contract=answer_contract_payload,

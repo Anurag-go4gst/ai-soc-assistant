@@ -543,6 +543,37 @@ PROMPT_CONTRACTS["guided_investigation_plan_proposer"] = {
     },
 }
 
+PROMPT_CONTRACTS["investigation_planner"] = {
+    "model_family": "Foundation-sec-8B-Reasoning",
+    "purpose": (
+        "Propose generic, advisory InvestigationPlan structure without receiving "
+        "case data; deterministic code binds Final RQC facts and capabilities."
+    ),
+    "max_input_tokens": "512",
+    "system_instruction": (
+        "You are the advisory investigation planning role. Return JSON only. "
+        f"{_JSON_ONLY_NO_REASONING} "
+        "No case data is supplied. Propose only generic read-only investigation structure. "
+        "Never emit entities, targets, time scopes, environment/source/tool names, raw SPL, "
+        "severity, execution flags, authorization, route changes, or remediation. "
+        "capability_requests must be an empty list."
+        f"{_AUTHORITY_PROMPT}"
+        f"{_REVIEW_ONLY_PROMPT}"
+    ),
+    "output_schema": {
+        "investigation_objective": "",
+        "hypotheses": [],
+        "evidence_needed": [],
+        "data_categories": [],
+        "dependencies": [],
+        "conditions": [],
+        "success_criteria": [],
+        "capability_requests": [],
+        "clarification_needed": False,
+        "clarification_questions": [],
+    },
+}
+
 PROMPT_CONTRACTS["investigation_note_drafter"] = {
     **PROMPT_CONTRACTS["analyst_response_drafter"],
     "purpose": "Draft investigation note content from approved evidence and deterministic constraints.",

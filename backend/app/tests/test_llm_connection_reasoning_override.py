@@ -70,6 +70,10 @@ def test_coe_preset_repoints_primary_and_reasoning_hop(isolated_store):
         ("foundation_sec_reasoning", "http://10.52.1.13:8003/v1", "foundation-sec-reasoning"),
         ("local_primary", "http://10.52.1.13:8004/v1", "foundation-sec-instruct"),
     ]
+    assert _chain("investigation_planner") == [
+        ("foundation_sec_reasoning", "http://10.52.1.13:8003/v1", "foundation-sec-reasoning"),
+        ("local_primary", "http://10.52.1.13:8004/v1", "foundation-sec-instruct"),
+    ]
 
 
 def test_switch_back_to_vps_drops_the_reasoning_hop(isolated_store):

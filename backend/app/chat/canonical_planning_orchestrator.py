@@ -36,6 +36,7 @@ from app.chat.canonical_policy_boundary import resolve_canonical_policy_block_re
 from app.chat.canonical_mode import build_typed_planning_failure_state
 from app.chat.plan_evidence_from_canonical import plan_evidence_from_canonical
 from app.chat.investigation_shaped import is_investigation_shaped_final_rqc
+from app.chat.investigation_plan_runtime import maybe_attach_validated_investigation_plan
 from app.chat.capability_snapshot import maybe_attach_capability_snapshot
 from app.chat.planning_telemetry import (
     emit_clarification_requested,
@@ -908,7 +909,7 @@ def _commit_planned_outcome(
         wait_state.pop("evidence_plan", None)
         wait_state.pop("execution", None)
         wait_state.pop("mcp_evidence", None)
-        return wait_state
+        return maybe_attach_validated_investigation_plan(wait_state)
 
     try:
         evidence_plan, consumed, ignored = plan_evidence_from_canonical(

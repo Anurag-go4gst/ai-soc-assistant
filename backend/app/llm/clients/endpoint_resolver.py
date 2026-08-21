@@ -24,6 +24,7 @@ REASONING_ROLES = frozenset(
         "mitre_reasoner",
         "missing_evidence_reasoner",
         "risk_rationale_reasoner",
+        "investigation_planner",
     }
 )
 

@@ -6,7 +6,13 @@ import re
 from functools import lru_cache
 from typing import Any
 
-from app.chat.contracts.investigation_plan import InvestigationPlan
+from app.chat.contracts.investigation_plan import (
+    InvestigationCapabilityBinding,
+    InvestigationPlan,
+    InvestigationPlanProposal,
+    ValidatedInvestigationPlan,
+)
+from app.connectors.mcp.discovery import classify_mcp_tool
 from app.planner.resource_registry import load_resource_registry
 from app.spl.guided_safe_spl_catalog import guided_safe_template_ids
 from app.spl.policy import load_spl_policy
@@ -67,12 +73,72 @@ def _enabled_template_ids() -> frozenset[str]:
     )
 
 
-def _coerce_proposal(proposal: InvestigationPlan | dict[str, Any] | None) -> dict[str, Any]:
+def _coerce_proposal(
+    proposal: InvestigationPlanProposal | InvestigationPlan | dict[str, Any] | None,
+) -> dict[str, Any]:
     if proposal is None:
         return {}
     if isinstance(proposal, InvestigationPlan):
         return proposal.model_dump()
     return dict(proposal)
+
+
+def _snapshot_rows(snapshot: dict[str, Any] | Any | None) -> dict[str, dict[str, Any]]:
+    if snapshot is None:
+        return {}
+    if not isinstance(snapshot, dict):
+        dump = getattr(snapshot, "model_dump", None)
+        snapshot = dump(mode="json") if callable(dump) else {}
+    if not isinstance(snapshot, dict):
+        return {}
+    return {
+        str(row.get("capability_id")): dict(row)
+        for row in (snapshot.get("rows") or [])
+        if isinstance(row, dict) and row.get("capability_id")
+    }
+
+
+def _capability_bindings(
+    baseline: InvestigationPlan,
+    requested_ids: Any,
+    *,
+    capability_snapshot: dict[str, Any] | Any | None,
+    warnings: list[str],
+) -> list[InvestigationCapabilityBinding]:
+    bindings = list(baseline.capability_bindings)
+    seen = {item.capability_id for item in bindings}
+    rows = _snapshot_rows(capability_snapshot)
+    if not isinstance(requested_ids, list):
+        return bindings
+    for raw in requested_ids:
+        capability_id = str(raw or "").strip()
+        if not capability_id or capability_id in seen:
+            continue
+        row = rows.get(capability_id)
+        if row is None:
+            warnings.append(f"dropped_unknown_capability:{capability_id}")
+            continue
+        if not capability_id.startswith("mcp:"):
+            warnings.append(f"dropped_non_read_capability:{capability_id}")
+            continue
+        parts = capability_id.split(":", 2)
+        tool_name = parts[2] if len(parts) == 3 else ""
+        server_type = "splunk" if "splunk" in parts[1].lower() else "generic"
+        if classify_mcp_tool(tool_name, server_type=server_type).blocked:
+            warnings.append(f"dropped_blocked_capability:{capability_id}")
+            continue
+        need = str(row.get("capability_need") or "optional")
+        availability = str(row.get("availability") or "unavailable")
+        bindings.append(
+            InvestigationCapabilityBinding(
+                capability_id=capability_id,
+                capability_need=need,  # type: ignore[arg-type]
+                availability=availability,  # type: ignore[arg-type]
+                access_mode="read_only" if availability == "available" else "manual_or_alternate",
+            )
+        )
+        seen.add(capability_id)
+    return bindings
 
 
 def _contains_raw_spl(text: str) -> bool:
@@ -147,10 +213,11 @@ def _merge_unique(baseline_values: list[str], proposal_values: list[str]) -> lis
 
 def validate_investigation_plan(
     baseline: InvestigationPlan,
-    proposal: InvestigationPlan | dict[str, Any] | None = None,
+    proposal: InvestigationPlanProposal | InvestigationPlan | dict[str, Any] | None = None,
     *,
     llm_attempted: bool = False,
-) -> InvestigationPlan:
+    capability_snapshot: dict[str, Any] | Any | None = None,
+) -> ValidatedInvestigationPlan:
     """Validate and merge an InvestigationPlan proposal; baseline wins on conflict."""
     warnings: list[str] = list(baseline.validation_warnings)
     proposal_data = _coerce_proposal(proposal)
@@ -201,6 +268,27 @@ def validate_investigation_plan(
         warnings=warnings,
         label="clarification",
     )
+    proposal_dependencies = _filter_string_items(
+        proposal_data.get("dependencies"),
+        warnings=warnings,
+        label="dependency",
+    )
+    proposal_conditions = _filter_string_items(
+        proposal_data.get("conditions"),
+        warnings=warnings,
+        label="condition",
+    )
+    proposal_success_criteria = _filter_string_items(
+        proposal_data.get("success_criteria"),
+        warnings=warnings,
+        label="success_criterion",
+    )
+    capability_bindings = _capability_bindings(
+        baseline,
+        proposal_data.get("capability_requests"),
+        capability_snapshot=capability_snapshot,
+        warnings=warnings,
+    )
 
     objective = baseline.investigation_objective
     proposed_objective = str(proposal_data.get("investigation_objective") or "").strip()
@@ -228,6 +316,10 @@ def validate_investigation_plan(
             proposal_sources,
             proposal_categories,
             proposal_questions,
+            proposal_dependencies,
+            proposal_conditions,
+            proposal_success_criteria,
+            len(capability_bindings) > len(baseline.capability_bindings),
         )
     )
     plan_source = baseline.plan_source
@@ -260,11 +352,16 @@ def validate_investigation_plan(
         else:
             refinement_rationale = proposed_rationale.strip()[:400]
 
-    return InvestigationPlan(
+    return ValidatedInvestigationPlan(
         investigation_objective=objective,
         hypotheses=_merge_unique(baseline.hypotheses, proposal_hypotheses),
         evidence_needed=_merge_unique(baseline.evidence_needed, proposal_evidence),
         data_categories=_merge_unique(baseline.data_categories, proposal_categories),
+        dependencies=_merge_unique(baseline.dependencies, proposal_dependencies),
+        conditions=_merge_unique(baseline.conditions, proposal_conditions),
+        success_criteria=_merge_unique(baseline.success_criteria, proposal_success_criteria),
+        capability_bindings=capability_bindings,
+        authoritative_facts=list(baseline.authoritative_facts),
         rag_sufficient=baseline.rag_sufficient,
         env_kb_needed=baseline.env_kb_needed
         or (llm_attempted and bool(proposal_data.get("env_kb_needed"))),

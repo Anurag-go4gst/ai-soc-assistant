@@ -1,16 +1,53 @@
-"""InvestigationPlan contract for guided hybrid investigation (REV4)."""
+"""Governed investigation planning contracts.
+
+The reasoning model may emit only :class:`InvestigationPlanProposal`. The
+deterministic validator produces :class:`ValidatedInvestigationPlan`; neither
+contract carries execution authority or a ResourcePlan.
+"""
 
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 PlanSource = Literal[
     "deterministic_only",
     "llm_proposed_validated",
     "llm_failed_baseline_only",
 ]
+
+CapabilityNeed = Literal["required", "recommended", "optional"]
+CapabilityAvailability = Literal["available", "unavailable"]
+CapabilityAccessMode = Literal["read_only", "manual_or_alternate"]
+
+
+class InvestigationCapabilityBinding(BaseModel):
+    """A deterministic projection of one CapabilitySnapshot row."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    capability_id: str = Field(min_length=1)
+    capability_need: CapabilityNeed
+    availability: CapabilityAvailability
+    access_mode: CapabilityAccessMode
+
+
+class InvestigationPlanProposal(BaseModel):
+    """Advisory reasoning output. It cannot authorize tools or execution."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    investigation_objective: str | None = None
+    hypotheses: list[str] = Field(default_factory=list)
+    evidence_needed: list[str] = Field(default_factory=list)
+    data_categories: list[str] = Field(default_factory=list)
+    dependencies: list[str] = Field(default_factory=list)
+    conditions: list[str] = Field(default_factory=list)
+    success_criteria: list[str] = Field(default_factory=list)
+    capability_requests: list[str] = Field(default_factory=list)
+    clarification_needed: bool = False
+    clarification_questions: list[str] = Field(default_factory=list)
 
 
 class InvestigationPlan(BaseModel):
@@ -20,6 +57,11 @@ class InvestigationPlan(BaseModel):
     hypotheses: list[str] = Field(default_factory=list)
     evidence_needed: list[str] = Field(default_factory=list)
     data_categories: list[str] = Field(default_factory=list)
+    dependencies: list[str] = Field(default_factory=list)
+    conditions: list[str] = Field(default_factory=list)
+    success_criteria: list[str] = Field(default_factory=list)
+    capability_bindings: list[InvestigationCapabilityBinding] = Field(default_factory=list)
+    authoritative_facts: list[str] = Field(default_factory=list)
     rag_sufficient: bool = False
     env_kb_needed: bool = False
     discovery_needed: bool = False
@@ -39,3 +81,11 @@ class InvestigationPlan(BaseModel):
     validation_warnings: list[str] = Field(default_factory=list)
     llm_budget_used: int = 0
     refinement_round: int = 0
+
+
+class ValidatedInvestigationPlan(InvestigationPlan):
+    """DET-authoritative plan shown for approval before any ResourcePlan exists."""
+
+    schema_version: str = "validated_investigation_plan_v1"
+    validation_status: Literal["validated"] = "validated"
+    planner_role: Literal["investigation_planner"] = "investigation_planner"

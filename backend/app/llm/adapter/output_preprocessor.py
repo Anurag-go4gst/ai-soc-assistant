@@ -24,11 +24,17 @@ BRIDGE_PROPOSAL_SCHEMA: dict[str, Any] = {
 
 INVESTIGATION_PLAN_SCHEMA: dict[str, Any] = {
     "type": "object",
+    "additionalProperties": False,
     "properties": {
-        "objectives": {"type": "array"},
+        "investigation_objective": {"type": "string"},
         "hypotheses": {"type": "array"},
         "evidence_needed": {"type": "array"},
         "data_categories": {"type": "array"},
+        "dependencies": {"type": "array"},
+        "conditions": {"type": "array"},
+        "success_criteria": {"type": "array"},
+        "capability_requests": {"type": "array"},
+        "objectives": {"type": "array"},
         "rag_sufficient": {"type": "boolean"},
         "env_kb_needed": {"type": "boolean"},
         "discovery_needed": {"type": "boolean"},
@@ -40,7 +46,10 @@ INVESTIGATION_PLAN_SCHEMA: dict[str, Any] = {
         "refinement_recommended": {"type": "boolean"},
         "rationale": {"type": "string"},
     },
-    "required": ["hypotheses", "evidence_needed"],
+    "required": [
+        "hypotheses",
+        "evidence_needed",
+    ],
 }
 
 INTENT_ADVISORY_SCHEMA: dict[str, Any] = {
@@ -271,6 +280,10 @@ def _validate_against_schema(payload: dict[str, Any], schema: dict[str, Any]) ->
             errors.append(f"missing_required:{key}")
 
     properties = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
+    if schema.get("additionalProperties") is False:
+        for key in payload:
+            if key not in properties:
+                errors.append(f"additional_property:{key}")
     for key, prop in properties.items():
         if key not in payload or key in _SPL_FORBIDDEN_KEYS:
             continue

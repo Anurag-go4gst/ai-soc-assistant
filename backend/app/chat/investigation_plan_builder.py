@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
-from app.chat.contracts.investigation_plan import InvestigationPlan
+from app.chat.contracts.investigation_plan import (
+    InvestigationCapabilityBinding,
+    InvestigationPlan,
+)
 from app.chat.guidance_templates import build_guided_investigation_guidance
 from app.chat.guided_hunt_grounding import build_guided_hunt_grounding
 from app.chat.signal_class_guidance import classify_signal_class
@@ -105,19 +109,70 @@ def _candidate_sources_from_grounding(grounding_block: Any) -> list[str]:
     return sources[:12]
 
 
+def _as_mapping(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    dump = getattr(value, "model_dump", None)
+    if callable(dump):
+        payload = dump(mode="json")
+        return dict(payload) if isinstance(payload, dict) else {}
+    return {}
+
+
+def _authoritative_facts(rqc: dict[str, Any]) -> list[str]:
+    """Stable T1-T4-independent facts from the Final RQC."""
+    facts: list[str] = []
+    for key, value in sorted((_as_mapping(rqc.get("entities"))).items()):
+        if value not in (None, "", [], {}):
+            facts.append(f"entity:{key}={json.dumps(value, sort_keys=True, ensure_ascii=False)}")
+    time_scope = str(rqc.get("time_scope") or "").strip()
+    if time_scope:
+        facts.append(f"time_scope:{time_scope}")
+    for capability in sorted(str(item) for item in (rqc.get("required_capabilities") or [])):
+        facts.append(f"required_capability:{capability}")
+    for requirement in rqc.get("evidence_requirements") or []:
+        text = str(requirement or "").strip()
+        if text:
+            facts.append(f"evidence_requirement:{text[:240]}")
+    return facts[:32]
+
+
+def _required_capability_bindings(snapshot: dict[str, Any]) -> list[InvestigationCapabilityBinding]:
+    bindings: list[InvestigationCapabilityBinding] = []
+    for row in snapshot.get("rows") or []:
+        if not isinstance(row, dict) or row.get("capability_need") != "required":
+            continue
+        availability = str(row.get("availability") or "unavailable")
+        bindings.append(
+            InvestigationCapabilityBinding(
+                capability_id=str(row.get("capability_id") or ""),
+                capability_need="required",
+                availability=availability,  # type: ignore[arg-type]
+                access_mode="read_only" if availability == "available" else "manual_or_alternate",
+            )
+        )
+    return bindings
+
+
 def build_deterministic_investigation_plan(
     *,
     query: str,
     entities: dict[str, Any] | None = None,
     soc_kb_retrieval: dict[str, Any] | None = None,
     enrichment_projection: dict[str, Any] | None = None,
+    resolved_query_contract: dict[str, Any] | Any | None = None,
+    capability_snapshot: dict[str, Any] | Any | None = None,
 ) -> InvestigationPlan:
     """Build a deterministic InvestigationPlan anchor — no MCP/LLM/tool calls."""
-    guidance = build_guided_investigation_guidance(query, entities)
+    rqc = _as_mapping(resolved_query_contract)
+    snapshot = _as_mapping(capability_snapshot)
+    stable_query = str(rqc.get("normalized_goal") or query).strip()
+    stable_entities = _as_mapping(rqc.get("entities")) or dict(entities or {})
+    guidance = build_guided_investigation_guidance(stable_query, stable_entities)
     hypotheses, evidence_needed = _parse_guidance_lists(guidance)
-    signal_class = classify_signal_class(query, entities)
+    signal_class = classify_signal_class(stable_query, stable_entities)
     grounding = build_guided_hunt_grounding(
-        query=query,
+        query=stable_query,
         soc_kb_retrieval=soc_kb_retrieval,
         enrichment_projection=enrichment_projection,
     )
@@ -137,14 +192,29 @@ def build_deterministic_investigation_plan(
         getattr(grounding, "environment_kb_slots", None)
         or any("missing_slots=" in str(item) for item in environment_constraints)
     )
+    rqc_evidence = [
+        str(item).strip()
+        for item in (rqc.get("evidence_requirements") or [])
+        if str(item).strip()
+    ]
+    evidence_needed = list(dict.fromkeys([*rqc_evidence, *evidence_needed]))
+    authoritative_facts = _authoritative_facts(rqc)
     return InvestigationPlan(
-        investigation_objective=_objective_from_query(query, signal_class),
+        investigation_objective=_objective_from_query(stable_query, signal_class),
         hypotheses=hypotheses,
         evidence_needed=evidence_needed,
         data_categories=_data_categories(
             signal_class=signal_class,
             detection_families=detection_families,
         ),
+        dependencies=["final_resolved_query_contract", "capability_snapshot"],
+        conditions=[fact for fact in authoritative_facts if fact.startswith(("entity:", "time_scope:"))],
+        success_criteria=[
+            f"Collect governed evidence for: {item[:220]}"
+            for item in evidence_needed[:8]
+        ] or ["Record governed evidence or an explicit evidence gap."],
+        capability_bindings=_required_capability_bindings(snapshot),
+        authoritative_facts=authoritative_facts,
         rag_sufficient=False,
         env_kb_needed=env_kb_needed,
         discovery_needed=False,

@@ -431,6 +431,9 @@ class Settings(BaseSettings):
     # Agentic investigation P2: guided EvidencePlan/executor may compose SPL/MCP reads.
     # Default false — flag-off restores rag-only scheduling. Catalog JSON is permanent.
     ai_soc_guided_composable_planning_enabled: bool = False
+    # Agentic investigation P3: advisory reasoning proposal + DET validated plan.
+    # Default false; independent of semantic T4 and carries no execution authority.
+    ai_soc_investigation_planner_enabled: bool = False
     # Canonical handoff durable store TTL (PostgreSQL).
     ai_soc_handoff_store_ttl_minutes: int = 60
     # Item 28 — bounded retention purge for canonical_handoffs / canonical_planning_events.

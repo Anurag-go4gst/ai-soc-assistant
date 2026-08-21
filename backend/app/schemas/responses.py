@@ -16,6 +16,7 @@ from app.use_cases.models import UseCaseSelection
 
 PlanningOutcomeStatus = Literal[
     "planned",
+    "awaiting_investigation_plan",
     "clarification_required",
     "resolution_failed",
     "planning_failed",
@@ -564,6 +565,8 @@ class PlaceholderResponse(BaseModel):
     foundation_sec_governance: FoundationSecGovernance | None = None
     spl_template: dict[str, object] | None = None
     evidence_plan: dict[str, object] | None = None
+    validated_investigation_plan: dict[str, object] | None = None
+    investigation_planning_trace: dict[str, object] | None = None
     planning_decision: dict[str, object] | None = None
     llm_intent_advisory: dict[str, object] | None = None
     route_adjudication: dict[str, object] | None = None
