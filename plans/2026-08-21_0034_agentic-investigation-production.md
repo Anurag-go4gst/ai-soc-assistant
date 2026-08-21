@@ -1529,12 +1529,21 @@ VERIFICATION when Live acceptance by phase marks the phase required).
     - version-bound Run durably produced handoff v2 `plan_committed`, `rp:investigation:*`, compiler `approved_investigation_envelope_v1`, envelope v2 through the canonical authority
     - response exceeded the bounded 90s probe after the commit; deployed log identifies unrelated configured `local_primary` narration timeout. `LIVE_REASONING_PROOF = DEFERRED_COE_CONFIGURATION`; deterministic compiler/RP/PhaseContract/honest-stop behavior remains proven by the deployed exact code plus local gates.
 
-- [ ] **P6** — Repeated tools + exact-call grants
+- [x] **P6** — Repeated tools + exact-call grants
   - **Do:** New grant per material MCP/SPL change; no blanket investigation grant; snapshot availability is not a grant
   - **Verify:** pytest two normalized_spl values → two AUTH0 hashes; candidate SPL never executes; `availability=available` ≠ AUTH0; RBAC deny does not rewrite snapshot
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P6): ...`
   - **Depends on:** P5
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS (repo-vs-plan delta: production seam already present)
+    - existing implementation authority: `8891bf89`, `a53be79c`, `2a9d1050`; no duplicate P6 executor or feature flag added
+    - targeted AUTH0/MCP/candidate-SPL/CapabilitySnapshot suite → **77 passed**
+    - changed `normalized_spl` changes the exact-call fingerprint; changed server/tool/canonical arguments changes the grant; consumed/expired/model-marked grants fail closed; LLM fields cannot enter grant construction
+    - available CapabilitySnapshot rows remain vocabulary only (no executable/auth field); RBAC and tool policy remain later independent gates; candidate SPL without approved non-null `normalized_spl` cannot execute
+    - `/invariant-check` → PASS (one-use exact-call AUTH0; deterministic tool selection; execution flags/RBAC/HIL preserved; no PlanDelta or write-tool widening)
+    ENVIRONMENT VERIFICATION — DEFERRED_COE_CONFIGURATION (2026-08-21)
+    - `MCP_MODE=mock` and empty `SPLUNK_MCP_BASE_URL` remain unchanged; per user direction, unreachable MCP from this VPS is not retried or treated as an implementation blocker
+    - `LIVE_SPLUNK_PROOF = DEFERRED_COE_CONFIGURATION`; no live MCP claim is made
 
 - [ ] **P7** — Evidence reasoning + bounded PlanDelta into the P5 seam
   - **Do:** On P5 gap: reasoning → PlanDeltaProposal → DET → next bounded read-only step on the **same** RP hub; no-progress fingerprint; write → remediation recommendation; LLM ≠ SourceEvidence; no second loop
