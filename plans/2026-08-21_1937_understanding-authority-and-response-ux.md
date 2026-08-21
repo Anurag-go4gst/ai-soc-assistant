@@ -210,11 +210,32 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
 
 ## Checklist
 
-- [ ] **P0** — Baseline + architecture freeze gate
-  - **Do:** Record branch, base SHA `49e545d9`, architecture freeze SHA `49c5a494`, clean worktree (ignore local `.claude/` only), Mac profile/flags (this host is `AI_SOC_ENV_PROFILE=development`: ResourcePlan execution ON, dispatch-v2 OFF, `AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED=true` — note the repo default for that flag is **false**), LLM/MCP posture, and pin `architecture.md` as read-only for this plan. **Establish and record the test runner** per *Test toolchain on this Mac* — the runner decision is **MAC-FIRST and already resolved: host venv for governance, container for application tests**; re-confirm both run, and do not relocate P7 to COE/VPS. **Resolve the one open governance prerequisite**: set `AI_SOC_GITHUB_SKILL_CLONE_ROOT` to an existing clone, or have the operator create one — governance exits 1 at step 1 without it. If neither is possible, record the concrete reason and **STOP for the runner decision** rather than silently moving P7 to COE. **Capture a green pre-change baseline** for the suites P1–P5 will touch, so P7 can honestly classify any failure as regression vs pre-existing. Confirm no equivalent active plan exists beyond this file. Do not change runtime code.
+- [x] **P0** — Baseline + architecture freeze gate
+  - **Do:** Record branch, base SHA `49e545d9`, architecture freeze SHA `49c5a494`, clean worktree (ignore local `.claude/` only), Mac profile/flags (**measured, not assumed** — `.env` sets `AI_SOC_ENV_PROFILE=coe`, **not** `development` as `CLAUDE.md` states; effective flags read from the running backend: ResourcePlan execution ON, dispatch-v2 OFF, live capability enforcement OFF, `AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED=true` — note the repo default for that flag is **false**), LLM/MCP posture, and pin `architecture.md` as read-only for this plan. **Establish and record the test runner** per *Test toolchain on this Mac* — the runner decision is **MAC-FIRST and already resolved: host venv for governance, container for application tests**; re-confirm both run, and do not relocate P7 to COE/VPS. **Resolve the one open governance prerequisite**: set `AI_SOC_GITHUB_SKILL_CLONE_ROOT` to an existing clone, or have the operator create one — governance exits 1 at step 1 without it. If neither is possible, record the concrete reason and **STOP for the runner decision** rather than silently moving P7 to COE. **Capture a green pre-change baseline** for the suites P1–P5 will touch, so P7 can honestly classify any failure as regression vs pre-existing. Confirm no equivalent active plan exists beyond this file. Do not change runtime code.
   - **Verify:** `git rev-parse HEAD`; `git status --short` shows only optional local tool noise; `git diff 49c5a494 -- architecture.md` is empty; `git show 49c5a494:architecture.md | rg -n 'COMPLETE|ABSTAIN|MUST reject|MUST NOT materially contradict|InvestigationOutcome applies|embedding / vector'` (host-side; `rg` is not in the container) returns all six anchors; `docker compose exec -T backend python -m pytest app/tests/test_t1_t4_authority_boundary.py app/tests/test_spl_query_fidelity.py app/tests/test_t4_contract_merge_authority.py -q` recorded as the baseline; `cd frontend && npm test` recorded as the baseline. `test ! -w` is not required — instead prove no `architecture.md` diff during later phases.
   - **Depends on:** none
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Closed 2026-08-21.
+    ```text
+    branch      feat/complete-or-abstain-t4-ux
+    base        49e545d9   architecture freeze 49c5a494 (git diff -- architecture.md EMPTY)
+    profile     AI_SOC_ENV_PROFILE=coe  (measured; CLAUDE.md's "development" is stale)
+                t4_semantic_understanding=True  resource_plan_execution=True
+                live_capability_enforcement=False  dispatch_v2=False
+    runners     host venv .venv/ (Python 3.12.8, pytest 9.1.1) = AUTHORITATIVE for
+                git-aware / freeze / governance / DB-aware; container = application tests.
+                Equivalence: 77 passed on both for the P1 suites.
+    LLM/MCP     Splunk MCP not configured -> capability unavailable / fail-closed.
+    governance  step 1 = KNOWN_MACOS_GOVERNANCE_ENV_LIMITATION (ratified; not blocking P1-P6).
+                Linux step-1 PASS vs exact final SHA = mandatory P8 release gate.
+    RACES       baseline advanced 08c8b40c -> 3a5f500104fb7a9ba609fc70aeb4af5894cee2eb
+                (pinned to that commit, not HEAD). Freeze test 8 passed. Commit 5cf66404.
+    baseline    20 failed, 6043 passed, 7 skipped, 6 xfailed (439.59s)
+                was 21f/6042p before the RACES advance: -1 failure, +1 pass, no new failures.
+                14 integration/*postgres* + 5 test_migration_readiness.py  = DB env
+                 1 test_github_skill_expansion_factory_baseline.py::
+                   test_factory_generators_check_against_committed_artifacts = macOS clone_root limitation
+    gates       git diff --check CLEAN; worktree clean except .claude/ local noise.
+    ```
   - **Commit:** none (docs evidence in plan Evidence only) or `docs(plan): record P0 baseline` if an evidence file is added under `docs/evals/`
 
 - [ ] **P1** — T1–T3 complete-or-abstain acceptance gate
