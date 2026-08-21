@@ -1,0 +1,59 @@
+# LOOP_RUNNER — understanding-authority-and-response-ux
+
+**Canonical plan:** [`plans/2026-08-21_1937_understanding-authority-and-response-ux.md`](2026-08-21_1937_understanding-authority-and-response-ux.md)
+
+**Architecture freeze:** `architecture.md` @ `49c5a494` — **read-only**. Never modify during this loop.
+
+## Start
+
+```text
+loop-asap — execute plans/2026-08-21_1937_understanding-authority-and-response-ux.md
+```
+
+> **Cursor only.** `loop-asap` is armed by `.cursor/hooks/before-submit-plan-discipline-arm.sh` and
+> continued by `.cursor/hooks/stop-loop-asap-handoff.sh`. **Claude Code** runs the same steps
+> manually from `AGENTS.md` and calls `audit-plan-discipline.sh` by hand.
+
+## Agent loop (one phase at a time)
+
+1. Reconcile: `git status && git log --oneline -5`. Confirm branch `feat/complete-or-abstain-t4-ux` (or current feature branch). Read plan Dependency order, Stop conditions, Drift log, and frozen `architecture.md` §§2.2 / 7 / 9 / 11 / 12 / invariants 51–52.
+2. Audit: `.cursor/hooks/audit-plan-discipline.sh plans/2026-08-21_1937_understanding-authority-and-response-ux.md` — fix every GAP in the plan before coding.
+3. Pick the **first unchecked** item whose **Depends on** are all checked: `P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7 → P8`.
+4. Verify anchors (`ls`, `rg`) before trusting file/line claims — they drift.
+5. **AUDIT FIRST** existing modules named in the plan before editing. Prefer extend over recreate.
+6. Implement only that phase’s **Do**. Smallest architecture-conformant change.
+7. Run **Verify** exactly as written. Fail once → fix in scope and retry. **Fail twice → STOP**.
+8. If the phase touched `pipeline` / `planner` / `SPL` / `MCP` / `LLM`: run `/invariant-check` on the diff. One FAIL blocks commit.
+9. `git diff` + `git diff --check` for the phase.
+10. Record **Evidence** (observed command output). Check `- [x]`.
+11. Commit **one logical commit per phase** (scoped files only). Do not bundle unrelated workstreams.
+12. Proceed only if green. Re-audit all checkmarks before declaring the plan complete.
+
+## Guards
+
+- **Never** modify `architecture.md`.
+- **Never** special-case individual user questions or add firewall keyword patches.
+- **Never** implement embeddings in this plan.
+- **Never** create a second router, second T4 service, or T4-only investigation runtime.
+- **Never** weaken HIL / RBAC / exact-call / candidate_spl non-executability.
+- **Never** make the LLM authoritative for route, ResourcePlan, CapabilitySnapshot, MCP, or remediation.
+- **Never** fake LLM/MCP availability; report honest degrade.
+- Missing MCP ≠ investigation; Final RQC product shape selects lifecycle.
+- Related investigation-envelope work stays in `plans/2026-08-21_0034_agentic-investigation-production.md` — do not merge scopes.
+
+## Stop
+
+- Type `loop-asap stop`, or
+- All items `- [x]` with Evidence, or
+- Same Verify fails twice on one item, or
+- Architecture interpretation ambiguous / would require editing `architecture.md`, or
+- A new authority decision is required, or
+- Implementation would require deleting legitimate existing work, or
+- A second router/planner/runtime appears necessary, or
+- Security / HIL / RBAC / exact-call would be weakened
+
+## Evidence rules
+
+- Evidence is **observed output**, not intent.
+- Never check off on a partial pass.
+- Baselines change only when a contract makes the old value wrong; name that contract in Evidence.
