@@ -22,8 +22,8 @@ from app.chat.canonical_handoff_repository import (
     test_store_read,
     test_store_write,
 )
-from app.chat.canonical_handoff_store import get_handoff, save_handoff
-from app.chat.contracts.canonical_planning_outcome import awaiting_investigation_plan_outcome
+from app.chat.canonical_handoff_store import commit_resource_plan, get_handoff, save_handoff
+from app.chat.contracts.canonical_planning_outcome import awaiting_investigation_plan_outcome, planned_outcome
 from app.chat.contracts.investigation_envelope import (
     ApprovedInvestigationEnvelope,
     InvestigationApprovalState,
@@ -125,7 +125,7 @@ def _approval_state(
     messages = {
         "awaiting_approval": "Investigation plan ready. Review the scope, then Run, Edit, or Cancel.",
         "edited_revalidated": "Edited investigation plan revalidated. Review it before running.",
-        "approved": "Investigation plan approved as an immutable read-only envelope. No execution started in P4.",
+        "approved": "Investigation plan approved as an immutable read-only envelope. Any execution remains governed by the Resource Planner and its policy gates.",
         "cancelled": "Investigation cancelled. No ResourcePlan was compiled and no tool was executed.",
         "replanning_required": "The requested edit changes material scope. Re-enter query resolution before approval.",
     }
@@ -522,4 +522,40 @@ def maybe_handle_investigation_review(state: dict[str, Any]) -> dict[str, Any] |
     }
     for key in ("evidence_plan", "execution", "mcp_evidence"):
         next_state.pop(key, None)
+    if (
+        action == "run"
+        and approval.approved_envelope is not None
+        and settings.ai_soc_resource_plan_execution_enabled
+    ):
+        from app.chat.contracts.resolved_query import ResolvedQueryContract
+        from app.chat.investigation_run_compiler import compile_approved_investigation
+
+        compiled = compile_approved_investigation(
+            envelope=approval.approved_envelope,
+            validated_plan=ValidatedInvestigationPlan.model_validate(approval.validated_plan),
+            resolved_query_contract=ResolvedQueryContract.model_validate(rqc),
+            handoff_id=record.handoff_id,
+            handoff_version=record.handoff_version,
+            use_case_id=record.original_use_case_id,
+        )
+        evidence_payload = compiled.evidence_plan.model_dump(mode="json")
+        resource_payload = compiled.resource_plan.model_dump(mode="json")
+        commit_resource_plan(
+            handoff_id=record.handoff_id,
+            handoff_version=record.handoff_version,
+            resource_plan_id=str(compiled.resource_plan.provenance["resource_plan_id"]),
+            resource_plan=resource_payload,
+            evidence_plan=evidence_payload,
+        )
+        outcome = planned_outcome(
+            canonical_input=canonical,
+            evidence_plan=evidence_payload,
+            resource_plan=resource_payload,
+        )
+        next_state = {
+            **next_state,
+            "canonical_planning_outcome": outcome.model_dump(mode="json"),
+            "evidence_plan": evidence_payload,
+            "investigation_phase_contract": compiled.phase_contract.trace_payload(),
+        }
     return next_state

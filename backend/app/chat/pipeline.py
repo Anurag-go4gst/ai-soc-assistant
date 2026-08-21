@@ -404,6 +404,9 @@ class ChatPipelineState(TypedDict, total=False):
     investigation_approval: dict[str, Any] | None
     approved_investigation_envelope: dict[str, Any] | None
     investigation_approval_action_handled: bool
+    investigation_phase_contract: dict[str, Any] | None
+    investigation_progress: list[dict[str, Any]]
+    investigation_run_status: dict[str, Any] | None
     llm_intent_advisory: LLMIntentAdvisory | None
     # LangGraph silently drops any state key not declared here (see executor
     # guide). shape_advisory was set by graph_node_query_understanding but
@@ -670,9 +673,18 @@ def _run_live_chat_pipeline(
             "plan_dispatch_session_spl_refine",
             lambda s: _run_legacy_dispatch_fallback(s, dispatch_source="session_spl_refine"),
         )
-    elif _uses_guided_hybrid_dispatch(state):
+    elif (
+        _uses_guided_hybrid_dispatch(state)
+        and not settings.ai_soc_resource_plan_execution_enabled
+    ):
         state = _timed_node(state, "guided_hybrid_dispatch", _run_guided_hybrid_dispatch)
     elif has_composed_plan(state):
+        if isinstance(state.get("approved_investigation_envelope"), dict):
+            state = _timed_node(
+                state,
+                "ensure_investigation_workflow_plan",
+                graph_node_ensure_workflow_plan,
+            )
         state = _timed_node(state, "plan_dispatch", lambda s: execute_plan_dispatch(s, _dispatch_hooks()))
     else:
         from app.chat.canonical_mode import (
@@ -5558,6 +5570,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         investigation_planning_trace=state.get("investigation_planning_trace"),
         investigation_approval=state.get("investigation_approval"),
         approved_investigation_envelope=state.get("approved_investigation_envelope"),
+        investigation_progress=state.get("investigation_progress"),
+        investigation_run_status=state.get("investigation_run_status"),
         route_adjudication=state.get("route_adjudication"),
         control_plane_trace=control_plane_trace,
         answer_contract=answer_contract_payload,

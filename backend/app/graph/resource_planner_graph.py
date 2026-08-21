@@ -26,6 +26,7 @@ from app.chat.pipeline import (
     graph_node_composed_dispatch,
     graph_node_context_finalize,
     graph_node_execution,
+    graph_node_ensure_workflow_plan,
     graph_node_init_routing,
     graph_node_prepare_rag_only,
     graph_node_rag_early,
@@ -551,6 +552,8 @@ def rp_node_rag_early(state: ResourcePlannerGraphState) -> ResourcePlannerGraphS
 
 def rp_node_composed_dispatch(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
     state = _apply_work_bundle_to_workers(state)
+    if isinstance(state.get("approved_investigation_envelope"), dict):
+        state = graph_node_ensure_workflow_plan(state)
     state = graph_node_composed_dispatch(state)
     state = _with_trace(state, "composed_dispatch")
     return _record(
@@ -592,6 +595,11 @@ def rp_node_spl_source_resolve(state: ResourcePlannerGraphState) -> ResourcePlan
 
 def rp_node_mcp_execution_gate(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
     if "execution" not in state:
+        # A contracted execution phase may be inserted after a read-only/RAG
+        # resource wave.  It still needs the normal workflow envelope so the
+        # gate can record an honest skip/block instead of raising outside the
+        # Resource Planner hub.
+        state = graph_node_ensure_workflow_plan(state)
         state = graph_node_execution(state)
     state = _with_trace(state, "mcp_execution_gate")
     return _record(
@@ -622,15 +630,23 @@ def rp_node_spl_validate(state: ResourcePlannerGraphState) -> ResourcePlannerGra
 
 def rp_node_context_sufficiency(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
     from app.evidence.evidence_sufficiency import attach_evidence_sufficiency
+    from app.chat.investigation_run_compiler import attach_investigation_observation
 
     state = attach_evidence_sufficiency(state)
+    state = attach_investigation_observation(state)
     state = _with_trace(state, "context_sufficiency")
     return _record(
         state,
         node="context_sufficiency",
         reason="evidence_state_rqc_sufficiency",
         inputs_ref=["resolved_query_contract", "evidence_state", "evidence_plan", "source_evidence"],
-        outputs_ref=["evidence_sufficiency", "context_sufficiency", "evidence_state"],
+        outputs_ref=[
+            "evidence_sufficiency",
+            "context_sufficiency",
+            "evidence_state",
+            "investigation_progress",
+            "investigation_run_status",
+        ],
         authority="deterministic",
     )
 
