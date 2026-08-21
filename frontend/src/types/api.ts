@@ -90,6 +90,16 @@ export interface PlaceholderResponse {
   foundation_sec_governance?: FoundationSecGovernance | null;
   spl_template?: Record<string, unknown> | null;
   evidence_plan?: Record<string, unknown> | null;
+  validated_investigation_plan?: Record<string, unknown> | null;
+  investigation_planning_trace?: Record<string, unknown> | null;
+  investigation_approval?: InvestigationApprovalState | null;
+  remediation_approval?: RemediationApprovalState | null;
+  approved_remediation_envelope?: ApprovedRemediationEnvelope | null;
+  remediation_execution?: RemediationExecutionResult | null;
+  approved_investigation_envelope?: ApprovedInvestigationEnvelope | null;
+  investigation_progress?: InvestigationProgressEvent[];
+  investigation_run_status?: InvestigationRunStatus | null;
+  investigation_outcome?: InvestigationOutcomeEnvelope | null;
   route_adjudication?: Record<string, unknown> | null;
   llm_plan_validation?: Record<string, unknown> | null;
   query_to_intent?: Record<string, unknown> | null;
@@ -126,6 +136,41 @@ export interface PlaceholderResponse {
   intent_dispatch?: Record<string, unknown> | null;
   pipeline_dispatch?: Record<string, unknown> | null;
   plan_dispatch?: Record<string, unknown> | null;
+}
+
+export interface InvestigationProgressEvent {
+  step_id: string;
+  purpose: string;
+  status: string;
+  source: string;
+  evidence_summary: string;
+  evidence_refs: string[];
+  failure?: string | null;
+}
+
+export interface InvestigationRunStatus {
+  status: string;
+  stop_reason?: string | null;
+  missing_evidence?: string[];
+  next_action?: string | null;
+  plan_delta_emitted?: boolean;
+}
+
+export interface InvestigationOutcomeEnvelope {
+  schema_version: string;
+  investigation_status?: 'completed' | 'incomplete' | 'blocked' | 'cancelled';
+  disposition: 'suspicious' | 'benign' | 'inconclusive' | 'blocked';
+  findings: string[];
+  supported_hypotheses: string[];
+  unconfirmed_hypotheses: string[];
+  evidence_refs: string[];
+  missing_evidence: string[];
+  limitations?: string[];
+  recommended_next_action?: string | null;
+  remediation_offer_required?: boolean;
+  severity_label?: string | null;
+  recommended_actions: string[];
+  llm_proposal_accepted: boolean;
 }
 
 export interface EcVisualLanes {
@@ -763,6 +808,141 @@ export interface ChatExecutionReviewOptions {
   execution_review_action: ExecutionReviewAction;
   analyst_provided_spl?: string;
 }
+
+export type InvestigationReviewAction = 'run' | 'edit' | 'cancel';
+
+export interface ApprovedInvestigationEnvelope {
+  envelope_version: number;
+  objective: string;
+  targets: string[];
+  entities: Record<string, unknown>;
+  time_scope?: string | null;
+  approved_evidence_categories: string[];
+  allowed_read_only_capabilities: string[];
+  source_index_scope: Record<string, string[]>;
+  budget: {
+    hop_limit: number;
+    timeout_seconds: number;
+    cost_resource_limits: Record<string, number | string>;
+  };
+  plan_delta_policy: {
+    automatic_bounded_read_only_delta_allowed: boolean;
+    material_scope_expansion_requires_hil: boolean;
+  };
+  prohibited_actions: string[];
+}
+
+export interface InvestigationApprovalState {
+  status: 'awaiting_approval' | 'edited_revalidated' | 'approved' | 'cancelled' | 'replanning_required';
+  handoff_id: string;
+  handoff_version: number;
+  allowed_actions: InvestigationReviewAction[];
+  plan_summary: {
+    what_will_be_checked: string[];
+    why_it_matters: string;
+    scope_and_time: string[];
+    resources_and_capabilities: string[];
+  };
+  validated_plan: Record<string, unknown>;
+  approved_envelope?: ApprovedInvestigationEnvelope | null;
+  safe_message: string;
+  revalidation_warnings: string[];
+}
+
+export interface ChatInvestigationReviewOptions {
+  investigation_review_action: InvestigationReviewAction;
+  investigation_handoff_id: string;
+  investigation_handoff_version: number;
+  investigation_plan_edits?: {
+    investigation_objective?: string;
+    entities?: Record<string, unknown>;
+    time_scope?: string;
+    evidence_needed?: string[];
+    data_categories?: string[];
+    capability_requests?: string[];
+  };
+}
+
+export type RemediationReviewAction = 'create' | 'decline' | 'approve' | 'edit' | 'cancel';
+
+export interface RemediationStep {
+  step_id: string;
+  capability_id: string;
+  description: string;
+  execution_mode: 'execute' | 'manual_or_alternate';
+  availability: 'available' | 'unavailable';
+  reversible: boolean;
+  verification: string;
+  unavailable_reason?: string | null;
+}
+
+export interface ApprovedRemediationEnvelope {
+  schema_version: string;
+  envelope_version: number;
+  remediation_objective: string;
+  approved_steps: RemediationStep[];
+  plan_fingerprint: string;
+  investigation_envelope_version?: number | null;
+}
+
+/** P10 remediation HIL. Approval yields an envelope; it never executes a connector. */
+export interface RemediationApprovalState {
+  status: 'offered' | 'awaiting_approval' | 'edited_revalidated' | 'approved' | 'cancelled' | 'declined';
+  handoff_id?: string | null;
+  handoff_version?: number | null;
+  allowed_actions: RemediationReviewAction[];
+  plan_summary?: {
+    what_will_change: string[];
+    why_it_matters: string;
+    what_stays_manual: string[];
+    how_it_is_verified: string[];
+  } | null;
+  validated_plan?: {
+    steps: RemediationStep[];
+    remediation_objective: string;
+    manual_only_steps: string[];
+    plan_source: string;
+    execution_authorized: false;
+  } | null;
+  approved_envelope?: ApprovedRemediationEnvelope | null;
+  safe_message: string;
+  revalidation_warnings: string[];
+  execution_result?: RemediationExecutionResult | null;
+}
+
+export interface RemediationActionReceipt {
+  step_id: string;
+  capability_id: string;
+  status: 'SUCCESS' | 'FAILED' | 'UNAVAILABLE' | 'SKIPPED_MANUAL' | string;
+  execution_mode: string;
+  external_side_effect: boolean;
+  reason?: string | null;
+  verification_status: string;
+  verification_detail?: string | null;
+  replayed?: boolean;
+}
+
+export interface RemediationExecutionResult {
+  envelope_version: number;
+  plan_fingerprint: string;
+  refused_reason?: string | null;
+  receipts: RemediationActionReceipt[];
+  executed_any: boolean;
+}
+
+export interface ChatRemediationReviewOptions {
+  remediation_review_action: RemediationReviewAction;
+  remediation_plan_edits?: {
+    remediation_objective?: string;
+    removed_step_ids?: string[];
+    step_descriptions?: Record<string, string>;
+  };
+}
+
+export type ChatReviewOptions =
+  | ChatExecutionReviewOptions
+  | ChatInvestigationReviewOptions
+  | ChatRemediationReviewOptions;
 
 export interface SourceEvidenceEnvelope {
   evidence_id: string;

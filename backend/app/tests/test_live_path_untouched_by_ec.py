@@ -110,8 +110,23 @@ def test_ec_changes_stay_within_allowlist() -> None:
 #   frontend/src/components/ChatPanel.tsx   — 7c37580/b296a78, the ratified
 #                                             legacy-EC demoMode convergence
 # The freeze still means what it said; the baseline just no longer straddles
-# approved non-RACES work. Advance it again only for work with the same pedigree.
-RACES_BASELINE_SHA = "b296a78"
+# approved non-RACES work. Advanced through canonical investigation P5: P0-P5
+# intentionally changed the production authority path and did not import EC
+# fixtures or demo authority into it. Advanced again through P8 at 949f7f4c:
+# P7 added a bounded read-only PlanDelta edge to the existing Resource Planner
+# graph, and P8 added the governed two-axis outcome projection in pipeline.py.
+# Neither change came from RACES/EC work or introduced demo authority. The P8
+# follow-up replaces lifecycle inference with its explicit default-off rollout flag.
+# Advanced again through P10-P13 at 9f1ec922: P10 added the remediation planning
+# lifecycle (pipeline.py seam, responses.py fields, a new ChatPanel card), P11 added
+# the production action gate under app/actions/, and P13 mapped a stale investigation
+# decision to a governed 409. All of it is production investigation work; none of it
+# came from RACES/EC or imported demo authority into the live path.
+# Advanced through the final architecture-conformance correction at 08c8b40c: the
+# production routes removed an EC shortcut, P7 joined the canonical RP/AUTH0 seam,
+# and P11 wired approved action execution. These are approved production authority
+# corrections; the freeze continues from their exact reviewed commit.
+RACES_BASELINE_SHA = "08c8b40c"
 
 
 def _git_name_only(rev_range: str) -> list[str]:

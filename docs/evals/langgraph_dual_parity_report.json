@@ -2,10 +2,10 @@
   "metadata": {
     "base_105_loaded": 105,
     "command": "python3 scripts/run_langgraph_dual_parity_eval.py --check",
-    "commit_sha": "6981a0db510dbabbd34b809ffb02eeaf64c2884e",
+    "commit_sha": "9f5fd999df2ac07f4fdee1f0574b3438b3672b01",
     "comparison_field_count": 34,
     "corpus_count": 120,
-    "duration_s": 15.7,
+    "duration_s": 14.7,
     "excluded_fields": {
       "decision_log": "append-only audit trail; ordering is topology-dependent",
       "duration_ms": "wall-clock timing",
@@ -15,7 +15,7 @@
       "trace_id": "per-run UUID",
       "turn_id": "per-run UUID"
     },
-    "generated_at": "2026-08-20T11:12:42.247927+00:00",
+    "generated_at": "2026-08-21T08:02:01.243698+00:00",
     "runtime_a": "imperative_canonical",
     "runtime_b": "resource_planner_graph"
   },
@@ -1505,7 +1505,7 @@
         "human_review_required": true,
         "intent_family": "spl_generation_only",
         "mapped_question_ref": "q0.q015",
-        "match_path": "exact_105_plus_use_case_catalog",
+        "match_path": "exact_105_question",
         "mitre_answer_visible": false,
         "mitre_technique_ids": [],
         "normalized_spl_present": false,
@@ -1520,7 +1520,7 @@
         "spl_approved": false,
         "spl_template_status": null,
         "unsafe_blocked": false,
-        "use_case_id": "net_repeated_critical_asset_connections"
+        "use_case_id": null
       },
       "runtime_b": {
         "action_mode": "recommend_only",
@@ -1549,7 +1549,7 @@
         "human_review_required": true,
         "intent_family": "spl_generation_only",
         "mapped_question_ref": "q0.q015",
-        "match_path": "exact_105_plus_use_case_catalog",
+        "match_path": "exact_105_question",
         "mitre_answer_visible": false,
         "mitre_technique_ids": [],
         "normalized_spl_present": false,
@@ -1564,7 +1564,7 @@
         "spl_approved": false,
         "spl_template_status": null,
         "unsafe_blocked": false,
-        "use_case_id": "net_repeated_critical_asset_connections"
+        "use_case_id": null
       },
       "source": "105_map"
     },
@@ -6439,7 +6439,7 @@
         "human_review_required": true,
         "intent_family": "spl_generation_only",
         "mapped_question_ref": "q0.q065",
-        "match_path": "exact_105_plus_use_case_catalog",
+        "match_path": "exact_105_question",
         "mitre_answer_visible": false,
         "mitre_technique_ids": [],
         "normalized_spl_present": false,
@@ -6454,7 +6454,7 @@
         "spl_approved": false,
         "spl_template_status": null,
         "unsafe_blocked": false,
-        "use_case_id": "edr_scheduled_task_creation"
+        "use_case_id": null
       },
       "runtime_b": {
         "action_mode": "recommend_only",
@@ -6483,7 +6483,7 @@
         "human_review_required": true,
         "intent_family": "spl_generation_only",
         "mapped_question_ref": "q0.q065",
-        "match_path": "exact_105_plus_use_case_catalog",
+        "match_path": "exact_105_question",
         "mitre_answer_visible": false,
         "mitre_technique_ids": [],
         "normalized_spl_present": false,
@@ -6498,7 +6498,7 @@
         "spl_approved": false,
         "spl_template_status": null,
         "unsafe_blocked": false,
-        "use_case_id": "edr_scheduled_task_creation"
+        "use_case_id": null
       },
       "source": "105_map"
     },
@@ -6631,7 +6631,7 @@
         "human_review_required": true,
         "intent_family": "spl_generation_only",
         "mapped_question_ref": "q0.q067",
-        "match_path": "exact_105_plus_use_case_catalog",
+        "match_path": "exact_105_question",
         "mitre_answer_visible": false,
         "mitre_technique_ids": [],
         "normalized_spl_present": false,
@@ -6646,7 +6646,7 @@
         "spl_approved": false,
         "spl_template_status": null,
         "unsafe_blocked": false,
-        "use_case_id": "dns_unusual_query_volume"
+        "use_case_id": null
       },
       "runtime_b": {
         "action_mode": "recommend_only",
@@ -6675,7 +6675,7 @@
         "human_review_required": true,
         "intent_family": "spl_generation_only",
         "mapped_question_ref": "q0.q067",
-        "match_path": "exact_105_plus_use_case_catalog",
+        "match_path": "exact_105_question",
         "mitre_answer_visible": false,
         "mitre_technique_ids": [],
         "normalized_spl_present": false,
@@ -6690,7 +6690,7 @@
         "spl_approved": false,
         "spl_template_status": null,
         "unsafe_blocked": false,
-        "use_case_id": "dns_unusual_query_volume"
+        "use_case_id": null
       },
       "source": "105_map"
     },
@@ -7095,7 +7095,7 @@
         "human_review_required": true,
         "intent_family": "spl_generation_only",
         "mapped_question_ref": "q0.q072",
-        "match_path": "exact_105_plus_use_case_catalog",
+        "match_path": "exact_105_question",
         "mitre_answer_visible": false,
         "mitre_technique_ids": [],
         "normalized_spl_present": false,
@@ -7110,7 +7110,7 @@
         "spl_approved": false,
         "spl_template_status": null,
         "unsafe_blocked": false,
-        "use_case_id": "edr_lateral_movement_candidate"
+        "use_case_id": null
       },
       "runtime_b": {
         "action_mode": "recommend_only",
@@ -7139,7 +7139,7 @@
         "human_review_required": true,
         "intent_family": "spl_generation_only",
         "mapped_question_ref": "q0.q072",
-        "match_path": "exact_105_plus_use_case_catalog",
+        "match_path": "exact_105_question",
         "mitre_answer_visible": false,
         "mitre_technique_ids": [],
         "normalized_spl_present": false,
@@ -7154,7 +7154,7 @@
         "spl_approved": false,
         "spl_template_status": null,
         "unsafe_blocked": false,
-        "use_case_id": "edr_lateral_movement_candidate"
+        "use_case_id": null
       },
       "source": "105_map"
     },
@@ -8752,11 +8752,8 @@
         "action_mode": "recommend_only",
         "analyst_enabled_sections": [
           "analyst_action_guidance",
-          "evidence_checklist",
-          "investigation_guidance",
-          "limitations",
-          "procedural_steps",
-          "triage_checklist"
+          "severity_assessment",
+          "spl_artifact"
         ],
         "answer_mode": "live_investigation",
         "branches": [
@@ -8770,11 +8767,8 @@
         "draft_status": null,
         "enabled_sections": [
           "analyst_action_guidance",
-          "evidence_checklist",
-          "investigation_guidance",
-          "limitations",
-          "procedural_steps",
-          "triage_checklist"
+          "severity_assessment",
+          "spl_artifact"
         ],
         "executed_spl_present": false,
         "execution_eligible": false,
@@ -8788,7 +8782,7 @@
         "match_path": "exact_105_plus_use_case_catalog",
         "mitre_answer_visible": false,
         "mitre_technique_ids": [],
-        "normalized_spl_present": false,
+        "normalized_spl_present": true,
         "path_type": "spl_review",
         "requires_clarification": false,
         "resource_plan_committed": true,
@@ -8796,21 +8790,18 @@
         "response_mode": "human_review_required",
         "route_final": "attack_discovery",
         "selected_skill": "attack_discovery",
-        "severity_label": "P3 Medium",
-        "spl_approved": false,
+        "severity_label": "Not assigned from this question alone",
+        "spl_approved": true,
         "spl_template_status": "active",
         "unsafe_blocked": false,
-        "use_case_id": "auth_failed_login_spike"
+        "use_case_id": "auth_mfa_failure_spike"
       },
       "runtime_b": {
         "action_mode": "recommend_only",
         "analyst_enabled_sections": [
           "analyst_action_guidance",
-          "evidence_checklist",
-          "investigation_guidance",
-          "limitations",
-          "procedural_steps",
-          "triage_checklist"
+          "severity_assessment",
+          "spl_artifact"
         ],
         "answer_mode": "live_investigation",
         "branches": [
@@ -8824,11 +8815,8 @@
         "draft_status": null,
         "enabled_sections": [
           "analyst_action_guidance",
-          "evidence_checklist",
-          "investigation_guidance",
-          "limitations",
-          "procedural_steps",
-          "triage_checklist"
+          "severity_assessment",
+          "spl_artifact"
         ],
         "executed_spl_present": false,
         "execution_eligible": false,
@@ -8842,7 +8830,7 @@
         "match_path": "exact_105_plus_use_case_catalog",
         "mitre_answer_visible": false,
         "mitre_technique_ids": [],
-        "normalized_spl_present": false,
+        "normalized_spl_present": true,
         "path_type": "spl_review",
         "requires_clarification": false,
         "resource_plan_committed": true,
@@ -8850,11 +8838,11 @@
         "response_mode": "human_review_required",
         "route_final": "attack_discovery",
         "selected_skill": "attack_discovery",
-        "severity_label": "P3 Medium",
-        "spl_approved": false,
+        "severity_label": "Not assigned from this question alone",
+        "spl_approved": true,
         "spl_template_status": "active",
         "unsafe_blocked": false,
-        "use_case_id": "auth_failed_login_spike"
+        "use_case_id": "auth_mfa_failure_spike"
       },
       "source": "105_map"
     },
@@ -11720,10 +11708,7 @@
         "action_mode": "recommend_only",
         "analyst_enabled_sections": [
           "analyst_action_guidance",
-          "evidence_checklist",
-          "policy_citation",
-          "procedural_steps",
-          "triage_checklist"
+          "policy_citation"
         ],
         "answer_mode": "rag_only",
         "branches": [
@@ -11736,10 +11721,7 @@
         "draft_status": null,
         "enabled_sections": [
           "analyst_action_guidance",
-          "evidence_checklist",
-          "policy_citation",
-          "procedural_steps",
-          "triage_checklist"
+          "policy_citation"
         ],
         "executed_spl_present": false,
         "execution_eligible": null,
@@ -11763,18 +11745,15 @@
         "selected_skill": "knowledge_recall",
         "severity_label": "Not assigned from this question alone",
         "spl_approved": null,
-        "spl_template_status": "active",
+        "spl_template_status": null,
         "unsafe_blocked": false,
-        "use_case_id": "auth_failed_login_spike"
+        "use_case_id": "soc_map_alert_mitre"
       },
       "runtime_b": {
         "action_mode": "recommend_only",
         "analyst_enabled_sections": [
           "analyst_action_guidance",
-          "evidence_checklist",
-          "policy_citation",
-          "procedural_steps",
-          "triage_checklist"
+          "policy_citation"
         ],
         "answer_mode": "rag_only",
         "branches": [
@@ -11787,10 +11766,7 @@
         "draft_status": null,
         "enabled_sections": [
           "analyst_action_guidance",
-          "evidence_checklist",
-          "policy_citation",
-          "procedural_steps",
-          "triage_checklist"
+          "policy_citation"
         ],
         "executed_spl_present": false,
         "execution_eligible": null,
@@ -11814,9 +11790,9 @@
         "selected_skill": "knowledge_recall",
         "severity_label": "Not assigned from this question alone",
         "spl_approved": null,
-        "spl_template_status": "active",
+        "spl_template_status": null,
         "unsafe_blocked": false,
-        "use_case_id": "auth_failed_login_spike"
+        "use_case_id": "soc_map_alert_mitre"
       },
       "source": "manual"
     },

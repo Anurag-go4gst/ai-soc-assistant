@@ -43,7 +43,12 @@ _ROLE_TIMEOUT_SECONDS: dict[str, float] = {
     "template_render_parameter_assist": 90.0,
     "governed_composer": 120.0,
     "guided_investigation_plan_proposer": 15.0,
+    "investigation_planner": 120.0,
+    "plan_delta_reasoner": 30.0,
+    "remediation_planner": 30.0,
 }
+
+_REASONING_ALLOWED_ROLES: frozenset[str] = frozenset({"investigation_planner"})
 
 # Failover hop (Instruct retry after primary timeout) — give it enough to complete
 # on a slow single-slot model, not the old 20s that guaranteed a second timeout.
@@ -56,6 +61,10 @@ class SidecarInvocationResult:
     timed_out: bool
     answered_label: str | None
     finish_reason: str | None = None
+    latency_ms: int = 0
+    circuit_state: str | None = None
+    human_action_required: bool = False
+    failure_kind: str | None = None
 
 
 def _instruct_failover_client(client: FailoverChatClient) -> FailoverChatClient | None:
@@ -80,6 +89,7 @@ def build_failover_client_for_role(role: str) -> FailoverChatClient | None:
         role,
         reasoning_rejection_reason=REASONING_REJECTION_MATCHING,
         assist_invoked=False,
+        allow_reasoning=role in _REASONING_ALLOWED_ROLES,
     )
     if role_status.role_configured and not role_status.enabled:
         return None
@@ -198,6 +208,7 @@ def invoke_sidecar_role_with_metadata(
     allow_failover: bool = True,
 ) -> SidecarInvocationResult:
     """Invoke a sidecar role and preserve non-authoritative completion metadata."""
+    started = time.monotonic()
     if settings.ai_soc_llm_mode.strip().lower() in {"mock", "disabled", ""}:
         return SidecarInvocationResult(raw_output=None, timed_out=False, answered_label=None)
     if not settings.ai_soc_llm_enabled:
@@ -236,12 +247,24 @@ def invoke_sidecar_role_with_metadata(
             timed_out=False,
             answered_label=answered_label_holder[0],
             finish_reason=finish_reason_holder[0],
+            latency_ms=int((time.monotonic() - started) * 1000),
+            circuit_state=call.circuit_state,
+            human_action_required=call.human_action_required,
+            failure_kind=call.failure_kind,
         )
 
     if allow_failover and len(client.chain) > 1:
         fallback_client = _instruct_failover_client(client)
         if fallback_client is None:
-            return SidecarInvocationResult(raw_output=None, timed_out=True, answered_label=None)
+            return SidecarInvocationResult(
+                raw_output=None,
+                timed_out=True,
+                answered_label=None,
+                latency_ms=int((time.monotonic() - started) * 1000),
+                circuit_state=call.circuit_state,
+                human_action_required=call.human_action_required,
+                failure_kind=call.failure_kind,
+            )
         hop_timeout = min(timeout, _FAILOVER_HOP_TIMEOUT_SECONDS)
         fallback_deadline = time.monotonic() + float(hop_timeout)
         fallback_label_holder: list[str | None] = [None]
@@ -270,10 +293,30 @@ def invoke_sidecar_role_with_metadata(
                 timed_out=False,
                 answered_label=fallback_label_holder[0],
                 finish_reason=fallback_finish_reason_holder[0],
+                latency_ms=int((time.monotonic() - started) * 1000),
+                circuit_state=fallback_call.circuit_state,
+                human_action_required=fallback_call.human_action_required,
+                failure_kind=fallback_call.failure_kind,
             )
-        return SidecarInvocationResult(raw_output=None, timed_out=True, answered_label=None)
+        return SidecarInvocationResult(
+            raw_output=None,
+            timed_out=True,
+            answered_label=None,
+            latency_ms=int((time.monotonic() - started) * 1000),
+            circuit_state=fallback_call.circuit_state,
+            human_action_required=fallback_call.human_action_required,
+            failure_kind=fallback_call.failure_kind,
+        )
 
-    return SidecarInvocationResult(raw_output=None, timed_out=True, answered_label=None)
+    return SidecarInvocationResult(
+        raw_output=None,
+        timed_out=True,
+        answered_label=None,
+        latency_ms=int((time.monotonic() - started) * 1000),
+        circuit_state=call.circuit_state,
+        human_action_required=call.human_action_required,
+        failure_kind=call.failure_kind,
+    )
 
 
 def build_intent_advisory_prompt(

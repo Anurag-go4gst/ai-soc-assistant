@@ -3,7 +3,7 @@ import type {
   AuthResponse,
   ChatAnswerFeedbackRequest,
   ChatAnswerFeedbackResponse,
-  ChatExecutionReviewOptions,
+  ChatReviewOptions,
   DebugReadinessResponse,
   DebugTraceBundle,
   DebugTraceTimeline,
@@ -134,7 +134,7 @@ export async function sendChatMessage(
   message: string,
   sessionId?: string | null,
   llmSplDraftMode = false,
-  executionReview?: ChatExecutionReviewOptions,
+  executionReview?: ChatReviewOptions,
 ): Promise<PlaceholderResponse> {
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: 'POST',

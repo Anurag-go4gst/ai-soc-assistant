@@ -423,6 +423,32 @@ class Settings(BaseSettings):
     # Plan 5 B5: live fail-closed capability enforcement from ResolvedQueryContract.
     # Default false. Activation is a named STOP gate (B_LIVE_CAPABILITY_ENFORCEMENT).
     ai_soc_live_capability_enforcement_enabled: bool = False
+    # Agentic investigation P0: investigation-shaped Final RQCs wait for plan/envelope
+    # before ResourcePlan commit. Default false — flag-off preserves immediate RP commit.
+    ai_soc_investigation_plan_before_resource_plan_enabled: bool = False
+    # Agentic investigation P1: attach CapabilitySnapshot after Final RQC. Default false.
+    ai_soc_capability_snapshot_enabled: bool = False
+    # Agentic investigation P2: guided EvidencePlan/executor may compose SPL/MCP reads.
+    # Default false — flag-off restores rag-only scheduling. Catalog JSON is permanent.
+    ai_soc_guided_composable_planning_enabled: bool = False
+    # Agentic investigation P3: advisory reasoning proposal + DET validated plan.
+    # Default false; independent of semantic T4 and carries no execution authority.
+    ai_soc_investigation_planner_enabled: bool = False
+    # Agentic investigation P7: bounded adaptive PlanDelta. Separate from the
+    # whole-investigation planner so operators can stop iteration without
+    # disabling deterministic/LLM-assisted plan proposal.
+    ai_soc_plan_delta_enabled: bool = False
+    # Agentic investigation P8: two-axis status/disposition outcome + production UI.
+    # Default false; COE enables it only after flag-off regression and live acceptance.
+    ai_soc_investigation_outcome_v2_enabled: bool = False
+    # Agentic investigation P10: remediation offer + proposal + Approve/Edit/Cancel.
+    # Default false. On means the remediation *plan* lifecycle exists; it never
+    # authorizes a write — connector execution stays behind the P11 action gate.
+    ai_soc_remediation_planner_enabled: bool = False
+    # Agentic investigation P11: production allowlisted email connector. Per-connector
+    # switch, default false in the repo; a COE profile may enable it. Availability
+    # (SMTP host/sender configured) and the recipient allowlist are separate gates.
+    ai_soc_action_email_enabled: bool = False
     # Canonical handoff durable store TTL (PostgreSQL).
     ai_soc_handoff_store_ttl_minutes: int = 60
     # Item 28 — bounded retention purge for canonical_handoffs / canonical_planning_events.

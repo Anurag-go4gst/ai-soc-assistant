@@ -1,0 +1,238 @@
+"""Deterministic remediation baseline (architecture P10).
+
+Builds a :class:`ValidatedRemediationPlan` skeleton from the governed
+``InvestigationOutcome`` and the ``CapabilitySnapshot``. The reasoning model never
+supplies the capability set — it may only re-describe or narrow what this builder
+already found, through the validator.
+
+Availability is honest in both directions: an action whose connector is not
+registered stays in the plan as a ``manual_or_alternate`` step with a reason, so
+the analyst sees what still needs doing by hand rather than a silently shorter
+plan.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from app.actions.capability_policy import BLOCKED_EXECUTION_ACTIONS
+from app.actions.email_adapter import default_recipient
+from app.chat.capability_snapshot import KNOWN_ACTION_KINDS
+from app.chat.contracts.remediation_plan import (
+    RemediationStep,
+    ValidatedRemediationPlan,
+)
+
+#: What counts as *remediation*. ``ActionCapability.allowed_actions`` at tier 1 is an
+#: answer-affordance vocabulary — "summarize", "explain", "show_sop" — not a set of
+#: things that change the estate. Treating those as remediation steps produced plans
+#: like "Perform summarize manually", so the builder filters to real actions only.
+REMEDIATION_ACTION_KINDS: frozenset[str] = frozenset(
+    {*KNOWN_ACTION_KINDS, *BLOCKED_EXECUTION_ACTIONS}
+)
+
+#: Answer affordances that must never appear as a remediation step.
+_ANSWER_AFFORDANCES: frozenset[str] = frozenset(
+    {
+        "summarize",
+        "explain",
+        "show_sop",
+        "generate_spl",
+        "draft_investigation_note",
+        "run_saved_search",
+    }
+)
+
+#: Deterministic verification text per known action kind. A capability with no
+#: entry still gets a generic governed verification line — never an empty one.
+_VERIFICATION_BY_CAPABILITY: dict[str, str] = {
+    "email_send": "Confirm the send receipt and the recipient allowlist entry.",
+    "firewall_block": "Re-query the firewall policy for the rule and confirm it is active.",
+    "block_ip": "Re-query the blocking control for the indicator and confirm the deny rule.",
+    "disable_user": "Confirm the account state is disabled in the identity source.",
+    "isolate_endpoint": "Confirm the endpoint reports an isolated state in the EDR console.",
+    "create_ticket": "Confirm the ticket exists and carries the investigation reference.",
+    "containment": "Confirm each containment control reports the expected post-action state.",
+    "close_incident": "Confirm the incident record state and the closing note.",
+}
+
+_GENERIC_VERIFICATION = "Confirm the post-action state through the owning system before closing."
+
+#: Actions that change state irreversibly enough that rollback must be explicit.
+_REVERSIBLE_CAPABILITIES: frozenset[str] = frozenset(
+    {"block_ip", "firewall_block", "disable_user", "isolate_endpoint", "containment"}
+)
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    dump = getattr(value, "model_dump", None)
+    payload = dump(mode="json") if callable(dump) else {}
+    return dict(payload) if isinstance(payload, dict) else {}
+
+
+def _snapshot_availability(snapshot: dict[str, Any]) -> dict[str, str]:
+    rows = snapshot.get("rows") if isinstance(snapshot, dict) else None
+    availability: dict[str, str] = {}
+    for row in rows or []:
+        if isinstance(row, dict) and row.get("capability_id"):
+            capability_id = str(row["capability_id"])
+            row_availability = str(row.get("availability") or "unavailable")
+            availability[capability_id] = row_availability
+            if capability_id.startswith("action:"):
+                availability[capability_id.split(":", 1)[1]] = row_availability
+    return availability
+
+
+def _objective(outcome: dict[str, Any]) -> str:
+    disposition = str(outcome.get("disposition") or "inconclusive")
+    severity = str(outcome.get("severity_label") or "").strip()
+    suffix = f" ({severity})" if severity else ""
+    if disposition == "suspicious":
+        return f"Contain and remediate the confirmed suspicious activity{suffix}."
+    if disposition == "benign":
+        return f"Record the benign determination and close out residual risk{suffix}."
+    return f"Reduce risk from the inconclusive investigation result{suffix}."
+
+
+def _step(
+    *,
+    index: int,
+    capability_id: str,
+    availability: str,
+    unavailable_reason: str | None,
+) -> RemediationStep:
+    executable = availability == "available" and capability_id not in BLOCKED_EXECUTION_ACTIONS
+    arguments: dict[str, Any] = {}
+    if executable and capability_id == "email_send":
+        recipient = default_recipient()
+        if recipient:
+            arguments["recipient"] = recipient
+        else:
+            executable = False
+            availability = "unavailable"
+            unavailable_reason = "approved_email_recipient_not_configured"
+    return RemediationStep(
+        step_id=f"rem.{index:02d}.{capability_id}",
+        capability_id=capability_id,
+        description=(
+            (
+                f"Send the remediation notification to {arguments['recipient']} through the registered connector."
+                if capability_id == "email_send" and arguments.get("recipient")
+                else f"Perform {capability_id.replace('_', ' ')} through the registered connector."
+            )
+            if executable
+            else f"Perform {capability_id.replace('_', ' ')} manually or through an alternate path."
+        ),
+        execution_mode="execute" if executable else "manual_or_alternate",
+        availability="available" if availability == "available" else "unavailable",
+        reversible=capability_id in _REVERSIBLE_CAPABILITIES,
+        verification=_VERIFICATION_BY_CAPABILITY.get(capability_id, _GENERIC_VERIFICATION),
+        unavailable_reason=unavailable_reason,
+        action_arguments=arguments,
+    )
+
+
+def build_deterministic_remediation_plan(
+    *,
+    investigation_outcome: dict[str, Any] | Any,
+    capability_snapshot: dict[str, Any] | Any | None = None,
+) -> ValidatedRemediationPlan:
+    """Project the governed outcome + snapshot onto a deterministic remediation plan."""
+    outcome = _as_dict(investigation_outcome)
+    snapshot = _as_dict(capability_snapshot)
+    availability = _snapshot_availability(snapshot)
+    eligibility = _as_dict(outcome.get("action_eligibility"))
+
+    raw_allowed = [str(item) for item in eligibility.get("allowed_actions") or []]
+    raw_unavailable = [str(item) for item in eligibility.get("unavailable_actions") or []]
+
+    steps: list[RemediationStep] = []
+    manual_only: list[str] = []
+    warnings: list[str] = []
+    dropped: list[str] = []
+    seen: set[str] = set()
+
+    def _remediation_only(values: list[str]) -> list[str]:
+        """Drop answer affordances; keep everything else.
+
+        An unrecognized identifier is kept deliberately: a not-yet-onboarded connector
+        such as an Agilius patch submission is a real remediation action, and it must
+        surface as an honest manual step rather than vanish from the plan. Only the
+        known answer-affordance vocabulary is filtered out.
+        """
+        kept: list[str] = []
+        for value in values:
+            if value in _ANSWER_AFFORDANCES:
+                dropped.append(f"answer_affordance_is_not_remediation:{value}")
+                continue
+            kept.append(value)
+        return kept
+
+    allowed = _remediation_only(raw_allowed)
+    unavailable = _remediation_only(raw_unavailable)
+
+    # A registered write capability the snapshot reports as available is a real
+    # remediation option even when the tier-1 action vocabulary never mentions it.
+    for capability_id, row_availability in sorted(availability.items()):
+        if (
+            capability_id in KNOWN_ACTION_KINDS
+            and row_availability == "available"
+            and capability_id not in allowed
+        ):
+            allowed.append(capability_id)
+
+    for capability_id in allowed:
+        if capability_id in seen:
+            continue
+        seen.add(capability_id)
+        row_availability = availability.get(capability_id)
+        if capability_id in BLOCKED_EXECUTION_ACTIONS:
+            reason = "action_blocked_by_execution_policy"
+        elif row_availability is None:
+            reason = "capability_not_registered"
+        elif row_availability != "available":
+            reason = "capability_unavailable_in_snapshot"
+        else:
+            reason = None
+        step = _step(
+            index=len(steps) + 1,
+            capability_id=capability_id,
+            availability=row_availability or "unavailable",
+            unavailable_reason=reason,
+        )
+        steps.append(step)
+        if step.execution_mode == "manual_or_alternate":
+            manual_only.append(step.step_id)
+
+    for capability_id in unavailable:
+        if capability_id in seen:
+            continue
+        seen.add(capability_id)
+        step = _step(
+            index=len(steps) + 1,
+            capability_id=capability_id,
+            availability="unavailable",
+            unavailable_reason="capability_reported_unavailable_by_policy",
+        )
+        steps.append(step)
+        manual_only.append(step.step_id)
+
+    if not steps:
+        warnings.append("no_registered_or_policy_eligible_remediation_capability")
+
+    return ValidatedRemediationPlan(
+        remediation_objective=_objective(outcome),
+        steps=steps,
+        manual_only_steps=manual_only,
+        plan_source="deterministic_only",
+        validation_warnings=warnings,
+        dropped_reasons=list(dict.fromkeys(dropped))[:32],
+        derived_from_investigation_status=(
+            str(outcome["investigation_status"]) if outcome.get("investigation_status") else None
+        ),
+        derived_from_disposition=(
+            str(outcome["disposition"]) if outcome.get("disposition") else None
+        ),
+    )

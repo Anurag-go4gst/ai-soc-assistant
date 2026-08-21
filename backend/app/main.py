@@ -36,6 +36,7 @@ from app.api.routes_quality import router as quality_router
 from app.api.routes_scenarios import demo_router, ec_actions_router, ec_catalog_router, router as scenarios_router
 from app.api.routes_settings import router as settings_router
 from app.auth.routes_auth import router as auth_router
+from app.chat.investigation_envelope_runtime import InvestigationEnvelopeError
 from app.db.migration_readiness import log_startup_migration_readiness
 
 
@@ -120,6 +121,39 @@ def _stack_fingerprint(exc: BaseException) -> str:
         return f"{type(exc).__name__}:{digest}"
     except Exception:  # noqa: BLE001 - fingerprinting must never raise
         return "fingerprint_unavailable"
+
+
+@app.exception_handler(InvestigationEnvelopeError)
+async def _investigation_envelope_handler(
+    request: Request, exc: InvestigationEnvelopeError
+) -> JSONResponse:
+    """An investigation decision that no longer applies is a refusal, not a crash.
+
+    Run/Edit/Cancel is bound to one persisted plan version and one session. A stale
+    version, an expired handoff, an already-decided plan, or another session's plan
+    must fail closed — but that is an ordinary governed outcome, so it returns a 409
+    the client can act on rather than an unhandled 500. The reason is a stable code
+    from a closed set; no case data or stack detail is exposed.
+    """
+    trace_id = str(getattr(request.state, "trace_id", "") or current_trace_id() or uuid4())
+    try:
+        _telemetry_logger.info(
+            "investigation_decision_refused trace_id=%s reason=%s", trace_id, exc.reason
+        )
+    except Exception:  # noqa: BLE001 - refusal logging must never raise
+        pass
+    return JSONResponse(
+        status_code=409,
+        content={
+            "error_code": "investigation_decision_not_applicable",
+            "reason": exc.reason,
+            "trace_id": trace_id,
+            "message": (
+                "This investigation decision no longer applies. Reload the current "
+                "plan and choose Run, Edit, or Cancel again."
+            ),
+        },
+    )
 
 
 @app.exception_handler(Exception)

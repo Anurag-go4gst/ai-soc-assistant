@@ -299,6 +299,24 @@ def pins_from_pipeline_state(
     if human_review and isinstance(human_review, dict) and human_review.get("reason") == "analyst_rejected_execution":
         pending_execution_confirmation = None
 
+    # P10: the remediation plan the analyst is currently looking at. Create and Approve
+    # land on separate turns, so the shown plan has to survive between them — and this
+    # builder rebuilds the whole pin record each turn, so it is the only place that can
+    # carry it forward.
+    pending_remediation_plan = (
+        prior_pins.pending_remediation_plan if isinstance(prior_pins, SessionPins) else None
+    )
+    remediation_approval = state.get("remediation_approval")
+    if isinstance(remediation_approval, dict):
+        remediation_status = str(remediation_approval.get("status") or "")
+        shown_plan = remediation_approval.get("validated_plan")
+        if remediation_status in {"awaiting_approval", "edited_revalidated"} and isinstance(
+            shown_plan, dict
+        ):
+            pending_remediation_plan = shown_plan
+        elif remediation_status in {"approved", "cancelled", "declined"}:
+            pending_remediation_plan = None
+
     pending_handoff_id = state.get("pending_handoff_id") if isinstance(state.get("pending_handoff_id"), str) else None
     pending_handoff_version = state.get("pending_handoff_version")
     evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
@@ -325,6 +343,7 @@ def pins_from_pipeline_state(
         last_execution_status=execution.status if execution else None,
         last_human_review_status=_human_review_status(human_review),
         pending_execution_confirmation=pending_execution_confirmation,
+        pending_remediation_plan=pending_remediation_plan,
         pending_handoff_id=pending_handoff_id,
         pending_handoff_version=pending_handoff_version,
         original_query=query_text if pending_handoff_id else (

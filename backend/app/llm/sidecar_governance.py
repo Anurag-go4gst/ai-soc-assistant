@@ -248,6 +248,7 @@ def resolve_sidecar_role_status(
     *,
     reasoning_rejection_reason: str,
     assist_invoked: bool = False,
+    allow_reasoning: bool = False,
 ) -> SidecarRoleStatus:
     """Resolve sidecar role using governance ``roles`` entry (not env-only)."""
     if settings.ai_soc_llm_mode.strip().lower() == "disabled" or not settings.ai_soc_llm_enabled:
@@ -276,7 +277,7 @@ def resolve_sidecar_role_status(
     provider_text = str(resolved_provider).strip() if resolved_provider else None
     model_text = str(resolved_model).strip() if resolved_model else None
 
-    if is_reasoning_provider_assignment(provider_text, model_text):
+    if is_reasoning_provider_assignment(provider_text, model_text) and not allow_reasoning:
         return SidecarRoleStatus(
             enabled=False,
             rejected_reason=reasoning_rejection_reason,

@@ -543,6 +543,70 @@ PROMPT_CONTRACTS["guided_investigation_plan_proposer"] = {
     },
 }
 
+PROMPT_CONTRACTS["investigation_planner"] = {
+    "model_family": "Foundation-sec-8B-Reasoning",
+    "purpose": (
+        "Propose generic, advisory InvestigationPlan structure without receiving "
+        "case data; deterministic code binds Final RQC facts and capabilities."
+    ),
+    "max_input_tokens": "512",
+    "system_instruction": (
+        "You are the advisory investigation planning role. Return JSON only. "
+        f"{_JSON_ONLY_NO_REASONING} "
+        "No case data is supplied. Propose only generic read-only investigation structure. "
+        "Never emit entities, targets, time scopes, environment/source/tool names, raw SPL, "
+        "severity, execution flags, authorization, route changes, or remediation. "
+        "capability_requests must be an empty list."
+        f"{_AUTHORITY_PROMPT}"
+        f"{_REVIEW_ONLY_PROMPT}"
+    ),
+    "output_schema": {
+        "investigation_objective": "",
+        "hypotheses": [],
+        "evidence_needed": [],
+        "data_categories": [],
+        "dependencies": [],
+        "conditions": [],
+        "success_criteria": [],
+        "capability_requests": [],
+        "clarification_needed": False,
+        "clarification_questions": [],
+    },
+}
+
+PROMPT_CONTRACTS["plan_delta_reasoner"] = {
+    "model_family": "Foundation-sec-8B-Reasoning",
+    "purpose": "Propose one advisory, envelope-scoped, read-only PlanDelta.",
+    "max_input_tokens": "3000",
+    "system_instruction": (
+        "Return JSON only. Propose one bounded read-only evidence step using only the supplied "
+        "missing-evidence and allowed-capability vocabulary. Never authorize execution, call a tool, "
+        "emit hidden reasoning, widen scope, or propose a write/remediation action."
+        f"{_AUTHORITY_PROMPT}{_REVIEW_ONLY_PROMPT}"
+    ),
+    "output_schema": {
+        "envelope_version": 1,
+        "prior_revision_fingerprint": None,
+        "objective": "",
+        "evidence_need": "",
+        "capability_id": "",
+        "access_mode": "read_only",
+        "targets": [],
+        "entities": {},
+        "time_scope": None,
+        "source_index_scope": {},
+        "tool_arguments": {},
+        "hypothesis": None,
+        "evidence_refs": [],
+    },
+}
+
+for _role in ("evidence_reasoner", "hypothesis_reasoner"):
+    PROMPT_CONTRACTS[_role] = {
+        **PROMPT_CONTRACTS["plan_delta_reasoner"],
+        "purpose": f"Produce advisory {_role.replace('_', ' ')} JSON for bounded PlanDelta validation.",
+    }
+
 PROMPT_CONTRACTS["investigation_note_drafter"] = {
     **PROMPT_CONTRACTS["analyst_response_drafter"],
     "purpose": "Draft investigation note content from approved evidence and deterministic constraints.",

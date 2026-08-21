@@ -5876,6 +5876,245 @@
   }
  },
  {
+  "entry_id": "coe-new-external-endpoint-triage",
+  "doc_id": "coe-new-external-endpoint-sop-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Triaging a never-before-seen external endpoint",
+  "section_id": "EXT-001",
+  "section_title": "Triaging a never-before-seen external endpoint",
+  "entry_type": "procedure",
+  "source_excerpt": "For a first-seen external destination, establish the internal initiator, the process or service responsible, the volume and periodicity of the traffic, and whether any peer host contacted the same destination, before assigning intent.",
+  "source_refs": [
+   "coe-new-external-endpoint-sop-v1.md#EXT-001"
+  ],
+  "citation": "New External / MCP Endpoint Monitoring SOP v1.0 EXT-001",
+  "retrieval_hints": [
+   "new external ip",
+   "never seen before destination",
+   "first seen endpoint",
+   "unknown external address"
+  ],
+  "synonyms": [],
+  "positive_examples": [
+   "new external ip",
+   "never seen before destination",
+   "first seen endpoint"
+  ],
+  "negative_examples": [],
+  "answer_constraints": [
+   "A first-seen destination is not by itself evidence of compromise.",
+   "Do not assign intent without initiator and periodicity evidence."
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "risk_level": "medium",
+  "retrieval_backend": "deterministic",
+  "import_batch_id": "investigation-sop-seed-v1"
+ },
+ {
+  "entry_id": "coe-new-external-endpoint-escalation",
+  "doc_id": "coe-new-external-endpoint-sop-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Escalation thresholds for external endpoint activity",
+  "section_id": "EXT-002",
+  "section_title": "Escalation thresholds for external endpoint activity",
+  "entry_type": "procedure",
+  "source_excerpt": "Escalate when the destination is contacted on a fixed interval, when the initiating process is not an approved egress client, or when more than one internal host contacts the destination within the same window.",
+  "source_refs": [
+   "coe-new-external-endpoint-sop-v1.md#EXT-002"
+  ],
+  "citation": "New External / MCP Endpoint Monitoring SOP v1.0 EXT-002",
+  "retrieval_hints": [
+   "escalate external traffic",
+   "beaconing interval",
+   "multiple hosts same destination"
+  ],
+  "synonyms": [],
+  "positive_examples": [
+   "escalate external traffic",
+   "beaconing interval",
+   "multiple hosts same destination"
+  ],
+  "negative_examples": [],
+  "answer_constraints": [
+   "State which threshold was met; do not generalize from one observation."
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "risk_level": "medium",
+  "retrieval_backend": "deterministic",
+  "import_batch_id": "investigation-sop-seed-v1"
+ },
+ {
+  "entry_id": "coe-firewall-block-preconditions",
+  "doc_id": "coe-firewall-blocking-sop-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Preconditions before requesting a firewall block",
+  "section_id": "FW-001",
+  "section_title": "Preconditions before requesting a firewall block",
+  "entry_type": "procedure",
+  "source_excerpt": "Before requesting a block, confirm the indicator is not shared infrastructure, record the business impact of the block, identify a rollback owner, and obtain explicit approval. Blocks are never applied directly from an investigation.",
+  "source_refs": [
+   "coe-firewall-blocking-sop-v1.md#FW-001"
+  ],
+  "citation": "Firewall Blocking SOP v1.0 FW-001",
+  "retrieval_hints": [
+   "block the ip",
+   "firewall block request",
+   "deny traffic"
+  ],
+  "synonyms": [],
+  "positive_examples": [
+   "block the ip",
+   "firewall block request",
+   "deny traffic"
+  ],
+  "negative_examples": [],
+  "answer_constraints": [
+   "A block requires explicit approval and a named rollback owner.",
+   "Never describe a block as applied unless a verified receipt exists."
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "risk_level": "medium",
+  "retrieval_backend": "deterministic",
+  "import_batch_id": "investigation-sop-seed-v1"
+ },
+ {
+  "entry_id": "coe-zero-day-exposure-assessment",
+  "doc_id": "coe-zero-day-response-sop-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Assessing exposure to a newly announced vulnerability",
+  "section_id": "ZD-001",
+  "section_title": "Assessing exposure to a newly announced vulnerability",
+  "entry_type": "procedure",
+  "source_excerpt": "Determine affected product versions in the estate, whether the vulnerable component is reachable from untrusted networks, and whether any telemetry matches published exploitation indicators. Absence of matching telemetry is not proof the estate was not exploited.",
+  "source_refs": [
+   "coe-zero-day-response-sop-v1.md#ZD-001"
+  ],
+  "citation": "Zero-Day Response SOP v1.0 ZD-001",
+  "retrieval_hints": [
+   "zero day",
+   "newly announced cve",
+   "are we exploited",
+   "vulnerability exposure"
+  ],
+  "synonyms": [],
+  "positive_examples": [
+   "zero day",
+   "newly announced cve",
+   "are we exploited"
+  ],
+  "negative_examples": [],
+  "answer_constraints": [
+   "Absence of evidence is reported as inconclusive, never as benign.",
+   "Do not claim patch status without an authoritative inventory source."
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "risk_level": "medium",
+  "retrieval_backend": "deterministic",
+  "import_batch_id": "investigation-sop-seed-v1"
+ },
+ {
+  "entry_id": "coe-emergency-change-approval",
+  "doc_id": "coe-emergency-change-procedure-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Emergency change approval path",
+  "section_id": "EC-001",
+  "section_title": "Emergency change approval path",
+  "entry_type": "procedure",
+  "source_excerpt": "An emergency change requires an incident reference, a named approver, a documented rollback, and post-implementation review within one business day. Retrospective approval does not replace the named approver.",
+  "source_refs": [
+   "coe-emergency-change-procedure-v1.md#EC-001"
+  ],
+  "citation": "Emergency Change Procedure v1.0 EC-001",
+  "retrieval_hints": [
+   "emergency change",
+   "out of band change",
+   "urgent patch approval"
+  ],
+  "synonyms": [],
+  "positive_examples": [
+   "emergency change",
+   "out of band change",
+   "urgent patch approval"
+  ],
+  "negative_examples": [],
+  "answer_constraints": [
+   "Name the approver and the rollback; never imply self-approval."
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "risk_level": "medium",
+  "retrieval_backend": "deterministic",
+  "import_batch_id": "investigation-sop-seed-v1"
+ },
+ {
+  "entry_id": "coe-cisco-hardening-baseline",
+  "doc_id": "coe-cisco-hardening-policy-v1",
+  "doc_version": "1.0",
+  "collection_id": "soc_sop",
+  "title": "Cisco device hardening baseline",
+  "section_id": "CIS-001",
+  "section_title": "Cisco device hardening baseline",
+  "entry_type": "procedure",
+  "source_excerpt": "Management interfaces are restricted to the management VLAN, unused services are disabled, local accounts are individually attributable, and configuration changes are logged to the central collector.",
+  "source_refs": [
+   "coe-cisco-hardening-policy-v1.md#CIS-001"
+  ],
+  "citation": "Cisco Hardening Policy v1.0 CIS-001",
+  "retrieval_hints": [
+   "cisco hardening",
+   "device baseline",
+   "management vlan restriction"
+  ],
+  "synonyms": [],
+  "positive_examples": [
+   "cisco hardening",
+   "device baseline",
+   "management vlan restriction"
+  ],
+  "negative_examples": [],
+  "answer_constraints": [
+   "Cite the baseline clause; do not infer device state from policy text."
+  ],
+  "allowed_use": [
+   "hil_guidance",
+   "synthesis_context"
+  ],
+  "status": "published",
+  "approval_status": "coe_reviewed",
+  "risk_level": "medium",
+  "retrieval_backend": "deterministic",
+  "import_batch_id": "investigation-sop-seed-v1"
+ },
+ {
   "entry_id": "skill-enrich-auth_after_hours_critical_asset-checklist",
   "doc_id": "skill-enrich-auth_after_hours_critical_asset-v1",
   "doc_version": "1.0",

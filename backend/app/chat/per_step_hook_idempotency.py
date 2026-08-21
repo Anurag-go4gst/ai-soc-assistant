@@ -58,6 +58,16 @@ def _resolve_mcp_hook_step_id(state: dict[str, Any]) -> str:
     if isinstance(evidence_plan, dict):
         resource_plan = evidence_plan.get("resource_plan")
         if isinstance(resource_plan, dict):
+            active_step_id = str(state.get("active_resource_plan_step_id") or "").strip()
+            if active_step_id:
+                for step in resource_plan.get("steps") or []:
+                    if not isinstance(step, dict):
+                        continue
+                    if (
+                        str(step.get("step_id") or "") == active_step_id
+                        and str(step.get("purpose") or "") == "mcp_execution"
+                    ):
+                        return active_step_id
             for step in resource_plan.get("steps") or []:
                 if not isinstance(step, dict):
                     continue

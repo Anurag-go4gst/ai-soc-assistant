@@ -76,6 +76,10 @@ def test_mapped_conditional_destinations_are_exactly_the_declared_maps() -> None
         ("rag_early", "spl_source_resolve"),
         ("workflow_spl", "rag_early"),
         ("workflow_spl", "spl_source_resolve"),
+        ("context_sufficiency", "plan_delta_reasoner"),
+        ("context_sufficiency", "decide_facts"),
+        ("plan_delta_reasoner", "composed_dispatch"),
+        ("plan_delta_reasoner", "decide_facts"),
     }
 
 

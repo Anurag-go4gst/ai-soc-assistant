@@ -83,6 +83,23 @@ class ReasoningAdvisoryResult(AdapterPayload):
     unsupported_claims_to_avoid: list[str] = Field(default_factory=list)
 
 
+class InvestigationPlanProposalPayload(BaseModel):
+    """Strict advisory payload for the reasoning investigation planner."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    investigation_objective: str | None = None
+    hypotheses: list[str] = Field(default_factory=list)
+    evidence_needed: list[str] = Field(default_factory=list)
+    data_categories: list[str] = Field(default_factory=list)
+    dependencies: list[str] = Field(default_factory=list)
+    conditions: list[str] = Field(default_factory=list)
+    success_criteria: list[str] = Field(default_factory=list)
+    capability_requests: list[str] = Field(default_factory=list)
+    clarification_needed: bool = False
+    clarification_questions: list[str] = Field(default_factory=list)
+
+
 class AnalystResponseDraft(AdapterPayload):
     severity_label: str | None = None
     finding_title: str | None = None

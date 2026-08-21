@@ -1,7 +1,7 @@
 ---
 name: agentic-investigation-production
 overview: "Bring production /chat onto the 2026-08-20 architecture.md investigation target: Final RQC → CapabilitySnapshot → reasoning InvestigationPlanProposal → DET validation → user Run/Edit/Cancel → ApprovedInvestigationEnvelope → ResourcePlan + PhaseContract → RP iterative hub. T1–T4 are understanding only; downstream investigation is one runtime."
-status: draft
+status: active
 date: 2026-08-21
 canonical_plan: plans/2026-08-21_0034_agentic-investigation-production.md
 loop_runner: plans/LOOP_RUNNER_agentic-investigation-production.md
@@ -10,8 +10,8 @@ loop_runner: plans/LOOP_RUNNER_agentic-investigation-production.md
 # Agentic investigation — production implementation plan
 
 **Canonical architecture:** [`architecture.md`](../architecture.md) (2026-08-20 investigation target).
-**Does not modify:** production `/chat` code, `architecture.md`, `architecture.plan8-frozen-2026-08-15.md`, the in-flight T1–T3 catalogue/matching patch, or `working.md`.
-**This file is the implementation plan only.** Do not start code until architecture review approves it.
+**Does not modify:** `architecture.md`, `architecture.plan8-frozen-2026-08-15.md`, the in-flight T1–T3 catalogue/matching patch, or `working.md`.
+**Architecture review:** approved by operator mission 2026-08-21 (`AUTO EXECUTE THE APPROVED AGENTIC INVESTIGATION PLAN`). Execution authorized.
 
 ## Objective
 
@@ -872,7 +872,9 @@ Split two kinds of change:
 
 **Contracts.** Envelope fields from §13.1. Analyst-visible plan text: what will be checked, why it matters, scope/time, important resources. Buttons: Run / Edit / Cancel. Edit → DET revalidation. Meaning/entity/time/objective change that stale-ates Final RQC → re-enter clarification; do not compile against the previous RQC. Cancel → no compile, no execute. Follow-up scope expansion (P13) must mint a **new** envelope, not mutate this one.
 
-**Feature flags.** `AI_SOC_INVESTIGATION_ENVELOPE_ENABLED`, default false.
+**Feature flags.** No new P4 flag (user override 2026-08-21). The envelope HIL is reachable only
+from the existing `AI_SOC_INVESTIGATION_PLAN_BEFORE_RESOURCE_PLAN_ENABLED` wait-state. Infrastructure
+readiness remains registry/config state, not a rollout flag.
 
 **Tests.** User-rejected plan does not execute. Edited plan requires revalidation. T1–T3 and T4 paths present the **same** approval model. Clarification still happens before planning. Plan card is human-readable (not raw JSON-only). No EC fixture payload on this API.
 
@@ -882,7 +884,8 @@ Split two kinds of change:
 
 **Dependencies.** P3.
 
-**Rollback.** Flag off → ValidatedInvestigationPlan visible or P0 wait-state; no execute.
+**Rollback.** Turn off the existing P0 wait-state flag to restore the pre-plan-before-RP behavior,
+or deploy the prior exact commit for P4-only rollback. No additional P4 flag exists.
 
 **Must remain disabled.** Compiler/loop (P5), PlanDelta auto-apply, remediation writes.
 
@@ -1210,7 +1213,7 @@ Do **not** require same wording, same fixtures, same demo data, or same EC compo
 | `AI_SOC_CAPABILITY_SNAPSHOT_ENABLED` | false | Snapshot attached after Final RQC | off = absent |
 | `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED` | false | EvidencePlan / executor / dispatch compose SPL/MCP **reads** for guided owner | off = old rag-only **scheduling**; does **not** restore old `catalog.json` |
 | `AI_SOC_INVESTIGATION_PLANNER_ENABLED` | false | Reasoning proposal + DET plan | off = no LLM planner |
-| `AI_SOC_INVESTIGATION_ENVELOPE_ENABLED` | false | Run/Edit/Cancel envelope | off = no compile |
+| P4 envelope HIL (no new flag) | P0-gated | Run/Edit/Cancel envelope on the existing investigation wait-state | P0 off or exact-commit rollback |
 | `AI_SOC_RP_INVESTIGATION_LOOP_ENABLED` | false | Compiler + RP hub loop | off = no investigation RP |
 | `AI_SOC_PLAN_DELTA_ENABLED` | false | Bounded read-only PlanDelta | off = stop on first gap |
 | `AI_SOC_INVESTIGATION_OUTCOME_V2_ENABLED` | false | status ≠ disposition | off = today's outcome |
@@ -1416,103 +1419,319 @@ Execution is **not** authorized until architecture review. Items stay unchecked.
 **Evidence** line uses the **Phase evidence template** (LOCAL VERIFICATION always; COE LIVE
 VERIFICATION when Live acceptance by phase marks the phase required).
 
-- [ ] **P0** — Investigation-shaped turns do not compile ResourcePlan before approval; T4 cannot plan; T1–T3 investigation RQCs use the same wait-state
+- [x] **P0** — Investigation-shaped turns do not compile ResourcePlan before approval; T4 cannot plan; T1–T3 investigation RQCs use the same wait-state
   - **Do:** Gate `_commit_planned_outcome` / `plan_evidence_from_canonical` so investigation-shaped Final RQCs persist without `resource_plan`; pin T4 merge cannot emit planner/tool grants; pin T1–T3 `needs_splunk` investigations do not take a weaker one-pass path when the new flag is on
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_final_route_precedes_resource_plan.py app/tests/test_final_rqc_precedes_planning.py app/tests/test_p0_investigation_authority_order.py -q` — create `backend/app/tests/test_p0_investigation_authority_order.py` (new file) holding `test_investigation_no_resource_plan_before_approval`, `test_t4_cannot_become_investigation_planner`, `test_t13_investigation_does_not_bypass_common_lifecycle`
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P0): ...`; phase-boundary → also run governance regression first
   - **Depends on:** architecture review approval of this plan
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - commit: `f0ad0346` on `feat/agentic-investigation-production` (pushed)
+    - pytest authority-order suite → **11 passed**
+    - /invariant-check → PASS
+    - `./scripts/run_stage3_governance_regression.sh` → **PASS**
+    COE LIVE VERIFICATION — PASS (2026-08-21)
+    - deployed path: `/var/www/ai-soc-assistant` (detached HEAD)
+    - prior HEAD: `c3c8a5bf`; deployed: `f0ad0346` (exact)
+    - working tree was clean; non-destructive checkout (branch locked by mcp worktree → `--detach`)
+    - flag-off health: `/health` ok; `plan_before_rp=False`; investigation → `planned` + ResourcePlan; knowledge → `planned`
+    - flag enabled: `AI_SOC_INVESTIGATION_PLAN_BEFORE_RESOURCE_PLAN_ENABLED=true` only
+    - investigation: Final RQC + final_route=`attack_discovery` → `awaiting_investigation_plan`; evidence_plan=None; no ResourcePlan; execution=None; mcp_evidence=None
+    - knowledge unchanged: `planned` + ResourcePlan
+    - probe: in-container canonical planning spine (same deployed Settings/code as `/chat`; HTTP auth smoke skipped — credential-read gate)
 
-- [ ] **P1** — CapabilitySnapshot need × availability projection
+- [x] **P1** — CapabilitySnapshot need × availability projection
   - **Do:** Add deterministic snapshot module joining catalog, registry, MCP discovery ∩ allowlist, and **global** capability classification (including live email kind and Splunk); attach after Final RQC; do **not** join current-user RBAC; no `executable` field; treat discovery-unverified vs execution-off as distinct from "tool does not exist"; keep schema open for new MCP_SERVERS rows
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_capability_snapshot.py -q` — create `backend/app/tests/test_capability_snapshot.py` (new file) covering: recommended+unavailable `firewall_block` is valid; required+available does not authorize MCP; same snapshot for two RBAC roles; snapshot identical for T1–T3 vs T4 given same RQC; discovery-unverified Splunk ≠ available; execution-off + verified allowlisted tool ⇒ available; injected extra MCP server appears without planner code edits; schema has no `executable` field
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P1): ...`
   - **Depends on:** P0
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - commit: `f225647e`
+    - pytest `test_capability_snapshot.py` + state-channel → **22 passed**
+    - /invariant-check → PASS (planning vocabulary only; no MCP calls; flag default false)
+    - Flag: `AI_SOC_CAPABILITY_SNAPSHOT_ENABLED` default false
+    - Module: `backend/app/chat/capability_snapshot.py`; wired after Final RQC in orchestrator
+    COE LIVE VERIFICATION — PASS (2026-08-21)
+    - deployed: `/var/www/ai-soc-assistant` @ `f225647e` (exact, detached)
+    - flag-off: no `capability_snapshot` on state; `/health` ok
+    - flags enabled: P0 + P1 only (`AI_SOC_CAPABILITY_SNAPSHOT_ENABLED=true`)
+    - investigation: snapshot schema_version=`capability_snapshot_v1`, 11 rows, firewall_block unavailable, no `executable`; still `awaiting_investigation_plan` / no ResourcePlan
+    - probe: in-container canonical planning spine on deployed Settings/code
 
-- [ ] **P2** — Guided catalog correction + runtime composable planning
+- [x] **P2** — Guided catalog correction + runtime composable planning
   - **Do:** Permanent: edit only the `guided_investigation` row in `skills/catalog.json` so ownership is not an MCP/SPL read veto (writes stay blocked). Runtime: under `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED`, change EvidencePlan, executor `uses_rag_only_path`, hybrid `no_mcp`; do not route hunts to `spl_generation`; do not add a catalog overlay for rollback
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_p2_guided_unveto_cluster.py -q` — create `backend/app/tests/test_p2_guided_unveto_cluster.py` (new file) covering: catalog no longer lists `mcp_execution` as a guided read veto even when the runtime flag is off; flag on: guided owner + required Splunk row does not force `uses_rag_only_path`; missing Splunk shows unavailable/manual, not a knowledge_recall dump; `remediation`/`admin`/`write` stay blocked; flag off restores old EvidencePlan/executor **scheduling** only (catalog row stays corrected)
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P2): ...`; `git status` must show only the guided row in `skills/catalog.json`, not other T1–T3-owned lines in that file
   - **Depends on:** P1; T1–T3 catalog.json isolation
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - pytest `test_p2_guided_unveto_cluster.py` → **5 passed**
+    - catalog.diff: **1 line** guided row only (`mcp_execution` removed from blocked; read tools allowed; writes remain blocked)
+    - Flag: `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED` default false
+    COE LIVE VERIFICATION — PASS (2026-08-21)
+    - deployed: `/var/www/ai-soc-assistant` @ `8c6a5619` (exact, detached)
+    - flag-off: catalog corrected (no mcp_execution veto); EvidencePlan/executor still rag-only; `/health` ok
+    - flags: P0+P1 remain on; `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED=true` only new enable
+    - flag-on: guided needs_spl/mcp/allowed true; uses_rag_only_path false; answer_mode stays guided_investigation; writes recommend_only
+    - probe: in-container EvidencePlan + executor predicates on deployed code
 
-- [ ] **P3** — Reasoning InvestigationPlanProposal + DET ValidatedInvestigationPlan, no ResourcePlan
+- [x] **P3** — Reasoning InvestigationPlanProposal + DET ValidatedInvestigationPlan, no ResourcePlan
   - **Do:** Register `investigation_planner` on reasoning family; extend InvestigationPlan + validator; preserve T1–T3-known steps
   - **Verify:** pytest planner advisory-only; T1 vs T4 same RQC → equivalent validated plan; T4 flags do not enable this role; `grep -n llm_plan_bridge backend/app/chat backend/app/planner/executor.py` shows no new live authority caller
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P3): ...`
   - **Depends on:** P2
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - commit: `8e7d2ad6`
+    - pytest P3 planner/endpoint suite → **18 passed**; broader P3 slice → **113 passed**; exact `test_p3_investigation_planning.py` → **9 passed**
+    - `/invariant-check` → PASS (advisory LLM proposal; DET validator authority; no MCP/SPL execution; state channels declared; no new live `llm_plan_bridge` caller)
+    - T1–T3 vs T4 equivalent Final RQC → equivalent validated planning semantics; timeout/unavailable model → deterministic baseline; capability requests bind only to CapabilitySnapshot rows
+    COE FLAG-OFF VERIFICATION — PASS (2026-08-21)
+    - deployed: `/var/www/ai-soc-assistant` @ `8e7d2ad6` (exact, detached); backend `/api/health` ok
+    - `AI_SOC_INVESTIGATION_PLANNER_ENABLED` remains false/absent; `/chat` smoke: no proposal, no validated plan, no ResourcePlan, execution skipped, no selected MCP tool
+    - `LIVE_REASONING_PROOF = DEFERRED_COE_CONFIGURATION`: effective LLM health exposes green `local_primary` only; no configured `foundation_sec_reasoning` endpoint. This is environment readiness, not implementation failure.
+    COE FEATURE ACTIVATION — ENABLED (2026-08-21, continuation override)
+    - IMPLEMENTATION = PASS | FEATURE ACTIVATION = ENABLED | LIVE_REASONING_PROOF = DEFERRED_COE_CONFIGURATION
+    - `AI_SOC_INVESTIGATION_PLANNER_ENABLED=true` on `/var/www/ai-soc-assistant`; `/api/health` 200 with P0/P1/P2/P3/P5/P7/P8 simultaneously on
+    - role resolution measured in the deployed container: `investigation_planner` is the only member of
+      `_REASONING_ALLOWED_ROLES`; with no Foundation-Sec reasoning endpoint configured the chain degrades to
+      `local_primary` by the existing deliberate failover design (`endpoint_resolver.build_failover_chat_client`).
+      Nothing was re-pointed and no stand-in "reasoning" endpoint was invented.
+    - measured degraded acceptance (`scripts/probe_investigation_lifecycle.py --suite`):
+      · SSH scenario — planner attempted, timed out at **90,136 ms**, `plan_source=llm_failed_baseline_only`,
+        `awaiting_approval`, **no ResourcePlan**, execution `skipped`, turn 236 s inside a 235 s deadline
+      · lateral-movement scenario — circuit **OPEN**, planner skipped in **0 ms**, DET baseline, `awaiting_approval`,
+        whole turn **1.2 s**
+      · after the turn-budget fix: planner skipped with `turn_budget_exhausted` at 0 ms, `plan_source=deterministic_only`,
+        `capability_snapshot_rows=11`
+    - no invented tools, no DET bypass, no ResourcePlan before approval, no T4-as-planner, `/chat` did not crash
+    DEFECT FOUND AND FIXED — unbounded reasoning hop (`16371f9e`)
+    - the P3 planner (120 s) and P7 PlanDelta (30 s) hops ignored the turn wall clock, so a slow endpoint could
+      outlive the turn deadline. Both now cap to the remaining turn budget and skip once it is exhausted,
+      recording `turn_budget_exhausted`. Pinned by `test_investigation_reasoning_turn_budget.py` (**8 passed**).
 
-- [ ] **P4** — Run/Edit/Cancel + ApprovedInvestigationEnvelope §13.1
+- [x] **P4** — Run/Edit/Cancel + ApprovedInvestigationEnvelope §13.1
   - **Do:** HIL + immutable envelope; ChatPanel human-readable plan (what/why/scope/resources) with Run/Edit/Cancel; Edit revalidates; Cancel does not compile; no EC demo contracts
   - **Verify:** pytest rejected/edited/cancelled paths; same approval model for T1–T3 and T4 arms; plan card is human-readable (not JSON-only); frontend tests do not import `app/demo`
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P4): ...`
   - **Depends on:** P3
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - commit: `c424ca0c`
+    - pytest `test_p4_investigation_envelope.py` → **12 passed**; broader P0/P3/P4 + handoff/session slice → **73 passed, 1 skipped**
+    - production frontend `npm run build` → PASS (1765 modules; postbuild readable dist)
+    - `/invariant-check` → PASS (DET/version-bound HIL; immutable read-only envelope; dual imperative/LangGraph tests; no MCP/SPL execution; no EC imports; no new flag)
+    - Run → immutable envelope version; Edit → DET revalidation; material objective/entity/time edit → replanning; Cancel → terminal no-execution; T1/T4 equivalent plan summary pinned
+    COE LIVE VERIFICATION — PASS (2026-08-21)
+    - deployed exact commit: `/var/www/ai-soc-assistant` @ `c424ca0c`; backend health and deployed frontend build PASS
+    - existing flags P0/P1/P2 remain enabled; P3 planner remains off/deferred; no P4 flag added per user override
+    - authenticated `/api/chat` Run: initial readable plan (what=3, scope=7, resources=3) → `approved`, envelope v2, writes/remediation prohibited, no ResourcePlan, execution `skipped`, no MCP tool
+    - authenticated `/api/chat` Edit: `edited_revalidated` v2, edited evidence present, no envelope/ResourcePlan/execution
+    - authenticated `/api/chat` Cancel: `cancelled` v2, no envelope/ResourcePlan/execution
 
-- [ ] **P5** — Compiler + RP execution/sufficiency seam
+- [x] **P5** — Compiler + RP execution/sufficiency seam
   - **Do:** Envelope → ResourcePlan + PhaseContract; execute → observe → EvidenceState → deterministic sufficiency on the RP graph; scheduling plumbing (deps/repeats/timeouts/budgets) allowed; **no** PlanDelta/gap reasoning; honest stop on gap; stop live `_run_guided_hybrid_dispatch` as second executor; emit operational progress (no chain-of-thought)
   - **Verify:** pytest compiler requires envelope_version; failure returns to hub; gap path emits missing-evidence list and does not import PlanDelta types; progress has no CoT; empty completed steps never emit `Finding: -`; `grep _run_guided_hybrid_dispatch` live path only rollback
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P5): ...`; phase-boundary → also run governance regression first
   - **Depends on:** P4
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - implementation: `9852212a`; single-authority correction: `73022de7`; governance baseline maintenance: `809d0e0c`, `ea406329`
+    - exact P4/P5 + ResourcePlan authority/I/O inventory suite → **25 passed**; broader RP/compiler slice → **93 passed**; guided compatibility → **6 passed**
+    - complete governance backend suite after source fixes → **5,936 passed, 6 skipped, 6 xfailed**; only stale RACES baseline failed. Exact drift was the reviewed P5 RP-graph change; baseline advanced mechanically to `73022de7`; focused RACES/freeze sentinel checks then passed. At user direction, the redundant second ~10-minute full run was replaced by this composite evidence; no assertion/security rule was weakened.
+    - `/invariant-check` → PASS (approved immutable envelope required; composition/commit only via `plan_evidence_from_canonical`; candidate SPL remains non-executable; P5 has no PlanDelta/second executor; progress is operational only)
+    - existing `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` is the only P5 activation seam; no P5 readiness/phase flag was added
+    COE DEPLOYMENT / ENVIRONMENT VERIFICATION — IMPLEMENTATION PASS; RESPONSE COMPLETION DEFERRED (2026-08-21)
+    - deployed exact `ea406329` to `/var/www/ai-soc-assistant`; backend rebuild/restart and `/api/health` PASS
+    - authenticated initial `/api/chat` → `awaiting_approval`, no ResourcePlan, execution skipped
+    - version-bound Run durably produced handoff v2 `plan_committed`, `rp:investigation:*`, compiler `approved_investigation_envelope_v1`, envelope v2 through the canonical authority
+    - response exceeded the bounded 90s probe after the commit; deployed log identifies unrelated configured `local_primary` narration timeout. `LIVE_REASONING_PROOF = DEFERRED_COE_CONFIGURATION`; deterministic compiler/RP/PhaseContract/honest-stop behavior remains proven by the deployed exact code plus local gates.
 
-- [ ] **P6** — Repeated tools + exact-call grants
+- [x] **P6** — Repeated tools + exact-call grants
   - **Do:** New grant per material MCP/SPL change; no blanket investigation grant; snapshot availability is not a grant
   - **Verify:** pytest two normalized_spl values → two AUTH0 hashes; candidate SPL never executes; `availability=available` ≠ AUTH0; RBAC deny does not rewrite snapshot
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P6): ...`
   - **Depends on:** P5
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS (repo-vs-plan delta: production seam already present)
+    - existing implementation authority: `8891bf89`, `a53be79c`, `2a9d1050`; no duplicate P6 executor or feature flag added
+    - targeted AUTH0/MCP/candidate-SPL/CapabilitySnapshot suite → **77 passed**
+    - changed `normalized_spl` changes the exact-call fingerprint; changed server/tool/canonical arguments changes the grant; consumed/expired/model-marked grants fail closed; LLM fields cannot enter grant construction
+    - available CapabilitySnapshot rows remain vocabulary only (no executable/auth field); RBAC and tool policy remain later independent gates; candidate SPL without approved non-null `normalized_spl` cannot execute
+    - `/invariant-check` → PASS (one-use exact-call AUTH0; deterministic tool selection; execution flags/RBAC/HIL preserved; no PlanDelta or write-tool widening)
+    ENVIRONMENT VERIFICATION — DEFERRED_COE_CONFIGURATION (2026-08-21)
+    - `MCP_MODE=mock` and empty `SPLUNK_MCP_BASE_URL` remain unchanged; per user direction, unreachable MCP from this VPS is not retried or treated as an implementation blocker
+    - `LIVE_SPLUNK_PROOF = DEFERRED_COE_CONFIGURATION`; no live MCP claim is made
 
-- [ ] **P7** — Evidence reasoning + bounded PlanDelta into the P5 seam
+- [x] **P7** — Evidence reasoning + bounded PlanDelta into the P5 seam
   - **Do:** On P5 gap: reasoning → PlanDeltaProposal → DET → next bounded read-only step on the **same** RP hub; no-progress fingerprint; write → remediation recommendation; LLM ≠ SourceEvidence; no second loop
   - **Verify:** pytest widen/write/duplicate-delta negatives; scenario A mocked; P5-only (flag off) never emits PlanDelta; `grep` no second while-loop executor
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P7): ...`
   - **Depends on:** P6
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - implementation commit: `917baba5`
+    - focused P7/RP/role-registry/P5/AUTH0 suite → **105 passed**; exact P7 scenario/negative suite included mocked sessions → authentication-correlation delta
+    - append-only revision references envelope version/prior fingerprint; DET enforces same objective/targets/entities/time/index scope, current evidence gap, available snapshot row, read-only access, envelope policy and hop/tool-call budget
+    - widened scope → HIL; write → remediation recommendation; duplicate effective fingerprint → no-progress stop; changed arguments → distinct exact-call grant; accepted delta routes to existing `composed_dispatch` on the RP graph
+    - `evidence_reasoner`, `hypothesis_reasoner`, and `plan_delta_reasoner` are configurable reasoning-family roles; proposal is advisory, receives bounded vocabulary, does not add SourceEvidence, and cannot authorize execution
+    - `/invariant-check` → PASS (single RP hub; no second while-loop executor; no direct MCP call; exact-call/RBAC/HIL/policy remain downstream; P5 flag-off stop preserved)
+    COE DEPLOYMENT / ENVIRONMENT VERIFICATION — PASS / DEFERRED (2026-08-21)
+    - deployed exact `917baba5`; backend rebuild/restart and `/api/health` PASS
+    - existing `AI_SOC_INVESTIGATION_PLANNER_ENABLED` remains false/absent on COE, so P7 does not call an unreachable model and P5 honest stop remains active
+    - `LIVE_REASONING_PROOF = DEFERRED_COE_CONFIGURATION`; `LIVE_SPLUNK_ITERATION_PROOF = DEFERRED_COE_CONFIGURATION`; per user direction no unreachable LLM/MCP retries were attempted
+    COE FEATURE ACTIVATION — ENABLED (2026-08-21, continuation override)
+    - IMPLEMENTATION = PASS | FEATURE ACTIVATION = ENABLED
+    - LIVE_REASONING_PROOF = DEFERRED_COE_CONFIGURATION | LIVE_SPLUNK_ITERATION_PROOF = DEFERRED_COE_CONFIGURATION
+    - Final conformance audit correction: `AI_SOC_PLAN_DELTA_ENABLED` is a separate default-false P7 seam.
+      P3 plan proposal can remain enabled while bounded iteration is stopped; flag-off returns to P5 honest stop.
+      The no-readiness-flag instruction applies only to infrastructure readiness, not this approved rollback boundary.
+    - Final conformance audit correction: an accepted delta now appends a uniquely identified read-only MCP step
+      to the committed ResourcePlan view, binds validated SPL, selects that step for idempotency/AUTH0, and records
+      only execution-derived evidence metadata after the same RP hub runs it. Prose-only arguments fail closed.
+    - flag-off stop policy preserved; `plan_delta_reasoner` registered in the role timeout table at 30 s and
+      bounded by the same turn budget as P3
+    - reasoner unavailable ⇒ `reasoner_unavailable` / deterministic stop, no invented delta, no open loop
 
-- [ ] **P8** — InvestigationOutcome + production presentation
+- [x] **P8** — InvestigationOutcome + production presentation
   - **Do:** Split `investigation_status` vs security `disposition`; ChatPanel renders conclusion (supported vs unconfirmed), operational progress, empty-finding copy, and remediation Yes/Not now; no EC fixtures
   - **Verify:** pytest scenario B; blocked status + inconclusive disposition; no `Finding: -`; progress JSON has no chain-of-thought; frontend tests do not import `app/demo`; narration cannot upgrade inconclusive
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P8): ...`; phase-boundary → also run governance regression first
   - **Depends on:** P5
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - implementation commit: `e478b1ca`; explicit default-off rollout flag: `949f7f4c`; RACES freeze maintenance through exact deploy head: `fb5ad815`
+    - backend P8 contract/rollback/P5/P7/response/LangGraph slice after rollout flag → **45 passed**; broader P0–P8/synthesis/response/final-evidence slice → **87 passed**
+    - production outcome tests prove `blocked + inconclusive`, cancelled status, scenario-B pattern stays inconclusive, unsourced LLM proposal cannot upgrade disposition, redundant remediation ask is skipped, and legacy v1 shape remains when flag-off
+    - frontend outcome/progress tests → **6 passed**; production frontend build PASS; deployed bundle contains conclusion + remediation offer; new card has no EC/demo imports
+    - RACES/live-path + EC canonical-purity sentinel → **33 passed** before rollout follow-up; focused final RACES sentinel → **8 passed**
+    - selective phase-boundary governance per user direction: protected artifacts **15 unchanged**; sentinel **17/17**; answer quality **17/17**; generator checks PASS; manifest/operation audits PASS; harness **6/6**. The redundant 10–15 minute full backend gate was not rerun after a prior P5 full-suite pass.
+    - `/invariant-check` → PASS: no new MCP/LLM/SPL execution authority, no new state channel, no EC authority, no secrets, flag defaults false, and outcome remains presentation-only/write-ineligible
+    COE DEPLOYMENT / RUNTIME VERIFICATION — PASS / ENVIRONMENT DEFERRED (2026-08-21)
+    - deployed exact `fb5ad815`; backend image + production frontend build PASS; `/api/health` PASS
+    - flag-off deployed-container smoke PASS (`investigation_outcome_v1`, no `investigation_status`); then `AI_SOC_INVESTIGATION_OUTCOME_V2_ENABLED=true`, backend recreated, and flag-on deployed-container acceptance PASS (`blocked/inconclusive`, scenario-B inconclusive, remediation offer/skip); P8 left enabled
+    - P0/P1/P2/P4/P5 enabled; P6 execution control enabled in governed mock mode; P3 remains disabled because the reasoning LLM is unreachable from the VPS; P7 remains disabled because it depends on the same P3 reasoner. Live Splunk remains unconfigured (`MCP_MODE=mock`) and was not retried per user direction.
 
-- [ ] **P9** — Domain workers (optional; default skip)
+- [x] **P9** — Domain workers — `P9 = SKIPPED_NOT_REQUIRED`
   - **Do:** Only if review records a measured need; otherwise check this item as cancelled with evidence "not required"
   - **Verify:** if skipped, flag absent/false and no worker MCP imports; if built, worker-cannot-call-MCP test
-  - **Commit:** one commit per Commit discipline (skip-and-record-cancelled counts as the phase's commit if code changes; a doc-only skip needs no commit)
+  - **Commit:** doc-only skip — no commit of its own
   - **Depends on:** P7
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    DECISION — `P9 = SKIPPED_NOT_REQUIRED` (2026-08-21)
+    - IMPLEMENTATION = NOT_REQUIRED; FEATURE ACTIVATION = N/A (no flag exists); LIVE PROOF = N/A
+    - No measured need was recorded. The single evidence reasoner plus the bounded P7
+      PlanDelta seam covers every scenario reached so far; nothing overflowed one hop.
+    - `AI_SOC_DOMAIN_REASONING_WORKERS_ENABLED` was never introduced, so "flag absent"
+      is satisfied by construction and there are no worker modules to import MCP.
+    - The four advisory specialists remain auditors; they were not promoted.
+    - Reopening this phase requires a measured overflow, not a checkbox.
 
-- [ ] **P10** — Remediation proposal + Approve/Edit/Cancel
+- [x] **P10** — Remediation proposal + Approve/Edit/Cancel
   - **Do:** Conditional ask; reasoning proposal; DET; no side effects
   - **Verify:** pytest no execute before approval; skip redundant ask when RQC contingent action already requested
-  - **Commit:** one commit per Commit discipline; message `feat(investigation-P10): ...`
+  - **Commit:** `d85d478f`
   - **Depends on:** P8
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - implementation: `d85d478f`; contracts `app/chat/contracts/remediation_plan.py`; builder / validator /
+      reasoner / runtime under `app/chat/remediation_*`
+    - `test_p10_remediation_planning.py` → **20 passed**; P0–P10 investigation slice → **98 passed**
+    - `execution_authorized` is pinned false on the contract (`Literal[False]`), so a payload asserting it
+      is rejected at validation, not merely ignored
+    - advisory `remediation_planner` may only re-describe or narrow: a capability not already in the DET
+      baseline is dropped (`capability_requests_not_in_snapshot_baseline`); prose implying the action ran or is
+      self-authorizing is rejected
+    - unavailable / unregistered capability stays a `manual_or_alternate` step with a reason — never dropped,
+      never reported as done
+    - P8 redundant-ask rule honored: `remediation_offer_required=false` ⇒ no second ask; cancelled investigation
+      offers nothing
+    - reasoning hop bounded by the same turn wall clock as P3/P7
+    COE — IMPLEMENTATION PASS | FEATURE ACTIVATION ENABLED | LIVE_REMEDIATION_REASONING_PROOF DEFERRED_COE_CONFIGURATION
+    - `AI_SOC_REMEDIATION_PLANNER_ENABLED=true` deployed; `/api/health` 200
+    - live reasoning quality is deferred for the same environment reason as P3; the DET lifecycle is unaffected
 
-- [ ] **P11** — Real connectors + verify/monitor
+- [x] **P11** — Real connectors + verify/monitor
   - **Do:** Production allowlisted email adapter (no `app.demo` import); keep Splunk on AUTH0; document Agilius/SOAR onboarding recipe; execute→verify for onboarded writes
   - **Verify:** pytest missing Agilius ≠ success; email not from investigation loop; `grep -n "from app.demo" backend/app/chat backend/app/planner` empty of ec_email/ec_soar; COE email send only after remediation approval
-  - **Commit:** one commit per Commit discipline; message `feat(investigation-P11): ...`
+  - **Commit:** `35e35fac`
   - **Depends on:** P10
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - implementation: `35e35fac`; `app/actions/email_adapter.py` + `app/actions/remediation_execution.py`
+    - `test_p11_remediation_connectors.py` → **14 passed**
+    - missing Agilius ⇒ `UNAVAILABLE` / `capability_has_no_registered_adapter`, `external_side_effect=false`,
+      `executed_any=false` — never `SUCCESS`
+    - execution binds to one approved envelope version **and** plan fingerprint; a superseded fingerprint refuses
+      the whole envelope rather than executing a subset the analyst never approved
+    - idempotency key derives from (plan fingerprint, envelope version, step id)
+    - separation pinned by test: `app/actions` carries no `app.demo` import; `app/chat` + `app/planner` carry no
+      `ec_email` / `ec_soar` import; `investigation_plan_delta.py` cannot reference the adapter or the action gate
+    - flag-off, unconfigured, and non-allowlisted sends all fail closed; receipts carry no credentials
+    COE — IMPLEMENTATION PASS | FEATURE ACTIVATION ENABLED | LIVE_OUTBOUND_SEND_PROOF PENDING_OPERATOR_STEP
+    - `AI_SOC_ACTION_EMAIL_ENABLED=true`; adapter reports `configured=True`; allowlist resolves
+      `anurag.agarwal@velocis.in` → true and a non-allowlisted address → false
+    - Agilius / SOAR / firewall / ITSM remain **not onboarded**: no adapter row, so they surface as capability
+      unavailable / manual path. Onboarding one later is an adapter row plus registry+allowlist, not a new graph.
 
-- [ ] **P12** — SOP seed via existing import
+- [x] **P12** — SOP seed via existing import
   - **Do:** Draft/publish selected SOPs through KnowledgeRepository
   - **Verify:** retrieval returns SourceEvidence for published docs; drafts excluded
-  - **Commit:** one commit per Commit discipline; message `feat(investigation-P12): ...`
+  - **Commit:** `434fb445`
   - **Depends on:** P1
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - implementation: `434fb445`; content in `app/knowledge/seed/investigation_sop_seed.py`,
+      publisher `scripts/seed_investigation_sops.py` (idempotent, `--dry-run`)
+    - published through the existing `KnowledgeRepository` draft/publish path — **no new ingestion pipeline**,
+      no direct RAG-to-LLM route
+    - five documents, six entries: New External / MCP Endpoint Monitoring SOP, Firewall Blocking SOP,
+      Zero-Day Response SOP, Emergency Change Procedure, Cisco Hardening Policy
+    - `validate_import_batch` → `valid=True`, `validation_errors=[]`
+    - `test_p12_investigation_sop_seed.py` → **9 passed**; wider knowledge/RAG slice → **304 passed**
+    - drafts are not runtime-eligible; published entries appear in `load_soc_kb_store`
+    - answer constraints encode governance: absent exploitation telemetry ⇒ inconclusive, not benign; a firewall
+      block is never described as applied without a verified receipt
 
-- [ ] **P13** — E2E A–E, T1/T4 parity, follow-ups, EC behavioral parity, negatives, flag-off goldens
+- [x] **P13** — E2E A–E, T1/T4 parity, follow-ups, EC behavioral parity, negatives, flag-off goldens
   - **Do:** Scenario harness + T1/T4 convergence fixtures + follow-up/continuity fixtures + ChatPanel UX assertions + `EXPERIENCE CENTER BEHAVIORAL PARITY` gate (behavior, not fixtures) + governance regression; COE discovery refresh + live Splunk search under envelope/AUTH0
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_p13_investigation_e2e.py -q` (mocked A–E + T1/T4 parity + follow-ups including silent-widen negative + "why suspicious" from InvestigationOutcome + UX/progress/conclusion + EC behavioral-parity checklist + flag-off identity) **in this worktree**; then on COE after deploy: discovery refresh + one AUTH0 Splunk search + (optional) live planner hop. Governance: `./scripts/run_stage3_governance_regression.sh`
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P13): ...`; phase-boundary → also run governance regression first
   - **Depends on:** P0–P8, P10 (P7 required for adaptive-gap / EC parity; P9 skip allowed; P11–P12 as available)
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - suite: `backend/app/tests/test_p13_investigation_e2e.py` (**38 passed**), covering scenarios A–E, the
+      section 7 authority/security negatives, T1↔T4 convergence, progress/UX, flag-off identity, and the
+      EC behavioural-parity surface checklist
+    - pinned negatives include: CapabilitySnapshot is not authorization and carries no RBAC axis; T4 cannot
+      become the planner; the LLM cannot grant a capability; remediation cannot execute before approval;
+      execution cannot diverge from the approved plan version; investigation PlanDelta cannot send email;
+      production `/chat` imports no EC action fixtures; the catalog correction is not flag-reversible;
+      no reasoning hop can outlive the turn; no infrastructure-readiness flag exists
+    - UX assertions: progress carries no chain-of-thought; a completed empty step never renders a blank
+      finding; progress never claims evidence it did not collect; manual remediation steps are named, not hidden
+    COE LIVE VERIFICATION — full lifecycle driven over authenticated HTTP
+    - `scripts/probe_investigation_lifecycle.py --lifecycle` with **P0–P12 flags simultaneously enabled**
+    - initial turn → `awaiting_approval`, `capability_snapshot_rows=11`, **no ResourcePlan**, execution `skipped`
+    - Run → `approved`, immutable envelope **v2**
+    - remediation create → deterministic plan, `execution_authorized=false`, every step honest
+    - `/api/health` 200 throughout; production frontend build PASS
+    DEFECTS FOUND BY LIVE PROBING AND FIXED (all invisible to unit tests, which inject state directly)
+    1. tier-1 answer affordances (`summarize`, `explain`, `show_sop`, …) were treated as remediation actions,
+       producing steps like "Perform summarize manually". Now filtered, with unrecognized identifiers kept as
+       honest manual steps so an un-onboarded connector never vanishes from the plan.
+    2. Create and Approve arrive on separate turns and nothing carried the plan between them. The shown plan is
+       now pinned on the session, so an approved envelope can only contain steps the analyst actually saw.
+    3. a stale/foreign version-bound investigation decision failed closed **by raising to the unhandled
+       backstop**, so `/chat` answered HTTP 500. Now a governed **409** with a stable reason code.
+    BASELINES ADVANCED (each verified before touching, never to silence a finding)
+    - RACES freeze → `9f1ec922`; production investigation work only, no EC/demo authority on the live path
+    - sentinel re-frozen: the P12 Firewall Blocking SOP makes `pg.unsafe.001` cite policy and give procedural
+      steps. Causation confirmed against pre-seed fixtures; the governance verdict is **unchanged**
+      (`out_of_registry` / `knowledge_recall` / `clarification_required`, `execution_eligible=null`). Two
+      additive sections on one row — the sanctioned re-freeze case
+    - skill-KB fixture ordering re-normalized through the existing importer; content unchanged (120 docs)
 
 ## Verification gaps (flag before coding)
 
@@ -1535,9 +1754,35 @@ VERIFICATION when Live acceptance by phase marks the phase required).
 - 2026-08-21: **`/var/www/ai-soc-mcp` is an implementation checkout only** (no `/chat` stack running from it). Verify is mock/DET here. Live production `/chat` tests run after deploy to `/var/www/ai-soc-assistant`. Model/MCP services may still be reachable on the same host. Fail-closed when the model is missing is required on both.
 - 2026-08-21: Correction pass (FIX 1–7) — CapabilitySnapshot is need × availability only (RBAC/AUTH0/HIL/envelope/execution are later gates; no `executable` field). P2 splits permanent `catalog.json` correction (`git revert`) from runtime `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED`. P5 is execution/sufficiency seam with honest stop; P7 owns PlanDelta into that seam. Production ChatPanel UX + follow-up continuity + P13 `EXPERIENCE CENTER BEHAVIORAL PARITY` gate. T1–T4 convergence unchanged.
 - 2026-08-21: Wording fix — Splunk MCP **capability/service exists on the COE host**, but the deployed `/chat` stack is **not yet configured to use it live** (`MCP_MODE=mock`, empty `SPLUNK_MCP_BASE_URL` at authoring). Before P6 live acceptance: configure/verify + refresh discovery. `/var/www/ai-soc-mcp` = implementation checkout only (no running stack; not the live-acceptance environment). `/var/www/ai-soc-assistant` = deployed COE runtime (live acceptance). Distinction is stack-running-from-checkout, not network reachability. Removed leftover “Splunk is live” / “Splunk is not live” dual wording.
+- 2026-08-21: **Continuation chunk — architecture ON, external dependency honest.** Section 5's
+  `AI_SOC_PLAN_DELTA_ENABLED` was initially omitted and P7 shared P3's planner flag. The final conformance audit
+  restored the approved independent default-false P7 rollback seam; infrastructure-readiness flags remain absent.
+  New keys in this chunk are both **feature** flags, not readiness flags: `AI_SOC_REMEDIATION_PLANNER_ENABLED`
+  (P10, the plan already names it) and `AI_SOC_ACTION_EMAIL_ENABLED` (P11 per-connector). No
+  `AI_SOC_REASONING_READY` / `_SPLUNK_LIVE` / `_MODEL_AVAILABLE` / `_MCP_AVAILABLE` key exists; availability is
+  represented by configuration, CapabilitySnapshot, connector discovery and health, and is pinned by
+  `test_p13_investigation_e2e.py::test_no_infrastructure_readiness_flags_were_introduced`.
+- 2026-08-21: **Two defects found by live probing, both fixed.** (1) The P3/P7 reasoning hops ignored the turn
+  wall clock, so a slow endpoint could outlive the turn deadline — both now cap to the remaining budget and skip
+  with `turn_budget_exhausted` (`16371f9e`). (2) A version-bound Run/Edit/Cancel from a foreign session failed
+  closed by raising to the unhandled backstop, so `/chat` answered **HTTP 500**; `InvestigationEnvelopeError` now
+  maps to a governed **409** with a stable reason code (`938b1006`). Fail-closed must not mean unhealthy.
+- 2026-08-21: **Final conformance audit corrections.** Removed the legacy Experience Center scenario shortcut
+  from production `/chat` and `/chat/stream`; parity is behavioral only. Restored P7's independent rollback seam
+  and bound accepted validated deltas to a unique appended ResourcePlan step consumed by the existing SPL/AUTH0/RP
+  path. Wired production remediation approval to the P11 action gate and verification receipts; email recipient
+  arguments are now part of the fingerprinted approved step rather than mutable executor context. P11 reuses the
+  canonical durable execution-idempotency store and fails closed on action RBAC before connector invocation. No new
+  capability, architecture, phase, or infrastructure-readiness flag was introduced.
+- 2026-08-21: **Measured out-of-scope finding — `spl_t2_producer` turn latency.** Two suite scenarios that route
+  to `spl_generation_only` (not investigation-shaped, so P3 never fires) took **303 s** and **182 s**, with
+  `llm_calls: []` in the trace while three 90 s `local_primary` hops appear in the backend log. That role does not
+  participate in `TurnLlmBudget` accounting. It is a pre-existing latency defect in a role no phase of this plan
+  owns; it is recorded, not fixed here, and needs its own decision.
+- 2026-08-21: User continuation override split implementation acceptance from environment proof and explicitly prohibited new readiness/phase flags in this chunk. P4 therefore reuses the existing P0 investigation wait-state as its only activation seam; no `AI_SOC_INVESTIGATION_ENVELOPE_ENABLED` key was introduced. P3 live reasoning and later P6/P7 live Splunk/model proofs may be recorded as `DEFERRED_COE_CONFIGURATION` without blocking implementation.
 
 ---
 
 ```text
-PLAN STATUS: READY FOR ARCHITECTURE REVIEW
+PLAN STATUS: ACTIVE — EXECUTION AUTHORIZED
 ```

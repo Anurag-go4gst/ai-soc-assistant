@@ -19,6 +19,7 @@ from langgraph.types import Send
 from app.chat.control_plane_trace import patch_control_plane_trace_decision_log
 from app.chat.decision_record import emit_decision_record
 from app.chat.final_answer_validator import validate_final_answer
+from app.chat.investigation_plan_delta import observe_plan_delta_execution
 from app.chat.pipeline import (
     ChatPipelineState,
     build_rp_degraded_placeholder_response,
@@ -26,6 +27,7 @@ from app.chat.pipeline import (
     graph_node_composed_dispatch,
     graph_node_context_finalize,
     graph_node_execution,
+    graph_node_ensure_workflow_plan,
     graph_node_init_routing,
     graph_node_prepare_rag_only,
     graph_node_rag_early,
@@ -79,6 +81,8 @@ GOVERNANCE_NODE_NAMES: tuple[str, ...] = (
 DispatchRoute = Literal["rag_only", "composed_dispatch", "workflow_spl", "non_planned_finalize"]
 AfterWorkflowSpl = Literal["rag_early", "spl_source_resolve"]
 AfterRagEarly = Literal["governance_entry", "spl_source_resolve"]
+AfterContextSufficiency = Literal["plan_delta_reasoner", "decide_facts"]
+AfterPlanDelta = Literal["composed_dispatch", "decide_facts"]
 
 _SPECIALIST_NODE_NAMES: tuple[str, ...] = (
     "specialist_skill",
@@ -168,6 +172,11 @@ class ResourcePlannerGraphState(ChatPipelineState, total=False):
     specialist_reports: Annotated[list[dict[str, Any]], _reduce_specialist_reports]
     specialist_delegations: list[dict[str, Any]]
     policy_veto: dict[str, Any]
+    plan_delta_proposal: dict[str, Any] | None
+    plan_delta_decision: dict[str, Any]
+    plan_delta_revisions: list[dict[str, Any]]
+    plan_delta_execution_request: dict[str, Any]
+    active_resource_plan_step_id: str
 
 
 def _evidence_plan(state: ResourcePlannerGraphState) -> dict[str, Any]:
@@ -551,6 +560,8 @@ def rp_node_rag_early(state: ResourcePlannerGraphState) -> ResourcePlannerGraphS
 
 def rp_node_composed_dispatch(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
     state = _apply_work_bundle_to_workers(state)
+    if isinstance(state.get("approved_investigation_envelope"), dict):
+        state = graph_node_ensure_workflow_plan(state)
     state = graph_node_composed_dispatch(state)
     state = _with_trace(state, "composed_dispatch")
     return _record(
@@ -592,6 +603,12 @@ def rp_node_spl_source_resolve(state: ResourcePlannerGraphState) -> ResourcePlan
 
 def rp_node_mcp_execution_gate(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
     if "execution" not in state:
+        # A contracted execution phase may be inserted after a read-only/RAG
+        # resource wave.  It still needs the normal workflow envelope so the
+        # gate can record an honest skip/block instead of raising outside the
+        # Resource Planner hub.
+        if isinstance(state.get("approved_investigation_envelope"), dict):
+            state = graph_node_ensure_workflow_plan(state)
         state = graph_node_execution(state)
     state = _with_trace(state, "mcp_execution_gate")
     return _record(
@@ -622,17 +639,72 @@ def rp_node_spl_validate(state: ResourcePlannerGraphState) -> ResourcePlannerGra
 
 def rp_node_context_sufficiency(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
     from app.evidence.evidence_sufficiency import attach_evidence_sufficiency
+    from app.chat.investigation_run_compiler import attach_investigation_observation
 
+    state = observe_plan_delta_execution(state)
     state = attach_evidence_sufficiency(state)
+    state = attach_investigation_observation(state)
     state = _with_trace(state, "context_sufficiency")
     return _record(
         state,
         node="context_sufficiency",
         reason="evidence_state_rqc_sufficiency",
         inputs_ref=["resolved_query_contract", "evidence_state", "evidence_plan", "source_evidence"],
-        outputs_ref=["evidence_sufficiency", "context_sufficiency", "evidence_state"],
+        outputs_ref=[
+            "evidence_sufficiency",
+            "context_sufficiency",
+            "evidence_state",
+            "investigation_progress",
+            "investigation_run_status",
+        ],
         authority="deterministic",
     )
+
+
+def _rp_after_context_sufficiency(state: ResourcePlannerGraphState) -> AfterContextSufficiency:
+    envelope = state.get("approved_investigation_envelope")
+    run_status = state.get("investigation_run_status")
+    if not settings.ai_soc_plan_delta_enabled:
+        return "decide_facts"
+    if not isinstance(envelope, dict) or not isinstance(run_status, dict):
+        return "decide_facts"
+    policy = envelope.get("plan_delta_policy") if isinstance(envelope.get("plan_delta_policy"), dict) else {}
+    if policy.get("automatic_bounded_read_only_delta_allowed") is not True:
+        return "decide_facts"
+    if run_status.get("status") != "incomplete" or not run_status.get("missing_evidence"):
+        return "decide_facts"
+    return "plan_delta_reasoner"
+
+
+def rp_node_plan_delta_reasoner(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
+    from app.chat.investigation_plan_delta import attach_plan_delta_decision
+
+    state = attach_plan_delta_decision(state)
+    state = _with_trace(state, "plan_delta_reasoner")
+    return _record(
+        state,
+        node="plan_delta_reasoner",
+        reason=str((state.get("plan_delta_decision") or {}).get("reason") or "plan_delta_evaluated"),
+        inputs_ref=[
+            "approved_investigation_envelope",
+            "capability_snapshot",
+            "evidence_state",
+            "investigation_run_status",
+            "plan_delta_revisions",
+        ],
+        outputs_ref=[
+            "plan_delta_decision",
+            "plan_delta_revisions",
+            "plan_delta_execution_request",
+            "investigation_run_status",
+        ],
+        authority="deterministic",
+    )
+
+
+def _rp_after_plan_delta(state: ResourcePlannerGraphState) -> AfterPlanDelta:
+    decision = state.get("plan_delta_decision") if isinstance(state.get("plan_delta_decision"), dict) else {}
+    return "composed_dispatch" if decision.get("status") == "accepted" else "decide_facts"
 
 
 def rp_node_decide_facts(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:
@@ -798,7 +870,16 @@ def rp_node_policy_veto(state: ResourcePlannerGraphState) -> ResourcePlannerGrap
 def _add_governance_chain(graph: StateGraph) -> None:
     graph.add_edge("spl_validate", "mcp_execution_gate")
     graph.add_edge("mcp_execution_gate", "context_sufficiency")
-    graph.add_edge("context_sufficiency", "decide_facts")
+    graph.add_conditional_edges(
+        "context_sufficiency",
+        _rp_after_context_sufficiency,
+        {"plan_delta_reasoner": "plan_delta_reasoner", "decide_facts": "decide_facts"},
+    )
+    graph.add_conditional_edges(
+        "plan_delta_reasoner",
+        _rp_after_plan_delta,
+        {"composed_dispatch": "composed_dispatch", "decide_facts": "decide_facts"},
+    )
     graph.add_edge("decide_facts", "answer_guard")
     graph.add_edge("answer_guard", "human_review")
     graph.add_edge("human_review", "policy_veto")
@@ -824,6 +905,7 @@ def _compiled_resource_planner_graph() -> Any:
     graph.add_node("workflow_spl", rp_node_workflow_spl)
     graph.add_node("non_planned_finalize", rp_node_non_planned_finalize)
     graph.add_node("spl_source_resolve", rp_node_spl_source_resolve)
+    graph.add_node("plan_delta_reasoner", rp_node_plan_delta_reasoner)
     for node_name in GOVERNANCE_NODE_NAMES:
         graph.add_node(node_name, globals()[f"rp_node_{node_name}"])
 
@@ -1107,7 +1189,10 @@ def _documented_resource_planner_edges() -> set[tuple[str, str]]:
             ("spl_source_resolve", "mcp_execution_gate"),
             ("spl_validate", "mcp_execution_gate"),
             ("mcp_execution_gate", "context_sufficiency"),
+            ("context_sufficiency", "plan_delta_reasoner"),
             ("context_sufficiency", "decide_facts"),
+            ("plan_delta_reasoner", "composed_dispatch"),
+            ("plan_delta_reasoner", "decide_facts"),
             ("decide_facts", "answer_guard"),
             ("answer_guard", "human_review"),
             ("human_review", "policy_veto"),

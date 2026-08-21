@@ -1,6 +1,6 @@
 import { sendChatMessage } from '@/api/client';
 import { getApiBaseUrl } from '@/lib/runtimeMode';
-import type { ChatExecutionReviewOptions, PlaceholderResponse } from '@/types/api';
+import type { ChatReviewOptions, PlaceholderResponse } from '@/types/api';
 
 export type ChatProgressStage =
   | 'queued'
@@ -116,7 +116,7 @@ export async function streamChatMessage(
   signal?: AbortSignal,
   sessionId?: string | null,
   llmSplDraftMode = false,
-  executionReview?: ChatExecutionReviewOptions,
+  executionReview?: ChatReviewOptions,
 ): Promise<PlaceholderResponse> {
   const response = await fetch(`${getApiBaseUrl()}/chat/stream`, {
     method: 'POST',

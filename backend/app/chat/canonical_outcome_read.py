@@ -99,6 +99,15 @@ def validate_cross_state_consistency(
         if _state_resource_plan_committed(state):
             reasons.append("clarification_with_committed_resource_plan_in_state")
 
+    elif status == "awaiting_investigation_plan":
+        if state_ep is not None:
+            reasons.append("awaiting_investigation_plan_with_evidence_plan_in_state")
+        if _state_resource_plan_committed(state):
+            reasons.append("awaiting_investigation_plan_with_committed_resource_plan_in_state")
+        execution = state.get("execution")
+        if isinstance(execution, dict) and str(execution.get("status") or "") in _EXECUTED_STATUSES:
+            reasons.append("awaiting_investigation_plan_with_executed_execution")
+
     elif status == "policy_blocked":
         if outcome.resource_plan is not None:
             reasons.append("policy_blocked_outcome_carries_resource_plan")

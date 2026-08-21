@@ -158,9 +158,49 @@ EXPECTED_RECORD_IO: dict[str, RecordIo] = {
     ),
     "context_sufficiency": _io(
         ("resolved_query_contract", "evidence_state", "evidence_plan", "source_evidence"),
-        ("evidence_sufficiency", "context_sufficiency", "evidence_state"),
+        (
+            "evidence_sufficiency",
+            "context_sufficiency",
+            "evidence_state",
+            "investigation_progress",
+            "investigation_run_status",
+        ),
         ("resolved_query_contract", "evidence_state", "evidence_plan", "source_evidence"),
-        ("evidence_sufficiency", "context_sufficiency", "evidence_state"),
+        (
+            "evidence_sufficiency",
+            "context_sufficiency",
+            "evidence_state",
+            "investigation_progress",
+            "investigation_run_status",
+        ),
+    ),
+    "plan_delta_reasoner": _io(
+        (
+            "approved_investigation_envelope",
+            "capability_snapshot",
+            "evidence_state",
+            "investigation_run_status",
+            "plan_delta_revisions",
+        ),
+        (
+            "plan_delta_decision",
+            "plan_delta_revisions",
+            "plan_delta_execution_request",
+            "investigation_run_status",
+        ),
+        (
+            "approved_investigation_envelope",
+            "capability_snapshot",
+            "evidence_state",
+            "investigation_run_status",
+            "plan_delta_revisions",
+        ),
+        (
+            "plan_delta_decision",
+            "plan_delta_revisions",
+            "plan_delta_execution_request",
+            "investigation_run_status",
+        ),
     ),
     "decide_facts": _io(
         (),
@@ -281,7 +321,7 @@ def _assert_ref_resolves(ref: str, representative_state: dict[str, Any]) -> None
 
 def test_inventory_covers_every_remaining_record_shape() -> None:
     observed = _declared_record_inventory()
-    assert len(observed) == 24
+    assert len(observed) == 25
     assert set(observed) == set(EXPECTED_RECORD_IO)
     for node, contract in EXPECTED_RECORD_IO.items():
         assert observed[node] == (contract.declared_inputs, contract.declared_outputs)
@@ -512,7 +552,27 @@ def test_representative_wrapper_dataflow_produces_every_declared_output(
     _assert_wrapper_dataflow(
         "context_sufficiency",
         rp.rp_node_context_sufficiency,
-        {},
+        {"approved_investigation_envelope": {}},
+    )
+    monkeypatch.setattr(
+        "app.chat.investigation_plan_delta.attach_plan_delta_decision",
+        _pure_writer(
+            "plan_delta_decision",
+            "plan_delta_revisions",
+            "plan_delta_execution_request",
+            "investigation_run_status",
+        ),
+    )
+    _assert_wrapper_dataflow(
+        "plan_delta_reasoner",
+        rp.rp_node_plan_delta_reasoner,
+        {
+            "approved_investigation_envelope": {},
+            "capability_snapshot": {},
+            "evidence_state": {},
+            "investigation_run_status": {},
+            "plan_delta_revisions": [],
+        },
     )
     _assert_wrapper_dataflow("decide_facts", rp.rp_node_decide_facts, {})
     _assert_wrapper_dataflow("answer_guard", rp.rp_node_answer_guard, {})
