@@ -116,7 +116,18 @@ circuit-open skip 0 ms → 1.2 s turn; budget-exhausted skip 0 ms; remediation h
    were treated as remediation actions, producing steps like "Perform summarize manually".
    Now filtered; unrecognized identifiers are kept as honest manual steps. (`1c9bc084`)
 4. **Approval lost between turns.** Create and Approve arrive on separate `/chat` turns and
-   nothing carried the plan. The shown plan is now pinned on the session. (`1c9bc084`, `7f7ca7fc`)
+   nothing carried the plan, so Approve failed with `remediation_plan_missing_for_approval`.
+   The first attempt wrote session pins from the remediation runtime and did not survive:
+   `pins_from_pipeline_state` rebuilds the whole pin record at the end of every turn and
+   overwrote it. The pin builder now carries the shown plan forward — one writer — and
+   clears it on approve/cancel/decline so a stale plan cannot be re-approved.
+   (`1c9bc084`, `7f7ca7fc`, `f1bf40d3`)
+
+   Every unit test passed throughout, because they called the runtime directly and never
+   crossed a turn boundary. The test now exercises the real writer across that boundary.
+
+**Live confirmation after the fix:** Create → 4 steps shown → Approve → immutable envelope
+v1, `plan_fingerprint 416dff577da9`, approved steps identical to the shown steps.
 
 ---
 
