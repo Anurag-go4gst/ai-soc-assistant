@@ -11,9 +11,11 @@ from app.chat.contracts.investigation_outcome import (
     derive_investigation_outcome,
 )
 from app.chat.investigation_run_compiler import attach_investigation_observation
+from app.config import settings
 
 
-def test_outcome_v2_lifecycle_off_keeps_legacy_envelope_unchanged() -> None:
+def test_outcome_v2_flag_off_keeps_legacy_envelope_unchanged() -> None:
+    assert settings.ai_soc_investigation_outcome_v2_enabled is False
     outcome = derive_investigation_outcome(
         evidence_sufficiency={"status": "BLOCKED"},
         context_sufficiency={"status": "blocked_by_policy"},
