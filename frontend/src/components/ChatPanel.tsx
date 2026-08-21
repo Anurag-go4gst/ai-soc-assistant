@@ -33,7 +33,7 @@ import {
 } from '@/lib/legacyDemoCoordination';
 import { playLegacyDemoInvestigationWithCoordination } from '@/lib/legacyDemoCoordinationPlayer';
 import { executeLegacyDemoCoordination } from '@/lib/legacyDemoEmail';
-import type { ChatExecutionReviewOptions, ChatInvestigationReviewOptions, ChatReviewOptions, DemoScenarioSummary, PlaceholderResponse } from '@/types/api';
+import type { ChatExecutionReviewOptions, ChatInvestigationReviewOptions, ChatRemediationReviewOptions, ChatReviewOptions, DemoScenarioSummary, PlaceholderResponse } from '@/types/api';
 
 interface ChatPanelProps {
   onTrace?: (response: PlaceholderResponse) => void;
