@@ -149,7 +149,18 @@ phase of this plan owns, and needs its own decision.
 | P13 E2E acceptance suite | 38 passed |
 | P0–P13 investigation slice | 90 passed |
 | production frontend `npm run build` | PASS |
-| governance regression | see closure note below |
+| governance regression `./scripts/run_stage3_governance_regression.sh` | **PASS** |
+| ↳ soc_clean_answer_eval | 120/120 pass, 0 review, 0 fail, 0 critical |
+| ↳ sentinel | 17 passed |
+| ↳ SPL template audit | 19/19, 0 review_required |
+| ↳ Cisco power-grid catalogue gate | 50 PASS / 0 REVIEW / 0 FAIL / 0 CRITICAL |
+| ↳ pipeline dispatch matrix | 5/5 |
+| ↳ protected-artifact manifest `--check` | ok |
+
+The `audit_critical_planning_event_not_persisted` warnings in that run are expected: the
+branch only logs when the reason is `canonical_db_disabled`, which is the eval harness's
+own configuration. A genuine persistence failure raises
+`AuditCriticalTelemetryPersistenceError` instead, so fail-closed is intact.
 
 Baselines advanced during this work, each verified before touching and none advanced to
 silence a finding:

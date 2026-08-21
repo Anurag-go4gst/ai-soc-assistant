@@ -1,6 +1,6 @@
 # LLM Template Audit Report (Phase F)
 
-Generated: 2026-08-20T11:13:16.477675+00:00
+Generated: 2026-08-21T08:02:31.602539+00:00
 Active templates: 19
 Pass: 19 · Review: 0
 
