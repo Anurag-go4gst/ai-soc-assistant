@@ -1444,19 +1444,30 @@ VERIFICATION when Live acceptance by phase marks the phase required).
   - **Depends on:** P0
   - **Evidence:**
     LOCAL VERIFICATION — PASS
-    - pytest `app/tests/test_capability_snapshot.py` (+ state channel) → **22 passed** (11 snapshot + channel suite)
+    - commit: `f225647e`
+    - pytest `test_capability_snapshot.py` + state-channel → **22 passed**
     - /invariant-check → PASS (planning vocabulary only; no MCP calls; flag default false)
     - Flag: `AI_SOC_CAPABILITY_SNAPSHOT_ENABLED` default false
     - Module: `backend/app/chat/capability_snapshot.py`; wired after Final RQC in orchestrator
-    COE LIVE VERIFICATION — _(after deploy)_
-    - _(pending)_
+    COE LIVE VERIFICATION — PASS (2026-08-21)
+    - deployed: `/var/www/ai-soc-assistant` @ `f225647e` (exact, detached)
+    - flag-off: no `capability_snapshot` on state; `/health` ok
+    - flags enabled: P0 + P1 only (`AI_SOC_CAPABILITY_SNAPSHOT_ENABLED=true`)
+    - investigation: snapshot schema_version=`capability_snapshot_v1`, 11 rows, firewall_block unavailable, no `executable`; still `awaiting_investigation_plan` / no ResourcePlan
+    - probe: in-container canonical planning spine on deployed Settings/code
 
-- [ ] **P2** — Guided catalog correction + runtime composable planning
+- [x] **P2** — Guided catalog correction + runtime composable planning
   - **Do:** Permanent: edit only the `guided_investigation` row in `skills/catalog.json` so ownership is not an MCP/SPL read veto (writes stay blocked). Runtime: under `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED`, change EvidencePlan, executor `uses_rag_only_path`, hybrid `no_mcp`; do not route hunts to `spl_generation`; do not add a catalog overlay for rollback
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_p2_guided_unveto_cluster.py -q` — create `backend/app/tests/test_p2_guided_unveto_cluster.py` (new file) covering: catalog no longer lists `mcp_execution` as a guided read veto even when the runtime flag is off; flag on: guided owner + required Splunk row does not force `uses_rag_only_path`; missing Splunk shows unavailable/manual, not a knowledge_recall dump; `remediation`/`admin`/`write` stay blocked; flag off restores old EvidencePlan/executor **scheduling** only (catalog row stays corrected)
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P2): ...`; `git status` must show only the guided row in `skills/catalog.json`, not other T1–T3-owned lines in that file
   - **Depends on:** P1; T1–T3 catalog.json isolation
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - pytest `test_p2_guided_unveto_cluster.py` → **5 passed**
+    - catalog.diff: **1 line** guided row only (`mcp_execution` removed from blocked; read tools allowed; writes remain blocked)
+    - Flag: `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED` default false
+    COE LIVE VERIFICATION — _(after deploy)_
+    - _(pending)_
 
 - [ ] **P3** — Reasoning InvestigationPlanProposal + DET ValidatedInvestigationPlan, no ResourcePlan
   - **Do:** Register `investigation_planner` on reasoning family; extend InvestigationPlan + validator; preserve T1–T3-known steps

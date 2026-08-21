@@ -310,6 +310,7 @@ def plan_evidence(
             True
             and settings.ai_soc_guided_hybrid_investigation_enabled
         )
+        composable = bool(settings.ai_soc_guided_composable_planning_enabled)
         # Resolve signal-class-specific hypotheses and evidence items from the query.
         # These flow into the AnswerContract (analyst_checklist_safe / investigation_steps)
         # so the synthesis LLM narrates specific items instead of a generic fallback.
@@ -330,13 +331,13 @@ def plan_evidence(
             _sc_workflow = [str(e) for e in (_tmpl.get("evidence") or []) if e]
         guided_plan = EvidencePlan(
             answer_mode="guided_investigation",
-            rag_phase="rag_only",
+            rag_phase="pre_mcp" if composable else "rag_only",
             needs_rag=True,
-            needs_spl=False,
-            needs_mcp=False,
+            needs_spl=bool(composable),
+            needs_mcp=bool(composable),
             needs_mitre=False,
-            spl_allowed=False,
-            mcp_allowed=False,
+            spl_allowed=bool(composable),
+            mcp_allowed=bool(composable),
             policy_context_required=False,
             policy_context_recommended=True,
             requires_hil=True,
@@ -344,10 +345,18 @@ def plan_evidence(
             needs_clarification=False,
             action_mode="recommend_only",
             rag_no_match_behavior="general_guidance_allowed",
-            reasons=["out_of_registry_guided_investigation"],
+            reasons=[
+                "out_of_registry_guided_investigation",
+                *(["guided_composable_planning_enabled"] if composable else []),
+            ],
             limitations=[
                 "This question is outside the approved 105-question and use-case registries.",
-                "No live query was performed; validate the checklist against local telemetry and playbooks.",
+                (
+                    "Composable planning may include governed SPL/MCP reads after approval;"
+                    " writes remain blocked."
+                    if composable
+                    else "No live query was performed; validate the checklist against local telemetry and playbooks."
+                ),
                 "No MITRE technique or incident severity is asserted without evidence.",
             ],
             checklist=_sc_checklist or [
@@ -366,7 +375,11 @@ def plan_evidence(
             required_sources=["firewall", "dns", "proxy", "endpoint"],
             optional_sources=["asset_inventory", "change_records", "vendor_access_records"],
             unsupported_claims_avoid=["confirmed compromise", "confirmed MITRE technique", "P1/P2 severity"],
-            evidence_plan_reason="out_of_registry_guided_investigation",
+            evidence_plan_reason=(
+                "guided_composable_planning"
+                if composable
+                else "out_of_registry_guided_investigation"
+            ),
         )
         _q2i_signals: dict[str, Any] = {}
         if isinstance(query_to_intent, dict):

@@ -3190,7 +3190,11 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
     workflow_plan = rc.plan_workflow(
         selected_skill=selected_skill,
         tool_plan=(
-            ["retrieve_approved_knowledge", "optional_review_only_spl", "no_mcp"]
+            (
+                ["retrieve_approved_knowledge", "optional_review_only_spl", "mcp_search"]
+                if settings.ai_soc_guided_composable_planning_enabled
+                else ["retrieve_approved_knowledge", "optional_review_only_spl", "no_mcp"]
+            )
             if guided
             else ["retrieve_approved_knowledge", "no_spl", "no_mcp"]
         ),
@@ -6044,7 +6048,11 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
         rc = _routes_chat()
         workflow_plan = rc.plan_workflow(
             selected_skill="guided_investigation",
-            tool_plan=["retrieve_approved_knowledge", "optional_review_only_spl", "no_mcp"],
+            tool_plan=(
+                ["retrieve_approved_knowledge", "optional_review_only_spl", "mcp_search"]
+                if settings.ai_soc_guided_composable_planning_enabled
+                else ["retrieve_approved_knowledge", "optional_review_only_spl", "no_mcp"]
+            ),
             query=request.message,
             trace_id=trace_id,
         )

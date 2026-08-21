@@ -165,10 +165,14 @@ def derive_dispatch_booleans_from_plan(state: State) -> dict[str, Any]:
   answer_mode = str(evidence.get("answer_mode") or "")
 
   uses_pre_mcp_rag = bool(projected.get("needs_rag")) and rag_phase == "pre_mcp"
-  uses_rag_only_path = path_type == "guided_investigation" or answer_mode in {
-    "rag_only",
-    "guided_investigation",
-  } or path_type == "generic_soc_guidance"
+  guided_owner = path_type == "guided_investigation" or answer_mode == "guided_investigation"
+  # P2: when composable planning is on, guided ownership must not force rag-only.
+  guided_forces_rag_only = guided_owner and not settings.ai_soc_guided_composable_planning_enabled
+  uses_rag_only_path = (
+    guided_forces_rag_only
+    or answer_mode == "rag_only"
+    or path_type == "generic_soc_guidance"
+  )
 
   return {
     "uses_rag_only_path": uses_rag_only_path,
