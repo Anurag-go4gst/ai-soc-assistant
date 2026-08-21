@@ -112,11 +112,12 @@ def test_ec_changes_stay_within_allowlist() -> None:
 # The freeze still means what it said; the baseline just no longer straddles
 # approved non-RACES work. Advanced through canonical investigation P5: P0-P5
 # intentionally changed the production authority path and did not import EC
-# fixtures or demo authority into it. Advanced again through P8 at e478b1ca:
+# fixtures or demo authority into it. Advanced again through P8 at 949f7f4c:
 # P7 added a bounded read-only PlanDelta edge to the existing Resource Planner
 # graph, and P8 added the governed two-axis outcome projection in pipeline.py.
-# Neither change came from RACES/EC work or introduced demo authority.
-RACES_BASELINE_SHA = "e478b1ca"
+# Neither change came from RACES/EC work or introduced demo authority. The P8
+# follow-up replaces lifecycle inference with its explicit default-off rollout flag.
+RACES_BASELINE_SHA = "949f7f4c"
 
 
 def _git_name_only(rev_range: str) -> list[str]:
