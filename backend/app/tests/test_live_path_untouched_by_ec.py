@@ -122,7 +122,11 @@ def test_ec_changes_stay_within_allowlist() -> None:
 # the production action gate under app/actions/, and P13 mapped a stale investigation
 # decision to a governed 409. All of it is production investigation work; none of it
 # came from RACES/EC or imported demo authority into the live path.
-RACES_BASELINE_SHA = "9f1ec922"
+# Advanced through the final architecture-conformance correction at 08c8b40c: the
+# production routes removed an EC shortcut, P7 joined the canonical RP/AUTH0 seam,
+# and P11 wired approved action execution. These are approved production authority
+# corrections; the freeze continues from their exact reviewed commit.
+RACES_BASELINE_SHA = "08c8b40c"
 
 
 def _git_name_only(rev_range: str) -> list[str]:
