@@ -46,8 +46,14 @@ PATH="$PWD/.venv/bin:$PATH" ./scripts/run_stage3_governance_regression.sh
 
 - Bare `python3` has **no pytest**; the gitignored `.venv` is the fix. Never `pip install -e backend`
   (setuptools flat-layout error), and never edit `backend/pyproject.toml` to make it work.
-- Governance currently exits 1 at step 1 pending `AI_SOC_GITHUB_SKILL_CLONE_ROOT` — an **operator
-  decision** P0 must resolve. Do not edit the governance script to skip those steps.
+- Governance **step 1 = `KNOWN_MACOS_GOVERNANCE_ENV_LIMITATION`** (ratified 2026-08-21). The committed
+  discovery index embeds a Linux absolute `clone_root_used` and macOS resolves `/tmp` to `/private/tmp`,
+  so **no** clone path can satisfy it here. Do **not** clone, vendor, regenerate the 754 rows, fake
+  `clone_root_used`, edit the governance script, or hide/xfail the failure. It does **not** block P1–P6.
+  Every other governance step still runs and must pass on Mac.
+  **Release gate:** P8 RELEASE_READY additionally needs `OS=Linux` + `governance step 1=PASS` against the
+  **exact same final candidate SHA** (VPS fine; LLM/MCP not required for it).
+  Deferred fix: `docs/operations/deferred_github_skill_factory_governance_maintenance.md`.
 - `rg` is host-only; not present in the container.
 
 ## Guards

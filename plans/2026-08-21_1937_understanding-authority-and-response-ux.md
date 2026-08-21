@@ -136,15 +136,29 @@ tag, or commit is pinned anywhere (`plans/AI_SOC_MASTER_PLAN.md:50` documents a 
 moved upstream would report "stale" because *upstream* changed, not because our artifacts drifted.
 Regenerating in that situation would rewrite 754 committed rows from an unpinned source.
 
-**P0 disposition — operator decision, do not self-resolve.** Options, in order of preference:
-(a) run governance's GitHub-factory steps on the Linux COE/VPS where the recorded `/tmp` path is
-real; (b) normalize `clone_root_used` in `_check_payload` and/or pin an upstream SHA — this is a
-**governance-script change** and, per this plan's own rule, is only permissible on a finding that
-the script is defective, which is an operator call, not an executor's; (c) accept step 1 as a
-known macOS limitation and record it. **Do not modify the governance script or regenerate the
-artifacts inside this plan.** `AI_SOC_GITHUB_SKILL_CLONE_ROOT` is defined at
+**P0 disposition — RATIFIED 2026-08-21: `KNOWN_MACOS_GOVERNANCE_ENV_LIMITATION`.**
+No clone is created for this Mac workstream. Prohibited while this plan runs: modifying the
+governance script, regenerating the 754 committed rows, vendoring the external repo, faking
+`clone_root_used`, or hiding/xfailing the failure. `AI_SOC_GITHUB_SKILL_CLONE_ROOT` is defined at
 `scripts/github_skill_factory_lib.py:20`, defaulting to `/tmp/ai-soc-references/…`, and is set in
-neither `.env` nor any profile.
+neither `.env` nor any profile — leave it that way.
+
+```text
+MAC:      governance step 1 = KNOWN_MACOS_GOVERNANCE_ENV_LIMITATION (does NOT block P1–P6)
+RELEASE:  Linux governance step 1 = MANDATORY P8 GATE against the exact final candidate SHA
+```
+
+This limitation **does not block P1–P6 implementation**. Every governance step and check that is
+valid on Mac still runs normally. It **does** remain a release gate: before P8 is declared
+release-ready, run governance step 1 on Linux (VPS or COE) against the **exact same candidate Git
+SHA** and record the result. That gate is repository/governance validation — it does **not**
+require live LLM or MCP, so the VPS is acceptable even with both unavailable. COE live LLM/MCP
+validation is a later deployment acceptance step, outside this loop.
+
+Future governance maintenance (pin the external source SHA; stop treating a machine-specific
+absolute `clone_root_used` as semantic artifact content, or normalize it deterministically) is
+recorded in [`docs/operations/deferred_github_skill_factory_governance_maintenance.md`](../docs/operations/deferred_github_skill_factory_governance_maintenance.md)
+and is **deferred — not implemented in this plan**.
 
 Note the test `test_github_skill_expansion_factory_baseline.py::test_factory_generators_check_against_committed_artifacts`
 (line 208) shells out to the same three `--check` scripts, so it fails for exactly this reason —
@@ -311,13 +325,22 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
 
 - [ ] **P7** — Full regression + Mac end-to-end acceptance
   - **Do:** Run required suites and product scenarios A–K from the operator brief (exact, paraphrase, firewall SPL authoring shape, explicit review-only SPL with do-not-execute, rich Cisco detection, ambiguous suspicious, unknown investigation, MITRE, multi-turn time/entity correction, literal survival). Record LLM/MCP honest degrade on Mac. Do not fake services.
-  - **Verify:** `PATH="$PWD/.venv/bin:$PATH" ./scripts/run_stage3_governance_regression.sh` on the **host venv** (never in the container — read-only `/workspace` vs `REPO_ROOT=/workspace` + `cd backend && pytest`), with the `AI_SOC_GITHUB_SKILL_CLONE_ROOT` prerequisite resolved in P0. Full backend suite via `cd backend && ../.venv/bin/python -m pytest -q` or the container form; targeted authority/fidelity/HIL/MCP suites green; `cd frontend && npm test && npm run build` green; scenario matrix table filled in Evidence with pass/fail. Classify any failure as regression / env / pre-existing **by diffing against the P0 baseline** — per `CLAUDE.md`, there is no CI here, so do not assume a red test is pre-existing; diff failure **names**, not counts (`.pytest_cache` `lastfailed` accumulates across filtered runs). If the governance runner is still unavailable, that is an env blocker to record explicitly — do not silently substitute the plain pytest run for it.
+  - **Verify:** `PATH="$PWD/.venv/bin:$PATH" ./scripts/run_stage3_governance_regression.sh` on the **host venv** (never in the container — read-only `/workspace` vs `REPO_ROOT=/workspace` + `cd backend && pytest`). Governance **step 1 is a ratified `KNOWN_MACOS_GOVERNANCE_ENV_LIMITATION`** — record it as such, do not work around it, and do not let it block P1–P6; every other governance step must still run and pass on Mac. Full backend suite via `cd backend && ../.venv/bin/python -m pytest -q` or the container form; targeted authority/fidelity/HIL/MCP suites green; `cd frontend && npm test && npm run build` green; scenario matrix table filled in Evidence with pass/fail. Classify any failure as regression / env / pre-existing **by diffing against the P0 baseline** — per `CLAUDE.md`, there is no CI here, so do not assume a red test is pre-existing; diff failure **names**, not counts (`.pytest_cache` `lastfailed` accumulates across filtered runs). If the governance runner is still unavailable, that is an env blocker to record explicitly — do not silently substitute the plain pytest run for it.
   - **Depends on:** P0 (runner + baseline), P1–P6, P6.1
   - **Evidence:** _(fill when done)_
   - **Commit:** optional evidence-only commit under `docs/evals/` if needed
 
 - [ ] **P8** — Release / git synchronization record
   - **Do:** Confirm `architecture.md` byte-identical to freeze commit `49c5a494` for that file content path (`git diff 49c5a494 -- architecture.md` empty). Clean worktree. Record CODE_SHA, ENVIRONMENT=MAC, PROFILE, LLM_STATE, MCP_STATE, TEST_RESULTS, UI_ACCEPTANCE. Do not deploy to VPS/COE in this plan.
+    **RELEASE_READY additionally requires a Linux governance proof** (Mac acceptance stays primary for implementation/UI, but governance step 1 is proven invalid on macOS):
+
+    ```text
+    CODE_SHA          = <exact same final candidate SHA>
+    OS                = Linux (VPS acceptable)
+    governance step 1 = PASS
+    ```
+
+    Run it against the **exact same candidate SHA** — not a rebuild, not a later commit. This gate is repository/governance validation, so **do not require LLM or MCP to run it**; VPS is acceptable with both unavailable. COE live LLM/MCP validation is a later deployment acceptance step and is **not** part of this loop unless explicitly requested.
   - **Verify:** `git status --short`; `git diff 49c5a494 -- architecture.md`; Evidence block complete.
   - **Depends on:** P7
   - **Evidence:** _(fill when done)_
@@ -401,15 +424,16 @@ from their exact reviewed commit"). Each precedent advance is tied to **reviewed
 6. **Could it live in a non-frozen seam?** Partly — the request-authority primitives already went to `spl/request_authority.py` (non-frozen). The residue in `pipeline.py` is call-site wiring at the SPL stages; relocating it would need a new seam and risks duplicate authority, which this plan prohibits.
 7. **Collateral risk: none.** `3a5f5001` is the **only** commit in `08c8b40c..HEAD` touching any freeze path, so advancing the baseline to HEAD would bless exactly this one change and silently accept no unrelated protected drift.
 
-**Decision: `OPERATOR_DECISION_REQUIRED` (decision-rule branch B, not A).** The change is necessary
-and architecture-conformant, so reverting/relocating (branch A) is **not** recommended. But advancing
-the freeze baseline blesses 269 lines of **production `/chat`** change, and `CLAUDE.md` records
-production `/chat` live semantics as **frozen** for the current track while `3a5f5001` landed on a
-feature branch rather than through a reviewed plan item. Every precedent advance cites reviewed/approved
-work. Confirming that authorization is the operator's call, not an executor's — so the constant was
-**not** touched. Do **not** weaken or delete the assertion, and do not blanket-bless protected drift.
-If approved, the procedure is: advance `RACES_BASELINE_SHA` to the exact reviewed commit **and** append
-a justification comment in the established style.
+**Decision: RESOLVED 2026-08-21 — operator-approved, branch B.** `RACES_BASELINE_SHA` advanced from
+`08c8b40c` to the exact full SHA `3a5f500104fb7a9ba609fc70aeb4af5894cee2eb`, **pinned to that commit
+and deliberately NOT to HEAD**, so no later protected-file change is blessed. The assertion is
+unchanged and no allowlist was added; the in-file justification comment follows the established
+style. Approval covers **only** the previously reviewed `3a5f5001` production change.
+
+```text
+test_live_path_untouched_by_ec.py  →  8 passed   (freeze test GREEN)
+commit: 5cf66404 test(governance): advance RACES baseline for SPL authority fix
+```
 
   **Runner caveat — do not "verify" these in the container.** The same six files fail *worse* there
   (**33 failed**), because these tests shell out to git and `/app` is not a git repo. Git/freeze-aware and
