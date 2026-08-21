@@ -125,8 +125,17 @@ def attach_investigation_observation(state: dict[str, Any]) -> dict[str, Any]:
             continue
         purpose = str(step.get("purpose") or "planned_step")
         status = str(step.get("status") or "planned")
-        summary = "Step completed; evidence is recorded only when a governed source reference exists."
-        if status not in {"executed", "fallback_taken"}:
+        evidence_refs = [
+            str(item.get("evidence_id") or item.get("source_id") or "")
+            for item in source_evidence
+            if item.get("evidence_id") or item.get("source_id")
+        ][:20]
+        summary = (
+            "Governed evidence was collected for this step."
+            if evidence_refs
+            else "No matching governed evidence was found for this step."
+        )
+        if status not in {"executed", "fallback_taken", "completed"}:
             summary = "No governed evidence was produced by this step."
         progress.append(
             {
@@ -135,11 +144,7 @@ def attach_investigation_observation(state: dict[str, Any]) -> dict[str, Any]:
                 "status": status,
                 "source": str(step.get("resource_id") or ""),
                 "evidence_summary": summary,
-                "evidence_refs": [
-                    str(item.get("evidence_id") or item.get("source_id") or "")
-                    for item in source_evidence
-                    if item.get("evidence_id") or item.get("source_id")
-                ][:20],
+                "evidence_refs": evidence_refs,
                 "failure": str(step.get("status_reason") or execution.get("block_reason") or "") or None,
             }
         )

@@ -10,6 +10,7 @@ import { ProposedActionsPanel } from '@/components/ProposedActionsPanel';
 import { InvestigationLineagePanel } from '@/components/InvestigationLineagePanel';
 import { InvestigationProgressPanel, McpTransportBadge } from '@/components/InvestigationProgressPanel';
 import { InvestigationPlanApprovalCard } from '@/components/InvestigationPlanApprovalCard';
+import { InvestigationOutcomeCard } from '@/components/InvestigationOutcomeCard';
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { Stage3DTracePanel } from '@/components/Stage3DTracePanel';
 import { Badge } from '@/components/ui/badge';
@@ -163,6 +164,13 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
         ) : null}
         {showFullAnswer && message.trace?.execution ? (
           <ExecutionReconciliationCard execution={message.trace.execution} />
+        ) : null}
+        {showFullAnswer && message.trace?.investigation_outcome?.investigation_status ? (
+          <InvestigationOutcomeCard
+            outcome={message.trace.investigation_outcome}
+            progress={message.trace.investigation_progress}
+            runStatus={message.trace.investigation_run_status}
+          />
         ) : null}
         {showFullAnswer && message.trace?.ec_visual_lanes ? (
           <EcVisualLanesPanel lanes={message.trace.ec_visual_lanes} />

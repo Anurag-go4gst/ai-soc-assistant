@@ -3918,6 +3918,22 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         human_review=human_review if isinstance(human_review, dict) else None,
         severity_label=severity_decision.severity_label,
         action_capability=action_capability,
+        investigation_run_status=state.get("investigation_run_status")
+        if isinstance(state.get("investigation_run_status"), dict)
+        else None,
+        investigation_approval=state.get("investigation_approval")
+        if isinstance(state.get("investigation_approval"), dict)
+        else None,
+        resolved_query_contract=state.get("resolved_query_contract")
+        if isinstance(state.get("resolved_query_contract"), dict)
+        else None,
+        # P8 rides the approved investigation lifecycle instead of adding a flag.
+        # Ordinary/flag-off chat turns retain the v1 outcome byte shape.
+        outcome_v2_enabled=bool(state.get("investigation_run_status"))
+        or (
+            isinstance(state.get("investigation_approval"), dict)
+            and state["investigation_approval"].get("status") in {"approved", "cancelled"}
+        ),
     )
     state = {**state, "investigation_outcome": investigation_outcome.model_dump(mode="json")}
     emit_stage("generating_answer")

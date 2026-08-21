@@ -94,6 +94,9 @@ export interface PlaceholderResponse {
   investigation_planning_trace?: Record<string, unknown> | null;
   investigation_approval?: InvestigationApprovalState | null;
   approved_investigation_envelope?: ApprovedInvestigationEnvelope | null;
+  investigation_progress?: InvestigationProgressEvent[];
+  investigation_run_status?: InvestigationRunStatus | null;
+  investigation_outcome?: InvestigationOutcomeEnvelope | null;
   route_adjudication?: Record<string, unknown> | null;
   llm_plan_validation?: Record<string, unknown> | null;
   query_to_intent?: Record<string, unknown> | null;
@@ -130,6 +133,41 @@ export interface PlaceholderResponse {
   intent_dispatch?: Record<string, unknown> | null;
   pipeline_dispatch?: Record<string, unknown> | null;
   plan_dispatch?: Record<string, unknown> | null;
+}
+
+export interface InvestigationProgressEvent {
+  step_id: string;
+  purpose: string;
+  status: string;
+  source: string;
+  evidence_summary: string;
+  evidence_refs: string[];
+  failure?: string | null;
+}
+
+export interface InvestigationRunStatus {
+  status: string;
+  stop_reason?: string | null;
+  missing_evidence?: string[];
+  next_action?: string | null;
+  plan_delta_emitted?: boolean;
+}
+
+export interface InvestigationOutcomeEnvelope {
+  schema_version: string;
+  investigation_status?: 'completed' | 'incomplete' | 'blocked' | 'cancelled';
+  disposition: 'suspicious' | 'benign' | 'inconclusive' | 'blocked';
+  findings: string[];
+  supported_hypotheses: string[];
+  unconfirmed_hypotheses: string[];
+  evidence_refs: string[];
+  missing_evidence: string[];
+  limitations?: string[];
+  recommended_next_action?: string | null;
+  remediation_offer_required?: boolean;
+  severity_label?: string | null;
+  recommended_actions: string[];
+  llm_proposal_accepted: boolean;
 }
 
 export interface EcVisualLanes {
