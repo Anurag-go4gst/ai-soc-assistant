@@ -40,7 +40,11 @@ def maybe_attach_validated_investigation_plan(state: dict[str, Any]) -> dict[str
         capability_snapshot=snapshot,
     )
     if settings.ai_soc_investigation_planner_enabled:
-        llm = propose_investigation_plan_llm(query=query, baseline=baseline)
+        llm = propose_investigation_plan_llm(
+            query=query,
+            baseline=baseline,
+            turn_budget=state.get("llm_turn_budget"),
+        )
     else:
         from app.chat.guided_investigation_plan_llm import InvestigationPlanLlmResult
 

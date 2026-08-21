@@ -12,10 +12,26 @@ from app.llm.adapter.json_extractor import extract_first_json_object
 from app.llm.sidecar_clients import invoke_sidecar_role_with_metadata
 
 
+PLAN_DELTA_ROLE = "plan_delta_reasoner"
+_DELTA_TIMEOUT_SECONDS = 30.0
+
+
 @dataclass(frozen=True)
 class PlanDeltaReasonerResult:
     proposal: dict[str, Any] | None
     trace: dict[str, Any]
+
+
+def _delta_hop_timeout_seconds(turn_budget: Any | None) -> float | None:
+    """Cap the PlanDelta hop to the turn's remaining wall time (None = skip)."""
+    if turn_budget is None:
+        return _DELTA_TIMEOUT_SECONDS
+    if turn_budget.time_budget_exhausted():
+        return None
+    capped = turn_budget.capped_hop_timeout_seconds(role=PLAN_DELTA_ROLE, min_seconds=1.0)
+    if capped is None:
+        return None
+    return min(_DELTA_TIMEOUT_SECONDS, capped)
 
 
 def propose_plan_delta(
@@ -24,6 +40,7 @@ def propose_plan_delta(
     missing_evidence: list[str],
     prior_revision_fingerprint: str | None = None,
     raw_output_provider: Any | None = None,
+    turn_budget: Any | None = None,
 ) -> PlanDeltaReasonerResult:
     """Send only bounded vocabulary, never raw evidence, entities, or tool output."""
     prompt = json.dumps(
@@ -39,11 +56,24 @@ def propose_plan_delta(
         raw = str(raw_output_provider() or "")
         trace = {"role": "plan_delta_reasoner", "provider": "test_provider", "authority": "advisory", "attempted": True}
     else:
+        hop_timeout = _delta_hop_timeout_seconds(turn_budget)
+        if hop_timeout is None:
+            return PlanDeltaReasonerResult(
+                proposal=None,
+                trace={
+                    "role": PLAN_DELTA_ROLE,
+                    "provider": None,
+                    "authority": "advisory",
+                    "attempted": False,
+                    "skipped_reason": "turn_budget_exhausted",
+                    "accepted": False,
+                },
+            )
         invocation = invoke_sidecar_role_with_metadata(
-            role="plan_delta_reasoner",
+            role=PLAN_DELTA_ROLE,
             user_prompt=prompt,
             max_tokens=700,
-            timeout_seconds=30.0,
+            timeout_seconds=hop_timeout,
             temperature=0.0,
             allow_failover=False,
         )

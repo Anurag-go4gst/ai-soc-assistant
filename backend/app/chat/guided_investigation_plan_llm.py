@@ -112,11 +112,31 @@ def _build_user_prompt() -> str:
     )
 
 
+def _hop_timeout_seconds(turn_budget: Any | None) -> float | None:
+    """Cap the planner hop to whatever wall time the turn has left.
+
+    A reasoning endpoint that is merely slow must not be able to outlive the turn
+    deadline; the deterministic baseline is always available, so an exhausted turn
+    budget degrades instead of stalling ``/chat``. The optional-sidecar call quota
+    is deliberately not consulted: the planner is a first-class investigation hop,
+    not an advisory enrichment, so only wall clock bounds it.
+    """
+    if turn_budget is None:
+        return _PROPOSE_TIMEOUT_SECONDS
+    if turn_budget.time_budget_exhausted():
+        return None
+    capped = turn_budget.capped_hop_timeout_seconds(role=INVESTIGATION_PLAN_ROLE, min_seconds=1.0)
+    if capped is None:
+        return None
+    return min(_PROPOSE_TIMEOUT_SECONDS, capped)
+
+
 def propose_investigation_plan_llm(
     *,
     query: str,
     baseline: InvestigationPlan,
     llm_raw_output_provider: Any | None = None,
+    turn_budget: Any | None = None,
 ) -> InvestigationPlanLlmResult:
     """Invoke bounded LLM propose; caller runs Validator A on the returned proposal."""
     user_prompt = _build_user_prompt()
@@ -131,11 +151,23 @@ def propose_investigation_plan_llm(
         attempted = True
         circuit_state = "test"
     else:
+        hop_timeout = _hop_timeout_seconds(turn_budget)
+        if hop_timeout is None:
+            return InvestigationPlanLlmResult(
+                raw_llm=None,
+                proposal=None,
+                attempted=False,
+                timed_out=False,
+                provider_label=None,
+                dropped_reasons=["turn_budget_exhausted"],
+                latency_ms=0,
+                circuit_state=None,
+            )
         invocation = invoke_sidecar_role_with_metadata(
             role=INVESTIGATION_PLAN_ROLE,
             user_prompt=user_prompt,
             max_tokens=700,
-            timeout_seconds=_PROPOSE_TIMEOUT_SECONDS,
+            timeout_seconds=hop_timeout,
             temperature=0.0,
             allow_failover=False,
         )

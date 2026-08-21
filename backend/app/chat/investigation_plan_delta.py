@@ -121,6 +121,7 @@ def attach_plan_delta_decision(state: dict[str, Any]) -> dict[str, Any]:
             prior_revision_fingerprint=(
                 str(revisions[-1].get("revision_fingerprint") or "") if revisions else None
             ),
+            turn_budget=state.get("llm_turn_budget"),
         )
         proposal_raw = result.proposal
         reasoning_trace = result.trace

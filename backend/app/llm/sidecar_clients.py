@@ -44,6 +44,7 @@ _ROLE_TIMEOUT_SECONDS: dict[str, float] = {
     "governed_composer": 120.0,
     "guided_investigation_plan_proposer": 15.0,
     "investigation_planner": 120.0,
+    "plan_delta_reasoner": 30.0,
 }
 
 _REASONING_ALLOWED_ROLES: frozenset[str] = frozenset({"investigation_planner"})
