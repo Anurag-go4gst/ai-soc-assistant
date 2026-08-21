@@ -198,11 +198,17 @@ function liveEvidenceRowsFor(trace: PlaceholderResponse): EvidenceRow[] {
 
   const splunkEvidence = trace.source_evidence?.filter((item) => item.source_type === 'splunk_mcp' || item.source_type === 'splunk_mcp_fixture') ?? [];
   if (splunkEvidence.length) {
-    const count = splunkEvidence.reduce((sum, item) => sum + (item.result_count ?? 0), 0);
+    const collected = splunkEvidence.filter((item) => item.collection_status === 'collected');
+    const count = collected.reduce((sum, item) => sum + (item.result_count ?? 0), 0);
+    const statuses = Array.from(new Set(splunkEvidence.map((item) => safeText(item.collection_status ?? 'unknown'))));
     rows.push({
-      title: 'Splunk evidence',
-      detail: `Splunk SourceEvidence envelope present`,
-      meta: `${count} row${count === 1 ? '' : 's'} reported by response envelope`,
+      title: collected.length ? 'Splunk evidence' : 'Splunk evidence not collected',
+      detail: collected.length
+        ? 'Collected Splunk SourceEvidence envelope present'
+        : 'Splunk SourceEvidence envelope is blocked, skipped, or not executed',
+      meta: collected.length
+        ? `${count} row${count === 1 ? '' : 's'} collected by response envelope`
+        : `status ${statuses.join(', ')}`,
     });
   }
 

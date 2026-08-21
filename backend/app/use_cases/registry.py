@@ -32,6 +32,19 @@ def get_use_case(use_case_id: str) -> UseCaseDefinition | None:
 import math as _math
 from collections import Counter as _Counter
 
+_GENERIC_SOURCE_TERMS = {
+    "firepower",
+    "cisco",
+    "windows",
+    "linux",
+    "splunk",
+    "firewall",
+    "vpn",
+    "proxy",
+    "endpoint",
+    "dns",
+}
+
 
 def _pattern_present(normalized_query: str, pattern: str) -> bool:
     """Containment, but the pattern must START at a word boundary.
@@ -79,6 +92,30 @@ def _bind_diagnostics(normalized_query: str, matched: list[str], df: _Counter, c
     }
 
 
+def _generic_source_only_utility_match(query: str, matched_patterns: list[str]) -> bool:
+    """True when a catalog row matched only generic source/vendor vocabulary."""
+
+    normalized = " ".join(str(query or "").lower().split())
+    matched = {" ".join(str(item).lower().split()) for item in matched_patterns if str(item).strip()}
+    if not matched or not matched.issubset(_GENERIC_SOURCE_TERMS):
+        return False
+    utility_ask = bool(
+        re.search(r"\b(?:show|search|give me|list|draft|write|generate|create|build)\b", normalized)
+        and (
+            " logs" in normalized
+            or " log " in normalized
+            or "spl" in normalized
+            or "splunk" in normalized
+            or "index=" in normalized
+            or "sourcetype=" in normalized
+        )
+    )
+    return utility_ask and not re.search(
+        r"\b(?:investigate|suspicious|cleartext|http|vnc|phase-?1|rtu|credential|brute|beacon|exfil)\b",
+        normalized,
+    )
+
+
 def match_use_cases(query: str, *, limit: int = 3) -> list[UseCaseSelection]:
     from app.chat.query_signals import extract_query_signals, term_is_negated
 
@@ -107,6 +144,8 @@ def match_use_cases(query: str, *, limit: int = 3) -> list[UseCaseSelection]:
         ):
             matched = []
         if not matched:
+            continue
+        if _generic_source_only_utility_match(query, matched):
             continue
         if _use_case_metadata_blocks(use_case, normalized, signals):
             continue

@@ -159,7 +159,7 @@ def _draft_spl_text(
     *,
     candidate_spl: dict[str, Any] | None = None,
 ) -> str:
-    if _is_universal_spl_utility(draft_preview, candidate_spl):
+    if _is_concise_spl_utility(draft_preview, candidate_spl):
         utility_spl = str((candidate_spl or {}).get("candidate_spl") or "").strip()
         if utility_spl:
             return utility_spl
@@ -317,6 +317,7 @@ def _spl_artifact_handoff_trace_lines(handoff: dict[str, Any] | None) -> list[st
 
 _UNIVERSAL_UTILITY_TITLE = "Review-only universal SPL draft. This was not executed."
 _UNIVERSAL_UTILITY_FAMILY = "universal_timestamp_spl"
+_USER_BOUND_UTILITY_FAMILY = "user_bound_spl_authoring"
 
 
 def _is_universal_spl_utility(
@@ -333,6 +334,18 @@ def _is_universal_spl_utility(
     return (
         dp.get("detection_family") == _UNIVERSAL_UTILITY_FAMILY
         or cs.get("detection_family") == _UNIVERSAL_UTILITY_FAMILY
+    )
+
+
+def _is_concise_spl_utility(
+    draft_preview: dict[str, Any] | None,
+    candidate_spl: dict[str, Any] | None,
+) -> bool:
+    dp = draft_preview if isinstance(draft_preview, dict) else {}
+    cs = candidate_spl if isinstance(candidate_spl, dict) else {}
+    return _is_universal_spl_utility(draft_preview, candidate_spl) or (
+        dp.get("detection_family") == _USER_BOUND_UTILITY_FAMILY
+        or cs.get("detection_family") == _USER_BOUND_UTILITY_FAMILY
     )
 
 
@@ -397,6 +410,17 @@ def render_universal_spl_utility_answer(
     return "\n".join(lines).strip()
 
 
+def render_user_bound_spl_utility_answer(
+    *,
+    candidate_spl: dict[str, Any] | None = None,
+) -> str:
+    draft_spl = str((candidate_spl or {}).get("candidate_spl") or "").strip()
+    lines = ["Review-only - not executed", ""]
+    if draft_spl:
+        lines.append(draft_spl)
+    return "\n".join(lines).strip()
+
+
 def render_review_only_spl_answer(
     *,
     analyst_response: Any,
@@ -420,6 +444,8 @@ def render_review_only_spl_answer(
             draft_preview=draft_preview,
             candidate_spl=candidate_spl,
         )
+    if _is_concise_spl_utility(draft_preview, candidate_spl):
+        return render_user_bound_spl_utility_answer(candidate_spl=candidate_spl)
 
     lines: list[str] = [_MAIN_TITLE, ""]
 
@@ -547,7 +573,7 @@ def apply_review_only_spl_render(
         is_t2_spl_native_candidate(candidate_spl)
         and str((candidate_spl or {}).get("candidate_spl") or "").strip()
     ) or (
-        _is_universal_spl_utility(draft_preview, candidate_spl)
+        _is_concise_spl_utility(draft_preview, candidate_spl)
         and str((candidate_spl or {}).get("candidate_spl") or "").strip()
     )
     if not has_lab_draft:
@@ -572,11 +598,16 @@ def apply_review_only_spl_render(
     # Concise SPL-first card for explicit universal/template-free authoring only.
     # Governance fields on the run_contract are untouched; this only suppresses the
     # SOC-investigation card sections for this narrow utility mode.
-    if _is_universal_spl_utility(draft_preview, candidate_spl):
+    if _is_concise_spl_utility(draft_preview, candidate_spl):
         utility_spl = _draft_spl_text(analyst_response, draft_preview, candidate_spl=candidate_spl)
-        card_summary = render_universal_spl_utility_summary(candidate_spl=candidate_spl)
+        is_universal = _is_universal_spl_utility(draft_preview, candidate_spl)
+        card_summary = (
+            render_universal_spl_utility_summary(candidate_spl=candidate_spl)
+            if is_universal
+            else "Review-only SPL artifact displayed exactly from deterministic user-bound constraints. Nothing was executed."
+        )
         updates = {
-            "finding_title": _UNIVERSAL_UTILITY_TITLE,
+            "finding_title": _UNIVERSAL_UTILITY_TITLE if is_universal else "Review-only SPL draft. This was not executed.",
             "scenario_label": None,
             "response_profile": "spl_only",
             "investigation_steps": [],

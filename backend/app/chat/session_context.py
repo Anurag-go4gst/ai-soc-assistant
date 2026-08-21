@@ -457,11 +457,16 @@ def _human_review_status(human_review: Any) -> str | None:
 
 
 _SCOPE_DELTA_PREFIXES = ("what about ", "how about ", "and for ", "also for ")
+_SCOPE_REPLACEMENT_PREFIXES = ("no, use only ", "no use only ", "actually check ")
 
 
 def _generic_scope_delta(normalized: str) -> str | None:
     """Shape-only follow-up delta. Not a catalogue of investigation phrases."""
     for prefix in _SCOPE_DELTA_PREFIXES:
+        if normalized.startswith(prefix):
+            remainder = normalized[len(prefix) :].strip(" ?.")
+            return remainder or None
+    for prefix in _SCOPE_REPLACEMENT_PREFIXES:
         if normalized.startswith(prefix):
             remainder = normalized[len(prefix) :].strip(" ?.")
             return remainder or None

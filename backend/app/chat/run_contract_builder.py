@@ -150,7 +150,7 @@ def _is_spl_utility_authoring(state: ChatPipelineState, evidence_plan: dict[str,
     if evidence_plan.get("answer_mode") == "spl_utility_authoring":
         return True
     candidate = state.get("candidate_spl") if isinstance(state.get("candidate_spl"), dict) else {}
-    if candidate.get("detection_family") == "universal_timestamp_spl":
+    if candidate.get("detection_family") in {"universal_timestamp_spl", "user_bound_spl_authoring"}:
         return True
     spl_validation = state.get("spl_validation") if isinstance(state.get("spl_validation"), dict) else {}
     return str(spl_validation.get("review_required_reason") or "") == "universal_spl_authoring_review_only"
@@ -217,7 +217,7 @@ def build_run_contract(
     )
 
     # Evidence-derived authority is projected from the gate, not re-decided here.
-    effective_hil_required = gate.effective_hil_required
+    effective_hil_required = False if utility_spl_authoring else gate.effective_hil_required
     allow_live = gate.allow_live_result_language
     allow_mitre = gate.allow_mitre_mapping
     allow_severity = gate.allow_severity_assessment

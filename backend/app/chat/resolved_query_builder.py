@@ -220,6 +220,8 @@ def apply_session_continuity(
     if not time_scope:
         prior_window = prior_entities.get("time_window")
         time_scope = prior_window if isinstance(prior_window, str) else None
+    if contract.time_scope:
+        merged_entities["time_window"] = contract.time_scope
 
     intent_family = contract.intent_family
     answer_goal = contract.answer_goal

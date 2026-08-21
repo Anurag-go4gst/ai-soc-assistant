@@ -12,8 +12,14 @@ from app.schemas.responses import CandidateSplEnvelope, SplDraftPreviewEnvelope
 from app.spl.spl_slot_binding_validator import extract_natural_language_slots
 from app.spl.source_profile_store import save_persisted_source_profile
 from app.spl.template_compatibility import check_template_compatibility
+from app.spl.request_authority import (
+    build_deterministic_request_contract,
+    check_template_semantic_fidelity,
+)
+from app.spl.template_registry import get_spl_template
 from app.spl.template_query_bindings import customize_template_spl, validate_template_slots_for_render
 from app.spl.user_constraint_bindings import build_user_constraint_bindings
+from app.use_cases.registry import match_use_cases
 
 
 MODBUS_QUERY = (
@@ -416,6 +422,80 @@ def test_directionality_src_dest_ips() -> None:
 def test_smb_service_binding() -> None:
     slots = extract_natural_language_slots(SMB_QUERY)
     assert slots.get("service") == "smb"
+
+
+def test_sufficient_review_only_spl_rejects_unsupported_rich_cisco_template() -> None:
+    query = (
+        "Give me only a review-only SPL query for index=pgcil_soc and "
+        "sourcetype=cisco:firepower for the last 30 days. Do not execute it."
+    )
+    bindings = build_user_constraint_bindings(
+        query,
+        allowed_indexes=("pgcil_soc",),
+        allowed_sourcetypes=("cisco:firepower",),
+    )
+    contract = build_deterministic_request_contract(
+        query_understanding=None,
+        query_signals={"explicit_spl_authoring": True, "review_only_spl": True},
+        bindings=bindings,
+    )
+    assert contract.sufficient_for_spl_authoring is True
+
+    decision = check_template_semantic_fidelity(
+        contract=contract,
+        template=get_spl_template("cisco_cleartext_to_rtu"),
+    )
+
+    assert decision.compatible is False
+    reasons = " ".join(decision.rejected_reasons)
+    assert "dest_port:80" in reasons
+    assert "app:HTTP" in reasons
+    assert "tag:phase1_rtu" in reasons
+    assert "subsearch:search" in reasons
+
+
+def test_generic_source_only_utility_does_not_bind_rich_cisco_use_case() -> None:
+    assert not match_use_cases("Show me Firepower logs for the last 7 days")
+
+
+def test_legitimate_cisco_detection_prompt_still_binds_template() -> None:
+    matches = match_use_cases("Find Cisco Firepower cleartext HTTP or VNC sessions toward Phase-1 RTUs")
+    assert matches
+    assert matches[0].use_case_id == "cisco_cleartext_to_rtu"
+
+
+def test_semantic_delta_gate_rejects_negative_material_additions() -> None:
+    query = "Give me review-only SPL for index=pgcil_soc sourcetype=cisco:firepower last 30 days. Do not execute."
+    bindings = build_user_constraint_bindings(
+        query,
+        allowed_indexes=("pgcil_soc",),
+        allowed_sourcetypes=("cisco:firepower",),
+    )
+    contract = build_deterministic_request_contract(
+        query_understanding=None,
+        query_signals={"explicit_spl_authoring": True, "review_only_spl": True},
+        bindings=bindings,
+    )
+
+    class Template:
+        spl_text = (
+            "search index=pgcil_soc sourcetype=cisco:firepower earliest=-7d latest=now "
+            "protocol=ssh dest_port=22 src_ip=198.51.100.42 "
+            "| lookup privileged_assets.csv host OUTPUT owner "
+            "| where dest_ip IN ([ search index=other sourcetype=other earliest=-7d latest=now | fields dest_ip ])"
+        )
+
+    decision = check_template_semantic_fidelity(
+        contract=contract,
+        template=Template(),
+    )
+    assert decision.compatible is False
+    reasons = " ".join(decision.rejected_reasons)
+    assert "protocol:ssh" in reasons
+    assert "dest_port:22" in reasons
+    assert "lookup:privileged_assets.csv" in reasons
+    assert "subsearch:search" in reasons
+    assert "index:other" in reasons
 
 
 def test_auth_success_template_binds_host() -> None:

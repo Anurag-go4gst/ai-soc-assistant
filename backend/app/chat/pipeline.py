@@ -263,6 +263,10 @@ from app.llm.t2_advisory_latency_policy import (
 )
 from app.use_cases.answer_packs import answer_pack_summary, reviewed_answer_pack
 from app.spl.source_profile_bindings import build_source_profile_binding_slots
+from app.spl.request_authority import (
+    build_deterministic_request_contract,
+    check_template_semantic_fidelity,
+)
 from app.spl.template_compatibility import check_template_compatibility
 from app.spl.template_query_bindings import customize_template_spl_with_trace
 from app.spl.slot_constraint_projection import (
@@ -2582,6 +2586,25 @@ def graph_node_spl_postprocessor(state: ChatPipelineState) -> ChatPipelineState:
     request = state["request"]
     query_text = state.get("effective_query") or request.message
     family, llm_gen = _postprocessor_family_from_candidate(candidate)
+    if family == "user_bound_spl_authoring":
+        trace = candidate.get("review_only_spl_postprocessor_trace")
+        trace = trace if isinstance(trace, dict) else {}
+        return advance_dispatch_cursor(
+            {
+                **state,
+                "candidate_spl": {
+                    **candidate,
+                    "postprocessor_applied": False,
+                    "review_only_spl_postprocessor_trace": {
+                        **trace,
+                        "postprocessor_evaluated": True,
+                        "postprocessor_applied": False,
+                        "skipped_reason": "user_bound_spl_authoring_scope_already_authoritative",
+                    },
+                },
+            },
+            PipelineStage.spl_postprocessor,
+        )
     dispatch = state.get("pipeline_dispatch") if isinstance(state.get("pipeline_dispatch"), dict) else {}
     decision = dispatch.get("decision") if isinstance(dispatch.get("decision"), dict) else {}
     slot_handoff = decision.get("slot_handoff") or candidate.get("user_constraint_bindings")
@@ -3155,6 +3178,9 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         mcp_capability = "SAVED_SEARCH_EXECUTION"
         if not requested_mcp_tool:
             requested_mcp_tool = str(candidate_spl.get("planned_tool") or "splunk_run_saved_search")
+    mcp_allowed = _mcp_allowed(state)
+    if isinstance(candidate_spl, dict) and candidate_spl.get("detection_family") == "user_bound_spl_authoring":
+        mcp_allowed = False
     execution, human_review = _execution_stage(
         trace_id=state["trace_id"],
         selected_skill=_effective_routing_skill(state),
@@ -3166,7 +3192,7 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         execution_intent=execution_intent,
         mcp_capability=mcp_capability,
         llm_lineage_auto_eligible=llm_lineage_auto_eligible,
-        mcp_allowed=_mcp_allowed(state),
+        mcp_allowed=mcp_allowed,
         execution_review_action=getattr(request, "execution_review_action", None),
         analyst_provided_spl=getattr(request, "analyst_provided_spl", None),
         pending_execution=pending_execution,
@@ -3354,7 +3380,11 @@ def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
     query_text = state.get("effective_query") or request.message
     query_understanding = state.get("query_understanding")
     utility_signals = extract_query_signals(query_text, query_understanding)
-    if is_universal_utility_spl_authoring(query_text, utility_signals):
+    if is_universal_utility_spl_authoring(query_text, utility_signals) or _is_deterministic_spl_utility_authoring(
+        query_text,
+        query_understanding=query_understanding,
+        query_signals=utility_signals,
+    ):
         trace_id = str(state.get("trace_id") or "")
         if trace_id:
             try:
@@ -3402,6 +3432,24 @@ def _utility_spl_rag_skipped_payload() -> dict[str, Any]:
         "direct_to_llm": False,
         "llm_selection_enabled": False,
     }
+
+
+def _is_deterministic_spl_utility_authoring(
+    query: str,
+    *,
+    query_understanding: Any | None = None,
+    query_signals: dict[str, Any] | None = None,
+) -> bool:
+    signals = query_signals if isinstance(query_signals, dict) else extract_query_signals(query, query_understanding)
+    if not (signals.get("explicit_spl_authoring") or signals.get("review_only_spl")):
+        return False
+    bindings = build_user_constraint_bindings(query, query_understanding=query_understanding)
+    contract = build_deterministic_request_contract(
+        query_understanding=query_understanding,
+        query_signals=signals,
+        bindings=bindings,
+    )
+    return bool(contract.sufficient_for_spl_authoring and contract.response_shape == "spl_only")
 
 
 def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState:
@@ -5348,6 +5396,16 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             governance_trace = governance_trace.model_copy(
                 update={"effective_hil_required": final_hil}
             )
+    if (
+        isinstance(human_review, dict)
+        and isinstance(candidate_spl, dict)
+        and candidate_spl.get("detection_family") == "user_bound_spl_authoring"
+        and candidate_spl.get("execution_eligible") is False
+        and isinstance(execution, dict)
+        and execution.get("executed_spl") is None
+        and run_contract.effective_hil_required is False
+    ):
+        human_review = {**human_review, "required": False, "effective_hil_required": False}
 
     visibility: dict[str, Any] = {}
     control_plane_trace = None
@@ -5513,7 +5571,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         synthesis_status=synthesis_status,
         composer_trace=composer_trace,
         human_review=human_review if isinstance(human_review, dict) else None,
-        final_answer_validation=final_answer_validation,
+        final_answer_validation=None
+        if (
+            isinstance(candidate_spl, dict)
+            and candidate_spl.get("detection_family") == "user_bound_spl_authoring"
+            and candidate_spl.get("execution_eligible") is False
+            and isinstance(execution, dict)
+            and execution.get("executed_spl") is None
+        )
+        else final_answer_validation,
         analyst_response=analyst_response,
     )
     # Review-only SPL drafts: one dedicated renderer owns the visible answer (fixed
@@ -5613,6 +5679,13 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     )
     analyst_response = _strip_priority_prefixes_when_severity_unassigned(analyst_response)
     message = _collapse_top_level_message_when_card_owns_sections(message, analyst_response)
+    if (
+        not str(message or "").strip()
+        and isinstance(candidate_spl, dict)
+        and candidate_spl.get("detection_family") == "user_bound_spl_authoring"
+        and str(candidate_spl.get("candidate_spl") or "").strip()
+    ):
+        message = "Review-only - not executed\n\n" + str(candidate_spl.get("candidate_spl") or "").strip()
     visible_spl_draft_preview = (
         None
         if _is_universal_spl_authoring_review(candidate_spl, spl_validation)
@@ -7620,6 +7693,26 @@ def _candidate_spl_stage(
         template_id=template_id,
         resolved_query_contract=resolved_query_contract,
     )
+    request_contract = build_deterministic_request_contract(
+        query_understanding=query_understanding,
+        query_signals=signals,
+        bindings=user_bindings,
+    )
+    if template is None and request_contract.sufficient_for_spl_authoring:
+        return _candidate_from_user_bound_review_only_skeleton(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            request_contract=request_contract.to_dict(),
+            fidelity_decision={
+                "compatible": True,
+                "rejected_reasons": [],
+                "elements": [],
+                "decision_reason": "t1_t3_sufficient_no_catalog_template_needed",
+            },
+            rejected_template_id=None,
+            spl_governance=spl_governance,
+        )
     if runtime_profile is not None and _dispatch_v2_on:
         catalogue_template_id = _RUNTIME_PROFILE_CATALOGUE_TEMPLATES.get(
             getattr(runtime_profile, "source_profile_id", "") or ""
@@ -7914,6 +8007,126 @@ def _candidate_spl_stage(
     return candidate_payload, validation_payload
 
 
+def _candidate_from_user_bound_review_only_skeleton(
+    *,
+    trace_id: str,
+    skill: str,
+    user_query: str,
+    request_contract: dict[str, Any],
+    fidelity_decision: dict[str, Any],
+    rejected_template_id: str | None,
+    spl_governance: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Neutral fallback when a sufficient T1-T3 SPL ask rejects rich semantics."""
+
+    from app.spl.spl_generation_safety import apply_spl_generation_safety
+
+    index = str((request_contract.get("index") or ["<your_index>"])[0] or "<your_index>").strip()
+    sourcetype = str((request_contract.get("sourcetype") or [""])[0] or "").strip()
+    time_window = str(request_contract.get("time_window") or "earliest=-24h latest=now").strip()
+    search_parts = [f"search index={index}"]
+    if sourcetype:
+        search_parts.append(f"sourcetype={sourcetype}")
+    search_parts.append(time_window)
+    group_field = "sourcetype" if sourcetype else "index"
+    final_spl = " ".join(search_parts) + f" | stats count by {group_field} | sort - count | head 100"
+    validation = validate_spl(final_spl)
+    profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
+    trace = {
+        "semantic_fidelity": fidelity_decision,
+        "deterministic_request_contract": request_contract,
+        "rejected_template_id": rejected_template_id,
+        "used_user_bound_skeleton": True,
+        "bound_slots": {
+            "index": index,
+            "sourcetype": sourcetype,
+            "time_window": request_contract.get("time_window"),
+        },
+    }
+    postprocessor_trace = {
+        "postprocessor_applied": False,
+        "final_spl_authority": "t1_t3_user_bound_skeleton",
+        "reason": "explicit_request_contract_already_bound_index_sourcetype_time",
+    }
+    candidate_payload = {
+        "trace_id": trace_id,
+        "skill": skill,
+        "user_query": user_query,
+        "candidate_spl": final_spl,
+        "generation_mode": "deterministic_user_bound_skeleton",
+        "confidence": 0.9,
+        "assumptions": [
+            "T1-T3 supplied sufficient SPL authoring constraints.",
+            "Catalog template semantics were rejected because they added unsupported material predicates.",
+            "Candidate is review-only and was not executed.",
+        ],
+        "warnings": ["unsupported_template_semantics_rejected"],
+        "selected_candidate_spl_provider": "deterministic_user_bound_skeleton",
+        "fallback_required": False,
+        "candidate_spl_generated": True,
+        "validation_required": True,
+        "execution_eligible": False,
+        "execution_enabled": False,
+        "review_required": False,
+        "capability_profile": profile.model_dump(),
+        "template_id": None,
+        "rejected_template_id": rejected_template_id,
+        "detection_family": "user_bound_spl_authoring",
+        "user_constraint_bindings": {
+            "deterministic_request_contract": request_contract,
+        },
+        "spl_binding_trace": trace,
+        "postprocessor_applied": bool(postprocessor_trace.get("postprocessor_applied")),
+        "review_only_spl_postprocessor_trace": postprocessor_trace,
+    }
+    validation_payload = {
+        "approved": bool(validation["approved"]),
+        "normalized_spl": validation["normalized_spl"],
+        "reject_reasons": list(validation["reject_reasons"] or []),
+        "warnings": list(validation["warnings"] or []),
+        "enforced_limits": validation["enforced_limits"],
+        "policy_version": validation["policy_version"],
+        "selected_candidate_spl_provider": "deterministic_user_bound_skeleton",
+        "candidate_provider_reason": "t1_t3_sufficient_template_semantics_rejected",
+        "saia_available": False,
+        "fallback_required": False,
+        "spl_explanation_provider": "rule_based",
+        "spl_optimization_provider": "rule_based",
+        "spl_guidance_provider": "scd_rag",
+        "optimization_applied": False,
+        "optimization_revalidation_status": None,
+        "optimization_revalidation_approved": False,
+        "spl_optimization_steps": [],
+        "spl_optimization_rejected": False,
+        "spl_optimization_reject_reason": None,
+        "capability_profile": profile.model_dump(),
+        "template_id": None,
+        "rejected_template_id": rejected_template_id,
+        "review_required_reason": "review_only_spl_artifact_display",
+        "semantic_fidelity": fidelity_decision,
+        "deterministic_request_contract": request_contract,
+        "review_only_spl_postprocessor_trace": postprocessor_trace,
+        "execution_eligible": False,
+        "execution_enabled": False,
+        "review_required": False,
+    }
+    _merge_spl_governance(
+        candidate_payload,
+        validation_payload,
+        spl_governance
+        or {
+            "spl_template_status": "user_bound_skeleton",
+            "runtime_spl_governance_allowed": True,
+            "execution_eligible": False,
+            "human_review_required": False,
+        },
+    )
+    apply_spl_generation_safety(candidate_payload, validation_payload, spl=final_spl)
+    candidate_payload["execution_eligible"] = False
+    validation_payload["execution_eligible"] = False
+    return candidate_payload, validation_payload
+
+
 def _candidate_from_default_template(
     *,
     trace_id: str,
@@ -7986,6 +8199,25 @@ def _candidate_from_default_template(
         template_id=template.template_id,
         resolved_query_contract=resolved_query_contract,
     )
+    request_contract = build_deterministic_request_contract(
+        query_understanding=None,
+        query_signals=extract_query_signals(user_query),
+        bindings=bindings,
+    )
+    pre_render_fidelity = check_template_semantic_fidelity(
+        contract=request_contract,
+        template=template,
+    )
+    if not pre_render_fidelity.compatible and request_contract.sufficient_for_spl_authoring:
+        return _candidate_from_user_bound_review_only_skeleton(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            request_contract=request_contract.to_dict(),
+            fidelity_decision=pre_render_fidelity.to_dict(),
+            rejected_template_id=template.template_id,
+            spl_governance=spl_governance,
+        )
     compatibility = check_template_compatibility(template.template_id, bindings, template=template)
     force_skeleton = compatibility.use_user_bound_skeleton
     if (
@@ -8020,6 +8252,23 @@ def _candidate_from_default_template(
         force_user_skeleton=force_skeleton,
     )
     binding_trace["template_compatibility"] = compatibility.to_dict()
+    post_render_fidelity = check_template_semantic_fidelity(
+        contract=request_contract,
+        template=template,
+        rendered_spl=rendered_spl,
+    )
+    binding_trace["semantic_fidelity"] = post_render_fidelity.to_dict()
+    binding_trace["deterministic_request_contract"] = request_contract.to_dict()
+    if not post_render_fidelity.compatible and request_contract.sufficient_for_spl_authoring:
+        return _candidate_from_user_bound_review_only_skeleton(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            request_contract=request_contract.to_dict(),
+            fidelity_decision=post_render_fidelity.to_dict(),
+            rejected_template_id=template.template_id,
+            spl_governance=spl_governance,
+        )
     # Env-Knowledge <stem> resolution happens once at template load
     # (load_spl_templates), so template.spl_text is already deployment-bound here.
     validation = validate_spl(rendered_spl, template_profile=template.validation_rules)
@@ -10021,7 +10270,10 @@ def _context_stage(
     telemetry = _routes_chat().get_telemetry_connector()
     if soc_kb_retrieval is None:
         utility_signals = extract_query_signals(query)
-        if is_universal_utility_spl_authoring(query, utility_signals):
+        if is_universal_utility_spl_authoring(query, utility_signals) or _is_deterministic_spl_utility_authoring(
+            query,
+            query_signals=utility_signals,
+        ):
             soc_kb_retrieval = _utility_spl_rag_skipped_payload()
             try:
                 telemetry.record_rag_retrieval(
@@ -10068,6 +10320,15 @@ def _context_stage(
         query=query,
         evidence_plan=evidence_plan,
         reference_resolution=reference_resolution,
+    )
+    source_evidence = sorted(
+        source_evidence,
+        key=lambda item: (
+            0
+            if item.get("source_type") == "splunk_mcp"
+            and item.get("collection_status") == "collected"
+            else 1
+        ),
     )
     telemetry.record_step(
         trace_id,
