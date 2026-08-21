@@ -85,6 +85,7 @@ _CANONICAL_CHANNELS = (
     "effective_catalogue_match_path",
     "pending_handoff_id",
     "pending_handoff_version",
+    "capability_snapshot",
 )
 
 

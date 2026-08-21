@@ -426,6 +426,8 @@ class Settings(BaseSettings):
     # Agentic investigation P0: investigation-shaped Final RQCs wait for plan/envelope
     # before ResourcePlan commit. Default false — flag-off preserves immediate RP commit.
     ai_soc_investigation_plan_before_resource_plan_enabled: bool = False
+    # Agentic investigation P1: attach CapabilitySnapshot after Final RQC. Default false.
+    ai_soc_capability_snapshot_enabled: bool = False
     # Canonical handoff durable store TTL (PostgreSQL).
     ai_soc_handoff_store_ttl_minutes: int = 60
     # Item 28 — bounded retention purge for canonical_handoffs / canonical_planning_events.

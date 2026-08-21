@@ -36,6 +36,7 @@ from app.chat.canonical_policy_boundary import resolve_canonical_policy_block_re
 from app.chat.canonical_mode import build_typed_planning_failure_state
 from app.chat.plan_evidence_from_canonical import plan_evidence_from_canonical
 from app.chat.investigation_shaped import is_investigation_shaped_final_rqc
+from app.chat.capability_snapshot import maybe_attach_capability_snapshot
 from app.chat.planning_telemetry import (
     emit_clarification_requested,
     emit_guided_resolution_started,
@@ -1037,6 +1038,12 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     )
     resolved_query_contract = resolved_query.model_dump(mode="json")
     state = {**state, "resolved_query_contract": resolved_query_contract}
+    # P1: CapabilitySnapshot attaches after Final RQC (flag-gated). Same snapshot
+    # whether T4 ran — vocabulary is need × availability only.
+    state = maybe_attach_capability_snapshot(
+        state,
+        resolved_query_contract=resolved_query_contract,
+    )
 
     canonical = build_canonical_planning_input(
         query=intake.query,
