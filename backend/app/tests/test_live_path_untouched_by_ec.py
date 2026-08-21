@@ -113,7 +113,7 @@ def test_ec_changes_stay_within_allowlist() -> None:
 # approved non-RACES work. Advanced through canonical investigation P5: P0-P5
 # intentionally changed the production authority path and did not import EC
 # fixtures or demo authority into it.
-RACES_BASELINE_SHA = "9852212a"
+RACES_BASELINE_SHA = "73022de7"
 
 
 def _git_name_only(rev_range: str) -> list[str]:
