@@ -9,11 +9,30 @@
     "imported_at": "2026-04-03T00:00:00Z",
     "status": "published",
     "validation_errors": [],
-    "validation_warnings": ["COE sample content only; not PGCIL policy."],
+    "validation_warnings": [
+      "COE sample content only; not PGCIL policy."
+    ],
     "document_count": 9,
     "entry_count": 13,
     "checksum_sha256": "fixture-seed-stage-3f",
     "generated_by": "fixture",
     "source_document_ref": "backend/app/knowledge/fixtures"
+  },
+  {
+    "import_batch_id": "investigation-sop-seed-v1",
+    "source_file_name": "pasted_knowledge.json",
+    "source_type": "json",
+    "target_collection_id": "soc_sop",
+    "environment": "coe",
+    "imported_by": "admin",
+    "imported_at": "2026-08-21T06:59:10.429422+00:00",
+    "status": "ready_for_review",
+    "validation_errors": [],
+    "validation_warnings": [],
+    "document_count": 5,
+    "entry_count": 6,
+    "checksum_sha256": "973f60f9dac59c7011c357f705e027215797e9a4ca439de08fb9a322480c86fd",
+    "generated_by": "manual_json",
+    "source_document_ref": null
   }
 ]
