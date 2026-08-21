@@ -872,7 +872,9 @@ Split two kinds of change:
 
 **Contracts.** Envelope fields from §13.1. Analyst-visible plan text: what will be checked, why it matters, scope/time, important resources. Buttons: Run / Edit / Cancel. Edit → DET revalidation. Meaning/entity/time/objective change that stale-ates Final RQC → re-enter clarification; do not compile against the previous RQC. Cancel → no compile, no execute. Follow-up scope expansion (P13) must mint a **new** envelope, not mutate this one.
 
-**Feature flags.** `AI_SOC_INVESTIGATION_ENVELOPE_ENABLED`, default false.
+**Feature flags.** No new P4 flag (user override 2026-08-21). The envelope HIL is reachable only
+from the existing `AI_SOC_INVESTIGATION_PLAN_BEFORE_RESOURCE_PLAN_ENABLED` wait-state. Infrastructure
+readiness remains registry/config state, not a rollout flag.
 
 **Tests.** User-rejected plan does not execute. Edited plan requires revalidation. T1–T3 and T4 paths present the **same** approval model. Clarification still happens before planning. Plan card is human-readable (not raw JSON-only). No EC fixture payload on this API.
 
@@ -882,7 +884,8 @@ Split two kinds of change:
 
 **Dependencies.** P3.
 
-**Rollback.** Flag off → ValidatedInvestigationPlan visible or P0 wait-state; no execute.
+**Rollback.** Turn off the existing P0 wait-state flag to restore the pre-plan-before-RP behavior,
+or deploy the prior exact commit for P4-only rollback. No additional P4 flag exists.
 
 **Must remain disabled.** Compiler/loop (P5), PlanDelta auto-apply, remediation writes.
 
@@ -1210,7 +1213,7 @@ Do **not** require same wording, same fixtures, same demo data, or same EC compo
 | `AI_SOC_CAPABILITY_SNAPSHOT_ENABLED` | false | Snapshot attached after Final RQC | off = absent |
 | `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED` | false | EvidencePlan / executor / dispatch compose SPL/MCP **reads** for guided owner | off = old rag-only **scheduling**; does **not** restore old `catalog.json` |
 | `AI_SOC_INVESTIGATION_PLANNER_ENABLED` | false | Reasoning proposal + DET plan | off = no LLM planner |
-| `AI_SOC_INVESTIGATION_ENVELOPE_ENABLED` | false | Run/Edit/Cancel envelope | off = no compile |
+| P4 envelope HIL (no new flag) | P0-gated | Run/Edit/Cancel envelope on the existing investigation wait-state | P0 off or exact-commit rollback |
 | `AI_SOC_RP_INVESTIGATION_LOOP_ENABLED` | false | Compiler + RP hub loop | off = no investigation RP |
 | `AI_SOC_PLAN_DELTA_ENABLED` | false | Bounded read-only PlanDelta | off = stop on first gap |
 | `AI_SOC_INVESTIGATION_OUTCOME_V2_ENABLED` | false | status ≠ disposition | off = today's outcome |
@@ -1489,12 +1492,24 @@ VERIFICATION when Live acceptance by phase marks the phase required).
     - `AI_SOC_INVESTIGATION_PLANNER_ENABLED` remains false/absent; `/chat` smoke: no proposal, no validated plan, no ResourcePlan, execution skipped, no selected MCP tool
     - `LIVE_REASONING_PROOF = DEFERRED_COE_CONFIGURATION`: effective LLM health exposes green `local_primary` only; no configured `foundation_sec_reasoning` endpoint. This is environment readiness, not implementation failure.
 
-- [ ] **P4** — Run/Edit/Cancel + ApprovedInvestigationEnvelope §13.1
+- [x] **P4** — Run/Edit/Cancel + ApprovedInvestigationEnvelope §13.1
   - **Do:** HIL + immutable envelope; ChatPanel human-readable plan (what/why/scope/resources) with Run/Edit/Cancel; Edit revalidates; Cancel does not compile; no EC demo contracts
   - **Verify:** pytest rejected/edited/cancelled paths; same approval model for T1–T3 and T4 arms; plan card is human-readable (not JSON-only); frontend tests do not import `app/demo`
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P4): ...`
   - **Depends on:** P3
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - commit: `c424ca0c`
+    - pytest `test_p4_investigation_envelope.py` → **12 passed**; broader P0/P3/P4 + handoff/session slice → **73 passed, 1 skipped**
+    - production frontend `npm run build` → PASS (1765 modules; postbuild readable dist)
+    - `/invariant-check` → PASS (DET/version-bound HIL; immutable read-only envelope; dual imperative/LangGraph tests; no MCP/SPL execution; no EC imports; no new flag)
+    - Run → immutable envelope version; Edit → DET revalidation; material objective/entity/time edit → replanning; Cancel → terminal no-execution; T1/T4 equivalent plan summary pinned
+    COE LIVE VERIFICATION — PASS (2026-08-21)
+    - deployed exact commit: `/var/www/ai-soc-assistant` @ `c424ca0c`; backend health and deployed frontend build PASS
+    - existing flags P0/P1/P2 remain enabled; P3 planner remains off/deferred; no P4 flag added per user override
+    - authenticated `/api/chat` Run: initial readable plan (what=3, scope=7, resources=3) → `approved`, envelope v2, writes/remediation prohibited, no ResourcePlan, execution `skipped`, no MCP tool
+    - authenticated `/api/chat` Edit: `edited_revalidated` v2, edited evidence present, no envelope/ResourcePlan/execution
+    - authenticated `/api/chat` Cancel: `cancelled` v2, no envelope/ResourcePlan/execution
 
 - [ ] **P5** — Compiler + RP execution/sufficiency seam
   - **Do:** Envelope → ResourcePlan + PhaseContract; execute → observe → EvidenceState → deterministic sufficiency on the RP graph; scheduling plumbing (deps/repeats/timeouts/budgets) allowed; **no** PlanDelta/gap reasoning; honest stop on gap; stop live `_run_guided_hybrid_dispatch` as second executor; emit operational progress (no chain-of-thought)
@@ -1580,6 +1595,7 @@ VERIFICATION when Live acceptance by phase marks the phase required).
 - 2026-08-21: **`/var/www/ai-soc-mcp` is an implementation checkout only** (no `/chat` stack running from it). Verify is mock/DET here. Live production `/chat` tests run after deploy to `/var/www/ai-soc-assistant`. Model/MCP services may still be reachable on the same host. Fail-closed when the model is missing is required on both.
 - 2026-08-21: Correction pass (FIX 1–7) — CapabilitySnapshot is need × availability only (RBAC/AUTH0/HIL/envelope/execution are later gates; no `executable` field). P2 splits permanent `catalog.json` correction (`git revert`) from runtime `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED`. P5 is execution/sufficiency seam with honest stop; P7 owns PlanDelta into that seam. Production ChatPanel UX + follow-up continuity + P13 `EXPERIENCE CENTER BEHAVIORAL PARITY` gate. T1–T4 convergence unchanged.
 - 2026-08-21: Wording fix — Splunk MCP **capability/service exists on the COE host**, but the deployed `/chat` stack is **not yet configured to use it live** (`MCP_MODE=mock`, empty `SPLUNK_MCP_BASE_URL` at authoring). Before P6 live acceptance: configure/verify + refresh discovery. `/var/www/ai-soc-mcp` = implementation checkout only (no running stack; not the live-acceptance environment). `/var/www/ai-soc-assistant` = deployed COE runtime (live acceptance). Distinction is stack-running-from-checkout, not network reachability. Removed leftover “Splunk is live” / “Splunk is not live” dual wording.
+- 2026-08-21: User continuation override split implementation acceptance from environment proof and explicitly prohibited new readiness/phase flags in this chunk. P4 therefore reuses the existing P0 investigation wait-state as its only activation seam; no `AI_SOC_INVESTIGATION_ENVELOPE_ENABLED` key was introduced. P3 live reasoning and later P6/P7 live Splunk/model proofs may be recorded as `DEFERRED_COE_CONFIGURATION` without blocking implementation.
 
 ---
 
