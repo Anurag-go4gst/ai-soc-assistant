@@ -1473,12 +1473,21 @@ VERIFICATION when Live acceptance by phase marks the phase required).
     - flag-on: guided needs_spl/mcp/allowed true; uses_rag_only_path false; answer_mode stays guided_investigation; writes recommend_only
     - probe: in-container EvidencePlan + executor predicates on deployed code
 
-- [ ] **P3** — Reasoning InvestigationPlanProposal + DET ValidatedInvestigationPlan, no ResourcePlan
+- [x] **P3** — Reasoning InvestigationPlanProposal + DET ValidatedInvestigationPlan, no ResourcePlan
   - **Do:** Register `investigation_planner` on reasoning family; extend InvestigationPlan + validator; preserve T1–T3-known steps
   - **Verify:** pytest planner advisory-only; T1 vs T4 same RQC → equivalent validated plan; T4 flags do not enable this role; `grep -n llm_plan_bridge backend/app/chat backend/app/planner/executor.py` shows no new live authority caller
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P3): ...`
   - **Depends on:** P2
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - commit: `8e7d2ad6`
+    - pytest P3 planner/endpoint suite → **18 passed**; broader P3 slice → **113 passed**; exact `test_p3_investigation_planning.py` → **9 passed**
+    - `/invariant-check` → PASS (advisory LLM proposal; DET validator authority; no MCP/SPL execution; state channels declared; no new live `llm_plan_bridge` caller)
+    - T1–T3 vs T4 equivalent Final RQC → equivalent validated planning semantics; timeout/unavailable model → deterministic baseline; capability requests bind only to CapabilitySnapshot rows
+    COE FLAG-OFF VERIFICATION — PASS (2026-08-21)
+    - deployed: `/var/www/ai-soc-assistant` @ `8e7d2ad6` (exact, detached); backend `/api/health` ok
+    - `AI_SOC_INVESTIGATION_PLANNER_ENABLED` remains false/absent; `/chat` smoke: no proposal, no validated plan, no ResourcePlan, execution skipped, no selected MCP tool
+    - `LIVE_REASONING_PROOF = DEFERRED_COE_CONFIGURATION`: effective LLM health exposes green `local_primary` only; no configured `foundation_sec_reasoning` endpoint. This is environment readiness, not implementation failure.
 
 - [ ] **P4** — Run/Edit/Cancel + ApprovedInvestigationEnvelope §13.1
   - **Do:** HIL + immutable envelope; ChatPanel human-readable plan (what/why/scope/resources) with Run/Edit/Cancel; Edit revalidates; Cancel does not compile; no EC demo contracts
