@@ -77,6 +77,17 @@ def test_registry_user_takes_precedence_over_env(
     assert user_registry.authenticate("analyst", "pass-a") is not None
 
 
+def test_authenticate_reloads_registry_after_external_file_update(users_file: Path) -> None:
+    assert user_registry.authenticate("analyst", "pass-a") is not None
+
+    document = json.loads(users_file.read_text(encoding="utf-8"))
+    document["users"][0]["password"] = "new-external-pass"
+    users_file.write_text(json.dumps(document), encoding="utf-8")
+
+    assert user_registry.authenticate("analyst", "new-external-pass") is not None
+    assert user_registry.authenticate("analyst", "pass-a") is None
+
+
 def test_set_debug_access_persists(users_file: Path) -> None:
     updated = user_registry.set_debug_access("analyst", enabled=True)
     assert updated.debug_access is True

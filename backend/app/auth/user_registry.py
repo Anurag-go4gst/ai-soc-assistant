@@ -13,6 +13,7 @@ from app.config import settings
 
 _STORE_LOCK = Lock()
 _CACHE: dict[str, Any] | None = None
+_CACHE_SIGNATURE: tuple[str, int, int] | None = None
 
 
 @dataclass(frozen=True)
@@ -55,7 +56,7 @@ def _bootstrap_users() -> dict[str, Any]:
 
 
 def _load_document() -> dict[str, Any]:
-    global _CACHE
+    global _CACHE, _CACHE_SIGNATURE
     path = _users_path()
     if not path.is_file():
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -65,12 +66,27 @@ def _load_document() -> dict[str, Any]:
     if not isinstance(document.get("users"), list):
         raise ValueError("invalid_users_registry")
     _CACHE = document
+    _CACHE_SIGNATURE = _path_signature(path)
     return document
 
 
+def _path_signature(path: Path) -> tuple[str, int, int]:
+    stat = path.stat()
+    return (str(path.resolve()), stat.st_mtime_ns, stat.st_size)
+
+
 def _document_unlocked() -> dict[str, Any]:
-    global _CACHE
+    global _CACHE, _CACHE_SIGNATURE
     if _CACHE is None:
+        return _load_document()
+    path = _users_path()
+    try:
+        signature = _path_signature(path)
+    except FileNotFoundError:
+        _CACHE = None
+        _CACHE_SIGNATURE = None
+        return _load_document()
+    if signature != _CACHE_SIGNATURE:
         return _load_document()
     return _CACHE
 
@@ -81,17 +97,19 @@ def _document() -> dict[str, Any]:
 
 
 def _persist(document: dict[str, Any]) -> None:
-    global _CACHE
+    global _CACHE, _CACHE_SIGNATURE
     path = _users_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
     _CACHE = document
+    _CACHE_SIGNATURE = _path_signature(path)
 
 
 def reload_users_for_tests() -> None:
-    global _CACHE
+    global _CACHE, _CACHE_SIGNATURE
     with _STORE_LOCK:
         _CACHE = None
+        _CACHE_SIGNATURE = None
 
 
 def list_public_users() -> list[dict[str, Any]]:
