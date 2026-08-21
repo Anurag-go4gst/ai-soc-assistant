@@ -1545,12 +1545,23 @@ VERIFICATION when Live acceptance by phase marks the phase required).
     - `MCP_MODE=mock` and empty `SPLUNK_MCP_BASE_URL` remain unchanged; per user direction, unreachable MCP from this VPS is not retried or treated as an implementation blocker
     - `LIVE_SPLUNK_PROOF = DEFERRED_COE_CONFIGURATION`; no live MCP claim is made
 
-- [ ] **P7** — Evidence reasoning + bounded PlanDelta into the P5 seam
+- [x] **P7** — Evidence reasoning + bounded PlanDelta into the P5 seam
   - **Do:** On P5 gap: reasoning → PlanDeltaProposal → DET → next bounded read-only step on the **same** RP hub; no-progress fingerprint; write → remediation recommendation; LLM ≠ SourceEvidence; no second loop
   - **Verify:** pytest widen/write/duplicate-delta negatives; scenario A mocked; P5-only (flag off) never emits PlanDelta; `grep` no second while-loop executor
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P7): ...`
   - **Depends on:** P6
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - implementation commit: `917baba5`
+    - focused P7/RP/role-registry/P5/AUTH0 suite → **105 passed**; exact P7 scenario/negative suite included mocked sessions → authentication-correlation delta
+    - append-only revision references envelope version/prior fingerprint; DET enforces same objective/targets/entities/time/index scope, current evidence gap, available snapshot row, read-only access, envelope policy and hop/tool-call budget
+    - widened scope → HIL; write → remediation recommendation; duplicate effective fingerprint → no-progress stop; changed arguments → distinct exact-call grant; accepted delta routes to existing `composed_dispatch` on the RP graph
+    - `evidence_reasoner`, `hypothesis_reasoner`, and `plan_delta_reasoner` are configurable reasoning-family roles; proposal is advisory, receives bounded vocabulary, does not add SourceEvidence, and cannot authorize execution
+    - `/invariant-check` → PASS (single RP hub; no second while-loop executor; no direct MCP call; exact-call/RBAC/HIL/policy remain downstream; no new flag; P5 flag-off stop preserved)
+    COE DEPLOYMENT / ENVIRONMENT VERIFICATION — PASS / DEFERRED (2026-08-21)
+    - deployed exact `917baba5`; backend rebuild/restart and `/api/health` PASS
+    - existing `AI_SOC_INVESTIGATION_PLANNER_ENABLED` remains false/absent on COE, so P7 does not call an unreachable model and P5 honest stop remains active
+    - `LIVE_REASONING_PROOF = DEFERRED_COE_CONFIGURATION`; `LIVE_SPLUNK_ITERATION_PROOF = DEFERRED_COE_CONFIGURATION`; per user direction no unreachable LLM/MCP retries were attempted
 
 - [ ] **P8** — InvestigationOutcome + production presentation
   - **Do:** Split `investigation_status` vs security `disposition`; ChatPanel renders conclusion (supported vs unconfirmed), operational progress, empty-finding copy, and remediation Yes/Not now; no EC fixtures
