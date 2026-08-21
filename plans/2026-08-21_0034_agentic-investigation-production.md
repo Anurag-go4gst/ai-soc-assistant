@@ -1466,8 +1466,12 @@ VERIFICATION when Live acceptance by phase marks the phase required).
     - pytest `test_p2_guided_unveto_cluster.py` → **5 passed**
     - catalog.diff: **1 line** guided row only (`mcp_execution` removed from blocked; read tools allowed; writes remain blocked)
     - Flag: `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED` default false
-    COE LIVE VERIFICATION — _(after deploy)_
-    - _(pending)_
+    COE LIVE VERIFICATION — PASS (2026-08-21)
+    - deployed: `/var/www/ai-soc-assistant` @ `8c6a5619` (exact, detached)
+    - flag-off: catalog corrected (no mcp_execution veto); EvidencePlan/executor still rag-only; `/health` ok
+    - flags: P0+P1 remain on; `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED=true` only new enable
+    - flag-on: guided needs_spl/mcp/allowed true; uses_rag_only_path false; answer_mode stays guided_investigation; writes recommend_only
+    - probe: in-container EvidencePlan + executor predicates on deployed code
 
 - [ ] **P3** — Reasoning InvestigationPlanProposal + DET ValidatedInvestigationPlan, no ResourcePlan
   - **Do:** Register `investigation_planner` on reasoning family; extend InvestigationPlan + validator; preserve T1–T3-known steps
