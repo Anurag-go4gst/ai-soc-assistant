@@ -12,7 +12,15 @@ from app.chat.canonical_answer_mode_policy import (
 from app.chat.canonical_handoff_store import commit_resource_plan, get_committed_resource_plan
 from app.chat.contracts.canonical_planning_input import CanonicalPlanningInput
 from app.chat.contracts.evidence_plan import EvidencePlan
+from app.chat.contracts.investigation_envelope import ApprovedInvestigationEnvelope
+from app.chat.contracts.investigation_plan import ValidatedInvestigationPlan
+from app.chat.contracts.resolved_query import ResolvedQueryContract
 from app.chat.evidence_planner import plan_evidence
+from app.chat.investigation_run_compiler import (
+    CompiledInvestigationRun,
+    _stable_plan_id,
+    build_approved_investigation_evidence_plan,
+)
 from app.chat.planning_telemetry import (
     emit_handoff_persisted,
     emit_planner_handoff_consumed,
@@ -20,9 +28,78 @@ from app.chat.planning_telemetry import (
     emit_resource_plan_commit_reused,
     emit_resource_plan_created,
 )
+from app.planner.composer import compose_resource_plan
+from app.planner.phase_contract import resolve_and_freeze
+from app.planner.phase_policy import PhasePolicyInputs
+from app.planner.resource_plan_authority import resource_plan_authority
 
 def _evidence_plan_from_committed(committed_evidence: dict[str, Any]) -> EvidencePlan:
     return EvidencePlan.model_validate(committed_evidence)
+
+
+def compile_approved_investigation(
+    *,
+    envelope: ApprovedInvestigationEnvelope,
+    validated_plan: ValidatedInvestigationPlan,
+    resolved_query_contract: ResolvedQueryContract,
+    handoff_id: str,
+    handoff_version: int,
+    use_case_id: str | None = None,
+) -> CompiledInvestigationRun:
+    """Compile and persist an approved envelope through the sole RP authority."""
+    evidence, search_capabilities = build_approved_investigation_evidence_plan(
+        envelope=envelope,
+        validated_plan=validated_plan,
+        resolved_query_contract=resolved_query_contract,
+        handoff_id=handoff_id,
+        handoff_version=handoff_version,
+        use_case_id=use_case_id,
+    )
+    with resource_plan_authority():
+        resource = compose_resource_plan(
+            evidence,
+            intent_family=resolved_query_contract.intent_family,
+            use_case_id=use_case_id,
+            match_path="approved_investigation_envelope",
+        )
+    resource_plan_id = _stable_plan_id(envelope, handoff_id)
+    provenance = dict(resource.provenance)
+    provenance.update(
+        {
+            "committed": True,
+            "compiler": "approved_investigation_envelope_v1",
+            "resource_plan_id": resource_plan_id,
+            "handoff_id": handoff_id,
+            "handoff_version": handoff_version,
+            "envelope_version": envelope.envelope_version,
+            "approved_capabilities": search_capabilities,
+        }
+    )
+    resource = resource.model_copy(update={"provenance": provenance})
+    resource_payload = resource.model_dump(mode="json")
+    evidence = evidence.model_copy(update={"resource_plan": resource_payload})
+    evidence_payload = evidence.model_dump(mode="json")
+    phase_contract = resolve_and_freeze(
+        resolved_query_contract,
+        resource,
+        PhasePolicyInputs(has_workflow_plan=bool(search_capabilities), pre_spl_discovery_enabled=False),
+        provenance={
+            "resource_plan_id": resource_plan_id,
+            "envelope_version": str(envelope.envelope_version),
+        },
+    )
+    commit_resource_plan(
+        handoff_id=handoff_id,
+        handoff_version=handoff_version,
+        resource_plan_id=resource_plan_id,
+        resource_plan=resource_payload,
+        evidence_plan=evidence_payload,
+    )
+    return CompiledInvestigationRun(
+        evidence_plan=evidence,
+        resource_plan=resource,
+        phase_contract=phase_contract,
+    )
 
 
 def plan_evidence_from_canonical(
@@ -133,9 +210,6 @@ def plan_evidence_from_canonical(
         plan = plan.model_copy(update={"answer_mode": target_mode})  # type: ignore[arg-type]
 
     resource_plan_id = f"rp:{uuid.uuid4().hex[:12]}"
-    from app.planner.composer import compose_resource_plan
-    from app.planner.resource_plan_authority import resource_plan_authority
-
     with resource_plan_authority():
         composed = compose_resource_plan(
             plan,

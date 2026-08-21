@@ -14,8 +14,8 @@ from app.chat.contracts.investigation_plan import (
 from app.chat.contracts.resolved_query import ResolvedQueryContract
 from app.chat.investigation_run_compiler import (
     attach_investigation_observation,
-    compile_approved_investigation,
 )
+from app.chat.plan_evidence_from_canonical import compile_approved_investigation
 from app.chat import pipeline
 from app.chat.canonical_handoff_store import clear_all_handoffs_for_tests
 from app.chat.pipeline import build_live_chat_response

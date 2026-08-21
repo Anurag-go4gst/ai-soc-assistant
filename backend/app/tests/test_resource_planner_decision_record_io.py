@@ -158,9 +158,21 @@ EXPECTED_RECORD_IO: dict[str, RecordIo] = {
     ),
     "context_sufficiency": _io(
         ("resolved_query_contract", "evidence_state", "evidence_plan", "source_evidence"),
-        ("evidence_sufficiency", "context_sufficiency", "evidence_state"),
+        (
+            "evidence_sufficiency",
+            "context_sufficiency",
+            "evidence_state",
+            "investigation_progress",
+            "investigation_run_status",
+        ),
         ("resolved_query_contract", "evidence_state", "evidence_plan", "source_evidence"),
-        ("evidence_sufficiency", "context_sufficiency", "evidence_state"),
+        (
+            "evidence_sufficiency",
+            "context_sufficiency",
+            "evidence_state",
+            "investigation_progress",
+            "investigation_run_status",
+        ),
     ),
     "decide_facts": _io(
         (),
@@ -512,7 +524,7 @@ def test_representative_wrapper_dataflow_produces_every_declared_output(
     _assert_wrapper_dataflow(
         "context_sufficiency",
         rp.rp_node_context_sufficiency,
-        {},
+        {"approved_investigation_envelope": {}},
     )
     _assert_wrapper_dataflow("decide_facts", rp.rp_node_decide_facts, {})
     _assert_wrapper_dataflow("answer_guard", rp.rp_node_answer_guard, {})

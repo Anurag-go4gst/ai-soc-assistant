@@ -22,7 +22,7 @@ from app.chat.canonical_handoff_repository import (
     test_store_read,
     test_store_write,
 )
-from app.chat.canonical_handoff_store import commit_resource_plan, get_handoff, save_handoff
+from app.chat.canonical_handoff_store import get_handoff, save_handoff
 from app.chat.contracts.canonical_planning_outcome import awaiting_investigation_plan_outcome, planned_outcome
 from app.chat.contracts.investigation_envelope import (
     ApprovedInvestigationEnvelope,
@@ -528,7 +528,7 @@ def maybe_handle_investigation_review(state: dict[str, Any]) -> dict[str, Any] |
         and settings.ai_soc_resource_plan_execution_enabled
     ):
         from app.chat.contracts.resolved_query import ResolvedQueryContract
-        from app.chat.investigation_run_compiler import compile_approved_investigation
+        from app.chat.plan_evidence_from_canonical import compile_approved_investigation
 
         compiled = compile_approved_investigation(
             envelope=approval.approved_envelope,
@@ -540,13 +540,6 @@ def maybe_handle_investigation_review(state: dict[str, Any]) -> dict[str, Any] |
         )
         evidence_payload = compiled.evidence_plan.model_dump(mode="json")
         resource_payload = compiled.resource_plan.model_dump(mode="json")
-        commit_resource_plan(
-            handoff_id=record.handoff_id,
-            handoff_version=record.handoff_version,
-            resource_plan_id=str(compiled.resource_plan.provenance["resource_plan_id"]),
-            resource_plan=resource_payload,
-            evidence_plan=evidence_payload,
-        )
         outcome = planned_outcome(
             canonical_input=canonical,
             evidence_plan=evidence_payload,

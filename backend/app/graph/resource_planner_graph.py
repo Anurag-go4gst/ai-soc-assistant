@@ -599,7 +599,8 @@ def rp_node_mcp_execution_gate(state: ResourcePlannerGraphState) -> ResourcePlan
         # resource wave.  It still needs the normal workflow envelope so the
         # gate can record an honest skip/block instead of raising outside the
         # Resource Planner hub.
-        state = graph_node_ensure_workflow_plan(state)
+        if isinstance(state.get("approved_investigation_envelope"), dict):
+            state = graph_node_ensure_workflow_plan(state)
         state = graph_node_execution(state)
     state = _with_trace(state, "mcp_execution_gate")
     return _record(

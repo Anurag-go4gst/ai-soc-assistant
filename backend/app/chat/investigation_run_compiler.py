@@ -16,9 +16,7 @@ from app.chat.contracts.evidence_plan import EvidencePlan
 from app.chat.contracts.investigation_envelope import ApprovedInvestigationEnvelope
 from app.chat.contracts.investigation_plan import ValidatedInvestigationPlan
 from app.chat.contracts.resolved_query import ResolvedQueryContract
-from app.planner.composer import compose_resource_plan
-from app.planner.phase_contract import PhaseContract, resolve_and_freeze
-from app.planner.phase_policy import PhasePolicyInputs
+from app.planner.phase_contract import PhaseContract
 from app.planner.resource_plan import ResourcePlan
 
 
@@ -42,7 +40,7 @@ def _is_search_capability(capability_id: str) -> bool:
     )
 
 
-def compile_approved_investigation(
+def build_approved_investigation_evidence_plan(
     *,
     envelope: ApprovedInvestigationEnvelope,
     validated_plan: ValidatedInvestigationPlan,
@@ -50,8 +48,8 @@ def compile_approved_investigation(
     handoff_id: str,
     handoff_version: int,
     use_case_id: str | None = None,
-) -> CompiledInvestigationRun:
-    """Compile one immutable envelope through the canonical planner contracts."""
+) -> tuple[EvidencePlan, list[str]]:
+    """Validate one immutable envelope and build its pre-composition EvidencePlan."""
     if envelope.envelope_version != handoff_version:
         raise ValueError("envelope_version_must_match_handoff_version")
 
@@ -104,40 +102,7 @@ def compile_approved_investigation(
             f"envelope_version:{envelope.envelope_version}",
         ],
     )
-    resource = compose_resource_plan(
-        evidence,
-        intent_family=resolved_query_contract.intent_family,
-        use_case_id=use_case_id,
-        match_path="approved_investigation_envelope",
-    )
-    provenance = dict(resource.provenance)
-    provenance.update(
-        {
-            "committed": True,
-            "compiler": "approved_investigation_envelope_v1",
-            "resource_plan_id": _stable_plan_id(envelope, handoff_id),
-            "handoff_id": handoff_id,
-            "handoff_version": handoff_version,
-            "envelope_version": envelope.envelope_version,
-            "approved_capabilities": search_capabilities,
-        }
-    )
-    resource = resource.model_copy(update={"provenance": provenance})
-    evidence = evidence.model_copy(update={"resource_plan": resource.model_dump(mode="json")})
-    phase_contract = resolve_and_freeze(
-        resolved_query_contract,
-        resource,
-        PhasePolicyInputs(has_workflow_plan=needs_mcp, pre_spl_discovery_enabled=False),
-        provenance={
-            "resource_plan_id": str(provenance["resource_plan_id"]),
-            "envelope_version": str(envelope.envelope_version),
-        },
-    )
-    return CompiledInvestigationRun(
-        evidence_plan=evidence,
-        resource_plan=resource,
-        phase_contract=phase_contract,
-    )
+    return evidence, search_capabilities
 
 
 def attach_investigation_observation(state: dict[str, Any]) -> dict[str, Any]:
