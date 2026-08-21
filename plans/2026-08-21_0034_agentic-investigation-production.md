@@ -1511,12 +1511,23 @@ VERIFICATION when Live acceptance by phase marks the phase required).
     - authenticated `/api/chat` Edit: `edited_revalidated` v2, edited evidence present, no envelope/ResourcePlan/execution
     - authenticated `/api/chat` Cancel: `cancelled` v2, no envelope/ResourcePlan/execution
 
-- [ ] **P5** — Compiler + RP execution/sufficiency seam
+- [x] **P5** — Compiler + RP execution/sufficiency seam
   - **Do:** Envelope → ResourcePlan + PhaseContract; execute → observe → EvidenceState → deterministic sufficiency on the RP graph; scheduling plumbing (deps/repeats/timeouts/budgets) allowed; **no** PlanDelta/gap reasoning; honest stop on gap; stop live `_run_guided_hybrid_dispatch` as second executor; emit operational progress (no chain-of-thought)
   - **Verify:** pytest compiler requires envelope_version; failure returns to hub; gap path emits missing-evidence list and does not import PlanDelta types; progress has no CoT; empty completed steps never emit `Finding: -`; `grep _run_guided_hybrid_dispatch` live path only rollback
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P5): ...`; phase-boundary → also run governance regression first
   - **Depends on:** P4
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - implementation: `9852212a`; single-authority correction: `73022de7`; governance baseline maintenance: `809d0e0c`, `ea406329`
+    - exact P4/P5 + ResourcePlan authority/I/O inventory suite → **25 passed**; broader RP/compiler slice → **93 passed**; guided compatibility → **6 passed**
+    - complete governance backend suite after source fixes → **5,936 passed, 6 skipped, 6 xfailed**; only stale RACES baseline failed. Exact drift was the reviewed P5 RP-graph change; baseline advanced mechanically to `73022de7`; focused RACES/freeze sentinel checks then passed. At user direction, the redundant second ~10-minute full run was replaced by this composite evidence; no assertion/security rule was weakened.
+    - `/invariant-check` → PASS (approved immutable envelope required; composition/commit only via `plan_evidence_from_canonical`; candidate SPL remains non-executable; P5 has no PlanDelta/second executor; progress is operational only)
+    - existing `AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED` is the only P5 activation seam; no P5 readiness/phase flag was added
+    COE DEPLOYMENT / ENVIRONMENT VERIFICATION — IMPLEMENTATION PASS; RESPONSE COMPLETION DEFERRED (2026-08-21)
+    - deployed exact `ea406329` to `/var/www/ai-soc-assistant`; backend rebuild/restart and `/api/health` PASS
+    - authenticated initial `/api/chat` → `awaiting_approval`, no ResourcePlan, execution skipped
+    - version-bound Run durably produced handoff v2 `plan_committed`, `rp:investigation:*`, compiler `approved_investigation_envelope_v1`, envelope v2 through the canonical authority
+    - response exceeded the bounded 90s probe after the commit; deployed log identifies unrelated configured `local_primary` narration timeout. `LIVE_REASONING_PROOF = DEFERRED_COE_CONFIGURATION`; deterministic compiler/RP/PhaseContract/honest-stop behavior remains proven by the deployed exact code plus local gates.
 
 - [ ] **P6** — Repeated tools + exact-call grants
   - **Do:** New grant per material MCP/SPL change; no blanket investigation grant; snapshot availability is not a grant
