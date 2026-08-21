@@ -238,11 +238,55 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     ```
   - **Commit:** none (docs evidence in plan Evidence only) or `docs(plan): record P0 baseline` if an evidence file is added under `docs/evals/`
 
-- [ ] **P1** — T1–T3 complete-or-abstain acceptance gate
+- [x] **P1** — T1–T3 complete-or-abstain acceptance gate
   - **Do:** AUDIT FIRST the live path `understand_query` → `match_use_cases` → `lane_for_match_path` → known vs guided. Implement a single DET acceptance gate: ACCEPT only when match is complete, confident, margin-sufficient, compatible, and fully governed; otherwise ABSTAIN with no partial semantic commit. Keep a clean T3 candidate interface so future lexical∪embedding candidates can share the gate. Do not implement embeddings. Do not special-case queries.
   - **Verify:** `docker compose exec -T backend python -m pytest app/tests/test_t1_t4_authority_boundary.py app/tests/test_spl_query_fidelity.py -q` (both files exist; measured green pre-change) plus NEW focused tests (create `app/tests/test_complete_or_abstain_understanding.py`) covering: exact 105 ACCEPT+T4 skipped; strong catalogue paraphrase ACCEPT; single generic source token cannot bind rich detection; unclear objective ABSTAIN; unknown SOC ask ABSTAIN.
   - **Depends on:** P0
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Closed 2026-08-21.
+    ```text
+    AUDIT (live path, before coding):
+      understand_query          query_understanding/parser.py:86
+      match_use_cases           use_cases/registry.py:119
+      lane_for_match_path       chat/lane_router.py:48  (T1/T2/T3 governed; else T4)
+      known-vs-guided           processing_lane_for_initial_tier -> known | guided
+      UNDERSTANDING sufficiency chat/contracts/staged_sufficiency.py:227 from_understanding_state
+                                sole caller chat/resolved_query_builder.py:382
+      T4 gate                   semantic_t4_understanding.py:247 _permits_t4_call
+                                  == (understanding_sufficiency.next_action == "CALL_T4")
+      derive_next_action        staged_sufficiency.py:83-90 -> CALL_T4 when
+                                  stage=UNDERSTANDING and status in {PARTIAL,INSUFFICIENT}
+                                  and unresolved non-empty
+    FINDING: the live model is exactly the forbidden one — status PARTIAL plus an
+      unresolved-field list handed to T4 as a patch set (_schema_limited_to_unresolved,
+      _prompt_locked_fields, prompt "Return only fields offered in
+      unresolved_fields_to_resolve", _merge_proposal). Architecture §2.2 requires
+      complete-or-abstain instead. Rewiring that seam is P2; P1 lands the gate it needs.
+
+    BUILT: backend/app/chat/complete_or_abstain_gate.py
+      evaluate_complete_or_abstain(...) -> UnderstandingAcceptance
+      binary ACCEPT | ABSTAIN; t4_permitted == is_abstain; ABSTAIN commits nothing
+      abstain triggers: not_governed_tier, not_fully_governed, policy_blocked,
+        clarification_required, completeness_incomplete, missing_required_fields,
+        unresolved_semantic_fields, semantic_incompatibility, no_candidate,
+        low_confidence, low_margin  (all applicable reasons collected, not short-circuited)
+      thresholds reuse the deterministic routing floor 0.70 + 0.10 margin (no new number)
+      MatchCandidate.source = lexical | embedding -> one shared T3 candidate interface;
+        identical rules per source, so embeddings can never become an authority tier.
+        Embeddings NOT implemented.
+
+    SCOPE: purely additive — 2 new files, zero existing files modified, so no authority
+      drift is possible. The gate is NOT yet authoritative on the live path; wiring it
+      (and removing the partial handoff) is P2.
+    NO query text is special-cased anywhere in the gate.
+
+    VERIFY (host venv, authoritative):
+      test_t1_t4_authority_boundary.py + test_spl_query_fidelity.py
+        + test_complete_or_abstain_understanding.py ....... 101 passed
+      new file alone .................................... 24 passed
+      neighbours (shared_sufficiency, live_path_untouched_by_ec,
+        keyword_router_authority_reachability) ........... 29 passed
+      git diff --check .................................. CLEAN
+    ```
   - **Commit:** one logical commit for P1 only
 
 - [ ] **P2** — T4 full semantic fallback + DET validation
