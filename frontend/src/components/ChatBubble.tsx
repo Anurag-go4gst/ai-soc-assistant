@@ -9,6 +9,7 @@ import { HumanReviewCard } from '@/components/HumanReviewCard';
 import { ProposedActionsPanel } from '@/components/ProposedActionsPanel';
 import { InvestigationLineagePanel } from '@/components/InvestigationLineagePanel';
 import { InvestigationProgressPanel, McpTransportBadge } from '@/components/InvestigationProgressPanel';
+import { InvestigationPlanApprovalCard } from '@/components/InvestigationPlanApprovalCard';
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { Stage3DTracePanel } from '@/components/Stage3DTracePanel';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils';
 import type {
   CandidateSplEnvelope,
   ChatExecutionReviewOptions,
+  ChatInvestigationReviewOptions,
   EcProvenance,
   ExecutionEnvelope,
   HumanReviewEnvelope,
@@ -62,12 +64,13 @@ interface ChatBubbleProps {
   message: SocChatMessage;
   investigationBusy?: boolean;
   onExecutionReview?: (payload: ChatExecutionReviewOptions, label: string) => void;
+  onInvestigationReview?: (payload: ChatInvestigationReviewOptions, label: string, originalQuery: string) => void;
   onRetryFinalSynthesis?: () => void;
   onCoordinationConfirm?: (progressId: string) => void;
   onCoordinationSkip?: (progressId: string) => void;
 }
 
-export function ChatBubble({ message, investigationBusy = false, onExecutionReview, onRetryFinalSynthesis, onCoordinationConfirm, onCoordinationSkip }: ChatBubbleProps) {
+export function ChatBubble({ message, investigationBusy = false, onExecutionReview, onInvestigationReview, onRetryFinalSynthesis, onCoordinationConfirm, onCoordinationSkip }: ChatBubbleProps) {
   const isUser = message.role === 'user';
   const showProgress = !isUser && message.displayStage === 'progress' && message.investigationProgress;
   const showSummaryOnly = !isUser && message.displayStage === 'summary' && message.trace;
@@ -149,6 +152,14 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
         {showSummaryOnly ? <AnalystSummaryCard trace={message.trace!} /> : null}
         {showFullAnswer && message.trace?.planning_outcome ? (
           <PlanningOutcomeBanner outcome={message.trace.planning_outcome} />
+        ) : null}
+        {showFullAnswer && message.trace?.investigation_approval ? (
+          <InvestigationPlanApprovalCard
+            approval={message.trace.investigation_approval}
+            busy={investigationBusy}
+            originalQuery={message.trace.user_query}
+            onReview={onInvestigationReview}
+          />
         ) : null}
         {showFullAnswer && message.trace?.execution ? (
           <ExecutionReconciliationCard execution={message.trace.execution} />

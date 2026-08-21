@@ -989,6 +989,12 @@ def graph_node_lane_and_canonical_planning(state: ChatPipelineState) -> ChatPipe
     intake/resume → lane+intent/detail → canonical input + policy outcome →
     clarification persistence *or* plan commit.
     """
+    from app.chat.investigation_envelope_runtime import maybe_handle_investigation_review
+
+    reviewed = maybe_handle_investigation_review(state)
+    if reviewed is not None:
+        return reviewed
+
     intake = _prepare_planning_intake(state)
     if intake.terminal_state is not None:
         return intake.terminal_state

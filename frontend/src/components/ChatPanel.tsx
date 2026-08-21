@@ -33,7 +33,7 @@ import {
 } from '@/lib/legacyDemoCoordination';
 import { playLegacyDemoInvestigationWithCoordination } from '@/lib/legacyDemoCoordinationPlayer';
 import { executeLegacyDemoCoordination } from '@/lib/legacyDemoEmail';
-import type { ChatExecutionReviewOptions, DemoScenarioSummary, PlaceholderResponse } from '@/types/api';
+import type { ChatExecutionReviewOptions, ChatInvestigationReviewOptions, ChatReviewOptions, DemoScenarioSummary, PlaceholderResponse } from '@/types/api';
 
 interface ChatPanelProps {
   onTrace?: (response: PlaceholderResponse) => void;
@@ -399,11 +399,11 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     demoMode: boolean;
     demoScenarioId?: string | null;
     userMessage?: string;
-    executionReview?: ChatExecutionReviewOptions;
+    reviewOptions?: ChatReviewOptions;
   }) => {
     const epoch = investigationEpochRef.current;
     const progressId = `progress-${crypto.randomUUID()}`;
-    const { demoMode, fetcher, userMessage, executionReview, demoScenarioId } = options;
+    const { demoMode, fetcher, userMessage, reviewOptions, demoScenarioId } = options;
     const builtSteps = buildInvestigationProgressSteps({
       expectedSkill: options.expectedSkill,
       expectedSources: options.expectedSources,
@@ -459,7 +459,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
           undefined,
           sessionIdRef.current,
           llmSplDraftMode,
-          executionReview,
+          reviewOptions,
         );
         clearFinalizationTimers?.();
         progressSnapshot = settleProgressFromResponse(progressSnapshot, response);
@@ -568,7 +568,17 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
   const handleExecutionReview = async (payload: ChatExecutionReviewOptions, label: string) => {
     const userMessage: SocChatMessage = { id: crypto.randomUUID(), role: 'user', content: label };
     setMessages((current) => [...current, userMessage]);
-    await runStagedInvestigation({ demoMode: false, userMessage: label, executionReview: payload });
+    await runStagedInvestigation({ demoMode: false, userMessage: label, reviewOptions: payload });
+  };
+
+  const handleInvestigationReview = async (
+    payload: ChatInvestigationReviewOptions,
+    label: string,
+    originalQuery: string,
+  ) => {
+    const userMessage: SocChatMessage = { id: crypto.randomUUID(), role: 'user', content: label };
+    setMessages((current) => [...current, userMessage]);
+    await runStagedInvestigation({ demoMode: false, userMessage: originalQuery, reviewOptions: payload });
   };
 
   const handleSend = async (message: string) => {
@@ -665,6 +675,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
                 message={message}
                 investigationBusy={loading}
                 onExecutionReview={handleExecutionReview}
+                onInvestigationReview={handleInvestigationReview}
                 onCoordinationConfirm={handleCoordinationConfirm}
                 onCoordinationSkip={handleCoordinationSkip}
                 onRetryFinalSynthesis={

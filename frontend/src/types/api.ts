@@ -90,6 +90,10 @@ export interface PlaceholderResponse {
   foundation_sec_governance?: FoundationSecGovernance | null;
   spl_template?: Record<string, unknown> | null;
   evidence_plan?: Record<string, unknown> | null;
+  validated_investigation_plan?: Record<string, unknown> | null;
+  investigation_planning_trace?: Record<string, unknown> | null;
+  investigation_approval?: InvestigationApprovalState | null;
+  approved_investigation_envelope?: ApprovedInvestigationEnvelope | null;
   route_adjudication?: Record<string, unknown> | null;
   llm_plan_validation?: Record<string, unknown> | null;
   query_to_intent?: Record<string, unknown> | null;
@@ -763,6 +767,62 @@ export interface ChatExecutionReviewOptions {
   execution_review_action: ExecutionReviewAction;
   analyst_provided_spl?: string;
 }
+
+export type InvestigationReviewAction = 'run' | 'edit' | 'cancel';
+
+export interface ApprovedInvestigationEnvelope {
+  envelope_version: number;
+  objective: string;
+  targets: string[];
+  entities: Record<string, unknown>;
+  time_scope?: string | null;
+  approved_evidence_categories: string[];
+  allowed_read_only_capabilities: string[];
+  source_index_scope: Record<string, string[]>;
+  budget: {
+    hop_limit: number;
+    timeout_seconds: number;
+    cost_resource_limits: Record<string, number | string>;
+  };
+  plan_delta_policy: {
+    automatic_bounded_read_only_delta_allowed: boolean;
+    material_scope_expansion_requires_hil: boolean;
+  };
+  prohibited_actions: string[];
+}
+
+export interface InvestigationApprovalState {
+  status: 'awaiting_approval' | 'edited_revalidated' | 'approved' | 'cancelled' | 'replanning_required';
+  handoff_id: string;
+  handoff_version: number;
+  allowed_actions: InvestigationReviewAction[];
+  plan_summary: {
+    what_will_be_checked: string[];
+    why_it_matters: string;
+    scope_and_time: string[];
+    resources_and_capabilities: string[];
+  };
+  validated_plan: Record<string, unknown>;
+  approved_envelope?: ApprovedInvestigationEnvelope | null;
+  safe_message: string;
+  revalidation_warnings: string[];
+}
+
+export interface ChatInvestigationReviewOptions {
+  investigation_review_action: InvestigationReviewAction;
+  investigation_handoff_id: string;
+  investigation_handoff_version: number;
+  investigation_plan_edits?: {
+    investigation_objective?: string;
+    entities?: Record<string, unknown>;
+    time_scope?: string;
+    evidence_needed?: string[];
+    data_categories?: string[];
+    capability_requests?: string[];
+  };
+}
+
+export type ChatReviewOptions = ChatExecutionReviewOptions | ChatInvestigationReviewOptions;
 
 export interface SourceEvidenceEnvelope {
   evidence_id: string;

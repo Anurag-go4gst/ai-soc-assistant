@@ -11,6 +11,8 @@ HandoffStatus = Literal[
     "created",
     "awaiting_clarification",
     "awaiting_investigation_plan",
+    "investigation_approved",
+    "investigation_cancelled",
     "resumed",
     "planning",
     "plan_committed",

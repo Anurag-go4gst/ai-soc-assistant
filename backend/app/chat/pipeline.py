@@ -401,6 +401,9 @@ class ChatPipelineState(TypedDict, total=False):
     investigation_plan_proposal: dict[str, Any] | None
     validated_investigation_plan: dict[str, Any] | None
     investigation_planning_trace: dict[str, Any] | None
+    investigation_approval: dict[str, Any] | None
+    approved_investigation_envelope: dict[str, Any] | None
+    investigation_approval_action_handled: bool
     llm_intent_advisory: LLMIntentAdvisory | None
     # LangGraph silently drops any state key not declared here (see executor
     # guide). shape_advisory was set by graph_node_query_understanding but
@@ -5475,6 +5478,13 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         proposed_actions = proposals or None
     except Exception:  # noqa: BLE001 - proposals are advisory, never break chat
         logger.warning("live_action_proposal_attach_failed", exc_info=True)
+    investigation_approval = (
+        state.get("investigation_approval")
+        if isinstance(state.get("investigation_approval"), dict)
+        else None
+    )
+    if investigation_approval and investigation_approval.get("safe_message"):
+        message = str(investigation_approval["safe_message"])
     response = PlaceholderResponse(
         trace_id=trace_id,
         user_query=request.message,
@@ -5546,6 +5556,8 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         evidence_plan=state.get("evidence_plan"),
         validated_investigation_plan=state.get("validated_investigation_plan"),
         investigation_planning_trace=state.get("investigation_planning_trace"),
+        investigation_approval=state.get("investigation_approval"),
+        approved_investigation_envelope=state.get("approved_investigation_envelope"),
         route_adjudication=state.get("route_adjudication"),
         control_plane_trace=control_plane_trace,
         answer_contract=answer_contract_payload,

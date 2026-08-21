@@ -17,7 +17,8 @@ from app.config import settings
 
 def maybe_attach_validated_investigation_plan(state: dict[str, Any]) -> dict[str, Any]:
     """Attach P3 planning artifacts on the P0 investigation wait-state."""
-    if not settings.ai_soc_investigation_planner_enabled:
+    p4_deterministic_plan = settings.ai_soc_investigation_plan_before_resource_plan_enabled
+    if not settings.ai_soc_investigation_planner_enabled and not p4_deterministic_plan:
         return state
 
     rqc = (
@@ -38,7 +39,20 @@ def maybe_attach_validated_investigation_plan(state: dict[str, Any]) -> dict[str
         resolved_query_contract=rqc,
         capability_snapshot=snapshot,
     )
-    llm = propose_investigation_plan_llm(query=query, baseline=baseline)
+    if settings.ai_soc_investigation_planner_enabled:
+        llm = propose_investigation_plan_llm(query=query, baseline=baseline)
+    else:
+        from app.chat.guided_investigation_plan_llm import InvestigationPlanLlmResult
+
+        llm = InvestigationPlanLlmResult(
+            raw_llm=None,
+            proposal=None,
+            attempted=False,
+            timed_out=False,
+            provider_label=None,
+            dropped_reasons=["live_reasoning_deferred_deterministic_baseline"],
+            circuit_state=None,
+        )
     validated = validate_investigation_plan(
         baseline,
         llm.proposal,
@@ -61,9 +75,12 @@ def maybe_attach_validated_investigation_plan(state: dict[str, Any]) -> dict[str
         "case_data_sent_to_model": False,
         "capability_snapshot_present": bool(snapshot),
     }
-    return {
+    planned = {
         **state,
         "investigation_plan_proposal": dict(llm.proposal or {}),
         "validated_investigation_plan": validated.model_dump(mode="json"),
         "investigation_planning_trace": trace,
     }
+    from app.chat.investigation_envelope_runtime import maybe_attach_investigation_approval
+
+    return maybe_attach_investigation_approval(planned)
