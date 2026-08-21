@@ -91,6 +91,14 @@ def test_coe_profile_enables_safe_rollout_flags() -> None:
     assert env.get("AI_SOC_LLM_ANSWER_GUARD_ENABLED", "").lower() == "true"
     assert env.get("AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED", "").lower() == "true"
     assert env.get("AI_SOC_PIPELINE_DISPATCH_V2_ENABLED", "").lower() == "false"
+    assert env.get("AI_SOC_INVESTIGATION_PLAN_BEFORE_RESOURCE_PLAN_ENABLED", "").lower() == "true"
+    assert env.get("AI_SOC_CAPABILITY_SNAPSHOT_ENABLED", "").lower() == "true"
+    assert env.get("AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED", "").lower() == "true"
+    assert env.get("AI_SOC_INVESTIGATION_PLANNER_ENABLED", "").lower() == "true"
+    assert env.get("AI_SOC_PLAN_DELTA_ENABLED", "").lower() == "true"
+    assert env.get("AI_SOC_INVESTIGATION_OUTCOME_V2_ENABLED", "").lower() == "true"
+    assert env.get("AI_SOC_REMEDIATION_PLANNER_ENABLED", "").lower() == "true"
+    assert env.get("AI_SOC_ACTION_EMAIL_ENABLED", "").lower() == "true"
     assert env.get("AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED", "").lower() == "true"
     assert "AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS" not in env
 

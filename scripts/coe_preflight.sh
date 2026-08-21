@@ -7,9 +7,21 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 AUTO_PORT=false
-if [[ "${1:-}" == "--auto-port" ]]; then
-  AUTO_PORT=true
-fi
+SANITIZED_REPORT=false
+for arg in "$@"; do
+  case "${arg}" in
+    --auto-port)
+      AUTO_PORT=true
+      ;;
+    --sanitized-report)
+      SANITIZED_REPORT=true
+      ;;
+    *)
+      echo "ERROR: unknown argument: ${arg}" >&2
+      exit 1
+      ;;
+  esac
+done
 
 if [[ "${AUTO_PORT}" == true ]]; then
   # Resolves host-port conflicts and the derived API/CORS keys before we validate them.
@@ -47,6 +59,105 @@ merged_dotenv_get() {
   fi
   dotenv_get "${PROFILE_FILE}" "${key}" "${default}"
 }
+
+dotenv_has_key() {
+  local file="$1" key="$2"
+  [[ -f "${file}" ]] && grep -Eq "^[[:space:]]*(export[[:space:]]+)?${key}=" "${file}"
+}
+
+merged_dotenv_source() {
+  local key="$1"
+  if dotenv_has_key "${ENV_FILE}" "${key}"; then
+    printf 'root .env override'
+    return 0
+  fi
+  if dotenv_has_key "${PROFILE_FILE}" "${key}"; then
+    printf '%s' "$(basename "${PROFILE_FILE}")"
+    return 0
+  fi
+  printf 'code default'
+}
+
+print_report_row() {
+  local setting="$1" value="$2" source="$3" expected="$4" status="$5"
+  printf '%-62s | %-42s | %-26s | %-34s | %s\n' "${setting}" "${value:-<empty>}" "${source}" "${expected}" "${status}"
+}
+
+print_sanitized_report() {
+  local active_profile persisted_llm persisted_mcp splunk_url splunk_token splunk_token_file token_configured ca_path
+  active_profile=""
+  if [[ -f "${REPO_ROOT}/env/active.profile" ]]; then
+    active_profile="$(head -n1 "${REPO_ROOT}/env/active.profile" | tr -d '\r\n')"
+  fi
+  persisted_llm="absent"
+  [[ -f "${REPO_ROOT}/backend/data/llm_connection.json" ]] && persisted_llm="present"
+  persisted_mcp="absent"
+  [[ -f "${REPO_ROOT}/backend/data/mcp_connection.json" ]] && persisted_mcp="present"
+
+  echo "SETTING | EFFECTIVE VALUE | SOURCE | EXPECTED | STATUS"
+  echo "------- | --------------- | ------ | -------- | ------"
+  print_report_row "AI_SOC_ENV_PROFILE" "${PROFILE}" "$(merged_dotenv_source AI_SOC_ENV_PROFILE)" "coe" "$([[ "${PROFILE}" == "coe" ]] && echo OK || echo MISMATCH)"
+  print_report_row "env/active.profile" "${active_profile}" "env/active.profile" "coe" "$([[ "${active_profile}" == "coe" ]] && echo OK || echo MISMATCH)"
+  print_report_row "AI_SOC_ENVIRONMENT_MODE" "$(merged_dotenv_get AI_SOC_ENVIRONMENT_MODE)" "$(merged_dotenv_source AI_SOC_ENVIRONMENT_MODE)" "coe" "$([[ "$(merged_dotenv_get AI_SOC_ENVIRONMENT_MODE)" == "coe" ]] && echo OK || echo MISMATCH)"
+  print_report_row "AI_SOC_HOST_BIND" "${HOST_BIND}" "$(merged_dotenv_source AI_SOC_HOST_BIND)" "operator/local" "OK"
+  print_report_row "AI_SOC_BACKEND_HOST_PORT" "${BACKEND_PORT}" "$(merged_dotenv_source AI_SOC_BACKEND_HOST_PORT)" "operator/local" "OK"
+  print_report_row "AI_SOC_FRONTEND_HOST_PORT" "${FRONTEND_PORT}" "$(merged_dotenv_source AI_SOC_FRONTEND_HOST_PORT)" "operator/local" "OK"
+  print_report_row "AI_SOC_POSTGRES_HOST_PORT" "${POSTGRES_PORT}" "$(merged_dotenv_source AI_SOC_POSTGRES_HOST_PORT)" "operator/local" "OK"
+  print_report_row "AI_SOC_PUBLIC_API_BASE_URL" "${PUBLIC_API}" "$(merged_dotenv_source AI_SOC_PUBLIC_API_BASE_URL)" "browser-reachable API" "CHECK"
+  print_report_row "AI_SOC_CORS_ALLOWED_ORIGINS" "${CORS_ORIGINS}" "$(merged_dotenv_source AI_SOC_CORS_ALLOWED_ORIGINS)" "no wildcard" "$([[ "${CORS_ORIGINS}" != *"*"* ]] && echo OK || echo MISMATCH)"
+  for key in \
+    LANGGRAPH_ORCHESTRATION_ENABLED \
+    AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED \
+    AI_SOC_INVESTIGATION_PLAN_BEFORE_RESOURCE_PLAN_ENABLED \
+    AI_SOC_CAPABILITY_SNAPSHOT_ENABLED \
+    AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED \
+    AI_SOC_INVESTIGATION_PLANNER_ENABLED \
+    AI_SOC_PLAN_DELTA_ENABLED \
+    AI_SOC_INVESTIGATION_OUTCOME_V2_ENABLED \
+    AI_SOC_REMEDIATION_PLANNER_ENABLED \
+    AI_SOC_ACTION_EMAIL_ENABLED \
+    AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED \
+    AI_SOC_RUNTIME_ENRICHMENT_ENABLED \
+    AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED \
+    AI_SOC_LLM_ENABLED; do
+    value="$(merged_dotenv_get "${key}")"
+    print_report_row "${key}" "${value}" "$(merged_dotenv_source "${key}")" "true" "$([[ "$(printf '%s' "${value}" | tr '[:upper:]' '[:lower:]')" == "true" ]] && echo OK || echo MISMATCH)"
+  done
+  print_report_row "AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS" "$(merged_dotenv_get AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS)" "$(merged_dotenv_source AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS)" "explicit operator override" "OK"
+  print_report_row "AI_SOC_LLM_MODE" "$(merged_dotenv_get AI_SOC_LLM_MODE)" "$(merged_dotenv_source AI_SOC_LLM_MODE)" "local" "$([[ "$(merged_dotenv_get AI_SOC_LLM_MODE)" == "local" ]] && echo OK || echo MISMATCH)"
+  print_report_row "LLM_MODE" "$(merged_dotenv_get LLM_MODE)" "$(merged_dotenv_source LLM_MODE)" "local/deprecated mirror" "$([[ "$(merged_dotenv_get LLM_MODE)" == "local" ]] && echo OK || echo MISMATCH)"
+  print_report_row "AI_SOC_LLM_LOCAL_BASE_URL" "$(merged_dotenv_get AI_SOC_LLM_LOCAL_BASE_URL)" "$(merged_dotenv_source AI_SOC_LLM_LOCAL_BASE_URL)" "http://10.52.1.13:8004/v1" "$([[ "$(merged_dotenv_get AI_SOC_LLM_LOCAL_BASE_URL)" == "http://10.52.1.13:8004/v1" ]] && echo OK || echo MISMATCH)"
+  print_report_row "AI_SOC_LLM_LOCAL_MODEL" "$(merged_dotenv_get AI_SOC_LLM_LOCAL_MODEL)" "$(merged_dotenv_source AI_SOC_LLM_LOCAL_MODEL)" "foundation-sec-instruct" "$([[ "$(merged_dotenv_get AI_SOC_LLM_LOCAL_MODEL)" == "foundation-sec-instruct" ]] && echo OK || echo MISMATCH)"
+  print_report_row "AI_SOC_LLM_FOUNDATION_SEC_REASONING_BASE_URL" "$(merged_dotenv_get AI_SOC_LLM_FOUNDATION_SEC_REASONING_BASE_URL)" "$(merged_dotenv_source AI_SOC_LLM_FOUNDATION_SEC_REASONING_BASE_URL)" "http://10.52.1.13:8003/v1" "$([[ "$(merged_dotenv_get AI_SOC_LLM_FOUNDATION_SEC_REASONING_BASE_URL)" == "http://10.52.1.13:8003/v1" ]] && echo OK || echo MISMATCH)"
+  print_report_row "AI_SOC_LLM_FOUNDATION_SEC_REASONING_MODEL" "$(merged_dotenv_get AI_SOC_LLM_FOUNDATION_SEC_REASONING_MODEL)" "$(merged_dotenv_source AI_SOC_LLM_FOUNDATION_SEC_REASONING_MODEL)" "foundation-sec-reasoning" "$([[ "$(merged_dotenv_get AI_SOC_LLM_FOUNDATION_SEC_REASONING_MODEL)" == "foundation-sec-reasoning" ]] && echo OK || echo MISMATCH)"
+  print_report_row "backend/data/llm_connection.json" "${persisted_llm}" "persisted override" "absent unless deliberate" "$([[ "${persisted_llm}" == "absent" ]] && echo OK || echo CHECK)"
+  print_report_row "MCP_MODE" "$(merged_dotenv_get MCP_MODE)" "$(merged_dotenv_source MCP_MODE)" "registry" "$([[ "$(merged_dotenv_get MCP_MODE)" == "registry" ]] && echo OK || echo MISMATCH)"
+  print_report_row "MCP_GLOBAL_EXECUTION_ENABLED" "$(merged_dotenv_get MCP_GLOBAL_EXECUTION_ENABLED)" "$(merged_dotenv_source MCP_GLOBAL_EXECUTION_ENABLED)" "false until approved live MCP" "$([[ "$(merged_dotenv_get MCP_GLOBAL_EXECUTION_ENABLED)" == "false" ]] && echo OK || echo MISMATCH)"
+  print_report_row "MCP_SERVER_MOCK_EXECUTION_ENABLED" "$(merged_dotenv_get MCP_SERVER_MOCK_EXECUTION_ENABLED)" "$(merged_dotenv_source MCP_SERVER_MOCK_EXECUTION_ENABLED)" "false" "$([[ "$(merged_dotenv_get MCP_SERVER_MOCK_EXECUTION_ENABLED)" == "false" ]] && echo OK || echo MISMATCH)"
+  print_report_row "SPLUNK_MCP_ENABLED" "$(merged_dotenv_get SPLUNK_MCP_ENABLED)" "$(merged_dotenv_source SPLUNK_MCP_ENABLED)" "true" "$([[ "$(merged_dotenv_get SPLUNK_MCP_ENABLED)" == "true" ]] && echo OK || echo MISMATCH)"
+  print_report_row "MCP_SERVER_SPLUNK_SOC_ENABLED" "$(merged_dotenv_get MCP_SERVER_SPLUNK_SOC_ENABLED)" "$(merged_dotenv_source MCP_SERVER_SPLUNK_SOC_ENABLED)" "true" "$([[ "$(merged_dotenv_get MCP_SERVER_SPLUNK_SOC_ENABLED)" == "true" ]] && echo OK || echo MISMATCH)"
+  print_report_row "MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED" "$(merged_dotenv_get MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED)" "$(merged_dotenv_source MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED)" "true but AND-gated by global false" "$([[ "$(merged_dotenv_get MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED)" == "true" ]] && echo OK || echo MISMATCH)"
+  splunk_url="$(merged_dotenv_get SPLUNK_MCP_BASE_URL)"
+  [[ -z "${splunk_url}" ]] && splunk_url="$(merged_dotenv_get MCP_SERVER_SPLUNK_SOC_URL)"
+  splunk_token="$(merged_dotenv_get SPLUNK_MCP_TOKEN)"
+  [[ -z "${splunk_token}" ]] && splunk_token="$(merged_dotenv_get MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN)"
+  splunk_token_file="$(merged_dotenv_get SPLUNK_MCP_TOKEN_FILE)"
+  [[ -z "${splunk_token_file}" ]] && splunk_token_file="$(merged_dotenv_get MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN_FILE)"
+  token_configured="no"
+  [[ -n "${splunk_token}${splunk_token_file}" ]] && token_configured="yes"
+  print_report_row "Splunk MCP URL configured" "$([[ -n "${splunk_url}" ]] && echo yes || echo no)" "merged env" "no on this Mac" "$([[ -z "${splunk_url}" ]] && echo OK || echo CHECK)"
+  print_report_row "Splunk MCP token configured" "${token_configured}" "merged env" "no on this Mac" "$([[ "${token_configured}" == "no" ]] && echo OK || echo CHECK)"
+  ca_path="$(merged_dotenv_get SPLUNK_MCP_CA_CERT_PATH)"
+  [[ -z "${ca_path}" ]] && ca_path="$(merged_dotenv_get MCP_SERVER_SPLUNK_SOC_CA_CERT_PATH)"
+  print_report_row "Splunk MCP TLS verify" "$(merged_dotenv_get SPLUNK_MCP_TLS_VERIFY)" "$(merged_dotenv_source SPLUNK_MCP_TLS_VERIFY)" "true" "$([[ "$(merged_dotenv_get SPLUNK_MCP_TLS_VERIFY)" == "true" ]] && echo OK || echo MISMATCH)"
+  print_report_row "Splunk MCP CA path configured" "$([[ -n "${ca_path}" ]] && echo yes || echo no)" "merged env" "operator supplied when needed" "CHECK"
+  print_report_row "backend/data/mcp_connection.json" "${persisted_mcp}" "persisted override" "absent unless deliberate" "$([[ "${persisted_mcp}" == "absent" ]] && echo OK || echo CHECK)"
+}
+
+if [[ "${SANITIZED_REPORT}" == true ]]; then
+  print_sanitized_report
+  exit 0
+fi
 
 echo "== AI-SOC deployment preflight =="
 echo "profile:              ${PROFILE}"
