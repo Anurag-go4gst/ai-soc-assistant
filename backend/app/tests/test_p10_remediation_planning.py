@@ -366,15 +366,14 @@ def test_approve_binds_to_the_plan_shown_on_an_earlier_turn(
 ) -> None:
     """Create and Approve arrive on separate /chat turns; state does not carry the plan."""
     from app.chat.session_store import (
-        SessionPins,
         clear_all_session_pins_for_tests,
         get_session_pins,
-        save_session_pins,
     )
 
     clear_all_session_pins_for_tests()
+    # Deliberately no pre-existing pins: the remediation offer is often the first
+    # thing a session pins, and the plan must survive that case too.
     session_id = "session-remediation-1"
-    save_session_pins(SessionPins(session_id=session_id))
 
     create_state = {
         "session_id": session_id,

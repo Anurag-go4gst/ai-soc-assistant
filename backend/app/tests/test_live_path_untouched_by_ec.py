@@ -117,7 +117,12 @@ def test_ec_changes_stay_within_allowlist() -> None:
 # graph, and P8 added the governed two-axis outcome projection in pipeline.py.
 # Neither change came from RACES/EC work or introduced demo authority. The P8
 # follow-up replaces lifecycle inference with its explicit default-off rollout flag.
-RACES_BASELINE_SHA = "949f7f4c"
+# Advanced again through P10-P13 at 9f1ec922: P10 added the remediation planning
+# lifecycle (pipeline.py seam, responses.py fields, a new ChatPanel card), P11 added
+# the production action gate under app/actions/, and P13 mapped a stale investigation
+# decision to a governed 409. All of it is production investigation work; none of it
+# came from RACES/EC or imported demo authority into the live path.
+RACES_BASELINE_SHA = "9f1ec922"
 
 
 def _git_name_only(rev_range: str) -> list[str]:

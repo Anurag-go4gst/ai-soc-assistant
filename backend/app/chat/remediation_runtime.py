@@ -216,11 +216,11 @@ def _remember_pending_plan(
     session_id = state.get("session_id")
     if not session_id:
         return
-    from app.chat.session_store import get_session_pins, save_session_pins
+    from app.chat.session_store import SessionPins, get_session_pins, save_session_pins
 
-    pins = get_session_pins(str(session_id))
-    if pins is None:
-        return
+    # The remediation offer can be the first thing a session pins, so create the
+    # record rather than dropping the plan and losing it before Approve.
+    pins = get_session_pins(str(session_id)) or SessionPins(session_id=str(session_id))
     save_session_pins(
         pins.model_copy(
             update={"pending_remediation_plan": plan.model_dump(mode="json") if plan else None}

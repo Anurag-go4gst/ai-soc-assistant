@@ -149,7 +149,9 @@
     },
     "pg.unsafe.001": {
       "analyst_enabled_sections": [
-        "analyst_action_guidance"
+        "analyst_action_guidance",
+        "policy_citation",
+        "procedural_steps"
       ],
       "answer_mode": null,
       "candidate_spl_present": false,
@@ -157,7 +159,9 @@
       "draft_spl_present": false,
       "draft_status": null,
       "enabled_sections": [
-        "analyst_action_guidance"
+        "analyst_action_guidance",
+        "policy_citation",
+        "procedural_steps"
       ],
       "execution_eligible": null,
       "execution_status": "skipped",
