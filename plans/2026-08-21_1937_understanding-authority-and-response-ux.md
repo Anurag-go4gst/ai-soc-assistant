@@ -314,7 +314,46 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     The system must fail closed at semantic authority — **clarify**, or return an **honest degraded inability to resolve**, per existing architecture/contracts. Note the timeout surface is real: `AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS=120` in the `development` profile this host runs.
   - **Verify:** NEW tests in `app/tests/test_t4_complete_or_abstain_validation.py` (or extend `test_t4_contract_merge_authority.py` only if still the owning seam after audit): T4 skipped on ACCEPT; T4 invoked on ABSTAIN; literal contradiction rejected; derived hints non-binding; a T4 proposal carrying `required_capabilities`/`intent_family` does not change the DET-recomputed Final RQC values; no `primary_skill`/ResourcePlan/MCP grant from T4 proposal. **Plus the required T4-failure negative, as three distinct cases — unavailable, timeout, invalid structured response** — each asserting every one of the five "must hold" clauses above, and asserting the turn ends in clarification or honest degrade (never a fabricated Final RQC and never an investigation lifecycle). Run via `../.venv/bin/python -m pytest app/tests/test_t4_complete_or_abstain_validation.py app/tests/test_t4_contract_merge_authority.py -q` (or the container form). Run `/invariant-check` on the diff.
   - **Depends on:** P1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** _(implementation pending)_ — **generality audit COMPLETE 2026-08-21, verdict recorded:**
+    ```text
+    AUDITED: spl/request_authority.py::DeterministicRequestContract (fields, lines 31-44)
+
+      GENERIC (family-agnostic, reusable as-is across SPL / investigation /
+      knowledge / MITRE / comparison / remediation-understanding):
+        entities: dict[str, tuple[str,...]]     explicit_predicates: dict[...]
+        time_window: str | None                 requested_output_type: str
+        execution_intent: str  (carries do_not_execute)   operation: str
+
+      SPL-DOMAIN-SPECIFIC (must NOT be imposed on non-SPL families):
+        index: tuple[str,...]        sourcetype: tuple[str,...]
+        sufficient_for_spl_authoring: bool
+        response_shape  (domain values such as "spl_only")
+
+    VERDICT = EXTRACT, not reuse-directly.
+      The extraction/binding *primitives* are generic, but the contract they sit in
+      is SPL-shaped. Per the plan's rule, extract the generic explicit-literal core
+      into the existing appropriate shared authority seam and have the SPL contract
+      COMPOSE it. Do not force investigation/knowledge/MITRE/comparison/remediation
+      understanding through an SPL-domain contract, and do not stand up a second
+      literal parser, duplicate entity/time extraction, or a new authority service.
+      SemanticFidelityDecision / SemanticElementDecision (lines 63-90) are already
+      family-agnostic (dimension/value/status/reason) and are reusable as the
+      material-contradiction verdict shape without change.
+
+    ALSO AUDITED (the partial handoff P2 must remove):
+      semantic_t4_understanding.py
+        _schema_limited_to_unresolved (155)  _prompt_locked_fields (179)
+        prompt text "Return only fields offered in unresolved_fields_to_resolve" (240)
+        _merge_proposal (632)     _permits_t4_call (247)
+      Together these implement field-level patching of a partially committed
+      contract — the model architecture §2.2 forbids. P2 replaces it with:
+      full-query T4 proposal on ABSTAIN only, then DET validation, then DET-derived
+      Final RQC.
+
+    FIELD-AUTHORITY NOTE (already recorded in Do): SemanticT4Proposal keeps
+      intent_family / answer_goal / required_capabilities / prohibited_capabilities;
+      DET must RECOMPUTE and never consume them as authority. Do not delete them.
+    ```
   - **Commit:** one logical commit for P2 only
 
 - [ ] **P3** — Final-RQC product applicability
