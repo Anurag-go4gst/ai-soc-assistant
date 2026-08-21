@@ -1422,22 +1422,34 @@ VERIFICATION when Live acceptance by phase marks the phase required).
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P0): ...`; phase-boundary → also run governance regression first
   - **Depends on:** architecture review approval of this plan
   - **Evidence:**
-    LOCAL VERIFICATION
-    - commit: _(filled after commit)_
-    - pytest `test_final_route_precedes_resource_plan.py` + `test_final_rqc_precedes_planning.py` + `test_p0_investigation_authority_order.py` → **11 passed**
-    - /invariant-check → PASS (no MCP/SPL/EC/secret issues; new flag default false; no asserts weakened; wait-state keys already on ChatPipelineState)
-    - `./scripts/run_stage3_governance_regression.sh` → **stage3_governance_regression: PASS**
-    - Flag: `AI_SOC_INVESTIGATION_PLAN_BEFORE_RESOURCE_PLAN_ENABLED` / `ai_soc_investigation_plan_before_resource_plan_enabled` default false
-    - Outcome status added: `awaiting_investigation_plan` (no EvidencePlan/ResourcePlan)
-    COE LIVE VERIFICATION _(filled after deploy)_
-    - _(pending)_
+    LOCAL VERIFICATION — PASS
+    - commit: `f0ad0346` on `feat/agentic-investigation-production` (pushed)
+    - pytest authority-order suite → **11 passed**
+    - /invariant-check → PASS
+    - `./scripts/run_stage3_governance_regression.sh` → **PASS**
+    COE LIVE VERIFICATION — PASS (2026-08-21)
+    - deployed path: `/var/www/ai-soc-assistant` (detached HEAD)
+    - prior HEAD: `c3c8a5bf`; deployed: `f0ad0346` (exact)
+    - working tree was clean; non-destructive checkout (branch locked by mcp worktree → `--detach`)
+    - flag-off health: `/health` ok; `plan_before_rp=False`; investigation → `planned` + ResourcePlan; knowledge → `planned`
+    - flag enabled: `AI_SOC_INVESTIGATION_PLAN_BEFORE_RESOURCE_PLAN_ENABLED=true` only
+    - investigation: Final RQC + final_route=`attack_discovery` → `awaiting_investigation_plan`; evidence_plan=None; no ResourcePlan; execution=None; mcp_evidence=None
+    - knowledge unchanged: `planned` + ResourcePlan
+    - probe: in-container canonical planning spine (same deployed Settings/code as `/chat`; HTTP auth smoke skipped — credential-read gate)
 
-- [ ] **P1** — CapabilitySnapshot need × availability projection
+- [x] **P1** — CapabilitySnapshot need × availability projection
   - **Do:** Add deterministic snapshot module joining catalog, registry, MCP discovery ∩ allowlist, and **global** capability classification (including live email kind and Splunk); attach after Final RQC; do **not** join current-user RBAC; no `executable` field; treat discovery-unverified vs execution-off as distinct from "tool does not exist"; keep schema open for new MCP_SERVERS rows
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_capability_snapshot.py -q` — create `backend/app/tests/test_capability_snapshot.py` (new file) covering: recommended+unavailable `firewall_block` is valid; required+available does not authorize MCP; same snapshot for two RBAC roles; snapshot identical for T1–T3 vs T4 given same RQC; discovery-unverified Splunk ≠ available; execution-off + verified allowlisted tool ⇒ available; injected extra MCP server appears without planner code edits; schema has no `executable` field
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P1): ...`
   - **Depends on:** P0
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - pytest `app/tests/test_capability_snapshot.py` (+ state channel) → **22 passed** (11 snapshot + channel suite)
+    - /invariant-check → PASS (planning vocabulary only; no MCP calls; flag default false)
+    - Flag: `AI_SOC_CAPABILITY_SNAPSHOT_ENABLED` default false
+    - Module: `backend/app/chat/capability_snapshot.py`; wired after Final RQC in orchestrator
+    COE LIVE VERIFICATION — _(after deploy)_
+    - _(pending)_
 
 - [ ] **P2** — Guided catalog correction + runtime composable planning
   - **Do:** Permanent: edit only the `guided_investigation` row in `skills/catalog.json` so ownership is not an MCP/SPL read veto (writes stay blocked). Runtime: under `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED`, change EvidencePlan, executor `uses_rag_only_path`, hybrid `no_mcp`; do not route hunts to `spl_generation`; do not add a catalog overlay for rollback
