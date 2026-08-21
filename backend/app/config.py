@@ -437,6 +437,10 @@ class Settings(BaseSettings):
     # Agentic investigation P8: two-axis status/disposition outcome + production UI.
     # Default false; COE enables it only after flag-off regression and live acceptance.
     ai_soc_investigation_outcome_v2_enabled: bool = False
+    # Agentic investigation P10: remediation offer + proposal + Approve/Edit/Cancel.
+    # Default false. On means the remediation *plan* lifecycle exists; it never
+    # authorizes a write — connector execution stays behind the P11 action gate.
+    ai_soc_remediation_planner_enabled: bool = False
     # Canonical handoff durable store TTL (PostgreSQL).
     ai_soc_handoff_store_ttl_minutes: int = 60
     # Item 28 — bounded retention purge for canonical_handoffs / canonical_planning_events.

@@ -407,6 +407,9 @@ class ChatPipelineState(TypedDict, total=False):
     investigation_phase_contract: dict[str, Any] | None
     investigation_progress: list[dict[str, Any]]
     investigation_run_status: dict[str, Any] | None
+    remediation_approval: dict[str, Any] | None
+    remediation_planning_trace: dict[str, Any] | None
+    approved_remediation_envelope: dict[str, Any] | None
     llm_intent_advisory: LLMIntentAdvisory | None
     # LangGraph silently drops any state key not declared here (see executor
     # guide). shape_advisory was set by graph_node_query_understanding but
@@ -3586,6 +3589,45 @@ def _environment_hygiene_envelope(state: ChatPipelineState) -> dict[str, Any] | 
     }
 
 
+def _apply_remediation_lifecycle(state: ChatPipelineState) -> ChatPipelineState:
+    """P10 seam: attach the remediation offer, or advance an explicit analyst decision.
+
+    Planning only. Approval produces an immutable envelope that P11's action gate
+    later consumes; nothing in this path calls a connector, and a failure here must
+    never take down the investigation answer that already exists.
+    """
+    if not settings.ai_soc_remediation_planner_enabled:
+        return state
+    from app.chat.remediation_runtime import (
+        handle_remediation_review,
+        maybe_attach_remediation_offer,
+    )
+
+    request = state.get("request")
+    action = str(getattr(request, "remediation_review_action", "") or "").strip().lower()
+    try:
+        if action:
+            return handle_remediation_review(
+                dict(state),
+                action=action,
+                edits=getattr(request, "remediation_plan_edits", None),
+                turn_budget=state.get("llm_turn_budget"),
+            )
+        return maybe_attach_remediation_offer(dict(state))
+    except Exception as exc:  # noqa: BLE001 - remediation planning is additive to the answer
+        logger.warning("remediation_lifecycle_skipped kind=%s", type(exc).__name__)
+        return {
+            **state,
+            "remediation_planning_trace": {
+                "role": "remediation_planner",
+                "authority": "advisory",
+                "attempted": False,
+                "skipped_reason": f"remediation_lifecycle_error:{type(exc).__name__}",
+                "execution_authorized": False,
+            },
+        }
+
+
 def _ensure_context_finalize_state(state: ChatPipelineState) -> ChatPipelineState:
     """Guarantee finalize prerequisites when LangGraph shortcuts skip execution/RAG hooks."""
     updated: ChatPipelineState = dict(state)
@@ -3930,6 +3972,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         outcome_v2_enabled=settings.ai_soc_investigation_outcome_v2_enabled,
     )
     state = {**state, "investigation_outcome": investigation_outcome.model_dump(mode="json")}
+    state = _apply_remediation_lifecycle(state)
     emit_stage("generating_answer")
     close_post_planning_pipeline_phase()
     _skip_registry_warnings, _skip_catalog_row = _composer_skip_registry_context(state)
@@ -5582,6 +5625,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         approved_investigation_envelope=state.get("approved_investigation_envelope"),
         investigation_progress=state.get("investigation_progress"),
         investigation_run_status=state.get("investigation_run_status"),
+        remediation_approval=state.get("remediation_approval"),
+        remediation_planning_trace=state.get("remediation_planning_trace"),
+        approved_remediation_envelope=state.get("approved_remediation_envelope"),
         route_adjudication=state.get("route_adjudication"),
         control_plane_trace=control_plane_trace,
         answer_contract=answer_contract_payload,

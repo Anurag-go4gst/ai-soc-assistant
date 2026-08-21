@@ -19,6 +19,18 @@ class ChatRequest(BaseModel):
     investigation_handoff_id: str | None = None
     investigation_handoff_version: int | None = None
     investigation_plan_edits: dict[str, Any] | None = None
+    # Remediation-plan HIL (P10). ``create``/``decline`` answer the offer; the others
+    # act on the plan. Approval yields an envelope; it never executes a connector.
+    remediation_review_action: (
+        Literal["create", "decline", "approve", "edit", "cancel"] | None
+    ) = None
+    remediation_plan_edits: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def _remediation_edit_carries_edits(self) -> "ChatRequest":
+        if self.remediation_review_action == "edit" and self.remediation_plan_edits is None:
+            raise ValueError("remediation edit requires structured plan edits")
+        return self
 
     @model_validator(mode="after")
     def _investigation_review_is_version_bound(self) -> "ChatRequest":

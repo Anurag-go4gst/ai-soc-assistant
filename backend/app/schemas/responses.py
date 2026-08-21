@@ -571,6 +571,9 @@ class PlaceholderResponse(BaseModel):
     approved_investigation_envelope: dict[str, object] | None = None
     investigation_progress: list[dict[str, object]] | None = None
     investigation_run_status: dict[str, object] | None = None
+    remediation_approval: dict[str, object] | None = None
+    remediation_planning_trace: dict[str, object] | None = None
+    approved_remediation_envelope: dict[str, object] | None = None
     planning_decision: dict[str, object] | None = None
     llm_intent_advisory: dict[str, object] | None = None
     route_adjudication: dict[str, object] | None = None
