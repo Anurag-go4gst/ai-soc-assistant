@@ -1692,12 +1692,44 @@ VERIFICATION when Live acceptance by phase marks the phase required).
     - answer constraints encode governance: absent exploitation telemetry ⇒ inconclusive, not benign; a firewall
       block is never described as applied without a verified receipt
 
-- [ ] **P13** — E2E A–E, T1/T4 parity, follow-ups, EC behavioral parity, negatives, flag-off goldens
+- [x] **P13** — E2E A–E, T1/T4 parity, follow-ups, EC behavioral parity, negatives, flag-off goldens
   - **Do:** Scenario harness + T1/T4 convergence fixtures + follow-up/continuity fixtures + ChatPanel UX assertions + `EXPERIENCE CENTER BEHAVIORAL PARITY` gate (behavior, not fixtures) + governance regression; COE discovery refresh + live Splunk search under envelope/AUTH0
   - **Verify:** `cd backend && PYTHONPATH=../backend:.. python3 -m pytest app/tests/test_p13_investigation_e2e.py -q` (mocked A–E + T1/T4 parity + follow-ups including silent-widen negative + "why suspicious" from InvestigationOutcome + UX/progress/conclusion + EC behavioral-parity checklist + flag-off identity) **in this worktree**; then on COE after deploy: discovery refresh + one AUTH0 Splunk search + (optional) live planner hop. Governance: `./scripts/run_stage3_governance_regression.sh`
   - **Commit:** one commit per Commit discipline; message `feat(investigation-P13): ...`; phase-boundary → also run governance regression first
   - **Depends on:** P0–P8, P10 (P7 required for adaptive-gap / EC parity; P9 skip allowed; P11–P12 as available)
-  - **Evidence:** _(filled when done)_
+  - **Evidence:**
+    LOCAL VERIFICATION — PASS
+    - suite: `backend/app/tests/test_p13_investigation_e2e.py` (**38 passed**), covering scenarios A–E, the
+      section 7 authority/security negatives, T1↔T4 convergence, progress/UX, flag-off identity, and the
+      EC behavioural-parity surface checklist
+    - pinned negatives include: CapabilitySnapshot is not authorization and carries no RBAC axis; T4 cannot
+      become the planner; the LLM cannot grant a capability; remediation cannot execute before approval;
+      execution cannot diverge from the approved plan version; investigation PlanDelta cannot send email;
+      production `/chat` imports no EC action fixtures; the catalog correction is not flag-reversible;
+      no reasoning hop can outlive the turn; no infrastructure-readiness flag exists
+    - UX assertions: progress carries no chain-of-thought; a completed empty step never renders a blank
+      finding; progress never claims evidence it did not collect; manual remediation steps are named, not hidden
+    COE LIVE VERIFICATION — full lifecycle driven over authenticated HTTP
+    - `scripts/probe_investigation_lifecycle.py --lifecycle` with **P0–P12 flags simultaneously enabled**
+    - initial turn → `awaiting_approval`, `capability_snapshot_rows=11`, **no ResourcePlan**, execution `skipped`
+    - Run → `approved`, immutable envelope **v2**
+    - remediation create → deterministic plan, `execution_authorized=false`, every step honest
+    - `/api/health` 200 throughout; production frontend build PASS
+    DEFECTS FOUND BY LIVE PROBING AND FIXED (all invisible to unit tests, which inject state directly)
+    1. tier-1 answer affordances (`summarize`, `explain`, `show_sop`, …) were treated as remediation actions,
+       producing steps like "Perform summarize manually". Now filtered, with unrecognized identifiers kept as
+       honest manual steps so an un-onboarded connector never vanishes from the plan.
+    2. Create and Approve arrive on separate turns and nothing carried the plan between them. The shown plan is
+       now pinned on the session, so an approved envelope can only contain steps the analyst actually saw.
+    3. a stale/foreign version-bound investigation decision failed closed **by raising to the unhandled
+       backstop**, so `/chat` answered HTTP 500. Now a governed **409** with a stable reason code.
+    BASELINES ADVANCED (each verified before touching, never to silence a finding)
+    - RACES freeze → `9f1ec922`; production investigation work only, no EC/demo authority on the live path
+    - sentinel re-frozen: the P12 Firewall Blocking SOP makes `pg.unsafe.001` cite policy and give procedural
+      steps. Causation confirmed against pre-seed fixtures; the governance verdict is **unchanged**
+      (`out_of_registry` / `knowledge_recall` / `clarification_required`, `execution_eligible=null`). Two
+      additive sections on one row — the sanctioned re-freeze case
+    - skill-KB fixture ordering re-normalized through the existing importer; content unchanged (120 docs)
 
 ## Verification gaps (flag before coding)
 
