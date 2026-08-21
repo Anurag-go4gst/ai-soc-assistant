@@ -574,6 +574,39 @@ PROMPT_CONTRACTS["investigation_planner"] = {
     },
 }
 
+PROMPT_CONTRACTS["plan_delta_reasoner"] = {
+    "model_family": "Foundation-sec-8B-Reasoning",
+    "purpose": "Propose one advisory, envelope-scoped, read-only PlanDelta.",
+    "max_input_tokens": "3000",
+    "system_instruction": (
+        "Return JSON only. Propose one bounded read-only evidence step using only the supplied "
+        "missing-evidence and allowed-capability vocabulary. Never authorize execution, call a tool, "
+        "emit hidden reasoning, widen scope, or propose a write/remediation action."
+        f"{_AUTHORITY_PROMPT}{_REVIEW_ONLY_PROMPT}"
+    ),
+    "output_schema": {
+        "envelope_version": 1,
+        "prior_revision_fingerprint": None,
+        "objective": "",
+        "evidence_need": "",
+        "capability_id": "",
+        "access_mode": "read_only",
+        "targets": [],
+        "entities": {},
+        "time_scope": None,
+        "source_index_scope": {},
+        "tool_arguments": {},
+        "hypothesis": None,
+        "evidence_refs": [],
+    },
+}
+
+for _role in ("evidence_reasoner", "hypothesis_reasoner"):
+    PROMPT_CONTRACTS[_role] = {
+        **PROMPT_CONTRACTS["plan_delta_reasoner"],
+        "purpose": f"Produce advisory {_role.replace('_', ' ')} JSON for bounded PlanDelta validation.",
+    }
+
 PROMPT_CONTRACTS["investigation_note_drafter"] = {
     **PROMPT_CONTRACTS["analyst_response_drafter"],
     "purpose": "Draft investigation note content from approved evidence and deterministic constraints.",

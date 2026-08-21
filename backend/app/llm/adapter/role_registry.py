@@ -17,6 +17,7 @@ from app.llm.adapter.schemas import (
     ShapeAdvisorPayload,
 )
 from app.llm.registry_settings import ROLE_DEFAULTS, ROLE_ENV_MAP
+from app.chat.contracts.plan_delta import PlanDeltaProposal
 
 AdapterSchema: TypeAlias = type[
     QueryUnderstandingCandidate
@@ -32,6 +33,9 @@ ROLE_SCHEMA_REGISTRY: dict[str, AdapterSchema] = {
     "pattern_reasoner": ReasoningAdvisoryResult,
     "mitre_reasoner": ReasoningAdvisoryResult,
     "missing_evidence_reasoner": ReasoningAdvisoryResult,
+    "evidence_reasoner": ReasoningAdvisoryResult,
+    "hypothesis_reasoner": ReasoningAdvisoryResult,
+    "plan_delta_reasoner": PlanDeltaProposal,
     "risk_rationale_reasoner": SeverityRationaleAdvisory,
     "analyst_response_drafter": AnalystResponseDraft,
     "spl_advisory_generator": SplAdvisoryCandidate,
