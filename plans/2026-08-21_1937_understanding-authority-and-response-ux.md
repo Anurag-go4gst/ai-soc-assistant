@@ -98,22 +98,58 @@ venv only**, never in the container.
 
 `rg` is available on the host but **not** in the container — keep `rg` steps host-side.
 
-**Remaining governance prerequisite (operator decision, NOT a Python problem).** With the venv,
-`run_stage3_governance_regression.sh` executes but exits **1 at its first step**, needing an
-external third-party clone that is absent from this Mac:
+**Remaining governance prerequisite — CLONING WILL NOT FIX THIS ON macOS (measured 2026-08-21).**
+With the venv, `run_stage3_governance_regression.sh` executes but exits **1 at its first step**:
 
 ```text
 GitHub skill clone root not found: /private/tmp/ai-soc-references/Anthropic-Cybersecurity-Skills
 REGRESSION FAILED: github discovery index stale
 ```
 
-Steps 1–3 (`build_github_skill_discovery_index.py`, `score_github_skill_triage.py`,
-`build_github_skill_factory_artifacts.py`) read it via `AI_SOC_GITHUB_SKILL_CLONE_ROOT`
-(`scripts/github_skill_factory_lib.py:20`); it is set in neither `.env` nor any profile, and no
-clone exists anywhere on this host. Cloning an external repository is an **operator decision** —
-P0 must resolve it by pointing `AI_SOC_GITHUB_SKILL_CLONE_ROOT` at an existing clone or having
-the operator create one (`docs/skills/README.md:42`). **Do not modify the governance script to
-skip these steps** unless the script is proven defective.
+**Do not clone in the hope of fixing step 1 — it is provably unsatisfiable on this host.** The
+committed artifact embeds the generating machine's absolute path, and the staleness comparison does
+not normalize it:
+
+```text
+docs/skills/github_skill_discovery_index.json
+  clone_root_used = "/tmp/ai-soc-references/Anthropic-Cybersecurity-Skills"   # generated on Linux
+                    generated_at 2026-06-11, 754 skills, no upstream SHA recorded
+
+resolve_clone_root() calls .resolve()  →  on macOS /tmp is a symlink to /private/tmp
+                                       →  "/private/tmp/ai-soc-references/..."
+
+_check_payload() normalizes ONLY generated_at            build_github_skill_discovery_index.py:173-176
+  → clone_root_used compared verbatim: "/private/tmp/..." != "/tmp/..."  → always "stale"
+```
+
+So **any** clone path fails step 1 on macOS: the default `/tmp` path resolves to `/private/tmp`, and
+any other path (e.g. an external test-deps dir) mismatches even more plainly. Scope check: only the
+**discovery index** embeds a clone path — `github_skill_triage_scores.json` and
+`proposed_use_cases_from_github.json` do not, so governance steps 2–3 and the rest of the runner are
+unaffected and would pass with a valid clone.
+
+**Is the clone needed for the product to work? No.** Runtime reads the **committed** JSON artifacts
+via `backend/app/knowledge/mapping_exports.py:337-339`; it never reads the clone. The clone is a
+**regeneration/staleness-gate dependency only**. A second, related reproducibility gap: no branch,
+tag, or commit is pinned anywhere (`plans/AI_SOC_MASTER_PLAN.md:50` documents a plain default-branch
+`git clone`), and no upstream SHA is recorded in the artifact — so even on Linux a fresh clone of a
+moved upstream would report "stale" because *upstream* changed, not because our artifacts drifted.
+Regenerating in that situation would rewrite 754 committed rows from an unpinned source.
+
+**P0 disposition — operator decision, do not self-resolve.** Options, in order of preference:
+(a) run governance's GitHub-factory steps on the Linux COE/VPS where the recorded `/tmp` path is
+real; (b) normalize `clone_root_used` in `_check_payload` and/or pin an upstream SHA — this is a
+**governance-script change** and, per this plan's own rule, is only permissible on a finding that
+the script is defective, which is an operator call, not an executor's; (c) accept step 1 as a
+known macOS limitation and record it. **Do not modify the governance script or regenerate the
+artifacts inside this plan.** `AI_SOC_GITHUB_SKILL_CLONE_ROOT` is defined at
+`scripts/github_skill_factory_lib.py:20`, defaulting to `/tmp/ai-soc-references/…`, and is set in
+neither `.env` nor any profile.
+
+Note the test `test_github_skill_expansion_factory_baseline.py::test_factory_generators_check_against_committed_artifacts`
+(line 208) shells out to the same three `--check` scripts, so it fails for exactly this reason —
+even though that file's *other* tests correctly use a synthetic `fixture_clone` fixture, matching
+the library's own guidance that "tests must pass `--fixture-root` instead of requiring the real clone.
 
 ## Stop conditions
 
@@ -341,7 +377,39 @@ skip these steps** unless the script is proven defective.
   | 14 | `integration/test_canonical_retention_purge.py` (11), `integration/test_handoff_postgres.py` (2), `integration/test_telemetry_postgres.py` (1) | **Env** — PostgreSQL-backed; `pyproject.toml` marks `integration` as skippable when the DB is unavailable |
   | 5 | `test_migration_readiness.py` | **Env** — DB/migration dependent |
   | 1 | `test_github_skill_expansion_factory_baseline.py::test_factory_generators_check_against_committed_artifacts` | **Env** — same missing `AI_SOC_GITHUB_SKILL_CLONE_ROOT` clone that stops governance at step 1 |
-  | 1 | `test_live_path_untouched_by_ec.py::test_races_freeze_files_unchanged_since_baseline` | **Pre-existing code state** — `RACES commits modified freeze files vs 08c8b40c: ['backend/app/chat/pipeline.py']`, introduced by `3a5f5001 fix(spl): enforce request authority and semantic fidelity` earlier on this branch. **P0 must decide** whether that freeze baseline is stale or the change is genuinely out of allowlist |
+  | 1 | `test_live_path_untouched_by_ec.py::test_races_freeze_files_unchanged_since_baseline` | **Pre-existing code state — audited below; `OPERATOR_DECISION_REQUIRED`** |
+
+### RACES freeze audit (completed 2026-08-21 — audit only, nothing changed)
+
+`RACES commits modified freeze files vs 08c8b40c: ['backend/app/chat/pipeline.py']`, from
+`3a5f5001 fix(spl): enforce request authority and semantic fidelity`.
+
+**Mechanism (read, not guessed).** `RACES_BASELINE_SHA = "08c8b40c"` is a hardcoded constant in
+`backend/app/tests/test_live_path_untouched_by_ec.py:129`; `RACES_FREEZE_PATHS = EC_FORBIDDEN_PREFIXES`.
+The test diffs `08c8b40c...HEAD` and fails on any freeze-path hit. The approved maintenance procedure
+is **not** a script: the constant is advanced to the exact reviewed commit and a justification comment
+appended — the file carries that history in-place ("Advanced again through P10-P13 at `9f1ec922`…",
+"Advanced through the final architecture-conformance correction at `08c8b40c`… the freeze continues
+from their exact reviewed commit"). Each precedent advance is tied to **reviewed/approved** work.
+
+**Findings.**
+1. **Hunks:** 13 hunks, +269 lines, **4 deletions**. New helper `_is_deterministic_spl_utility_authoring`; touchpoints in `graph_node_spl_postprocessor`, `graph_node_execution`, `graph_node_rag_early`, `graph_node_context_finalize`, `_candidate_spl_stage`, `_candidate_from_default_template`, `_context_stage`; new `_candidate_from_user_bound_review_only_skeleton`.
+2. **Why:** enforce request authority / semantic fidelity so a rendered SPL cannot drift from explicit user constraints.
+3. **Path:** **production live path** (`app/chat/pipeline.py`), but **not EC work** — the commit touches no `app/demo/` file. The freeze exists to stop RACES/EC from reaching production `/chat`; this is production SPL-governance work, which is the class the precedent comments describe as advanceable.
+4. **Frozen execution authority altered?** No. The change is uniformly **tightening**.
+5. **Weakens any authority axis?** No — measured on the added lines: `execution_eligible: False` and `execution_enabled: False` pinned repeatedly, `optimization_revalidation_approved: False`, `mcp_allowed` **narrowed** (`_mcp_allowed(state)` → forced `False` under a new condition), `approved`/`normalized_spl` still sourced from the real validator. The replacement predicate is strictly more restrictive than the one it replaced: it additionally requires `contract.sufficient_for_spl_authoring and contract.response_shape == "spl_only"`. All 4 deletions are replaced by stricter variants. No HIL/RBAC/exact-call/Resource-Planner/evidence authority is bypassed.
+6. **Could it live in a non-frozen seam?** Partly — the request-authority primitives already went to `spl/request_authority.py` (non-frozen). The residue in `pipeline.py` is call-site wiring at the SPL stages; relocating it would need a new seam and risks duplicate authority, which this plan prohibits.
+7. **Collateral risk: none.** `3a5f5001` is the **only** commit in `08c8b40c..HEAD` touching any freeze path, so advancing the baseline to HEAD would bless exactly this one change and silently accept no unrelated protected drift.
+
+**Decision: `OPERATOR_DECISION_REQUIRED` (decision-rule branch B, not A).** The change is necessary
+and architecture-conformant, so reverting/relocating (branch A) is **not** recommended. But advancing
+the freeze baseline blesses 269 lines of **production `/chat`** change, and `CLAUDE.md` records
+production `/chat` live semantics as **frozen** for the current track while `3a5f5001` landed on a
+feature branch rather than through a reviewed plan item. Every precedent advance cites reviewed/approved
+work. Confirming that authorization is the operator's call, not an executor's — so the constant was
+**not** touched. Do **not** weaken or delete the assertion, and do not blanket-bless protected drift.
+If approved, the procedure is: advance `RACES_BASELINE_SHA` to the exact reviewed commit **and** append
+a justification comment in the established style.
 
   **Runner caveat — do not "verify" these in the container.** The same six files fail *worse* there
   (**33 failed**), because these tests shell out to git and `/app` is not a git repo. Git/freeze-aware and
