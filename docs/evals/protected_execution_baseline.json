@@ -14,7 +14,7 @@
     },
     "governed_registries": {
       "backend/app/coverage/question_runtime_map_v1.json": "621232b2a97b40b2944fede12e3a42723aaef1494367cb80c8ca2c3decb20c28",
-      "backend/app/skills/catalog.json": "de69cbed98aa8acb15211e2d6b1224f5de41b30dfa602985acee72cab4010691",
+      "backend/app/skills/catalog.json": "f68444eada8becbfba4c1fdbdeb22b7e7dc8ed851dd3596e5dfbb93e0ff726c7",
       "backend/app/spl/templates.json": "304e0aa0c33aa311e46b1d7ec22c9cadc264d192b25df60f382588f05babd8e6",
       "backend/app/use_cases/catalog.json": "d7740a5a3017da5ba07c652dbadb2cdaf7df97714430c106f4bd5c4a9ed60833"
     },
