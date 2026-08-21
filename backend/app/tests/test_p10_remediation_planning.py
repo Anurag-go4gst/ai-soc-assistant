@@ -361,39 +361,58 @@ def test_available_write_capability_enters_the_plan_without_a_tier1_mention() ->
     assert step.execution_mode == "execute"
 
 
-def test_approve_binds_to_the_plan_shown_on_an_earlier_turn(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Create and Approve arrive on separate /chat turns; state does not carry the plan."""
-    from app.chat.session_store import (
-        clear_all_session_pins_for_tests,
-        get_session_pins,
+def test_shown_plan_is_carried_forward_by_the_session_pin_builder() -> None:
+    """Create and Approve land on separate turns.
+
+    ``pins_from_pipeline_state`` rebuilds the whole pin record every turn, so it is the
+    only writer that can carry the shown plan; a write from the remediation runtime would
+    be overwritten before the next turn saw it.
+    """
+    from app.chat.session_context import pins_from_pipeline_state
+    from app.chat.session_store import SessionPins
+
+    created = handle_remediation_review(
+        {
+            "session_id": "session-remediation-1",
+            "investigation_outcome": _outcome(),
+            "capability_snapshot": _snapshot(email_send="available"),
+        },
+        action="create",
     )
+    shown = created["remediation_approval"]["validated_plan"]
+    assert shown["steps"]
 
-    clear_all_session_pins_for_tests()
-    # Deliberately no pre-existing pins: the remediation offer is often the first
-    # thing a session pins, and the plan must survive that case too.
-    session_id = "session-remediation-1"
+    from app.schemas.responses import PlaceholderResponse
 
-    create_state = {
-        "session_id": session_id,
-        "investigation_outcome": _outcome(),
-        "capability_snapshot": _snapshot(email_send="available"),
-    }
-    created = handle_remediation_review(create_state, action="create")
-    shown = [step["step_id"] for step in created["remediation_approval"]["validated_plan"]["steps"]]
-    assert shown
+    response = PlaceholderResponse(trace_id="trace-1", message="ok", note="test", user_query="q")
 
-    pins = get_session_pins(session_id)
-    assert pins is not None and pins.pending_remediation_plan is not None
+    pins = pins_from_pipeline_state(
+        session_id="session-remediation-1",
+        trace_id="trace-1",
+        response=response,
+        state=created,
+    )
+    assert pins.pending_remediation_plan == shown
 
-    # A later turn: fresh state, same session, no approval payload carried over.
+    # A later turn reads the pin back and Approve binds to those exact steps.
     approve_state = {
-        "session_id": session_id,
+        "session_id": "session-remediation-1",
         "investigation_outcome": _outcome(),
         "capability_snapshot": _snapshot(email_send="available"),
+        "remediation_approval": {"validated_plan": pins.pending_remediation_plan},
     }
     approved = handle_remediation_review(approve_state, action="approve")
     envelope = approved["approved_remediation_envelope"]
-    assert [step["step_id"] for step in envelope["approved_steps"]] == shown
-    assert get_session_pins(session_id).pending_remediation_plan is None
+    assert [step["step_id"] for step in envelope["approved_steps"]] == [
+        step["step_id"] for step in shown["steps"]
+    ]
+
+    # Approval clears the pin so a stale plan cannot be re-approved.
+    cleared = pins_from_pipeline_state(
+        session_id="session-remediation-1",
+        trace_id="trace-2",
+        response=response,
+        state=approved,
+    )
+    assert cleared.pending_remediation_plan is None
+    assert isinstance(cleared, SessionPins)

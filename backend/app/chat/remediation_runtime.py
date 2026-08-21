@@ -209,23 +209,14 @@ def _load_pending_plan(state: dict[str, Any]) -> ValidatedRemediationPlan | None
         return None
 
 
-def _remember_pending_plan(
-    state: dict[str, Any], plan: ValidatedRemediationPlan | None
-) -> None:
-    """Persist (or clear) the shown plan so a later Approve binds to the same steps."""
-    session_id = state.get("session_id")
-    if not session_id:
-        return
-    from app.chat.session_store import SessionPins, get_session_pins, save_session_pins
+"""Persistence note.
 
-    # The remediation offer can be the first thing a session pins, so create the
-    # record rather than dropping the plan and losing it before Approve.
-    pins = get_session_pins(str(session_id)) or SessionPins(session_id=str(session_id))
-    save_session_pins(
-        pins.model_copy(
-            update={"pending_remediation_plan": plan.model_dump(mode="json") if plan else None}
-        )
-    )
+The shown plan is **not** written to session pins from here. ``pins_from_pipeline_state``
+rebuilds the whole pin record at the end of every turn, so a write from this module is
+overwritten before the next turn ever sees it. That builder reads
+``state["remediation_approval"]`` and carries the plan forward, which keeps a single
+writer and makes Approve bind to exactly what Create showed.
+"""
 
 
 def handle_remediation_review(
@@ -243,10 +234,8 @@ def handle_remediation_review(
     plan = _load_pending_plan(state)
 
     if normalized == "decline":
-        _remember_pending_plan(state, None)
         approval = _approval_state(status="declined", plan=None)
     elif normalized == "cancel":
-        _remember_pending_plan(state, None)
         approval = _approval_state(status="cancelled", plan=plan)
     elif normalized == "create":
         plan, trace = build_validated_remediation_plan(
@@ -255,7 +244,6 @@ def handle_remediation_review(
             turn_budget=turn_budget,
             raw_output_provider=raw_output_provider,
         )
-        _remember_pending_plan(state, plan)
         approval = _approval_state(status="awaiting_approval", plan=plan)
         return {
             **state,
@@ -266,7 +254,6 @@ def handle_remediation_review(
         if plan is None:
             raise ValueError("remediation_plan_missing_for_edit")
         edited, warnings = _apply_edits(plan, RemediationPlanEdits.model_validate(edits or {}))
-        _remember_pending_plan(state, edited)
         approval = _approval_state(
             status="edited_revalidated",
             plan=edited,
@@ -288,7 +275,6 @@ def handle_remediation_review(
             ),
         )
         approval = _approval_state(status="approved", plan=plan, envelope=envelope)
-        _remember_pending_plan(state, None)
         return {
             **state,
             "remediation_approval": approval.model_dump(mode="json"),
