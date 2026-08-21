@@ -17,8 +17,13 @@ from app.actions.remediation_execution import (
     execute_approved_remediation,
     idempotency_key_for,
 )
+from app.chat.capability_snapshot import production_registered_action_kinds
+from app.chat import canonical_execution_idempotency
 from app.chat.contracts.remediation_plan import ApprovedRemediationEnvelope, RemediationStep
+from app.chat.pipeline import _apply_remediation_lifecycle
+from app.chat.remediation_runtime import handle_remediation_review
 from app.config import settings
+from app.schemas.requests import ChatRequest
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
@@ -37,6 +42,7 @@ def _step(
         availability=availability,  # type: ignore[arg-type]
         verification="Confirm the post-action state.",
         unavailable_reason=None if mode == "execute" else "capability_not_registered",
+        action_arguments={"recipient": "soc@example.com"} if capability_id == "email_send" else {},
     )
 
 
@@ -57,7 +63,10 @@ def _recording(monkeypatch: pytest.MonkeyPatch) -> RecordingEmailTransport:
     monkeypatch.setenv("AI_SOC_ACTION_EMAIL_ALLOWLIST", "soc@example.com")
     monkeypatch.setenv("AI_SOC_ACTION_EMAIL_FROM", "ai-soc@example.com")
     monkeypatch.setenv("AI_SOC_ACTION_EMAIL_SMTP_HOST", "smtp.example.com")
+    canonical_execution_idempotency.use_in_memory_store_for_tests(True)
     yield transport
+    canonical_execution_idempotency.clear_in_memory_store_for_tests()
+    canonical_execution_idempotency.use_in_memory_store_for_tests(False)
     email_adapter.set_transport_for_tests(None)
 
 
@@ -136,6 +145,87 @@ def test_allowlisted_email_executes_and_verifies(_recording: RecordingEmailTrans
     assert _recording.sent[0]["To"] == "soc@example.com"
 
 
+def test_duplicate_approval_replays_receipt_without_a_second_send(
+    _recording: RecordingEmailTransport,
+) -> None:
+    envelope = _envelope(_step("email_send"))
+    first = execute_approved_remediation(approved_envelope=envelope)
+    second = execute_approved_remediation(approved_envelope=envelope)
+    assert first.receipts[0].status == STATUS_SUCCESS
+    assert second.receipts[0].status == STATUS_SUCCESS
+    assert second.receipts[0].replayed is True
+    assert len(_recording.sent) == 1
+
+
+def test_action_rbac_denies_viewer_before_connector_call(
+    _recording: RecordingEmailTransport,
+) -> None:
+    result = execute_approved_remediation(
+        approved_envelope=_envelope(_step("email_send")),
+        context={"rbac_role": "viewer"},
+    )
+    assert result.refused_reason == "rbac_denied:viewer"
+    assert result.receipts == []
+    assert _recording.sent == []
+
+
+def test_production_snapshot_reports_email_only_with_bound_recipient(
+    _recording: RecordingEmailTransport,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert email_adapter.default_recipient() == "soc@example.com"
+    assert production_registered_action_kinds()["email_send"] is True
+    monkeypatch.setenv(
+        "AI_SOC_ACTION_EMAIL_ALLOWLIST",
+        "soc@example.com,second@example.com",
+    )
+    assert email_adapter.default_recipient() is None
+    assert production_registered_action_kinds()["email_send"] is False
+
+
+def test_production_chat_approval_executes_exact_envelope_and_returns_verification(
+    _recording: RecordingEmailTransport,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_soc_remediation_planner_enabled", True)
+    created = handle_remediation_review(
+        {
+            "investigation_outcome": {
+                "investigation_status": "completed",
+                "disposition": "suspicious",
+                "action_eligibility": {
+                    "allowed_actions": ["email_send"],
+                    "unavailable_actions": [],
+                },
+            },
+            "capability_snapshot": {
+                "rows": [
+                    {
+                        "capability_id": "action:email_send",
+                        "capability_need": "recommended",
+                        "availability": "available",
+                    }
+                ]
+            },
+        },
+        action="create",
+    )
+    result = _apply_remediation_lifecycle(
+        {
+            **created,
+            "request": ChatRequest(
+                message="Approve remediation",
+                remediation_review_action="approve",
+            ),
+        }
+    )
+    receipt = result["remediation_execution"]["receipts"][0]
+    assert receipt["status"] == STATUS_SUCCESS
+    assert receipt["verification_status"] == "verified"
+    assert result["remediation_approval"]["execution_result"] == result["remediation_execution"]
+    assert len(_recording.sent) == 1
+
+
 def test_non_allowlisted_recipient_is_refused(_recording: RecordingEmailTransport) -> None:
     result = execute_approved_remediation(
         approved_envelope=_envelope(_step("email_send")),
@@ -144,7 +234,7 @@ def test_non_allowlisted_recipient_is_refused(_recording: RecordingEmailTranspor
     )
     receipt = result.receipts[0]
     assert receipt.status != STATUS_SUCCESS
-    assert receipt.reason == "recipient_not_allowlisted"
+    assert receipt.reason == "action_arguments_do_not_match_approved_plan"
     assert _recording.sent == []
 
 

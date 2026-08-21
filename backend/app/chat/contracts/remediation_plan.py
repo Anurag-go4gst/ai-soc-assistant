@@ -18,7 +18,7 @@ step. It is never dropped, and never reported as if it had run.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -58,6 +58,7 @@ class RemediationStep(BaseModel):
     reversible: bool = False
     verification: str = Field(min_length=1, max_length=300)
     unavailable_reason: str | None = Field(default=None, max_length=240)
+    action_arguments: dict[str, Any] = Field(default_factory=dict, max_length=16)
 
     @field_validator("description", "verification")
     @classmethod
@@ -149,5 +150,6 @@ class RemediationApprovalState(BaseModel):
     plan_summary: RemediationPlanSummary | None = None
     validated_plan: dict | None = None
     approved_envelope: ApprovedRemediationEnvelope | None = None
+    execution_result: dict | None = None
     safe_message: str = ""
     revalidation_warnings: list[str] = Field(default_factory=list, max_length=32)

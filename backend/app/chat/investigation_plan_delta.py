@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Any
 
 from app.chat.contracts.investigation_envelope import ApprovedInvestigationEnvelope
@@ -13,6 +14,8 @@ from app.chat.contracts.plan_delta import (
     ValidatedPlanDelta,
 )
 from app.config import settings
+from app.safeguards.spl_validator import validate_spl
+from app.spl.rqc_constraint_preservation import apply_rqc_constraint_preservation
 
 
 def _fingerprint(payload: dict[str, Any]) -> str:
@@ -33,6 +36,105 @@ def _available_capabilities(snapshot: dict[str, Any]) -> set[str]:
         for row in snapshot.get("rows") or []
         if isinstance(row, dict) and row.get("availability") == "available"
     }
+
+
+def _validated_execution_arguments(
+    proposal: PlanDeltaProposal,
+    *,
+    envelope: ApprovedInvestigationEnvelope,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Bind a delta to an executable read-only call or fail closed.
+
+    P7 currently onboards only governed Splunk searches. A generic capability
+    name or prose-only argument record must not be labelled executable: the RP
+    hub needs a concrete, deterministically validated call payload for AUTH0.
+    """
+    tool_name = proposal.capability_id.rsplit(":", 1)[-1]
+    if tool_name not in {"splunk_run_query", "run_splunk_query", "search_splunk"}:
+        return None, "plan_delta_capability_has_no_execution_binding"
+    raw_spl = proposal.tool_arguments.get("normalized_spl") or proposal.tool_arguments.get("query")
+    if not isinstance(raw_spl, str) or not raw_spl.strip():
+        return None, "plan_delta_spl_missing"
+
+    validation = validate_spl(raw_spl)
+    validation = apply_rqc_constraint_preservation(
+        validation,
+        spl=raw_spl,
+        resolved_query_contract={
+            "entities": dict(envelope.entities),
+            "time_scope": envelope.time_scope,
+        },
+    )
+    if not isinstance(validation, dict) or validation.get("approved") is not True:
+        return None, "plan_delta_spl_validation_failed"
+    normalized_spl = str(validation.get("normalized_spl") or "").strip()
+    if not normalized_spl:
+        return None, "plan_delta_spl_validation_failed"
+
+    approved_indexes = set(envelope.source_index_scope.get("indexes") or [])
+    referenced_indexes = set(
+        re.findall(r"\bindex\s*=\s*[\"']?([^\s|\"']+)", normalized_spl, flags=re.IGNORECASE)
+    )
+    if approved_indexes and not referenced_indexes.issubset(approved_indexes):
+        return None, "plan_delta_spl_outside_approved_index_scope"
+
+    return {
+        **proposal.tool_arguments,
+        "query": normalized_spl,
+        "normalized_spl": normalized_spl,
+    }, None
+
+
+def _append_delta_resource_step(
+    state: dict[str, Any],
+    *,
+    delta: dict[str, Any],
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Append one bounded call to the existing authoritative ResourcePlan."""
+    evidence_plan = state.get("evidence_plan")
+    if not isinstance(evidence_plan, dict):
+        return None, "plan_delta_resource_plan_missing"
+    resource_plan = evidence_plan.get("resource_plan")
+    if not isinstance(resource_plan, dict) or not isinstance(resource_plan.get("steps"), list):
+        return None, "plan_delta_resource_plan_missing"
+
+    revision = int(delta["revision_number"])
+    step_id = f"plan_delta_mcp_{revision}"
+    if any(
+        isinstance(step, dict) and str(step.get("step_id") or "") == step_id
+        for step in resource_plan["steps"]
+    ):
+        return None, "duplicate_plan_delta_resource_step"
+    tool_name = str(delta["capability_id"]).rsplit(":", 1)[-1]
+    step = {
+        "step_id": step_id,
+        "resource_id": f"mcp_tool:{tool_name}",
+        "purpose": "mcp_execution",
+        "args_template": dict(delta["tool_arguments"]),
+        "policy_checks": [
+            "approved_investigation_envelope",
+            "validated_plan_delta",
+            "approved_normalized_spl_only",
+            "exact_call_authorization",
+        ],
+        "status": "planned",
+        "status_reason": None,
+    }
+    provenance = dict(resource_plan.get("provenance") or {})
+    provenance["plan_delta_revision_fingerprints"] = [
+        *list(provenance.get("plan_delta_revision_fingerprints") or []),
+        str(delta["revision_fingerprint"]),
+    ]
+    appended_plan = {
+        **resource_plan,
+        "steps": [*resource_plan["steps"], step],
+        "provenance": provenance,
+    }
+    return {
+        **state,
+        "evidence_plan": {**evidence_plan, "resource_plan": appended_plan},
+        "active_resource_plan_step_id": step_id,
+    }, None
 
 
 def validate_plan_delta(
@@ -73,6 +175,13 @@ def validate_plan_delta(
     if proposal.evidence_need not in set(missing_evidence):
         return PlanDeltaDecision(status="rejected", reason="delta_not_targeted_to_current_gap")
 
+    execution_arguments, binding_error = _validated_execution_arguments(
+        proposal,
+        envelope=envelope,
+    )
+    if execution_arguments is None:
+        return PlanDeltaDecision(status="rejected", reason=str(binding_error))
+
     max_calls = int(envelope.budget.cost_resource_limits.get("max_tool_calls", envelope.budget.hop_limit))
     if len(prior_revisions) >= min(envelope.budget.hop_limit, max_calls):
         return PlanDeltaDecision(status="budget_exhausted", reason="plan_delta_hop_budget_exhausted")
@@ -82,7 +191,13 @@ def validate_plan_delta(
     if not prior_revisions and proposal.prior_revision_fingerprint not in {None, ""}:
         return PlanDeltaDecision(status="rejected", reason="unexpected_prior_revision_fingerprint")
 
-    effective_payload = proposal.model_dump(mode="json", exclude={"prior_revision_fingerprint"})
+    proposal_payload = proposal.model_dump(mode="json")
+    proposal_payload["tool_arguments"] = execution_arguments
+    effective_payload = {
+        key: value
+        for key, value in proposal_payload.items()
+        if key != "prior_revision_fingerprint"
+    }
     effective_fp = _fingerprint(effective_payload)
     prior_effective = {
         str(item.get("effective_fingerprint") or "") for item in prior_revisions if isinstance(item, dict)
@@ -91,7 +206,7 @@ def validate_plan_delta(
         return PlanDeltaDecision(status="no_progress", reason="duplicate_effective_plan_delta")
     revision_fp = _fingerprint({**effective_payload, "prior_revision_fingerprint": prior_fp})
     validated = ValidatedPlanDelta(
-        **proposal.model_dump(mode="json"),
+        **proposal_payload,
         revision_number=len(prior_revisions) + 1,
         revision_fingerprint=revision_fp,
         effective_fingerprint=effective_fp,
@@ -104,8 +219,13 @@ def attach_plan_delta_decision(state: dict[str, Any]) -> dict[str, Any]:
     envelope_raw = state.get("approved_investigation_envelope")
     if not isinstance(envelope_raw, dict):
         return state
-    if not settings.ai_soc_investigation_planner_enabled:
-        return {**state, "plan_delta_decision": PlanDeltaDecision(status="disabled", reason="investigation_reasoning_disabled").model_dump(mode="json")}
+    if not settings.ai_soc_plan_delta_enabled:
+        return {
+            **state,
+            "plan_delta_decision": PlanDeltaDecision(
+                status="disabled", reason="plan_delta_disabled"
+            ).model_dump(mode="json"),
+        }
 
     run_status = state.get("investigation_run_status") if isinstance(state.get("investigation_run_status"), dict) else {}
     missing = [str(item) for item in run_status.get("missing_evidence") or []]
@@ -158,11 +278,27 @@ def attach_plan_delta_decision(state: dict[str, Any]) -> dict[str, Any]:
         return updated
 
     delta = decision.validated_delta.model_dump(mode="json")
+    bound_state, binding_error = _append_delta_resource_step(updated, delta=delta)
+    if bound_state is None:
+        failed = PlanDeltaDecision(status="rejected", reason=str(binding_error))
+        return {
+            **updated,
+            "plan_delta_decision": failed.model_dump(mode="json"),
+            "investigation_run_status": {
+                **run_status,
+                "next_action": "stop",
+                "plan_delta_emitted": False,
+                "stop_reason": str(binding_error),
+            },
+        }
+    updated = bound_state
     updated["plan_delta_revisions"] = [*revisions, delta]
     updated["plan_delta_execution_request"] = {
         "revision_fingerprint": delta["revision_fingerprint"],
         "capability_id": delta["capability_id"],
         "tool_arguments": delta["tool_arguments"],
+        "validated_spl": delta["tool_arguments"]["normalized_spl"],
+        "resource_plan_step_id": updated["active_resource_plan_step_id"],
         "evidence_need": delta["evidence_need"],
         "exact_call_authorization_required": True,
         "execution_authorized": False,
@@ -179,3 +315,76 @@ def attach_plan_delta_decision(state: dict[str, Any]) -> dict[str, Any]:
         "plan_delta_emitted": True,
     }
     return updated
+
+
+def observe_plan_delta_execution(state: dict[str, Any]) -> dict[str, Any]:
+    """Accumulate one completed delta call into EvidenceState metadata.
+
+    Raw rows remain on the governed execution/SourceEvidence channels. This
+    observer records only that the approved evidence category was checked.
+    Failed, blocked, or unavailable calls leave the category missing.
+    """
+    request = state.get("plan_delta_execution_request")
+    execution = state.get("execution")
+    if not isinstance(request, dict) or not isinstance(execution, dict):
+        return state
+    if request.get("observed") is True:
+        return state
+    status = str(execution.get("status") or "").lower()
+    if status not in {
+        "executed",
+        "executed_mock_evidence",
+        "executed_live_evidence",
+        "success",
+    }:
+        return {
+            **state,
+            "plan_delta_execution_request": {
+                **request,
+                "observed": True,
+                "observation_status": "unavailable_or_blocked",
+            },
+        }
+
+    evidence_need = str(request.get("evidence_need") or "").strip()
+    if not evidence_need:
+        return state
+    current = state.get("evidence_state")
+    evidence_state = dict(current) if isinstance(current, dict) else {}
+    obtained = list(dict.fromkeys([*list(evidence_state.get("obtained") or []), evidence_need]))
+    missing = [
+        str(item)
+        for item in evidence_state.get("missing") or []
+        if str(item) != evidence_need
+    ]
+    items = [
+        dict(item)
+        for item in evidence_state.get("items") or []
+        if isinstance(item, dict) and str(item.get("key") or "") != evidence_need
+    ]
+    items.append(
+        {
+            "key": evidence_need,
+            "status": "obtained",
+            "provenance": f"plan_delta:{request.get('revision_fingerprint')}",
+            "trust_class": "untrusted_evidence",
+            "scope": {"resource_plan_step_id": request.get("resource_plan_step_id")},
+            "observed_at": None,
+            "freshness": None,
+            "applicability": "current_envelope",
+        }
+    )
+    return {
+        **state,
+        "evidence_state": {
+            **evidence_state,
+            "obtained": obtained,
+            "missing": missing,
+            "items": items,
+        },
+        "plan_delta_execution_request": {
+            **request,
+            "observed": True,
+            "observation_status": "obtained",
+        },
+    }

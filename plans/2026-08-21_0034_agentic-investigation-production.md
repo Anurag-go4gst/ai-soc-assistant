@@ -1576,7 +1576,7 @@ VERIFICATION when Live acceptance by phase marks the phase required).
     - append-only revision references envelope version/prior fingerprint; DET enforces same objective/targets/entities/time/index scope, current evidence gap, available snapshot row, read-only access, envelope policy and hop/tool-call budget
     - widened scope → HIL; write → remediation recommendation; duplicate effective fingerprint → no-progress stop; changed arguments → distinct exact-call grant; accepted delta routes to existing `composed_dispatch` on the RP graph
     - `evidence_reasoner`, `hypothesis_reasoner`, and `plan_delta_reasoner` are configurable reasoning-family roles; proposal is advisory, receives bounded vocabulary, does not add SourceEvidence, and cannot authorize execution
-    - `/invariant-check` → PASS (single RP hub; no second while-loop executor; no direct MCP call; exact-call/RBAC/HIL/policy remain downstream; no new flag; P5 flag-off stop preserved)
+    - `/invariant-check` → PASS (single RP hub; no second while-loop executor; no direct MCP call; exact-call/RBAC/HIL/policy remain downstream; P5 flag-off stop preserved)
     COE DEPLOYMENT / ENVIRONMENT VERIFICATION — PASS / DEFERRED (2026-08-21)
     - deployed exact `917baba5`; backend rebuild/restart and `/api/health` PASS
     - existing `AI_SOC_INVESTIGATION_PLANNER_ENABLED` remains false/absent on COE, so P7 does not call an unreachable model and P5 honest stop remains active
@@ -1584,10 +1584,12 @@ VERIFICATION when Live acceptance by phase marks the phase required).
     COE FEATURE ACTIVATION — ENABLED (2026-08-21, continuation override)
     - IMPLEMENTATION = PASS | FEATURE ACTIVATION = ENABLED
     - LIVE_REASONING_PROOF = DEFERRED_COE_CONFIGURATION | LIVE_SPLUNK_ITERATION_PROOF = DEFERRED_COE_CONFIGURATION
-    - **No `AI_SOC_PLAN_DELTA_ENABLED` key was created.** The section 5 table named one, but P7 was implemented
-      without a new flag: `investigation_plan_delta.py:107` gates on `settings.ai_soc_investigation_planner_enabled`,
-      so P3 and P7 share **one** activation seam. Enabling that key enables both. Creating the second key would have
-      violated the standing no-new-flags rule for a name the runtime does not read.
+    - Final conformance audit correction: `AI_SOC_PLAN_DELTA_ENABLED` is a separate default-false P7 seam.
+      P3 plan proposal can remain enabled while bounded iteration is stopped; flag-off returns to P5 honest stop.
+      The no-readiness-flag instruction applies only to infrastructure readiness, not this approved rollback boundary.
+    - Final conformance audit correction: an accepted delta now appends a uniquely identified read-only MCP step
+      to the committed ResourcePlan view, binds validated SPL, selects that step for idempotency/AUTH0, and records
+      only execution-derived evidence metadata after the same RP hub runs it. Prose-only arguments fail closed.
     - flag-off stop policy preserved; `plan_delta_reasoner` registered in the role timeout table at 30 s and
       bounded by the same turn budget as P3
     - reasoner unavailable ⇒ `reasoner_unavailable` / deterministic stop, no invented delta, no open loop
@@ -1753,9 +1755,8 @@ VERIFICATION when Live acceptance by phase marks the phase required).
 - 2026-08-21: Correction pass (FIX 1–7) — CapabilitySnapshot is need × availability only (RBAC/AUTH0/HIL/envelope/execution are later gates; no `executable` field). P2 splits permanent `catalog.json` correction (`git revert`) from runtime `AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED`. P5 is execution/sufficiency seam with honest stop; P7 owns PlanDelta into that seam. Production ChatPanel UX + follow-up continuity + P13 `EXPERIENCE CENTER BEHAVIORAL PARITY` gate. T1–T4 convergence unchanged.
 - 2026-08-21: Wording fix — Splunk MCP **capability/service exists on the COE host**, but the deployed `/chat` stack is **not yet configured to use it live** (`MCP_MODE=mock`, empty `SPLUNK_MCP_BASE_URL` at authoring). Before P6 live acceptance: configure/verify + refresh discovery. `/var/www/ai-soc-mcp` = implementation checkout only (no running stack; not the live-acceptance environment). `/var/www/ai-soc-assistant` = deployed COE runtime (live acceptance). Distinction is stack-running-from-checkout, not network reachability. Removed leftover “Splunk is live” / “Splunk is not live” dual wording.
 - 2026-08-21: **Continuation chunk — architecture ON, external dependency honest.** Section 5's
-  `AI_SOC_PLAN_DELTA_ENABLED` was never implemented as a key: P7 gates on
-  `ai_soc_investigation_planner_enabled`, so P3 and P7 share **one** activation seam and one flip enables both.
-  The table entry is superseded by the implementation, and no second key was created (standing no-new-flags rule).
+  `AI_SOC_PLAN_DELTA_ENABLED` was initially omitted and P7 shared P3's planner flag. The final conformance audit
+  restored the approved independent default-false P7 rollback seam; infrastructure-readiness flags remain absent.
   New keys in this chunk are both **feature** flags, not readiness flags: `AI_SOC_REMEDIATION_PLANNER_ENABLED`
   (P10, the plan already names it) and `AI_SOC_ACTION_EMAIL_ENABLED` (P11 per-connector). No
   `AI_SOC_REASONING_READY` / `_SPLUNK_LIVE` / `_MODEL_AVAILABLE` / `_MCP_AVAILABLE` key exists; availability is
@@ -1766,6 +1767,13 @@ VERIFICATION when Live acceptance by phase marks the phase required).
   with `turn_budget_exhausted` (`16371f9e`). (2) A version-bound Run/Edit/Cancel from a foreign session failed
   closed by raising to the unhandled backstop, so `/chat` answered **HTTP 500**; `InvestigationEnvelopeError` now
   maps to a governed **409** with a stable reason code (`938b1006`). Fail-closed must not mean unhealthy.
+- 2026-08-21: **Final conformance audit corrections.** Removed the legacy Experience Center scenario shortcut
+  from production `/chat` and `/chat/stream`; parity is behavioral only. Restored P7's independent rollback seam
+  and bound accepted validated deltas to a unique appended ResourcePlan step consumed by the existing SPL/AUTH0/RP
+  path. Wired production remediation approval to the P11 action gate and verification receipts; email recipient
+  arguments are now part of the fingerprinted approved step rather than mutable executor context. P11 reuses the
+  canonical durable execution-idempotency store and fails closed on action RBAC before connector invocation. No new
+  capability, architecture, phase, or infrastructure-readiness flag was introduced.
 - 2026-08-21: **Measured out-of-scope finding — `spl_t2_producer` turn latency.** Two suite scenarios that route
   to `spl_generation_only` (not investigation-shaped, so P3 never fires) took **303 s** and **182 s**, with
   `llm_calls: []` in the trace while three 90 s `local_primary` hops appear in the backend log. That role does not

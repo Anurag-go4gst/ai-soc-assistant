@@ -11,7 +11,8 @@ interface RemediationPlanApprovalCardProps {
 }
 
 /**
- * P10 remediation HIL. Approving produces an envelope; it does not run anything.
+ * P10/P11 remediation HIL. Approving produces the immutable envelope, then the
+ * production action gate executes only its registered steps and returns receipts.
  * Steps that no registered connector can perform stay visible as manual work
  * rather than being hidden, so the analyst sees the whole job.
  */
@@ -84,8 +85,25 @@ export function RemediationPlanApprovalCard({
             Approved remediation envelope v{approval.approved_envelope.envelope_version}
           </div>
           <p className="mt-1">
-            Execution stays governed by the action gate and per-connector policy. Approval did not itself run anything.
+            Execution was submitted through the governed action gate using this exact approved version.
           </p>
+        </div>
+      ) : null}
+
+      {approval.execution_result ? (
+        <div className="mt-3 rounded-lg border border-cyan-400/25 bg-cyan-500/[0.07] px-3 py-2 text-xs text-cyan-50">
+          <p className="font-semibold">Action verification</p>
+          {approval.execution_result.refused_reason ? (
+            <p className="mt-1 text-rose-200">Refused: {approval.execution_result.refused_reason}</p>
+          ) : null}
+          <ul className="mt-1 space-y-1">
+            {approval.execution_result.receipts.map((receipt) => (
+              <li key={`${receipt.step_id}-${receipt.capability_id}`}>
+                {receipt.step_id}: {receipt.status} · verification {receipt.verification_status}
+                {receipt.reason ? ` · ${receipt.reason}` : ''}
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
 

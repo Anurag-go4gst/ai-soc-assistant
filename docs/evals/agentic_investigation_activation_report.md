@@ -2,6 +2,7 @@
 
 **Branch:** `feat/agentic-investigation-production` · **PR #156**
 **COE runtime:** `/var/www/ai-soc-assistant` · **Implementation checkout:** `/var/www/ai-soc-mcp`
+**COE runtime commit observed by final audit:** `f1bf40d30a2a8f188564dd21ee02e49193511fc8`
 **Date:** 2026-08-21
 
 Every phase is reported on three independent axes. A missing external dependency
@@ -20,7 +21,7 @@ defers a **live proof**; it never defers implementation and never disables a fea
 | P4 Run/Edit/Cancel + envelope | PASS | ENABLED (rides P0) | n/a |
 | P5 compiler + RP execution/sufficiency seam | PASS | ENABLED | n/a |
 | P6 repeated tools + exact-call AUTH0 | PASS | ENABLED | `LIVE_SPLUNK_PROOF = DEFERRED_COE_CONFIGURATION` |
-| P7 bounded read-only PlanDelta | PASS | **ENABLED** (shared P3 seam) | `LIVE_REASONING_PROOF`, `LIVE_SPLUNK_ITERATION_PROOF` = DEFERRED |
+| P7 bounded read-only PlanDelta | PASS after audit correction | pre-audit shared seam enabled; corrected independent seam requires deploy | `LIVE_REASONING_PROOF`, `LIVE_SPLUNK_ITERATION_PROOF` = DEFERRED |
 | P8 InvestigationOutcome v2 | PASS | ENABLED | n/a |
 | P9 domain workers | `SKIPPED_NOT_REQUIRED` | no flag exists | n/a |
 | P10 remediation plan + Approve/Edit/Cancel | PASS | **ENABLED** | `LIVE_REMEDIATION_REASONING_PROOF = DEFERRED_COE_CONFIGURATION` |
@@ -28,10 +29,10 @@ defers a **live proof**; it never defers implementation and never disables a fea
 | P12 SOP/policy seed | PASS | published | n/a |
 | P13 E2E acceptance | PASS | n/a | live lifecycle driven; see §5 |
 
-**`AI_SOC_PLAN_DELTA_ENABLED` was never created.** P7 gates on
-`ai_soc_investigation_planner_enabled` (`investigation_plan_delta.py:107`), so P3 and P7
-share one activation seam and one flip enables both. Creating a second key for a name the
-runtime does not read would have violated the no-new-flags rule.
+The final conformance audit restored the approved independent
+`AI_SOC_PLAN_DELTA_ENABLED` default-false runtime seam. It is a phase rollback control,
+not an infrastructure-readiness flag. The currently deployed pre-audit runtime does not
+read this key and must be redeployed before its P7 state can be reported against the corrected code.
 
 ---
 
@@ -41,7 +42,8 @@ runtime does not read would have violated the no-new-flags rule.
 AI_SOC_INVESTIGATION_PLAN_BEFORE_RESOURCE_PLAN_ENABLED = true
 AI_SOC_CAPABILITY_SNAPSHOT_ENABLED                     = true
 AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED              = true
-AI_SOC_INVESTIGATION_PLANNER_ENABLED                   = true    # P3 + P7
+AI_SOC_INVESTIGATION_PLANNER_ENABLED                   = true    # P3
+AI_SOC_PLAN_DELTA_ENABLED                              = absent  # corrected code not yet deployed
 AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED                 = true
 AI_SOC_INVESTIGATION_OUTCOME_V2_ENABLED                = true
 AI_SOC_REMEDIATION_PLANNER_ENABLED                     = true    # P10

@@ -22,6 +22,8 @@ from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.actions import email_adapter
+from app.actions.remediation_execution import ADAPTERS
 from app.chat.skill_intent_compatibility import CAPABILITY_MCP, CAPABILITY_SPL
 from app.connectors.mcp.discovery import classify_mcp_tool
 from app.connectors.mcp.effective_catalog import (
@@ -249,7 +251,11 @@ def production_registered_action_kinds() -> dict[str, bool]:
     """
     return {
         "firewall_block": False,
-        "email_send": False,
+        "email_send": bool(
+            "email_send" in ADAPTERS
+            and email_adapter.configured()
+            and email_adapter.default_recipient()
+        ),
     }
 
 

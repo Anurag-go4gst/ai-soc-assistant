@@ -19,6 +19,7 @@ from langgraph.types import Send
 from app.chat.control_plane_trace import patch_control_plane_trace_decision_log
 from app.chat.decision_record import emit_decision_record
 from app.chat.final_answer_validator import validate_final_answer
+from app.chat.investigation_plan_delta import observe_plan_delta_execution
 from app.chat.pipeline import (
     ChatPipelineState,
     build_rp_degraded_placeholder_response,
@@ -175,6 +176,7 @@ class ResourcePlannerGraphState(ChatPipelineState, total=False):
     plan_delta_decision: dict[str, Any]
     plan_delta_revisions: list[dict[str, Any]]
     plan_delta_execution_request: dict[str, Any]
+    active_resource_plan_step_id: str
 
 
 def _evidence_plan(state: ResourcePlannerGraphState) -> dict[str, Any]:
@@ -639,6 +641,7 @@ def rp_node_context_sufficiency(state: ResourcePlannerGraphState) -> ResourcePla
     from app.evidence.evidence_sufficiency import attach_evidence_sufficiency
     from app.chat.investigation_run_compiler import attach_investigation_observation
 
+    state = observe_plan_delta_execution(state)
     state = attach_evidence_sufficiency(state)
     state = attach_investigation_observation(state)
     state = _with_trace(state, "context_sufficiency")
@@ -661,7 +664,7 @@ def rp_node_context_sufficiency(state: ResourcePlannerGraphState) -> ResourcePla
 def _rp_after_context_sufficiency(state: ResourcePlannerGraphState) -> AfterContextSufficiency:
     envelope = state.get("approved_investigation_envelope")
     run_status = state.get("investigation_run_status")
-    if not settings.ai_soc_investigation_planner_enabled:
+    if not settings.ai_soc_plan_delta_enabled:
         return "decide_facts"
     if not isinstance(envelope, dict) or not isinstance(run_status, dict):
         return "decide_facts"

@@ -95,6 +95,7 @@ export interface PlaceholderResponse {
   investigation_approval?: InvestigationApprovalState | null;
   remediation_approval?: RemediationApprovalState | null;
   approved_remediation_envelope?: ApprovedRemediationEnvelope | null;
+  remediation_execution?: RemediationExecutionResult | null;
   approved_investigation_envelope?: ApprovedInvestigationEnvelope | null;
   investigation_progress?: InvestigationProgressEvent[];
   investigation_run_status?: InvestigationRunStatus | null;
@@ -906,6 +907,27 @@ export interface RemediationApprovalState {
   approved_envelope?: ApprovedRemediationEnvelope | null;
   safe_message: string;
   revalidation_warnings: string[];
+  execution_result?: RemediationExecutionResult | null;
+}
+
+export interface RemediationActionReceipt {
+  step_id: string;
+  capability_id: string;
+  status: 'SUCCESS' | 'FAILED' | 'UNAVAILABLE' | 'SKIPPED_MANUAL' | string;
+  execution_mode: string;
+  external_side_effect: boolean;
+  reason?: string | null;
+  verification_status: string;
+  verification_detail?: string | null;
+  replayed?: boolean;
+}
+
+export interface RemediationExecutionResult {
+  envelope_version: number;
+  plan_fingerprint: string;
+  refused_reason?: string | null;
+  receipts: RemediationActionReceipt[];
+  executed_any: boolean;
 }
 
 export interface ChatRemediationReviewOptions {

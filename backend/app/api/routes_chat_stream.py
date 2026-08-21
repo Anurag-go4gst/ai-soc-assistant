@@ -26,7 +26,6 @@ from app.chat.progress_events import (
 )
 from app.chat_commands import is_clear_chat_command
 from app.config import settings
-from app.demo.scenarios import resolve_demo_scenario_id_for_query, run_demo_scenario
 from app.llm.clients.local_chat_errors import local_chat_error_code, user_message_for_local_chat_error
 from app.schemas.requests import ChatRequest
 from app.connectors.telemetry.log_context import TRACE_ID_HEADER, reset_trace_id, set_trace_id
@@ -67,16 +66,6 @@ def _run_chat_with_progress(
     token = set_trace_id(trace_id)
     try:
         persist_chat_admission(trace_id, user, entrypoint="chat_stream")
-        if settings.ai_soc_live_chat_ec_parity_enabled:
-            scenario_id = resolve_demo_scenario_id_for_query(request.message)
-            if scenario_id:
-                response = _finalize_stream_response(
-                    request,
-                    PlaceholderResponse(**run_demo_scenario(scenario_id)),
-                )
-                reporter.final(response)
-                return
-
         if settings.langgraph_orchestration_enabled:
             from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 

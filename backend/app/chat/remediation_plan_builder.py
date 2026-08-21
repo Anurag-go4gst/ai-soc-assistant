@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.actions.capability_policy import BLOCKED_EXECUTION_ACTIONS
+from app.actions.email_adapter import default_recipient
 from app.chat.capability_snapshot import KNOWN_ACTION_KINDS
 from app.chat.contracts.remediation_plan import (
     RemediationStep,
@@ -76,7 +77,11 @@ def _snapshot_availability(snapshot: dict[str, Any]) -> dict[str, str]:
     availability: dict[str, str] = {}
     for row in rows or []:
         if isinstance(row, dict) and row.get("capability_id"):
-            availability[str(row["capability_id"])] = str(row.get("availability") or "unavailable")
+            capability_id = str(row["capability_id"])
+            row_availability = str(row.get("availability") or "unavailable")
+            availability[capability_id] = row_availability
+            if capability_id.startswith("action:"):
+                availability[capability_id.split(":", 1)[1]] = row_availability
     return availability
 
 
@@ -99,11 +104,24 @@ def _step(
     unavailable_reason: str | None,
 ) -> RemediationStep:
     executable = availability == "available" and capability_id not in BLOCKED_EXECUTION_ACTIONS
+    arguments: dict[str, Any] = {}
+    if executable and capability_id == "email_send":
+        recipient = default_recipient()
+        if recipient:
+            arguments["recipient"] = recipient
+        else:
+            executable = False
+            availability = "unavailable"
+            unavailable_reason = "approved_email_recipient_not_configured"
     return RemediationStep(
         step_id=f"rem.{index:02d}.{capability_id}",
         capability_id=capability_id,
         description=(
-            f"Perform {capability_id.replace('_', ' ')} through the registered connector."
+            (
+                f"Send the remediation notification to {arguments['recipient']} through the registered connector."
+                if capability_id == "email_send" and arguments.get("recipient")
+                else f"Perform {capability_id.replace('_', ' ')} through the registered connector."
+            )
             if executable
             else f"Perform {capability_id.replace('_', ' ')} manually or through an alternate path."
         ),
@@ -112,6 +130,7 @@ def _step(
         reversible=capability_id in _REVERSIBLE_CAPABILITIES,
         verification=_VERIFICATION_BY_CAPABILITY.get(capability_id, _GENERIC_VERIFICATION),
         unavailable_reason=unavailable_reason,
+        action_arguments=arguments,
     )
 
 

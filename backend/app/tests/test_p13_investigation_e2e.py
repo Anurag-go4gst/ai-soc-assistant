@@ -37,6 +37,11 @@ from app.llm.turn_llm_budget import TurnLlmBudget
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.fixture(autouse=True)
+def _approved_email_recipient(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AI_SOC_ACTION_EMAIL_ALLOWLIST", "soc@example.com")
+
+
 def _snapshot(**availability: str) -> dict:
     return {
         "schema_version": "capability_snapshot_v1",
@@ -228,6 +233,13 @@ def test_production_chat_does_not_import_ec_demo_action_fixtures() -> None:
         check=False,
     )
     assert completed.stdout.strip() == "", completed.stdout
+
+
+def test_production_chat_routes_do_not_import_demo_orchestrators() -> None:
+    for filename in ("routes_chat.py", "routes_chat_stream.py"):
+        source = (_BACKEND_ROOT / "app" / "api" / filename).read_text(encoding="utf-8")
+        assert "from app.demo" not in source
+        assert "run_demo_scenario" not in source
 
 
 def test_static_catalog_correction_is_not_flag_reversible() -> None:
@@ -445,12 +457,10 @@ def test_flag_off_produces_no_investigation_or_remediation_surface(
     )
 
 
-def test_flag_off_investigation_shape_gate_is_the_only_activation_seam(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """P4/P7 ride the P0 wait-state; no separate envelope or PlanDelta flag exists."""
+def test_p4_reuses_p0_but_p7_has_independent_rollback_seam() -> None:
+    """P4 is inseparable from its wait-state; adaptive iteration is independently stoppable."""
     assert not hasattr(settings, "ai_soc_investigation_envelope_enabled")
-    assert not hasattr(settings, "ai_soc_plan_delta_enabled")
+    assert settings.ai_soc_plan_delta_enabled is False
 
 
 def test_no_infrastructure_readiness_flags_were_introduced() -> None:

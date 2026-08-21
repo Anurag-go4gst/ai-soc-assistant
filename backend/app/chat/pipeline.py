@@ -13,6 +13,7 @@ from app.connectors.telemetry import get_telemetry_connector
 from app.connectors.telemetry import metrics as _telemetry_metrics
 from app.connectors.telemetry.log_context import current_trace_id, reset_trace_id, set_trace_id
 from app.actions.capability_policy import action_capability_for
+from app.actions.remediation_execution import execute_approved_remediation
 from app.chat.analyst_response_builder import (
     build_analyst_response_for_live,
     build_reference_source_playbook,
@@ -407,9 +408,12 @@ class ChatPipelineState(TypedDict, total=False):
     investigation_phase_contract: dict[str, Any] | None
     investigation_progress: list[dict[str, Any]]
     investigation_run_status: dict[str, Any] | None
+    active_resource_plan_step_id: str | None
+    plan_delta_execution_request: dict[str, Any] | None
     remediation_approval: dict[str, Any] | None
     remediation_planning_trace: dict[str, Any] | None
     approved_remediation_envelope: dict[str, Any] | None
+    remediation_execution: dict[str, Any] | None
     llm_intent_advisory: LLMIntentAdvisory | None
     # LangGraph silently drops any state key not declared here (see executor
     # guide). shape_advisory was set by graph_node_query_understanding but
@@ -2800,11 +2804,79 @@ def _guard_query_to_intent_for_workflow_spl(state: ChatPipelineState) -> ChatPip
     return emit_request_failed(failed, reason=error, error_category="planning")
 
 
+def _workflow_spl_from_plan_delta(state: ChatPipelineState) -> ChatPipelineState | None:
+    """Materialize an accepted P7 call without invoking another SPL producer.
+
+    The candidate was already validated when DET accepted the PlanDelta. It is
+    revalidated here because this node is the final SPL authority before AUTH0.
+    """
+    delta = state.get("plan_delta_execution_request")
+    if not isinstance(delta, dict) or delta.get("observed") is True:
+        return None
+    raw_spl = delta.get("validated_spl")
+    if not isinstance(raw_spl, str) or not raw_spl.strip():
+        return None
+
+    validation = validate_spl(raw_spl)
+    validation = apply_rqc_constraint_preservation(
+        validation,
+        spl=raw_spl,
+        resolved_query_contract=(
+            state.get("resolved_query_contract")
+            if isinstance(state.get("resolved_query_contract"), dict)
+            else None
+        ),
+    )
+    normalized = (
+        str(validation.get("normalized_spl") or "")
+        if isinstance(validation, dict)
+        else ""
+    )
+    request = state["request"]
+    routed = state["routed"]
+    skill = _effective_routing_skill(state)
+    workflow_plan = plan_workflow(
+        selected_skill=skill,
+        tool_plan=list(routed["tool_plan"]),
+        query=request.message,
+        trace_id=state["trace_id"],
+    )
+    candidate_spl = {
+        "trace_id": state["trace_id"],
+        "skill": skill,
+        "user_query": str(state.get("effective_query") or request.message),
+        "candidate_spl": normalized or raw_spl,
+        "generation_mode": "validated_plan_delta",
+        "confidence": 1.0 if normalized else 0.0,
+        "assumptions": [],
+        "warnings": [] if normalized else ["plan_delta_revalidation_failed"],
+        "selected_candidate_spl_provider": "deterministic_plan_delta_validator",
+        "reason": "bounded_read_only_plan_delta",
+        "candidate_spl_generated": True,
+        "validation_required": True,
+        "execution_eligible": False,
+    }
+    updated = advance_dispatch_cursor(state, PipelineStage.workflow_spl)
+    if not _defer_spl_postprocessor_inline():
+        updated = advance_dispatch_cursor(updated, PipelineStage.spl_postprocessor)
+    return {
+        **updated,
+        "workflow_plan": workflow_plan,
+        "candidate_spl": candidate_spl,
+        "spl_validation": validation,
+        "spl_draft_preview": None,
+        "llm_spl_candidate": None,
+    }
+
+
 def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("generating_spl")
     workflow_guard = _guard_query_to_intent_for_workflow_spl(state)
     if workflow_guard is not None:
         return workflow_guard
+    delta_state = _workflow_spl_from_plan_delta(state)
+    if delta_state is not None:
+        return delta_state
     # Phase 5: run pre-SPL MCP discovery inline when scheduled (flag-gated). The
     # dedicated conditional graph edge is wired in Phase 6; until then the node
     # invokes discovery here so the discovered context reaches the SPL compiler.
@@ -3060,6 +3132,12 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
     mapped_use_case_ids = list(getattr(qu, "mapped_use_case_ids", None) or []) if qu is not None else []
     execution_intent = "spl_search"
     requested_mcp_tool = request.requested_mcp_tool
+    delta_request = state.get("plan_delta_execution_request")
+    if isinstance(delta_request, dict) and delta_request.get("observed") is not True:
+        capability_id = str(delta_request.get("capability_id") or "")
+        delta_tool = capability_id.rsplit(":", 1)[-1]
+        if delta_tool:
+            requested_mcp_tool = delta_tool
     candidate_spl = state.get("candidate_spl")
     # mcp_capability is a governed projection of the same structured signal
     # that already decides execution_intent/requested_mcp_tool below (SPL
@@ -3607,12 +3685,32 @@ def _apply_remediation_lifecycle(state: ChatPipelineState) -> ChatPipelineState:
     action = str(getattr(request, "remediation_review_action", "") or "").strip().lower()
     try:
         if action:
-            return handle_remediation_review(
+            reviewed = handle_remediation_review(
                 dict(state),
                 action=action,
                 edits=getattr(request, "remediation_plan_edits", None),
                 turn_budget=state.get("llm_turn_budget"),
             )
+            if action == "approve":
+                envelope = reviewed.get("approved_remediation_envelope")
+                if isinstance(envelope, dict):
+                    result = execute_approved_remediation(
+                        approved_envelope=envelope,
+                        current_plan_fingerprint=str(envelope.get("plan_fingerprint") or ""),
+                        context={"rbac_role": reviewed.get("session_role")},
+                    ).as_dict()
+                    approval = (
+                        dict(reviewed.get("remediation_approval") or {})
+                        if isinstance(reviewed.get("remediation_approval"), dict)
+                        else {}
+                    )
+                    approval["execution_result"] = result
+                    return {
+                        **reviewed,
+                        "remediation_approval": approval,
+                        "remediation_execution": result,
+                    }
+            return reviewed
         return maybe_attach_remediation_offer(dict(state))
     except Exception as exc:  # noqa: BLE001 - remediation planning is additive to the answer
         logger.warning("remediation_lifecycle_skipped kind=%s", type(exc).__name__)
@@ -5629,6 +5727,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         remediation_approval=state.get("remediation_approval"),
         remediation_planning_trace=state.get("remediation_planning_trace"),
         approved_remediation_envelope=state.get("approved_remediation_envelope"),
+        remediation_execution=state.get("remediation_execution"),
         route_adjudication=state.get("route_adjudication"),
         control_plane_trace=control_plane_trace,
         answer_contract=answer_contract_payload,

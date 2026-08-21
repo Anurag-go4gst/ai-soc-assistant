@@ -26,6 +26,7 @@ from app.llm.turn_llm_budget import TurnLlmBudget
 @pytest.fixture(autouse=True)
 def _enable_p10(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "ai_soc_remediation_planner_enabled", True)
+    monkeypatch.setenv("AI_SOC_ACTION_EMAIL_ALLOWLIST", "soc@example.com")
 
 
 def _snapshot(**availability: str) -> dict:

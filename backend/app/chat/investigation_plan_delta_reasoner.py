@@ -48,7 +48,11 @@ def propose_plan_delta(
             "missing_evidence_categories": missing_evidence[:16],
             "allowed_read_only_capabilities": envelope.allowed_read_only_capabilities[:32],
             "envelope_version": envelope.envelope_version,
-            "instruction": "Return one JSON PlanDelta proposal. Read-only only; no raw SPL, writes, authorization, or hidden reasoning.",
+            "instruction": (
+                "Return one JSON PlanDelta proposal. Read-only only. A Splunk search must place "
+                "candidate SPL in tool_arguments.query; it remains non-authoritative until deterministic "
+                "validation and exact-call authorization. No writes, authorization, or hidden reasoning."
+            ),
         },
         sort_keys=True,
     )

@@ -161,6 +161,21 @@ def allowlisted(address: str) -> bool:
     return domain in {item.lstrip("@") for item in _csv(*_ALLOWLIST_DOMAIN_KEYS)}
 
 
+def default_recipient() -> str | None:
+    """Return the operator-bound recipient used in an approvable action plan.
+
+    A domain allowlist alone is intentionally insufficient: the exact address
+    must be visible in, and fingerprinted with, the remediation plan.
+    """
+    explicit = _env("AI_SOC_ACTION_EMAIL_DEFAULT_RECIPIENT")
+    if explicit:
+        return explicit if allowlisted(explicit) else None
+    exact = sorted(_csv(*_ALLOWLIST_KEYS))
+    if len(exact) == 1 and allowlisted(exact[0]):
+        return exact[0]
+    return None
+
+
 def configured() -> bool:
     """True when a host and sender exist — availability, not authorization."""
     host = _env("AI_SOC_ACTION_EMAIL_SMTP_HOST", "AI_SOC_EC_EMAIL_SMTP_HOST")

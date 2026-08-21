@@ -434,6 +434,10 @@ class Settings(BaseSettings):
     # Agentic investigation P3: advisory reasoning proposal + DET validated plan.
     # Default false; independent of semantic T4 and carries no execution authority.
     ai_soc_investigation_planner_enabled: bool = False
+    # Agentic investigation P7: bounded adaptive PlanDelta. Separate from the
+    # whole-investigation planner so operators can stop iteration without
+    # disabling deterministic/LLM-assisted plan proposal.
+    ai_soc_plan_delta_enabled: bool = False
     # Agentic investigation P8: two-axis status/disposition outcome + production UI.
     # Default false; COE enables it only after flag-off regression and live acceptance.
     ai_soc_investigation_outcome_v2_enabled: bool = False

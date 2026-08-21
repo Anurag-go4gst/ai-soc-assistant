@@ -22,7 +22,6 @@ from app.chat.pipeline import (
 from app.chat.session_context import clear_session
 from app.chat_commands import is_clear_chat_command
 from app.config import settings
-from app.demo.scenarios import resolve_demo_scenario_id_for_query, run_demo_scenario
 from app.connectors.telemetry import get_telemetry_connector
 from app.orchestration.workflow_planner import plan_workflow
 from app.quality.store import post_chat_response
@@ -99,18 +98,6 @@ def _chat_impl(request: ChatRequest, user: object) -> PlaceholderResponse:
             note="client_command:/clear",
             user_query=request.message,
         )
-
-    if settings.ai_soc_live_chat_ec_parity_enabled:
-        scenario_id = resolve_demo_scenario_id_for_query(
-            request.message, session_id=request.session_id
-        )
-        if scenario_id:
-            return post_chat_response(
-                PlaceholderResponse(**run_demo_scenario(scenario_id)),
-                request,
-                entrypoint="chat",
-                user=user,
-            )
 
     session_role = user.get("role") if isinstance(user, dict) else None
     if settings.langgraph_orchestration_enabled:

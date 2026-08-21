@@ -25,6 +25,11 @@ from app.chat.contracts.remediation_plan import (
     ApprovedRemediationEnvelope,
     RemediationStep,
 )
+from app.chat.canonical_execution_idempotency import (
+    AcquireOutcome,
+    ExecutionIdempotencyError,
+    run_idempotent_execution_step,
+)
 
 #: Terminal statuses. ``UNAVAILABLE`` is a first-class outcome, not an error.
 STATUS_SUCCESS = "SUCCESS"
@@ -45,6 +50,7 @@ class ActionReceipt:
     verification_status: str = "not_attempted"
     verification_detail: str | None = None
     provider_message_id: str | None = None
+    replayed: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -58,6 +64,7 @@ class ActionReceipt:
             "verification_status": self.verification_status,
             "verification_detail": self.verification_detail,
             "provider_message_id": self.provider_message_id,
+            "replayed": self.replayed,
         }
 
 
@@ -96,8 +103,20 @@ def _execute_email(
 ) -> ActionReceipt:
     from app.actions.email_adapter import send_remediation_email
 
-    key = idempotency_key_for(envelope, step)
-    recipient = str(context.get("recipient") or "").strip()
+    key = str(context.get("downstream_idempotency_key") or "").strip() or idempotency_key_for(
+        envelope, step
+    )
+    recipient = str(step.action_arguments.get("recipient") or "").strip()
+    supplied_recipient = str(context.get("recipient") or "").strip()
+    if supplied_recipient and supplied_recipient != recipient:
+        return ActionReceipt(
+            step_id=step.step_id,
+            capability_id=step.capability_id,
+            status=STATUS_FAILED,
+            execution_mode="not_attempted",
+            idempotency_key=key,
+            reason="action_arguments_do_not_match_approved_plan",
+        )
     if not recipient:
         return ActionReceipt(
             step_id=step.step_id,
@@ -136,6 +155,10 @@ def _execute_email(
 ADAPTERS: dict[str, Callable[..., ActionReceipt]] = {
     "email_send": _execute_email,
 }
+
+_ACTION_EXECUTION_ROLES = frozenset(
+    {"admin", "analyst", "demo_analyst", "soc_analyst", "soc_lead"}
+)
 
 
 def _verify(receipt: ActionReceipt, step: RemediationStep) -> ActionReceipt:
@@ -183,6 +206,10 @@ def execute_approved_remediation(
         return result
 
     call_context = dict(context or {})
+    role = str(call_context.get("rbac_role") or "demo_analyst").strip()
+    if role not in _ACTION_EXECUTION_ROLES:
+        result.refused_reason = f"rbac_denied:{role or 'unknown'}"
+        return result
     for step in envelope.approved_steps:
         key = idempotency_key_for(envelope, step)
         if step.execution_mode != "execute":
@@ -210,6 +237,57 @@ def execute_approved_remediation(
                 )
             )
             continue
-        receipt = adapter(step, envelope=envelope, context=call_context)
-        result.receipts.append(_verify(receipt, step))
+        def _execute_once(*, downstream_idempotency_key: str | None = None) -> dict[str, Any]:
+            adapter_context = {
+                **call_context,
+                "downstream_idempotency_key": downstream_idempotency_key,
+            }
+            return _verify(
+                adapter(step, envelope=envelope, context=adapter_context), step
+            ).as_dict()
+
+        try:
+            outcome, stored = run_idempotent_execution_step(
+                resource_plan_id=f"remediation:{envelope.plan_fingerprint}",
+                step_id=step.step_id,
+                operation=f"action:{step.capability_id}",
+                handoff_id=None,
+                handoff_version=envelope.envelope_version,
+                side_effecting=True,
+                lease_owner=role,
+                execute=_execute_once,
+                operation_contract=(
+                    "side_effecting_with_stable_idempotency"
+                    if step.capability_id == "email_send"
+                    else "side_effecting_without_stable_idempotency"
+                ),
+            )
+        except ExecutionIdempotencyError as exc:
+            result.receipts.append(
+                ActionReceipt(
+                    step_id=step.step_id,
+                    capability_id=step.capability_id,
+                    status=STATUS_FAILED,
+                    execution_mode="not_attempted",
+                    idempotency_key=key,
+                    reason=exc.reason,
+                )
+            )
+            continue
+        if outcome in {AcquireOutcome.IN_PROGRESS, AcquireOutcome.REQUIRES_RECONCILIATION}:
+            result.receipts.append(
+                ActionReceipt(
+                    step_id=step.step_id,
+                    capability_id=step.capability_id,
+                    status=STATUS_FAILED,
+                    execution_mode="not_attempted",
+                    idempotency_key=key,
+                    reason=str(stored.get("reason") or outcome.value),
+                )
+            )
+            continue
+        receipt = ActionReceipt(**stored)
+        if outcome == AcquireOutcome.REPLAY:
+            receipt.replayed = True
+        result.receipts.append(receipt)
     return result
