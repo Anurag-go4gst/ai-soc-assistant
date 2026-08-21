@@ -441,6 +441,10 @@ class Settings(BaseSettings):
     # Default false. On means the remediation *plan* lifecycle exists; it never
     # authorizes a write — connector execution stays behind the P11 action gate.
     ai_soc_remediation_planner_enabled: bool = False
+    # Agentic investigation P11: production allowlisted email connector. Per-connector
+    # switch, default false in the repo; a COE profile may enable it. Availability
+    # (SMTP host/sender configured) and the recipient allowlist are separate gates.
+    ai_soc_action_email_enabled: bool = False
     # Canonical handoff durable store TTL (PostgreSQL).
     ai_soc_handoff_store_ttl_minutes: int = 60
     # Item 28 — bounded retention purge for canonical_handoffs / canonical_planning_events.
