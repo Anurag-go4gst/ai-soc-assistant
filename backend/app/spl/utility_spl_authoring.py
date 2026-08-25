@@ -527,9 +527,22 @@ def candidate_from_universal_utility_authoring(
 
     unavailable = False
     unavailable_reason: str | None = None
+    semantic_fidelity_unresolved = False
     if final_raw_spl_source == "deterministic_skeleton" and _is_generic_lab_skeleton(final_spl):
         unavailable = True
         unavailable_reason = spl_draft_trace.get("llm_spl_draft_dropped_reason") or "llm_unavailable"
+    elif fidelity_result is not None and not fidelity_result.get("passed"):
+        # Do not present an unfaithful draft as if it satisfied the analyst.
+        # Keep text for analyst review unless a bounded repair was attempted and
+        # still failed — then clear the candidate so it cannot look satisfied.
+        semantic_fidelity_unresolved = True
+        spl_draft_trace["semantic_fidelity_unresolved"] = True
+        spl_draft_trace["lost_semantics"] = list(fidelity_result.get("losses") or [])
+        if spl_draft_trace.get("bounded_repair_attempted") and not fidelity_result.get("passed"):
+            unavailable = True
+            unavailable_reason = "semantic_fidelity_unresolved"
+            final_spl = ""
+
 
     postprocessor_trace.setdefault("final_spl_authority", "deterministic_postprocessor")
     spl_draft_trace["final_raw_spl_source"] = final_raw_spl_source
@@ -569,6 +582,15 @@ def candidate_from_universal_utility_authoring(
         postprocessor_trace=postprocessor_trace,
         final_raw_spl_source=final_raw_spl_source,
     )
+    if semantic_fidelity_unresolved and not unavailable:
+        assumptions = [
+            *assumptions,
+            "Semantic fidelity unresolved — this draft does not fully satisfy the analyst ask.",
+            *[
+                f"Lost semantics: {item}"
+                for item in list((fidelity_result or {}).get("losses") or [])[:8]
+            ],
+        ]
     if unavailable:
         assumptions = [
             "Unable to produce a validated review-only SPL for this request.",
@@ -578,7 +600,19 @@ def candidate_from_universal_utility_authoring(
             ],
             *(
                 [f"LLM draft unavailable: {unavailable_reason.replace('_', ' ')}"]
-                if unavailable_reason
+                if unavailable_reason and unavailable_reason != "semantic_fidelity_unresolved"
+                else []
+            ),
+            *(
+                [
+                    "Semantic fidelity unresolved after bounded repair; "
+                    "unfaithful SPL is not presented as satisfied.",
+                    *[
+                        f"Lost semantics: {item}"
+                        for item in list((fidelity_result or {}).get("losses") or [])[:8]
+                    ],
+                ]
+                if semantic_fidelity_unresolved
                 else []
             ),
         ]
@@ -591,7 +625,15 @@ def candidate_from_universal_utility_authoring(
         "generation_mode": generation_mode,
         "confidence": 0.55 if final_raw_spl_source in {"llm_draft", "llm_repair"} else 0.5,
         "assumptions": assumptions,
-        "warnings": ["review_only_universal_spl"] if is_universal else ["review_only_spl_authoring"],
+        "warnings": (
+            ["semantic_fidelity_unresolved", "review_only_universal_spl"]
+            if semantic_fidelity_unresolved and is_universal
+            else ["semantic_fidelity_unresolved", "review_only_spl_authoring"]
+            if semantic_fidelity_unresolved
+            else ["review_only_universal_spl"]
+            if is_universal
+            else ["review_only_spl_authoring"]
+        ),
         "selected_candidate_spl_provider": provider,
         "fallback_required": final_raw_spl_source == "deterministic_skeleton",
         "candidate_spl_generated": not unavailable,
@@ -632,8 +674,14 @@ def candidate_from_universal_utility_authoring(
         candidate_payload["review_only_spl_postprocessor_warnings"] = postprocessor_warnings
 
     reject_reasons = (
-        ["spl_authoring_unavailable"]
+        ["spl_authoring_unavailable", "semantic_fidelity_unresolved"]
+        if unavailable and semantic_fidelity_unresolved
+        else ["spl_authoring_unavailable"]
         if unavailable
+        else ["semantic_fidelity_unresolved", "universal_spl_authoring_review_only"]
+        if semantic_fidelity_unresolved and is_universal
+        else ["semantic_fidelity_unresolved", "review_only_spl_authoring"]
+        if semantic_fidelity_unresolved
         else ["universal_spl_authoring_review_only"]
         if is_universal
         else ["review_only_spl_authoring"]

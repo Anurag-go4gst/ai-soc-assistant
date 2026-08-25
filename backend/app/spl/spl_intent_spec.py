@@ -9,7 +9,12 @@ from app.spl.t2_pre_parse import pre_parse_spl_tokens
 from app.spl.user_constraint_bindings import build_user_constraint_bindings
 
 _FIREWALL_RE = re.compile(r"\bfirewall\b", re.I)
-_DENIED_RE = re.compile(r"\b(denied|deny|blocked|block|drop|reject)\b", re.I)
+# Do NOT match bare "block" — "SPL block" / "code block" are authoring nouns, not deny actions.
+_DENIED_RE = re.compile(
+    r"\b(denied|deny|blocked|drop|reject)\b|"
+    r"\bblock\s+(?:all|this|the|ip|user|account|traffic|source|suspicious|firewall)\b",
+    re.I,
+)
 _SRC_IP_RE = re.compile(r"\b(source\s+ips?|src[_\s]?ips?|by\s+src)\b", re.I)
 _TOP_RE = re.compile(r"\btop\b", re.I)
 _ALL_LOGS_RE = re.compile(r"\ball\b.*\b(logs?|events?|traffic)\b", re.I)
