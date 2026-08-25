@@ -57,9 +57,9 @@ means the phase branch head, not the integration branch head. `NONE` means no im
 | P0 | Historical | Historical owners | DONE | `615069e6` | `615069e6` | None | CLOSED | P0 L2 13 | Preserve | None | IN_BASE |
 | P0.1 | Integration | CODEX/operator | DONE | `d3a0cdb3` | `ae03a250` | P0 | CLOSED | RACES 8 | Preserve audited baseline | None | IN_BASE |
 | P1 | A TRACE | CODEX | DONE | `2ba619df` | `fd77d58e` | P0 | CLOSED | 297 owned/cross-stream; P0 L2 13; RACES 8 | Preserve; reopen only through phase re-entry | None | IN_BASE |
-| P2 | B SPL | CURSOR | BLOCKED_PENDING_REBASE | pre-P1 integration SHA | `2d71666f` | P0 | NONE | Pre-rebase gates are iteration history only | Rebase onto externally frozen `POST_P1_INTEGRATION_SHA` and rerun affected gates | Exact rebase required | NOT_STARTED |
-| P3 | C EVAL | CLAUDE | PARKED | frozen `EXECUTION_INTEGRATION_SHA` | NONE | P0 scaffold | NONE | P0 L2 13 | Remain parked | Contract rows wait P1/P2/P4 | NOT_STARTED |
-| P4 | D POLICY | CLAUDE | TODO | P2 integration SHA | NONE | P2 for writes | NONE | P0 inherited | Read-only inventory may start | Writes blocked by P2 | NOT_STARTED |
+| P2 | B SPL | CURSOR | DONE | `fcba3426` | `7fbdf83f` | P0 | CLOSED | P2 128; LIVE-RQC 10; P1 cross-contract 80; P0 L2 13; RACES 8 | Preserve; reopen only through phase re-entry | None | IN_BASE |
+| P3 | C EVAL | CLAUDE | PARKED | frozen pre-P2 SHA | `838659ad` | P0 scaffold | NONE | P0 L2 13 | Remain parked; do not rebase yet | Contract rows wait P4/P5 | NOT_STARTED |
+| P4 | D POLICY | CLAUDE | READY_TO_START | externally frozen `POST_P2_INTEGRATION_SHA` | NONE | P2 for writes | NONE | P2 integrated green | Start only from exact post-P2 governance SHA | None | NOT_STARTED |
 | P5 | C/Integration | CODEX + CLAUDE | TODO | P1/P2/P4 integration SHA | NONE | P1/P2/P3/P4 | NONE | NONE | Wait | Dependencies | NOT_STARTED |
 | P6 | C EVAL | CLAUDE | TODO | P5 green SHA | NONE | P5 | NONE | NONE | Wait | P5 | NOT_STARTED |
 | P7 | E UI | CURSOR | TODO | P5 green SHA | NONE | P1/P2/P4/P5 | NONE | NONE | Wait | P5/protected wiring | NOT_STARTED |
@@ -197,27 +197,27 @@ explicit `SUPPORTED_NOW`, `DEFERRED`, or `SEPARATE_PRODUCT_PHASE` decision befor
 | H-TRACE-06 | Trace audit | Stable trace oracle versus diagnostics | CLOSED_P1 | P1 | P0 | `trace_oracle_v1` exact-field tests green | Preserve |
 | H-TRACE-07 | Provenance audit | `run_shape_transition` decision-site provenance | CLOSED_P1 | P1 | P0 | `run_shape_transition_v2` decision-site tests green | Preserve |
 | H-TRACE-08 | Architecture | No fabricated RAG/MCP evidence | CLOSED_P1 | P1 | P0 | `minimal_evidence_state_v2` truth matrix green | Preserve |
-| H-SPL-01 | Semantic audit | Final RQC -> SPL semantic compiler | OPEN | P2 | P0 | Contract propagation test | P2 |
-| H-SPL-02 | Three-query audit | Search horizon versus analytical window | OPEN | P2 | H-SPL-01 | Rolling/trend tests | P2 |
-| H-SPL-03 | Three-query audit | Rolling windows | OPEN | P2 | H-SPL-02 | 10m rolling plus adjacent row | P2 |
-| H-SPL-04 | Semantic audit | Required event sets | OPEN | P2 | H-SPL-01 | Multi-event preservation test | P2 |
-| H-SPL-05 | Semantic audit | Entity semantic roles | OPEN | P2 | H-SPL-01 | Source/account role tests | P2 |
-| H-SPL-06 | Semantic audit | Distinct-count relationships | OPEN | P2 | H-SPL-05 | Source-to-distinct-account test | P2 |
-| H-SPL-07 | Semantic audit | Explicit measures | OPEN | P2 | H-SPL-01 | Measure fidelity tests | P2 |
-| H-SPL-08 | Three-query audit | Temporal grain | OPEN | P2 | H-SPL-01 | Hourly grain test | P2 |
-| H-SPL-09 | Three-query audit | Trend/time-series shape | OPEN | P2 | H-SPL-08 | 24h hourly trend plus adjacent row | P2 |
-| H-SPL-10 | Three-query audit | Ordered sequences | OPEN | P2 | H-SPL-04 | Password-change then login test | P2 |
-| H-SPL-11 | Three-query audit | Sequence maximum gap | OPEN | P2 | H-SPL-10 | Five-minute gap fidelity test | P2 |
-| H-SPL-12 | Historic audit | Comparison semantics | PRODUCT_GAP | P2/P5 | Capability decision | "same campaign as last month" decision/test | Decision required |
-| H-SPL-13 | Semantic audit | Output shape | OPEN | P2 | H-SPL-01 | Raw/aggregate/rank/trend output tests | P2 |
-| H-SPL-14 | Semantic audit | Normalization aliases consumed downstream | OPEN | P2 | Source bindings | Alias-use structural test | P2 |
-| H-SPL-15 | Prompt audit | Arbitrary `head 100` or result truncation | OPEN | P2/P4 | Analysis shape | All-events/time-series negative test | P2/P4 |
-| H-SPL-16 | Prompt audit | Unexpected threshold invention | OPEN | P2/P4 | Semantic prohibitions | Invented-constraint metric/test | P2/P4 |
-| H-SPL-17 | Prompt audit | Alert-template bias in analytical SPL | OPEN | P2/P4 | Role prompt | Trend/raw negative tests | P2/P4 |
-| H-SPL-18 | Semantic audit | Lightweight structural SPL syntax checks | OPEN | P2 | Semantic V2 | Structural validator tests | P2 |
-| H-SPL-19 | Governance | One generation plus one repair bound | OPEN | P2/P4 | Runtime prompt path | Attempt-count test | P2/P4 |
-| H-SPL-20 | Repair audit | Prior rejected candidate reaches repair | OPEN | P2/P4 | H-SPL-19 | Repair payload test | P2/P4 |
-| H-SPL-21 | Postprocessor audit | Required ordering survives postprocessing | OPEN | P2 | Sequence/rolling shape | `streamstats` ordering test | P2 |
+| H-SPL-01 | Semantic audit | Final RQC -> SPL semantic compiler | CLOSED_P2 | P2 | P0 | LIVE-RQC contract propagation green | Preserve |
+| H-SPL-02 | Three-query audit | Search horizon versus analytical window | CLOSED_P2 | P2 | H-SPL-01 | Rolling/trend matrix green | Preserve |
+| H-SPL-03 | Three-query audit | Rolling windows | CLOSED_P2 | P2 | H-SPL-02 | 10m rolling plus adjacent variants green | Preserve |
+| H-SPL-04 | Semantic audit | Required event sets | CLOSED_P2 | P2 | H-SPL-01 | Multi-event fidelity green | Preserve |
+| H-SPL-05 | Semantic audit | Entity semantic roles | CLOSED_P2 | P2 | H-SPL-01 | Entity-role tests green | Preserve |
+| H-SPL-06 | Semantic audit | Distinct-count relationships | CLOSED_P2 | P2 | H-SPL-05 | Distinct relationship tests green | Preserve |
+| H-SPL-07 | Semantic audit | Explicit measures | CLOSED_P2 | P2 | H-SPL-01 | Measure fidelity tests green | Preserve |
+| H-SPL-08 | Three-query audit | Temporal grain | CLOSED_P2 | P2 | H-SPL-01 | Hourly grain tests green | Preserve |
+| H-SPL-09 | Three-query audit | Trend/time-series shape | CLOSED_P2 | P2 | H-SPL-08 | Trend plus adjacent variants green | Preserve |
+| H-SPL-10 | Three-query audit | Ordered sequences | CLOSED_P2 | P2 | H-SPL-04 | Password-change then login tests green | Preserve |
+| H-SPL-11 | Three-query audit | Sequence maximum gap | CLOSED_P2 | P2 | H-SPL-10 | Five-minute gap tests green | Preserve |
+| H-SPL-12 | Historic audit | Comparison semantics | PRODUCT_GAP | P2/P5 | Capability decision | `unsupported_comparison_semantics` proven fail-closed | Preserve product gap |
+| H-SPL-13 | Semantic audit | Output shape | CLOSED_P2 | P2 | H-SPL-01 | Raw/aggregation/ranking/trend/rolling/sequence tests green | Preserve |
+| H-SPL-14 | Semantic audit | Normalization aliases consumed downstream | CLOSED_P2 | P2 | Source bindings | Alias-consumer tests green | Preserve |
+| H-SPL-15 | Prompt audit | Arbitrary `head 100` or result truncation | CLOSED_P2 | P2/P4 | Analysis shape | Negative fidelity/generalization tests green | Preserve; P4 owns broader prompt policy |
+| H-SPL-16 | Prompt audit | Unexpected threshold invention | CLOSED_P2 | P2/P4 | Semantic prohibitions | Invented-constraint rejection tests green | Preserve; P4 owns broader prompt policy |
+| H-SPL-17 | Prompt audit | Alert-template bias in analytical SPL | CLOSED_P2 | P2/P4 | Role prompt | Trend/raw negative tests green | Preserve; P4 owns broader prompt policy |
+| H-SPL-18 | Semantic audit | Lightweight structural SPL syntax checks | CLOSED_P2 | P2 | Semantic V2 | Structural checks green | Preserve |
+| H-SPL-19 | Governance | One generation plus one repair bound | CLOSED_P2 | P2/P4 | Runtime prompt path | One-repair maximum tests green | Preserve |
+| H-SPL-20 | Repair audit | Prior rejected candidate reaches repair | CLOSED_P2 | P2/P4 | H-SPL-19 | Immutable repair payload tests green | Preserve |
+| H-SPL-21 | Postprocessor audit | Required ordering survives postprocessing | CLOSED_P2 | P2 | Sequence/rolling shape | Ordering tests green | Preserve |
 | H-PROMPT-01 | Role audit | Complete production/dormant role inventory | OPEN | P4 | P2 for final semantics | Call-site inventory and posture table | P4 |
 | H-PROMPT-02 | Prompt audit | Role-specific prompts, not monolithic SOC prompt | OPEN | P4 | H-PROMPT-01 | Prompt contract review/tests | P4 |
 | H-PROMPT-03 | Authority audit | Shape advisor remains advisory | OPEN | P4 | P2 | Authority/validator test | P4 |
@@ -304,6 +304,12 @@ How the gate actually fires (know this before you debug it):
 An approved protected change therefore has two halves: apply the approved diff, **and** advance `RACES_BASELINE_SHA` to that exact
 commit with an audit comment in the same style as the existing ones in that file. Doing only the first half leaves every downstream
 stream red and indistinguishable from a real regression.
+
+### Applied protected change evidence
+
+| Request | Phase | Protected file | Applied SHA | RACES baseline | Verification | Status |
+|---|---|---|---|---|---|---|
+| `P2-FINAL-RQC-PIPELINE-WIRING` | P2 | `backend/app/chat/pipeline.py` | `5921f1d0cf569695db97ef0fd277ffdac8ec5338` | `5921f1d0cf569695db97ef0fd277ffdac8ec5338` | Only forwards governed Final RQC into existing SPL producers; LIVE-RQC 10 and RACES 8 passed; authority-impact fields unchanged | APPLIED_VERIFIED |
 
 ## Agent assignment matrix
 
@@ -698,10 +704,10 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **NEXT_PHASE_UNLOCK:** P5 trace-dependent L2 assertions and P7 trace UX contract.
   - **Evidence:** Integrated by exact fast-forward at product SHA `fd77d58ea1e9690eec25a83aa90d46949c4512b5`, preserving T1 `8fe81fd69ebf822a54578d08b5ccb5f4c03b5a76`, T2 `58d5c4615ec3e555b3e5317e78969a69cc72ffdb`, and T3 `fd77d58ea1e9690eec25a83aa90d46949c4512b5`. T1/T2/T3 PASS; `trace_oracle_v1`, `minimal_evidence_state_v2`, and `run_shape_transition_v2` are frozen. Post-integration: owned/cross-stream trace suite 297 passed, P0 L2 13 passed, RACES 8 passed; no protected files changed and no unexplained failures. H-TRACE-01/02/03/04/06/07/08 are CLOSED_P1; H-TRACE-05 is REPROVED_ALREADY_CORRECT_P1. Reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` was respected and is consumed by this integration; it grants no future evidence-directory ownership.
 
-- [ ] **P2 - SPL semantic V2 contract, authoring, fidelity, and syntax**
-  - **STATUS:** BLOCKED_PENDING_REBASE
+- [x] **P2 - SPL semantic V2 contract, authoring, fidelity, and syntax**
+  - **STATUS:** DONE
   - **OWNER:** Workstream B / CURSOR
-  - **BASE_SHA:** Pre-P1 integration base; logical head before rebase is `2d71666f34fbee9e3e8df50b05281d5ec808c583`.
+  - **BASE_SHA:** `fcba3426c36e0e92554f01c4fe30056443285b1c` after the required exact-SHA rebase.
   - **DEPENDENCIES:** P0. Coordinate names with P1, but no file dependency.
   - **ALLOWED_FILES:** B-owned SPL modules, governed source-profile modules, validators, and directly corresponding tests.
   - **PROTECTED_FILES:** `architecture.md` plus every enumerated `RACES_FREEZE_PATHS` prefix (see Protected-file policy). For B this most often means `backend/app/safeguards/spl_validator.py`, `backend/app/schemas/responses.py`, and `backend/app/graph/resource_planner_graph.py` — all read-only here; STOP and request the diff.
@@ -715,12 +721,12 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **EXPECTED_COMMIT_GROUPS:** S1 -> S2 -> S3 -> S4 -> S5 -> S6 from Commit choreography; red repros are loop evidence.
   - **OUTPUT_REQUIRED:** Contract field table, support/degrade matrix by shape, prompt conflict resolution record, branch return packet, exact tests.
   - **NEXT_PHASE_UNLOCK:** P4 implementation, P5 semantic L2 assertions, P8 L3 bank.
-  - **Evidence:** P1 is integrated. P2 must rebase onto the exact externally frozen `POST_P1_INTEGRATION_SHA` and rerun affected gates before return or integration; no P2 rebase was started by the P1 integrator.
+  - **Evidence:** Integrated by exact fast-forward at product SHA `7fbdf83f4508886529121998256face8d3c9edf1`, preserving S1 `5952d254`, S2 `639477c7`, S3 `6d4458b2`, S4 `a214946f`, S5 `09072610`, S6 `1f379f7a`, protected wiring `5921f1d0`, and RACES baseline commit `7fbdf83f`. S1-S6 PASS. Contract `spl_semantic_v2` supports raw, aggregation, ranking, trend, rolling, and sequence; comparison remains `PRODUCT_GAP / unsupported_comparison_semantics`. `P2-FINAL-RQC-PIPELINE-WIRING` is APPLIED_VERIFIED; `RACES_BASELINE_SHA = 5921f1d0cf569695db97ef0fd277ffdac8ec5338`, not P2 HEAD. Integrated gates: P2 owned 128 passed, LIVE-RQC-01..10 10 passed, P1 cross-contract 80 passed, P0 L2 13 passed, RACES 8 passed. Unfaithful SPL cannot be emitted; candidate SPL remains non-executable; one-repair maximum and Final RQC provenance are green. Two HIL mirror tests fail identically at pre-P2 `fd77d58e` and P2, classified `PRE_EXISTING_FAILURE`; no P2 regression. No live LLM or MCP was used.
 
 - [ ] **P3 - L2 production bank scaffold from 13 toward 23**
   - **STATUS:** PARKED
   - **OWNER:** Workstream C / CLAUDE
-  - **BASE_SHA:** Frozen `EXECUTION_INTEGRATION_SHA`.
+  - **BASE_SHA:** Parked branch head `838659ada898b5a8bf071fda2b233c125f51ac00`; do not rebase yet.
   - **DEPENDENCIES:** P0 for scaffold; P1/P2/P4 for assertions against new contracts.
   - **ALLOWED_FILES:** C-owned L2 bank/test files only. No runtime code.
   - **PROTECTED_FILES:** All runtime code, plus `architecture.md` and every enumerated `RACES_FREEZE_PATHS` prefix. C writes tests only.
@@ -737,9 +743,9 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **Evidence:** Pending.
 
 - [ ] **P4 - Prompt, role policy, provenance, and Studio configuration contract**
-  - **STATUS:** BLOCKED_UNTIL_P2
+  - **STATUS:** READY_TO_START
   - **OWNER:** Workstream D / CLAUDE; B remains owner of `backend/app/spl/llm_fallback.py`.
-  - **BASE_SHA:** Integration SHA after P2 merge for implementation. Read-only audit may start at P0.
+  - **BASE_SHA:** Exact externally frozen `POST_P2_INTEGRATION_SHA` after the P2 governance evidence commit.
   - **DEPENDENCIES:** P0 for audit; P2 contract for writes and final prompt semantics.
   - **ALLOWED_FILES:** D-owned generic LLM prompt/role/settings modules and tests. Requirements for B-owned SPL prompt go through reconciliation.
   - **PROTECTED_FILES:** `architecture.md` plus every enumerated `RACES_FREEZE_PATHS` prefix (see Protected-file policy), plus all B-owned SPL files (requirements go through `RECONCILIATION_QUEUE`).
@@ -919,7 +925,7 @@ After the operator freezes and records one `EXECUTION_INTEGRATION_SHA`:
 
 0. P0.1 RACES baseline advance, as soon as it is approved — before any stream records an L0 gate.
 1. A TRACE, integrated at `fd77d58e` after P1 gates.
-2. B SPL, rebased onto the new integration SHA and cross-tested with P1.
+2. B SPL, integrated at `7fbdf83f` after exact rebase and P1 cross-tests.
 3. D POLICY, implemented/rebased after B; B resolves the shared SPL prompt seam.
 4. C EVAL bank, rebased after A/B/D; complete P5.
 5. C test rationalization after P5, never before.
@@ -942,6 +948,7 @@ P9 must remeasure by exact test ID. These are carried as hypotheses from prior m
 | `integration/test_telemetry_postgres.py` | 1 PostgreSQL-dependent failure | Same | Environment dependency | Same |
 | `test_migration_readiness.py` family | 5 DB/migration-dependent failures | Compare exact IDs; include plugin/migration environment details | Environment dependency | Green in required env or explicit block |
 | `test_live_path_untouched_by_ec.py::test_races_freeze_files_unchanged_since_baseline` | **Measured red at `fe3548e4`**: offender `backend/app/orchestration/mcp_execution_gate.py` from P0 `f1f523cd` vs `RACES_BASELINE_SHA = 86be6f9f` | Expected already resolved by P0.1; remeasure and confirm `8 passed`. If still red, P9 cannot proceed | Inherited, adjudicated in P0.1 | Green after the P0.1 approved baseline advance, or explicit operator block |
+| `test_canonical_handoff_e2e_probes.py::{test_e2e_t1_spl_generation_canonical_graph_and_gate,test_e2e_environment_kb_user_explicit_precedence}` | Both fail at pre-P2 `fd77d58e` with FinalEvidenceGate HIL true versus RunContract false | Same two failures at P2 `7fbdf83f`; all other selected cross-contract tests passed | PRE_EXISTING_FAILURE, not P2 regression | Carry exact IDs to P5/P9; do not attribute to P2 or weaken assertions |
 | Any newly observed plugin/environment failure | Unknown until P9 | Add exact test, baseline/candidate, dependency, evidence | Unclassified | Must be classified and adjudicated before GO |
 
 ## Plan/loop runner consistency self-test
@@ -949,12 +956,12 @@ P9 must remeasure by exact test ID. These are carried as hypotheses from prior m
 Run this checklist after every structural plan edit and before operator review:
 
 - [x] SHA roles: both files preserve `PLAN_PREPARATION_SHA = fe3548e4`, leave `EXECUTION_INTEGRATION_SHA` operator-frozen, and never require a plan to contain its own commit SHA.
-- [x] Phase status: P0/P0.1/P1 are DONE; P2 is `BLOCKED_PENDING_REBASE`; P3 is PARKED; P4 remains blocked on P2; later phases and P11 posture are unchanged.
+- [x] Phase status: P0/P0.1/P1/P2 are DONE; P3 is PARKED at `838659ad`; P4 is READY_TO_START from externally frozen `POST_P2_INTEGRATION_SHA`; later phases and P11 posture are unchanged.
 - [x] Dependencies: authoritative edge list and runner eligibility rules agree.
-- [x] Merge order: P0.1 and A are complete; remaining order is B, D, C/P5, C/P6, F/P8, E/P7, F/P9.
-- [x] Queues: protected queue is empty; reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` is merged at `fd77d58e` and its bounded ownership is consumed.
+- [x] Merge order: P0.1, A, and B are complete; remaining order is D, C/P5, C/P6, F/P8, E/P7, F/P9.
+- [x] Queues: protected queue is empty; reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` is consumed; `P2-FINAL-RQC-PIPELINE-WIRING` is APPLIED_VERIFIED at `5921f1d0` with the RACES baseline pinned to that exact SHA.
 - [x] Current loop: `NONE`; `LOOP_ITERATION_ID = NONE`.
-- [x] Rebase rule: P1 integrated from exact base `2ba619df`; P2 must rebase logical head `2d71666f` onto the externally frozen `POST_P1_INTEGRATION_SHA` before integration; P3 remains parked.
+- [x] Rebase rule: P2 integrated from exact base `fcba3426`; P3 remains parked without rebase; P4 must start from the externally frozen `POST_P2_INTEGRATION_SHA`.
 - [x] Live MCP posture: disabled/deferred until P11 plus separate approval.
 
 If any row disagrees, set `READY_FOR_OPERATOR_REVIEW = NO`, correct both files, and rerun the plan audit.
