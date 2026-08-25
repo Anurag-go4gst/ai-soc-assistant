@@ -11,12 +11,10 @@ from typing import Any, Callable
 
 from app.config import settings
 from app.safeguards.spl_validator import validate_spl, validate_spl_lab_candidate
-from app.llm.sidecar_clients import invoke_sidecar_role
 from app.spl.draft_preview import build_draft_preview
 from app.spl.llm_fallback import (
     SPL_ADVISORY_ROLE,
     generate_llm_spl_fallback,
-    spl_advisory_prompts,
 )
 from app.spl.review_only_spl_postprocessor import finalize_review_only_spl
 from app.spl.source_profile_catalog import list_source_profile_slot_definitions
@@ -25,6 +23,8 @@ from app.spl.source_profile_store import (
     load_persisted_source_profile,
     load_persisted_source_profile_document,
 )
+from app.spl.spl_intent_spec import build_spl_intent_spec, spl_intent_spec_for_prompt
+from app.spl.spl_semantic_fidelity import validate_semantic_fidelity
 from app.spl.user_constraint_bindings import build_user_constraint_bindings
 
 
@@ -92,6 +92,11 @@ def build_utility_postprocessor_context(
     if not user_index and bindings.explicit_indexes:
         user_index = str(bindings.explicit_indexes[0]).strip()
     user_sourcetype = str(bindings.normalized_slots.get("sourcetype") or "").strip()
+    user_time_window = (
+        str(bindings.explicit_time_window or "").strip()
+        or str(bindings.normalized_slots.get("time_window") or "").strip()
+        or None
+    )
 
     profile_doc = load_persisted_source_profile_document()
     profile = load_persisted_source_profile()
@@ -120,6 +125,8 @@ def build_utility_postprocessor_context(
         bindings.normalized_slots.get("earliest")
         or bindings.normalized_slots.get("latest")
         or bindings.explicit_time_window
+        or bindings.normalized_slots.get("time_window")
+        or user_time_window
     )
 
     return {
@@ -148,6 +155,7 @@ def build_utility_postprocessor_context(
             "source_profile_updated_at": profile_doc.get("updated_at"),
         },
         "user_explicit_time_window": user_time,
+        "user_explicit_time_bounds": user_time_window,
         "target_log_family": target_log_family,
     }
 
@@ -176,17 +184,24 @@ def _is_generic_lab_skeleton(spl: str) -> bool:
     )
 
 
-def _semantic_repair_feedback(validation: dict[str, Any]) -> list[str]:
+def _semantic_repair_feedback(
+    validation: dict[str, Any],
+    *,
+    fidelity: dict[str, Any] | None = None,
+) -> list[str]:
     reasons = validation.get("reject_reasons") or []
     if not isinstance(reasons, list):
-        return []
-    repairable = [str(item) for item in reasons if str(item) in _REPAIRABLE_VALIDATOR_REASONS]
-    if not repairable:
-        return []
-    return [f"validator_reject:{reason}" for reason in repairable]
+        feedback: list[str] = []
+    else:
+        repairable = [str(item) for item in reasons if str(item) in _REPAIRABLE_VALIDATOR_REASONS]
+        feedback = [f"validator_reject:{reason}" for reason in repairable]
+    if isinstance(fidelity, dict):
+        feedback.extend(str(item) for item in (fidelity.get("repair_feedback") or []))
+    return feedback
 
 
 def _build_utility_llm_context(user_query: str, *, family: str | None) -> dict[str, Any]:
+    intent_spec = build_spl_intent_spec(user_query)
     ctx = build_utility_postprocessor_context(
         user_query,
         llm_generated=True,
@@ -198,12 +213,17 @@ def _build_utility_llm_context(user_query: str, *, family: str | None) -> dict[s
         value = str(ctx.get(key) or "").strip()
         if value:
             bindings[key] = value
-    user_time = bool(ctx.get("user_explicit_time_window"))
+    time_window = intent_spec.get("time_window")
+    if time_window:
+        bindings["time_window"] = str(time_window)
+    user_time = bool(ctx.get("user_explicit_time_window") or time_window)
     return {
         "review_only_posture": True,
         "do_not_invent_source_bindings": True,
         "flag_uncertain_field_mappings": True,
         "deterministic_source_bindings": bindings,
+        "semantic_analyst_intent": intent_spec,
+        "semantic_analyst_intent_text": spl_intent_spec_for_prompt(intent_spec),
         "target_log_family": family,
         "user_explicit_time_window": user_time,
     }
@@ -275,46 +295,23 @@ def attempt_bounded_utility_spl_llm_draft(
         trace["llm_spl_draft_requested"] = False
         return None, trace
 
-    system_prompt, user_prompt = spl_advisory_prompts(
-        user_query,
-        utility_authoring=True,
-        context=context,
-        relevance_feedback=relevance_feedback,
-    )
     started = time.monotonic()
-    raw_output, timed_out, _label = invoke_sidecar_role(
-        role=SPL_ADVISORY_ROLE,
-        user_prompt=user_prompt,
-        system_prompt=system_prompt,
-        max_tokens=768,
-        timeout_seconds=effective_timeout,
-        temperature=0.0,
-        allow_failover=failover_enabled,
-    )
-    trace["llm_spl_draft_latency_ms"] = int((time.monotonic() - started) * 1000)
-    trace["llm_spl_draft_provider_label"] = _label
-    if timed_out:
-        trace["llm_spl_draft_timed_out"] = True
-        trace["llm_spl_draft_dropped_reason"] = "llm_timed_out"
-        trace["llm_spl_draft_skipped_reason"] = "llm_timed_out"
-        return None, trace
-    if not raw_output:
-        trace["llm_spl_draft_dropped_reason"] = "no_provider_configured"
-        trace["llm_spl_draft_skipped_reason"] = "no_provider_configured"
-        return None, trace
-
     result = generate_llm_spl_fallback(
         user_query=user_query,
         utility_authoring=True,
-        llm_raw_output_provider=lambda: raw_output,
         context=context,
         relevance_feedback=relevance_feedback,
     )
+    trace["llm_spl_draft_latency_ms"] = int((time.monotonic() - started) * 1000)
+    if result is not None:
+        trace["llm_spl_draft_provider_label"] = result.model or result.provider
     if result is None or result.clarification_required or not result.candidate_spl.strip():
         trace["llm_spl_draft_dropped_reason"] = (
-            result.clarification_reason if result else "llm_spl_fallback_parse_failed"
+            result.clarification_reason if result else "llm_spl_fallback_unavailable"
         )
         trace["llm_spl_draft_skipped_reason"] = trace["llm_spl_draft_dropped_reason"]
+        if result and result.adapter_errors:
+            trace["llm_spl_draft_adapter_errors"] = list(result.adapter_errors)
         return None, trace
 
     trace["llm_spl_draft_completed"] = True
@@ -412,6 +409,7 @@ def candidate_from_universal_utility_authoring(
     skeleton_spl = str(draft["draft_spl"])
     detection_family = str(draft.get("detection_family") or "lab_draft")
     is_universal = detection_family == "universal_timestamp_spl"
+    intent_spec = build_spl_intent_spec(user_query)
     llm_context = _build_utility_llm_context(user_query, family=detection_family)
     spl_draft_trace: dict[str, Any] = {
         "deterministic_skeleton_available": True,
@@ -421,6 +419,7 @@ def candidate_from_universal_utility_authoring(
         "postprocessor_applied": False,
         "bounded_repair_attempted": False,
         "bounded_repair_used": False,
+        "semantic_intent_spec": intent_spec,
     }
 
     llm_result, llm_trace = attempt_bounded_utility_spl_llm_draft(
@@ -473,8 +472,12 @@ def candidate_from_universal_utility_authoring(
         spl_draft_trace["deterministic_skeleton_used"] = False
         final_spl = _apply_candidate(llm_result.candidate_spl.strip(), llm_generated=True)
         validator_result = _validate_review_only_candidate(final_spl)
-        repair_feedback = _semantic_repair_feedback(validator_result)
-        if repair_feedback and not validator_result.get("lab_candidate_eligible"):
+        fidelity_result = validate_semantic_fidelity(intent_spec, final_spl)
+        spl_draft_trace["semantic_fidelity_initial"] = fidelity_result
+        repair_feedback = _semantic_repair_feedback(validator_result, fidelity=fidelity_result)
+        if (repair_feedback and not validator_result.get("lab_candidate_eligible")) or (
+            not fidelity_result.get("passed") and repair_feedback
+        ):
             spl_draft_trace["bounded_repair_attempted"] = True
             repair_result, repair_trace = attempt_bounded_utility_spl_llm_draft(
                 user_query,
@@ -499,18 +502,28 @@ def candidate_from_universal_utility_authoring(
             if repair_result is not None and repair_result.candidate_spl.strip():
                 repaired_spl = _apply_candidate(repair_result.candidate_spl.strip(), llm_generated=True)
                 repaired_validation = _validate_review_only_candidate(repaired_spl)
+                repaired_fidelity = validate_semantic_fidelity(intent_spec, repaired_spl)
+                spl_draft_trace["semantic_fidelity_repair"] = repaired_fidelity
                 original_rejects = len(list(validator_result.get("reject_reasons") or []))
                 repaired_rejects = len(list(repaired_validation.get("reject_reasons") or []))
-                if repaired_validation.get("lab_candidate_eligible") or repaired_rejects < original_rejects:
+                fidelity_improved = bool(repaired_fidelity.get("passed")) and not fidelity_result.get("passed")
+                if (
+                    repaired_validation.get("lab_candidate_eligible")
+                    or repaired_rejects < original_rejects
+                    or fidelity_improved
+                ):
                     repair_used = True
                     final_raw_spl_source = "llm_repair"
                     spl_draft_trace["bounded_repair_used"] = True
                     final_spl = repaired_spl
                     validator_result = repaired_validation
+                    fidelity_result = repaired_fidelity
     else:
         spl_draft_trace["deterministic_skeleton_used"] = True
         final_spl = _apply_candidate(skeleton_spl, llm_generated=False)
         validator_result = _validate_review_only_candidate(final_spl)
+        fidelity_result = validate_semantic_fidelity(intent_spec, final_spl)
+        spl_draft_trace["semantic_fidelity_initial"] = fidelity_result
 
     unavailable = False
     unavailable_reason: str | None = None
@@ -527,6 +540,7 @@ def candidate_from_universal_utility_authoring(
         "lab_candidate_eligible": bool(validator_result.get("lab_candidate_eligible")),
         "reject_reasons": list(validator_result.get("reject_reasons") or []),
     }
+    spl_draft_trace["semantic_fidelity_final"] = fidelity_result
     if unavailable:
         spl_draft_trace["unavailable_reason"] = unavailable_reason
 

@@ -249,6 +249,40 @@ def finalize_review_only_spl(
     )
     if isinstance(postprocessor_context, dict):
         ctx.update(postprocessor_context)
+    if query:
+        from app.spl.user_constraint_bindings import build_user_constraint_bindings
+
+        bindings = build_user_constraint_bindings(query)
+        # Fill blanks only — never override an already-authoritative context
+        # (utility authoring / COE handoff). Prevents a second finalize pass
+        # from dropping user-explicit index/sourcetype literals to placeholders.
+        if not ctx.get("user_explicit_index"):
+            user_index = (
+                str(bindings.normalized_slots.get("index") or "").strip()
+                or (str(bindings.explicit_indexes[0]).strip() if bindings.explicit_indexes else "")
+            )
+            if user_index:
+                ctx["user_explicit_index"] = user_index
+        if not ctx.get("user_explicit_sourcetype"):
+            user_st = (
+                str(bindings.normalized_slots.get("sourcetype") or "").strip()
+                or (
+                    str(bindings.explicit_sourcetypes[0]).strip()
+                    if bindings.explicit_sourcetypes
+                    else ""
+                )
+            )
+            if user_st:
+                ctx["user_explicit_sourcetype"] = user_st
+        if not ctx.get("user_explicit_time_bounds"):
+            explicit_bounds = (
+                str(bindings.explicit_time_window or "").strip()
+                or str(bindings.normalized_slots.get("time_window") or "").strip()
+                or None
+            )
+            if explicit_bounds:
+                ctx["user_explicit_time_bounds"] = explicit_bounds
+                ctx["user_explicit_time_window"] = True
     ctx["llm_generated"] = bool(llm_generated)
     ctx["deterministic_generated"] = not bool(llm_generated)
     ctx.setdefault("target_log_family", str(family or ""))
@@ -423,6 +457,30 @@ def normalize_review_only_spl(
     elif user_time and _WIDE_EARLIEST_RE.search(spl):
         warnings.append("broad_scope_warning")
         trace["broad_scope_warning"] = True
+
+    explicit_bounds = str(ctx.get("user_explicit_time_bounds") or "").strip()
+    if user_time and explicit_bounds:
+        earliest_token = None
+        latest_token = "latest=now"
+        for part in explicit_bounds.split():
+            if part.lower().startswith("earliest="):
+                earliest_token = part
+            elif part.lower().startswith("latest="):
+                latest_token = part
+        if earliest_token:
+            if earliest_match:
+                spl = _EARLIEST_TOKEN_RE.sub(earliest_token, spl, count=1)
+            else:
+                spl = _INDEX_TOKEN_RE.sub(
+                    f"index={resolved_index} {earliest_token} {latest_token}",
+                    spl,
+                    count=1,
+                )
+            if latest_token and not _LATEST_TOKEN_RE.search(spl):
+                spl = spl.replace(earliest_token, f"{earliest_token} {latest_token}", 1)
+            trace["lookback_rewrite_applied"] = True
+            trace["lookback_rewrite_reason"] = "user_explicit_time_window_enforced"
+            final_earliest = earliest_token
 
     trace["final_earliest"] = final_earliest
     if resolved_index == "*":

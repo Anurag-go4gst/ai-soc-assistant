@@ -183,12 +183,18 @@ def test_universal_spl_authoring_falls_back_to_deterministic_skeleton_on_llm_tim
         lambda: {"values": {}, "field_sources": {}},
     )
     monkeypatch.setattr(
-        "app.spl.utility_spl_authoring.invoke_sidecar_role",
-        lambda **_: ("", True, "timed_out"),
+        "app.spl.utility_spl_authoring.generate_llm_spl_fallback",
+        lambda **_: None,
     )
     result, trace = attempt_bounded_utility_spl_llm_draft(_WEEKEND_QUERY)
     assert result is None
-    assert trace.get("llm_spl_draft_timed_out") is True
+    assert trace.get("llm_spl_draft_used") is False
+    assert trace.get("llm_spl_draft_completed") is False
+    assert trace.get("llm_spl_draft_dropped_reason") in {
+        "llm_spl_fallback_unavailable",
+        "llm_disabled",
+        "utility_spl_draft_disabled",
+    }
 
     monkeypatch.setattr(
         "app.chat.pipeline._routes_chat",

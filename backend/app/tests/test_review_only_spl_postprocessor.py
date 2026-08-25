@@ -92,6 +92,23 @@ def test_user_explicit_index_preserved():
     assert out.trace["index_resolution_source"] == "user_explicit"
 
 
+def test_finalize_fills_user_explicit_index_from_query_alone():
+    """Second-pass finalize without postprocessor_context must not drop literals."""
+    out = finalize_review_only_spl(
+        "search index=<your_index> sourcetype=cisco:firepower earliest=-30d latest=now | head 100",
+        query=(
+            "Give me only a review-only SPL query for index=pgcil_soc and "
+            "sourcetype=cisco:firepower for the last 30 days. Do not execute it."
+        ),
+        family="unmapped_live_data_request",
+        llm_generated=True,
+    )
+    assert "index=pgcil_soc" in out.normalized_spl
+    assert "sourcetype=cisco:firepower" in out.normalized_spl
+    assert out.trace["index_resolution_source"] == "user_explicit"
+    assert "earliest=-30d" in out.normalized_spl
+
+
 def test_coe_environment_index_wins_over_placeholder():
     out = normalize_review_only_spl(
         "search index=<your_index> earliest=-24h latest=now | head 100",

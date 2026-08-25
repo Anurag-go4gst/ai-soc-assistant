@@ -649,7 +649,11 @@ def _utility_authoring_system_append() -> str:
     return (
         "\n\nUniversal utility SPL authoring (review-only, template-free):\n"
         "- Draft a clean SPL block that matches the user's utility request exactly.\n"
+        "- Preserve ALL semantic requirements from the analyst intent block (filters, grouping, ranking, time window).\n"
         "- Use index=<your_index> when no trusted index is provided; never invent company indexes.\n"
+        "- When the analyst asks for top/ranked results, include stats aggregation, sort descending, then head.\n"
+        "- When the analyst asks for ALL logs/events without a limit, do NOT add `head 100` arbitrarily.\n"
+        "- Match earliest/latest to the requested time window (e.g. 30d -> earliest=-30d).\n"
         "- No inline // comments; no execution or findings claims.\n"
         "- Use %w (0=Sunday, 6=Saturday) for weekend filter logic; %A is display-only.\n"
         "Weekend hour/day extraction few-shot:\n"
@@ -820,6 +824,10 @@ def _user_prompt(
                 "Review-only SPL authoring: execution_eligible, governed, and catalog_approved MUST remain false."
             )
             parts.append("Do not invent unsupported index/sourcetype bindings; flag uncertain field mappings in assumptions.")
+            parts.append("")
+        semantic_text = context.get("semantic_analyst_intent_text")
+        if isinstance(semantic_text, str) and semantic_text.strip():
+            parts.append(semantic_text.strip())
             parts.append("")
         grounding = context.get("t2_grounding")
         if isinstance(grounding, str) and grounding.strip():

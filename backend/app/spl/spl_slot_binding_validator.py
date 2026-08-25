@@ -419,6 +419,10 @@ def extract_query_slots(user_query: str) -> dict[str, Any]:
         slots["time_window"] = "earliest=-24h latest=now"
     elif "last hour" in normalized.lower() or "last 1 hour" in normalized.lower():
         slots["time_window"] = "earliest=-1h latest=now"
+    elif re.search(r"\b(?:last|past)\s+30\s+days?\b", normalized.lower()):
+        slots["time_window"] = "earliest=-30d latest=now"
+    elif re.search(r"\b(?:last|past)\s+7\s+days?\b", normalized.lower()):
+        slots["time_window"] = "earliest=-7d latest=now"
 
     return slots
 
@@ -735,6 +739,8 @@ def _normalize_time_window(value: str) -> str | None:
         return "earliest=-1h latest=now"
     if any(token in lower for token in ("last 7 days", "past 7 days", "7 days")):
         return "earliest=-7d latest=now"
+    if re.search(r"\b(?:last|past)\s+30\s+days?\b", lower):
+        return "earliest=-30d latest=now"
     if any(token in lower for token in ("30 minutes", "last 30 minutes", "past 30 minutes")):
         return "earliest=-30m latest=now"
     if _EARLIEST_LATEST_PAIR.fullmatch(text):
