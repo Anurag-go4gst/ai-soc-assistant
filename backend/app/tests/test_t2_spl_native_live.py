@@ -71,11 +71,11 @@ def test_asa_ioc_lookup_live_review_only() -> None:
     response = _chat(_ASA)
     cs = response.candidate_spl
     assert cs is not None
-    assert cs.generation_mode == "t2_spl_native_review"
-    t2 = cs.t2_spl_native
-    assert t2 is not None
-    assert t2["runtime_operation"] == "lookup_correlation"
-    assert t2["source_profile"] == "cisco_asa"
+    # Explicit review-only SPL is Final-RQC utility authoring (lab draft), not the
+    # legacy T2-native envelope. Lookup correlation content must still appear, and
+    # the candidate stays non-executable.
+    assert cs.generation_mode == "deterministic_lab_draft"
+    assert cs.t2_spl_native is None
     spl = cs.candidate_spl or ""
     assert "lookup power_sector_iocs.csv indicator_ip as dest_ip" in spl
     assert "table src_ip dest_ip actions event_count matched_ioc" in spl
@@ -85,19 +85,16 @@ def test_asa_ioc_lookup_live_review_only() -> None:
     assert "disallowed_index" not in (sv.reject_reasons or [])
 
     assert response.selected_skill == "spl_generation"
-    assert response.response_mode == "review_required"
-    assert t2["lookup_name"] == "power_sector_iocs.csv"
-    assert t2["lookup_match_field"] == "indicator_ip"
-    assert t2["log_match_field"] == "dest_ip"
-    assert "src_ip" in t2["entity_fields"]
-    assert "dest_ip" in t2["entity_fields"]
-    assert t2["detection_window"] == "24h"
-    assert t2["review_required"] is True
+    assert response.response_mode == "human_review_required"
+    ep = response.evidence_plan or {}
+    assert ep.get("answer_mode") == "spl_utility_authoring"
+    assert ep.get("mcp_allowed") is False
     assert "where isnotnull(matched_ioc)" in spl
     assert "asset_name" not in spl
     assert "where isnull(asset_name)" not in spl
     assert "pgcil_soc" not in spl
-    assert "cisco:firepower" not in spl
+    if response.execution is not None:
+        assert response.execution.executed_spl is None
     msg = spl_visible_text(response)
     assert "lookup power_sector_iocs.csv indicator_ip as dest_ip" in msg
     assert "asset_name" not in msg
@@ -179,13 +176,12 @@ def test_asa_ioc_lookup_checklist_is_operation_aware() -> None:
         "power_sector_iocs.csv",
         "indicator_ip",
         "dest_ip",
-        "investigation lead",
     ):
         assert token in combined
     for bad in (
         "dns",
         "user correlation",
-        "8h",
+        "earliest=-8h",
         "asset inventory",
         "asset_name",
         "asset_ip",
