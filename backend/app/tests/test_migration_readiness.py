@@ -27,6 +27,11 @@ DEFAULT_LOCAL_DATABASE_URL = (
 )
 
 
+@pytest.fixture
+def anyio_backend() -> str:
+    return "asyncio"
+
+
 @pytest.fixture(scope="module")
 def migrated_database_url() -> Iterator[str]:
     url = (os.environ.get("DATABASE_URL") or "").strip()
@@ -73,7 +78,7 @@ def test_required_migration_versions_lists_all_sql_files() -> None:
     ]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_apply_pending_migrations_skips_recorded_versions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     sql_a = tmp_path / "0001_test.sql"
     sql_b = tmp_path / "0002_test.sql"
@@ -133,7 +138,7 @@ def test_migration_remediation_command_is_documented() -> None:
     assert "migrate_ai_soc_db.py" in migration_remediation_command()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_build_migration_readiness_from_active_event_loop(
     migrated_database_url: str,
     monkeypatch: pytest.MonkeyPatch,
@@ -149,7 +154,7 @@ async def test_build_migration_readiness_from_active_event_loop(
     assert result["detail"] == "ok"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_health_migration_readiness_from_active_event_loop(
     migrated_database_url: str,
     monkeypatch: pytest.MonkeyPatch,
@@ -169,7 +174,7 @@ async def test_health_migration_readiness_from_active_event_loop(
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_missing_migrations_fail_closed_from_active_event_loop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -195,7 +200,7 @@ async def test_missing_migrations_fail_closed_from_active_event_loop(
     assert result["detail"] == "pending migrations"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_unexpected_readiness_error_surfaces_fail_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
