@@ -7,35 +7,44 @@ Use this file as the durable execution dashboard. Update it only during authoriz
 ## Control state
 
 ```yaml
-CURRENT_PHASE: OPERATOR_PLAN_REVIEW
-CURRENT_BASE_SHA: FROZEN_BY_OPERATOR_AT_IMPLEMENTATION_START
-INTEGRATION_SHA: SAME_AS_EXECUTION_INTEGRATION_SHA_AFTER_FREEZE
-EXECUTION_INTEGRATION_SHA: FROZEN_BY_OPERATOR_AT_IMPLEMENTATION_START
+CURRENT_PHASE: P1_BLOCKED_PENDING_REBASE
+CURRENT_BASE_SHA: ae03a2502ab4c83797151a11d4effa47d9d4532b
+INTEGRATION_SHA: GOVERNANCE_COMMIT_CONTAINING_P1_T2_EVIDENCESTATE_OWNERSHIP
+EXECUTION_INTEGRATION_SHA: GOVERNANCE_COMMIT_CONTAINING_P1_T2_EVIDENCESTATE_OWNERSHIP
 PLAN_PREPARATION_SHA: fe3548e475e61e77f5204e02f74efd28690abb86
 P0_PRODUCT_BASELINE_SHA: 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
 CURRENT_LOOP: NONE
 LOOP_ITERATION_ID: NONE
-READY_FOR_OPERATOR_REVIEW: YES
+READY_FOR_OPERATOR_REVIEW: NO
 PYVENV: /Users/aagarwal/Downloads/ai-soc-assistant-t4-architecture-20260821/.venv/bin/python
 INTEGRATION_BRANCH: feat/complete-or-abstain-t4-ux
 INTEGRATION_OWNER: CODEX
 ACTIVE_WORKSTREAMS: []
 BLOCKED_WORKSTREAMS:
-  - P0.1, P1-P11: plan not yet operator-approved for implementation
+  - P1 A TRACE: BLOCKED_PENDING_REBASE; preserve T1 db4e715ffdfe89b7165911d9431d08fb781961f4 and rebase onto the governance commit containing the accepted reconciliation
 COMPLETED_WORKSTREAMS:
   - P0: Harness readiness at 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
+  - P0.1: RACES baseline advanced and verified at ae03a2502ab4c83797151a11d4effa47d9d4532b
 NEXT_SAFE_PARALLEL_STARTS:
-  - P0.1 RACES baseline adjudication (integration owner) after operator freezes EXECUTION_INTEGRATION_SHA
-  - P1 TRACE after operator freezes EXECUTION_INTEGRATION_SHA
-  - P2 SPL after operator freezes the same EXECUTION_INTEGRATION_SHA
-  - P3 L2 scaffold after operator freezes the same EXECUTION_INTEGRATION_SHA
-RECONCILIATION_QUEUE: []
+  - P1 TRACE T2 after ws/trace-truth rebases onto the governance commit containing the accepted reconciliation
+  - P2/P3 continue their existing work; this governance commit does not require an immediate interruption
+RECONCILIATION_QUEUE:
+  - REQUEST_ID: P1-T2-EVIDENCESTATE-OWNERSHIP
+    REQUESTING_STREAM: A TRACE
+    OWNING_STREAM: A TRACE / CODEX
+    FILE_OR_CONTRACT: backend/app/evidence/minimal_evidence_state.py plus directly corresponding H-TRACE-03/H-TRACE-08 truth tests
+    REQUIRED_CHANGE: execution metadata and plan_step_outcome/canonical plan facts must not become obtained evidence; distinguish required/missing/diagnostic facts from accepted obtained evidence
+    WHY: P1 owns factual trace/evidence projection truth; this is not SPL semantics, routing, planning authority, MCP execution authority, or prompt policy
+    DEPENDENT_ITEM: P1 T2/T3
+    PROPOSED_TEST: execution-only and plan-only inputs never produce obtained RAG/MCP evidence; accepted collected evidence remains obtained
+    STATUS: ACCEPTED
+    RESOLUTION_SHA: GOVERNANCE_COMMIT_CONTAINING_THIS_DECISION
 MERGE_QUEUE: []
 PROTECTED_CHANGE_QUEUE: []
 TEST_GATE_STATUS:
   PLAN_AUDIT: passed_zero_gaps_both_files
   FOCUSED: not_started
-  L0: blocked_inherited_red  # RACES freeze red at fe3548e4 from P0 f1f523cd; resolved by P0.1
+  L0: P0_1_RACES_8_passed; P1 rerun required after rebase
   L1: not_started
   L2: P0_13_reported_green_at_base
   L2_SLOW: not_started
@@ -49,20 +58,21 @@ RESIDUAL_FAILURE_LEDGER:
   - github_skill_clone_root: carry_forward_environment_dependency
   - postgres_integration_families: carry_forward_exact_ids_required
   - migration_and_plugin_environment: carry_forward_exact_ids_required
-  - RACES_baseline_state: carry_forward_protected_decision_if_still_failing
+  - RACES_baseline_state: resolved_P0_1_at_ae03a250
 DECISION_LOG:
   - 2026-08-25: P0 accepted as completed baseline; do not redo.
   - 2026-08-25: fe3548e4 is PLAN_PREPARATION_SHA; first-wave work starts from the final operator-frozen EXECUTION_INTEGRATION_SHA.
   - 2026-08-25: P0.1 audit/proposal and apply are separate approvals; neither has executed.
   - 2026-08-25: Plan-only mission; no worktrees or product changes created.
   - 2026-08-25: plans/README.md intentionally not edited because mission allowed only two plan artifacts.
+  - 2026-08-25: P1-T2-EVIDENCESTATE-OWNERSHIP accepted for A TRACE P1 T2/T3 only; P1 is BLOCKED_PENDING_REBASE to this governance commit, while P2/P3 need not interrupt active work.
 ```
 
 ## Workstream registry
 
 | Stream | Phase(s) | Agent | Branch | Start SHA | Status | Exclusive ownership |
 |---|---|---|---|---|---|---|
-| A TRACE | P1 | CODEX | `ws/trace-truth` | unset | BLOCKED_REVIEW | Trace/provenance modules and tests |
+| A TRACE | P1 | CODEX | `ws/trace-truth` | `ae03a2502ab4c83797151a11d4effa47d9d4532b` | BLOCKED_PENDING_REBASE | Trace/provenance modules and tests; P1 T2/T3-only ownership of `backend/app/evidence/minimal_evidence_state.py` and directly corresponding H-TRACE-03/H-TRACE-08 tests |
 | B SPL | P2 | CURSOR | `ws/spl-semantic-v2` | unset | BLOCKED_REVIEW | SPL semantic/compiler/fidelity/live SPL prompt modules and tests |
 | C EVAL | P3, P5, P6 | CLAUDE | `ws/l2-eval-bank` | unset | BLOCKED_REVIEW | L2 bank and test architecture only |
 | D POLICY | P4 | CLAUDE | `ws/prompt-policy` | unset | BLOCKED_P2_FOR_WRITES | Generic prompt/role/policy files and tests |
@@ -327,9 +337,9 @@ edit a completed phase or retain evidence produced against an invalidated SHA/co
 - [x] SHA roles match: `PLAN_PREPARATION_SHA = fe3548e4`; `EXECUTION_INTEGRATION_SHA` is frozen externally after the final plan commit;
   `INTEGRATION_SHA` is only a compatibility alias after freeze.
 - [x] `P0_PRODUCT_BASELINE_SHA` is `615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2` and is not a worktree start SHA.
-- [x] P0 is DONE; P0.1-P10 TODO; P11 DEFERRED; active streams are empty; current loop is NONE.
+- [x] P0/P0.1 are DONE; P1 T1 is green at `db4e715f` and P1 is `BLOCKED_PENDING_REBASE`; P2-P10 remain otherwise unchanged; P11 DEFERRED; current loop is NONE.
 - [x] Dependencies and merge order match the canonical plan.
-- [x] Protected queue is empty and P0.1 has not executed.
+- [x] Protected queue is empty; reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` is ACCEPTED with A TRACE as bounded owner.
 - [x] Post-P0.1 apply forces exact-SHA rebase before L0/return/integration.
 - [x] Live MCP remains disabled and deferred to P11 plus separate approval.
 
@@ -350,6 +360,7 @@ Append decisions; do not rewrite history.
 | 2026-08-25 plan correction | P0.1 | Audit/proposal and apply are separate operator gates | Correction mission | P0.1 not executed; approved apply would force active-stream rebases |
 | 2026-08-25 plan correction | Commit policy | Red reproduction is loop evidence, not permanent history | Correction mission | Commit only bounded green contracts |
 | 2026-08-25 plan correction | Validation | Both plan-discipline audits passed with zero gaps | Audit output | Ready for operator review; implementation still blocked |
+| 2026-08-25 reconciliation | P1 T2/T3 | Accept `P1-T2-EVIDENCESTATE-OWNERSHIP` and assign the bounded EvidenceState truth seam to A TRACE | Explicit operator ownership decision | Preserve T1 `db4e715f`; P1 rebases to this governance commit before T2; P2/P3 continue without immediate rebase |
 
 ## Runner stop
 

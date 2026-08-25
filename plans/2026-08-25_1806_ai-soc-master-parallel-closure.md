@@ -155,7 +155,7 @@ Worktree directory names are operator-selected local paths such as `../ai-soc-wt
 
 | Authority seam | Exclusive implementation owner | Allowed paths | Must not modify concurrently |
 |---|---|---|---|
-| Trace/control-plane truth | A / CODEX | `backend/app/chat/control_plane_trace.py`, `pipeline_visibility.py`, `investigation_shaped.py`, `canonical_facts_spine.py`, `backend/app/spl/spl_provenance_trace.py`, `backend/app/spl/spl_artifact_trace_projection.py`, directly corresponding trace tests | `pipeline.py`, `schemas/responses.py`, SPL semantic modules, UI |
+| Trace/control-plane truth | A / CODEX | `backend/app/chat/control_plane_trace.py`, `pipeline_visibility.py`, `investigation_shaped.py`, `canonical_facts_spine.py`, `backend/app/spl/spl_provenance_trace.py`, `backend/app/spl/spl_artifact_trace_projection.py`, directly corresponding trace tests; for P1 T2/T3 only, `backend/app/evidence/minimal_evidence_state.py` and directly corresponding EvidenceState truth tests | `pipeline.py`, `schemas/responses.py`, all other `backend/app/evidence/` files, SPL semantic modules, UI |
 | SPL semantic V2 | B / CURSOR | `backend/app/spl/spl_intent_spec.py`, `spl_semantic_fidelity.py`, `utility_spl_authoring.py`, `llm_fallback.py`, `llm_plan_compiler.py`, `review_only_spl_postprocessor.py`, `request_authority.py`, `rqc_constraint_preservation.py`, `spl_source_resolve.py`, `source_profile_catalog.py`, `source_profile_resolver.py`, `source_profile_bindings.py`, `source_profile_store.py`, `slot_binding_merge.py`, `spl_slot_binding_validator.py`, `spl_relevance_check.py`, directly corresponding tests | `backend/app/safeguards/spl_validator.py` (**RACES-protected: read-only, protected diff required**), `backend/app/schemas/responses.py` (**protected**), `backend/app/graph/` (**protected**, incl. `resource_planner_graph.py`), trace projections, generic LLM role registry, eval-bank files, UI |
 | Eval/test architecture | C / CLAUDE | `backend/app/tests/test_p0_l2_production_chat_harness.py` or a successor L2 bank owned solely by C, test-tier metadata/config, test inventory/report scripts and docs approved by phase scope | Runtime product modules, trace/SPL contract tests owned by A/B, protected files |
 | Prompt/policy | D / CLAUDE | `backend/app/llm/prompts.py`, `adapter/role_registry.py`, `hybrid_role_graph.py`, `registry_settings.py`, prompt-policy schemas/config and corresponding tests; frontend Prompt Studio deferred to E | `backend/app/spl/llm_fallback.py` is a SHARED_SEAM owned by B; runtime pipeline; UI during D |
@@ -317,6 +317,12 @@ stream red and indistinguishable from a real regression.
 | F/INTEGRATION | CODEX | Single owner for reconciliation, gate evidence, and exact-SHA promotion | Integration records/evals; no feature seam takeover | Phase-specific | E and L3 only when files are exclusive |
 
 Agent names express recommended responsibility, not permission for simultaneous edits in one tree. One agent owns each seam; another may review without writing.
+
+### Accepted bounded reconciliation
+
+| Request | Requesting stream | Owning stream | File/contract | Status | Rationale and boundary |
+|---|---|---|---|---|---|
+| `P1-T2-EVIDENCESTATE-OWNERSHIP` | A TRACE | A TRACE / CODEX | `backend/app/evidence/minimal_evidence_state.py` plus directly corresponding H-TRACE-03/H-TRACE-08 truth tests | ACCEPTED | P1 owns factual trace/evidence projection truth. Execution metadata and canonical plan facts must not become obtained evidence; required/missing/diagnostic facts must remain distinct from accepted obtained evidence. This assignment is P1 T2/T3 only and grants no ownership over other `backend/app/evidence/` files, SPL semantics, routing, planning authority, MCP execution authority, or prompt policy. Future unrelated evidence work requires a new reconciliation. |
 
 ## Branch return packet
 
@@ -674,11 +680,11 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **Evidence:** Pending.
 
 - [ ] **P1 - Trace truth closure**
-  - **STATUS:** TODO
+  - **STATUS:** BLOCKED_PENDING_REBASE
   - **OWNER:** Workstream A / CODEX
   - **BASE_SHA:** Frozen `EXECUTION_INTEGRATION_SHA`.
   - **DEPENDENCIES:** P0.
-  - **ALLOWED_FILES:** A-owned trace/provenance modules and directly corresponding tests from the ownership matrix.
+  - **ALLOWED_FILES:** A-owned trace/provenance modules and directly corresponding tests from the ownership matrix. Accepted reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` additionally assigns `backend/app/evidence/minimal_evidence_state.py` and directly corresponding H-TRACE-03/H-TRACE-08 truth tests to A for P1 T2/T3 only.
   - **PROTECTED_FILES:** `architecture.md` plus every enumerated `RACES_FREEZE_PATHS` prefix (see Protected-file policy). For A this most often means `backend/app/schemas/responses.py` when a new oracle field is needed — STOP and request the diff.
   - **MISSION:** Reproduce each suspected contradiction, then correct only factual/projection inconsistencies and freeze a stable oracle vocabulary.
   - **WHY_THIS_EXISTS:** Recent inspection found attempted-call versus used/live-call ambiguity, conflicting fallback labels, RAG skipped alongside obtained citation state, artifact review conflated with execution HIL, and pure SPL diagnostic projections that may look investigation-shaped.
@@ -690,7 +696,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **EXPECTED_COMMIT_GROUPS:** T1 -> T2 -> T3 from Commit choreography; red repros are loop evidence, not commits.
   - **OUTPUT_REQUIRED:** Repro matrix, schema/version decision, branch return packet, exact tests, unresolved protected diff if any.
   - **NEXT_PHASE_UNLOCK:** P5 trace-dependent L2 assertions and P7 trace UX contract.
-  - **Evidence:** Pending.
+  - **Evidence:** T1 is green at `db4e715ffdfe89b7165911d9431d08fb781961f4` and must be preserved. T2 is not implemented. Reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` is ACCEPTED; P1 must rebase onto the governance commit containing this decision before T2 resumes. P2/P3 are unaffected and need not interrupt active work for this governance commit.
 
 - [ ] **P2 - SPL semantic V2 contract, authoring, fidelity, and syntax**
   - **STATUS:** TODO
@@ -943,12 +949,12 @@ P9 must remeasure by exact test ID. These are carried as hypotheses from prior m
 Run this checklist after every structural plan edit and before operator review:
 
 - [x] SHA roles: both files preserve `PLAN_PREPARATION_SHA = fe3548e4`, leave `EXECUTION_INTEGRATION_SHA` operator-frozen, and never require a plan to contain its own commit SHA.
-- [x] Phase status: P0 DONE, P0.1-P10 TODO, P11 DEFERRED, and no active implementation stream.
+- [x] Phase status: P0/P0.1 DONE; P1 T1 is green at `db4e715f` and P1 is `BLOCKED_PENDING_REBASE`; P2-P10 remain otherwise unchanged; P11 DEFERRED.
 - [x] Dependencies: authoritative edge list and runner eligibility rules agree.
-- [x] Merge order: P0.1 apply first if approved, then A, B, D, C/P5, C/P6, F/P8, E/P7, F/P9.
-- [x] Protected queue: empty; P0.1 audit/proposal has not run and no apply approval exists.
+- [x] Merge order: P0.1 is complete; remaining order is A, B, D, C/P5, C/P6, F/P8, E/P7, F/P9.
+- [x] Queues: protected queue is empty; reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` is ACCEPTED with A TRACE as bounded owner.
 - [x] Current loop: `NONE`; `LOOP_ITERATION_ID = NONE`.
-- [x] Rebase rule: every pre-P0.1 stream must rebase to the exact post-P0.1 integration SHA before L0/return/integration.
+- [x] Rebase rule: P1 must rebase to the governance commit containing the accepted ownership decision before T2; P2/P3 need no immediate interruption and rebase later before their own integration.
 - [x] Live MCP posture: disabled/deferred until P11 plus separate approval.
 
 If any row disagrees, set `READY_FOR_OPERATOR_REVIEW = NO`, correct both files, and rerun the plan audit.
