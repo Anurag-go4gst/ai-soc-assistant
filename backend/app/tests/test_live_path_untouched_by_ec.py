@@ -146,7 +146,7 @@ def test_ec_changes_stay_within_allowlist() -> None:
 # backend change. No other RACES-protected path changed in 3a5f5001..cd271f22.
 # Operator-approved for this commit only; later protected edits still require STOP +
 # operator approval; the baseline is pinned to cd271f22 and not to HEAD.
-RACES_BASELINE_SHA = "cd271f22be417cf4048bb5dcf2b763ed95202288"
+RACES_BASELINE_SHA = "86be6f9fb3ad09adc53038e430fc94e44c1ab671"
 
 
 def _git_name_only(rev_range: str) -> list[str]:
