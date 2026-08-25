@@ -58,9 +58,9 @@ means the phase branch head, not the integration branch head. `NONE` means no im
 | P0.1 | Integration | CODEX/operator | DONE | `d3a0cdb3` | `ae03a250` | P0 | CLOSED | RACES 8 | Preserve audited baseline | None | IN_BASE |
 | P1 | A TRACE | CODEX | DONE | `2ba619df` | `fd77d58e` | P0 | CLOSED | 297 owned/cross-stream; P0 L2 13; RACES 8 | Preserve; reopen only through phase re-entry | None | IN_BASE |
 | P2 | B SPL | CURSOR | DONE | `fcba3426` | `7fbdf83f` | P0 | CLOSED | P2 128; LIVE-RQC 10; P1 cross-contract 80; P0 L2 13; RACES 8 | Preserve; reopen only through phase re-entry | None | IN_BASE |
-| P3 | C EVAL | CLAUDE | PARKED | frozen pre-P2 SHA | `838659ad` | P0 scaffold | NONE | P0 L2 13 | Remain parked; do not rebase yet | Contract rows wait P4/P5 | NOT_STARTED |
-| P4 | D POLICY | CLAUDE | READY_TO_START | externally frozen `POST_P2_INTEGRATION_SHA` | NONE | P2 for writes | NONE | P2 integrated green | Start only from exact post-P2 governance SHA | None | NOT_STARTED |
-| P5 | C/Integration | CODEX + CLAUDE | TODO | P1/P2/P4 integration SHA | NONE | P1/P2/P3/P4 | NONE | NONE | Wait | Dependencies | NOT_STARTED |
+| P3 | C EVAL | CLAUDE | REBASE_REQUIRED | frozen pre-P2 SHA | `838659ad` | P0 scaffold; P1/P2/P4 for activation | NONE | P0 L2 13 | Rebase only in the next authorized iteration onto `POST_P4_INTEGRATION_SHA` | Exact rebase and E1 reproof required | PARKED |
+| P4 | D POLICY | CLAUDE | DONE | `29933dda` | `cdb146df` | P2 for writes | CLOSED | P4 702; P0 L2 13; P1 49; P2 98; RACES 8; full backend exact residual match | Preserve; reopen only through phase re-entry | None | IN_BASE |
+| P5 | C/Integration | CODEX + CLAUDE | BLOCKED_PENDING_P3_REBASE | post-P4 integration SHA | NONE | P1/P2/P3/P4 | NONE | NONE | Wait for P3 exact rebase and E1 reproof | P3 rebase | NOT_STARTED |
 | P6 | C EVAL | CLAUDE | TODO | P5 green SHA | NONE | P5 | NONE | NONE | Wait | P5 | NOT_STARTED |
 | P7 | E UI | CURSOR | TODO | P5 green SHA | NONE | P1/P2/P4/P5 | NONE | NONE | Wait | P5/protected wiring | NOT_STARTED |
 | P8 | F EVAL | CODEX | TODO | P5 green SHA | NONE | P2/P4/P5 | NONE | NONE | Wait | P5/live local LLM | NOT_STARTED |
@@ -724,9 +724,9 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **Evidence:** Integrated by exact fast-forward at product SHA `7fbdf83f4508886529121998256face8d3c9edf1`, preserving S1 `5952d254`, S2 `639477c7`, S3 `6d4458b2`, S4 `a214946f`, S5 `09072610`, S6 `1f379f7a`, protected wiring `5921f1d0`, and RACES baseline commit `7fbdf83f`. S1-S6 PASS. Contract `spl_semantic_v2` supports raw, aggregation, ranking, trend, rolling, and sequence; comparison remains `PRODUCT_GAP / unsupported_comparison_semantics`. `P2-FINAL-RQC-PIPELINE-WIRING` is APPLIED_VERIFIED; `RACES_BASELINE_SHA = 5921f1d0cf569695db97ef0fd277ffdac8ec5338`, not P2 HEAD. Integrated gates: P2 owned 128 passed, LIVE-RQC-01..10 10 passed, P1 cross-contract 80 passed, P0 L2 13 passed, RACES 8 passed. Unfaithful SPL cannot be emitted; candidate SPL remains non-executable; one-repair maximum and Final RQC provenance are green. Two HIL mirror tests fail identically at pre-P2 `fd77d58e` and P2, classified `PRE_EXISTING_FAILURE`; no P2 regression. No live LLM or MCP was used.
 
 - [ ] **P3 - L2 production bank scaffold from 13 toward 23**
-  - **STATUS:** PARKED
+  - **STATUS:** PARKED_REBASE_REQUIRED
   - **OWNER:** Workstream C / CLAUDE
-  - **BASE_SHA:** Parked branch head `838659ada898b5a8bf071fda2b233c125f51ac00`; do not rebase yet.
+  - **BASE_SHA:** Parked logical branch head `838659ada898b5a8bf071fda2b233c125f51ac00`; next authorized iteration must rebase it exactly onto `POST_P4_INTEGRATION_SHA` and reprove E1 before P5.
   - **DEPENDENCIES:** P0 for scaffold; P1/P2/P4 for assertions against new contracts.
   - **ALLOWED_FILES:** C-owned L2 bank/test files only. No runtime code.
   - **PROTECTED_FILES:** All runtime code, plus `architecture.md` and every enumerated `RACES_FREEZE_PATHS` prefix. C writes tests only.
@@ -740,12 +740,12 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **EXPECTED_COMMIT_GROUPS:** E1 from Commit choreography; E2/E3 occur in P5 after rebase.
   - **OUTPUT_REQUIRED:** Case matrix, pending dependency list, branch return packet, exact collection/test result.
   - **NEXT_PHASE_UNLOCK:** P5 after rebase onto merged P1/P2/P4.
-  - **Evidence:** Pending.
+  - **Evidence:** E1 remains parked at `838659ada898b5a8bf071fda2b233c125f51ac00`. P4 is now integrated; rebase is required but was intentionally not performed in the P4 integration iteration.
 
-- [ ] **P4 - Prompt, role policy, provenance, and Studio configuration contract**
-  - **STATUS:** READY_TO_START
+- [x] **P4 - Prompt, role policy, provenance, and Studio configuration contract**
+  - **STATUS:** DONE
   - **OWNER:** Workstream D / CLAUDE; B remains owner of `backend/app/spl/llm_fallback.py`.
-  - **BASE_SHA:** Exact externally frozen `POST_P2_INTEGRATION_SHA` after the P2 governance evidence commit.
+  - **BASE_SHA:** `29933dda595be082b9274c74b4545975b1742cb1`.
   - **DEPENDENCIES:** P0 for audit; P2 contract for writes and final prompt semantics.
   - **ALLOWED_FILES:** D-owned generic LLM prompt/role/settings modules and tests. Requirements for B-owned SPL prompt go through reconciliation.
   - **PROTECTED_FILES:** `architecture.md` plus every enumerated `RACES_FREEZE_PATHS` prefix (see Protected-file policy), plus all B-owned SPL files (requirements go through `RECONCILIATION_QUEUE`).
@@ -770,10 +770,10 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **EXPECTED_COMMIT_GROUPS:** PP1 -> PP2 -> PP3 -> PP4 -> PP5 -> PP6 from Commit choreography.
   - **OUTPUT_REQUIRED:** Role/posture table, prompt provenance schema, Studio config/permission model, reconciliation request/result, branch packet.
   - **NEXT_PHASE_UNLOCK:** P5 prompt-aware L2 rows, P7 Studio UI if approved in scope, P8 live prompt metrics.
-  - **Evidence:** Pending.
+  - **Evidence:** Integrated by exact fast-forward at product SHA `cdb146df32b0214aa96bac8d037891835b696a46`, preserving seven bounded commits from `eee4ad66` through `cdb146df`; no protected file changed and `backend/app/llm/prompts.py` changed only its docstring. The code-derived inventory proves 25 total roles, 18 production-reachable, 7 `BLOCKED_BY_ALLOWLIST`, and 0 legacy/dead; the blocked set is `mitre_reasoner`, `missing_evidence_reasoner`, `risk_rationale_reasoner`, `plan_delta_reasoner`, `pattern_reasoner`, `evidence_reasoner`, and `hypothesis_reasoner`. `_REASONING_ALLOWED_ROLES` remains unchanged with only `investigation_planner`; prompt registration and ACTIVE template metadata grant no runtime authority. Confirmed off-registry/runtime observations: `governed_composer`, `remediation_planner`, `semantic_t4`, and `spl_repair`. Frozen contracts: `prompt_role_contract_v1`, `prompt_role_registry_v1`, `few_shot_catalog_v1`, `negative_example_catalog_v1`, `prompt_cache_policy_v1`, `prompt_ab_eval_contract_v1`, and `prompt_studio_config_v1`. Every role has one ACTIVE prompt template and no CANDIDATE; this is template posture only, not runtime enablement. `LIVE_AB_EVAL_PERFORMED = NO`; no live LLM or MCP was used. Pre/post focused gates: P4 702 passed, P0 L2 13 passed plus reasoning reachability 2, P1 trace/evidence 49 passed, P2 semantic/Final-RQC/LIVE-RQC 98 passed, and RACES 8 passed. Full backend at base: 14 failed/6256 passed; at P4: 14 failed/6958 passed. Exact failure node-ID sets are identical and all 14 are `PRE_EXISTING_FAILURE`; no P4 regression. P1 `trace_oracle_v1`/`minimal_evidence_state_v2`, P2 `spl_semantic_v2`, candidate non-execution, unsupported comparison, and one-repair maximum remain preserved.
 
 - [ ] **P5 - Cross-stream reconciliation and approximately 23-case L2 closure**
-  - **STATUS:** TODO
+  - **STATUS:** BLOCKED_PENDING_P3_REBASE
   - **OWNER:** Integration owner / CODEX with C as L2 bank owner.
   - **BASE_SHA:** Integration SHA containing P1, P2, and P4; C rebases onto it.
   - **DEPENDENCIES:** P1, P2, P3 scaffold, P4.
@@ -951,17 +951,40 @@ P9 must remeasure by exact test ID. These are carried as hypotheses from prior m
 | `test_canonical_handoff_e2e_probes.py::{test_e2e_t1_spl_generation_canonical_graph_and_gate,test_e2e_environment_kb_user_explicit_precedence}` | Both fail at pre-P2 `fd77d58e` with FinalEvidenceGate HIL true versus RunContract false | Same two failures at P2 `7fbdf83f`; all other selected cross-contract tests passed | PRE_EXISTING_FAILURE, not P2 regression | Carry exact IDs to P5/P9; do not attribute to P2 or weaken assertions |
 | Any newly observed plugin/environment failure | Unknown until P9 | Add exact test, baseline/candidate, dependency, evidence | Unclassified | Must be classified and adjudicated before GO |
 
+### P4 exact residual reconciliation
+
+Measured locally at base `29933dda595be082b9274c74b4545975b1742cb1` and P4 product SHA
+`cdb146df32b0214aa96bac8d037891835b696a46`. `BASE_FAILURE_SET == P4_FAILURE_SET`; each row is
+`PRE_EXISTING_FAILURE`, returned the same failing result on both SHAs, and does not block P4. P5/P9 must carry and remeasure the exact set.
+
+| TEST_ID / NODE_ID | FAILURE_CLASSIFICATION | BASE_SHA_RESULT | P4_RESULT | OWNER / FUTURE_PHASE | BLOCKS_P4 | NOTES |
+|---|---|---|---|---|---|---|
+| `app/tests/test_canonical_handoff_e2e_probes.py::test_e2e_t1_spl_generation_canonical_graph_and_gate` | PRE_EXISTING_FAILURE | FAIL | FAIL | A TRACE / P5, P9 | NO | Canonical handoff/HIL mirror family |
+| `app/tests/test_canonical_handoff_e2e_probes.py::test_e2e_environment_kb_user_explicit_precedence` | PRE_EXISTING_FAILURE | FAIL | FAIL | A TRACE / P5, P9 | NO | Canonical handoff/HIL mirror family |
+| `app/tests/test_chat_control_plane_golden.py::test_known_questions_use_specific_raw_templates[Write SPL to find successful AWS Console logins by user in the last 24 hours-aws_console_success_logins_by_user-required_terms0-forbidden_terms0]` | PRE_EXISTING_FAILURE | FAIL | FAIL | Integration / P5, P9 | NO | Control-plane golden family |
+| `app/tests/test_evidence_loop_all_tier_discovery.py::test_live_data_spl_query_runs_real_discovery_hops_in_mock_mode` | PRE_EXISTING_FAILURE | FAIL | FAIL | A TRACE / P5, P9 | NO | Evidence-loop discovery family |
+| `app/tests/test_github_skill_expansion_factory_baseline.py::test_factory_generators_check_against_committed_artifacts` | PRE_EXISTING_FAILURE | FAIL | FAIL | Operator/environment / P9 | NO | Clone-root environment dependency |
+| `app/tests/test_in_catalogue_contract_guard.py::test_full_guard_passes_against_baseline` | PRE_EXISTING_FAILURE | FAIL | FAIL | Integration / P5, P9 | NO | In-catalogue guard family |
+| `app/tests/test_llm_primary_planning.py::test_in_catalogue_contract_guard_still_green` | PRE_EXISTING_FAILURE | FAIL | FAIL | Integration / P5, P9 | NO | In-catalogue guard family |
+| `app/tests/test_migration_readiness.py::test_apply_pending_migrations_skips_recorded_versions` | PRE_EXISTING_FAILURE | FAIL | FAIL | Platform/environment / P9 | NO | Migration-readiness family |
+| `app/tests/test_migration_readiness.py::test_missing_migrations_fail_closed_from_active_event_loop` | PRE_EXISTING_FAILURE | FAIL | FAIL | Platform/environment / P9 | NO | Migration-readiness family |
+| `app/tests/test_migration_readiness.py::test_unexpected_readiness_error_surfaces_fail_closed` | PRE_EXISTING_FAILURE | FAIL | FAIL | Platform/environment / P9 | NO | Migration-readiness family |
+| `app/tests/test_pipeline_dispatch_phase2a.py::test_pipeline_dispatch_attached_after_cp_on_evidence_planning` | PRE_EXISTING_FAILURE | FAIL | FAIL | A TRACE / P5, P9 | NO | Dispatch phase2a family |
+| `app/tests/test_pipeline_dispatch_phase2a.py::test_pipeline_dispatch_cp_off_stub_attached_when_v2_enabled` | PRE_EXISTING_FAILURE | FAIL | FAIL | A TRACE / P5, P9 | NO | Dispatch phase2a family |
+| `app/tests/test_t2_spl_native_live.py::test_asa_ioc_lookup_live_review_only` | PRE_EXISTING_FAILURE | FAIL | FAIL | B SPL / P5, P9 | NO | SPL/Final-RQC family |
+| `app/tests/test_t2_spl_native_live.py::test_asa_ioc_lookup_checklist_is_operation_aware` | PRE_EXISTING_FAILURE | FAIL | FAIL | B SPL / P5, P9 | NO | SPL/Final-RQC family |
+
 ## Plan/loop runner consistency self-test
 
 Run this checklist after every structural plan edit and before operator review:
 
 - [x] SHA roles: both files preserve `PLAN_PREPARATION_SHA = fe3548e4`, leave `EXECUTION_INTEGRATION_SHA` operator-frozen, and never require a plan to contain its own commit SHA.
-- [x] Phase status: P0/P0.1/P1/P2 are DONE; P3 is PARKED at `838659ad`; P4 is READY_TO_START from externally frozen `POST_P2_INTEGRATION_SHA`; later phases and P11 posture are unchanged.
+- [x] Phase status: P0/P0.1/P1/P2/P4 are DONE; P3 remains parked at `838659ad` with an exact post-P4 rebase required; P5 is blocked pending that rebase; later phases and P11 posture are unchanged.
 - [x] Dependencies: authoritative edge list and runner eligibility rules agree.
-- [x] Merge order: P0.1, A, and B are complete; remaining order is D, C/P5, C/P6, F/P8, E/P7, F/P9.
+- [x] Merge order: P0.1, A, B, and D are complete; remaining order is C/P5, C/P6, F/P8, E/P7, F/P9.
 - [x] Queues: protected queue is empty; reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` is consumed; `P2-FINAL-RQC-PIPELINE-WIRING` is APPLIED_VERIFIED at `5921f1d0` with the RACES baseline pinned to that exact SHA.
 - [x] Current loop: `NONE`; `LOOP_ITERATION_ID = NONE`.
-- [x] Rebase rule: P2 integrated from exact base `fcba3426`; P3 remains parked without rebase; P4 must start from the externally frozen `POST_P2_INTEGRATION_SHA`.
+- [x] Rebase rule: P4 integrated from exact base `29933dda`; P3 remains parked during this iteration and must rebase onto the externally frozen `POST_P4_INTEGRATION_SHA` before P5.
 - [x] Live MCP posture: disabled/deferred until P11 plus separate approval.
 
 If any row disagrees, set `READY_FOR_OPERATOR_REVIEW = NO`, correct both files, and rerun the plan audit.

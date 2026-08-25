@@ -7,12 +7,13 @@ Use this file as the durable execution dashboard. Update it only during authoriz
 ## Control state
 
 ```yaml
-CURRENT_PHASE: P2_DONE_P4_READY_TO_START
-CURRENT_BASE_SHA: 7fbdf83f4508886529121998256face8d3c9edf1
-INTEGRATION_SHA: POST_P2_INTEGRATION_SHA_FROZEN_EXTERNALLY_AFTER_THIS_EVIDENCE_COMMIT
-EXECUTION_INTEGRATION_SHA: POST_P2_INTEGRATION_SHA_FROZEN_EXTERNALLY_AFTER_THIS_EVIDENCE_COMMIT
+CURRENT_PHASE: P4_DONE_P3_REBASE_REQUIRED
+CURRENT_BASE_SHA: cdb146df32b0214aa96bac8d037891835b696a46
+INTEGRATION_SHA: POST_P4_INTEGRATION_SHA_FROZEN_EXTERNALLY_AFTER_THIS_EVIDENCE_COMMIT
+EXECUTION_INTEGRATION_SHA: POST_P4_INTEGRATION_SHA_FROZEN_EXTERNALLY_AFTER_THIS_EVIDENCE_COMMIT
 P1_PRODUCT_INTEGRATION_SHA: fd77d58ea1e9690eec25a83aa90d46949c4512b5
 P2_PRODUCT_INTEGRATION_SHA: 7fbdf83f4508886529121998256face8d3c9edf1
+P4_PRODUCT_INTEGRATION_SHA: cdb146df32b0214aa96bac8d037891835b696a46
 PLAN_PREPARATION_SHA: fe3548e475e61e77f5204e02f74efd28690abb86
 P0_PRODUCT_BASELINE_SHA: 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
 CURRENT_LOOP: NONE
@@ -23,15 +24,16 @@ INTEGRATION_BRANCH: feat/complete-or-abstain-t4-ux
 INTEGRATION_OWNER: CODEX
 ACTIVE_WORKSTREAMS: []
 BLOCKED_WORKSTREAMS:
-  - P3 C EVAL: PARKED at 838659ada898b5a8bf071fda2b233c125f51ac00; do not rebase yet
+  - P3 C EVAL: PARKED at 838659ada898b5a8bf071fda2b233c125f51ac00; exact rebase required in next authorized iteration
+  - P5 C/Integration: BLOCKED_PENDING_P3_REBASE
 COMPLETED_WORKSTREAMS:
   - P0: Harness readiness at 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
   - P0.1: RACES baseline advanced and verified at ae03a2502ab4c83797151a11d4effa47d9d4532b
   - P1: TRACE truth integrated at fd77d58ea1e9690eec25a83aa90d46949c4512b5; T1/T2/T3 PASS
   - P2: SPL semantic V2 integrated at 7fbdf83f4508886529121998256face8d3c9edf1; S1-S6 PASS
+  - P4: Prompt/policy architecture integrated at cdb146df32b0214aa96bac8d037891835b696a46; PP1-PP6 PASS
 NEXT_SAFE_PARALLEL_STARTS:
-  - P4 D POLICY from exact POST_P2_INTEGRATION_SHA after it is externally frozen
-  - P3 remains PARKED
+  - P3 exact rebase onto POST_P4_INTEGRATION_SHA in a separately authorized iteration, then reprove E1
 RECONCILIATION_QUEUE:
   - REQUEST_ID: P1-T2-EVIDENCESTATE-OWNERSHIP
     REQUESTING_STREAM: A TRACE
@@ -53,10 +55,10 @@ PROTECTED_CHANGE_HISTORY:
     STATUS: APPLIED_VERIFIED
 TEST_GATE_STATUS:
   PLAN_AUDIT: passed_zero_gaps_both_files
-  FOCUSED: P2_owned_128_passed; LIVE_RQC_10_passed
-  L0: P2_RACES_8_passed_post_integration
-  L1: P1_cross_contract_80_passed; additional_Final_RQC_slice_76_passed_2_pre_existing_failures
-  L2: P0_13_passed_post_P2_integration
+  FOCUSED: P4_prompt_policy_702_passed
+  L0: P4_RACES_8_passed_post_integration; reasoning_reachability_2_passed
+  L1: P1_trace_evidence_49_passed; P2_semantic_Final_LIVE_RQC_98_passed
+  L2: P0_13_passed_post_P4_integration
   L2_SLOW: not_started
   L3: not_started
   FRONTEND: P0_111_and_build_reported_green_at_base
@@ -64,12 +66,20 @@ TEST_GATE_STATUS:
   LINUX: not_started
   LIVE_MCP: disabled_deferred_P11
 RESIDUAL_FAILURE_LEDGER:
-  - rt.para.011: carry_forward_remeasure_required
-  - github_skill_clone_root: carry_forward_environment_dependency
-  - postgres_integration_families: carry_forward_exact_ids_required
-  - migration_and_plugin_environment: carry_forward_exact_ids_required
-  - RACES_baseline_state: resolved_P0_1_at_ae03a250
-  - canonical_handoff_HIL_mirror_two_tests: PRE_EXISTING_FAILURE_at_fd77d58e_and_7fbdf83f
+  - app/tests/test_canonical_handoff_e2e_probes.py::test_e2e_t1_spl_generation_canonical_graph_and_gate: PRE_EXISTING_FAILURE; P5/P9; blocks_P4_NO
+  - app/tests/test_canonical_handoff_e2e_probes.py::test_e2e_environment_kb_user_explicit_precedence: PRE_EXISTING_FAILURE; P5/P9; blocks_P4_NO
+  - app/tests/test_chat_control_plane_golden.py::test_known_questions_use_specific_raw_templates[Write SPL to find successful AWS Console logins by user in the last 24 hours-aws_console_success_logins_by_user-required_terms0-forbidden_terms0]: PRE_EXISTING_FAILURE; P5/P9; blocks_P4_NO
+  - app/tests/test_evidence_loop_all_tier_discovery.py::test_live_data_spl_query_runs_real_discovery_hops_in_mock_mode: PRE_EXISTING_FAILURE; P5/P9; blocks_P4_NO
+  - app/tests/test_github_skill_expansion_factory_baseline.py::test_factory_generators_check_against_committed_artifacts: PRE_EXISTING_FAILURE; P9 environment; blocks_P4_NO
+  - app/tests/test_in_catalogue_contract_guard.py::test_full_guard_passes_against_baseline: PRE_EXISTING_FAILURE; P5/P9; blocks_P4_NO
+  - app/tests/test_llm_primary_planning.py::test_in_catalogue_contract_guard_still_green: PRE_EXISTING_FAILURE; P5/P9; blocks_P4_NO
+  - app/tests/test_migration_readiness.py::test_apply_pending_migrations_skips_recorded_versions: PRE_EXISTING_FAILURE; P9 environment; blocks_P4_NO
+  - app/tests/test_migration_readiness.py::test_missing_migrations_fail_closed_from_active_event_loop: PRE_EXISTING_FAILURE; P9 environment; blocks_P4_NO
+  - app/tests/test_migration_readiness.py::test_unexpected_readiness_error_surfaces_fail_closed: PRE_EXISTING_FAILURE; P9 environment; blocks_P4_NO
+  - app/tests/test_pipeline_dispatch_phase2a.py::test_pipeline_dispatch_attached_after_cp_on_evidence_planning: PRE_EXISTING_FAILURE; P5/P9; blocks_P4_NO
+  - app/tests/test_pipeline_dispatch_phase2a.py::test_pipeline_dispatch_cp_off_stub_attached_when_v2_enabled: PRE_EXISTING_FAILURE; P5/P9; blocks_P4_NO
+  - app/tests/test_t2_spl_native_live.py::test_asa_ioc_lookup_live_review_only: PRE_EXISTING_FAILURE; B SPL P5/P9; blocks_P4_NO
+  - app/tests/test_t2_spl_native_live.py::test_asa_ioc_lookup_checklist_is_operation_aware: PRE_EXISTING_FAILURE; B SPL P5/P9; blocks_P4_NO
 DECISION_LOG:
   - 2026-08-25: P0 accepted as completed baseline; do not redo.
   - 2026-08-25: fe3548e4 is PLAN_PREPARATION_SHA; first-wave work starts from the final operator-frozen EXECUTION_INTEGRATION_SHA.
@@ -79,6 +89,7 @@ DECISION_LOG:
   - 2026-08-25: P1-T2-EVIDENCESTATE-OWNERSHIP accepted for A TRACE P1 T2/T3 only; P1 is BLOCKED_PENDING_REBASE to this governance commit, while P2/P3 need not interrupt active work.
   - 2026-08-25: P1 integrated by exact fast-forward at fd77d58e with T1/T2/T3 history preserved; 297 owned/cross-stream, P0 L2 13, and RACES 8 passed; P2 requires exact rebase, P3 remains parked, and P4 remains blocked on P2.
   - 2026-08-25: P2 integrated by exact fast-forward at 7fbdf83f with S1-S6 plus approved Final-RQC wiring and exact RACES baseline history preserved; P4 is ready only from POST_P2_INTEGRATION_SHA, while P3 remains parked.
+  - 2026-08-26: P4 integrated by exact fast-forward at cdb146df with 25/18/7/0 role posture, seven frozen prompt-policy contracts, no runtime role activation, no live A/B, and an exact baseline-matched 14-failure residual set; P3 rebase is next and P5 remains blocked.
 ```
 
 ## P1 completion evidence (historical checkpoint)
@@ -160,14 +171,73 @@ P3_ACTION: PARKED_AT_838659ADA898B5A8BF071FDA2B233C125F51AC00
 P4_ACTION: READY_TO_START_FROM_POST_P2_INTEGRATION_SHA
 ```
 
+## P4 completion evidence
+
+```yaml
+P4_STATUS: DONE
+P4_BASE_SHA: 29933dda595be082b9274c74b4545975b1742cb1
+P4_SOURCE_SHA: cdb146df32b0214aa96bac8d037891835b696a46
+P4_COMMITS_INTEGRATED:
+  - eee4ad668fca94c9c9eafacd7c48dac486c9697b
+  - 3097fb2f04c830f75d48cdb0e03130f6471e252d
+  - c523213c7135b097846008716105b67b66bc52f5
+  - 6911e1f4ba90ec38dfd4f2c81a9ee29bc85e85df
+  - d62f90f1a1b6e0300885100926653a611144117b
+  - 7421bd2b0a535e59dd3dc3819d5667a725c5c165
+  - cdb146df32b0214aa96bac8d037891835b696a46
+ROLE_COUNT: 25
+PRODUCTION_REACHABLE_ROLES: 18
+BLOCKED_ROLES: 7
+LEGACY_DEAD_ROLES: 0
+BLOCKED_ROLE_IDS: mitre_reasoner, missing_evidence_reasoner, risk_rationale_reasoner, plan_delta_reasoner, pattern_reasoner, evidence_reasoner, hypothesis_reasoner
+REASONING_ALLOWED_ROLES: investigation_planner only; unchanged
+OUTSIDE_NORMAL_NAMESPACE_OBSERVATIONS: governed_composer, remediation_planner, semantic_t4, spl_repair
+PROMPT_CONTRACT_VERSIONS: prompt_role_contract_v1, prompt_role_registry_v1, few_shot_catalog_v1, negative_example_catalog_v1, prompt_cache_policy_v1, prompt_ab_eval_contract_v1, prompt_studio_config_v1
+ACTIVE_PROMPT_POSTURE: every role has one ACTIVE template and no CANDIDATE; template metadata does not enable runtime execution
+LIVE_AB_EVAL_PERFORMED: NO
+BLOCKED_REASONING_ROLES_ENABLED: NO
+P1_CONTRACT_PRESERVED: YES
+P2_CONTRACT_PRESERVED: YES
+UNFAITHFUL_SPL_CAN_BE_EMITTED: NO
+PRE_INTEGRATION_TESTS: P4 702; P0 L2 13; reasoning reachability 2; P1 49; P2 98; RACES 8
+POST_INTEGRATION_TESTS: P4 702; P0 L2 plus reachability 15; P1 49; P2 98; RACES 8
+FULL_BACKEND_BASE: 14 failed, 6256 passed, 45 skipped, 6 xfailed
+FULL_BACKEND_P4: 14 failed, 6958 passed, 45 skipped, 6 xfailed
+RESIDUAL_FAILURE_SET_IDENTICAL: YES
+FAILURE_CLASSIFICATION: PRE_EXISTING_FAILURE
+PROTECTED_FILES_CHANGED: NONE
+LIVE_LLM_USED: NO
+LIVE_MCP_USED: NO
+P3_REBASE_REQUIRED: YES
+P3_REBASE_TARGET: POST_P4_INTEGRATION_SHA_FROZEN_EXTERNALLY_AFTER_THIS_EVIDENCE_COMMIT
+P5_ACTION: BLOCKED_PENDING_P3_REBASE
+```
+
+## Completed loop iteration: P4 integration
+
+```text
+ITERATION_ID: 2026-08-26-P4-INTEGRATION-01
+WORKSTREAM: INTEGRATION / D POLICY
+PHASE: P4
+START_SHA: 29933dda595be082b9274c74b4545975b1742cb1
+CHANGE_HYPOTHESIS: The seven bounded P4 commits can fast-forward without enabling blocked roles or regressing P1/P2 contracts.
+FILES_TOUCHED: P4-owned backend/app/llm/policy modules and tests; backend/app/llm/prompts.py docstring only; governance evidence in the two canonical plan files.
+FOCUSED_TEST: P4 702; P0 L2 13; reasoning reachability 2; P1 49; P2 98; RACES 8; exact full-backend base/P4 JUnit comparison.
+RESULT: PASS; exact fast-forward to cdb146df; BASE_FAILURE_SET equals P4_FAILURE_SET with 14 inherited failures.
+FAILURE_CLASSIFICATION: PRE_EXISTING_FAILURE
+ACTION: Integrated P4; recorded role posture, contracts, residual ledger, and next-phase gate.
+COMMIT_SHA_OR_NONE: cdb146df32b0214aa96bac8d037891835b696a46 plus governance evidence commit recorded externally as POST_P4_INTEGRATION_SHA.
+NEXT_REASON: P3 must rebase exactly onto POST_P4_INTEGRATION_SHA and reprove E1 before P5 can start.
+```
+
 ## Workstream registry
 
 | Stream | Phase(s) | Agent | Branch | Start SHA | Status | Exclusive ownership |
 |---|---|---|---|---|---|---|
 | A TRACE | P1 | CODEX | `ws/trace-truth` | `2ba619df52d2c813f5f21186f6e711e593d62003` | DONE_AT_FD77D58E | Trace/provenance modules and tests; consumed P1 T2/T3-only ownership of `backend/app/evidence/minimal_evidence_state.py` and directly corresponding H-TRACE-03/H-TRACE-08 tests |
 | B SPL | P2 | CURSOR | `ws/spl-semantic-v2` | `fcba3426c36e0e92554f01c4fe30056443285b1c` | DONE_AT_7FBDF83F | SPL semantic/compiler/fidelity/live SPL prompt modules and tests; protected pipeline request applied and verified |
-| C EVAL | P3, P5, P6 | CLAUDE | `ws/l2-eval-bank` | `838659ada898b5a8bf071fda2b233c125f51ac00` | PARKED_NO_REBASE | L2 bank and test architecture only |
-| D POLICY | P4 | CLAUDE | `ws/prompt-policy` | exact `POST_P2_INTEGRATION_SHA` after governance commit | READY_TO_START | Generic prompt/role/policy files and tests |
+| C EVAL | P3, P5, P6 | CLAUDE | `ws/l2-eval-bank` | `838659ada898b5a8bf071fda2b233c125f51ac00` | PARKED_REBASE_REQUIRED | L2 bank and test architecture only |
+| D POLICY | P4 | CLAUDE | `ws/prompt-policy` | `29933dda595be082b9274c74b4545975b1742cb1` | DONE_AT_CDB146DF | Generic prompt/role/policy files and tests |
 | E UI | P7 | CURSOR | `ws/production-ux` | unset | BLOCKED_P5 | Production non-EC frontend and tests |
 | F PROMOTION | P8-P11 | CODEX/operator | `ws/promotion-coe` | unset | BLOCKED_P5 | L3/promotion/COE evidence only |
 
@@ -429,8 +499,8 @@ edit a completed phase or retain evidence produced against an invalidated SHA/co
 - [x] SHA roles match: `PLAN_PREPARATION_SHA = fe3548e4`; `EXECUTION_INTEGRATION_SHA` is frozen externally after the final plan commit;
   `INTEGRATION_SHA` is only a compatibility alias after freeze.
 - [x] `P0_PRODUCT_BASELINE_SHA` is `615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2` and is not a worktree start SHA.
-- [x] P0/P0.1/P1/P2 are DONE; P3 is PARKED at `838659ad`; P4 is READY_TO_START from exact `POST_P2_INTEGRATION_SHA`; later phase and P11 posture is unchanged; current loop is NONE.
-- [x] Dependencies and merge order match the canonical plan; P0.1, A, and B are complete, so D is next.
+- [x] P0/P0.1/P1/P2/P4 are DONE; P3 is PARKED at `838659ad` with exact post-P4 rebase required; P5 is blocked pending that rebase; later phase and P11 posture is unchanged; current loop is NONE.
+- [x] Dependencies and merge order match the canonical plan; P0.1, A, B, and D are complete, so C/P3 rebase and P5 are next.
 - [x] Protected queue is empty; P1 reconciliation is consumed; `P2-FINAL-RQC-PIPELINE-WIRING` is APPLIED_VERIFIED at `5921f1d0` with the RACES baseline pinned to that exact SHA.
 - [x] Post-P0.1 apply forces exact-SHA rebase before L0/return/integration.
 - [x] Live MCP remains disabled and deferred to P11 plus separate approval.
@@ -455,6 +525,7 @@ Append decisions; do not rewrite history.
 | 2026-08-25 reconciliation | P1 T2/T3 | Accept `P1-T2-EVIDENCESTATE-OWNERSHIP` and assign the bounded EvidenceState truth seam to A TRACE | Explicit operator ownership decision | Preserve T1 `db4e715f`; P1 rebases to this governance commit before T2; P2/P3 continue without immediate rebase |
 | 2026-08-25 P1 integration | P1 | Fast-forward `fd77d58e`; preserve commits `8fe81fd6`, `58d5c461`, `fd77d58e`; freeze `trace_oracle_v1`, `minimal_evidence_state_v2`, `run_shape_transition_v2` | 297 owned/cross-stream tests, P0 L2 13, RACES 8; no protected paths | P1 DONE; P2 exact rebase required; P3 parked; P4 blocked until P2 |
 | 2026-08-25 P2 integration | P2 | Fast-forward `7fbdf83f`; preserve S1-S6, protected wiring `5921f1d0`, and RACES commit; freeze `spl_semantic_v2` | P2 128, LIVE-RQC 10, P1 cross-contract 80, P0 L2 13, RACES 8; two baseline-matched HIL residuals | P2 DONE; P3 parked at `838659ad`; P4 ready from exact post-governance SHA |
+| 2026-08-26 P4 integration | P4 | Fast-forward `cdb146df`; preserve seven bounded commits; freeze seven prompt-policy contract versions without runtime activation | P4 702, P0 L2 13, P1 49, P2 98, RACES 8; full backend exact 14-node residual match | P4 DONE; P3 exact rebase required onto post-P4 governance SHA; P5 blocked pending P3 |
 
 ## Runner stop
 
