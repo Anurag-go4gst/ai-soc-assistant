@@ -7624,6 +7624,7 @@ def _candidate_spl_stage(
                 spl_governance=spl_governance,
                 llm_intent_advisory=llm_intent_advisory,
                 llm_turn_budget=llm_turn_budget,
+                resolved_query_contract=resolved_query_contract,
             )
             if utility_draft is not None:
                 return utility_draft
@@ -7906,6 +7907,7 @@ def _candidate_spl_stage(
         spl_governance=spl_governance,
         request_enabled=llm_failover_enabled,
         llm_turn_budget=llm_turn_budget,
+        resolved_query_contract=resolved_query_contract,
         llm_context={
             "primary_skill": skill,
             "use_case_id": use_case_id,
@@ -8256,6 +8258,7 @@ def _candidate_from_default_template(
             profile=profile,
             spl_governance=spl_governance,
             request_enabled=True,
+            resolved_query_contract=resolved_query_contract,
             llm_context={
                 "primary_skill": skill,
                 "use_case_id": template_id,
@@ -9012,6 +9015,7 @@ def _candidate_from_llm_fallback_tuple(
     request_enabled: bool = False,
     llm_context: dict[str, Any] | None = None,
     llm_turn_budget: "TurnLlmBudget | None" = None,
+    resolved_query_contract: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
     """Governed LLM SPL advisory used only when no deterministic template matched.
 
@@ -9099,6 +9103,11 @@ def _candidate_from_llm_fallback_tuple(
             slot_handoff=_ctx.get("slot_handoff"),
             mcp_discovery_context=_ctx.get("mcp_discovery_context"),
             llm_intent_advisory=_ctx.get("llm_intent_advisory"),
+            resolved_query_contract=(
+                resolved_query_contract
+                if isinstance(resolved_query_contract, dict)
+                else None
+            ),
         )
         plan_compiler_used = result is not None and bool(
             str(getattr(result, "candidate_spl", "") or "").strip()
