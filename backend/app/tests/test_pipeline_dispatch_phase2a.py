@@ -45,15 +45,13 @@ def test_pipeline_dispatch_attached_after_cp_on_evidence_planning(
 
     dispatch = state.get("pipeline_dispatch")
     assert isinstance(dispatch, dict)
-    assert dispatch["decision"]["request_mode"] == "spl_authoring"
-    # MCP eligibility on all tiers (2026-07 directive, item 2.1): this live-data
-    # SPL-authoring query is now architecturally eligible for mcp_execution under
-    # lives downstream at evaluate_mcp_execution, not in the stage schedule.
+    # Explicit "Generate SPL" is utility authoring: review-only, not a second
+    # planner, and not an execution request. mcp_execution stays off the schedule.
+    assert dispatch["decision"]["request_mode"] == "utility_spl"
     assert dispatch["decision"]["stage_schedule"] == [
         "workflow_spl",
         "spl_postprocessor",
         "spl_source_resolve",
-        "mcp_execution",
     ]
     assert dispatch["runtime_context"]["dispatch_cursor"] is None
     assert dispatch["decision"]["slot_handoff"]["normalized_slots"] == (
@@ -71,8 +69,13 @@ def test_pipeline_dispatch_cp_off_stub_attached_when_v2_enabled(
     assert state.get("evidence_plan") is not None
     dispatch = state.get("pipeline_dispatch")
     assert isinstance(dispatch, dict)
-    assert dispatch["decision"]["request_mode"] == "spl_authoring"
-    assert "workflow_spl" in dispatch["decision"]["stage_schedule"]
+    assert dispatch["decision"]["request_mode"] == "utility_spl"
+    assert dispatch["decision"]["stage_schedule"] == [
+        "workflow_spl",
+        "spl_postprocessor",
+        "spl_source_resolve",
+    ]
+    assert "mcp_execution" not in dispatch["decision"]["stage_schedule"]
     assert dispatch["decision"]["slot_handoff"]["normalized_slots"]["index"] == "scada_perf"
 
 
