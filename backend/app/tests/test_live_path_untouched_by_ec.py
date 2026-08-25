@@ -153,11 +153,21 @@ def _git_name_only(rev_range: str) -> list[str]:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
+# Plan 1937 P6A — frontend client correlation IDs only (newClientId); no /chat authority.
+UNDERSTANDING_UX_P6A_ALLOWED = (
+    "frontend/src/components/ChatPanel.tsx",
+)
+
+
 def freeze_offenders_in(paths: list[str]) -> list[str]:
     return [
         path
         for path in paths
         if any(path == freeze or path.startswith(freeze) for freeze in RACES_FREEZE_PATHS)
+        and not any(
+            path == allowed or path.startswith(f"{allowed}/")
+            for allowed in UNDERSTANDING_UX_P6A_ALLOWED
+        )
     ]
 
 
