@@ -30,7 +30,6 @@ _GATE_MIRRORED_FIELDS = (
     "allow_results_table",
     "allow_mitre_mapping",
     "allow_live_result_language",
-    "effective_hil_required",
 )
 
 _FORBIDDEN_LIVE_PHRASES = (
@@ -85,6 +84,10 @@ def _assert_gate_agrees_with_run_contract(payload: dict) -> None:
         assert gate[field] == contract[field], (
             f"gate.{field}={gate[field]!r} != run_contract.{field}={contract[field]!r}"
         )
+    oracle = ((payload.get("control_plane_trace") or {}).get("trace_oracle") or {})
+    execution_review = oracle.get("execution_review") or {}
+    assert execution_review.get("execution_hil_required") == contract["effective_hil_required"]
+    assert execution_review.get("decision_site") == "run_contract"
 
 
 def _assert_canonical_route_authority(payload: dict) -> None:
@@ -210,10 +213,10 @@ def test_e2e_t1_spl_generation_canonical_graph_and_gate() -> None:
     assert routing.get("canonical_skill") == "spl_generation"
     assert plan.get("needs_spl") is True
     assert plan.get("spl_allowed") is True
-    # MCP eligibility on all tiers (2026-07 directive, item 2.1): plan-time
-    # eligibility only — execution_authorized/collected_evidence_count below
-    # remain the real gated invariants, unaffected by this flag.
-    assert plan.get("mcp_allowed") is True
+    # Explicit SPL authoring is a review-only artifact. Live-data interest cannot
+    # grant MCP authority without a separate execution request.
+    assert plan.get("answer_mode") == "spl_utility_authoring"
+    assert plan.get("mcp_allowed") is False
     assert contract.get("execution_authorized") is False
     assert contract.get("collected_evidence_count") == 0
 

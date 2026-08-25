@@ -49,15 +49,8 @@ def test_neither_grant_stays_excluded(monkeypatch) -> None:
     assert _mcp_evidence_loop_enabled({"evidence_plan": plan}, plan) is False
 
 
-def test_live_data_spl_query_runs_real_discovery_hops_in_mock_mode(monkeypatch) -> None:
-    """End-to-end: a live-data ask that resolves to a validated governed template
-    (in-catalogue, matching item 2.1's grant) actually dispatches discovery hops
-    through the mock connector — not a stub — and correctly reaches the
-    per-call HIL gate instead of being skipped. The confirmed-completion leg
-    of the mock search (analyst approves -> mock rows returned) is a separate
-    turn, already covered by test_mcp_execution_gate.py::
-    test_mock_execution_uses_only_normalized_spl.
-    """
+def test_explicit_spl_authoring_stays_review_only_in_mock_mode(monkeypatch) -> None:
+    """An explicit SPL artifact request cannot acquire MCP authority from live-data interest."""
     monkeypatch.setattr(settings, "langgraph_orchestration_enabled", False)
     monkeypatch.setattr(settings, "mcp_mode", "mock")
     monkeypatch.setattr(settings, "mcp_global_execution_enabled", True)
@@ -70,14 +63,12 @@ def test_live_data_spl_query_runs_real_discovery_hops_in_mock_mode(monkeypatch) 
         ChatRequest(message="Write SPL to determine who made modifications to any AWS security groups")
     )
 
-    assert response.evidence_plan.get("mcp_allowed") is True
-    assert response.evidence_plan.get("discovery_allowed") is True
+    assert response.evidence_plan.get("answer_mode") == "spl_utility_authoring"
+    assert response.evidence_plan.get("mcp_allowed") is False
+    assert response.evidence_plan.get("discovery_allowed") in (False, None)
 
     trace = response.control_plane_trace or {}
     mcp_execution = trace.get("mcp_execution") or {}
-    assert mcp_execution or response.execution is not None
-
-    assert response.execution is not None
-    # The search step never gets skipped now that mcp_allowed=True; it correctly
-    # reaches the gated review point instead — real HIL gating, no bypass.
-    assert response.execution.status == "requires_human_review"
+    assert mcp_execution.get("status") == "skipped"
+    if response.execution is not None:
+        assert response.execution.executed_spl is None
