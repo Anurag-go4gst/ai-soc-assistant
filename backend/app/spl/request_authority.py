@@ -180,6 +180,7 @@ def check_template_semantic_fidelity(
     contract: DeterministicRequestContract,
     template: SplTemplateDefinition | None,
     rendered_spl: str | None = None,
+    intent_spec: dict[str, Any] | None = None,
 ) -> SemanticFidelityDecision:
     """Reject material candidate semantics unsupported by T1-T3 or T4 gaps."""
 
@@ -189,6 +190,25 @@ def check_template_semantic_fidelity(
 
     elements: list[SemanticElementDecision] = []
     reasons: list[str] = []
+    spec = intent_spec if isinstance(intent_spec, dict) else {}
+    analysis_shape = str(spec.get("analysis_shape") or "")
+    if analysis_shape in {"trend", "rolling", "sequence", "raw"}:
+        invented_eventcode = re.search(r"EventCode\s*=\s*\d+", text, re.I)
+        asked_eventcode = re.search(
+            r"\bevent\s*(?:id|code)?\s*[:#=]?\s*\d{3,5}\b",
+            str(spec.get("objective") or ""),
+            re.I,
+        )
+        if invented_eventcode and not asked_eventcode:
+            elements.append(
+                SemanticElementDecision(
+                    "analysis_shape",
+                    analysis_shape,
+                    "UNSUPPORTED_MATERIAL_ADDITION",
+                    "alert_template_bias_for_analytical_request",
+                )
+            )
+            reasons.append("alert_template_bias")
 
     for match in _MATERIAL_FIELD_RE.finditer(text):
         field = match.group("field").lower()

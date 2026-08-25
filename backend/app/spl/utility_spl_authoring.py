@@ -18,7 +18,10 @@ from app.spl.llm_fallback import (
 )
 from app.spl.review_only_spl_postprocessor import finalize_review_only_spl
 from app.spl.source_profile_catalog import list_source_profile_slot_definitions
-from app.spl.source_profile_bindings import build_source_profile_binding_slots
+from app.spl.source_profile_bindings import (
+    build_source_profile_binding_slots,
+    source_mappings_for_query,
+)
 from app.spl.source_profile_store import (
     load_persisted_source_profile,
     load_persisted_source_profile_document,
@@ -200,8 +203,33 @@ def _semantic_repair_feedback(
     return feedback
 
 
-def _build_utility_llm_context(user_query: str, *, family: str | None) -> dict[str, Any]:
-    intent_spec = build_spl_intent_spec(user_query)
+def _build_authoring_intent_spec(
+    user_query: str,
+    *,
+    resolved_query_contract: dict[str, Any] | None = None,
+    family: str | None = None,
+) -> dict[str, Any]:
+    mappings = source_mappings_for_query(user_query, family_id=family)
+    rqc = resolved_query_contract if isinstance(resolved_query_contract, dict) else None
+    return build_spl_intent_spec(
+        user_query,
+        resolved_query_contract=rqc,
+        source_mappings=mappings,
+    )
+
+
+def _build_utility_llm_context(
+    user_query: str,
+    *,
+    family: str | None,
+    resolved_query_contract: dict[str, Any] | None = None,
+    intent_spec: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    spec = intent_spec or _build_authoring_intent_spec(
+        user_query,
+        resolved_query_contract=resolved_query_contract,
+        family=family,
+    )
     ctx = build_utility_postprocessor_context(
         user_query,
         llm_generated=True,
@@ -213,19 +241,26 @@ def _build_utility_llm_context(user_query: str, *, family: str | None) -> dict[s
         value = str(ctx.get(key) or "").strip()
         if value:
             bindings[key] = value
-    time_window = intent_spec.get("time_window")
+    time_window = spec.get("search_horizon") or spec.get("time_window")
     if time_window:
         bindings["time_window"] = str(time_window)
+    source = spec.get("source_constraints") if isinstance(spec.get("source_constraints"), dict) else {}
+    for key in ("index", "sourcetype"):
+        value = str(source.get(key) or "").strip()
+        if value and key not in bindings:
+            bindings[key] = value
     user_time = bool(ctx.get("user_explicit_time_window") or time_window)
     return {
         "review_only_posture": True,
         "do_not_invent_source_bindings": True,
         "flag_uncertain_field_mappings": True,
+        "do_not_reinterpret_request": True,
         "deterministic_source_bindings": bindings,
-        "semantic_analyst_intent": intent_spec,
-        "semantic_analyst_intent_text": spl_intent_spec_for_prompt(intent_spec),
+        "semantic_analyst_intent": spec,
+        "semantic_analyst_intent_text": spl_intent_spec_for_prompt(spec),
         "target_log_family": family,
         "user_explicit_time_window": user_time,
+        "resolved_query_contract": resolved_query_contract,
     }
 
 
@@ -398,6 +433,7 @@ def candidate_from_universal_utility_authoring(
     llm_intent_advisory: Any | None = None,
     llm_raw_output_provider: Callable[[], str] | None = None,
     llm_turn_budget: Any | None = None,
+    resolved_query_contract: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
     draft = _deterministic_utility_skeleton(
         user_query,
@@ -409,8 +445,17 @@ def candidate_from_universal_utility_authoring(
     skeleton_spl = str(draft["draft_spl"])
     detection_family = str(draft.get("detection_family") or "lab_draft")
     is_universal = detection_family == "universal_timestamp_spl"
-    intent_spec = build_spl_intent_spec(user_query)
-    llm_context = _build_utility_llm_context(user_query, family=detection_family)
+    intent_spec = _build_authoring_intent_spec(
+        user_query,
+        resolved_query_contract=resolved_query_contract,
+        family=detection_family,
+    )
+    llm_context = _build_utility_llm_context(
+        user_query,
+        family=detection_family,
+        resolved_query_contract=resolved_query_contract,
+        intent_spec=intent_spec,
+    )
     spl_draft_trace: dict[str, Any] = {
         "deterministic_skeleton_available": True,
         "deterministic_skeleton_used": False,

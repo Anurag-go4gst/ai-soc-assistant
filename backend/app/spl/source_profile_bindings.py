@@ -76,6 +76,7 @@ def build_source_profile_binding_slots(
         _bind(result, profile, sources, "function_code_field", slot="function_code_field")
 
     winevent_context = _is_winevent_context(user_query)
+    auth_context = _is_auth_context(user_query)
     firewall_context = _is_firewall_context(user_query)
     substation_scope_context = _is_substation_scope_context(user_query)
 
@@ -85,6 +86,15 @@ def build_source_profile_binding_slots(
         if _is_off_shift_context(user_query):
             _bind(result, profile, sources, "normal_shift_start_hour", slot="normal_shift_start_hour", required=False)
             _bind(result, profile, sources, "normal_shift_end_hour", slot="normal_shift_end_hour", required=False)
+
+    if auth_context:
+        _bind(result, profile, sources, "auth_index", slot="index", required=False)
+        _bind(result, profile, sources, "auth_sourcetype", slot="sourcetype", required=False)
+        if "index" not in result.slots:
+            _bind(result, profile, sources, "windows_index", slot="index", required=False)
+        if "sourcetype" not in result.slots:
+            _bind(result, profile, sources, "windows_security_sourcetype", slot="sourcetype", required=False)
+        _bind(result, profile, sources, "src_ip_field", slot="src_ip_field", required=False)
 
     if firewall_context:
         _bind(result, profile, sources, "firewall_index", slot="index", required=False)
@@ -111,6 +121,26 @@ def build_source_profile_binding_slots(
             _bind(result, profile, sources, profile_key, slot=slot, required=True)
 
     return result
+
+
+def source_mappings_for_query(
+    user_query: str,
+    *,
+    family_id: str | None = None,
+    template_id: str | None = None,
+) -> dict[str, str]:
+    """Governed source mappings that may fill SPL-spec blanks only."""
+    result = build_source_profile_binding_slots(
+        user_query,
+        family_id=family_id,
+        template_id=template_id,
+    )
+    mappings: dict[str, str] = {}
+    for key in ("index", "sourcetype", "src_ip_field", "dest_ip_field", "function_code_field"):
+        value = str(result.slots.get(key) or "").strip()
+        if value:
+            mappings[key] = value
+    return mappings
 
 
 def _bind(
@@ -178,6 +208,18 @@ def _is_winevent_context(user_query: str) -> bool:
         re.search(r"\bwineventlog\b", text)
         or re.search(r"\bevent\s*(?:id\s*)?\d{3,5}\b", text)
         or re.search(r"\beventcode\s*[=:]?\s*\d{3,5}\b", text)
+    )
+
+
+def _is_auth_context(user_query: str) -> bool:
+    """Authentication / account-event hunts — generic, not query-specific."""
+    text = user_query.lower()
+    return bool(
+        re.search(
+            r"\b(log(?:in|on)s?|password|authentication|accounts?|usernames?|"
+            r"failed[\s-]?log|successful[\s-]?log)\b",
+            text,
+        )
     )
 
 
