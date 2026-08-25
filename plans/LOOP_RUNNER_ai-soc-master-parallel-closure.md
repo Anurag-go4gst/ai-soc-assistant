@@ -8,15 +8,23 @@ Use this file as the durable execution dashboard. Update it only during authoriz
 
 ```yaml
 CURRENT_PHASE: OPERATOR_PLAN_REVIEW
-CURRENT_BASE_SHA: 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
+CURRENT_BASE_SHA: fe3548e475e61e77f5204e02f74efd28690abb86
+INTEGRATION_SHA: fe3548e475e61e77f5204e02f74efd28690abb86
+INITIAL_INTEGRATION_SHA: fe3548e475e61e77f5204e02f74efd28690abb86
+P0_PRODUCT_BASELINE_SHA: 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
+CURRENT_LOOP: NONE
+LOOP_ITERATION_ID: NONE
+READY_FOR_OPERATOR_REVIEW: YES
+PYVENV: /Users/aagarwal/Downloads/ai-soc-assistant-t4-architecture-20260821/.venv/bin/python
 INTEGRATION_BRANCH: feat/complete-or-abstain-t4-ux
 INTEGRATION_OWNER: CODEX
 ACTIVE_WORKSTREAMS: []
 BLOCKED_WORKSTREAMS:
-  - P1-P11: plan not yet operator-approved for implementation
+  - P0.1, P1-P11: plan not yet operator-approved for implementation
 COMPLETED_WORKSTREAMS:
   - P0: Harness readiness at 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
 NEXT_SAFE_PARALLEL_STARTS:
+  - P0.1 RACES baseline adjudication (integration owner) after operator freezes INTEGRATION_SHA
   - P1 TRACE after operator freezes INTEGRATION_SHA
   - P2 SPL after operator freezes the same INTEGRATION_SHA
   - P3 L2 scaffold after operator freezes the same INTEGRATION_SHA
@@ -24,9 +32,9 @@ RECONCILIATION_QUEUE: []
 MERGE_QUEUE: []
 PROTECTED_CHANGE_QUEUE: []
 TEST_GATE_STATUS:
-  PLAN_AUDIT: pending
+  PLAN_AUDIT: passed_zero_gaps_both_files
   FOCUSED: not_started
-  L0: not_started
+  L0: blocked_inherited_red  # RACES freeze red at fe3548e4 from P0 f1f523cd; resolved by P0.1
   L1: not_started
   L2: P0_13_reported_green_at_base
   L2_SLOW: not_started
@@ -43,6 +51,8 @@ RESIDUAL_FAILURE_LEDGER:
   - RACES_baseline_state: carry_forward_protected_decision_if_still_failing
 DECISION_LOG:
   - 2026-08-25: P0 accepted as completed baseline; do not redo.
+  - 2026-08-25: First-wave work starts from fe3548e4, the plan commit, not the P0 product SHA.
+  - 2026-08-25: P0.1 audit/proposal and apply are separate approvals; neither has executed.
   - 2026-08-25: Plan-only mission; no worktrees or product changes created.
   - 2026-08-25: plans/README.md intentionally not edited because mission allowed only two plan artifacts.
 ```
@@ -100,17 +110,63 @@ Audit the canonical plan before first implementation and after structural plan e
 5. Check exclusive file ownership before editing. If another active stream owns a needed file, add a bounded request to `RECONCILIATION_QUEUE` and stop that item.
 6. Restate the one bounded checklist item, its invariant, allowed files, protected files, and exact verification.
 7. Execute only that item. Follow `implement -> verify -> evidence -> check off`; do not bundle adjacent cleanup.
-8. Run focused tests. Run phase-level gates only when the phase's acceptance criteria are otherwise met.
-9. If green and explicitly authorized to commit implementation, commit one logical change with only owned files. Never include unrelated or generated baseline drift.
+8. Run the focused test. A pre-fix red reproduction is evidence in the current iteration, not a commit. Classify it using the allowed
+   failure classes below, implement the bounded fix, and rerun. Run phase-level gates only when acceptance criteria are otherwise met.
+9. If the logical contract's focused gate is green and implementation commits are authorized, commit implementation plus its regression
+   tests as one bounded logical change. Follow the canonical **Commit guidance**: explicit `git add <paths>` (never `-A`/`.`/`-a`),
+   required trailers, never stage `.claude/settings.local.json`, and confirm no unapproved `RACES_FREEZE_PATHS` prefix is staged.
 10. Update the canonical plan item status/evidence and this dashboard with SHA, command/result, failures, queues, and next unlock. A plan-status commit must be scoped and authorized like any other commit.
 11. If a protected file or operator decision is needed, STOP before editing, enqueue the exact proposed diff and tests in `PROTECTED_CHANGE_QUEUE`, and report `OPERATOR_APPROVAL_REQUIRED`.
 12. Never push, merge, deploy, enable live MCP, rotate/configure secrets, or alter production from this loop.
 
 If the same verification gate fails twice on the same bounded item, mark the workstream blocked with exact failure evidence and stop. Do not weaken tests or thresholds.
 
+## Loop iteration record
+
+Increment `LOOP_ITERATION_ID` before each bounded attempt and append one immutable record. `CURRENT_LOOP` is
+`<WORKSTREAM>/<PHASE>/<ITEM>` while active and returns to `NONE` only after the record is complete.
+
+```text
+ITERATION_ID:
+WORKSTREAM:
+PHASE:
+START_SHA:
+CHANGE_HYPOTHESIS:
+FILES_TOUCHED:
+FOCUSED_TEST:
+RESULT:
+FAILURE_CLASSIFICATION:
+ACTION:
+COMMIT_SHA_OR_NONE:
+NEXT_REASON:
+```
+
+`FAILURE_CLASSIFICATION` must be exactly one of:
+
+```text
+PRODUCT_DEFECT
+TEST_DEFECT
+STALE_EXPECTATION
+ENVIRONMENT_FAILURE
+PRE_EXISTING_FAILURE
+CROSS_WORKSTREAM_CONTRACT_DRIFT
+EXPECTED_UNIMPLEMENTED_CAPABILITY
+PROTECTED_CHANGE_REQUIRED
+OPERATOR_DECISION_REQUIRED
+```
+
+Use `COMMIT_SHA_OR_NONE = NONE` for red reproduction evidence. Commit only after the bounded logical contract is green; that green
+commit may include the implementation and the regression test whose earlier red result is recorded here.
+
 ## Eligibility rules
 
-- `P1`, `P2`, and P3 scaffold are the only first parallel start set, and all must use the same frozen SHA.
+- `P0.1`, `P1`, `P2`, and P3 scaffold are the only first parallel start set, and all must use the same frozen SHA.
+- The initial frozen SHA is `fe3548e475e61e77f5204e02f74efd28690abb86`. `615069e6` is the P0 product baseline only.
+- No phase may record an L0 RACES gate green until `P0.1` is DONE; until then `test_races_freeze_files_unchanged_since_baseline` is inherited-red for every stream and must be reported as inherited, never as that stream's regression.
+- P0.1 action A is read-only audit/proposal and must STOP with the nine-field packet. Action B apply requires a separate explicit
+  operator approval. If B lands, set `INTEGRATION_SHA` to the exact P0.1 commit and mark every pre-P0.1 active stream
+  `REBASE_REQUIRED = YES`; rebase is mandatory before L0 evidence, branch return, reconciliation, or merge.
+- All backend commands use `$PYVENV` (absolute). `../.venv/bin/python` does not exist in a worktree because `.venv/` is gitignored.
 - P4 read-only audit may overlap, but P4 writes wait for P2 and cannot touch B-owned `llm_fallback.py`.
 - P5 waits for merged P1/P2/P4 and rebased P3.
 - P6 waits for green expanded L2.
@@ -150,12 +206,17 @@ ROLLBACK:
 OPERATOR_APPROVAL: PENDING | APPROVED(reference) | REJECTED
 ```
 
+For P0.1 action A, attach these additional fields and STOP: `PROTECTED_DIFF_AUDIT`, `AUTHORITY_IMPACT`, `HIL_IMPACT`, `RBAC_IMPACT`,
+`AUTH0_IMPACT`, `EXECUTION_ELIGIBILITY_IMPACT`, `EC_IMPORT_IMPACT`, `ROLLBACK`, and `PROPOSED_BASELINE_DIFF`. Action B apply is a
+separate approval; plan approval or audit approval never implies apply approval.
+
 No protected file may be edited while approval is PENDING. `architecture.md` is not eligible even through this queue; an architecture conflict stops the plan for a separate decision.
 
 ## Merge queue and return packet
 
 Queue order:
 
+0. Approved P0.1 one-file baseline apply, if authorized; update `INTEGRATION_SHA` and force active-stream rebases
 1. A P1 trace
 2. B P2 SPL, rebased after A
 3. D P4 policy, implemented/rebased after B
@@ -187,19 +248,19 @@ Use the host virtual environment unless a phase explicitly records another contr
 
 ```bash
 # Focused backend
-cd backend && ../.venv/bin/python -m pytest -q <test paths or node IDs>
+cd backend && "$PYVENV" -m pytest -q <test paths or node IDs>
 
 # Harness independence
-PYTHONPATH=backend:. .venv/bin/python -m test_harness.harness.runner --json
+PYTHONPATH=backend:. "$PYVENV" -m test_harness.harness.runner --json
 
 # Full backend promotion gate
-cd backend && ../.venv/bin/python -m pytest -q -p no:cacheprovider
+cd backend && "$PYVENV" -m pytest -q -p no:cacheprovider
 
 # Frontend
 cd frontend && npm test && npm run build
 
 # Governance on host venv
-PATH="$PWD/.venv/bin:$PATH" ./scripts/run_stage3_governance_regression.sh
+PATH="$(dirname "$PYVENV"):$PATH" ./scripts/run_stage3_governance_regression.sh
 ```
 
 Do not run the full backend suite after each small edit. Run FOCUSED per item, the phase's L0/L1/L2/L2-slow gates at phase completion, and the full Mac/Linux matrix at P9. Never substitute an easier command for a blocked mandatory gate.
@@ -237,15 +298,51 @@ NEXT_PHASE_UNLOCK:
 
 Then re-walk every item against its `Verify` and `ACCEPTANCE_CRITERIA`; do not inherit a checkmark merely because code exists.
 
+## Phase reopening
+
+The DAG controls first eligibility; later evidence may reopen a DONE phase. Append this record, change that phase status openly, update
+the findings ledger, and invalidate downstream evidence before any fix:
+
+```text
+REOPENED_PHASE:
+TRIGGER:
+INVALIDATED_EVIDENCE:
+NEW_BASE_SHA:
+OWNER:
+DOWNSTREAM_PHASES_TO_RERUN:
+```
+
+Routing rules: P5 trace projection -> P1; P4/P8 semantic-contract gap -> P2; P8 prompt-only failure with intact semantics -> P4; P7
+unrepresentable backend truth -> owning P1/P2/P4 seam; P9 regression -> owning phase and all affected downstream gates. Never silently
+edit a completed phase or retain evidence produced against an invalidated SHA/contract.
+
+## Plan/runner consistency check
+
+- [x] Initial `INTEGRATION_SHA` is `fe3548e475e61e77f5204e02f74efd28690abb86` in both files.
+- [x] `P0_PRODUCT_BASELINE_SHA` is `615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2` and is not a worktree start SHA.
+- [x] P0 is DONE; P0.1-P10 TODO; P11 DEFERRED; active streams are empty; current loop is NONE.
+- [x] Dependencies and merge order match the canonical plan.
+- [x] Protected queue is empty and P0.1 has not executed.
+- [x] Post-P0.1 apply forces exact-SHA rebase before L0/return/integration.
+- [x] Live MCP remains disabled and deferred to P11 plus separate approval.
+
+Any failed row sets `CURRENT_PHASE: PLAN_CORRECTION_REQUIRED` and blocks implementation start.
+
+**Verify:** Run `.cursor/hooks/audit-plan-discipline.sh` against both plan files, confirm zero gaps, then compare the control-state SHA,
+phase statuses, eligibility rules, merge order, protected queue, current loop, rebase rule, and live-MCP posture to the canonical plan.
+
 ## Decision log
 
 Append decisions; do not rewrite history.
 
 | Date/time | Phase | Decision | Evidence/approval | Consequence |
 |---|---|---|---|---|
-| 2026-08-25 18:06 IST | Plan | P0 is the frozen starting candidate at `615069e6` | Repository inspection | P1/P2/P3 scaffold are first starts after review |
+| 2026-08-25 18:06 IST | Plan | P0 product behavior is frozen at `615069e6`; instructions start at `fe3548e4` | Repository inspection | P1/P2/P3 scaffold use `fe3548e4` after review |
 | 2026-08-25 18:06 IST | Plan | No README update in plan-only commit | Mission allowed only two plan files | Historical index update remains out of scope |
 | 2026-08-25 18:06 IST | Plan | Live MCP is terminal P11 and default-off before then | Architecture and mission | No earlier stream may test real MCP |
+| 2026-08-25 plan correction | P0.1 | Audit/proposal and apply are separate operator gates | Correction mission | P0.1 not executed; approved apply would force active-stream rebases |
+| 2026-08-25 plan correction | Commit policy | Red reproduction is loop evidence, not permanent history | Correction mission | Commit only bounded green contracts |
+| 2026-08-25 plan correction | Validation | Both plan-discipline audits passed with zero gaps | Audit output | Ready for operator review; implementation still blocked |
 
 ## Runner stop
 
