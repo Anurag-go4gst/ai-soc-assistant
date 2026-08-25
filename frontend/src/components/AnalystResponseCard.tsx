@@ -556,11 +556,10 @@ function PhaseTimeline({ phases }: { phases: Phase[] }) {
             <div className="flex min-h-[2.5rem] flex-wrap items-center gap-2 pt-1.5">
               <span
                 className={cn(
-                  'flex items-center gap-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.08em]',
+                  'text-[0.72rem] font-semibold uppercase tracking-[0.08em]',
                   accent.label,
                 )}
               >
-                {phase.icon}
                 {phase.label}
               </span>
               {phase.chips.map((chip) => (
@@ -778,10 +777,18 @@ function DataTable({ rows }: { rows: Record<string, unknown>[] }) {
   );
 }
 
+function normalizeBulletItem(item: string): string {
+  return item.replace(/^\s*-\s+/, '').trim();
+}
+
 function BulletList({ items }: { items: string[] }) {
   return (
     <ul className="mt-2 space-y-1.5 text-slate-200">
-      {items.map((item) => <li key={item}>- {item}</li>)}
+      {items.map((item) => {
+        const text = normalizeBulletItem(item);
+        if (!text) return null;
+        return <li key={item}>- {text}</li>;
+      })}
     </ul>
   );
 }
