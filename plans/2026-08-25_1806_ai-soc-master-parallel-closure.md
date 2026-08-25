@@ -974,6 +974,33 @@ Measured locally at base `29933dda595be082b9274c74b4545975b1742cb1` and P4 produ
 | `app/tests/test_t2_spl_native_live.py::test_asa_ioc_lookup_live_review_only` | PRE_EXISTING_FAILURE | FAIL | FAIL | B SPL / P5, P9 | NO | SPL/Final-RQC family |
 | `app/tests/test_t2_spl_native_live.py::test_asa_ioc_lookup_checklist_is_operation_aware` | PRE_EXISTING_FAILURE | FAIL | FAIL | B SPL / P5, P9 | NO | SPL/Final-RQC family |
 
+### P4.1 residual baseline cleanup (append-only)
+
+The table above remains the historical P4 14-node record (`FULL_BACKEND_P4: 14 failed, 6958 passed`). P4.1 does not erase it. Each node was reproduced on `feat/complete-or-abstain-t4-ux` with ancestor `8413a8f1602df8c8932be709c86b403eb8e00196`. No live LLM/MCP. No protected product files were edited. `P4_1_LAST_TEST_SHA = 7f763b5b12078534e96f1860474138b7dcc83707`. `FINAL_CLEAN_INTEGRATION_SHA` is this governance evidence commit after it exists.
+
+| ORIGINAL_NODE_ID | ORIGINAL_CLASSIFICATION | P4_1_FINAL_CLASSIFICATION | REPRO_RESULT | FIX_COMMIT_OR_NONE | FINAL_STATUS | OWNER | RATIONALE |
+|---|---|---|---|---|---|---|---|
+| `app/tests/test_canonical_handoff_e2e_probes.py::test_e2e_t1_spl_generation_canonical_graph_and_gate` | PRE_EXISTING_FAILURE | STALE_EXPECTATION | PASS | `2303de667f573ddce445ec300b021d11c08f481d` | CLOSED | A TRACE | Execution HIL is `run_contract` via `trace_oracle_v1`; explicit SPL stays review-only |
+| `app/tests/test_canonical_handoff_e2e_probes.py::test_e2e_environment_kb_user_explicit_precedence` | PRE_EXISTING_FAILURE | STALE_EXPECTATION | PASS | `2303de667f573ddce445ec300b021d11c08f481d` | CLOSED | A TRACE | Same handoff/HIL contract as the sibling e2e probe |
+| `app/tests/test_chat_control_plane_golden.py::test_known_questions_use_specific_raw_templates[Write SPL to find successful AWS Console logins by user in the last 24 hours-aws_console_success_logins_by_user-required_terms0-forbidden_terms0]` | PRE_EXISTING_FAILURE | STALE_EXPECTATION | ORIGINAL_NODE_RETIRED; replacement PASS | `7f2663be03bf6462f95061cd91d9f14d4f951a4f` | CLOSED | Integration | Unbound AWS Console template is fail-closed clarification; replacement `test_aws_console_success_logins_requires_governed_source_binding`. `q0.q089` unchanged; `cisco.identity.018` intended fail-closed |
+| `app/tests/test_evidence_loop_all_tier_discovery.py::test_live_data_spl_query_runs_real_discovery_hops_in_mock_mode` | PRE_EXISTING_FAILURE | STALE_EXPECTATION | ORIGINAL_NODE_RETIRED; replacement PASS | `2303de667f573ddce445ec300b021d11c08f481d` | CLOSED | A TRACE | Replacement `test_explicit_spl_authoring_stays_review_only_in_mock_mode`: MCP skipped, no `executed_spl` |
+| `app/tests/test_github_skill_expansion_factory_baseline.py::test_factory_generators_check_against_committed_artifacts` | PRE_EXISTING_FAILURE | ENVIRONMENT_FAILURE | FAIL | NONE | OPEN_ENVIRONMENT_RESIDUAL | Operator/environment | Missing `AI_SOC_GITHUB_SKILL_CLONE_ROOT` / `/private/tmp/ai-soc-references/Anthropic-Cybersecurity-Skills`. `--check` against committed artifacts requires the real clone; `--fixture-root` cannot substitute without weakening freshness. Product unchanged |
+| `app/tests/test_in_catalogue_contract_guard.py::test_full_guard_passes_against_baseline` | PRE_EXISTING_FAILURE | STALE_EXPECTATION | PASS | `7f2663be03bf6462f95061cd91d9f14d4f951a4f` | CLOSED | Integration | Governed source-binding fixture: `cisco.identity.018` no longer claims disabled Duo SPL |
+| `app/tests/test_llm_primary_planning.py::test_in_catalogue_contract_guard_still_green` | PRE_EXISTING_FAILURE | STALE_EXPECTATION | PASS | `7f2663be03bf6462f95061cd91d9f14d4f951a4f` | CLOSED | Integration | Same catalogue-guard capture as the sibling |
+| `app/tests/test_migration_readiness.py::test_apply_pending_migrations_skips_recorded_versions` | PRE_EXISTING_FAILURE | TEST_DEFECT | PASS | `06bdf4112f984b546c273162a19834adcafc24b2` | CLOSED | Platform | `@pytest.mark.anyio` plus `anyio_backend` fixture; not an environment block on this host |
+| `app/tests/test_migration_readiness.py::test_missing_migrations_fail_closed_from_active_event_loop` | PRE_EXISTING_FAILURE | TEST_DEFECT | PASS | `06bdf4112f984b546c273162a19834adcafc24b2` | CLOSED | Platform | Same anyio alignment |
+| `app/tests/test_migration_readiness.py::test_unexpected_readiness_error_surfaces_fail_closed` | PRE_EXISTING_FAILURE | TEST_DEFECT | PASS | `06bdf4112f984b546c273162a19834adcafc24b2` | CLOSED | Platform | Same anyio alignment |
+| `app/tests/test_pipeline_dispatch_phase2a.py::test_pipeline_dispatch_attached_after_cp_on_evidence_planning` | PRE_EXISTING_FAILURE | STALE_EXPECTATION | PASS | `04fed4ab5becd71286716331a1c030be18c0cca6` | CLOSED | A TRACE | Explicit Generate-SPL is `utility_spl` review-only; `mcp_execution` is not on the stage schedule |
+| `app/tests/test_pipeline_dispatch_phase2a.py::test_pipeline_dispatch_cp_off_stub_attached_when_v2_enabled` | PRE_EXISTING_FAILURE | STALE_EXPECTATION | PASS | `04fed4ab5becd71286716331a1c030be18c0cca6` | CLOSED | A TRACE | Same `utility_spl` schedule; `index=scada_perf` slot binding retained |
+| `app/tests/test_t2_spl_native_live.py::test_asa_ioc_lookup_live_review_only` | PRE_EXISTING_FAILURE | STALE_EXPECTATION | PASS | `7f763b5b12078534e96f1860474138b7dcc83707` | CLOSED | B SPL | P2 Final-RQC utility lab-draft (`deterministic_lab_draft` / `spl_utility_authoring`); lookup correlation still present; candidate non-executable |
+| `app/tests/test_t2_spl_native_live.py::test_asa_ioc_lookup_checklist_is_operation_aware` | PRE_EXISTING_FAILURE | STALE_EXPECTATION | PASS | `7f763b5b12078534e96f1860474138b7dcc83707` | CLOSED | B SPL | Lookup tokens required; T2-only "investigation lead" dropped; fail-closed inventory/DNS exclusions kept |
+
+- [x] **P4.1** — Residual baseline cleanup
+  - **Do:** Classify and close the exact P4 14-node residual set with bounded test commits only; leave genuine environment residuals; freeze `FINAL_CLEAN_INTEGRATION_SHA`.
+  - **Verify:** Combined 14-node (plus replacements) run → 13 passed, 1 GitHub fail; full backend `cd backend && PYTHONPATH=../backend:.. $PYVENV -m pytest -q --tb=no -rfE` → `1 failed, 6971 passed, 45 skipped, 6 xfailed`; failure set `{test_factory_generators_check_against_committed_artifacts}` subset of START 14; NEW_FAILURES=NONE. Cross-contract: P0 L2 13, LIVE-RQC 10, RACES 8, P4 prompt 702, P1 trace/evidence 75 passed/1 skipped, P2 semantic+LIVE-RQC 79, reachability 2.
+  - **Depends on:** P4 DONE at `cdb146df` / ancestor `8413a8f1`
+  - **Evidence:** See P4.1 table. Test SHAs `06bdf411`, `2303de66`, `7f2663be`, `04fed4ab`, `7f763b5b`. GitHub remains ENVIRONMENT_FAILURE. `CLEAN_WITH_ENVIRONMENT_RESIDUAL`. P3 rebase / pending-row activation / P5 / P6 / P7 not started.
+
 ## Plan/loop runner consistency self-test
 
 Run this checklist after every structural plan edit and before operator review:
@@ -1038,6 +1065,7 @@ If any row disagrees, set `READY_FOR_OPERATOR_REVIEW = NO`, correct both files, 
   as a dict-returning function rather than a class, `spl_artifact_trace_projection.py` assigned to A, and the dependency DAG given an
   authoritative edge list because the ASCII drawing did not render the P6 -> P9 edge legibly.
 - Wrong premise, redundant item, changed contract, or scope expansion goes to `DECISION_LOG` and pauses dependent work.
+- 2026-08-26 P4.1: residual baseline cleanup on `feat/complete-or-abstain-t4-ux`. Historical P4 `14 failed / 6958 passed` record retained. After bounded test-only commits, full backend is `1 failed / 6971 passed / 45 skipped / 6 xfailed`. The remaining failure is GitHub clone-root `ENVIRONMENT_FAILURE`. `q0.q089` was not drifted. No protected product files were edited. P3 remains parked.
 
 ## Plan completion definition
 
