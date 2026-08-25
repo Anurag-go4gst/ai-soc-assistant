@@ -644,8 +644,10 @@ def _spl_path_label(generation_mode: Any, candidate_spl: dict[str, Any]) -> str:
     mode = str(generation_mode or "").strip()
     if mode in {"deterministic_template_render", "template", "governed_template"}:
         return "governed_template"
+    if mode in {"utility_llm_spl_draft", "utility_llm_spl_repair"}:
+        return "governed_llm_spl_draft"
     if mode in {"deterministic_lab_draft", "lab_draft"}:
-        return "lab_draft"
+        return "deterministic_fallback"
     if mode == "llm_spl_advisory_fallback":
         return "llm_spl_advisory_fallback"
     if candidate_spl.get("candidate_spl") or candidate_spl.get("candidate_spl_generated"):
@@ -663,9 +665,12 @@ def _spl_live_called(spl_validation: dict[str, Any], records: list[dict[str, Any
         if item.get("outcome") != "completed":
             continue
         role = str(item.get("role") or "").lower()
-        if "spl" in role or role in {"spl_t2_producer", "spl_generation"}:
+        if "spl" in role or role in {"spl_t2_producer", "spl_generation", "spl_advisory_generator"}:
             return True
-    return bool(spl_validation.get("llm_fallback_used") and spl_validation.get("llm_latency_ms"))
+    provider = str(spl_validation.get("selected_candidate_spl_provider") or "").strip()
+    if provider in {"utility_llm_spl_draft", "utility_llm_spl_repair", "llm_spl_advisory"}:
+        return bool(spl_validation.get("llm_fallback_used"))
+    return False
 
 
 def _spl_outcome(spl_validation: dict[str, Any], candidate_spl: dict[str, Any]) -> str | None:

@@ -12,6 +12,7 @@ from typing import Any
 from app.chat.contracts.resolved_query import ResolvedQueryContract
 from app.chat.lane_router import T1_PATHS, T2_PATHS, T3_PATHS, initial_tier_for_match_path
 from app.chat.semantic_t4_understanding import _ABSTAIN_REASONS_WITHOUT_T4, abstain_acceptance
+from app.spl.spl_provenance_trace import build_spl_authoring_provenance_lines
 
 _INTENT_LABELS: dict[str, str] = {
     "spl_generation_only": "SPL authoring",
@@ -131,6 +132,8 @@ def build_understanding_provenance(
     resolved_query_contract: dict[str, Any] | ResolvedQueryContract | None,
     route_adjudication: dict[str, Any] | None = None,
     routed: dict[str, Any] | None = None,
+    candidate_spl: dict[str, Any] | None = None,
+    spl_validation: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Build deterministic authority-path lines for analyst provenance surfaces."""
     contract = _as_contract(resolved_query_contract)
@@ -152,6 +155,7 @@ def build_understanding_provenance(
         {"label": "Final intent", "value": _intent_label(contract.intent_family)},
         {"label": "Final owner", "value": owner or "—"},
     ]
+    lines.extend(build_spl_authoring_provenance_lines(candidate_spl, spl_validation))
 
     semantic = (contract.provenance or {}).get("semantic_t4")
     semantic = semantic if isinstance(semantic, dict) else {}

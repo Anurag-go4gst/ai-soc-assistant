@@ -4,6 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.spl.spl_provenance_trace import (
+    build_spl_provenance_summary,
+    fallback_reason,
+    llm_failover_used_factual,
+    spl_artifact_source,
+)
+
 _LAB_PREVIEW_MODES = frozenset({
     "deterministic_lab_draft",
     "user_bound_skeleton",
@@ -46,7 +53,12 @@ def build_spl_artifact_handoff_summary(
 
     t2_native = generation_mode == "t2_spl_native_review" or bool(candidate.get("t2_spl_native"))
     lab_preview = bool(preview.get("draft_spl")) or generation_mode in _LAB_PREVIEW_MODES
-    llm_failover = bool(validation.get("llm_fallback_used") or candidate.get("llm_fallback_used"))
+    artifact_source = spl_artifact_source(candidate, validation)
+    llm_failover = llm_failover_used_factual(
+        candidate_spl=candidate,
+        spl_validation=validation,
+        budget_records=None,
+    )
     governed_template_bound = bool(
         validation.get("approved")
         and validation.get("normalized_spl")
@@ -83,14 +95,20 @@ def build_spl_artifact_handoff_summary(
         or ""
     ).strip() or None
 
+    provenance = build_spl_provenance_summary(candidate, validation, budget_records=None)
+
     return {
         "spl_artifact_status": status,
-        "spl_artifact_source": provider or None,
+        "spl_artifact_source": artifact_source,
+        "candidate_provider": provider or None,
         "candidate_provider_reason": provider_reason or None,
         "governed_template_bound": governed_template_bound,
         "t2_native_shape": t2_native,
         "lab_preview_used": lab_preview,
         "llm_failover_used": llm_failover,
+        "deterministic_fallback_used": provenance.get("deterministic_fallback_used"),
+        "llm_candidate_generated": provenance.get("llm_candidate_generated"),
+        "fallback_reason": fallback_reason(candidate) or provenance.get("fallback_reason"),
         "validator_status": validator_status,
         "review_only": review_only,
         "execution_eligible": execution_eligible,

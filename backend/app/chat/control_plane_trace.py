@@ -17,6 +17,7 @@ from app.chat.debug_summary import (
 from app.schemas.responses import PlaceholderResponse
 from app.planner.recipe_registry import get_recipe
 from app.spl.spl_artifact_trace_projection import build_spl_artifact_handoff_summary
+from app.spl.spl_provenance_trace import build_spl_provenance_summary
 from app.chat.understanding_provenance import build_understanding_provenance
 from app.governance.trace_authority import (
     TIER_ADVISORY,
@@ -93,6 +94,11 @@ def build_control_plane_trace(
             tier=TIER_DIAGNOSTIC,
             note="SPL degrade-chain read model only; not execution authority.",
         ),
+        "spl_provenance": build_spl_provenance_summary(
+            candidate_spl,
+            spl_validation,
+            _budget_records(state),
+        ),
         "spl_slot_binding": _spl_slot_binding_trace(spl_validation),
         "mcp_execution": _mcp_trace(execution),
         "sufficiency": context_sufficiency,
@@ -127,6 +133,8 @@ def build_control_plane_trace(
             if isinstance(state.get("route_adjudication"), dict)
             else None,
             routed=routed,
+            candidate_spl=candidate_spl,
+            spl_validation=spl_validation,
         ),
         "evidence_state": project_evidence_state_debug(
             state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else None
@@ -318,6 +326,18 @@ def _resource_planner_trace(state: dict[str, Any]) -> dict[str, Any] | None:
             tier=TIER_PLANNING,
             note="Planning-decision ResourcePlan summary.",
         )
+    return None
+
+
+def _budget_records(state: dict[str, Any]) -> list[dict[str, Any]] | None:
+    budget = state.get("llm_turn_budget")
+    records = getattr(budget, "records", None)
+    if isinstance(records, list):
+        return [dict(item) for item in records if isinstance(item, dict)]
+    if isinstance(budget, dict):
+        raw = budget.get("records")
+        if isinstance(raw, list):
+            return [dict(item) for item in raw if isinstance(item, dict)]
     return None
 
 

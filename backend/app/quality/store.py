@@ -26,6 +26,7 @@ from app.chat.debug_summary import (
     llm_live_calls_from_payload,
     routing_list_fields,
 )
+from app.spl.spl_provenance_trace import is_deterministic_spl_provider, llm_used_factual
 from app.schemas.responses import PlaceholderResponse
 
 _MIGRATION_PATH = Path(__file__).resolve().parents[1] / "db" / "migrations" / "0002_answer_quality.sql"
@@ -436,10 +437,23 @@ def _source_refs(source_evidence: Any) -> list[dict[str, Any]]:
 
 
 def _llm_used(payload: dict[str, Any]) -> bool:
-    for key in ("candidate_spl", "spl_validation", "synthesis_status"):
-        value = payload.get(key)
-        if isinstance(value, dict) and any(value.get(flag) for flag in ("llm_supported", "llm_fallback_used", "llm_called")):
+    candidate = payload.get("candidate_spl") if isinstance(payload.get("candidate_spl"), dict) else {}
+    validation = payload.get("spl_validation") if isinstance(payload.get("spl_validation"), dict) else {}
+    provider = str(candidate.get("selected_candidate_spl_provider") or validation.get("selected_candidate_spl_provider") or "")
+    if is_deterministic_spl_provider(provider):
+        pass
+    else:
+        cp = payload.get("control_plane_trace")
+        records = None
+        if isinstance(cp, dict):
+            budget = cp.get("llm_turn_budget")
+            if isinstance(budget, dict):
+                records = budget.get("records")
+        if llm_used_factual(candidate_spl=candidate, spl_validation=validation, budget_records=records if isinstance(records, list) else None):
             return True
+    synthesis = payload.get("synthesis_status")
+    if isinstance(synthesis, dict) and any(synthesis.get(flag) for flag in ("llm_supported", "llm_fallback_used", "llm_called")):
+        return True
     return False
 
 

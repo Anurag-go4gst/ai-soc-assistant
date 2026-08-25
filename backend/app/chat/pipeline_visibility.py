@@ -7,6 +7,7 @@ from typing import Any
 from app.chat.control_plane_trace import _redact
 from app.chat.session_context import SessionContextResolution
 from app.use_cases.content_enrichment import curated_enrichment_trace, enrichment_spl_governance
+from app.spl.spl_provenance_trace import is_deterministic_spl_provider, is_real_llm_spl_provider
 
 GuardrailStatus = str  # passed | review_required | blocked | not_applicable
 
@@ -392,14 +393,27 @@ def _trace_record(
 
 
 def _spl_node_llm_call(candidate_spl: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Mark the SPL node when the governed LLM T2 producer was invoked."""
-    if not isinstance(candidate_spl, dict) or not candidate_spl.get("llm_fallback_used"):
+    """Mark the SPL node only when a real governed LLM endpoint produced the draft."""
+    if not isinstance(candidate_spl, dict):
+        return None
+    provider = str(candidate_spl.get("selected_candidate_spl_provider") or "").strip()
+    if is_deterministic_spl_provider(provider):
+        return None
+    utility_trace = candidate_spl.get("utility_spl_draft_trace")
+    utility_trace = utility_trace if isinstance(utility_trace, dict) else {}
+    generation_mode = str(candidate_spl.get("generation_mode") or "").strip()
+    llm_used = bool(
+        utility_trace.get("llm_spl_draft_used")
+        or generation_mode in {"utility_llm_spl_draft", "utility_llm_spl_repair"}
+        or is_real_llm_spl_provider(provider)
+    )
+    if not llm_used:
         return None
     return {
         "called": True,
         "role": "spl_t2_producer",
         "status": candidate_spl.get("llm_fallback_status"),
-        "provider": candidate_spl.get("selected_candidate_spl_provider"),
+        "provider": provider or candidate_spl.get("llm_fallback_status"),
         "model": candidate_spl.get("llm_model_family") or candidate_spl.get("model"),
         "governed": True,
         "execution_eligible": bool(candidate_spl.get("execution_eligible")),
