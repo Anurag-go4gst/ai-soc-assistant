@@ -517,7 +517,7 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     ```
   - **Commit:** one logical commit for P3 only
 
-- [ ] **P4** — Deterministic understanding provenance
+- [x] **P4** — Deterministic understanding provenance
   - **Do:** Expose deterministic provenance using **existing** trace structures. Show only the authority path, not chain-of-thought. Reuse `control_plane_trace`, `route_plan_shadow`, RQC `provenance`, and `investigation_lineage`. No new tracing framework unless audit proves reuse is impossible.
 
     Example (ABSTAIN → T4):

@@ -17,6 +17,7 @@ from app.chat.debug_summary import (
 from app.schemas.responses import PlaceholderResponse
 from app.planner.recipe_registry import get_recipe
 from app.spl.spl_artifact_trace_projection import build_spl_artifact_handoff_summary
+from app.chat.understanding_provenance import build_understanding_provenance
 from app.governance.trace_authority import (
     TIER_ADVISORY,
     TIER_DIAGNOSTIC,
@@ -119,6 +120,13 @@ def build_control_plane_trace(
             state.get("resolved_query_contract")
             if isinstance(state.get("resolved_query_contract"), dict)
             else None
+        ),
+        "understanding_provenance": build_understanding_provenance(
+            resolved_query_contract=state.get("resolved_query_contract"),
+            route_adjudication=state.get("route_adjudication")
+            if isinstance(state.get("route_adjudication"), dict)
+            else None,
+            routed=routed,
         ),
         "evidence_state": project_evidence_state_debug(
             state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else None

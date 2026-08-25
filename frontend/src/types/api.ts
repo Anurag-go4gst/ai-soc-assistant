@@ -428,6 +428,23 @@ export interface LineageStage {
   production_equivalent: string;
 }
 
+export interface UnderstandingProvenanceLine {
+  label: string;
+  value: string;
+}
+
+export interface UnderstandingProvenance {
+  schema_version?: string;
+  acceptance_decision?: string;
+  qualification_tier?: string;
+  understanding_source?: string;
+  reason_codes?: string[];
+  lines?: UnderstandingProvenanceLine[];
+  t4_invoked?: boolean;
+  t4_accepted?: boolean;
+  t4_skipped?: boolean;
+}
+
 export interface InvestigationLineage {
   lineage_id: string;
   stages: LineageStage[];

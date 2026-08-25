@@ -8,6 +8,7 @@ import { EcVisualLanesPanel } from '@/components/EcVisualLanesPanel';
 import { HumanReviewCard } from '@/components/HumanReviewCard';
 import { ProposedActionsPanel } from '@/components/ProposedActionsPanel';
 import { InvestigationLineagePanel } from '@/components/InvestigationLineagePanel';
+import { UnderstandingProvenancePanel } from '@/components/UnderstandingProvenancePanel';
 import { InvestigationProgressPanel, McpTransportBadge } from '@/components/InvestigationProgressPanel';
 import { InvestigationPlanApprovalCard } from '@/components/InvestigationPlanApprovalCard';
 import { RemediationPlanApprovalCard } from '@/components/RemediationPlanApprovalCard';
@@ -82,6 +83,10 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
 
   const scrollAnswerToTop = showSummaryOnly || showFullAnswer;
   const provenanceBadge = answerProvenanceBadge(message.trace ?? null);
+  const understandingProvenance = understandingProvenanceFromTrace(message.trace ?? null);
+  const showHowProduced = Boolean(
+    message.trace?.investigation_lineage || understandingProvenance,
+  );
   const blockedActionState = visibleBlockedActionState(message.trace);
 
   return (
@@ -237,7 +242,7 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
             <Badge>{message.note}</Badge>
           </div>
         ) : null}
-        {showFullAnswer && message.trace?.investigation_lineage ? (
+        {showFullAnswer && showHowProduced ? (
           <details className="group rounded-lg border border-slate-800/70 bg-slate-950/40">
             <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-300 transition hover:text-cyan-200">
               <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
@@ -245,10 +250,15 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
               <Badge variant={provenanceBadge.variant}>{provenanceBadge.label}</Badge>
             </summary>
             <div className="border-t border-slate-800/70 p-3">
-              {message.trace.route_plan_shadow ? (
+              {understandingProvenance ? (
+                <UnderstandingProvenancePanel provenance={understandingProvenance} />
+              ) : null}
+              {message.trace?.route_plan_shadow ? (
                 <ShadowNarrationReveal shadow={message.trace.route_plan_shadow} />
               ) : null}
-              <InvestigationLineagePanel lineage={message.trace.investigation_lineage} />
+              {message.trace?.investigation_lineage ? (
+                <InvestigationLineagePanel lineage={message.trace.investigation_lineage} />
+              ) : null}
             </div>
           </details>
         ) : null}
@@ -391,6 +401,20 @@ function visibleBlockedActionState(trace: PlaceholderResponse | null | undefined
 function blockedActionText(state: Record<string, unknown>, key: string, fallback: string): string {
   const value = state[key];
   return typeof value === 'string' && value.trim() ? value : fallback;
+}
+
+function understandingProvenanceFromTrace(
+  trace: PlaceholderResponse | null,
+): { lines?: { label: string; value: string }[] } | null {
+  const block = trace?.control_plane_trace?.understanding_provenance;
+  if (!block || typeof block !== 'object') {
+    return null;
+  }
+  const lines = (block as { lines?: unknown }).lines;
+  if (!Array.isArray(lines) || !lines.length) {
+    return null;
+  }
+  return block as { lines?: { label: string; value: string }[] };
 }
 
 function answerProvenanceBadge(trace: PlaceholderResponse | null): { label: string; variant: 'success' | 'warning' | 'outline' } {
