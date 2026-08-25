@@ -383,8 +383,58 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
   - **Evidence:** _(fill when done)_
   - **Commit:** one logical commit for P5 only
 
-- [ ] **P6** — UI/UX SOC workspace improvement
-  - **Do:** Widen the structured answer workspace (center column `w-full` / sensible desktop max) while keeping prose ~68–80ch. Allow SPL/code, tables, plans, evidence, traces to use broader width. Clear hierarchy: direct answer → supporting artifact → next action when applicable → collapsible technical/authority details. Responsive: laptop, wide desktop, mobile.
+- [ ] **P6** — Viewport / answer-workspace normalization
+  - **Do:** **AUDIT FIRST**, then normalize. One assistant turn must own **ONE** maximum useful answer workspace. Today it does not: the sections of a single turn render at three different widths.
+
+    **Measured 2026-08-25 (`rg -n 'max-w-' <components>` — these are the anchors, do not re-derive):**
+
+    ```text
+    pages/SocCockpit.tsx:21                    lg:grid-cols-[19rem_minmax(0,1fr)_22rem]  <- center col already minmax(0,1fr): CORRECT
+    components/ChatPanel.tsx:638               w-full min-w-0 max-w-full                 <- correct
+    components/ChatPanel.tsx:681               .soc-stream ... overflow-x-hidden         <- CLIPS; see overflow note below
+    components/ChatBubble.tsx:97               assistant max-w-[94%] / user max-w-[78%]
+    components/ChatBubble.tsx:111              max-w-[68ch]   assistant prose bubble
+    components/ChatBubble.tsx:192              max-w-[68ch]   cyan note
+    components/ChatBubble.tsx:203              max-w-[68ch]   amber note
+    components/InvestigationOutcomeCard.tsx:32        max-w-[68ch]
+    components/InvestigationPlanApprovalCard.tsx:33   max-w-[72ch]
+    components/RemediationPlanApprovalCard.tsx:47     max-w-[72ch]
+    components/AnalystResponseCard.tsx:477     w-full min-w-0 max-w-full ... xl:max-w-[1120px]
+    ```
+
+    The reported symptom is confirmed literally: **68ch outcome + 72ch remediation + 1120px analyst answer** in one turn, as three visually separate answer widths. The defect is at **card level**, not in the cockpit grid.
+
+    Complete the audit table in Evidence for every assistant-response surface — SocCockpit, ChatPanel, ChatBubble, AnalystResponseCard, InvestigationOutcomeCard, InvestigationPlanApprovalCard, RemediationPlanApprovalCard, SPL/code containers, evidence/detail panels, provenance / "How this answer was produced", tables, progress/investigation surfaces — recording for each: **parent available width · `w-full`/`min-w-0` behavior · max-width constraint · overflow behavior · breakpoint-specific constraint**.
+
+    **Target rule.** The outer response workspace fills the available center/chat column, uses `w-full min-w-0`, drops card-level 68ch/72ch constraints, and applies a sensible overall desktop maximum only where needed to prevent pathological ultra-wide layout. Every section of one turn aligns to the **same outer workspace grid**.
+
+    **Content-specific width** (the constraint moves inward to the content, it is not deleted):
+
+    ```text
+    PROSE                      readable ~68-80ch, sitting INSIDE the wider workspace
+    SPL / CODE                 full answer workspace; do not wrap unnecessarily; h-scroll if genuinely required
+    TABLES                     available width; responsive columns / horizontal overflow when necessary
+    INVESTIGATION/REMEDIATION  wider workspace; must NOT inherit prose max-width
+    EVIDENCE / TECHNICAL TRACE wider workspace; collapsible where appropriate
+    STATUS / SMALL CTA         sized to content; must NEVER determine the width of the whole response
+    ```
+
+    **`Do NOT simply set every child to `max-w-none`.`** The objective is **MAXIMUM USEFUL VIEWPORT, not MAXIMUM TEXT LINE LENGTH.** A card that stops constraining its own box must hand the readable-width constraint to its prose child, or this item has made readability worse while appearing to succeed.
+
+    **Two measured conflicts to resolve, not ignore:**
+
+    ```text
+    1. ChatPanel.tsx:681  `overflow-x-hidden` on .soc-stream CLIPS horizontal overflow.
+       "code/table overflow contained locally" requires the local container to scroll —
+       a clipping ancestor silently truncates instead. Resolve at the stream seam.
+    2. AnalystResponseCard.tsx:323,340,348,717  `<code className="whitespace-pre-wrap break-words">`
+       WRAPS SPL rather than scrolling it, which contradicts "do not wrap unnecessarily".
+       The <pre> ancestors (:317,:334,:347,:716) already have `overflow-auto`, and the table
+       at :757 already has `overflow-x-auto` — those are correct and must stay.
+    ```
+
+    Clear hierarchy stays a requirement: direct answer → supporting artifact → next action when applicable → collapsible technical/authority details.
+
     **Vocabulary fix — presentation layer only.** Both tokens exist, in *different* fields, and rev 2 of this plan initially got this wrong by claiming only `BLOCKED` was real. Measured 2026-08-21:
 
     ```text
@@ -394,7 +444,21 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     ```
 
     So `BLOCKED` is the **status** and `BLOCK` is the **workflow next-action**. `investigation_status`/`disposition` `"blocked"` are typed `Literal[...]` in `chat/contracts/investigation_outcome.py:18-20`; the analyst-visible status string comes from `humanize(outcome.investigation_status)` at `InvestigationOutcomeCard.tsx:38`. **Change the display-label mapping, not the backend literal** — renaming a contract value is a governed-contract change outside this item's scope and would break the `Literal` types and their tests. If a backend rename ever looks necessary, that is a new authority decision → stop condition. The `BLOCK` next-action leak is **not** cosmetic and is handled separately in **P6.1**, which is a required item, not an optional polish.
-  - **Verify:** `cd frontend && npm test && npm run build`; host-side `rg -n 'investigation_status|BLOCKED' backend/app/chat/contracts/investigation_outcome.py` shows the contract literals **unchanged**; manual Mac screenshot checklist recorded in Evidence for: no duplicate answers, no duplicate remediation controls, no investigation conclusion on SPL-only, wider workspace, readable prose, SPL not cramped, collapsed “How this answer was produced” / technical path.
+  - **Verify:** `cd frontend && npm test && npm run build`; host-side `rg -n 'investigation_status|BLOCKED' backend/app/chat/contracts/investigation_outcome.py` shows the contract literals **unchanged**.
+
+    Width normalization proof — host-side `rg -n 'max-w-\[[0-9]+ch\]' frontend/src/components` must show **no card-level ch-constraint on a workspace container**; any surviving `ch` constraint must sit on a **prose** element, and Evidence must name which one and why. Re-run the anchor sweep above and paste the after-state next to the before-state.
+
+    **Responsive acceptance — record a screenshot per row in Evidence:**
+
+    ```text
+    ~1440px desktop | MacBook/laptop | ~1024px | tablet/narrow | mobile
+    ```
+
+    At **every** viewport assert all seven: no unnecessary blank right-hand area · no clipped structured content · no overlapping side rails (`19rem` left / `22rem` right, `SocCockpit.tsx:21`) · **no horizontal page scroll** · code/table overflow contained **locally** (the local box scrolls; the page does not) · prose still readable · one coherent assistant-answer alignment across all sections of the same turn.
+
+    Plus the existing manual Mac checklist: no duplicate answers, no duplicate remediation controls, no investigation conclusion on SPL-only, collapsed "How this answer was produced" / technical path.
+
+    **Honesty note:** there are no width/layout unit tests in this repo and `npm test` will not catch a regression here — it proves compile + existing behavior only. The screenshot matrix **is** the evidence for this item; do not record `npm test` green as viewport acceptance.
   - **Depends on:** P5
   - **Evidence:** _(fill when done)_
   - **Commit:** one logical commit for P6 only
@@ -427,10 +491,69 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
   - **Evidence:** _(fill when done)_
   - **Commit:** one logical commit for P6.1 only
 
+- [ ] **P6A** — COE client-ID / remote-HTTP compatibility (`crypto.randomUUID` unavailable)
+  - **Do:** Fix message submission failing **before** `streamChatMessage()` runs when the app is reached over non-secure remote HTTP (`http://10.52.1.13:3010/chat`):
+
+    ```text
+    Uncaught (in promise) TypeError: crypto.randomUUID is not a function
+        at handleSend (ChatPanel.tsx)
+        at submit (ChatInput.tsx)
+
+    UX: composer clears / no user bubble / no progress / NO API REQUEST
+    ```
+
+    `crypto.randomUUID` is only exposed in a **secure context** (HTTPS, or `localhost`/`127.0.0.1`). COE is reached by raw IP over HTTP, so `window.crypto.randomUUID` is undefined there and defined on the Mac — which is why this never reproduces locally. This is a **client-side ID generation compatibility** defect. It is **not** backend, T1/T2/T3/T4, Final RQC, CORS, API-base, Nginx, auth, MCP, or LLM.
+
+    Add `frontend/src/lib/id.ts` exporting one shared `newClientId()` with a three-tier ladder:
+
+    ```text
+    1. globalThis.crypto?.randomUUID  — only when it exists AND typeof === "function"
+    2. globalThis.crypto.getRandomValues — build a UUID-v4-SHAPED id;
+         MUST set version nibble (byte 6 -> 0x40 | low) and variant bits (byte 8 -> 0x80 | low)
+    3. final non-crypto fallback — must never be described as cryptographically secure
+    ```
+
+    These are **UI correlation identifiers only**. They must never be used for auth tokens, sessions, authorization, security decisions, or idempotency requiring cryptographic uniqueness. Say so in the module docstring so a later reader does not promote them.
+
+    **Call-site consolidation — measured 2026-08-25, all 6 direct usages are in one file:**
+
+    ```text
+    frontend/src/components/ChatPanel.tsx:405   `progress-${crypto.randomUUID()}`   progress message id
+    frontend/src/components/ChatPanel.tsx:569   user message id
+    frontend/src/components/ChatPanel.tsx:579   user message id
+    frontend/src/components/ChatPanel.tsx:589   user message id
+    frontend/src/components/ChatPanel.tsx:599   user message id
+    frontend/src/components/ChatPanel.tsx:621   user message id
+    rg -c 'crypto\.randomUUID' frontend/src  ->  ChatPanel.tsx:6   (no other file)
+    ```
+
+    Replace all six with `newClientId()`. After the change, direct `crypto.randomUUID` must exist **only** inside `frontend/src/lib/id.ts`. Do not create a second fallback implementation anywhere.
+  - **Verify:** Host-side `rg -n 'crypto\.randomUUID' frontend/src` returns **only** `frontend/src/lib/id.ts`; `rg -n 'newClientId' frontend/src/components/ChatPanel.tsx` shows the import plus 6 call sites. NEW colocated `frontend/src/lib/id.test.ts` (vitest, `environment: 'jsdom'`, `setupFiles: ./src/test/setup.ts` — `vite.config.ts:7-9`) covering:
+
+    ```text
+    A. randomUUID available            -> helper uses it; returns the supplied UUID verbatim
+    B. randomUUID missing,             -> UUID-v4-SHAPED; assert version nibble === '4'
+       getRandomValues available          and variant char in {8,9,a,b}; two calls differ
+    C. crypto undefined / randomUUID   -> MUST NOT THROW  (this is the COE regression)
+       not a function
+    D. final fallback path (if reachable in the implementation)
+    ```
+
+    Stub via `vi.stubGlobal('crypto', ...)` and restore in `afterEach` so the fake does not leak into other suites. Then `cd frontend && npm test` (= `vitest run`) and `npm run build` (= `tsc && vite build`), both green.
+
+    **Honesty note — measured 2026-08-25: there is NO `ChatPanel.test.tsx` in this repo** (`rg -ln ChatPanel frontend/src --glob '*.test.*'` returns nothing). Do **not** record "existing ChatPanel tests remain green" as evidence. The truthful claim is the full `npm test` suite plus `tsc` compile of the edited file. If ChatPanel coverage is wanted, that is a separate item, not a silent addition here.
+  - **Depends on:** none — independent of P1–P6/P6.1 and of the understanding-authority workstream. May be executed at any point; does not block and is not blocked by P2.
+  - **Evidence:** _(fill when done — record the `rg` output, the four helper test names, `npm test` + `npm run build` results, and the COE manual acceptance below)_
+  - **COE acceptance (deployment step, after the code lands):** over remote HTTP at `http://10.52.1.13:3010/chat` — (1) type a message, (2) Enter/Send, (3) user bubble appears, (4) progress state appears where applicable, (5) browser issues the API request, (6) no `randomUUID` exception in console.
+
+    **Only after this exception is gone may any subsequent network failure be classified.** If sending then fails with CORS, wrong `VITE_API_BASE_URL`, Nginx proxy, auth, or backend connectivity, that is a **separate** issue diagnosed from the new error — this item must not be used to conceal it, and must not be marked done on the grounds that "something else is now failing".
+  - **Out of scope (do not modify for P6A):** `architecture.md`, any backend file, T1/T2/T3/T4, Final RQC, CORS config, `VITE_API_BASE_URL`, auth, Nginx, HTTPS rollout, MCP, LLM configuration.
+  - **Commit:** one logical commit for P6A only (frontend-only diff)
+
 - [ ] **P7** — Full regression + Mac end-to-end acceptance
   - **Do:** Run required suites and product scenarios A–K from the operator brief (exact, paraphrase, firewall SPL authoring shape, explicit review-only SPL with do-not-execute, rich Cisco detection, ambiguous suspicious, unknown investigation, MITRE, multi-turn time/entity correction, literal survival). Record LLM/MCP honest degrade on Mac. Do not fake services.
   - **Verify:** `PATH="$PWD/.venv/bin:$PATH" ./scripts/run_stage3_governance_regression.sh` on the **host venv** (never in the container — read-only `/workspace` vs `REPO_ROOT=/workspace` + `cd backend && pytest`). Governance **step 1 is a ratified `KNOWN_MACOS_GOVERNANCE_ENV_LIMITATION`** — record it as such, do not work around it, and do not let it block P1–P6; every other governance step must still run and pass on Mac. Full backend suite via `cd backend && ../.venv/bin/python -m pytest -q` or the container form; targeted authority/fidelity/HIL/MCP suites green; `cd frontend && npm test && npm run build` green; scenario matrix table filled in Evidence with pass/fail. Classify any failure as regression / env / pre-existing **by diffing against the P0 baseline** — per `CLAUDE.md`, there is no CI here, so do not assume a red test is pre-existing; diff failure **names**, not counts (`.pytest_cache` `lastfailed` accumulates across filtered runs). If the governance runner is still unavailable, that is an env blocker to record explicitly — do not silently substitute the plain pytest run for it.
-  - **Depends on:** P0 (runner + baseline), P1–P6, P6.1
+  - **Depends on:** P0 (runner + baseline), P1–P6, P6.1, P6A
   - **Evidence:** _(fill when done)_
   - **Commit:** optional evidence-only commit under `docs/evals/` if needed
 
