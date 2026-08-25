@@ -807,6 +807,20 @@ def _user_prompt(
             parts.append("Routing context (use it to anchor the data source and entity):")
             parts.extend(ctx_lines)
             parts.append("")
+        bindings = context.get("deterministic_source_bindings")
+        if isinstance(bindings, dict) and bindings:
+            parts.append(
+                "Deterministic source bindings (MUST NOT be overridden — use these exact values when present):"
+            )
+            for key, value in bindings.items():
+                parts.append(f"- {key}: {value}")
+            parts.append("")
+        if context.get("review_only_posture"):
+            parts.append(
+                "Review-only SPL authoring: execution_eligible, governed, and catalog_approved MUST remain false."
+            )
+            parts.append("Do not invent unsupported index/sourcetype bindings; flag uncertain field mappings in assumptions.")
+            parts.append("")
         grounding = context.get("t2_grounding")
         if isinstance(grounding, str) and grounding.strip():
             parts.append(

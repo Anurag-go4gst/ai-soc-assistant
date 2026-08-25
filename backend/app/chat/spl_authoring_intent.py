@@ -53,14 +53,15 @@ def _spl_authoring_unsafe_signals(signals: dict[str, Any]) -> bool:
 
 
 def is_universal_utility_spl_authoring(query: str, signals: dict[str, Any]) -> bool:
-    """Explicit universal/template-free SPL utility authoring (PR #58 scope)."""
-    if not signals.get("explicit_spl_authoring"):
-        return False
-    if not universal_spl_phrasing(query):
-        return False
-    if _spl_authoring_unsafe_signals(signals):
-        return False
-    return True
+    """Explicit review-only SPL utility authoring (PR #58 governed LLM draft path).
+
+    Any safe explicit SPL-authoring ask routes through
+    ``candidate_from_universal_utility_authoring`` before the dispatch-v2-off
+    lab-draft short-circuit in ``_candidate_spl_stage``. Universal/template-free
+    phrasing is still detected via :func:`universal_spl_phrasing` for intent-skip
+    and source-profile policy, but is no longer required to enter this path.
+    """
+    return is_explicit_review_only_spl_authoring(signals)
 
 
 def is_explicit_review_only_spl_authoring(signals: dict[str, Any] | None) -> bool:

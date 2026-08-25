@@ -10,7 +10,7 @@ import time
 from typing import Any, Callable
 
 from app.config import settings
-from app.safeguards.spl_validator import validate_spl
+from app.safeguards.spl_validator import validate_spl, validate_spl_lab_candidate
 from app.llm.sidecar_clients import invoke_sidecar_role
 from app.spl.draft_preview import build_draft_preview
 from app.spl.llm_fallback import (
@@ -152,11 +152,75 @@ def build_utility_postprocessor_context(
     }
 
 
+from app.spl.spl_provenance_trace import spl_artifact_source
+
+
+_REPAIRABLE_VALIDATOR_REASONS = frozenset({
+    "missing_aggregation",
+    "disallowed_index",
+    "missing_result_limit",
+    "missing_time_bound",
+    "blocked_command",
+})
+
+
+def _is_generic_lab_skeleton(spl: str) -> bool:
+    """True for the non-semantic placeholder skeleton that must not masquerade as an answer."""
+    normalized = " ".join(str(spl or "").lower().split())
+    if "stats" in normalized or "timechart" in normalized or "tstats" in normalized:
+        return False
+    return (
+        "| where 1=1" in normalized
+        and "| table _time" in normalized
+        and "| head 100" in normalized
+    )
+
+
+def _semantic_repair_feedback(validation: dict[str, Any]) -> list[str]:
+    reasons = validation.get("reject_reasons") or []
+    if not isinstance(reasons, list):
+        return []
+    repairable = [str(item) for item in reasons if str(item) in _REPAIRABLE_VALIDATOR_REASONS]
+    if not repairable:
+        return []
+    return [f"validator_reject:{reason}" for reason in repairable]
+
+
+def _build_utility_llm_context(user_query: str, *, family: str | None) -> dict[str, Any]:
+    ctx = build_utility_postprocessor_context(
+        user_query,
+        llm_generated=True,
+        target_log_family=family,
+        is_universal_spl=family == "universal_timestamp_spl",
+    )
+    bindings: dict[str, str] = {}
+    for key in ("user_explicit_index", "user_explicit_sourcetype", "source_profile_index", "source_profile_sourcetype", "coe_environment_index"):
+        value = str(ctx.get(key) or "").strip()
+        if value:
+            bindings[key] = value
+    user_time = bool(ctx.get("user_explicit_time_window"))
+    return {
+        "review_only_posture": True,
+        "do_not_invent_source_bindings": True,
+        "flag_uncertain_field_mappings": True,
+        "deterministic_source_bindings": bindings,
+        "target_log_family": family,
+        "user_explicit_time_window": user_time,
+    }
+
+
+def _validate_review_only_candidate(spl: str) -> dict[str, Any]:
+    return validate_spl_lab_candidate(spl)
+
+
 def attempt_bounded_utility_spl_llm_draft(
     user_query: str,
     *,
     llm_raw_output_provider: Callable[[], str] | None = None,
     timeout_seconds: float | None = None,
+    context: dict[str, Any] | None = None,
+    relevance_feedback: list[str] | None = None,
+    repair_attempt: bool = False,
 ) -> tuple[Any | None, dict[str, Any]]:
     effective_timeout = (
         float(timeout_seconds)
@@ -176,6 +240,7 @@ def attempt_bounded_utility_spl_llm_draft(
         "budget_reallocated_to_spl_drafting": True,
         "utility_spl_draft_timeout_seconds": effective_timeout,
         "utility_spl_draft_failover_enabled": failover_enabled,
+        "utility_spl_repair_attempt": repair_attempt,
     }
 
     if not utility_spl_draft_enabled():
@@ -190,6 +255,8 @@ def attempt_bounded_utility_spl_llm_draft(
             user_query=user_query,
             utility_authoring=True,
             llm_raw_output_provider=llm_raw_output_provider,
+            context=context,
+            relevance_feedback=relevance_feedback,
         )
         trace["llm_spl_draft_latency_ms"] = int((time.monotonic() - started) * 1000)
         if result is None or result.clarification_required or not result.candidate_spl.strip():
@@ -208,7 +275,12 @@ def attempt_bounded_utility_spl_llm_draft(
         trace["llm_spl_draft_requested"] = False
         return None, trace
 
-    system_prompt, user_prompt = spl_advisory_prompts(user_query, utility_authoring=True)
+    system_prompt, user_prompt = spl_advisory_prompts(
+        user_query,
+        utility_authoring=True,
+        context=context,
+        relevance_feedback=relevance_feedback,
+    )
     started = time.monotonic()
     raw_output, timed_out, _label = invoke_sidecar_role(
         role=SPL_ADVISORY_ROLE,
@@ -235,6 +307,8 @@ def attempt_bounded_utility_spl_llm_draft(
         user_query=user_query,
         utility_authoring=True,
         llm_raw_output_provider=lambda: raw_output,
+        context=context,
+        relevance_feedback=relevance_feedback,
     )
     if result is None or result.clarification_required or not result.candidate_spl.strip():
         trace["llm_spl_draft_dropped_reason"] = (
@@ -248,7 +322,7 @@ def attempt_bounded_utility_spl_llm_draft(
     return result, trace
 
 
-def _deterministic_universal_skeleton(
+def _deterministic_utility_skeleton(
     user_query: str,
     *,
     llm_intent_advisory: Any | None = None,
@@ -259,10 +333,24 @@ def _deterministic_universal_skeleton(
         llm_intent_advisory=llm_intent_advisory,
         query_understanding=None,
     )
-    if not draft or draft.get("detection_family") != "universal_timestamp_spl":
+    if not draft:
         return None
     spl = str(draft.get("draft_spl") or "").strip()
     if not spl:
+        return None
+    return draft
+
+
+def _deterministic_universal_skeleton(
+    user_query: str,
+    *,
+    llm_intent_advisory: Any | None = None,
+) -> dict[str, Any] | None:
+    draft = _deterministic_utility_skeleton(
+        user_query,
+        llm_intent_advisory=llm_intent_advisory,
+    )
+    if not draft or draft.get("detection_family") != "universal_timestamp_spl":
         return None
     return draft
 
@@ -314,7 +402,7 @@ def candidate_from_universal_utility_authoring(
     llm_raw_output_provider: Callable[[], str] | None = None,
     llm_turn_budget: Any | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]] | None:
-    draft = _deterministic_universal_skeleton(
+    draft = _deterministic_utility_skeleton(
         user_query,
         llm_intent_advisory=llm_intent_advisory,
     )
@@ -322,17 +410,23 @@ def candidate_from_universal_utility_authoring(
         return None
 
     skeleton_spl = str(draft["draft_spl"])
+    detection_family = str(draft.get("detection_family") or "lab_draft")
+    is_universal = detection_family == "universal_timestamp_spl"
+    llm_context = _build_utility_llm_context(user_query, family=detection_family)
     spl_draft_trace: dict[str, Any] = {
         "deterministic_skeleton_available": True,
         "deterministic_skeleton_used": False,
         "final_raw_spl_source": "deterministic_skeleton",
         "final_spl_authority": "deterministic_postprocessor",
         "postprocessor_applied": False,
+        "bounded_repair_attempted": False,
+        "bounded_repair_used": False,
     }
 
     llm_result, llm_trace = attempt_bounded_utility_spl_llm_draft(
         user_query,
         llm_raw_output_provider=llm_raw_output_provider,
+        context=llm_context,
     )
     spl_draft_trace.update(llm_trace)
     if llm_turn_budget is not None and spl_draft_trace.get("llm_spl_draft_requested"):
@@ -348,39 +442,93 @@ def candidate_from_universal_utility_authoring(
                 latency_ms=spl_draft_trace.get("llm_spl_draft_latency_ms"),
             )
 
-    if llm_result is not None and llm_result.candidate_spl.strip():
-        raw_spl = llm_result.candidate_spl.strip()
-        spl_draft_trace["final_raw_spl_source"] = "llm_draft"
-        spl_draft_trace["deterministic_skeleton_used"] = False
-        ctx = build_utility_postprocessor_context(user_query, llm_generated=True)
+    final_raw_spl_source = "deterministic_skeleton"
+    repair_used = False
+    validator_result: dict[str, Any] = {}
+    postprocessor_trace: dict[str, Any] = {}
+    postprocessor_warnings: list[str] = []
+    final_spl = skeleton_spl
+
+    def _apply_candidate(raw_spl: str, *, llm_generated: bool) -> str:
+        nonlocal postprocessor_trace, postprocessor_warnings
+        ctx = build_utility_postprocessor_context(
+            user_query,
+            llm_generated=llm_generated,
+            target_log_family=detection_family,
+            is_universal_spl=is_universal,
+        )
         normalized = finalize_review_only_spl(
             raw_spl,
             query=user_query,
-            family="universal_timestamp_spl",
-            llm_generated=True,
+            family=detection_family,
+            llm_generated=llm_generated,
             postprocessor_context=ctx,
         )
-        final_spl = normalized.normalized_spl
         postprocessor_trace = dict(normalized.trace)
         postprocessor_warnings = list(normalized.warnings)
+        return normalized.normalized_spl
+
+    if llm_result is not None and llm_result.candidate_spl.strip():
+        final_raw_spl_source = "llm_draft"
+        spl_draft_trace["deterministic_skeleton_used"] = False
+        final_spl = _apply_candidate(llm_result.candidate_spl.strip(), llm_generated=True)
+        validator_result = _validate_review_only_candidate(final_spl)
+        repair_feedback = _semantic_repair_feedback(validator_result)
+        if repair_feedback and not validator_result.get("lab_candidate_eligible"):
+            spl_draft_trace["bounded_repair_attempted"] = True
+            repair_result, repair_trace = attempt_bounded_utility_spl_llm_draft(
+                user_query,
+                llm_raw_output_provider=llm_raw_output_provider,
+                context=llm_context,
+                relevance_feedback=repair_feedback,
+                repair_attempt=True,
+            )
+            spl_draft_trace["bounded_repair_trace"] = repair_trace
+            if llm_turn_budget is not None and repair_trace.get("llm_spl_draft_requested"):
+                outcome = "completed" if repair_trace.get("llm_spl_draft_completed") else "dropped"
+                if repair_trace.get("llm_spl_draft_timed_out"):
+                    outcome = "timed_out"
+                record = getattr(llm_turn_budget, "record_sidecar", None)
+                if callable(record):
+                    record(
+                        role=SPL_ADVISORY_ROLE,
+                        provider_label=repair_trace.get("llm_spl_draft_provider_label"),
+                        outcome=outcome,
+                        latency_ms=repair_trace.get("llm_spl_draft_latency_ms"),
+                    )
+            if repair_result is not None and repair_result.candidate_spl.strip():
+                repaired_spl = _apply_candidate(repair_result.candidate_spl.strip(), llm_generated=True)
+                repaired_validation = _validate_review_only_candidate(repaired_spl)
+                original_rejects = len(list(validator_result.get("reject_reasons") or []))
+                repaired_rejects = len(list(repaired_validation.get("reject_reasons") or []))
+                if repaired_validation.get("lab_candidate_eligible") or repaired_rejects < original_rejects:
+                    repair_used = True
+                    final_raw_spl_source = "llm_repair"
+                    spl_draft_trace["bounded_repair_used"] = True
+                    final_spl = repaired_spl
+                    validator_result = repaired_validation
     else:
         spl_draft_trace["deterministic_skeleton_used"] = True
-        ctx = build_utility_postprocessor_context(user_query, llm_generated=False)
-        normalized = finalize_review_only_spl(
-            skeleton_spl,
-            query=user_query,
-            family="universal_timestamp_spl",
-            llm_generated=False,
-            postprocessor_context=ctx,
-        )
-        final_spl = normalized.normalized_spl
-        postprocessor_trace = dict(normalized.trace)
-        postprocessor_warnings = list(normalized.warnings)
+        final_spl = _apply_candidate(skeleton_spl, llm_generated=False)
+        validator_result = _validate_review_only_candidate(final_spl)
+
+    unavailable = False
+    unavailable_reason: str | None = None
+    if final_raw_spl_source == "deterministic_skeleton" and _is_generic_lab_skeleton(final_spl):
+        unavailable = True
+        unavailable_reason = spl_draft_trace.get("llm_spl_draft_dropped_reason") or "llm_unavailable"
 
     postprocessor_trace.setdefault("final_spl_authority", "deterministic_postprocessor")
+    spl_draft_trace["final_raw_spl_source"] = final_raw_spl_source
     spl_draft_trace["final_spl_authority"] = postprocessor_trace.get("final_spl_authority")
     spl_draft_trace["postprocessor_applied"] = bool(postprocessor_trace.get("postprocessor_applied"))
     spl_draft_trace["review_only_spl_postprocessor_trace"] = postprocessor_trace
+    spl_draft_trace["validator_result"] = {
+        "lab_candidate_eligible": bool(validator_result.get("lab_candidate_eligible")),
+        "reject_reasons": list(validator_result.get("reject_reasons") or []),
+    }
+    if unavailable:
+        spl_draft_trace["unavailable_reason"] = unavailable_reason
 
     lab_labels = {
         "governed": False,
@@ -389,13 +537,37 @@ def candidate_from_universal_utility_authoring(
         "execution_eligible": False,
         "review_required": True,
     }
-    final_raw_spl_source = spl_draft_trace["final_raw_spl_source"]
-    generation_mode = (
-        "utility_llm_spl_draft" if final_raw_spl_source == "llm_draft" else "deterministic_lab_draft"
+    if unavailable:
+        generation_mode = "spl_authoring_unavailable"
+        provider = "unavailable"
+        final_spl = ""
+    elif final_raw_spl_source == "llm_repair":
+        generation_mode = "utility_llm_spl_repair"
+        provider = "utility_llm_spl_repair"
+    elif final_raw_spl_source == "llm_draft":
+        generation_mode = "utility_llm_spl_draft"
+        provider = "utility_llm_spl_draft"
+    else:
+        generation_mode = "deterministic_lab_draft"
+        provider = "deterministic_lab_draft"
+
+    assumptions = _utility_assumptions(
+        postprocessor_trace=postprocessor_trace,
+        final_raw_spl_source=final_raw_spl_source,
     )
-    provider = (
-        "utility_llm_spl_draft" if final_raw_spl_source == "llm_draft" else "deterministic_lab_draft"
-    )
+    if unavailable:
+        assumptions = [
+            "Unable to produce a validated review-only SPL for this request.",
+            *[
+                f"Unresolved: {reason}"
+                for reason in list(validator_result.get("reject_reasons") or [])[:5]
+            ],
+            *(
+                [f"LLM draft unavailable: {unavailable_reason.replace('_', ' ')}"]
+                if unavailable_reason
+                else []
+            ),
+        ]
 
     candidate_payload: dict[str, Any] = {
         "trace_id": trace_id,
@@ -403,29 +575,41 @@ def candidate_from_universal_utility_authoring(
         "user_query": user_query,
         "candidate_spl": final_spl,
         "generation_mode": generation_mode,
-        "confidence": 0.55 if final_raw_spl_source == "llm_draft" else 0.5,
-        "assumptions": _utility_assumptions(
-            postprocessor_trace=postprocessor_trace,
-            final_raw_spl_source=final_raw_spl_source,
-        ),
-        "warnings": ["review_only_universal_spl"],
+        "confidence": 0.55 if final_raw_spl_source in {"llm_draft", "llm_repair"} else 0.5,
+        "assumptions": assumptions,
+        "warnings": ["review_only_universal_spl"] if is_universal else ["review_only_spl_authoring"],
         "selected_candidate_spl_provider": provider,
         "fallback_required": final_raw_spl_source == "deterministic_skeleton",
-        "candidate_spl_generated": True,
+        "candidate_spl_generated": not unavailable,
         "validation_required": True,
         "capability_profile": profile.model_dump(),
         "template_id": None,
         "llm_supported": True,
-        "llm_fallback_used": final_raw_spl_source == "llm_draft",
-        "llm_fallback_status": "utility_llm_draft" if final_raw_spl_source == "llm_draft" else "lab_draft_fallback",
+        "llm_fallback_used": final_raw_spl_source in {"llm_draft", "llm_repair"},
+        "llm_fallback_status": (
+            "utility_llm_draft"
+            if final_raw_spl_source == "llm_draft"
+            else "utility_llm_repair"
+            if final_raw_spl_source == "llm_repair"
+            else "lab_draft_fallback"
+        ),
         "llm_fallback_reason": (
             "explicit_spl_authoring_utility_llm_draft"
             if final_raw_spl_source == "llm_draft"
+            else "explicit_spl_authoring_utility_llm_repair"
+            if final_raw_spl_source == "llm_repair"
             else "explicit_spl_authoring_deterministic_skeleton"
         ),
+        "deterministic_fallback_reason": (
+            spl_draft_trace.get("llm_spl_draft_dropped_reason")
+            if final_raw_spl_source == "deterministic_skeleton"
+            else None
+        ),
+        "spl_authoring_unavailable": unavailable,
+        "spl_authoring_unavailable_reason": unavailable_reason,
         "exposure_tier": "lab_candidate",
         "lab_tier_exposure": True,
-        "detection_family": "universal_timestamp_spl",
+        "detection_family": detection_family,
         "utility_spl_draft_trace": spl_draft_trace,
         "review_only_spl_postprocessor_trace": postprocessor_trace,
         **lab_labels,
@@ -433,14 +617,21 @@ def candidate_from_universal_utility_authoring(
     if postprocessor_warnings:
         candidate_payload["review_only_spl_postprocessor_warnings"] = postprocessor_warnings
 
+    reject_reasons = (
+        ["spl_authoring_unavailable"]
+        if unavailable
+        else ["universal_spl_authoring_review_only"]
+        if is_universal
+        else ["review_only_spl_authoring"]
+    )
     validation_payload: dict[str, Any] = {
         "approved": False,
         "normalized_spl": None,
         "exposure_tier": "lab_candidate",
         "lab_tier_exposure": True,
-        "reject_reasons": ["universal_spl_authoring_review_only"],
-        "review_required_reason": "universal_spl_authoring_review_only",
-        "warnings": ["review_only_universal_spl"],
+        "reject_reasons": reject_reasons,
+        "review_required_reason": reject_reasons[0],
+        "warnings": candidate_payload["warnings"],
         "enforced_limits": validate_spl("").get("enforced_limits") or {},
         "policy_version": validate_spl("").get("policy_version"),
         "selected_candidate_spl_provider": provider,
@@ -461,6 +652,7 @@ def candidate_from_universal_utility_authoring(
         "llm_fallback_reason": candidate_payload["llm_fallback_reason"],
         "utility_spl_draft_trace": spl_draft_trace,
         "review_only_spl_postprocessor_trace": postprocessor_trace,
+        "spl_authoring_unavailable": unavailable,
         **lab_labels,
     }
 
