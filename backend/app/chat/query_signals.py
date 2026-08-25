@@ -863,6 +863,11 @@ def extract_query_signals(
             r"\b(drop|deny|block)\b[^.?!]{0,24}\b(on the firewall|via the firewall|using the firewall)\b",
             normalized,
         )
+        or re.search(
+            # Imperative: "have the firewall drop/deny/block …" — not observation of deny events.
+            r"\bhave (the )?firewall\b[^.?!]{0,40}\b(drop|deny|block)\b",
+            normalized,
+        )
     )
     # Containment DECISION-SUPPORT (not an enforcement command): the analyst is
     # asking whether/how to contain, not ordering an action. These must reach the
