@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-SCHEMA_VERSION = "minimal_evidence_state_v1"
+SCHEMA_VERSION = "minimal_evidence_state_v2"
 
 TrustClass = Literal[
     "trusted_control_authority",
@@ -26,6 +26,8 @@ EvidenceLifecycle = Literal[
     "stale",
     "invalidated",
     "blocked",
+    "empty",
+    "diagnostic",
 ]
 
 _REFERENCE_SOURCE_TYPES = frozenset(
@@ -60,6 +62,8 @@ class MinimalEvidenceState(BaseModel):
     stale: list[str] = Field(default_factory=list)
     invalidated: list[str] = Field(default_factory=list)
     blocked: list[str] = Field(default_factory=list)
+    empty: list[str] = Field(default_factory=list)
+    diagnostic: list[str] = Field(default_factory=list)
     out_of_scope: list[str] = Field(default_factory=list)
     provenance: dict[str, Any] = Field(default_factory=dict)
     trust_class: TrustClass = "untrusted_evidence"
@@ -112,6 +116,8 @@ def derive_minimal_evidence_state(
     stale: list[str] = []
     invalidated: list[str] = []
     blocked: list[str] = []
+    empty: list[str] = []
+    diagnostic: list[str] = []
     items: list[EvidenceStateItem] = []
     item_by_key: dict[str, EvidenceStateItem] = {}
 
@@ -152,6 +158,10 @@ def derive_minimal_evidence_state(
             invalidated.append(key)
         elif lifecycle == "blocked":
             blocked.append(key)
+        elif lifecycle == "empty":
+            empty.append(key)
+        elif lifecycle == "diagnostic":
+            diagnostic.append(key)
         elif status not in {"collected", "skipped", "planned"}:
             invalidated.append(key)
 
@@ -161,36 +171,48 @@ def derive_minimal_evidence_state(
         kind = str(fact.get("kind") or "")
         if not kind:
             continue
-        obtained.append(kind)
         provenance = fact.get("provenance") if isinstance(fact.get("provenance"), dict) else {}
+        evidence_class = str(provenance.get("evidence_class") or "")
+        is_obtained_evidence = bool(
+            kind not in {"entity", "timeframe", "plan_step_outcome"}
+            and evidence_class not in {"plan", "session"}
+            and _fact_has_accepted_evidence(fact)
+        )
+        lifecycle: EvidenceLifecycle = "obtained" if is_obtained_evidence else "diagnostic"
+        if is_obtained_evidence:
+            obtained.append(kind)
+        else:
+            diagnostic.append(kind)
         item_by_key.setdefault(
             kind,
             EvidenceStateItem(
                 key=kind,
-                status="obtained",
+                status=lifecycle,
                 provenance=str(provenance.get("node") or "canonical_facts") or None,
-                trust_class="untrusted_evidence",
+                trust_class=(
+                    "untrusted_evidence"
+                    if is_obtained_evidence
+                    else "trusted_control_authority"
+                    if evidence_class == "plan"
+                    else "untrusted_input"
+                ),
                 scope={"evidence_class": provenance.get("evidence_class")},
             ),
         )
 
-    if str(exec_payload.get("status") or "") in {
-        "executed",
-        "executed_mock_evidence",
-        "executed_live_evidence",
-        "success",
-    }:
-        obtained.extend(["mcp", "spl"])
-        for key in ("mcp", "spl"):
-            item_by_key.setdefault(
-                key,
-                EvidenceStateItem(
-                    key=key,
-                    status="obtained",
-                    provenance="execution",
-                    trust_class="untrusted_evidence",
-                ),
-            )
+    execution_status = str(exec_payload.get("status") or "").strip()
+    if execution_status:
+        diagnostic.append("execution_status")
+        item_by_key.setdefault(
+            "execution_status",
+            EvidenceStateItem(
+                key="execution_status",
+                status="diagnostic",
+                provenance="execution",
+                trust_class="trusted_control_authority",
+                scope={"status": execution_status},
+            ),
+        )
 
     if plan.get("needs_mcp") and plan.get("mcp_allowed") is not True:
         blocked.append("mcp")
@@ -219,6 +241,13 @@ def derive_minimal_evidence_state(
     stale = _unique(stale)
     invalidated = _unique(invalidated)
     blocked = _unique(blocked)
+    empty = _unique(empty)
+    diagnostic = _unique(diagnostic)
+    accepted = set(obtained)
+    stale = [key for key in stale if key not in accepted]
+    invalidated = [key for key in invalidated if key not in accepted]
+    blocked = [key for key in blocked if key not in accepted]
+    empty = [key for key in empty if key not in accepted]
     usable = set(obtained) - set(stale) - set(invalidated) - set(blocked)
     missing = [key for key in required if key not in usable]
     for key in missing:
@@ -232,7 +261,9 @@ def derive_minimal_evidence_state(
             ),
         )
     items = []
-    for key in _unique([*required, *obtained, *stale, *invalidated, *blocked, *missing]):
+    for key in _unique(
+        [*required, *obtained, *stale, *invalidated, *blocked, *empty, *diagnostic, *missing]
+    ):
         item = item_by_key.get(key)
         if item is None:
             item = EvidenceStateItem(
@@ -253,6 +284,7 @@ def derive_minimal_evidence_state(
             ("resolved_query_contract", bool(rqc)),
             ("canonical_facts", bool(facts)),
             ("final_evidence_gate", bool(gate)),
+            ("execution", bool(exec_payload)),
         )
         if present
     ]
@@ -263,6 +295,8 @@ def derive_minimal_evidence_state(
         stale=stale,
         invalidated=invalidated,
         blocked=blocked,
+        empty=empty,
+        diagnostic=diagnostic,
         provenance={"derived_from": derived_from, "raw_evidence_duplicated": False},
         trust_class="untrusted_evidence",
         scope={
@@ -339,5 +373,37 @@ def _lifecycle_for_record(record: dict[str, Any], *, rqc: dict[str, Any]) -> Evi
     if time_range and time_scope and time_range != time_scope and "stale" in time_range.lower():
         return "stale"
     if status == "collected":
-        return "obtained"
+        if _trust_class_for_record(record) == "non_authoritative_generated":
+            return "diagnostic"
+        if _record_has_accepted_evidence(record):
+            return "obtained"
+        return "empty"
+    if status in {"planned", "requested", "attempted", "skipped", "unavailable", "not_available"}:
+        return "diagnostic"
     return "missing"
+
+
+def _record_has_accepted_evidence(record: dict[str, Any]) -> bool:
+    if "result_count" in record:
+        return _positive_count(record.get("result_count"))
+    for key in ("preview_rows", "rows", "citations", "chunks"):
+        value = record.get(key)
+        if isinstance(value, (list, tuple)) and value:
+            return True
+    return bool(record.get("raw_result_hash"))
+
+
+def _fact_has_accepted_evidence(fact: dict[str, Any]) -> bool:
+    payload = fact.get("payload") if isinstance(fact.get("payload"), dict) else {}
+    if fact.get("kind") == "rag_citation":
+        return bool(payload.get("citation"))
+    if fact.get("kind") == "executed_evidence":
+        return _positive_count(payload.get("row_count")) or bool(payload.get("row_summary"))
+    return bool(payload)
+
+
+def _positive_count(value: Any) -> bool:
+    try:
+        return int(value or 0) > 0
+    except (TypeError, ValueError):
+        return False

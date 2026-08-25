@@ -158,6 +158,16 @@ def _harvest_rag(state: Mapping[str, Any]) -> list[CanonicalFact]:
     citations = rag.get("citations") or rag.get("chunks") or []
     if not isinstance(citations, list):
         citations = []
+    retrieval_status = str(rag.get("retrieval_status") or rag.get("status") or "").lower()
+    if rag.get("rag_skipped_for_spl_utility_authoring") or retrieval_status in {
+        "skipped",
+        "disabled",
+        "failed",
+        "unavailable",
+    }:
+        return []
+    if not citations:
+        return []
     return [
         CanonicalFact(
             fact_id=_fact_id("rag_citation"),
@@ -169,13 +179,6 @@ def _harvest_rag(state: Mapping[str, Any]) -> list[CanonicalFact]:
             provenance=FactProvenance(node="soc_kb_retrieval", evidence_class="rag"),
         )
         for citation in citations[:10]
-    ] or [
-        CanonicalFact(
-            fact_id=_fact_id("rag_citation"),
-            kind="rag_citation",
-            payload={"retrieval_status": rag.get("retrieval_status")},
-            provenance=FactProvenance(node="soc_kb_retrieval", evidence_class="rag"),
-        )
     ]
 
 
@@ -285,7 +288,10 @@ def _harvest_negative_evidence(state: Mapping[str, Any]) -> list[CanonicalFact]:
         source_evidence=state.get("source_evidence") if isinstance(state.get("source_evidence"), list) else None,
         structured_context=state.get("structured_context") if isinstance(state.get("structured_context"), dict) else None,
     )
-    if not negative:
+    if not negative or not any(
+        negative.get(key)
+        for key in ("present_evidence", "explicit_negations", "rag_prohibited_conclusions", "absent")
+    ):
         return []
     return [
         CanonicalFact(

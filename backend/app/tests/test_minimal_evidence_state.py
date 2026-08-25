@@ -31,13 +31,15 @@ def test_view_is_derived_from_existing_governed_state() -> None:
         canonical_facts={"facts": [{"kind": "entity", "provenance": {"node": "spine", "evidence_class": "mcp_search"}}]},
         final_evidence_gate={"collected_evidence_refs": ["ev_mcp"], "suppressed_claims": []},
     )
-    assert state.schema_version == "minimal_evidence_state_v1"
+    assert state.schema_version == "minimal_evidence_state_v2"
     assert "user" in state.required
     assert "host" in state.required
     assert "user" in state.obtained
     assert "src" in state.obtained
     assert "mcp" in state.obtained
-    assert "entity" in state.obtained
+    assert "entity" not in state.obtained
+    assert "entity" in state.diagnostic
+    assert next(item for item in state.items if item.key == "entity").status == "diagnostic"
     assert "host" in state.missing
     assert state.provenance["derived_from"] == [
         "source_evidence",
@@ -95,15 +97,17 @@ def test_blocked_and_stale_and_invalidated_are_not_usable() -> None:
     assert "rag" in state.missing
 
 
-def test_executed_status_records_spl_and_mcp_items() -> None:
+def test_execution_status_without_source_evidence_is_diagnostic_only() -> None:
     state = derive_minimal_evidence_state(
         evidence_plan={"needs_spl": True, "needs_mcp": True, "mcp_allowed": True},
         execution={"status": "executed"},
     )
-    assert "spl" in state.obtained
-    assert "mcp" in state.obtained
-    assert {item.key for item in state.items} >= {"spl", "mcp"}
-    assert next(item for item in state.items if item.key == "spl").status == "obtained"
+    assert state.obtained == []
+    assert set(state.missing) == {"spl", "mcp"}
+    assert "execution_status" in state.diagnostic
+    execution_item = next(item for item in state.items if item.key == "execution_status")
+    assert execution_item.status == "diagnostic"
+    assert execution_item.scope == {"status": "executed"}
 
 
 def test_generated_candidate_spl_is_non_authoritative() -> None:
@@ -120,4 +124,5 @@ def test_generated_candidate_spl_is_non_authoritative() -> None:
     )
     item = next(item for item in state.items if item.key == "candidate_spl")
     assert item.trust_class == "non_authoritative_generated"
-    assert item.status == "obtained"
+    assert item.status == "diagnostic"
+    assert "candidate_spl" not in state.obtained

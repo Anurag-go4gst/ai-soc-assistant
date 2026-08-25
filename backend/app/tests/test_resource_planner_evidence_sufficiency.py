@@ -27,6 +27,7 @@ def test_sufficient_when_required_evidence_is_obtained() -> None:
                 "source_type": "splunk_mcp",
                 "source_name": "splunk_soc",
                 "collection_status": "collected",
+                "result_count": 1,
                 "fields_returned": ["user"],
             }
         ],

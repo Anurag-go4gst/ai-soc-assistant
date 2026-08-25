@@ -52,6 +52,7 @@ def test_matching_geo_and_time_remain_reusable_without_account_conflict() -> Non
                 "evidence_id": "ev_vpn",
                 "source_type": "splunk_mcp",
                 "collection_status": "collected",
+                "result_count": 1,
             }
         ],
         evidence_plan={"needs_mcp": True, "mcp_allowed": True, "required_evidence_keys": ["mcp"]},
