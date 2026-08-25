@@ -29,7 +29,7 @@ export function InvestigationOutcomeCard({ outcome, progress = [], runStatus }: 
   return (
     <section
       aria-label="Investigation conclusion"
-      className="max-w-[68ch] rounded-xl border border-cyan-400/25 bg-slate-950/70 p-4 text-sm text-slate-100 shadow-sm"
+      className="w-full min-w-0 rounded-xl border border-cyan-400/25 bg-slate-950/70 p-4 text-sm text-slate-100 shadow-sm"
     >
       <div className="flex flex-wrap items-center gap-2">
         <SearchCheck className="h-4 w-4 text-cyan-300" />

@@ -79,7 +79,7 @@ export function AnswerFeedbackControls({ turnId, traceId }: AnswerFeedbackContro
   })();
 
   return (
-    <div className="max-w-[68ch] rounded-lg border border-slate-800/70 bg-slate-950/45 p-2.5">
+    <div className="w-full min-w-0 rounded-lg border border-slate-800/70 bg-slate-950/45 p-2.5">
       <div className="flex flex-wrap items-center gap-2">
         {statusBadge}
         <div className="ml-auto flex items-center gap-1">

@@ -9,6 +9,7 @@ import { ChatInput } from './ChatInput';
 import { DemoScenarioPicker } from './DemoScenarioPicker';
 import { StarterPrompts } from './StarterPrompts';
 import { cn } from '@/lib/utils';
+import { newClientId } from '@/lib/id';
 import { isClearChatCommand } from '@/lib/chatCommands';
 import {
   type ChatProgressEvent,
@@ -402,7 +403,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     reviewOptions?: ChatReviewOptions;
   }) => {
     const epoch = investigationEpochRef.current;
-    const progressId = `progress-${crypto.randomUUID()}`;
+    const progressId = `progress-${newClientId()}`;
     const { demoMode, fetcher, userMessage, reviewOptions, demoScenarioId } = options;
     const builtSteps = buildInvestigationProgressSteps({
       expectedSkill: options.expectedSkill,
@@ -566,7 +567,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
   }, [handleClear]);
 
   const handleExecutionReview = async (payload: ChatExecutionReviewOptions, label: string) => {
-    const userMessage: SocChatMessage = { id: crypto.randomUUID(), role: 'user', content: label };
+    const userMessage: SocChatMessage = { id: newClientId(), role: 'user', content: label };
     setMessages((current) => [...current, userMessage]);
     await runStagedInvestigation({ demoMode: false, userMessage: label, reviewOptions: payload });
   };
@@ -576,7 +577,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     label: string,
     originalQuery: string,
   ) => {
-    const userMessage: SocChatMessage = { id: crypto.randomUUID(), role: 'user', content: label };
+    const userMessage: SocChatMessage = { id: newClientId(), role: 'user', content: label };
     setMessages((current) => [...current, userMessage]);
     await runStagedInvestigation({ demoMode: false, userMessage: originalQuery, reviewOptions: payload });
   };
@@ -586,7 +587,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     label: string,
     originalQuery: string,
   ) => {
-    const userMessage: SocChatMessage = { id: crypto.randomUUID(), role: 'user', content: label };
+    const userMessage: SocChatMessage = { id: newClientId(), role: 'user', content: label };
     setMessages((current) => [...current, userMessage]);
     await runStagedInvestigation({ demoMode: false, userMessage: originalQuery, reviewOptions: payload });
   };
@@ -596,7 +597,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
       handleClear();
       return;
     }
-    const userMessage: SocChatMessage = { id: crypto.randomUUID(), role: 'user', content: message };
+    const userMessage: SocChatMessage = { id: newClientId(), role: 'user', content: message };
     lastUserMessageRef.current = message;
     setMessages((current) => [...current, userMessage]);
     await runStagedInvestigation({ demoMode: false, userMessage: message });
@@ -618,7 +619,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
 
   const handleRunDemo = async (scenario: DemoScenarioSummary) => {
     const userMessage: SocChatMessage = {
-      id: crypto.randomUUID(),
+      id: newClientId(),
       role: 'user',
       content: scenario.query,
     };

@@ -162,6 +162,19 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
         {showFullAnswer && message.trace?.planning_outcome ? (
           <PlanningOutcomeBanner outcome={message.trace.planning_outcome} />
         ) : null}
+        {showFullAnswer && message.trace?.analyst_response ? (
+          <div className="w-full min-w-0 space-y-2">
+            {message.trace.human_review?.sop_reference ? (
+              <div className="max-w-[72ch] rounded-lg border border-cyan-500/25 bg-cyan-500/[0.06] px-3 py-2 text-xs text-cyan-100">
+                Governed citation: <span className="font-mono">{message.trace.human_review.sop_reference}</span>
+              </div>
+            ) : null}
+            <AnalystResponseCard
+              response={message.trace.analyst_response}
+              foundationSecGovernance={message.trace.foundation_sec_governance}
+            />
+          </div>
+        ) : null}
         {showFullAnswer && message.trace?.investigation_approval ? (
           <InvestigationPlanApprovalCard
             approval={message.trace.investigation_approval}
@@ -191,21 +204,8 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
         {showFullAnswer && message.trace?.ec_visual_lanes ? (
           <EcVisualLanesPanel lanes={message.trace.ec_visual_lanes} />
         ) : null}
-        {showFullAnswer && message.trace?.analyst_response ? (
-          <>
-            {message.trace.human_review?.sop_reference ? (
-              <div className="max-w-[68ch] rounded-lg border border-cyan-500/25 bg-cyan-500/[0.06] px-3 py-2 text-xs text-cyan-100">
-                Governed citation: <span className="font-mono">{message.trace.human_review.sop_reference}</span>
-              </div>
-            ) : null}
-            <AnalystResponseCard
-              response={message.trace.analyst_response}
-              foundationSecGovernance={message.trace.foundation_sec_governance}
-            />
-          </>
-        ) : null}
         {showFullAnswer && blockedActionState ? (
-          <div className="max-w-[68ch] rounded-xl border border-amber-400/40 bg-amber-500/[0.10] px-4 py-3 text-sm text-amber-50 shadow-sm">
+          <div className="w-full min-w-0 max-w-[72ch] rounded-xl border border-amber-400/40 bg-amber-500/[0.10] px-4 py-3 text-sm text-amber-50 shadow-sm">
             <div className="flex flex-wrap items-center gap-2 font-semibold">
               <ShieldAlert className="h-4 w-4 text-amber-300" />
               <span>Containment blocked</span>

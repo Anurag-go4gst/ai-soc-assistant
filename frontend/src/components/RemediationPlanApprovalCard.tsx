@@ -44,7 +44,7 @@ export function RemediationPlanApprovalCard({
 
   return (
     <section
-      className="max-w-[72ch] rounded-xl border border-amber-400/35 bg-slate-950/80 p-4 text-sm text-slate-100 shadow-sm"
+      className="w-full min-w-0 rounded-xl border border-amber-400/35 bg-slate-950/80 p-4 text-sm text-slate-100 shadow-sm"
       aria-label="Remediation plan approval"
     >
       <div className="flex flex-wrap items-center gap-2">

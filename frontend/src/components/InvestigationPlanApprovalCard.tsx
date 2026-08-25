@@ -30,7 +30,7 @@ export function InvestigationPlanApprovalCard({
   };
 
   return (
-    <section className="max-w-[72ch] rounded-xl border border-cyan-400/35 bg-slate-950/80 p-4 text-sm text-slate-100 shadow-sm" aria-label="Investigation plan approval">
+    <section className="w-full min-w-0 rounded-xl border border-cyan-400/35 bg-slate-950/80 p-4 text-sm text-slate-100 shadow-sm" aria-label="Investigation plan approval">
       <div className="flex flex-wrap items-center gap-2">
         <ShieldCheck className="h-4 w-4 text-cyan-300" />
         <h3 className="font-semibold text-cyan-100">Investigation plan ready</h3>

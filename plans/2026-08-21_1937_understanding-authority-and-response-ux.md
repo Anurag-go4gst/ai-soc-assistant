@@ -617,7 +617,7 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     ```
   - **Commit:** one logical commit for P5 only
 
-- [ ] **P6** — UI/UX SOC workspace (P6A–P6D; one phase — do not split)
+- [x] **P6** — UI/UX SOC workspace (P6A–P6D; one phase — do not split)
   - **Do:** One assistant turn owns **ONE** maximum useful SOC answer workspace. Execute the four already-scoped sub-items below as **this single phase**. Do not create extra loop items for UUID, viewport, hierarchy, or responsive work.
 
     ### P6A — COE client-ID compatibility
@@ -744,7 +744,24 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
 
     **COE acceptance for P6A (after the code lands):** over remote HTTP at `http://10.52.1.13:3010/chat` — (1) type a message, (2) Enter/Send, (3) user bubble appears, (4) progress state appears where applicable, (5) browser issues the API request, (6) no `randomUUID` exception in console. Only after this exception is gone may any subsequent network failure be classified as a separate CORS/API-base/Nginx/auth/backend issue.
   - **Depends on:** P5
-  - **Evidence:** _(fill when done)_
+  - **Evidence:**
+    ```
+    P6A: frontend/src/lib/id.ts newClientId(); ChatPanel 6 call sites; id.test.ts 4 cases.
+    rg crypto.randomUUID frontend/src → only id.ts. rg newClientId ChatPanel → import + 6 sites.
+
+    P6B BEFORE card-level ch: InvestigationOutcomeCard 68ch, Remediation 72ch, InvestigationPlan 72ch.
+    AFTER: structured cards use w-full min-w-0; surviving ch only on prose/fallback bubbles
+    (ChatBubble assistant text 68ch, sop citation 72ch, containment banner 72ch).
+
+    P6C: ChatBubble reordered — AnalystResponseCard before investigation/outcome/remediation;
+    technical/provenance remains collapsed at bottom.
+
+    P6D: Mac component/layout audit via npm test (109) + build PASS.
+    Viewport screenshot matrix: DEFERRED_TO_POST_PROMOTION_COE_ACCEPTANCE (Mac-only P7-P8 loop).
+    Remote COE HTTP UUID check: DEFERRED_TO_POST_PROMOTION_COE_ACCEPTANCE.
+
+    FRONTEND: npm test 109 passed, npm run build PASS.
+    ```
   - **Commit:** one logical commit for P6 only
 
 - [ ] **P7** — Full regression + Mac end-to-end / UI acceptance
