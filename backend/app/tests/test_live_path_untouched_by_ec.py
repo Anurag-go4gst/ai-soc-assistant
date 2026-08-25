@@ -146,7 +146,17 @@ def test_ec_changes_stay_within_allowlist() -> None:
 # cannot call MCP. It imports no EC/demo authority and changes no write/remediation
 # authority. The baseline is pinned to 615069e6, not HEAD. All future protected
 # edits still require STOP plus explicit operator approval.
-RACES_BASELINE_SHA = "615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2"
+# Advanced to 5921f1d0cf569695db97ef0fd277ffdac8ec5338 after explicit operator
+# approval of P2-FINAL-RQC-PIPELINE-WIRING and P2-FINAL-RQC-RACES-BASELINE. The
+# protected pipeline.py change only forwards the already-governed Final RQC into
+# existing SPL authoring producers (utility authoring and generate_llm_spl_via_plan).
+# It does not change RQC construction, routing, T1-T4 merge order, execution
+# eligibility, MCP, AUTH0, HIL, RBAC, write/remediation, or EC/demo authority.
+# Candidate SPL remains non-executable; missing/malformed RQC still degrades.
+# The freeze detector observed backend/app/chat/pipeline.py vs 615069e6 before
+# this advancement. The baseline is pinned to 5921f1d0, not HEAD. All future
+# protected edits still require STOP plus explicit operator approval.
+RACES_BASELINE_SHA = "5921f1d0cf569695db97ef0fd277ffdac8ec5338"
 
 
 def _git_name_only(rev_range: str) -> list[str]:
