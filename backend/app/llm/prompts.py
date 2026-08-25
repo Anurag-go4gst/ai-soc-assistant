@@ -1,8 +1,29 @@
 """Prompt contracts for the governed LLM layer.
 
-These contracts are documentation/configuration only in Stage 3J-B/3J-C/3J-I.3. They
-are not executed by the runtime and must not be used to bypass deterministic
+These contracts ARE consumed at runtime and must not be used to bypass deterministic
 routing, validation, synthesis, answer guard, or MCP execution gates.
+
+Corrected 2026-08-25 (P4 PP3). The previous docstring said these were
+"documentation/configuration only ... not executed by the runtime", which stopped
+being true and made every prompt here look consequence-free to edit. Live readers, at
+the time of writing:
+
+* ``app/llm/sidecar_clients.py::_contract_for_role`` -- every sidecar hop
+* ``app/llm/missing_evidence_reasoner.py`` and ``app/llm/mitre_risk_rationale.py``
+  -- both read ``system_instruction`` and both fall back to ``pattern_reasoner``
+* ``app/llm/evidence_observer.py`` -- returns the contract dict directly
+* ``app/llm/hybrid_role_graph.py`` -- reads the contract while planning role nodes
+
+Editing an entry changes what a production model is told. Governed role contracts,
+prompt identity/versioning and hashing live in ``app/llm/policy/``; this module holds
+the system instructions those contracts point at.
+
+Known shape issue, recorded rather than silently fixed: ``mitre_reasoner``,
+``missing_evidence_reasoner`` and ``risk_rationale_reasoner`` are built as dict copies
+of ``pattern_reasoner`` (see the loop below), so they share one base instruction. That
+is the monolithic-prompt shape H-PROMPT-02 tracks. ``app/llm/policy/registry.py`` gives
+each a distinct narrow contract; converging the live strings onto those contracts is a
+behaviour change to blocked roles and needs its own decision.
 """
 
 from __future__ import annotations
