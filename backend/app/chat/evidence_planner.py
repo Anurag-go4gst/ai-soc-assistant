@@ -26,7 +26,10 @@ _VALID_FAMILIES: frozenset[str] = frozenset(
     }
 )
 from app.chat.query_signals import is_live_data_request
-from app.chat.spl_authoring_intent import is_universal_utility_spl_authoring
+from app.chat.spl_authoring_intent import (
+    is_explicit_review_only_spl_authoring,
+    is_universal_utility_spl_authoring,
+)
 from app.config import settings
 from app.planner.resource_plan_authority import apply_test_resource_plan_shadow_if_allowed
 from app.chat.planning_decision import _apply_completeness_floor
@@ -61,6 +64,33 @@ _CATALOG_PROJECTION_WHEN_INACTIVE = frozenset(
         "endpoint_ransomware_impact_review",
     }
 )
+
+
+def _deterministic_match_path_from_inputs(
+    query_understanding: Any | None,
+    query_to_intent: dict[str, Any] | None,
+) -> str | None:
+    """Resolve catalogue match path when available; None when unknown."""
+    if query_understanding is not None:
+        path = getattr(query_understanding, "deterministic_match_path", None)
+        if isinstance(path, str) and path.strip():
+            return path.strip()
+        if isinstance(query_understanding, dict):
+            path = query_understanding.get("deterministic_match_path")
+            if isinstance(path, str) and path.strip():
+                return path.strip()
+    if isinstance(query_to_intent, dict):
+        qu = query_to_intent.get("query_understanding")
+        if isinstance(qu, dict):
+            path = qu.get("deterministic_match_path")
+            if isinstance(path, str) and path.strip():
+                return path.strip()
+        prov = query_to_intent.get("routing_provenance")
+        if isinstance(prov, dict):
+            path = prov.get("deterministic_match_path")
+            if isinstance(path, str) and path.strip():
+                return path.strip()
+    return None
 
 
 def plan_evidence(
@@ -503,6 +533,51 @@ def plan_evidence(
                     ],
                 )
             )
+        # Explicit review-only SPL authoring for out-of-catalogue Final RQCs only.
+        # Catalogue-matched SPL artifact rows keep the existing live_investigation
+        # path (MCP search eligibility pending validation). Live-data *interest*
+        # alone must not convert an out-of-registry SPL ask into investigation
+        # packaging when MCP/evidence is unavailable.
+        if is_explicit_review_only_spl_authoring(signals if isinstance(signals, dict) else {}):
+            from app.chat.lane_router import is_known_catalogue_match
+
+            match_path = _deterministic_match_path_from_inputs(query_understanding, query_to_intent)
+            # Only relabel explicit SPL authoring when match path is known and
+            # out-of-catalogue. Unknown match path keeps prior live_investigation
+            # planner shape (e.g. unit fixtures without query_understanding).
+            if match_path is not None and not is_known_catalogue_match(match_path):
+                live_interest = is_live_data_request(signals if isinstance(signals, dict) else {})
+                return with_enrichment(
+                    EvidencePlan(
+                        answer_mode="spl_utility_authoring",
+                        rag_phase="post_mcp",
+                        needs_rag=False,
+                        needs_spl=True,
+                        needs_mcp=False,
+                        needs_mitre=False,
+                        spl_allowed=True,
+                        mcp_allowed=False,
+                        mcp_available=live_interest if live_interest else None,
+                        policy_context_required=False,
+                        policy_context_recommended=False,
+                        requires_hil=False,
+                        action_mode="recommend_only",
+                        discovery_allowed=True,
+                        reasons=[
+                            "explicit_spl_authoring_review_only",
+                            *(
+                                ["live_data_interest_not_investigation_product"]
+                                if live_interest
+                                else []
+                            ),
+                        ],
+                        answer_rules=[
+                            "render_spl_first",
+                            "governance_trace_only",
+                            "no_source_profile_clarification_for_placeholder",
+                        ],
+                    )
+                )
         live_data_request = is_live_data_request(signals if isinstance(signals, dict) else {})
         # Least privilege for out-of-catalogue work. The 2026-07 all-tier MCP grant was
         # written as `live_data_request and control_plane_enabled`; canonical cutover
@@ -517,9 +592,8 @@ def plan_evidence(
         # evaluate_mcp_execution) is unchanged and still applies on top.
         from app.chat.lane_router import is_known_catalogue_match
 
-        catalogue_matched = is_known_catalogue_match(
-            str(getattr(query_understanding, "deterministic_match_path", "") or "")
-        )
+        match_path = _deterministic_match_path_from_inputs(query_understanding, query_to_intent)
+        catalogue_matched = bool(match_path and is_known_catalogue_match(match_path))
         mcp_authorised = live_data_request and catalogue_matched
         return with_enrichment(
             EvidencePlan(

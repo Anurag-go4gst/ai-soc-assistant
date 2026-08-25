@@ -63,6 +63,21 @@ def is_universal_utility_spl_authoring(query: str, signals: dict[str, Any]) -> b
     return True
 
 
+def is_explicit_review_only_spl_authoring(signals: dict[str, Any] | None) -> bool:
+    """True for explicit SPL-authoring asks that must stay review-only products.
+
+    Broader than :func:`is_universal_utility_spl_authoring` (no "universal" keyword
+    required). Live-data *interest* may still be present; that alone must not convert
+    the product into an investigation lifecycle. Execute / contain signals disqualify.
+    """
+    payload = signals if isinstance(signals, dict) else {}
+    if not payload.get("explicit_spl_authoring"):
+        return False
+    if _spl_authoring_unsafe_signals(payload):
+        return False
+    return True
+
+
 def universal_utility_skeleton_confirmed(query: str) -> bool:
     """True when the deterministic lab family for this query is universal_timestamp_spl."""
     return match_detection_family(query) == "universal_timestamp_spl"

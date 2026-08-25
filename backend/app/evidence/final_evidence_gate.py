@@ -367,9 +367,14 @@ def apply_final_evidence_gate(
     )
 
     # --- HIL: pass-through OR live-without-execution ------------------------
-    resolved_hil = bool(effective_hil_required) or (
-        bool(route_live_data_request) and not execution_authorized
-    )
+    # SPL-authoring products are review-only artifacts; live-data *interest*
+    # must not invent an investigation-style HIL gate when execution is off.
+    if str(plan_dict.get("answer_mode") or "") == "spl_utility_authoring":
+        resolved_hil = bool(effective_hil_required)
+    else:
+        resolved_hil = bool(effective_hil_required) or (
+            bool(route_live_data_request) and not execution_authorized
+        )
 
     # --- normalized postures ------------------------------------------------
     normalized_mitre_visibility = _normalize_mitre_visibility(
@@ -468,6 +473,10 @@ def _allow_severity_assessment(
     not use that broad count as incident evidence. It requires policy backing,
     explicit execution authorization, or collected environment evidence.
     """
+    # SPL-authoring product mode (review-only artifact) never assesses severity
+    # from live-data interest, zero evidence, or policy co-match alone.
+    if str(evidence_plan.get("answer_mode") or "") == "spl_utility_authoring":
+        return False
     intent_family = str(intent.get("intent_family") or "")
     if policy_backed and intent_family in _POLICY_SEVERITY_FAMILIES:
         return True

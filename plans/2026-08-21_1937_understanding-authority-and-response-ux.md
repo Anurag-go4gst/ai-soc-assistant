@@ -470,7 +470,7 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     ```
   - **Commit:** one logical commit for P2 only
 
-- [ ] **P3** — Final-RQC product applicability
+- [x] **P3** — Final-RQC product applicability
   - **Do:** Final RQC determines product lifecycle — **not** T4 used, MCP unavailable, evidence unavailable, or a live-data signal alone. Generic invariant: **SPL authoring ≠ investigation.** A pure review-only SPL request must not become InvestigationOutcome `blocked` + disposition `inconclusive` + a remediation offer merely because MCP/evidence is unavailable. Investigation-shaped Final RQCs still follow the canonical investigation lifecycle. No firewall-specific patch.
 
     AUDIT FIRST the **four** seams below (rev 1 listed only the first three; the fourth is where the blocked status is actually decided):
@@ -482,7 +482,39 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     Make product lifecycle selection depend on Final RQC answer goal / investigation shape. Pure SPL authoring must use review-only SPL composition without InvestigationOutcome `blocked`/`BLOCKED`/remediation. Investigation-shaped RQCs still enter the common investigation lifecycle regardless of T1–T3 vs T4 understanding path.
   - **Verify:** NEW `app/tests/test_final_rqc_product_applicability.py` including generic coverage for SPL-authoring shaped RQC (no InvestigationOutcome investigation_status packaging / no remediation_offer_required by default) and investigation-shaped RQC still eligible for outcome; add at least one case entering through `final_evidence_gate` so seam 4 is pinned, not just seam 1. Reproduce the firewall SPL authoring *shape* via signals/fixtures without hardcoding that sentence as a special case. `docker compose exec -T backend python -m pytest app/tests/test_final_rqc_product_applicability.py -q`. `/invariant-check`.
   - **Depends on:** P2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:**
+    ```
+    AUDIT: Root defect — `spl_generation_only` + `explicit_spl_authoring` + out-of-catalogue
+    was mapped to `answer_mode=live_investigation`, then InvestigationOutcome V2 emitted
+    `investigation_status=blocked`, `recommended_next_action=BLOCK`, and remediation offer
+    when MCP/evidence absent. Surrogate signals (T4, live_data_request, zero evidence) were
+    driving investigation packaging instead of Final RQC semantics.
+
+    SEAM REUSED: `is_investigation_shaped_final_rqc()` in `chat/investigation_shaped.py`;
+    added `investigation_outcome_applicable()` wrapper (no second router). Evidence planner
+    maps known out-of-catalogue explicit SPL authoring → `spl_utility_authoring`; catalogue
+    matched SPL rows keep `live_investigation`. Match path resolved via
+    `_deterministic_match_path_from_inputs()` — unknown path preserves prior planner shape.
+
+    CHANGES:
+    - `spl_authoring_intent.py`: `is_explicit_review_only_spl_authoring()`
+    - `evidence_planner.py`: out-of-catalogue explicit SPL → spl_utility_authoring
+    - `final_evidence_gate.py`: spl_utility_authoring skips severity/HIL from live-data
+    - `investigation_outcome.py`: legacy outcome when not investigation_outcome_applicable
+    - `remediation_runtime.py`: skip offer when no investigation_status
+
+    FIREWALL SHAPE PROBE: "create a spl command for checking the firewall activities in
+    last 27 days" → answer_mode=spl_utility_authoring, outcome_applicable=False, no
+    investigation_status / recommended_next_action.
+
+    FOCUSED: `pytest app/tests/test_final_rqc_product_applicability.py -q` → 18 passed.
+    NEIGHBOURS: evidence_planner, final_evidence_gate, investigation_outcome, t4 suites,
+    pipeline_dispatch_phase2b, control_plane_golden, llm_plan_validator → PASS.
+    FULL HOST VENV: 6113 passed, 20 failed (same 20 as P2: 14 postgres integration +
+    5 migration_readiness + 1 macOS GitHub skill factory). Zero unexplained regressions.
+    invariant-check: PASS (no pipeline.py, no new MCP/execution paths, no new flags).
+    architecture.md vs 49c5a494: unchanged. pipeline.py: untouched. git diff --check: clean.
+    ```
   - **Commit:** one logical commit for P3 only
 
 - [ ] **P4** — Deterministic understanding provenance

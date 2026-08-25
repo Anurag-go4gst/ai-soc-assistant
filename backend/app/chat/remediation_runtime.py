@@ -146,6 +146,11 @@ def maybe_attach_remediation_offer(state: dict[str, Any]) -> dict[str, Any]:
     if not settings.ai_soc_remediation_planner_enabled:
         return state
     outcome = _as_dict(state.get("investigation_outcome"))
+    # InvestigationOutcome V2 packages investigation_status only when the Final RQC
+    # is investigation-shaped. Non-investigation products (SPL authoring, etc.) must
+    # not receive a remediation CTA merely because an outcome dict is present.
+    if not outcome.get("investigation_status"):
+        return state
     if not outcome.get("remediation_offer_required"):
         return state
     if str(outcome.get("investigation_status") or "") == "cancelled":

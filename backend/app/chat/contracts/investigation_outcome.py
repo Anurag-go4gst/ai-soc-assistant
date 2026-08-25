@@ -11,6 +11,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from app.actions.capability_policy import ActionCapability, BLOCKED_EXECUTION_ACTIONS
+from app.chat.investigation_shaped import investigation_outcome_applicable
 
 SCHEMA_VERSION = "investigation_outcome_v1"
 SCHEMA_VERSION_V2 = "investigation_outcome_v2"
@@ -146,28 +147,43 @@ def derive_investigation_outcome(
         },
     }
     if outcome_v2_enabled:
-        common["disposition"] = "inconclusive" if disposition == "blocked" else disposition
-        outcome: InvestigationOutcome | InvestigationOutcomeV2 = InvestigationOutcomeV2(
-            investigation_status=_investigation_status(
-                sufficiency=sufficiency,
-                context=context,
-                review=review,
-                run_status=run_status,
-                approval=approval,
-            ),
-            limitations=_limitations(
-                missing=missing,
-                context=context,
-                run_status=run_status,
-            ),
-            recommended_next_action=_recommended_next_action(
-                sufficiency=sufficiency,
-                run_status=run_status,
-            ),
-            remediation_offer_required=not _rqc_requests_remediation(resolved_query)
-            and str(approval.get("status") or "") != "cancelled",
-            **common,
-        )
+        # Final RQC product applicability: InvestigationOutcome V2 (investigation_status,
+        # remediation_offer_required, recommended_next_action) applies only to
+        # investigation-shaped Final RQCs. SPL authoring / knowledge / MITRE-only
+        # products must not inherit blocked/incomplete investigation packaging merely
+        # because MCP/evidence is unavailable or T4 ran.
+        if not investigation_outcome_applicable(resolved_query_contract=resolved_query):
+            if disposition == "blocked":
+                common["disposition"] = "inconclusive"
+            common["provenance"] = {
+                **common["provenance"],
+                "investigation_outcome_applicable": False,
+                "investigation_outcome_suppressed_reason": "final_rqc_not_investigation_shaped",
+            }
+            outcome = InvestigationOutcome(**common)
+        else:
+            common["disposition"] = "inconclusive" if disposition == "blocked" else disposition
+            outcome = InvestigationOutcomeV2(
+                investigation_status=_investigation_status(
+                    sufficiency=sufficiency,
+                    context=context,
+                    review=review,
+                    run_status=run_status,
+                    approval=approval,
+                ),
+                limitations=_limitations(
+                    missing=missing,
+                    context=context,
+                    run_status=run_status,
+                ),
+                recommended_next_action=_recommended_next_action(
+                    sufficiency=sufficiency,
+                    run_status=run_status,
+                ),
+                remediation_offer_required=not _rqc_requests_remediation(resolved_query)
+                and str(approval.get("status") or "") != "cancelled",
+                **common,
+            )
     else:
         outcome = InvestigationOutcome(**common)
     return apply_llm_outcome_proposal(outcome, llm_proposal)

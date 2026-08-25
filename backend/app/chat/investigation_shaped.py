@@ -113,3 +113,45 @@ def is_investigation_shaped_final_rqc(
         return True
 
     return False
+
+
+def investigation_outcome_applicable(
+    *,
+    resolved_query_contract: dict[str, Any] | Any | None = None,
+    primary_skill: str | None = None,
+    intent_classification: dict[str, Any] | None = None,
+    query_understanding: Any | None = None,
+) -> bool:
+    """Whether InvestigationOutcome V2 packaging applies to this Final RQC.
+
+    Reuses :func:`is_investigation_shaped_final_rqc` — no second product router.
+    When no Final-RQC semantics are available (legacy callers / unit fixtures),
+    keep prior packaging behavior so outcome derivation stays backward-compatible.
+    Explicit non-investigation RQCs (e.g. SPL authoring) must not receive
+    ``investigation_status`` / remediation-offer packaging merely because T4 ran,
+    MCP was unavailable, or evidence was empty.
+
+    ``answer_goal`` in the investigation vocabulary is sufficient for outcome
+    packaging even when capability sets are still empty (contingent remediation
+    asks often carry ``live_results`` before MCP capability is filled).
+    """
+    rqc = _as_dict(resolved_query_contract)
+    intent = intent_classification if isinstance(intent_classification, dict) else {}
+    has_product_semantics = bool(
+        str(rqc.get("intent_family") or "").strip()
+        or str(rqc.get("answer_goal") or "").strip()
+        or str(intent.get("intent_family") or intent.get("primary_intent") or "").strip()
+        or str(primary_skill or "").strip()
+        or query_understanding is not None
+    )
+    if not has_product_semantics:
+        return True
+    answer_goal = str(rqc.get("answer_goal") or "").strip()
+    if answer_goal in INVESTIGATION_ANSWER_GOALS:
+        return True
+    return is_investigation_shaped_final_rqc(
+        resolved_query_contract=rqc,
+        primary_skill=primary_skill,
+        intent_classification=intent,
+        query_understanding=query_understanding,
+    )
