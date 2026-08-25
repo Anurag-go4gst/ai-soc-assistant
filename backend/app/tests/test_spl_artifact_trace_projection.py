@@ -64,7 +64,7 @@ def test_lab_preview_path_projects_cleanly() -> None:
     assert summary["review_only"] is True
 
 
-def test_llm_failover_projects_advisory_only() -> None:
+def test_unsubstantiated_llm_fallback_flags_do_not_create_an_artifact() -> None:
     summary = build_spl_artifact_handoff_summary(
         candidate_spl={
             "generation_mode": "llm_fallback",
@@ -78,6 +78,27 @@ def test_llm_failover_projects_advisory_only() -> None:
             "llm_fallback_status": "lab_candidate",
         },
     )
-    assert summary["spl_artifact_status"] == "llm_failover_advisory"
-    assert summary["llm_failover_used"] is True
+    assert summary["spl_artifact_status"] == "no_spl_artifact"
+    assert summary["artifact_present"] is False
+    assert summary["artifact_review_required"] is False
+    assert summary["llm_failover_used"] is False
     assert summary["execution_eligible"] is False
+
+
+def test_attempted_llm_timeout_with_deterministic_artifact_is_review_only_fallback() -> None:
+    summary = build_spl_artifact_handoff_summary(
+        candidate_spl={
+            "generation_mode": "deterministic_lab_draft",
+            "candidate_spl": "search index=auth | stats count",
+            "execution_eligible": False,
+            "utility_spl_draft_trace": {
+                "llm_spl_draft_requested": True,
+                "llm_spl_draft_timed_out": True,
+                "deterministic_skeleton_used": True,
+            },
+        },
+        spl_validation={"approved": False},
+    )
+    assert summary["artifact_present"] is True
+    assert summary["artifact_review_required"] is True
+    assert summary["deterministic_fallback_used"] is True

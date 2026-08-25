@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.spl.spl_provenance_trace import (
+    build_spl_llm_lifecycle,
     build_spl_provenance_summary,
     fallback_reason,
     llm_failover_used_factual,
@@ -66,8 +67,14 @@ def build_spl_artifact_handoff_summary(
         and not t2_native
     )
 
+    artifact_present = bool(
+        str(candidate.get("candidate_spl") or "").strip()
+        or str(preview.get("draft_spl") or "").strip()
+        or str(validation.get("normalized_spl") or "").strip()
+        or t2_native
+    )
     execution_eligible = bool(candidate.get("execution_eligible"))
-    review_only = not execution_eligible
+    review_only = bool(artifact_present and not execution_eligible)
 
     if generation_mode == "clarification_required":
         status = "clarification_required"
@@ -96,8 +103,14 @@ def build_spl_artifact_handoff_summary(
     ).strip() or None
 
     provenance = build_spl_provenance_summary(candidate, validation, budget_records=None)
+    lifecycle = build_spl_llm_lifecycle(
+        candidate_spl=candidate,
+        spl_validation=validation,
+        budget_records=None,
+    )
 
     return {
+        "trace_schema_version": lifecycle["schema_version"],
         "spl_artifact_status": status,
         "spl_artifact_source": artifact_source,
         "candidate_provider": provider or None,
@@ -110,6 +123,8 @@ def build_spl_artifact_handoff_summary(
         "llm_candidate_generated": provenance.get("llm_candidate_generated"),
         "fallback_reason": fallback_reason(candidate) or provenance.get("fallback_reason"),
         "validator_status": validator_status,
+        "artifact_present": artifact_present,
+        "artifact_review_required": review_only,
         "review_only": review_only,
         "execution_eligible": execution_eligible,
         "must_not_execute_reason": must_not_execute_reason,

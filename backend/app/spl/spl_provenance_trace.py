@@ -4,6 +4,18 @@ from __future__ import annotations
 
 from typing import Any
 
+TRACE_LIFECYCLE_SCHEMA_VERSION = "trace_lifecycle_v1"
+TRACE_LIFECYCLE_STATES = (
+    "PLANNED",
+    "ATTEMPTED",
+    "RESPONSE_RECEIVED",
+    "ACCEPTED",
+    "USED",
+    "FALLBACK",
+    "FAILED",
+    "SKIPPED",
+)
+
 _DETERMINISTIC_SPL_PROVIDERS = frozenset({
     "deterministic_lab_draft",
     "deterministic_skeleton",
@@ -72,13 +84,25 @@ def spl_artifact_source(
 def llm_candidate_generated(candidate: dict[str, Any] | None) -> bool:
     candidate = candidate if isinstance(candidate, dict) else {}
     source = spl_artifact_source(candidate)
-    return source in {"live_llm", "bounded_llm_repair"}
+    utility = _utility_trace(candidate)
+    artifact_present = bool(
+        str(candidate.get("candidate_spl") or "").strip()
+        or utility.get("llm_spl_draft_used")
+    )
+    return artifact_present and source in {"live_llm", "bounded_llm_repair"}
 
 
 def deterministic_fallback_used(candidate: dict[str, Any] | None) -> bool:
     candidate = candidate if isinstance(candidate, dict) else {}
+    if not candidate:
+        return False
+    utility = _utility_trace(candidate)
+    artifact_present = bool(
+        str(candidate.get("candidate_spl") or "").strip()
+        or utility.get("deterministic_skeleton_used")
+    )
     source = spl_artifact_source(candidate)
-    return source == "deterministic_fallback"
+    return artifact_present and source == "deterministic_fallback"
 
 
 def fallback_reason(candidate: dict[str, Any] | None) -> str | None:
@@ -143,16 +167,74 @@ def llm_used_factual(
     spl_validation: dict[str, Any] | None,
     budget_records: list[dict[str, Any]] | None,
 ) -> bool:
-    """True only when at least one real governed LLM endpoint attempt completed."""
-    if llm_live_call_count(budget_records) > 0:
-        return True
+    """True only when a received LLM SPL artifact passed deterministic validation."""
     candidate = candidate_spl if isinstance(candidate_spl, dict) else {}
     validation = spl_validation if isinstance(spl_validation, dict) else {}
     utility = _utility_trace(candidate) or _utility_trace(validation)
-    if utility.get("llm_spl_draft_used"):
-        return True
-    provider = spl_provider_label(candidate, validation)
-    return is_real_llm_spl_provider(provider)
+    response_received = bool(
+        llm_live_call_count(budget_records) > 0
+        or utility.get("llm_spl_draft_completed")
+    )
+    accepted = bool(
+        response_received
+        and llm_candidate_generated(candidate)
+        and validation.get("approved")
+        and validation.get("normalized_spl")
+    )
+    return accepted
+
+
+def build_spl_llm_lifecycle(
+    *,
+    candidate_spl: dict[str, Any] | None,
+    spl_validation: dict[str, Any] | None,
+    budget_records: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Versioned factual lifecycle for the governed LLM SPL authoring hop."""
+    candidate = candidate_spl if isinstance(candidate_spl, dict) else {}
+    validation = spl_validation if isinstance(spl_validation, dict) else {}
+    utility = _utility_trace(candidate) or _utility_trace(validation)
+    records_present = bool(budget_records)
+    planned = bool(
+        records_present
+        or utility.get("llm_spl_draft_enabled")
+        or utility.get("llm_spl_draft_requested")
+        or is_real_llm_spl_provider(spl_provider_label(candidate, validation))
+    )
+    attempted = bool(
+        llm_attempted_from_budget(budget_records)
+        or utility.get("llm_spl_draft_requested")
+    )
+    response_received = bool(
+        llm_live_call_count(budget_records) > 0
+        or utility.get("llm_spl_draft_completed")
+    )
+    accepted = bool(
+        response_received
+        and llm_candidate_generated(candidate)
+        and validation.get("approved")
+        and validation.get("normalized_spl")
+    )
+    used = accepted
+    fallback = bool(attempted and deterministic_fallback_used(candidate))
+    failed = bool(attempted and not response_received)
+    skipped = not attempted
+    flags = {
+        "planned": planned,
+        "attempted": attempted,
+        "response_received": response_received,
+        "accepted": accepted,
+        "used": used,
+        "fallback": fallback,
+        "failed": failed,
+        "skipped": skipped,
+    }
+    states = [state for state in TRACE_LIFECYCLE_STATES if flags[state.lower()]]
+    return {
+        "schema_version": TRACE_LIFECYCLE_SCHEMA_VERSION,
+        "states": states,
+        **flags,
+    }
 
 
 def llm_failover_used_factual(
@@ -210,20 +292,23 @@ def build_spl_provenance_summary(
     candidate = candidate_spl if isinstance(candidate_spl, dict) else {}
     validation = spl_validation if isinstance(spl_validation, dict) else {}
     source = spl_artifact_source(candidate, validation)
+    lifecycle = build_spl_llm_lifecycle(
+        candidate_spl=candidate,
+        spl_validation=validation,
+        budget_records=budget_records,
+    )
     return {
-        "llm_attempted": llm_attempted_from_budget(budget_records) or bool(_utility_trace(candidate).get("llm_spl_draft_requested")),
+        "trace_schema_version": TRACE_LIFECYCLE_SCHEMA_VERSION,
+        "llm_lifecycle": lifecycle,
+        "llm_attempted": lifecycle["attempted"],
         "llm_live_calls": llm_live_call_count(budget_records),
-        "llm_succeeded": llm_live_call_count(budget_records) > 0 or bool(_utility_trace(candidate).get("llm_spl_draft_used")),
+        "llm_succeeded": lifecycle["response_received"],
         "llm_roles": llm_roles_from_budget(budget_records),
         "llm_candidate_generated": llm_candidate_generated(candidate),
         "deterministic_fallback_used": deterministic_fallback_used(candidate),
         "spl_artifact_source": source,
         "fallback_reason": fallback_reason(candidate),
-        "llm_used": llm_used_factual(
-            candidate_spl=candidate,
-            spl_validation=validation,
-            budget_records=budget_records,
-        ),
+        "llm_used": lifecycle["used"],
         "llm_failover_used": llm_failover_used_factual(
             candidate_spl=candidate,
             spl_validation=validation,
