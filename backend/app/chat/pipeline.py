@@ -4092,32 +4092,55 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         hil_required=run_contract.effective_hil_required,
     )
     from app.chat.contracts.investigation_outcome import derive_investigation_outcome
+    from app.chat.investigation_shaped import investigation_outcome_applicable
 
-    investigation_outcome = derive_investigation_outcome(
-        trace_id=trace_id,
-        evidence_state=state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else None,
-        evidence_sufficiency=state.get("evidence_sufficiency")
-        if isinstance(state.get("evidence_sufficiency"), dict)
-        else None,
-        context_sufficiency=context_sufficiency if isinstance(context_sufficiency, dict) else None,
-        final_evidence_gate=gate_payload if isinstance(gate_payload, dict) else None,
-        canonical_facts=state.get("canonical_facts") if isinstance(state.get("canonical_facts"), dict) else None,
-        structured_context=structured_context if isinstance(structured_context, dict) else None,
-        human_review=human_review if isinstance(human_review, dict) else None,
-        severity_label=severity_decision.severity_label,
-        action_capability=action_capability,
-        investigation_run_status=state.get("investigation_run_status")
-        if isinstance(state.get("investigation_run_status"), dict)
-        else None,
-        investigation_approval=state.get("investigation_approval")
-        if isinstance(state.get("investigation_approval"), dict)
-        else None,
+    # Final governed product gate: attach InvestigationOutcome only when the
+    # existing applicability predicate accepts the final evidence/run context.
+    # Not route/skill/SPL-presence alone — utility run shapes stay outcome-free;
+    # investigation-shaped finals keep the outcome package.
+    _routed_skill = None
+    if isinstance(state.get("routed"), dict):
+        _routed_skill = str(state["routed"].get("skill") or "").strip() or None
+    _io_applicable = investigation_outcome_applicable(
         resolved_query_contract=state.get("resolved_query_contract")
         if isinstance(state.get("resolved_query_contract"), dict)
         else None,
-        outcome_v2_enabled=settings.ai_soc_investigation_outcome_v2_enabled,
+        primary_skill=_routed_skill,
+        intent_classification=state.get("intent_classification")
+        if isinstance(state.get("intent_classification"), dict)
+        else None,
+        query_understanding=state.get("query_understanding"),
+        evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
+        context_sufficiency=context_sufficiency if isinstance(context_sufficiency, dict) else None,
     )
-    state = {**state, "investigation_outcome": investigation_outcome.model_dump(mode="json")}
+    if _io_applicable:
+        investigation_outcome = derive_investigation_outcome(
+            trace_id=trace_id,
+            evidence_state=state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else None,
+            evidence_sufficiency=state.get("evidence_sufficiency")
+            if isinstance(state.get("evidence_sufficiency"), dict)
+            else None,
+            context_sufficiency=context_sufficiency if isinstance(context_sufficiency, dict) else None,
+            final_evidence_gate=gate_payload if isinstance(gate_payload, dict) else None,
+            canonical_facts=state.get("canonical_facts") if isinstance(state.get("canonical_facts"), dict) else None,
+            structured_context=structured_context if isinstance(structured_context, dict) else None,
+            human_review=human_review if isinstance(human_review, dict) else None,
+            severity_label=severity_decision.severity_label,
+            action_capability=action_capability,
+            investigation_run_status=state.get("investigation_run_status")
+            if isinstance(state.get("investigation_run_status"), dict)
+            else None,
+            investigation_approval=state.get("investigation_approval")
+            if isinstance(state.get("investigation_approval"), dict)
+            else None,
+            resolved_query_contract=state.get("resolved_query_contract")
+            if isinstance(state.get("resolved_query_contract"), dict)
+            else None,
+            outcome_v2_enabled=settings.ai_soc_investigation_outcome_v2_enabled,
+        )
+        state = {**state, "investigation_outcome": investigation_outcome.model_dump(mode="json")}
+    else:
+        state = {**state, "investigation_outcome": None}
     state = _apply_remediation_lifecycle(state)
     emit_stage("generating_answer")
     close_post_planning_pipeline_phase()
