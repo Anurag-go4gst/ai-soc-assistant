@@ -331,7 +331,34 @@ def _recommended_next_action(
     run_status: dict[str, Any],
 ) -> str | None:
     value = run_status.get("next_action") or sufficiency.get("next_action")
-    return str(value).strip() if value is not None and str(value).strip() else None
+    if value is None or not str(value).strip():
+        return None
+    return _analyst_process_next_action(str(value).strip())
+
+
+_WORKFLOW_CONTROL_NEXT_ACTIONS = frozenset({"BLOCK", "BLOCKED", "DEGRADE", "CLARIFY", "CONTINUE", "CALL_T4"})
+
+
+def _analyst_process_next_action(raw: str) -> str:
+    """Map workflow control vocabulary to analyst process language.
+
+    Workflow BLOCK/BLOCKED is not a security containment recommendation.
+    Governed remediation actions surface separately via remediation_offer.
+    """
+    token = raw.strip().upper()
+    if token in {"BLOCK", "BLOCKED"}:
+        return "Unable to proceed — additional evidence required"
+    if token == "DEGRADE":
+        return "Continue with available evidence"
+    if token == "CLARIFY":
+        return "Clarification required"
+    if token == "CONTINUE":
+        return "Continue investigation"
+    if token == "CALL_T4":
+        return "Semantic understanding required"
+    if token in _WORKFLOW_CONTROL_NEXT_ACTIONS:
+        return "Unable to proceed"
+    return raw
 
 
 def _rqc_requests_remediation(resolved_query: dict[str, Any]) -> bool:

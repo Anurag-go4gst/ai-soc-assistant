@@ -541,10 +541,26 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     Surface under existing “How this answer was produced”.
   - **Verify:** Unit/contract test that provenance fields are present and deterministic for ACCEPT and ABSTAIN→T4 paths, run as `docker compose exec -T backend python -m pytest app/tests/<new_or_owning_file>.py -q`; frontend or lineage consumer test if a UI field is added. Host-side `rg` proves no new telemetry catalog event invented without closed-catalog registration (canonical planning telemetry is a **closed catalog** — `emit_planning_event()` rejects unregistered names, so an unregistered event fails rather than silently passing).
   - **Depends on:** P3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:**
+    ```
+    AUDIT: control_plane_trace already carries redacted resolved_query + semantic_t4
+    status; no dedicated authority-path lines existed for "How this answer was produced".
+
+    IMPLEMENTATION:
+    - backend/app/chat/understanding_provenance.py — build_understanding_provenance()
+      reuses abstain_acceptance(); T4 trace overrides post-merge ACCEPT for ladder display
+    - control_plane_trace.py — attaches understanding_provenance block
+    - frontend UnderstandingProvenancePanel + ChatBubble "How produced" section
+
+    FOCUSED: pytest app/tests/test_understanding_provenance.py → 5 passed
+    NEIGHBOURS: test_final_rqc_product_applicability (18), test_t4_complete_or_abstain (25) → PASS
+    FRONTEND: npm test ChatBubble (2), npm run build → PASS
+    No new telemetry catalog events. No chain-of-thought/prompt fields.
+    architecture.md vs 49c5a494: unchanged. pipeline.py: untouched.
+    ```
   - **Commit:** one logical commit for P4 only
 
-- [ ] **P5** — Response ownership + outcome/remediation semantics
+- [x] **P5** — Response ownership + outcome/remediation semantics
   - **Do:** AUDIT FIRST current composition of `ChatBubble`, `InvestigationOutcomeCard`, `RemediationPlanApprovalCard`, and `AnalystResponseCard`. Final RQC / response profile owns composition. One backend turn must present **ONE** coherent primary answer. Remove fragmented stacking when sections are not applicable.
 
     Fix `ChatBubble` stacking so SPL authoring does not show InvestigationOutcomeCard + local remediation CTA + RemediationPlanApprovalCard + AnalystResponseCard together. Exactly **ONE** authoritative remediation CTA. Prefer backend-governed remediation interaction. Remove or demote the **local** OutcomeCard remediation Yes/Not-now so only backend-governed `RemediationPlanApprovalCard` is authoritative when remediation applies. Do not leave a cosmetic/local React CTA that appears authoritative. Confirmed target: `InvestigationOutcomeCard.tsx` line 17 holds purely local `useState<'yes' | 'not_now' | null>` driving the CTA block at lines 88–108 — local UI state with no backend authority, which is the duplication to remove. Note line 18 already short-circuits (`if (!outcome.investigation_status) return null`), so a correct P3 backend fix makes the card self-hide; P5 should rely on that rather than adding a frontend denylist. Investigation / knowledge / remediation profiles remain governed.
@@ -585,7 +601,20 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     Change the display-label mapping, not the backend literal. If a backend rename ever looks necessary → STOP (new authority decision).
   - **Verify:** Frontend tests for composition by profile; backend packaging tests that SPL-authoring turns omit `investigation_outcome.investigation_status` and remediation_approval when not applicable. `cd frontend && npm test -- ChatBubble` (script is `vitest run`; owning file `src/components/ChatBubble.progress.test.tsx` — extend it or add a sibling). `cd frontend && npm run build`. Host-side `rg -n 'investigation_status|BLOCKED' backend/app/chat/contracts/investigation_outcome.py` shows the contract literals **unchanged**. NEW test proving a blocked/degraded investigation cannot produce a containment-looking user-facing recommendation derived solely from sufficiency/run-status control vocabulary: drive `derive_investigation_outcome` with `sufficiency.status="BLOCKED"` / `next_action="BLOCK"` (and the `run_status.next_action` variant, since it takes precedence in the `or`) and assert `recommended_next_action` is not the raw control token and contains no containment verb. Assert the same for `DEGRADE`/`CLARIFY`. Assert the governed remediation path is still able to recommend real containment when authorized — this must not become a blanket keyword ban. Run: `../.venv/bin/python -m pytest app/tests/<new_file>.py -q` (or the container form). Frontend assertion that no raw control token renders in the outcome card. `/invariant-check`.
   - **Depends on:** P3, P4
-  - **Evidence:** _(fill when done)_
+  - **Evidence:**
+    ```
+    BACKEND: investigation_outcome._analyst_process_next_action maps BLOCK/BLOCKED/DEGRADE/
+    CLARIFY/CONTINUE/CALL_T4 to analyst process language; non-control tokens preserved.
+    FRONTEND: removed local InvestigationOutcomeCard Yes/Not-now remediation CTA;
+    RemediationPlanApprovalCard remains sole governed remediation control.
+    Added frontend/src/lib/workflowNextAction.ts for display parity.
+
+    FOCUSED: pytest test_investigation_outcome_workflow_vocabulary.py → 5 passed
+    NEIGHBOURS: test_final_rqc_product_applicability (18), test_p8_investigation_outcome_v2 → PASS
+    FRONTEND: InvestigationOutcomeCard (6), workflowNextAction (2), ChatBubble (2), build → PASS
+    Contract literals unchanged (SufficiencyNextAction still includes BLOCK).
+    architecture.md / pipeline.py untouched.
+    ```
   - **Commit:** one logical commit for P5 only
 
 - [ ] **P6** — UI/UX SOC workspace (P6A–P6D; one phase — do not split)

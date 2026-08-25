@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from 'react';
-import { AlertTriangle, CheckCircle2, CircleSlash2, SearchCheck } from 'lucide-react';
+import { type ReactNode } from 'react';
+import { AlertTriangle, CheckCircle2, SearchCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { formatAnalystNextAction } from '@/lib/workflowNextAction';
 import type {
   InvestigationOutcomeEnvelope,
   InvestigationProgressEvent,
@@ -14,7 +15,6 @@ interface InvestigationOutcomeCardProps {
 }
 
 export function InvestigationOutcomeCard({ outcome, progress = [], runStatus }: InvestigationOutcomeCardProps) {
-  const [remediationChoice, setRemediationChoice] = useState<'yes' | 'not_now' | null>(null);
   if (!outcome.investigation_status) return null;
 
   const progressItems = asArray<InvestigationProgressEvent>(progress);
@@ -81,37 +81,9 @@ export function InvestigationOutcomeCard({ outcome, progress = [], runStatus }: 
       {(outcome.recommended_next_action || runStatus?.next_action) ? (
         <div className="mt-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] px-3 py-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-cyan-200">Recommended next action</p>
-          <p className="mt-1 text-sm text-slate-200">{humanize(outcome.recommended_next_action ?? runStatus?.next_action ?? '')}</p>
-        </div>
-      ) : null}
-
-      {outcome.remediation_offer_required ? (
-        <div className="mt-4 border-t border-slate-800 pt-4">
-          <p className="font-medium">Create remediation plan?</p>
-          {remediationChoice === null ? (
-            <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                className="rounded-md bg-cyan-400 px-3 py-1.5 text-xs font-semibold text-slate-950"
-                onClick={() => setRemediationChoice('yes')}
-              >
-                Yes
-              </button>
-              <button
-                type="button"
-                className="rounded-md border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200"
-                onClick={() => setRemediationChoice('not_now')}
-              >
-                Not now
-              </button>
-            </div>
-          ) : remediationChoice === 'yes' ? (
-            <p className="mt-2 text-xs text-cyan-100">Remediation planning requires a separately reviewed and approved plan.</p>
-          ) : (
-            <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-400">
-              <CircleSlash2 className="h-3.5 w-3.5" /> No remediation plan was created.
-            </p>
-          )}
+          <p className="mt-1 text-sm text-slate-200">
+            {formatAnalystNextAction(outcome.recommended_next_action ?? runStatus?.next_action ?? '')}
+          </p>
         </div>
       ) : null}
     </section>

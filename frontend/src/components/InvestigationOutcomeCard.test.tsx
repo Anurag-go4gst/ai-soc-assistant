@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { InvestigationOutcomeCard } from '@/components/InvestigationOutcomeCard';
 import type { InvestigationOutcomeEnvelope } from '@/types/api';
@@ -79,12 +79,22 @@ describe('InvestigationOutcomeCard', () => {
     expect(screen.getByText('No matching governed evidence was found for the approved scope.')).toBeInTheDocument();
   });
 
-  it('offers a separate remediation-plan transition without executing an action', () => {
+  it('does not render a local remediation CTA; backend remediation card is authoritative', () => {
     render(<InvestigationOutcomeCard outcome={outcome()} />);
-    expect(screen.getByText('Create remediation plan?')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
-    expect(screen.getByText('Remediation planning requires a separately reviewed and approved plan.')).toBeInTheDocument();
+    expect(screen.queryByText('Create remediation plan?')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Yes' })).not.toBeInTheDocument();
+  });
+
+  it('maps workflow BLOCK next action to process language', () => {
+    render(
+      <InvestigationOutcomeCard
+        outcome={outcome({
+          recommended_next_action: 'Unable to proceed — additional evidence required',
+        })}
+      />,
+    );
+    expect(screen.getByText('Unable to proceed — additional evidence required')).toBeInTheDocument();
+    expect(screen.queryByText('BLOCK')).not.toBeInTheDocument();
   });
 
   it('omits the remediation ask when the governed outcome says it was already requested', () => {
