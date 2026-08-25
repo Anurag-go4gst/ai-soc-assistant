@@ -138,15 +138,15 @@ def test_ec_changes_stay_within_allowlist() -> None:
 # app/demo/ file, so it is production SPL governance work rather than RACES/EC work.
 # Operator-approved for this commit only; later protected-file changes are NOT blessed,
 # which is why the baseline is pinned to 3a5f5001 and not to HEAD.
-# Advanced to cd271f22be417cf4048bb5dcf2b763ed95202288 (fix(ui): normalize SOC answer
-# workspace), the only commit since 3a5f5001 that modified a protected freeze path.
-# Audited before approval: the ChatPanel.tsx change is P6A client-correlation-ID only —
-# import/use shared newClientId() and replace six crypto.randomUUID() call sites. No
-# /chat authority, routing, request semantics, auth/session logic, execution control, or
-# backend change. No other RACES-protected path changed in 3a5f5001..cd271f22.
-# Operator-approved for this commit only; later protected edits still require STOP +
-# operator approval; the baseline is pinned to cd271f22 and not to HEAD.
-RACES_BASELINE_SHA = "86be6f9fb3ad09adc53038e430fc94e44c1ab671"
+# Advanced to 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2 after P0.1-A review and
+# explicit P0.1-B approval. The protected f1f523cd change binds canonical Splunk
+# arguments into exact-call AUTH0 and reuses them for connector execution, which
+# strengthens mutation and substitution rejection. It does not change execution
+# eligibility or weaken HIL/RBAC; candidate SPL remains non-executable and LLMs
+# cannot call MCP. It imports no EC/demo authority and changes no write/remediation
+# authority. The baseline is pinned to 615069e6, not HEAD. All future protected
+# edits still require STOP plus explicit operator approval.
+RACES_BASELINE_SHA = "615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2"
 
 
 def _git_name_only(rev_range: str) -> list[str]:
