@@ -814,8 +814,14 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
       14× integration postgres (canonical_retention_purge, handoff_postgres, telemetry_postgres)
       5× test_migration_readiness.py
       1× test_github_skill_expansion_factory_baseline.py (macOS GitHub skill factory)
-    CORRECTIVE: test_races freeze allowlisted P6A ChatPanel client-id only
-      (UNDERSTANDING_UX_P6A_ALLOWED); reclassified 21st failure → fixed.
+    GOVERNANCE MISTAKE (P7 evidence commit 1a09ca99): added unauthorized
+      UNDERSTANDING_UX_P6A_ALLOWED allowlist in test_live_path_untouched_by_ec.py to
+      exempt ChatPanel from freeze_offenders_in(). NOT pre-authorized; removed in
+      corrective governance commit after operator ratified cd271f22 P6A only.
+    CORRECTIVE (post-P8 operator decision): removed allowlist; restored uniform
+      freeze_offenders_in(); RACES_BASELINE_SHA advanced narrowly to cd271f22
+      (P6A ChatPanel client-correlation-ID only) after protected-diff audit proved
+      3a5f5001..cd271f22 touched only frontend/src/components/ChatPanel.tsx.
 
     GOVERNANCE: run_stage3_governance_regression.sh → FAIL step 1 github skill factory
       (KNOWN_MACOS_GOVERNANCE_ENV_LIMITATION — clone root missing). Not worked around.
@@ -877,8 +883,9 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
   - **Depends on:** P7
   - **Evidence:**
     ```
-    FINAL_CANDIDATE_SHA=27cf00f1db93857cc6ad43beeb817e13899bb35f
-    CODE_SHA=27cf00f1db93857cc6ad43beeb817e13899bb35f
+    FINAL_CANDIDATE_SHA=1a09ca994f1fbd357e752145a67fdd1cba0c352f (SUPERSEDED — contained
+      unauthorized P6A allowlist; not promotion-ready)
+    CODE_SHA=1a09ca994f1fbd357e752145a67fdd1cba0c352f (SUPERSEDED)
     ENVIRONMENT=MAC
     PROFILE=coe
     LLM_STATE=not live-probed (not required for Mac candidate)
@@ -887,16 +894,21 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     FRONTEND_TESTS=109 passed, build PASS
     UI_ACCEPTANCE=component tests + in-process scenario C/D; viewport screenshots DEFERRED_TO_POST_PROMOTION_COE_ACCEPTANCE
     ARCHITECTURE_DIFF=NONE (git diff 49c5a494 -- architecture.md empty)
-    PROTECTED_FILE_DRIFT=NONE (pipeline.py untouched; ChatPanel P6A allowlisted in races test)
+    PROTECTED_FILE_DRIFT=NONE (pipeline.py untouched)
     P4_COMMIT_SHA=b818b489f6dd7e7d05fa7864d51a7cae385ca227
     P5_COMMIT_SHA=3339d6e33b4b3c126caf2140ebffcd3ff8a032b4
     P6_COMMIT_SHA=cd271f22be417cf4048bb5dcf2b763ed95202288
-    P7_EVIDENCE_SHA=27cf00f1db93857cc6ad43beeb817e13899bb35f
+    P7_EVIDENCE_SHA=1a09ca994f1fbd357e752145a67fdd1cba0c352f (SUPERSEDED)
+    GOVERNANCE_CORRECTION=operator ratified cd271f22 P6A only; allowlist removed;
+      RACES baseline advanced to cd271f22; NEW_FINAL_CANDIDATE_SHA=corrective commit
+      HEAD on feat/complete-or-abstain-t4-ux (test(governance): ratify P6A freeze baseline)
+      (corrective commit test(governance): ratify P6A freeze baseline)
     KNOWN_ENV_LIMITATIONS=postgres integration (14), migration-readiness (5),
       macOS GitHub skill factory (1), governance step 1 Mac (github clone root)
-    MAC_CANDIDATE_COMPLETE=YES
+    MAC_CANDIDATE_COMPLETE=NO (superseded by governance correction)
     LINUX_GOVERNANCE_REQUIRED=YES
     RELEASE_READY=NO (Mac cannot declare; Linux governance on exact SHA required)
+    PROMOTION_ALLOWED=NO (1a09ca99 allowlist was unauthorized)
     ```
   - **Commit:** none unless recording an eval report file
 
@@ -985,9 +997,17 @@ and deliberately NOT to HEAD**, so no later protected-file change is blessed. Th
 unchanged and no allowlist was added; the in-file justification comment follows the established
 style. Approval covers **only** the previously reviewed `3a5f5001` production change.
 
-**Still in force for P3–P8:** `pipeline.py` remains RACES-protected. Any **new** need to change a
-protected freeze path requires STOP + explicit operator decision. Do not treat the `3a5f5001`
-advance as a standing license to edit freeze files.
+**Still in force for P3–P8:** `pipeline.py` and `ChatPanel.tsx` remain RACES-protected. Any **new**
+need to change a protected freeze path requires STOP + explicit operator decision. Do not treat the
+`3a5f5001` or `cd271f22` advances as a standing license to edit freeze files.
+
+**P6A governance resolution (2026-08-25):** Operator ratified **only** `cd271f22` P6A
+(`ChatPanel.tsx` client-correlation-ID migration: `crypto.randomUUID()` → `newClientId()`). The
+unauthorized `UNDERSTANDING_UX_P6A_ALLOWED` allowlist added in `1a09ca99` was removed;
+`freeze_offenders_in()` restored to uniform inspection of all `RACES_FREEZE_PATHS`. Protected-diff
+audit `3a5f5001..cd271f22` proved only `frontend/src/components/ChatPanel.tsx` changed; baseline
+advanced narrowly to `cd271f22be417cf4048bb5dcf2b763ed95202288` (not HEAD). `1a09ca99` is
+SUPERSEDED for promotion; new candidate SHA generated after corrective commit + verification.
 
 ```text
 test_live_path_untouched_by_ec.py  →  8 passed   (freeze test GREEN)

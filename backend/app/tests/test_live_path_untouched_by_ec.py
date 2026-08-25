@@ -138,7 +138,15 @@ def test_ec_changes_stay_within_allowlist() -> None:
 # app/demo/ file, so it is production SPL governance work rather than RACES/EC work.
 # Operator-approved for this commit only; later protected-file changes are NOT blessed,
 # which is why the baseline is pinned to 3a5f5001 and not to HEAD.
-RACES_BASELINE_SHA = "3a5f500104fb7a9ba609fc70aeb4af5894cee2eb"
+# Advanced to cd271f22be417cf4048bb5dcf2b763ed95202288 (fix(ui): normalize SOC answer
+# workspace), the only commit since 3a5f5001 that modified a protected freeze path.
+# Audited before approval: the ChatPanel.tsx change is P6A client-correlation-ID only —
+# import/use shared newClientId() and replace six crypto.randomUUID() call sites. No
+# /chat authority, routing, request semantics, auth/session logic, execution control, or
+# backend change. No other RACES-protected path changed in 3a5f5001..cd271f22.
+# Operator-approved for this commit only; later protected edits still require STOP +
+# operator approval; the baseline is pinned to cd271f22 and not to HEAD.
+RACES_BASELINE_SHA = "cd271f22be417cf4048bb5dcf2b763ed95202288"
 
 
 def _git_name_only(rev_range: str) -> list[str]:
@@ -153,21 +161,11 @@ def _git_name_only(rev_range: str) -> list[str]:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
-# Plan 1937 P6A — frontend client correlation IDs only (newClientId); no /chat authority.
-UNDERSTANDING_UX_P6A_ALLOWED = (
-    "frontend/src/components/ChatPanel.tsx",
-)
-
-
 def freeze_offenders_in(paths: list[str]) -> list[str]:
     return [
         path
         for path in paths
         if any(path == freeze or path.startswith(freeze) for freeze in RACES_FREEZE_PATHS)
-        and not any(
-            path == allowed or path.startswith(f"{allowed}/")
-            for allowed in UNDERSTANDING_UX_P6A_ALLOWED
-        )
     ]
 
 
