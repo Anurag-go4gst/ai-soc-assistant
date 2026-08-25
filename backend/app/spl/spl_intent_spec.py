@@ -108,7 +108,12 @@ _DURATION_UNIT = {
 }
 
 _EVENT_TYPE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\b(failed[\s-]?log(?:in|on)s?|log(?:in|on)\s+fail(?:ure|ed)s?|authentication\s+fail(?:ure|ed)|4625)\b", re.I), "failed_login"),
+    (re.compile(
+        r"\b(failed[\s-]?log(?:in|on)s?|log(?:in|on)\s+fail(?:ure|ed)s?|"
+        r"authentication\s+fail(?:ure|ed)|failed\s+auth(?:entication)?s?|"
+        r"unsuccessful[\s-]?(?:log(?:in|on)|auth(?:entication)?)s?|4625)\b",
+        re.I,
+    ), "failed_login"),
     (re.compile(r"\b(successful[\s-]?log(?:in|on)s?|log(?:in|on)\s+success(?:ful|es)?|4624)\b", re.I), "successful_login"),
     (re.compile(r"\b(password[\s-]?change|password[\s-]?reset|password[\s-]?modif(?:y|ication)|4723|4724)\b", re.I), "password_change"),
     (re.compile(r"\b(account\s+lockouts?|4740)\b", re.I), "account_lockout"),
