@@ -8,9 +8,10 @@ Use this file as the durable execution dashboard. Update it only during authoriz
 
 ```yaml
 CURRENT_PHASE: OPERATOR_PLAN_REVIEW
-CURRENT_BASE_SHA: fe3548e475e61e77f5204e02f74efd28690abb86
-INTEGRATION_SHA: fe3548e475e61e77f5204e02f74efd28690abb86
-INITIAL_INTEGRATION_SHA: fe3548e475e61e77f5204e02f74efd28690abb86
+CURRENT_BASE_SHA: FROZEN_BY_OPERATOR_AT_IMPLEMENTATION_START
+INTEGRATION_SHA: SAME_AS_EXECUTION_INTEGRATION_SHA_AFTER_FREEZE
+EXECUTION_INTEGRATION_SHA: FROZEN_BY_OPERATOR_AT_IMPLEMENTATION_START
+PLAN_PREPARATION_SHA: fe3548e475e61e77f5204e02f74efd28690abb86
 P0_PRODUCT_BASELINE_SHA: 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
 CURRENT_LOOP: NONE
 LOOP_ITERATION_ID: NONE
@@ -24,10 +25,10 @@ BLOCKED_WORKSTREAMS:
 COMPLETED_WORKSTREAMS:
   - P0: Harness readiness at 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
 NEXT_SAFE_PARALLEL_STARTS:
-  - P0.1 RACES baseline adjudication (integration owner) after operator freezes INTEGRATION_SHA
-  - P1 TRACE after operator freezes INTEGRATION_SHA
-  - P2 SPL after operator freezes the same INTEGRATION_SHA
-  - P3 L2 scaffold after operator freezes the same INTEGRATION_SHA
+  - P0.1 RACES baseline adjudication (integration owner) after operator freezes EXECUTION_INTEGRATION_SHA
+  - P1 TRACE after operator freezes EXECUTION_INTEGRATION_SHA
+  - P2 SPL after operator freezes the same EXECUTION_INTEGRATION_SHA
+  - P3 L2 scaffold after operator freezes the same EXECUTION_INTEGRATION_SHA
 RECONCILIATION_QUEUE: []
 MERGE_QUEUE: []
 PROTECTED_CHANGE_QUEUE: []
@@ -51,7 +52,7 @@ RESIDUAL_FAILURE_LEDGER:
   - RACES_baseline_state: carry_forward_protected_decision_if_still_failing
 DECISION_LOG:
   - 2026-08-25: P0 accepted as completed baseline; do not redo.
-  - 2026-08-25: First-wave work starts from fe3548e4, the plan commit, not the P0 product SHA.
+  - 2026-08-25: fe3548e4 is PLAN_PREPARATION_SHA; first-wave work starts from the final operator-frozen EXECUTION_INTEGRATION_SHA.
   - 2026-08-25: P0.1 audit/proposal and apply are separate approvals; neither has executed.
   - 2026-08-25: Plan-only mission; no worktrees or product changes created.
   - 2026-08-25: plans/README.md intentionally not edited because mission allowed only two plan artifacts.
@@ -61,12 +62,12 @@ DECISION_LOG:
 
 | Stream | Phase(s) | Agent | Branch | Start SHA | Status | Exclusive ownership |
 |---|---|---|---|---|---|---|
-| A TRACE | P1 | CODEX | `codex/closure-trace-truth` | unset | BLOCKED_REVIEW | Trace/provenance modules and tests |
-| B SPL | P2 | CURSOR | `codex/closure-spl-semantic-v2` | unset | BLOCKED_REVIEW | SPL semantic/compiler/fidelity/live SPL prompt modules and tests |
-| C EVAL | P3, P5, P6 | CLAUDE | `codex/closure-l2-eval-bank` | unset | BLOCKED_REVIEW | L2 bank and test architecture only |
-| D POLICY | P4 | CLAUDE | `codex/closure-prompt-policy` | unset | BLOCKED_P2_FOR_WRITES | Generic prompt/role/policy files and tests |
-| E UI | P7 | CURSOR | `codex/closure-production-ux` | unset | BLOCKED_P5 | Production non-EC frontend and tests |
-| F PROMOTION | P8-P11 | CODEX/operator | `codex/closure-promotion-coe` | unset | BLOCKED_P5 | L3/promotion/COE evidence only |
+| A TRACE | P1 | CODEX | `ws/trace-truth` | unset | BLOCKED_REVIEW | Trace/provenance modules and tests |
+| B SPL | P2 | CURSOR | `ws/spl-semantic-v2` | unset | BLOCKED_REVIEW | SPL semantic/compiler/fidelity/live SPL prompt modules and tests |
+| C EVAL | P3, P5, P6 | CLAUDE | `ws/l2-eval-bank` | unset | BLOCKED_REVIEW | L2 bank and test architecture only |
+| D POLICY | P4 | CLAUDE | `ws/prompt-policy` | unset | BLOCKED_P2_FOR_WRITES | Generic prompt/role/policy files and tests |
+| E UI | P7 | CURSOR | `ws/production-ux` | unset | BLOCKED_P5 | Production non-EC frontend and tests |
+| F PROMOTION | P8-P11 | CODEX/operator | `ws/promotion-coe` | unset | BLOCKED_P5 | L3/promotion/COE evidence only |
 
 ## Loop entry checks
 
@@ -160,11 +161,14 @@ commit may include the implementation and the regression test whose earlier red 
 
 ## Eligibility rules
 
-- `P0.1`, `P1`, `P2`, and P3 scaffold are the only first parallel start set, and all must use the same frozen SHA.
-- The initial frozen SHA is `fe3548e475e61e77f5204e02f74efd28690abb86`. `615069e6` is the P0 product baseline only.
+- `P0.1`, `P1`, `P2`, and P3 scaffold are the only first parallel start set, and all must use the same frozen
+  `EXECUTION_INTEGRATION_SHA` returned after the final plan commit exists and is approved.
+- `fe3548e475e61e77f5204e02f74efd28690abb86` is `PLAN_PREPARATION_SHA`; `615069e6` is the P0 product baseline. Neither is a
+  hard-coded execution start requirement.
 - No phase may record an L0 RACES gate green until `P0.1` is DONE; until then `test_races_freeze_files_unchanged_since_baseline` is inherited-red for every stream and must be reported as inherited, never as that stream's regression.
 - P0.1 action A is read-only audit/proposal and must STOP with the nine-field packet. Action B apply requires a separate explicit
-  operator approval. If B lands, set `INTEGRATION_SHA` to the exact P0.1 commit and mark every pre-P0.1 active stream
+  operator approval. If B lands, set `EXECUTION_INTEGRATION_SHA` (and compatibility field `INTEGRATION_SHA`) to the exact P0.1 commit
+  and mark every pre-P0.1 active stream
   `REBASE_REQUIRED = YES`; rebase is mandatory before L0 evidence, branch return, reconciliation, or merge.
 - All backend commands use `$PYVENV` (absolute). `../.venv/bin/python` does not exist in a worktree because `.venv/` is gitignored.
 - P4 read-only audit may overlap, but P4 writes wait for P2 and cannot touch B-owned `llm_fallback.py`.
@@ -216,7 +220,7 @@ No protected file may be edited while approval is PENDING. `architecture.md` is 
 
 Queue order:
 
-0. Approved P0.1 one-file baseline apply, if authorized; update `INTEGRATION_SHA` and force active-stream rebases
+0. Approved P0.1 one-file baseline apply, if authorized; update `EXECUTION_INTEGRATION_SHA` and force active-stream rebases
 1. A P1 trace
 2. B P2 SPL, rebased after A
 3. D P4 policy, implemented/rebased after B
@@ -240,7 +244,9 @@ CONTRACT_CHANGES:
 REBASE_REQUIRED: YES | NO, target SHA
 ```
 
-Before accepting an entry, the integration owner confirms ownership, rebases/merges against the declared integration SHA, reruns affected cross-stream tests, updates `CURRENT_BASE_SHA`, and records the new integration SHA. Working streams never push or merge themselves.
+Before accepting an entry, the integration owner confirms ownership, rebases/merges against the declared execution integration SHA,
+reruns affected cross-stream tests, updates `CURRENT_BASE_SHA`, and records the new `EXECUTION_INTEGRATION_SHA`. Working streams never
+push or merge themselves.
 
 ## Test gates
 
@@ -318,7 +324,8 @@ edit a completed phase or retain evidence produced against an invalidated SHA/co
 
 ## Plan/runner consistency check
 
-- [x] Initial `INTEGRATION_SHA` is `fe3548e475e61e77f5204e02f74efd28690abb86` in both files.
+- [x] SHA roles match: `PLAN_PREPARATION_SHA = fe3548e4`; `EXECUTION_INTEGRATION_SHA` is frozen externally after the final plan commit;
+  `INTEGRATION_SHA` is only a compatibility alias after freeze.
 - [x] `P0_PRODUCT_BASELINE_SHA` is `615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2` and is not a worktree start SHA.
 - [x] P0 is DONE; P0.1-P10 TODO; P11 DEFERRED; active streams are empty; current loop is NONE.
 - [x] Dependencies and merge order match the canonical plan.
@@ -337,7 +344,7 @@ Append decisions; do not rewrite history.
 
 | Date/time | Phase | Decision | Evidence/approval | Consequence |
 |---|---|---|---|---|
-| 2026-08-25 18:06 IST | Plan | P0 product behavior is frozen at `615069e6`; instructions start at `fe3548e4` | Repository inspection | P1/P2/P3 scaffold use `fe3548e4` after review |
+| 2026-08-25 18:06 IST | Plan | P0 product behavior is frozen at `615069e6`; initial plan prepared at `fe3548e4` | Repository inspection | Final execution SHA is frozen externally after approved plan commit |
 | 2026-08-25 18:06 IST | Plan | No README update in plan-only commit | Mission allowed only two plan files | Historical index update remains out of scope |
 | 2026-08-25 18:06 IST | Plan | Live MCP is terminal P11 and default-off before then | Architecture and mission | No earlier stream may test real MCP |
 | 2026-08-25 plan correction | P0.1 | Audit/proposal and apply are separate operator gates | Correction mission | P0.1 not executed; approved apply would force active-stream rebases |

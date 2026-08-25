@@ -7,7 +7,8 @@ canonical_plan: plans/2026-08-25_1806_ai-soc-master-parallel-closure.md
 loop_runner: plans/LOOP_RUNNER_ai-soc-master-parallel-closure.md
 coordination_branch: feat/complete-or-abstain-t4-ux
 p0_product_baseline_sha: 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
-initial_integration_sha: fe3548e475e61e77f5204e02f74efd28690abb86
+plan_preparation_sha: fe3548e475e61e77f5204e02f74efd28690abb86
+execution_integration_sha: FROZEN_BY_OPERATOR_AT_IMPLEMENTATION_START
 architecture_authority: architecture.md
 architecture_policy: read_only
 live_mcp: default_off_until_P11
@@ -26,10 +27,11 @@ This plan is executable without chat history. `architecture.md` is frozen author
 - Repository: `/Users/aagarwal/Downloads/ai-soc-assistant-t4-architecture-20260821`
 - Branch: `feat/complete-or-abstain-t4-ux`
 - P0 candidate SHA (last product commit): `615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2`
-- Branch HEAD and default `INTEGRATION_SHA`: `fe3548e475e61e77f5204e02f74efd28690abb86` (`docs(plan): add AI-SOC parallel closure loop`).
-  Streams must start at `fe3548e4`, not `615069e6`: `615069e6` predates this plan and its loop runner, so a worktree cut there
-  cannot read its own instructions. `fe3548e4..615069e6` contains no product change, so the two SHAs are behaviourally identical.
-  Verify before freezing: `git diff --stat 615069e6..fe3548e4` must list only `plans/2026-08-25_1806_*.md` and `plans/LOOP_RUNNER_ai-soc-master-parallel-closure.md`.
+- `PLAN_PREPARATION_SHA`: `fe3548e475e61e77f5204e02f74efd28690abb86` (`docs(plan): add AI-SOC parallel closure loop`).
+  This is historical preparation evidence, not an execution start requirement. `615069e6..fe3548e4` contains only the initial plan and
+  loop runner, so P0 product behavior is unchanged.
+- `EXECUTION_INTEGRATION_SHA`: `FROZEN_BY_OPERATOR_AT_IMPLEMENTATION_START`. The operator records the final reviewed plan commit after
+  it exists; the plan does not embed its own future commit SHA. Every first-wave branch and loop record must use that same external SHA.
 - P0 commits: `f1f523cd`, `76971f24`, `d36b8a57`, `615069e6`
 - P0 result: 13 L2 `/chat` cases, MCP argument continuity/readiness contracts, bounded two-round behavior, semantic-fidelity fail-closed behavior, containment regression, mocked transport, follow-up corrections, and contradictory-evidence safety are present.
 - Current suite inventory measured 2026-08-25 at `fe3548e4`: **5,313** backend test functions across **688** test files
@@ -53,10 +55,10 @@ means the phase branch head, not the integration branch head. `NONE` means no im
 | PHASE | WORKSTREAM | OWNER | STATUS | BASE_SHA | HEAD_SHA | DEPENDENCIES | CURRENT_LOOP | LAST_GREEN_GATE | NEXT_ACTION | BLOCKER | MERGE_STATUS |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | P0 | Historical | Historical owners | DONE | `615069e6` | `615069e6` | None | CLOSED | P0 L2 13 | Preserve | None | IN_BASE |
-| P0.1 | Integration | CODEX/operator | TODO | `fe3548e4` | NONE | P0 | NONE | Audit not run | Read-only proposal after approval to start audit | Operator approval required before apply | NOT_STARTED |
-| P1 | A TRACE | CODEX | TODO | `fe3548e4` | NONE | P0 | NONE | P0 inherited | Start after plan approval | L0 remains blocked until approved P0.1 apply lands | NOT_STARTED |
-| P2 | B SPL | CURSOR | TODO | `fe3548e4` | NONE | P0 | NONE | P0 inherited | Start after plan approval | None | NOT_STARTED |
-| P3 | C EVAL | CLAUDE | TODO | `fe3548e4` | NONE | P0 scaffold | NONE | P0 L2 13 | Start scaffold after plan approval | Contract rows wait P1/P2/P4 | NOT_STARTED |
+| P0.1 | Integration | CODEX/operator | TODO | frozen `EXECUTION_INTEGRATION_SHA` | NONE | P0 | NONE | Audit not run | Read-only proposal after approval to start audit | Operator approval required before apply | NOT_STARTED |
+| P1 | A TRACE | CODEX | TODO | frozen `EXECUTION_INTEGRATION_SHA` | NONE | P0 | NONE | P0 inherited | Start after plan approval | L0 remains blocked until approved P0.1 apply lands | NOT_STARTED |
+| P2 | B SPL | CURSOR | TODO | frozen `EXECUTION_INTEGRATION_SHA` | NONE | P0 | NONE | P0 inherited | Start after plan approval | None | NOT_STARTED |
+| P3 | C EVAL | CLAUDE | TODO | frozen `EXECUTION_INTEGRATION_SHA` | NONE | P0 scaffold | NONE | P0 L2 13 | Start scaffold after plan approval | Contract rows wait P1/P2/P4 | NOT_STARTED |
 | P4 | D POLICY | CLAUDE | TODO | P2 integration SHA | NONE | P2 for writes | NONE | P0 inherited | Read-only inventory may start | Writes blocked by P2 | NOT_STARTED |
 | P5 | C/Integration | CODEX + CLAUDE | TODO | P1/P2/P4 integration SHA | NONE | P1/P2/P3/P4 | NONE | NONE | Wait | Dependencies | NOT_STARTED |
 | P6 | C EVAL | CLAUDE | TODO | P5 green SHA | NONE | P5 | NONE | NONE | Wait | P5 | NOT_STARTED |
@@ -66,9 +68,10 @@ means the phase branch head, not the integration branch head. `NONE` means no im
 | P10 | Integration | CODEX/operator | TODO | P9 final SHA | NONE | P9 GO | NONE | NONE | Wait | Operator network approval | NOT_STARTED |
 | P11 | F COE | Operator + CODEX | DEFERRED | Approved merged SHA | NONE | P10 + separate approval | NONE | NONE | Keep live MCP OFF | Separate COE authorization | NOT_STARTED |
 
-`P0_PRODUCT_BASELINE_SHA = 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2` and
-`INITIAL_INTEGRATION_SHA = fe3548e475e61e77f5204e02f74efd28690abb86`. P1, P2, P3, and every first-wave worktree start from
-the latter. The product baseline is retained only to identify P0 behavior and the proposed RACES baseline target.
+`P0_PRODUCT_BASELINE_SHA = 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2`,
+`PLAN_PREPARATION_SHA = fe3548e475e61e77f5204e02f74efd28690abb86`, and
+`EXECUTION_INTEGRATION_SHA = FROZEN_BY_OPERATOR_AT_IMPLEMENTATION_START`. The operator returns the final literal execution SHA after
+this plan is committed and approved; P0.1/P1/P2/P3 and every first-wave worktree use exactly that external value.
 
 ## Non-negotiable invariants
 
@@ -128,21 +131,22 @@ P10  -> P11
 
 ## Worktrees and branches
 
-Do not create these during plan authoring. At implementation start, the integration owner freezes and records `INTEGRATION_SHA`; every initially parallel branch starts exactly there.
+Do not create these during plan authoring. At implementation start, the integration owner freezes and records
+`EXECUTION_INTEGRATION_SHA`; every initially parallel branch starts exactly there.
 
 If an explicitly approved P0.1 apply commit lands after P1/P2/P3 branches have started, the integration owner records the new exact
-`INTEGRATION_SHA` containing P0.1 and sets `REBASE_REQUIRED = YES` on every active pre-P0.1 branch. Those branches must rebase to that
+`EXECUTION_INTEGRATION_SHA` containing P0.1 and sets `REBASE_REQUIRED = YES` on every active pre-P0.1 branch. Those branches must rebase to that
 exact SHA before recording any L0 gate, returning a branch packet, or entering reconciliation/merge. Their pre-rebase focused evidence
 may remain as iteration history, but it is not integration evidence. No stream may self-select a different rebase target.
 
 | Stream | Branch | Worktree purpose | Initial dependency | Merge order |
 |---|---|---|---|---|
-| A TRACE | `codex/closure-trace-truth` | Trace vocabulary, projection truth, stable oracle tests | P0 | 1 |
-| B SPL | `codex/closure-spl-semantic-v2` | Existing semantic contract/compiler/fidelity evolution | P0 | 2 |
-| C EVAL | `codex/closure-l2-eval-bank` | Test-only L2 bank scaffold, later integration and rationalization | P0 scaffold; P1/P2/P4 for assertions | 4 then 5 |
-| D POLICY | `codex/closure-prompt-policy` | Role posture, prompt provenance, policy configuration contract | P2 contract for implementation | 3 |
-| E UI | `codex/closure-production-ux` | Production UI components/tests after contracts stabilize | P5 | 7 |
-| F PROMOTION | `codex/closure-promotion-coe` | L3 bank, gate evidence, handoff, last-stage COE | P5/P6/P7 as specified | 6 then 8 |
+| A TRACE | `ws/trace-truth` | Trace vocabulary, projection truth, stable oracle tests | P0 | 1 |
+| B SPL | `ws/spl-semantic-v2` | Existing semantic contract/compiler/fidelity evolution | P0 | 2 |
+| C EVAL | `ws/l2-eval-bank` | Test-only L2 bank scaffold, later integration and rationalization | P0 scaffold; P1/P2/P4 for assertions | 4 then 5 |
+| D POLICY | `ws/prompt-policy` | Role posture, prompt provenance, policy configuration contract | P2 contract for implementation | 3 |
+| E UI | `ws/production-ux` | Production UI components/tests after contracts stabilize | P5 | 7 |
+| F PROMOTION | `ws/promotion-coe` | L3 bank, gate evidence, handoff, last-stage COE | P5/P6/P7 as specified | 6 then 8 |
 | INTEGRATION | `feat/complete-or-abstain-t4-ux` | Reconcile branches; no feature authorship while streams are active | Frozen integration SHA | sole integrator |
 
 Worktree directory names are operator-selected local paths such as `../ai-soc-wt-trace`; they are not contractual. Branch names and actual start SHAs are contractual and must be recorded in the loop runner.
@@ -391,7 +395,7 @@ with code. Do not update `plans/README.md` — that write is explicitly out of s
 
 ### What no stream may ever do
 
-`git push`, `git merge`, open a PR, `git rebase` onto anything other than the declared `INTEGRATION_SHA`, `git commit --amend` or
+`git push`, `git merge`, open a PR, `git rebase` onto anything other than the declared `EXECUTION_INTEGRATION_SHA`, `git commit --amend` or
 `git rebase -i` on a commit already handed to the integrator, `git reset --hard`, force-anything, or `git checkout` a protected file to
 discard an operator-approved diff. Reconciliation is the integrator's, and only the integrator's. P10 is where anything leaves the machine.
 
@@ -635,7 +639,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
 - [ ] **P0.1 - Resolve the inherited RACES freeze failure before any L0 gate**
   - **STATUS:** TODO
   - **OWNER:** Integration owner / CODEX. Operator decides; no stream may decide this for itself.
-  - **BASE_SHA:** `fe3548e475e61e77f5204e02f74efd28690abb86`
+  - **BASE_SHA:** Frozen `EXECUTION_INTEGRATION_SHA` recorded externally at implementation start.
   - **DEPENDENCIES:** P0. Blocks the L0 gate for P1, P4, P7, P9. Blocks nothing else — P1/P2/P3 start in parallel with it.
   - **ALLOWED_FILES:** `backend/app/tests/test_live_path_untouched_by_ec.py` (baseline SHA + audit comment only), after operator approval.
   - **PROTECTED_FILES:** Advancing `RACES_BASELINE_SHA` is itself a protected change.
@@ -650,7 +654,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
     `HIL_IMPACT`, `RBAC_IMPACT`, `AUTH0_IMPACT`, `EXECUTION_ELIGIBILITY_IMPACT`, `EC_IMPORT_IMPACT`, `ROLLBACK`, and
     `PROPOSED_BASELINE_DIFF`; then STOP. **B. APPLY:** only after a second, explicit operator approval for that exact diff, update the
     existing audit comment and advance `RACES_BASELINE_SHA` to `615069e6` and only to `615069e6`, commit the approved one-file change,
-    run verification, and advance `INTEGRATION_SHA` to the exact resulting P0.1 commit. Mark every already-active P1/P2/P3 branch
+    run verification, and advance `EXECUTION_INTEGRATION_SHA` to the exact resulting P0.1 commit. Mark every already-active P1/P2/P3 branch
     `REBASE_REQUIRED = YES` to that new integration SHA before L0 evidence, branch return, reconciliation, or merge. If the audit finds
     weakened authority, do not propose advancement; return the product defect to the owning seam.
   - **DO_NOT:** Advance the baseline to `HEAD`; advance it without the audit comment; delete, skip, xfail, or narrow the freeze test;
@@ -660,7 +664,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
     not vacuous), and that `git diff --name-only 615069e6...HEAD` reports no protected path.
   - **ACCEPTANCE_CRITERIA:** Audit/proposal packet exists and stopped for approval; apply occurred only under a separate explicit
     approval; all 8 tests are green; baseline is `615069e6` with a written audit; `RACES_FREEZE_PATHS` is byte-unchanged; new
-    `INTEGRATION_SHA` is recorded; every pre-P0.1 active stream is marked and rebased before L0/return/integration.
+    new `EXECUTION_INTEGRATION_SHA` is recorded; every pre-P0.1 active stream is marked and rebased before L0/return/integration.
   - **STOP_CONDITIONS:** The `f1f523cd` audit finds weakened authority; operator withholds approval; the fix would need any other
     protected file; same gate fails twice.
   - **EXPECTED_COMMIT_GROUPS:** `chore(races): advance freeze baseline to 615069e6 with audit` — one commit, one file, approval reference in the body.
@@ -672,7 +676,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
 - [ ] **P1 - Trace truth closure**
   - **STATUS:** TODO
   - **OWNER:** Workstream A / CODEX
-  - **BASE_SHA:** Frozen `INTEGRATION_SHA`, initially `fe3548e475e61e77f5204e02f74efd28690abb86`.
+  - **BASE_SHA:** Frozen `EXECUTION_INTEGRATION_SHA`.
   - **DEPENDENCIES:** P0.
   - **ALLOWED_FILES:** A-owned trace/provenance modules and directly corresponding tests from the ownership matrix.
   - **PROTECTED_FILES:** `architecture.md` plus every enumerated `RACES_FREEZE_PATHS` prefix (see Protected-file policy). For A this most often means `backend/app/schemas/responses.py` when a new oracle field is needed — STOP and request the diff.
@@ -691,7 +695,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
 - [ ] **P2 - SPL semantic V2 contract, authoring, fidelity, and syntax**
   - **STATUS:** TODO
   - **OWNER:** Workstream B / CURSOR
-  - **BASE_SHA:** Frozen `INTEGRATION_SHA`, initially `fe3548e475e61e77f5204e02f74efd28690abb86`.
+  - **BASE_SHA:** Frozen `EXECUTION_INTEGRATION_SHA`.
   - **DEPENDENCIES:** P0. Coordinate names with P1, but no file dependency.
   - **ALLOWED_FILES:** B-owned SPL modules, governed source-profile modules, validators, and directly corresponding tests.
   - **PROTECTED_FILES:** `architecture.md` plus every enumerated `RACES_FREEZE_PATHS` prefix (see Protected-file policy). For B this most often means `backend/app/safeguards/spl_validator.py`, `backend/app/schemas/responses.py`, and `backend/app/graph/resource_planner_graph.py` — all read-only here; STOP and request the diff.
@@ -710,7 +714,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
 - [ ] **P3 - L2 production bank scaffold from 13 toward 23**
   - **STATUS:** TODO
   - **OWNER:** Workstream C / CLAUDE
-  - **BASE_SHA:** Frozen `INTEGRATION_SHA`, initially `fe3548e475e61e77f5204e02f74efd28690abb86`.
+  - **BASE_SHA:** Frozen `EXECUTION_INTEGRATION_SHA`.
   - **DEPENDENCIES:** P0 for scaffold; P1/P2/P4 for assertions against new contracts.
   - **ALLOWED_FILES:** C-owned L2 bank/test files only. No runtime code.
   - **PROTECTED_FILES:** All runtime code, plus `architecture.md` and every enumerated `RACES_FREEZE_PATHS` prefix. C writes tests only.
@@ -897,9 +901,9 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
 
 ## First parallel start set
 
-After the operator freezes and records one `INTEGRATION_SHA`:
+After the operator freezes and records one `EXECUTION_INTEGRATION_SHA`:
 
-0. Each stream exports `PYVENV` (see the interpreter note in the test gate matrix) and confirms `git rev-parse HEAD` equals the frozen `INTEGRATION_SHA`.
+0. Each stream exports `PYVENV` (see the interpreter note in the test gate matrix) and confirms `git rev-parse HEAD` equals the frozen `EXECUTION_INTEGRATION_SHA`.
 1. Start P0.1 on the integration owner, and P1 on A, P2 on B, P3 scaffold on C from that exact SHA. P0.1 runs alongside them; it blocks only their L0 RACES gates, not their work.
 2. D may run a read-only role/posture audit, but must not make contract-dependent edits until P2 merges.
 3. Do not start E or live evaluation. Do not create F's COE environment.
@@ -938,7 +942,7 @@ P9 must remeasure by exact test ID. These are carried as hypotheses from prior m
 
 Run this checklist after every structural plan edit and before operator review:
 
-- [x] `INTEGRATION_SHA`: both files name `fe3548e475e61e77f5204e02f74efd28690abb86` as the initial value.
+- [x] SHA roles: both files preserve `PLAN_PREPARATION_SHA = fe3548e4`, leave `EXECUTION_INTEGRATION_SHA` operator-frozen, and never require a plan to contain its own commit SHA.
 - [x] Phase status: P0 DONE, P0.1-P10 TODO, P11 DEFERRED, and no active implementation stream.
 - [x] Dependencies: authoritative edge list and runner eligibility rules agree.
 - [x] Merge order: P0.1 apply first if approved, then A, B, D, C/P5, C/P6, F/P8, E/P7, F/P9.
@@ -964,7 +968,7 @@ If any row disagrees, set `READY_FOR_OPERATOR_REVIEW = NO`, correct both files, 
 | Eval depends on unimplemented fields | PASS: P3 rows carry dependencies and remain pending; P5 activates after merge. |
 | Brittle trace assertions | PASS: P1 defines stable oracle versus diagnostics; C asserts oracle only. |
 | Second planner | PASS: P2 evolves the existing `build_spl_intent_spec()` representation from Final RQC; no `SplIntentSpec` class is invented. |
-| Start SHA is readable by its own agents | PASS after review: default `INTEGRATION_SHA` moved from `615069e6` to `fe3548e4`, the commit that contains this plan. |
+| Start SHA is readable by its own agents | PASS: the operator freezes the final reviewed plan commit externally and every first-wave branch uses it. |
 | Protected set is enumerable, not described | PASS after review: the eleven `RACES_FREEZE_PATHS` prefixes are listed verbatim and cross-checked against the ownership matrix. |
 | Owner assigned a protected file | PASS after review: `safeguards/spl_validator.py` and `schemas/responses.py` removed from B's allowed paths and marked protected. |
 | Gate state represented honestly | PASS: inherited RACES red is explicit; P0.1 is operator-gated and blocks L0 claims without blocking early work. |
@@ -977,7 +981,7 @@ If any row disagrees, set `READY_FOR_OPERATOR_REVIEW = NO`, correct both files, 
 | FINDINGS_LEDGER_COMPLETE | PASS: append-only 81-row ledger covers every correction-mission category and historic gap. |
 | LOOP_ITERATION_SCHEMA | PASS: runner records all required iteration fields and classifications. |
 | PHASE_REENTRY_SUPPORTED | PASS: trigger, invalidation, new base, owner, and rerun fields are specified. |
-| START_SHA_CONSISTENT | PASS: first wave starts at `fe3548e4`; `615069e6` is product baseline only. |
+| START_SHA_CONSISTENT | PASS: first wave starts from one externally frozen `EXECUTION_INTEGRATION_SHA`; `fe3548e4` is preparation history and `615069e6` is product baseline only. |
 | P0_1_REBASE_RULE | PASS: pre-P0.1 branches rebase to exact post-P0.1 integration SHA before L0/return/integration. |
 | COMMIT_POLICY_CONSISTENT | PASS: red reproduction is iteration evidence; only bounded green contracts are committed. |
 | COMMIT_SEQUENCE_EXPLICIT | PASS: T1-T3, S1-S6, PP1-PP6, E1-E3, R1-R4, U1-U3, and L3-1/L3-2 have files/dependencies/gates/rebase rules. |
@@ -988,8 +992,9 @@ If any row disagrees, set `READY_FOR_OPERATOR_REVIEW = NO`, correct both files, 
 - 2026-08-25: Mission estimate 5,290 tests/684 files measured as approximately 5,313 test functions/688 files. Plan retains the moderate rationalization conclusion and treats counts as targets, not acceptance criteria.
 - 2026-08-25: General repo convention says list plans in `plans/README.md`, but this mission explicitly authorizes writes only to the new master plan and loop runner. README update is intentionally excluded and must not be smuggled into the plan-only commit.
 - Every checked item must contain command/result evidence and exact SHA. Re-audit inherited checkmarks before P9; written code alone is never evidence.
-- 2026-08-25 (plan review): six defects corrected before execution. (1) Default `INTEGRATION_SHA` moved `615069e6` -> `fe3548e4`; the old value
-  predates this plan file. (2) `RACES_FREEZE_PATHS` enumerated verbatim; it is eleven mostly-backend prefixes, not "frontend RACES paths".
+- 2026-08-25 (plan review): six defects corrected before execution. (1) The product baseline and plan preparation SHA were separated;
+  final cleanup removes the self-referential literal start SHA and requires an externally frozen `EXECUTION_INTEGRATION_SHA`.
+  (2) `RACES_FREEZE_PATHS` enumerated verbatim; it is eleven mostly-backend prefixes, not "frontend RACES paths".
   (3) `backend/app/safeguards/spl_validator.py` and `backend/app/schemas/responses.py` withdrawn from workstream B's allowed paths —
   both are protected. (4) The RACES freeze gate is measured **red** at the coordination base from P0 `f1f523cd`; new item P0.1 adjudicates it.
   (5) `../.venv/bin/python` replaced by absolute `$PYVENV` because `.venv/` is gitignored and missing from every new worktree.
