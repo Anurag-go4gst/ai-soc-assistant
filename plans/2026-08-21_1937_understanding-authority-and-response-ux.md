@@ -45,6 +45,70 @@ Invariants this plan must not weaken:
 Related but **separate** plan (do not overwrite or merge):
 [`plans/2026-08-21_0034_agentic-investigation-production.md`](2026-08-21_0034_agentic-investigation-production.md) — investigation envelope / PlanDelta product track.
 
+## Current completed state (do not re-execute)
+
+```text
+P0 DONE  baseline/governance; Mac host venv authoritative for git-aware/full
+         regression; container valid for ordinary focused backend tests;
+         RACES baseline advanced only to 3a5f5001; macOS GitHub-skill clone-root
+         = known platform limitation; Linux governance step 1 required later
+         against exact candidate SHA. Commit 8ef0b9ed (evidence) + 5cf66404
+         (RACES baseline).
+P1 DONE  c742dfdb  T1–T3 complete-or-abstain gate exists; future embedding
+         candidates share the same candidate interface; embeddings NOT implemented.
+P2 DONE  5d1e487e  ACCEPT skips T4; ABSTAIN → T4 → DET → one Final RQC;
+         complete deterministic requests survive T4-down; genuine ABSTAIN +
+         T4 unavailable/timeout/invalid fail-closed; old unresolved-field
+         response_format authority removed from live path; explicit-user
+         constraints flow through production. Literal matrix:
+           entity/IP/domain/hash, time          DET_REJECTION
+           index, sourcetype, requested output,
+           do_not_execute, explicit prohibitions PROTECTED_BY_CONSTRUCTION
+         Protected files touched: NONE. architecture.md unchanged.
+         Full suite: 20 failed / 6097 passed — postgres env, migration-readiness
+         env, macOS GitHub skill factory. No unexplained P2 regression.
+HEAD     5d1e487e5f96fd4a9e25f902b477acfb14e90233
+branch   feat/complete-or-abstain-t4-ux
+origin/master  49e545d9  (ancestor of HEAD; no Git divergence to reconcile)
+```
+
+Remaining execution is **exactly** `P3 → P4 → P5 → P6 → P7 → P8`. Do not create extra phases. P6 already contains UUID / viewport / hierarchy / responsive (P6A–P6D) as sub-scope of one phase — do not re-add them. Control-vocabulary leak (`BLOCK`/`BLOCKED` ≠ containment) lives in **P5**, not a separate P6.1.
+
+## Git / promotion (Mac feature branch is current development authority)
+
+Do **not** independently modify VPS or COE source. Do **not** push, merge, rebase, or alter `origin/master` during P3–P8.
+
+P8 produces `FINAL_CANDIDATE_SHA` and **STOPS**. It does not push, merge, or deploy.
+
+External promotion (after this plan, operator-driven — not this loop):
+
+```text
+Mac FINAL_CANDIDATE_SHA
+  → VPS checkout exact candidate SHA
+  → Linux governance + deterministic validation (LLM/MCP not required)
+  → PASS
+  → push feature branch
+  → PR
+  → merge master
+  → MASTER_RELEASE_SHA
+  → Mac / VPS / COE converge on that exact SHA
+  → COE live LLM/MCP acceptance
+```
+
+## Config drift (record only — do not fix in this plan)
+
+```text
+Actual local .env:     AI_SOC_ENV_PROFILE=coe
+Some docs claimed:     development   (CLAUDE.md stale; do not edit here)
+Effective T4 timeout:  .env AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS=10
+                       coe profile does not set the timeout (operator .env required)
+                       development.env.example still seeds 120
+                       P2 Do historically cited 120 / development — that is not
+                       this host's effective runtime. Use measured values in P7/P8.
+```
+
+Use effective runtime values during verification. Do not alter unrelated CLAUDE.md / config documentation in this workstream.
+
 ## Mac / environment posture (implementation + acceptance)
 
 ```text
@@ -173,11 +237,13 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
 - New authority decision required, **or**
 - Implementation seems to need a second router, second T4 service, or T4 investigation runtime, **or**
 - Security / HIL / RBAC / exact-call would be weakened, **or**
-- Legitimate existing work would need deletion
+- Legitimate existing work would need deletion, **or**
+- A **new** change to a RACES-protected freeze path is required (`pipeline.py` included). Previous RACES approval covered **only** commit `3a5f5001`. Any further freeze-path edit needs STOP + explicit operator decision, **or**
+- P8 evidence is recorded — the loop **stops**; it does not push, merge, or deploy
 
 ## Dependency order
 
-`P0 → P1 → P2 → P3 → P4 → P5 → P6 → P6.1 → P7 → P8`
+`P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7 → P8`
 
 ## Prohibited globally
 
@@ -188,7 +254,10 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
 - Second router / second planner / second T4 / T4 investigation runtime
 - Fake LLM or MCP availability
 - Hide failing tests to continue
-- Merge or push unless operator requests
+- Hide env failures (postgres, migration-readiness, macOS GitHub skill factory)
+- Merge, push, rebase, or deploy unless the operator explicitly requests it after P8
+- Independently modify VPS or COE source
+- Create extra phases (no P6.1 / no second UUID or viewport item)
 
 ## Existing modules to reuse (audit-first)
 
@@ -203,7 +272,7 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
 | Evidence plan / outcome | `chat/evidence_planner.py`, `evidence/evidence_sufficiency.py`, `chat/contracts/investigation_outcome.py`, `evidence/final_evidence_gate.py` |
 | Remediation offer | `chat/remediation_runtime.py` (`maybe_attach_remediation_offer`, line 144) |
 | Explicit user literals (P2) | **Candidates pending generality audit — not presumed authoritative:** `spl/request_authority.py` (`build_deterministic_request_contract` → `DeterministicRequestContract`; `check_template_semantic_fidelity` → `SemanticFidelityDecision`), `spl/user_constraint_bindings.py` (`build_user_constraint_bindings`). These live under `spl/`; P2 must audit whether the primitives are generic across all Final-RQC families before reuse. |
-| Control-vocabulary leak (P6.1) | `chat/contracts/staged_sufficiency.py:18-19,35` (`SufficiencyStatus` / `SufficiencyNextAction` / `_EVIDENCE_NEXT_BY_STATUS`), `chat/contracts/investigation_outcome.py:52,163,312-318` (`recommended_next_action` / `_recommended_next_action`) |
+| Control-vocabulary leak (P5) | `chat/contracts/staged_sufficiency.py:18-19,35` (`SufficiencyStatus` / `SufficiencyNextAction` / `_EVIDENCE_NEXT_BY_STATUS`), `chat/contracts/investigation_outcome.py:52,163,312-318` (`recommended_next_action` / `_recommended_next_action`) |
 | SPL fidelity | `spl/request_authority.py`, `chat/review_only_spl_renderer.py` |
 | Provenance | `control_plane_trace`, `route_plan_shadow`, `investigation_lineage`, `provenance.semantic_t4` |
 | UI composition | `ChatBubble.tsx`, `InvestigationOutcomeCard.tsx`, `RemediationPlanApprovalCard.tsx`, `AnalystResponseCard.tsx`, `ChatPanel.tsx` |
@@ -402,34 +471,136 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
   - **Commit:** one logical commit for P2 only
 
 - [ ] **P3** — Final-RQC product applicability
-  - **Do:** AUDIT FIRST the **four** seams below (rev 1 listed only the first three; the fourth is where the blocked status is actually decided):
+  - **Do:** Final RQC determines product lifecycle — **not** T4 used, MCP unavailable, evidence unavailable, or a live-data signal alone. Generic invariant: **SPL authoring ≠ investigation.** A pure review-only SPL request must not become InvestigationOutcome `blocked` + disposition `inconclusive` + a remediation offer merely because MCP/evidence is unavailable. Investigation-shaped Final RQCs still follow the canonical investigation lifecycle. No firewall-specific patch.
+
+    AUDIT FIRST the **four** seams below (rev 1 listed only the first three; the fourth is where the blocked status is actually decided):
     1. `chat/evidence_planner.py:480` — the `spl_generation_only` branch. Confirmed shape: unless `is_universal_utility_spl_authoring` matches (→ `answer_mode="spl_utility_authoring"`), it falls through to `answer_mode="live_investigation"` with `needs_spl=True`, `needs_mcp` descriptive and `mcp_allowed=mcp_authorised` (false when not catalogue-matched). This is the mislabel the plan targets.
     2. `chat/contracts/investigation_outcome.py:62` — `derive_investigation_outcome`.
     3. `chat/remediation_runtime.py:144` — `maybe_attach_remediation_offer`.
     4. **`evidence/final_evidence_gate.py`** — independently special-cases `spl_generation_only`: line 476 (`spl_generation_only` + `route_live_data_request` + zero collected evidence) and its presence in `_POLICY_SEVERITY_FAMILIES` (line 449) alongside `_NON_SEVERITY_INTENT_FAMILIES` (line 433). Fixing only `evidence_planner.py` will leave this path producing the same wrong posture.
 
-    Make product lifecycle selection depend on Final RQC answer goal / investigation shape — not on T4_USED, MCP unavailable, or missing live rows. Pure SPL authoring must use review-only SPL composition without InvestigationOutcome `blocked`/`BLOCKED`/remediation. Investigation-shaped RQCs still enter the common investigation lifecycle regardless of T1–T3 vs T4 understanding path.
+    Make product lifecycle selection depend on Final RQC answer goal / investigation shape. Pure SPL authoring must use review-only SPL composition without InvestigationOutcome `blocked`/`BLOCKED`/remediation. Investigation-shaped RQCs still enter the common investigation lifecycle regardless of T1–T3 vs T4 understanding path.
   - **Verify:** NEW `app/tests/test_final_rqc_product_applicability.py` including generic coverage for SPL-authoring shaped RQC (no InvestigationOutcome investigation_status packaging / no remediation_offer_required by default) and investigation-shaped RQC still eligible for outcome; add at least one case entering through `final_evidence_gate` so seam 4 is pinned, not just seam 1. Reproduce the firewall SPL authoring *shape* via signals/fixtures without hardcoding that sentence as a special case. `docker compose exec -T backend python -m pytest app/tests/test_final_rqc_product_applicability.py -q`. `/invariant-check`.
   - **Depends on:** P2
   - **Evidence:** _(fill when done)_
   - **Commit:** one logical commit for P3 only
 
 - [ ] **P4** — Deterministic understanding provenance
-  - **Do:** Extend existing provenance (`control_plane_trace` / `route_plan_shadow` / `investigation_lineage` / RQC `provenance`) with a concise deterministic strip: T1/T2/T3 accept-or-abstain, T4 used/skipped, final intent, final owner. Surface under existing “How this answer was produced”. No new tracing framework. No chain-of-thought.
+  - **Do:** Expose deterministic provenance using **existing** trace structures. Show only the authority path, not chain-of-thought. Reuse `control_plane_trace`, `route_plan_shadow`, RQC `provenance`, and `investigation_lineage`. No new tracing framework unless audit proves reuse is impossible.
+
+    Example (ABSTAIN → T4):
+
+    ```text
+    T1 exact       no match
+    T2 catalogue   no accepted match
+    T3 candidates  abstained
+    T4 semantic    used
+    Final intent   SPL authoring
+    Final owner    spl_generation
+    ```
+
+    Example (ACCEPT):
+
+    ```text
+    T1–T3          accepted
+    T4             skipped
+    ```
+
+    Surface under existing “How this answer was produced”.
   - **Verify:** Unit/contract test that provenance fields are present and deterministic for ACCEPT and ABSTAIN→T4 paths, run as `docker compose exec -T backend python -m pytest app/tests/<new_or_owning_file>.py -q`; frontend or lineage consumer test if a UI field is added. Host-side `rg` proves no new telemetry catalog event invented without closed-catalog registration (canonical planning telemetry is a **closed catalog** — `emit_planning_event()` rejects unregistered names, so an unregistered event fails rather than silently passing).
   - **Depends on:** P3
   - **Evidence:** _(fill when done)_
   - **Commit:** one logical commit for P4 only
 
 - [ ] **P5** — Response ownership + outcome/remediation semantics
-  - **Do:** Define one primary response profile from Final RQC. Fix `ChatBubble` stacking so SPL authoring does not show InvestigationOutcomeCard + local remediation CTA + RemediationPlanApprovalCard + AnalystResponseCard together. Remove or demote the **local** OutcomeCard remediation Yes/Not-now so only backend-governed `RemediationPlanApprovalCard` is authoritative when remediation applies. Confirmed target: `InvestigationOutcomeCard.tsx` line 17 holds purely local `useState<'yes' | 'not_now' | null>` driving the CTA block at lines 88–108 — local UI state with no backend authority, which is the duplication to remove. Note line 18 already short-circuits (`if (!outcome.investigation_status) return null`), so a correct P3 backend fix makes the card self-hide; P5 should rely on that rather than adding a frontend denylist. Investigation / knowledge / remediation profiles remain governed.
-  - **Verify:** Frontend tests for composition by profile; backend packaging tests that SPL-authoring turns omit `investigation_outcome.investigation_status` and remediation_approval when not applicable. `cd frontend && npm test -- ChatBubble` (script is `vitest run`, so the extra `--run` in rev 1 was redundant; the existing owning file is `src/components/ChatBubble.progress.test.tsx` — extend it or add a sibling). `cd frontend && npm run build`.
+  - **Do:** AUDIT FIRST current composition of `ChatBubble`, `InvestigationOutcomeCard`, `RemediationPlanApprovalCard`, and `AnalystResponseCard`. Final RQC / response profile owns composition. One backend turn must present **ONE** coherent primary answer. Remove fragmented stacking when sections are not applicable.
+
+    Fix `ChatBubble` stacking so SPL authoring does not show InvestigationOutcomeCard + local remediation CTA + RemediationPlanApprovalCard + AnalystResponseCard together. Exactly **ONE** authoritative remediation CTA. Prefer backend-governed remediation interaction. Remove or demote the **local** OutcomeCard remediation Yes/Not-now so only backend-governed `RemediationPlanApprovalCard` is authoritative when remediation applies. Do not leave a cosmetic/local React CTA that appears authoritative. Confirmed target: `InvestigationOutcomeCard.tsx` line 17 holds purely local `useState<'yes' | 'not_now' | null>` driving the CTA block at lines 88–108 — local UI state with no backend authority, which is the duplication to remove. Note line 18 already short-circuits (`if (!outcome.investigation_status) return null`), so a correct P3 backend fix makes the card self-hide; P5 should rely on that rather than adding a frontend denylist. Investigation / knowledge / remediation profiles remain governed.
+
+    **Audit BOTH `investigation_status` and `recommended_next_action`.** Critical semantic invariant (formerly a separate P6.1 — folded here; do not recreate that phase):
+
+    ```text
+    WORKFLOW CONTROL STATUS/ACTION  ≠  SECURITY CONTAINMENT RECOMMENDATION
+    BLOCK / BLOCKED (workflow)      ≠  "Recommended next action: BLOCK"
+    ```
+
+    A blocked investigation may show Unable to proceed / Evidence unavailable / Additional evidence required. It must **not** show analyst-facing `Recommended next action: BLOCK` unless a governed remediation/action plan actually recommends a block action.
+
+    **Confirmed leak path (measured 2026-08-21 — live production code):**
+
+    ```text
+    sufficiency.status = "BLOCKED"
+      → _EVIDENCE_NEXT_BY_STATUS["BLOCKED"] = "BLOCK"     staged_sufficiency.py:35
+      → run_status.next_action / sufficiency.next_action
+      → _recommended_next_action():                       investigation_outcome.py:312-318
+            value = run_status.get("next_action") or sufficiency.get("next_action")
+            return str(value).strip()                     # verbatim pass-through, no mapping
+      → InvestigationOutcome.recommended_next_action       investigation_outcome.py:52,163
+      → analyst UI  →  "Recommended next action: BLOCK"
+    ```
+
+    `_recommended_next_action` performs **no** vocabulary translation. Remapping only `investigation_status` does **not** close this. Containment language may originate **only** from the governed remediation/action-capability path. Prefer translating control vocabulary into analyst-facing process language at the derivation/presentation seam.
+
+    **Do not rename governed backend enum values** (`SufficiencyStatus`, `SufficiencyNextAction`, `InvestigationStatus`, `Disposition`) merely for display. Measured tokens:
+
+    ```text
+    SufficiencyStatus     = Literal["SUFFICIENT","PARTIAL","INSUFFICIENT","BLOCKED"]  # staged_sufficiency.py:18
+    SufficiencyNextAction = Literal["CONTINUE","CALL_T4","CLARIFY","DEGRADE","BLOCK"] # staged_sufficiency.py:19
+    investigation_status / disposition "blocked"  Literal in investigation_outcome.py:18-20
+    humanize(outcome.investigation_status) at InvestigationOutcomeCard.tsx:38
+    ```
+
+    Change the display-label mapping, not the backend literal. If a backend rename ever looks necessary → STOP (new authority decision).
+  - **Verify:** Frontend tests for composition by profile; backend packaging tests that SPL-authoring turns omit `investigation_outcome.investigation_status` and remediation_approval when not applicable. `cd frontend && npm test -- ChatBubble` (script is `vitest run`; owning file `src/components/ChatBubble.progress.test.tsx` — extend it or add a sibling). `cd frontend && npm run build`. Host-side `rg -n 'investigation_status|BLOCKED' backend/app/chat/contracts/investigation_outcome.py` shows the contract literals **unchanged**. NEW test proving a blocked/degraded investigation cannot produce a containment-looking user-facing recommendation derived solely from sufficiency/run-status control vocabulary: drive `derive_investigation_outcome` with `sufficiency.status="BLOCKED"` / `next_action="BLOCK"` (and the `run_status.next_action` variant, since it takes precedence in the `or`) and assert `recommended_next_action` is not the raw control token and contains no containment verb. Assert the same for `DEGRADE`/`CLARIFY`. Assert the governed remediation path is still able to recommend real containment when authorized — this must not become a blanket keyword ban. Run: `../.venv/bin/python -m pytest app/tests/<new_file>.py -q` (or the container form). Frontend assertion that no raw control token renders in the outcome card. `/invariant-check`.
   - **Depends on:** P3, P4
   - **Evidence:** _(fill when done)_
   - **Commit:** one logical commit for P5 only
 
-- [ ] **P6** — Viewport / answer-workspace normalization
-  - **Do:** **AUDIT FIRST**, then normalize. One assistant turn must own **ONE** maximum useful answer workspace. Today it does not: the sections of a single turn render at three different widths.
+- [ ] **P6** — UI/UX SOC workspace (P6A–P6D; one phase — do not split)
+  - **Do:** One assistant turn owns **ONE** maximum useful SOC answer workspace. Execute the four already-scoped sub-items below as **this single phase**. Do not create extra loop items for UUID, viewport, hierarchy, or responsive work.
+
+    ### P6A — COE client-ID compatibility
+
+    Fix message submission failing **before** `streamChatMessage()` runs when the app is reached over non-secure remote HTTP (`http://10.52.1.13:3010/chat`):
+
+    ```text
+    Uncaught (in promise) TypeError: crypto.randomUUID is not a function
+        at handleSend (ChatPanel.tsx)
+        at submit (ChatInput.tsx)
+
+    UX: composer clears / no user bubble / no progress / NO API REQUEST
+    ```
+
+    `crypto.randomUUID` is only exposed in a **secure context** (HTTPS, or `localhost`/`127.0.0.1`). COE is reached by raw IP over HTTP, so `window.crypto.randomUUID` is undefined there and defined on the Mac. This is a **client-side ID generation compatibility** defect — not backend, T1/T2/T3/T4, Final RQC, CORS, API-base, Nginx, auth, MCP, or LLM.
+
+    Add `frontend/src/lib/id.ts` exporting one shared `newClientId()` with a three-tier ladder:
+
+    ```text
+    1. globalThis.crypto?.randomUUID  — only when it exists AND typeof === "function"
+    2. globalThis.crypto.getRandomValues — build a UUID-v4-SHAPED id;
+         MUST set version nibble (byte 6 -> 0x40 | low) and variant bits (byte 8 -> 0x80 | low)
+    3. final non-crypto fallback — must never be described as cryptographically secure
+    ```
+
+    These are **UI correlation identifiers only**. They must never be used for auth tokens, sessions, authorization, security decisions, or idempotency requiring cryptographic uniqueness. Say so in the module docstring.
+
+    **Call-site consolidation — measured 2026-08-25, all 6 direct usages are in one file:**
+
+    ```text
+    frontend/src/components/ChatPanel.tsx:405   `progress-${crypto.randomUUID()}`   progress message id
+    frontend/src/components/ChatPanel.tsx:569   user message id
+    frontend/src/components/ChatPanel.tsx:579   user message id
+    frontend/src/components/ChatPanel.tsx:589   user message id
+    frontend/src/components/ChatPanel.tsx:599   user message id
+    frontend/src/components/ChatPanel.tsx:621   user message id
+    rg -c 'crypto\.randomUUID' frontend/src  ->  ChatPanel.tsx:6   (no other file)
+    ```
+
+    Replace all six with `newClientId()`. After the change, direct `crypto.randomUUID` must exist **only** inside `frontend/src/lib/id.ts`. Do not create a second fallback implementation anywhere. Out of scope for P6A: `architecture.md`, any backend file, CORS, `VITE_API_BASE_URL`, auth, Nginx, HTTPS rollout, MCP, LLM.
+
+    ### P6B — Maximum useful answer viewport
+
+    **AUDIT FIRST**, then normalize. All assistant sections for ONE turn share ONE common outer answer workspace: `w-full min-w-0` at maximum useful center/chat-column width. Do **not** constrain entire structured answer cards to prose width. Prose ~68–80ch inside the workspace; structured content (SPL/code, tables, evidence, investigation/remediation plans, progress, technical trace, provenance) uses the broader workspace.
 
     **Measured 2026-08-25 (`rg -n 'max-w-' <components>` — these are the anchors, do not re-derive):**
 
@@ -447,7 +618,7 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     components/AnalystResponseCard.tsx:477     w-full min-w-0 max-w-full ... xl:max-w-[1120px]
     ```
 
-    The reported symptom is confirmed literally: **68ch outcome + 72ch remediation + 1120px analyst answer** in one turn, as three visually separate answer widths. The defect is at **card level**, not in the cockpit grid.
+    The reported symptom is confirmed: **68ch outcome + 72ch remediation + 1120px analyst answer** in one turn. The defect is at **card level**, not in the cockpit grid.
 
     Complete the audit table in Evidence for every assistant-response surface — SocCockpit, ChatPanel, ChatBubble, AnalystResponseCard, InvestigationOutcomeCard, InvestigationPlanApprovalCard, RemediationPlanApprovalCard, SPL/code containers, evidence/detail panels, provenance / "How this answer was produced", tables, progress/investigation surfaces — recording for each: **parent available width · `w-full`/`min-w-0` behavior · max-width constraint · overflow behavior · breakpoint-specific constraint**.
 
@@ -464,7 +635,7 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     STATUS / SMALL CTA         sized to content; must NEVER determine the width of the whole response
     ```
 
-    **`Do NOT simply set every child to `max-w-none`.`** The objective is **MAXIMUM USEFUL VIEWPORT, not MAXIMUM TEXT LINE LENGTH.** A card that stops constraining its own box must hand the readable-width constraint to its prose child, or this item has made readability worse while appearing to succeed.
+    **Do NOT simply set every child to `max-w-none`.** Objective is **MAXIMUM USEFUL VIEWPORT, not MAXIMUM TEXT LINE LENGTH.** A card that stops constraining its own box must hand the readable-width constraint to its prose child.
 
     **Two measured conflicts to resolve, not ignore:**
 
@@ -478,142 +649,127 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
        at :757 already has `overflow-x-auto` — those are correct and must stay.
     ```
 
-    Clear hierarchy stays a requirement: direct answer → supporting artifact → next action when applicable → collapsible technical/authority details.
+    ### P6C — Response visual hierarchy
 
-    **Vocabulary fix — presentation layer only.** Both tokens exist, in *different* fields, and rev 2 of this plan initially got this wrong by claiming only `BLOCKED` was real. Measured 2026-08-21:
+    One assistant turn should visually read as:
 
-    ```text
-    SufficiencyStatus     = Literal["SUFFICIENT","PARTIAL","INSUFFICIENT","BLOCKED"]  # staged_sufficiency.py:18
-    SufficiencyNextAction = Literal["CONTINUE","CALL_T4","CLARIFY","DEGRADE","BLOCK"] # staged_sufficiency.py:19
-    _EVIDENCE_NEXT_BY_STATUS["BLOCKED"] = "BLOCK"                                     # staged_sufficiency.py:35
-    ```
+    1. direct answer / conclusion
+    2. relevant evidence/artifact/SPL
+    3. next action when applicable
+    4. collapsible technical/authority detail
 
-    So `BLOCKED` is the **status** and `BLOCK` is the **workflow next-action**. `investigation_status`/`disposition` `"blocked"` are typed `Literal[...]` in `chat/contracts/investigation_outcome.py:18-20`; the analyst-visible status string comes from `humanize(outcome.investigation_status)` at `InvestigationOutcomeCard.tsx:38`. **Change the display-label mapping, not the backend literal** — renaming a contract value is a governed-contract change outside this item's scope and would break the `Literal` types and their tests. If a backend rename ever looks necessary, that is a new authority decision → stop condition. The `BLOCK` next-action leak is **not** cosmetic and is handled separately in **P6.1**, which is a required item, not an optional polish.
-  - **Verify:** `cd frontend && npm test && npm run build`; host-side `rg -n 'investigation_status|BLOCKED' backend/app/chat/contracts/investigation_outcome.py` shows the contract literals **unchanged**.
+    No multiple quasi-independent assistant answers.
 
-    Width normalization proof — host-side `rg -n 'max-w-\[[0-9]+ch\]' frontend/src/components` must show **no card-level ch-constraint on a workspace container**; any surviving `ch` constraint must sit on a **prose** element, and Evidence must name which one and why. Re-run the anchor sweep above and paste the after-state next to the before-state.
+    ### P6D — Responsive acceptance
 
-    **Responsive acceptance — record a screenshot per row in Evidence:**
+    Verify at least: wide desktop ~1440+ · MacBook/laptop · ~1024px · tablet/narrow · mobile.
+
+    Require: no unnecessary blank right-hand area · no clipped structured content · no page-level horizontal scroll · code/table local overflow only when required · prose readable · consistent outer answer alignment · no overlapping rails · no duplicate answer surfaces.
+  - **Verify:** `cd frontend && npm test && npm run build`.
+
+    **P6A:** Host-side `rg -n 'crypto\.randomUUID' frontend/src` returns **only** `frontend/src/lib/id.ts`; `rg -n 'newClientId' frontend/src/components/ChatPanel.tsx` shows the import plus 6 call sites. NEW colocated `frontend/src/lib/id.test.ts` (vitest, `environment: 'jsdom'`, `setupFiles: ./src/test/setup.ts` — `vite.config.ts:7-9`) covering: (A) randomUUID available → helper uses it; (B) randomUUID missing, getRandomValues available → UUID-v4-shaped version nibble `4` and variant in `{8,9,a,b}`; (C) crypto undefined / randomUUID not a function → MUST NOT THROW; (D) final fallback if reachable. Stub via `vi.stubGlobal('crypto', ...)` and restore in `afterEach`. **Honesty note — measured 2026-08-25: there is NO `ChatPanel.test.tsx`.** Do not record "existing ChatPanel tests remain green".
+
+    **P6B:** Host-side `rg -n 'max-w-\[[0-9]+ch\]' frontend/src/components` must show **no card-level ch-constraint on a workspace container**; any surviving `ch` constraint must sit on a **prose** element, and Evidence must name which one and why. Re-run the P6B anchor sweep and paste after-state next to before-state.
+
+    **P6D — screenshot per row in Evidence:**
 
     ```text
     ~1440px desktop | MacBook/laptop | ~1024px | tablet/narrow | mobile
     ```
 
-    At **every** viewport assert all seven: no unnecessary blank right-hand area · no clipped structured content · no overlapping side rails (`19rem` left / `22rem` right, `SocCockpit.tsx:21`) · **no horizontal page scroll** · code/table overflow contained **locally** (the local box scrolls; the page does not) · prose still readable · one coherent assistant-answer alignment across all sections of the same turn.
+    At **every** viewport assert: no unnecessary blank right-hand area · no clipped structured content · no overlapping side rails (`19rem` left / `22rem` right, `SocCockpit.tsx:21`) · **no horizontal page scroll** · code/table overflow contained **locally** · prose still readable · one coherent assistant-answer alignment. Plus: no duplicate answers, no duplicate remediation controls, no investigation conclusion on SPL-only, collapsed "How this answer was produced" / technical path.
 
-    Plus the existing manual Mac checklist: no duplicate answers, no duplicate remediation controls, no investigation conclusion on SPL-only, collapsed "How this answer was produced" / technical path.
+    **Honesty note:** there are no width/layout unit tests in this repo and `npm test` will not catch a viewport regression — the screenshot matrix **is** the P6B/P6D evidence.
 
-    **Honesty note:** there are no width/layout unit tests in this repo and `npm test` will not catch a regression here — it proves compile + existing behavior only. The screenshot matrix **is** the evidence for this item; do not record `npm test` green as viewport acceptance.
+    **COE acceptance for P6A (after the code lands):** over remote HTTP at `http://10.52.1.13:3010/chat` — (1) type a message, (2) Enter/Send, (3) user bubble appears, (4) progress state appears where applicable, (5) browser issues the API request, (6) no `randomUUID` exception in console. Only after this exception is gone may any subsequent network failure be classified as a separate CORS/API-base/Nginx/auth/backend issue.
   - **Depends on:** P5
   - **Evidence:** _(fill when done)_
   - **Commit:** one logical commit for P6 only
 
-- [ ] **P6.1** — Workflow control vocabulary must never present as security containment
-  - **Do:** Enforce this invariant, which is **separate from and not satisfied by** the P6 status-label remap:
+- [ ] **P7** — Full regression + Mac end-to-end / UI acceptance
+  - **Do:** Mac remains primary implementation/UI acceptance. Run required suites and product scenarios A–M. Record LLM/MCP honest degrade on Mac. Do not fake services. Use **effective** runtime values (`AI_SOC_ENV_PROFILE=coe`; T4 timeout from `.env`, currently `10` — do not assume `development` / `120`).
+
+    Acceptance categories (map onto the scenario matrix; do not invent a second table):
 
     ```text
-    WORKFLOW CONTROL STATUS/ACTION  must never be presented as  SECURITY CONTAINMENT ACTION
+    UNDERSTANDING
+      exact governed ACCEPT; catalogue paraphrase ACCEPT; ABSTAIN → T4;
+      T4 unavailable fail-closed; explicit literal survival; multi-turn corrections
+    PRODUCT BEHAVIOR
+      pure SPL authoring; investigation; MITRE; knowledge; remediation applicability
+    GOVERNANCE
+      candidate_spl non-executable; normalized_spl; exact-call authorization;
+      HIL/RBAC; Resource Planner authority; evidence authority; remediation authority
+    FRONTEND
+      no duplicate answers; no duplicate remediation CTA; no false BLOCK containment
+      wording; wider workspace; readable prose; full-width structured artifacts;
+      responsive layout; UUID fallback
     ```
 
-    **Confirmed leak path (measured 2026-08-21 — this is live production code, not hypothetical):**
+    Real Mac scenario (P7-C — SPL authoring *shape*, not a keyword patch):
 
     ```text
-    sufficiency.status = "BLOCKED"
-      → _EVIDENCE_NEXT_BY_STATUS["BLOCKED"] = "BLOCK"     staged_sufficiency.py:35
-      → run_status.next_action / sufficiency.next_action
-      → _recommended_next_action():                       investigation_outcome.py:312-318
-            value = run_status.get("next_action") or sufficiency.get("next_action")
-            return str(value).strip()                     # verbatim pass-through, no mapping
-      → InvestigationOutcome.recommended_next_action       investigation_outcome.py:52,163
-      → analyst UI  →  "Recommended next action: BLOCK"
+    create a spl command for checking the firewall activities in last 27 days
     ```
 
-    `_recommended_next_action` performs **no** vocabulary translation, so the workflow-control token reaches the analyst verbatim. Audit **both** surfaces — `investigation_status` presentation **and** `recommended_next_action` derivation/presentation. Remapping only `investigation_status` does **not** close this and must not be recorded as closing it.
+    Expected: correct Final RQC product shape; coherent SPL-focused answer; no fake InvestigationOutcome; no irrelevant remediation offer; no `Recommended next action: BLOCK`; appropriate provenance; useful viewport.
 
-    A degraded/blocked investigation may render as “Unable to proceed” / “Evidence unavailable”. It must **never** render as or imply “Block IP”, “Block firewall traffic”, or any containment step, unless a governed remediation/action contract explicitly authorizes that action. Containment language may originate **only** from the governed remediation/action-capability path, never from sufficiency or run-status control vocabulary. Prefer fixing the derivation/presentation seam (translate control vocabulary into analyst-facing process language) over renaming enums. **Do not rename governed backend enum values** — if architecture appears to require it, that is a new authority decision → STOP.
-  - **Verify:** NEW test proving a blocked/degraded investigation cannot produce a containment-looking user-facing recommendation derived solely from sufficiency/run-status control vocabulary: drive `derive_investigation_outcome` with `sufficiency.status="BLOCKED"` / `next_action="BLOCK"` (and the `run_status.next_action` variant, since it takes precedence in the `or`) and assert `recommended_next_action` is not the raw control token and contains no containment verb. Assert the same for `DEGRADE`/`CLARIFY`. Assert the governed remediation path is still able to recommend real containment when authorized — this must not become a blanket keyword ban. Run: `../.venv/bin/python -m pytest app/tests/<new_file>.py -q` (or the container form). Frontend assertion that no raw control token renders in the outcome card. `/invariant-check`.
-  - **Depends on:** P5
-  - **Evidence:** _(fill when done)_
-  - **Commit:** one logical commit for P6.1 only
-
-- [ ] **P6A** — COE client-ID / remote-HTTP compatibility (`crypto.randomUUID` unavailable)
-  - **Do:** Fix message submission failing **before** `streamChatMessage()` runs when the app is reached over non-secure remote HTTP (`http://10.52.1.13:3010/chat`):
+    Explicit review-only scenario (P7-D — literals must survive):
 
     ```text
-    Uncaught (in promise) TypeError: crypto.randomUUID is not a function
-        at handleSend (ChatPanel.tsx)
-        at submit (ChatInput.tsx)
-
-    UX: composer clears / no user bubble / no progress / NO API REQUEST
+    Give me only a review-only SPL query for index=pgcil_soc and
+    sourcetype=cisco:firepower for the last 30 days. Do not execute it.
     ```
 
-    `crypto.randomUUID` is only exposed in a **secure context** (HTTPS, or `localhost`/`127.0.0.1`). COE is reached by raw IP over HTTP, so `window.crypto.randomUUID` is undefined there and defined on the Mac — which is why this never reproduces locally. This is a **client-side ID generation compatibility** defect. It is **not** backend, T1/T2/T3/T4, Final RQC, CORS, API-base, Nginx, auth, MCP, or LLM.
-
-    Add `frontend/src/lib/id.ts` exporting one shared `newClientId()` with a three-tier ladder:
-
-    ```text
-    1. globalThis.crypto?.randomUUID  — only when it exists AND typeof === "function"
-    2. globalThis.crypto.getRandomValues — build a UUID-v4-SHAPED id;
-         MUST set version nibble (byte 6 -> 0x40 | low) and variant bits (byte 8 -> 0x80 | low)
-    3. final non-crypto fallback — must never be described as cryptographically secure
-    ```
-
-    These are **UI correlation identifiers only**. They must never be used for auth tokens, sessions, authorization, security decisions, or idempotency requiring cryptographic uniqueness. Say so in the module docstring so a later reader does not promote them.
-
-    **Call-site consolidation — measured 2026-08-25, all 6 direct usages are in one file:**
-
-    ```text
-    frontend/src/components/ChatPanel.tsx:405   `progress-${crypto.randomUUID()}`   progress message id
-    frontend/src/components/ChatPanel.tsx:569   user message id
-    frontend/src/components/ChatPanel.tsx:579   user message id
-    frontend/src/components/ChatPanel.tsx:589   user message id
-    frontend/src/components/ChatPanel.tsx:599   user message id
-    frontend/src/components/ChatPanel.tsx:621   user message id
-    rg -c 'crypto\.randomUUID' frontend/src  ->  ChatPanel.tsx:6   (no other file)
-    ```
-
-    Replace all six with `newClientId()`. After the change, direct `crypto.randomUUID` must exist **only** inside `frontend/src/lib/id.ts`. Do not create a second fallback implementation anywhere.
-  - **Verify:** Host-side `rg -n 'crypto\.randomUUID' frontend/src` returns **only** `frontend/src/lib/id.ts`; `rg -n 'newClientId' frontend/src/components/ChatPanel.tsx` shows the import plus 6 call sites. NEW colocated `frontend/src/lib/id.test.ts` (vitest, `environment: 'jsdom'`, `setupFiles: ./src/test/setup.ts` — `vite.config.ts:7-9`) covering:
-
-    ```text
-    A. randomUUID available            -> helper uses it; returns the supplied UUID verbatim
-    B. randomUUID missing,             -> UUID-v4-SHAPED; assert version nibble === '4'
-       getRandomValues available          and variant char in {8,9,a,b}; two calls differ
-    C. crypto undefined / randomUUID   -> MUST NOT THROW  (this is the COE regression)
-       not a function
-    D. final fallback path (if reachable in the implementation)
-    ```
-
-    Stub via `vi.stubGlobal('crypto', ...)` and restore in `afterEach` so the fake does not leak into other suites. Then `cd frontend && npm test` (= `vitest run`) and `npm run build` (= `tsc && vite build`), both green.
-
-    **Honesty note — measured 2026-08-25: there is NO `ChatPanel.test.tsx` in this repo** (`rg -ln ChatPanel frontend/src --glob '*.test.*'` returns nothing). Do **not** record "existing ChatPanel tests remain green" as evidence. The truthful claim is the full `npm test` suite plus `tsc` compile of the edited file. If ChatPanel coverage is wanted, that is a separate item, not a silent addition here.
-  - **Depends on:** none — independent of P1–P6/P6.1 and of the understanding-authority workstream. May be executed at any point; does not block and is not blocked by P2.
-  - **Evidence:** _(fill when done — record the `rg` output, the four helper test names, `npm test` + `npm run build` results, and the COE manual acceptance below)_
-  - **COE acceptance (deployment step, after the code lands):** over remote HTTP at `http://10.52.1.13:3010/chat` — (1) type a message, (2) Enter/Send, (3) user bubble appears, (4) progress state appears where applicable, (5) browser issues the API request, (6) no `randomUUID` exception in console.
-
-    **Only after this exception is gone may any subsequent network failure be classified.** If sending then fails with CORS, wrong `VITE_API_BASE_URL`, Nginx proxy, auth, or backend connectivity, that is a **separate** issue diagnosed from the new error — this item must not be used to conceal it, and must not be marked done on the grounds that "something else is now failing".
-  - **Out of scope (do not modify for P6A):** `architecture.md`, any backend file, T1/T2/T3/T4, Final RQC, CORS config, `VITE_API_BASE_URL`, auth, Nginx, HTTPS rollout, MCP, LLM configuration.
-  - **Commit:** one logical commit for P6A only (frontend-only diff)
-
-- [ ] **P7** — Full regression + Mac end-to-end acceptance
-  - **Do:** Run required suites and product scenarios A–K from the operator brief (exact, paraphrase, firewall SPL authoring shape, explicit review-only SPL with do-not-execute, rich Cisco detection, ambiguous suspicious, unknown investigation, MITRE, multi-turn time/entity correction, literal survival). Record LLM/MCP honest degrade on Mac. Do not fake services.
-  - **Verify:** `PATH="$PWD/.venv/bin:$PATH" ./scripts/run_stage3_governance_regression.sh` on the **host venv** (never in the container — read-only `/workspace` vs `REPO_ROOT=/workspace` + `cd backend && pytest`). Governance **step 1 is a ratified `KNOWN_MACOS_GOVERNANCE_ENV_LIMITATION`** — record it as such, do not work around it, and do not let it block P1–P6; every other governance step must still run and pass on Mac. Full backend suite via `cd backend && ../.venv/bin/python -m pytest -q` or the container form; targeted authority/fidelity/HIL/MCP suites green; `cd frontend && npm test && npm run build` green; scenario matrix table filled in Evidence with pass/fail. Classify any failure as regression / env / pre-existing **by diffing against the P0 baseline** — per `CLAUDE.md`, there is no CI here, so do not assume a red test is pre-existing; diff failure **names**, not counts (`.pytest_cache` `lastfailed` accumulates across filtered runs). If the governance runner is still unavailable, that is an env blocker to record explicitly — do not silently substitute the plain pytest run for it.
-  - **Depends on:** P0 (runner + baseline), P1–P6, P6.1, P6A
+    **Mac/Linux limitation (do not hide):** Mac governance step 1 cannot be valid because committed generated metadata contains Linux path semantics. P8 cannot become release-ready until the exact candidate SHA is checked on Linux (`OS=Linux`, `CODE_SHA=FINAL_CANDIDATE_SHA`, governance step 1=`PASS`). LLM/MCP are **not** required for that Linux governance proof.
+  - **Verify:** `PATH="$PWD/.venv/bin:$PATH" ./scripts/run_stage3_governance_regression.sh` on the **host venv** (never in the container). Governance **step 1 is a ratified `KNOWN_MACOS_GOVERNANCE_ENV_LIMITATION`** — record it as such, do not work around it; every other governance step must still run and pass on Mac. Full backend suite via `cd backend && ../.venv/bin/python -m pytest -q` or the container form; targeted authority/fidelity/HIL/MCP suites green; `cd frontend && npm test && npm run build` green; scenario matrix table filled in Evidence with pass/fail. Classify any failure as regression / env / pre-existing **by NAME and classification** against the P0 baseline (and P2's 20-fail set) — do not hide postgres, migration-readiness, or macOS GitHub-skill factory failures; do not trust counts or `.pytest_cache` `lastfailed`. If the governance runner is still unavailable, that is an env blocker to record explicitly — do not silently substitute the plain pytest run for it.
+  - **Depends on:** P0 (runner + baseline), P1–P6
   - **Evidence:** _(fill when done)_
   - **Commit:** optional evidence-only commit under `docs/evals/` if needed
 
-- [ ] **P8** — Release / git synchronization record
-  - **Do:** Confirm `architecture.md` byte-identical to freeze commit `49c5a494` for that file content path (`git diff 49c5a494 -- architecture.md` empty). Clean worktree. Record CODE_SHA, ENVIRONMENT=MAC, PROFILE, LLM_STATE, MCP_STATE, TEST_RESULTS, UI_ACCEPTANCE. Do not deploy to VPS/COE in this plan.
-    **RELEASE_READY additionally requires a Linux governance proof** (Mac acceptance stays primary for implementation/UI, but governance step 1 is proven invalid on macOS):
+- [ ] **P8** — Candidate / release evidence (STOP — no push/merge/deploy)
+  - **Do:** Produce `FINAL_CANDIDATE_SHA`. Confirm `architecture.md` byte-identical to freeze commit `49c5a494` (`git diff 49c5a494 -- architecture.md` empty). Clean worktree. Record:
 
     ```text
-    CODE_SHA          = <exact same final candidate SHA>
-    OS                = Linux (VPS acceptable)
-    governance step 1 = PASS
+    FINAL_CANDIDATE_SHA
+    CODE_SHA
+    ENVIRONMENT=MAC
+    PROFILE                  (effective: coe unless measured otherwise)
+    LLM_STATE
+    MCP_STATE
+    BACKEND_TESTS
+    FRONTEND_TESTS
+    UI_ACCEPTANCE
+    KNOWN_ENV_LIMITATIONS    (postgres, migration-readiness, macOS GitHub skill factory,
+                              governance step 1 on Mac)
     ```
 
-    Run it against the **exact same candidate SHA** — not a rebuild, not a later commit. This gate is repository/governance validation, so **do not require LLM or MCP to run it**; VPS is acceptable with both unavailable. COE live LLM/MCP validation is a later deployment acceptance step and is **not** part of this loop unless explicitly requested.
-  - **Verify:** `git status --short`; `git diff 49c5a494 -- architecture.md`; Evidence block complete.
+    Then **STOP**. Do **not** push, merge, rebase, deploy, or modify VPS/COE source in this plan.
+
+    P8 on Mac **cannot** declare RELEASE_READY. Linux governance proof remains a **later external** step against the exact same SHA:
+
+    ```text
+    CODE_SHA          = FINAL_CANDIDATE_SHA
+    OS                = Linux (VPS acceptable)
+    governance step 1 = PASS
+    LLM/MCP           not required for this proof
+    ```
+
+    Next **external** promotion workflow (operator-driven, after this loop):
+
+    ```text
+    FINAL_CANDIDATE_SHA
+      → VPS checkout exact SHA
+      → Linux governance + deterministic validation
+      → PASS
+      → push feature branch
+      → PR
+      → merge master
+      → MASTER_RELEASE_SHA
+      → Mac / VPS / COE exact same SHA
+      → COE live LLM/MCP acceptance
+    ```
+  - **Verify:** `git status --short`; `git diff 49c5a494 -- architecture.md`; Evidence block complete with every field above; no push/merge/deploy performed.
   - **Depends on:** P7
   - **Evidence:** _(fill when done)_
   - **Commit:** none unless recording an eval report file
@@ -624,8 +780,8 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
 |---|---|---|
 | A | Exact governed T1–T3 happy path | ACCEPT; T4 skipped |
 | B | Known catalogue paraphrase | ACCEPT when complete/confident |
-| C | Firewall SPL authoring shape | Final RQC SPL authoring; no InvestigationOutcome BLOCK/remediation pollution |
-| D | Explicit review-only SPL with index/sourcetype/time + do not execute | Literals survive; review-only; no execute |
+| C | Mac SPL authoring: `create a spl command for checking the firewall activities in last 27 days` | Final RQC SPL authoring; coherent SPL-focused answer; no fake InvestigationOutcome; no irrelevant remediation offer; no `Recommended next action: BLOCK`; useful viewport |
+| D | Review-only: `Give me only a review-only SPL query for index=pgcil_soc and sourcetype=cisco:firepower for the last 30 days. Do not execute it.` | Literals survive (`index`, `sourcetype`, 30 days, do-not-execute); review-only; no execute |
 | E | Known rich Cisco detection | ACCEPT when complete |
 | F | “Is this activity suspicious?” | ABSTAIN / clarify as appropriate |
 | G | Unknown investigation | ABSTAIN → T4 → investigation-shaped RQC when warranted |
@@ -640,7 +796,8 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
 
 - ~~Exact frontend test file names for ChatBubble composition may need creation during P5 audit-first.~~ **Resolved 2026-08-21:** `frontend/src/components/ChatBubble.progress.test.tsx` exists and passes (2 tests); extend it or add a sibling.
 - Which existing suite already covers 105/105 path acceptance must be confirmed in P0/P7 (`question` evals / governance script) — do not invent a second 105 harness.
-- ~~**Open (P7 blocker):** the governance regression runner on this Mac is unresolved.~~ **Resolved 2026-08-21:** MAC-FIRST host venv established and measured; governance now executes. **One prerequisite remains and is an operator decision, not a code gap:** `AI_SOC_GITHUB_SKILL_CLONE_ROOT` (external clone absent) — P0 owns it.
+- ~~**Open (P7 blocker):** the governance regression runner on this Mac is unresolved.~~ **Resolved 2026-08-21:** MAC-FIRST host venv established and measured; governance now executes. **One prerequisite remains and is an operator decision, not a code gap:** `AI_SOC_GITHUB_SKILL_CLONE_ROOT` (external clone absent) — P0 owns it. Linux governance step 1 vs exact candidate SHA remains a P8 external gate, not a Mac P7 blocker.
+- ~~P6.1 / P6A as extra loop phases.~~ **Resolved 2026-08-25 consolidation:** control-vocabulary leak folded into **P5**; UUID / viewport / hierarchy / responsive stay **P6A–P6D inside P6**. Remaining execution is `P3 → P4 → P5 → P6 → P7 → P8`.
 
 ## Anchors verified 2026-08-21 (pre-execution review)
 
@@ -648,12 +805,12 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
 - All 19 backend modules and all 5 frontend components in the reuse table exist at the stated paths.
 - All 5 named symbols resolve: `understand_query` (`query_understanding/parser.py:86`), `match_use_cases` (`use_cases/registry.py:119`), `lane_for_match_path` (`chat/lane_router.py:48`), `derive_investigation_outcome` (`chat/contracts/investigation_outcome.py:62`), `maybe_attach_remediation_offer` (`chat/remediation_runtime.py:144` — was missing from the rev 1 reuse table).
 - All 6 P0 `rg` anchors match the frozen `architecture.md`.
-- `.cursor/hooks/audit-plan-discipline.sh` → **0 gaps**, 9 Verify fields, 9 unchecked items.
+- `.cursor/hooks/audit-plan-discipline.sh` → **0 gaps** at last consolidation (2026-08-25). Remaining unchecked items are P3–P8.
 - The 3 test files cited as existing do exist; the 3 cited as NEW do not yet exist (as intended).
 - **Control-vocabulary leak confirmed in live code:** `SufficiencyNextAction` includes `"BLOCK"`
   (`staged_sufficiency.py:19`), `_EVIDENCE_NEXT_BY_STATUS["BLOCKED"] = "BLOCK"` (line 35), and
   `_recommended_next_action` (`investigation_outcome.py:312-318`) passes it through **verbatim with no
-  vocabulary translation** into `recommended_next_action` → analyst UI. P6.1 exists for this.
+  vocabulary translation** into `recommended_next_action` → analyst UI. Owned by **P5** (folded from P6.1).
 - **Runners measured:** host venv and container both return **77 passed** on the two P1 suites, and both run
   **pytest 9.1.1** (no version skew between runners).
 - **Full-suite baseline MEASURED 2026-08-21 on the host venv — the tree is NOT green. Do not assume green.**
@@ -702,6 +859,10 @@ and deliberately NOT to HEAD**, so no later protected-file change is blessed. Th
 unchanged and no allowlist was added; the in-file justification comment follows the established
 style. Approval covers **only** the previously reviewed `3a5f5001` production change.
 
+**Still in force for P3–P8:** `pipeline.py` remains RACES-protected. Any **new** need to change a
+protected freeze path requires STOP + explicit operator decision. Do not treat the `3a5f5001`
+advance as a standing license to edit freeze files.
+
 ```text
 test_live_path_untouched_by_ec.py  →  8 passed   (freeze test GREEN)
 commit: 5cf66404 test(governance): advance RACES baseline for SPL authority fix
@@ -714,7 +875,8 @@ commit: 5cf66404 test(governance): advance RACES baseline for SPL authority fix
 
 ## Drift log
 
+- 2026-08-25 (post-P2 consolidation, plan-only): Remaining execution folded to `P3 → P4 → P5 → P6 → P7 → P8`. P6.1 control-vocabulary leak moved into P5; P6A UUID / P6B viewport / P6C hierarchy / P6D responsive stay inside P6 (not extra phases). P8 records `FINAL_CANDIDATE_SHA` and **stops** — no push/merge/deploy. Promotion is Mac SHA → VPS Linux governance → push/PR/merge → `MASTER_RELEASE_SHA` → Mac/VPS/COE exact SHA → COE live acceptance. Config drift recorded, not fixed: `.env` `AI_SOC_ENV_PROFILE=coe` (docs previously claimed `development`); effective T4 timeout `.env=10` (not development profile `120`). P2 full suite 20 failed / 6097 passed classified as postgres + migration-readiness + macOS GitHub skill factory. HEAD `5d1e487e`; `origin/master` `49e545d9` is ancestor — no Git divergence.
 - 2026-08-21: Architecture freeze landed as `49c5a494` on master before this plan; feature branch `feat/complete-or-abstain-t4-ux` carries prior auth/COE/SPL/UI commits plus this plan. Do not re-amend architecture.md here.
-- 2026-08-21 (rev 3, pre-LOOP gap closure): (a) **P6.1 added** — workflow control vocabulary must never present as security containment; rev 2 had asserted only `BLOCKED` was real, which was **half wrong**: `BLOCKED` is the status and `BLOCK` is the `SufficiencyNextAction`, and `_recommended_next_action` leaks it verbatim to the analyst. Remapping `investigation_status` alone does not close it. (b) **P2 T4-failure negative made REQUIRED** (unavailable / timeout / invalid response → fail closed at semantic authority; five explicit must-hold clauses) plus scenario **L**. (c) **P2 literal-machinery wording corrected** — rev 2 over-committed to `spl/request_authority.py` as the literal authority; now a generality audit across all Final-RQC families, with reuse-directly vs extract-to-shared-seam branches. (d) Scenario **M** added. (e) **Governance runner resolved MAC-FIRST** via gitignored host venv; remaining `AI_SOC_GITHUB_SKILL_CLONE_ROOT` prerequisite recorded as an operator decision rather than silently relocating P7 to COE.
+- 2026-08-21 (rev 3, pre-LOOP gap closure): (a) **P6.1 added** — workflow control vocabulary must never present as security containment; rev 2 had asserted only `BLOCKED` was real, which was **half wrong**: `BLOCKED` is the status and `BLOCK` is the `SufficiencyNextAction`, and `_recommended_next_action` leaks it verbatim to the analyst. Remapping `investigation_status` alone does not close it. **(Superseded 2026-08-25: that work is now P5, not a separate phase.)** (b) **P2 T4-failure negative made REQUIRED** (unavailable / timeout / invalid response → fail closed at semantic authority; five explicit must-hold clauses) plus scenario **L**. (c) **P2 literal-machinery wording corrected** — rev 2 over-committed to `spl/request_authority.py` as the literal authority; now a generality audit across all Final-RQC families, with reuse-directly vs extract-to-shared-seam branches. (d) Scenario **M** added. (e) **Governance runner resolved MAC-FIRST** via gitignored host venv; remaining `AI_SOC_GITHUB_SKILL_CLONE_ROOT` prerequisite recorded as an operator decision rather than silently relocating P7 to COE.
 - 2026-08-21 (rev 2, pre-execution review): corrected before any code was written — (a) every backend Verify command was unrunnable on this Mac (no host pytest) → switched to the container form and added a toolchain section; (b) P7's governance script is blocked on both host and container → P0 now owns the runner decision; (c) P6 named a non-existent token `BLOCK` (actual: `BLOCKED`/`blocked`) and risked editing a governed `Literal` → rescoped to presentation-label mapping; (d) P2's "T4 must not commit those fields" contradicted the existing `SemanticT4Proposal`, which already carries `required_capabilities` → clarified as *recompute, do not delete*, per frozen §11; (e) P3 audited 3 seams but the blocked posture is also decided in `evidence/final_evidence_gate.py` → added as seam 4; (f) P2 now points at existing literal machinery (`request_authority.py`, `user_constraint_bindings.py`) instead of implying a new parallel structure.
 - Separate agentic investigation production plan remains independent; this plan owns understanding authority + response/UI applicability, not envelope/PlanDelta feature buildout.

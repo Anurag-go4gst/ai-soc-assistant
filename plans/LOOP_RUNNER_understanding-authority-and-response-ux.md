@@ -18,7 +18,7 @@ loop-asap — execute plans/2026-08-21_1937_understanding-authority-and-response
 
 1. Reconcile: `git status && git log --oneline -5`. Confirm branch `feat/complete-or-abstain-t4-ux` (or current feature branch). Read plan Dependency order, Stop conditions, Drift log, and frozen `architecture.md` §§2.2 / 7 / 9 / 11 / 12 / invariants 51–52.
 2. Audit: `.cursor/hooks/audit-plan-discipline.sh plans/2026-08-21_1937_understanding-authority-and-response-ux.md` — fix every GAP in the plan before coding.
-3. Pick the **first unchecked** item whose **Depends on** are all checked: `P0 → P1 → P2 → P3 → P4 → P5 → P6 → P6.1 → P7 → P8`.
+3. Pick the **first unchecked** item whose **Depends on** are all checked: `P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7 → P8`. One phase at a time. P6A–P6D are sub-scope of **P6**, not extra loop items. Control-vocabulary leak is **P5**.
 4. Verify anchors (`ls`, `rg`) before trusting file/line claims — they drift.
 5. **AUDIT FIRST** existing modules named in the plan before editing. Prefer extend over recreate.
 6. Implement only that phase’s **Do**. Smallest architecture-conformant change.
@@ -27,7 +27,9 @@ loop-asap — execute plans/2026-08-21_1937_understanding-authority-and-response
 9. `git diff` + `git diff --check` for the phase.
 10. Record **Evidence** (observed command output). Check `- [x]`.
 11. Commit **one logical commit per phase** (scoped files only). Do not bundle unrelated workstreams.
-12. Proceed only if green. Re-audit all checkmarks before declaring the plan complete.
+    After **P8**, stop — do not push, merge, or deploy.
+12. Proceed only if green. Re-audit all checkmarks before declaring the plan complete. Compare any
+    full-suite failures by **NAME/classification** against P0 and P2 baselines; do not hide env failures.
 
 ## Test runners (MAC-FIRST — established 2026-08-21)
 
@@ -59,6 +61,7 @@ PATH="$PWD/.venv/bin:$PATH" ./scripts/run_stage3_governance_regression.sh
 ## Guards
 
 - **Never** modify `architecture.md`.
+- **Never** auto-push, auto-merge, auto-rebase, or auto-deploy.
 - **Never** special-case individual user questions or add firewall keyword patches.
 - **Never** implement embeddings in this plan.
 - **Never** create a second router, second T4 service, or T4-only investigation runtime.
@@ -70,13 +73,23 @@ PATH="$PWD/.venv/bin:$PATH" ./scripts/run_stage3_governance_regression.sh
   and `BLOCK` (next-action) are workflow-control vocabulary; they must never reach the analyst as
   "Block IP" / "Block firewall traffic". Containment language may originate **only** from a governed
   remediation/action contract. Remapping `investigation_status` alone does **not** close this — the
-  `recommended_next_action` derivation leaks the raw token too (P6.1).
+  `recommended_next_action` derivation leaks the raw token too — owned by **P5**.
 - **Never** rename governed backend enum values (`SufficiencyStatus`, `SufficiencyNextAction`,
   `InvestigationStatus`, `Disposition`) to fix presentation. If that looks required → **STOP**.
 - **Never** let a T4 failure resurrect a partial T1–T3 contract, revive old intent/goal locks, invent a
   Final RQC, or start an investigation lifecycle. Fail closed: clarify or honest degrade.
 - **Never** assume an SPL-domain contract is the architecture-wide explicit-literal authority; audit
   generality first, and never create a second literal parser or duplicate entity/time extraction.
+- **Never** push, merge, rebase, alter `origin/master`, or deploy to VPS/COE. P8 records
+  `FINAL_CANDIDATE_SHA` and **stops**. Promotion is operator-driven after this loop:
+  Mac SHA → VPS exact-SHA Linux governance → push feature branch → PR → merge master →
+  `MASTER_RELEASE_SHA` → Mac/VPS/COE converge → COE live acceptance.
+- **Never** independently modify VPS or COE source. Current development authority is this Mac
+  feature branch.
+- **Never** hide env failures (postgres, migration-readiness, macOS GitHub skill factory). Compare
+  full-suite failures by **NAME and classification** against the P0 / P2 baselines, not counts.
+- Any **new** change to a RACES-protected freeze path (`pipeline.py` included) → **STOP**. Previous
+  RACES approval covered **only** commit `3a5f5001`.
 - Related investigation-envelope work stays in `plans/2026-08-21_0034_agentic-investigation-production.md` — do not merge scopes.
 
 ## Stop
@@ -88,7 +101,9 @@ PATH="$PWD/.venv/bin:$PATH" ./scripts/run_stage3_governance_regression.sh
 - A new authority decision is required, or
 - Implementation would require deleting legitimate existing work, or
 - A second router/planner/runtime appears necessary, or
-- Security / HIL / RBAC / exact-call would be weakened
+- Security / HIL / RBAC / exact-call would be weakened, or
+- A new RACES-protected freeze-path change needs operator approval, or
+- P8 evidence is recorded — **stop; do not push/merge/deploy**
 
 ## Evidence rules
 
