@@ -166,6 +166,8 @@ def build_control_plane_trace(
         "mcp_loop": state.get("mcp_loop")
         if isinstance(state.get("mcp_loop"), dict)
         else None,
+        "run_shape_transition": _run_shape_transition_trace(state, context_sufficiency),
+        "mcp_tool_readiness": _mcp_tool_readiness_trace(state, execution),
         # Item 5.4 (2026-07-03): advisory grounding assembled from the
         # CanonicalFacts spine — row-derived evidence citations with lineage
         # when evidence was executed, an honest limitation when it wasn't.
@@ -214,6 +216,188 @@ def build_control_plane_trace(
     return _redact(trace)
 
 
+def _run_shape_transition_trace(
+    state: dict[str, Any],
+    context_sufficiency: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Initial vs final governed run shape — no chain-of-thought."""
+    evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
+    planning = state.get("planning_decision") if isinstance(state.get("planning_decision"), dict) else {}
+    q2i = state.get("query_to_intent") if isinstance(state.get("query_to_intent"), dict) else {}
+    sufficiency = context_sufficiency if isinstance(context_sufficiency, dict) else {}
+    answer_contract = state.get("answer_contract") if isinstance(state.get("answer_contract"), dict) else {}
+
+    initial = (
+        str(planning.get("answer_mode") or "").strip()
+        or str(q2i.get("answer_mode") or "").strip()
+        or str((evidence_plan.get("initial_answer_mode") or "")).strip()
+        or None
+    )
+    final = (
+        str(sufficiency.get("answer_mode") or "").strip()
+        or str(evidence_plan.get("answer_mode") or "").strip()
+        or str(answer_contract.get("answer_mode") or "").strip()
+        or None
+    )
+    if not final:
+        rqc = state.get("resolved_query_contract") if isinstance(state.get("resolved_query_contract"), dict) else {}
+        intent_family = str(rqc.get("intent_family") or "").strip()
+        if intent_family in {"live_investigation", "guided_investigation", "hybrid_investigation_plus_policy"}:
+            final = "live_investigation" if intent_family == "live_investigation" else intent_family
+        elif intent_family in {"spl_generation_only", "spl_generation_and_run"}:
+            final = "spl_utility_authoring"
+    reasons = evidence_plan.get("reasons") if isinstance(evidence_plan.get("reasons"), list) else []
+    changed = bool(initial and final and initial != final)
+    authority = None
+    if changed:
+        authority = "evidence_plan" if evidence_plan.get("answer_mode") else "context_sufficiency"
+    elif final:
+        authority = "evidence_plan" if evidence_plan.get("answer_mode") == final else "context_sufficiency"
+    return attach_authority_tier(
+        {
+            "schema_version": "run_shape_transition_v1",
+            "initial_run_shape": initial,
+            "final_run_shape": final,
+            "changed": changed,
+            "change_reasons": [str(item) for item in reasons][:12],
+            "authority": authority,
+        },
+        tier=TIER_PLANNING,
+        note="Governed run-shape packaging only; not execution authority.",
+    )
+
+
+def _mcp_tool_lifecycle_state(
+    *,
+    planned: bool,
+    attempted: bool,
+    executed: bool,
+    succeeded: bool,
+    failed: bool,
+    skipped: bool,
+) -> str:
+    if succeeded:
+        return "SUCCEEDED"
+    if failed:
+        return "FAILED"
+    if executed:
+        return "EXECUTED"
+    if attempted:
+        return "ATTEMPTED"
+    if skipped:
+        return "SKIPPED"
+    if planned:
+        return "PLANNED"
+    return "SKIPPED"
+
+
+def _mcp_tool_readiness_trace(
+    state: dict[str, Any],
+    execution: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Planned MCP tools with PLANNED/ATTEMPTED/EXECUTED/... lifecycle states."""
+    tools: list[dict[str, Any]] = []
+    approval = state.get("investigation_approval") if isinstance(state.get("investigation_approval"), dict) else {}
+    validated = approval.get("validated_plan") if isinstance(approval.get("validated_plan"), dict) else {}
+    bindings = validated.get("capability_bindings") if isinstance(validated.get("capability_bindings"), list) else []
+    execution = execution if isinstance(execution, dict) else {}
+    selected_server = str(execution.get("selected_mcp_server") or "").strip() or None
+    selected_tool = str(execution.get("selected_mcp_tool") or "").strip() or None
+    exec_status = str(execution.get("status") or "").strip().lower()
+    block_reason = str(execution.get("block_reason") or "").strip() or None
+    attempted = exec_status not in {"", "skipped", "not_started", "none"}
+    executed = exec_status in {"ok", "partial", "empty", "failed", "timeout", "denied", "error"}
+    succeeded = exec_status in {"ok", "partial", "empty"}
+    failed = exec_status in {"failed", "timeout", "denied", "error"}
+    skipped = exec_status in {"skipped", "not_started", "none", ""} or bool(block_reason)
+
+    for binding in bindings:
+        if not isinstance(binding, dict):
+            continue
+        capability_id = str(binding.get("capability_id") or "").strip()
+        server = None
+        tool = None
+        if capability_id.startswith("mcp:"):
+            parts = capability_id.split(":")
+            if len(parts) >= 3:
+                server = parts[1] or None
+                tool = parts[2] or None
+        availability = str(binding.get("availability") or "").strip() or None
+        planned = True
+        tool_attempted = bool(attempted and selected_tool and tool and selected_tool == tool)
+        tool_executed = bool(executed and tool_attempted)
+        tool_succeeded = bool(succeeded and tool_attempted)
+        tool_failed = bool(failed and tool_attempted)
+        tool_skipped = (not tool_attempted) and (
+            skipped or availability in {"unavailable", "blocked"} or bool(block_reason)
+        )
+        tools.append(
+            {
+                "server": server,
+                "tool": tool,
+                "capability_id": capability_id or None,
+                "purpose": str(binding.get("capability_need") or "required"),
+                "planned_arguments": binding.get("planned_arguments")
+                if isinstance(binding.get("planned_arguments"), dict)
+                else None,
+                "argument_template": binding.get("argument_template"),
+                "authorization_requirement": "exact_call_auth0_grant",
+                "execution_eligibility": False,
+                "availability": availability,
+                "access_mode": binding.get("access_mode"),
+                "lifecycle_state": _mcp_tool_lifecycle_state(
+                    planned=planned,
+                    attempted=tool_attempted,
+                    executed=tool_executed,
+                    succeeded=tool_succeeded,
+                    failed=tool_failed and not tool_succeeded,
+                    skipped=tool_skipped,
+                ),
+                "attempted": tool_attempted,
+                "result": exec_status or None,
+                "skip_or_block_reason": block_reason
+                or (f"capability_{availability}" if availability and availability != "available" else None),
+            }
+        )
+
+    if not tools and (selected_tool or selected_server or block_reason or exec_status):
+        tools.append(
+            {
+                "server": selected_server,
+                "tool": selected_tool,
+                "capability_id": None,
+                "purpose": str(execution.get("execution_intent") or "spl_search"),
+                "planned_arguments": None,
+                "argument_template": None,
+                "authorization_requirement": "exact_call_auth0_grant",
+                "execution_eligibility": False,
+                "availability": str(execution.get("tool_selection_status") or "") or None,
+                "access_mode": None,
+                "lifecycle_state": _mcp_tool_lifecycle_state(
+                    planned=bool(selected_tool or selected_server),
+                    attempted=attempted,
+                    executed=executed,
+                    succeeded=succeeded,
+                    failed=failed,
+                    skipped=skipped,
+                ),
+                "attempted": attempted,
+                "result": exec_status or None,
+                "skip_or_block_reason": block_reason,
+            }
+        )
+
+    workflow = state.get("workflow_plan") if isinstance(state.get("workflow_plan"), dict) else {}
+    return attach_authority_tier(
+        {
+            "schema_version": "mcp_tool_readiness_v1",
+            "required_sources": list(workflow.get("required_sources") or []),
+            "missing_sources": list(workflow.get("missing_sources") or []),
+            "tools": tools,
+        },
+        tier=TIER_DIAGNOSTIC,
+        note="MCP planned-vs-attempted readiness for harness validation when live MCP is unavailable.",
+    )
 
 
 def _mcp_calls_trace(state: dict[str, Any]) -> list[dict[str, Any]]:

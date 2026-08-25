@@ -154,6 +154,14 @@ def build_understanding_provenance(
         *tier_lines,
         {"label": "Final intent", "value": _intent_label(contract.intent_family)},
         {"label": "Final owner", "value": owner or "—"},
+        {
+            "label": "Final RQC",
+            "value": (
+                f"{contract.understanding_source or 'unknown'}/"
+                f"{contract.qualification_tier or '—'}/"
+                f"{acceptance_decision}"
+            ),
+        },
     ]
     lines.extend(build_spl_authoring_provenance_lines(candidate_spl, spl_validation))
 
@@ -167,6 +175,14 @@ def build_understanding_provenance(
         "qualification_tier": contract.qualification_tier,
         "understanding_source": contract.understanding_source,
         "reason_codes": list(acceptance.reason_codes),
+        "final_rqc": {
+            "intent_family": contract.intent_family,
+            "answer_goal": contract.answer_goal,
+            "qualification_tier": contract.qualification_tier,
+            "understanding_source": contract.understanding_source,
+            "acceptance_decision": acceptance_decision,
+            "clarification_required": bool(contract.clarification_required),
+        },
         "lines": lines,
         "t4_invoked": bool(semantic.get("invoked")),
         "t4_accepted": bool(semantic.get("accepted")),
