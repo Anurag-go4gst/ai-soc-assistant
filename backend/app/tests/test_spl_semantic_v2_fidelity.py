@@ -85,6 +85,20 @@ def test_malformed_structure() -> None:
     assert "malformed_structure" in result["losses"]
 
 
+def test_quoted_args_on_adjacent_lines_are_not_broken_multiline() -> None:
+    ok = (
+        'search index=<your_index> earliest=-24h latest=now\n'
+        '| eval hour_of_day=strftime(_time,"%H")\n'
+        '| eval day_of_week_num=strftime(_time,"%w")\n'
+        '| where day_of_week_num IN ("0","6")\n'
+        '| table _time hour_of_day day_of_week\n'
+        '| head 100'
+    )
+    assert "broken_multiline_expression" not in validate_spl_structure(ok)
+    bad = 'search index=foo | eval note="hello\nworld" | table note'
+    assert "broken_multiline_expression" in validate_spl_structure(bad)
+
+
 def test_compiled_shapes_pass_fidelity() -> None:
     for query in (
         "one source IP attacking multiple distinct accounts over a rolling 10-minute window",

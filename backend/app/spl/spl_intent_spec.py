@@ -463,9 +463,13 @@ def _prohibitions(
     result_limit: int | None,
     search_horizon: str | None,
     explicit_threshold: bool,
+    filters: list[str] | None = None,
 ) -> list[str]:
     bans: list[str] = []
-    if result_limit is None and analysis_shape in {"raw", "trend", "rolling", "sequence"}:
+    all_events = "all_events_no_action_filter" in (filters or [])
+    if result_limit is None and (
+        analysis_shape in {"trend", "rolling", "sequence"} or all_events
+    ):
         bans.append("arbitrary_head_100")
         bans.append("arbitrary_truncation")
     if analysis_shape == "raw":
@@ -676,6 +680,7 @@ def build_spl_intent_spec(
         result_limit=result_limit,
         search_horizon=search_horizon,
         explicit_threshold=explicit_threshold,
+        filters=filters,
     )
 
     source_constraints: dict[str, Any] = {}

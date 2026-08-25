@@ -173,6 +173,7 @@ _REPAIRABLE_VALIDATOR_REASONS = frozenset({
     "missing_time_bound",
     "blocked_command",
 })
+MAX_SPL_LLM_REPAIRS = 1
 
 
 def _is_generic_lab_skeleton(spl: str) -> bool:
@@ -297,6 +298,18 @@ def attempt_bounded_utility_spl_llm_draft(
         "utility_spl_draft_failover_enabled": failover_enabled,
         "utility_spl_repair_attempt": repair_attempt,
     }
+    if repair_attempt:
+        prior = 0
+        if isinstance(context, dict):
+            try:
+                prior = int(context.get("repair_attempt_count") or 1)
+            except (TypeError, ValueError):
+                prior = 1
+        if prior > MAX_SPL_LLM_REPAIRS:
+            trace["llm_spl_draft_dropped_reason"] = "more_than_one_repair"
+            trace["llm_spl_draft_skipped_reason"] = "more_than_one_repair"
+            return None, trace
+        trace["repair_attempt_count"] = min(prior, MAX_SPL_LLM_REPAIRS)
 
     if not utility_spl_draft_enabled():
         trace["llm_spl_draft_requested"] = False
@@ -525,10 +538,21 @@ def candidate_from_universal_utility_authoring(
             not fidelity_result.get("passed") and repair_feedback
         ):
             spl_draft_trace["bounded_repair_attempted"] = True
+            spl_draft_trace["repair_attempt_count"] = 1
+            spl_draft_trace["max_spl_llm_repairs"] = MAX_SPL_LLM_REPAIRS
+            repair_context = {
+                **llm_context,
+                "previous_rejected_candidate": final_spl,
+                "deterministic_losses": list(fidelity_result.get("losses") or []),
+                "repair_scope": "syntax_and_declared_semantic_losses_only",
+                "do_not_reinterpret_request": True,
+                "immutable_semantic_contract": intent_spec,
+                "repair_attempt_count": 1,
+            }
             repair_result, repair_trace = attempt_bounded_utility_spl_llm_draft(
                 user_query,
                 llm_raw_output_provider=llm_raw_output_provider,
-                context=llm_context,
+                context=repair_context,
                 relevance_feedback=repair_feedback,
                 repair_attempt=True,
             )

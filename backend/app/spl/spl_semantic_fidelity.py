@@ -40,6 +40,28 @@ def _window_token(spec_window: str | None) -> str | None:
     return match.group(1).lstrip("-") if match else None
 
 
+def _quoted_string_contains_newline(text: str, quote: str) -> bool:
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] != quote:
+            i += 1
+            continue
+        i += 1
+        while i < n:
+            ch = text[i]
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == quote:
+                break
+            if ch == "\n":
+                return True
+            i += 1
+        i += 1
+    return False
+
+
 def validate_spl_structure(spl: str) -> list[str]:
     """Lightweight structural hazards — not a Splunk parser."""
     text = str(spl or "")
@@ -53,7 +75,7 @@ def validate_spl_structure(spl: str) -> list[str]:
     if re.search(r"\|\s*\|", text) or re.search(r"^\s*\|", text, re.M) and not re.search(r"\S\s*\|", text):
         if re.search(r"\|\s*\|", text):
             errors.append("invalid_pipeline_boundary")
-    if re.search(r'"[^"\n]*\n[^"]*"', text):
+    if _quoted_string_contains_newline(text, '"') or _quoted_string_contains_newline(text, "'"):
         errors.append("broken_multiline_expression")
     if re.search(r"\b[A-Za-z_][A-Za-z0-9_]*\s*\(\s*\|", text):
         errors.append("malformed_function_call")

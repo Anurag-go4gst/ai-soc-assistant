@@ -644,19 +644,27 @@ SPL_ADVISORY_JSON_SCHEMA: dict[str, Any] = {
 }
 
 
-def _utility_authoring_system_append() -> str:
+def _utility_authoring_system_append(*, context: dict[str, Any] | None = None) -> str:
     """Narrow utility-authoring guidance + weekend few-shot (not global authority constants)."""
-    return (
+    spec = (context or {}).get("semantic_analyst_intent") if isinstance(context, dict) else {}
+    spec = spec if isinstance(spec, dict) else {}
+    shape = str(spec.get("analysis_shape") or "")
+    shape_rules = _shape_authoring_rules(spec)
+    prefix = (
         "\n\nUniversal utility SPL authoring (review-only, template-free):\n"
         "- Draft a clean SPL block that matches the user's utility request exactly.\n"
         "- Preserve ALL semantic requirements from the analyst intent block (filters, grouping, ranking, time window).\n"
         "- Use index=<your_index> when no trusted index is provided; never invent company indexes.\n"
-        "- When the analyst asks for top/ranked results, include stats aggregation, sort descending, then head.\n"
-        "- When the analyst asks for ALL logs/events without a limit, do NOT add `head 100` arbitrarily.\n"
-        "- Match earliest/latest to the requested time window (e.g. 30d -> earliest=-30d).\n"
+        f"{shape_rules}"
+        "- Match earliest/latest to the requested search horizon; never overwrite an explicit window with 24h.\n"
         "- No inline // comments; no execution or findings claims.\n"
         "- Use %w (0=Sunday, 6=Saturday) for weekend filter logic; %A is display-only.\n"
-        "Weekend hour/day extraction few-shot:\n"
+    )
+    if shape in {"trend", "rolling", "sequence"}:
+        return prefix
+    return (
+        prefix
+        + "Weekend hour/day extraction few-shot:\n"
         '{"status": "candidate_generated", "confidence_score": 0.72, "confidence_label": "medium", '
         '"detection_family": "universal_timestamp_spl", "candidate_spl": "search index=<your_index> '
         "earliest=-24h latest=now\\n| eval hour_of_day=strftime(_time,\\\"%H\\\")\\n"
@@ -674,6 +682,34 @@ def _utility_authoring_system_append() -> str:
     )
 
 
+def _shape_authoring_rules(spec: dict[str, Any]) -> str:
+    shape = str(spec.get("analysis_shape") or "")
+    prohibitions = {str(item) for item in (spec.get("prohibitions") or [])}
+    lines = [
+        "- Follow the immutable semantic contract. Do not reinterpret the analyst request.\n",
+        "- Do not inject MITRE, remediation, routing, MCP execution, or unrelated alert templates.\n",
+    ]
+    if shape == "raw" or "mandatory_aggregation" in prohibitions:
+        lines.append("- Do not force stats/tstats aggregation; raw events were requested.\n")
+    elif shape == "trend":
+        lines.append("- Use timechart (or bin+_time+stats) with the declared temporal_grain. Do not emit a ranked top-N alert query.\n")
+    elif shape == "rolling":
+        lines.append("- Preserve the rolling analytical window with streamstats time_window= and the distinct relationship. Sort 0 _time before streamstats.\n")
+    elif shape == "sequence":
+        lines.append("- Preserve ordered event sets and sequence_max_gap. Do not collapse into a single EventCode alert template.\n")
+    elif shape == "ranking":
+        lines.append("- When the analyst asks for top/ranked results, include stats aggregation, sort descending, then head only if a result_limit was requested.\n")
+    else:
+        lines.append("- When the analyst asks for top/ranked results, include stats aggregation, sort descending, then head.\n")
+    if "arbitrary_head_100" in prohibitions or shape in {"trend", "rolling", "sequence"}:
+        lines.append("- Do NOT add `head 100` arbitrarily; do not truncate time-series/rolling/sequence output.\n")
+    else:
+        lines.append("- When the analyst asks for ALL logs/events without a limit, do NOT add `head 100` arbitrarily.\n")
+    if "unexpected_threshold_invention" in prohibitions:
+        lines.append("- Do not invent count/severity thresholds that are not in the contract.\n")
+    return "".join(lines)
+
+
 def spl_advisory_prompts(
     user_query: str,
     *,
@@ -682,9 +718,9 @@ def spl_advisory_prompts(
     context: dict[str, Any] | None = None,
     relevance_feedback: list[str] | None = None,
 ) -> tuple[str, str]:
-    system_prompt = _system_prompt(correctness_mode=correctness_mode)
+    system_prompt = _system_prompt(correctness_mode=correctness_mode, context=context)
     if utility_authoring:
-        system_prompt += _utility_authoring_system_append()
+        system_prompt += _utility_authoring_system_append(context=context)
     user_prompt = _user_prompt(
         user_query,
         context=context,
@@ -693,7 +729,81 @@ def spl_advisory_prompts(
     return system_prompt, user_prompt
 
 
-def _system_prompt(correctness_mode: bool = False) -> str:
+def _example_candidate_json(*, shape: str, skip_forced_head: bool) -> str:
+    if skip_forced_head and shape == "trend":
+        return (
+            '{"status": "candidate_generated", "confidence_score": 0.72, "confidence_label": "medium", '
+            '"detection_family": "failed_login_trend", "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> '
+            "earliest=-24h latest=now EventCode=4625\\n| timechart span=1h count as fail_count\", "
+            '"index": "<auth_index>", "sourcetype": "<auth_sourcetype>", "earliest": "-24h", '
+            '"latest": "now", "time_window_hours": 24, "result_cap": null, "unresolved_slots": [], '
+            '"assumptions": ["<auth_index> is the authentication log index", '
+            '"<auth_sourcetype> is the auth sourcetype"], '
+            '"required_fields": ["EventCode", "index", "sourcetype"], "missing_details": [], '
+            '"clarifying_questions": [], '
+            '"validation_notes": ["Lab candidate only; execution_eligible forced false"], '
+            '"soc_std_rules_applied": ["shift_left_filtering"], '
+            '"risk_notes": ["Not governed; SOC review required"], "execution_eligible": false, '
+            '"governed": false, "catalog_approved": false}'
+        )
+    if skip_forced_head and shape == "rolling":
+        return (
+            '{"status": "candidate_generated", "confidence_score": 0.72, "confidence_label": "medium", '
+            '"detection_family": "rolling_distinct_accounts", "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> '
+            "earliest=-24h latest=now\\n| sort 0 _time\\n| streamstats time_window=10m dc(user) as distinct_count by src_ip\", "
+            '"index": "<auth_index>", "sourcetype": "<auth_sourcetype>", "earliest": "-24h", '
+            '"latest": "now", "time_window_hours": 24, "result_cap": null, "unresolved_slots": [], '
+            '"assumptions": ["<auth_index> is the authentication log index"], '
+            '"required_fields": ["src_ip", "user", "index", "sourcetype"], "missing_details": [], '
+            '"clarifying_questions": [], '
+            '"validation_notes": ["Lab candidate only; execution_eligible forced false"], '
+            '"soc_std_rules_applied": ["shift_left_filtering"], '
+            '"risk_notes": ["Not governed; SOC review required"], "execution_eligible": false, '
+            '"governed": false, "catalog_approved": false}'
+        )
+    if skip_forced_head:
+        return (
+            '{"status": "candidate_generated", "confidence_score": 0.72, "confidence_label": "medium", '
+            '"detection_family": "raw_events", "candidate_spl": "search index=<index> sourcetype=<sourcetype> '
+            "earliest=-30d latest=now\\n| table _time src_ip dest_ip action\", "
+            '"index": "<index>", "sourcetype": "<sourcetype>", "earliest": "-30d", '
+            '"latest": "now", "time_window_hours": 720, "result_cap": null, "unresolved_slots": [], '
+            '"assumptions": ["<index>/<sourcetype> are placeholders"], '
+            '"required_fields": ["_time", "index", "sourcetype"], "missing_details": [], '
+            '"clarifying_questions": [], '
+            '"validation_notes": ["Lab candidate only; execution_eligible forced false"], '
+            '"soc_std_rules_applied": ["shift_left_filtering"], '
+            '"risk_notes": ["Not governed; SOC review required"], "execution_eligible": false, '
+            '"governed": false, "catalog_approved": false}'
+        )
+    return (
+        '{"status": "candidate_generated", "confidence_score": 0.72, "confidence_label": "medium", '
+        '"detection_family": "windows_account_lockout", "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> '
+        "earliest=-60m latest=now action=failure | eval src_ip=coalesce(src_ip, src, source, "
+        '"") | stats count as failed_logins by src_ip | sort -failed_logins | head 100", '
+        '"index": "<auth_index>", "sourcetype": "<auth_sourcetype>", "earliest": "-60m", '
+        '"latest": "now", "time_window_hours": 1, "result_cap": 100, "unresolved_slots": [], '
+        '"assumptions": ["<auth_index> is the authentication log index", '
+        '"<auth_sourcetype> is the auth sourcetype", "src_ip holds the client address"], '
+        '"required_fields": ["src_ip", "action", "index", "sourcetype"], "missing_details": [], '
+        '"clarifying_questions": [], '
+        '"validation_notes": ["Lab candidate only; execution_eligible forced false"], '
+        '"soc_std_rules_applied": ["shift_left_filtering", "coalesce_normalization"], '
+        '"risk_notes": ["Not governed; SOC review required"], "execution_eligible": false, '
+        '"governed": false, "catalog_approved": false}'
+    )
+
+
+def _system_prompt(correctness_mode: bool = False, context: dict[str, Any] | None = None) -> str:
+    spec = (context or {}).get("semantic_analyst_intent") if isinstance(context, dict) else {}
+    spec = spec if isinstance(spec, dict) else {}
+    shape = str(spec.get("analysis_shape") or "")
+    prohibitions = {str(item) for item in (spec.get("prohibitions") or [])}
+    skip_forced_head = shape in {"trend", "rolling", "sequence"} or (
+        "arbitrary_head_100" in prohibitions or "arbitrary_truncation" in prohibitions
+    )
+    skip_forced_stats = shape in {"raw", "sequence"} or "mandatory_aggregation" in prohibitions
+    skip_family_catalog = bool(shape)
     if correctness_mode:
         datamodels = ", ".join(APPROVED_CIM_DATAMODELS)
         return (
@@ -710,10 +820,23 @@ def _system_prompt(correctness_mode: bool = False) -> str:
             "- begin with `search index=<index> sourcetype=<sourcetype>` OR, when it answers the question "
             f"correctly and faster, `tstats ... from datamodel=<one of: {datamodels}>`;\n"
             "- include a time bound (`earliest=-<N>[mhd]` and `latest=now`, or tstats earliest/latest);\n"
-            "- ALWAYS include a `stats` (or timechart/tstats) aggregation grouping by the asked entity "
-            "(user, host, src_ip, domain, ...) — the deterministic validator REJECTS any query without "
-            "an aggregation, so a filter-only search is not acceptable;\n"
-            "- ALWAYS end with `head 100` — the validator REJECTS any query without a result limit;\n"
+            + (
+                "- include aggregation only when the semantic contract analysis_shape requires it "
+                "(trend/ranking/aggregation); raw and sequence requests must not be forced into stats;\n"
+                if skip_forced_stats
+                else
+                "- ALWAYS include a `stats` (or timechart/tstats) aggregation grouping by the asked entity "
+                "(user, host, src_ip, domain, ...) — the deterministic validator REJECTS any query without "
+                "an aggregation, so a filter-only search is not acceptable;\n"
+            )
+            + (
+                "- do NOT end with `head 100` unless the contract requested a result_limit; "
+                "do not truncate trend/rolling/sequence/raw output;\n"
+                if skip_forced_head
+                else
+                "- ALWAYS end with `head 100` — the validator REJECTS any query without a result limit;\n"
+            )
+            +
             "- NOT use: subsearches, macros, delete, collect, outputlookup, sendemail, rest, or any write "
             "command. (tstats/from/datamodel ARE allowed for the approved datamodels above.)\n"
             "confidence_score reflects source-profile completeness and field certainty. assumptions MUST list "
@@ -736,13 +859,20 @@ def _system_prompt(correctness_mode: bool = False) -> str:
             '"soc_std_rules_applied": ["coalesce_normalization"], "risk_notes": ["Not governed"], '
             '"execution_eligible": false, "governed": false, "catalog_approved": false}'
         )
+    family_block = "" if skip_family_catalog else _detection_family_prompt()
+    head_rule = (
+        "- do NOT end with `head 100` unless the semantic contract requested a result_limit;\n"
+        if skip_forced_head
+        else
+        "- end with `head 100`;\n"
+    )
     return (
         "You are the AI SOC SPL advisory fallback (lab candidate only — never governed, "
         "never catalog-approved, never executable). Return only valid JSON matching the provided schema. "
         "No markdown, no explanation outside JSON, no hidden reasoning, no scratchpad, no planning text, "
         "and no <think> tags.\n"
         f"{_soc_std_spl_001_prompt_rules()}"
-        f"{_detection_family_prompt()}"
+        f"{family_block}"
         "Decide whether the request is sufficiently specified. Return clarification questions when "
         "index/sourcetype cannot be safely placeholdered, the required log source is unclear, fields "
         "required for logic are missing, threshold/time window is unclear, asset zone definitions are "
@@ -752,10 +882,10 @@ def _system_prompt(correctness_mode: bool = False) -> str:
         "The candidate_spl MUST:\n"
         "- begin with `search index=<index> sourcetype=<sourcetype>` using angle-bracket "
         "placeholders (do not hardcode environment-specific index or sourcetype values);\n"
-        "- include `earliest=-<N>[mhd]` and `latest=now`;\n"
+        "- include `earliest=-<N>[mhd]` and `latest=now` when the contract supplies a search horizon;\n"
         "- use only: search, stats, where, table, fields, sort, dedup, rename, eval, "
         "timechart, bin, head, streamstats;\n"
-        "- end with `head 100`;\n"
+        f"{head_rule}"
         "- NOT use: from, tstats, datamodel, subsearches, macros, delete, collect, "
         "outputlookup, sendemail, rest, or any write command.\n"
         "confidence_score must reflect source-profile completeness and field certainty. High confidence "
@@ -764,24 +894,17 @@ def _system_prompt(correctness_mode: bool = False) -> str:
         "or clarification is required. assumptions MUST list index/sourcetype placeholder meanings and "
         "field mappings. required_fields MUST list Splunk fields the query depends on. index/sourcetype "
         "MUST mirror the candidate source placeholders or empty strings when unresolved; earliest/latest "
-        "or time_window_hours MUST reflect the requested time bound; result_cap MUST be 100 unless the "
-        "analyst requested a smaller cap; unresolved_slots MUST list unknown source/time fields and must "
+        "or time_window_hours MUST reflect the requested time bound; "
+        + (
+            "result_cap MUST follow the contract (omit truncation when prohibited); "
+            if skip_forced_head
+            else
+            "result_cap MUST be 100 unless the analyst requested a smaller cap; "
+        )
+        + "unresolved_slots MUST list unknown source/time fields and must "
         "not be guessed. execution_eligible, governed, and catalog_approved MUST be false.\n"
         "Example output:\n"
-        '{"status": "candidate_generated", "confidence_score": 0.72, "confidence_label": "medium", '
-        '"detection_family": "windows_account_lockout", "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> '
-        "earliest=-60m latest=now action=failure | eval src_ip=coalesce(src_ip, src, source, "
-        '"") | stats count as failed_logins by src_ip | sort -failed_logins | head 100", '
-        '"index": "<auth_index>", "sourcetype": "<auth_sourcetype>", "earliest": "-60m", '
-        '"latest": "now", "time_window_hours": 1, "result_cap": 100, "unresolved_slots": [], '
-        '"assumptions": ["<auth_index> is the authentication log index", '
-        '"<auth_sourcetype> is the auth sourcetype", "src_ip holds the client address"], '
-        '"required_fields": ["src_ip", "action", "index", "sourcetype"], "missing_details": [], '
-        '"clarifying_questions": [], '
-        '"validation_notes": ["Lab candidate only; execution_eligible forced false"], '
-        '"soc_std_rules_applied": ["shift_left_filtering", "coalesce_normalization"], '
-        '"risk_notes": ["Not governed; SOC review required"], "execution_eligible": false, '
-        '"governed": false, "catalog_approved": false}'
+        + _example_candidate_json(shape=shape, skip_forced_head=skip_forced_head)
     )
 
 
@@ -828,6 +951,22 @@ def _user_prompt(
         semantic_text = context.get("semantic_analyst_intent_text")
         if isinstance(semantic_text, str) and semantic_text.strip():
             parts.append(semantic_text.strip())
+            parts.append("")
+        if context.get("do_not_reinterpret_request"):
+            parts.append("Repair/generation scope: correct the candidate. Do NOT reinterpret the user request.")
+            parts.append("")
+        previous = context.get("previous_rejected_candidate")
+        if isinstance(previous, str) and previous.strip():
+            parts.append("Previous rejected candidate_spl:")
+            parts.append(previous.strip())
+            parts.append("")
+        losses = context.get("deterministic_losses")
+        if isinstance(losses, list) and losses:
+            parts.append("Deterministic syntax/fidelity losses to correct (bounded):")
+            parts.extend(f"- {item}" for item in losses[:16])
+            parts.append("")
+        if context.get("repair_scope"):
+            parts.append(f"Bounded correction scope: {context['repair_scope']}")
             parts.append("")
         grounding = context.get("t2_grounding")
         if isinstance(grounding, str) and grounding.strip():
