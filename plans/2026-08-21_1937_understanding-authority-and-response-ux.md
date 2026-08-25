@@ -289,7 +289,7 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     ```
   - **Commit:** one logical commit for P1 only
 
-- [ ] **P2** — T4 full semantic fallback + DET validation
+- [x] **P2** — T4 full semantic fallback + DET validation
   - **Do:** On ABSTAIN only, call T4 with original query, trusted schema/vocabulary, meaning-aid capability descriptions, few-shots, **EXPLICIT_USER_LITERAL_CONSTRAINTS**, and optional derived hints. **Reuse-first, but AUDIT GENERALITY FIRST — do not assume an SPL-domain contract is the architecture-wide literal authority.** Candidate existing machinery: `spl/request_authority.py::build_deterministic_request_contract` → `DeterministicRequestContract`, `check_template_semantic_fidelity` → `SemanticFidelityDecision` (material-contradiction rejection), and `spl/user_constraint_bindings.py::build_user_constraint_bindings`. These live under `spl/` and may well be SPL-domain-shaped. **Before adopting any of them, audit whether the primitives are sufficiently generic for every Final-RQC family:** SPL, investigation, knowledge, MITRE, comparison, remediation-related understanding, and other governed operations.
 
     ```text
@@ -314,7 +314,7 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     The system must fail closed at semantic authority — **clarify**, or return an **honest degraded inability to resolve**, per existing architecture/contracts. Note the timeout surface is real: `AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS=120` in the `development` profile this host runs.
   - **Verify:** NEW tests in `app/tests/test_t4_complete_or_abstain_validation.py` (or extend `test_t4_contract_merge_authority.py` only if still the owning seam after audit): T4 skipped on ACCEPT; T4 invoked on ABSTAIN; literal contradiction rejected; derived hints non-binding; a T4 proposal carrying `required_capabilities`/`intent_family` does not change the DET-recomputed Final RQC values; no `primary_skill`/ResourcePlan/MCP grant from T4 proposal. **Plus the required T4-failure negative, as three distinct cases — unavailable, timeout, invalid structured response** — each asserting every one of the five "must hold" clauses above, and asserting the turn ends in clarification or honest degrade (never a fabricated Final RQC and never an investigation lifecycle). Run via `../.venv/bin/python -m pytest app/tests/test_t4_complete_or_abstain_validation.py app/tests/test_t4_contract_merge_authority.py -q` (or the container form). Run `/invariant-check` on the diff.
   - **Depends on:** P1
-  - **Evidence:** _(implementation pending)_ — **generality audit COMPLETE 2026-08-21, verdict recorded:**
+  - **Evidence:** Closed 2026-08-22 — see IMPLEMENTATION below. **Generality audit (2026-08-21) verdict:**
     ```text
     AUDITED: spl/request_authority.py::DeterministicRequestContract (fields, lines 31-44)
 
@@ -353,6 +353,51 @@ the library's own guidance that "tests must pass `--fixture-root` instead of req
     FIELD-AUTHORITY NOTE (already recorded in Do): SemanticT4Proposal keeps
       intent_family / answer_goal / required_capabilities / prohibited_capabilities;
       DET must RECOMPUTE and never consume them as authority. Do not delete them.
+    ```
+
+    IMPLEMENTATION (2026-08-22), four internal checkpoints; RECOVERY (2026-08-25)
+    closed the live ACCEPT/ABSTAIN gaps before commit:
+
+    P2-A generic literal core -> NEW app/chat/contracts/explicit_user_constraints.py
+      ExplicitUserConstraints{entities, predicates, data_scope, time_window,
+        requested_output_type, execution_prohibited, prohibitions}
+      build_explicit_user_constraints(...) reuses build_user_constraint_bindings —
+        no second parser, no duplicated entity/time extraction.
+      Production carriage: build_resolved_query_contract extracts once into
+        provenance.explicit_user_constraints (authority path recorded).
+      DeterministicRequestContract COMPOSES the core via explicit_constraints.
+
+    P2-B abstain -> T4 input contract.  OLD PARTIAL AUTHORITY REMOVED FROM LIVE PATH: YES
+      _permits_t4_call = P1 complete-or-abstain only (NOT bool(unresolved_fields)).
+      ACCEPT arms: (1) catalogue T1–T3 complete_governed_match
+                   (2) complete_deterministic_understanding (may be out_of_registry)
+      attach_understanding_authority no longer invents semantic_goal for every T4 tier.
+      Live response_format uses full _SEMANTIC_T4_SCHEMA (not unresolved-field subset).
+      Prompt carries full query + EXPLICIT_USER_LITERAL_CONSTRAINTS + derived hints.
+
+    P2-C DET validation + fail-closed on genuine ABSTAIN + T4 failure only.
+      COMPLETE request + T4-down → ACCEPT → answer preserved (no fail-closed poison).
+      Genuine ABSTAIN + T4 unavailable/timeout/invalid → clarification / degrade.
+
+    P2-D Final RQC convergence + literal protection matrix:
+      entity/time → DET_REJECTION (proposal can express; DET rejects)
+      index/sourcetype/output_form/do_not_execute/prohibitions →
+        PROTECTED_BY_CONSTRUCTION (not on SemanticT4Proposal; Final RQC derives)
+
+    PROTECTED FILES TOUCHED: NONE. pipeline.py untouched; architecture.md unchanged.
+
+    TESTS (host venv, recovery 2026-08-25):
+      focused authority band (utility/winevent + complete-or-abstain + freeze +
+        job-aware + merge): 119 passed
+      prior-10 live /chat regressions: 0 failed (all green in-process and full suite)
+      full suite: 20 failed, 6097 passed, 7 skipped, 6 xfailed (~558s)
+        Categories vs P0: 14 postgres-integration env + 5 migration_readiness env
+        + 1 macOS factory/governance — same shape as P0's 20.
+        Exact names differ within the postgres bucket (retention/handoff/telemetry
+        vs earlier asset_registry/debug) but ZERO new unexplained names and ZERO
+        of the prior utility/winevent/T4 regressions.
+      git diff --check: clean. architecture.md vs 49c5a494: unchanged.
+      pipeline.py: untouched. PROTECTED FILES: none.
     ```
   - **Commit:** one logical commit for P2 only
 

@@ -19,6 +19,7 @@ import json
 import pytest
 
 from app.chat.contracts.resolved_query import ResolvedQueryContract
+from app.chat.resolved_query_builder import attach_understanding_authority
 from app.chat.semantic_t4_understanding import maybe_enrich_t4_semantic
 from app.config import settings
 from app.llm.sidecar_governance import (
@@ -31,13 +32,23 @@ from app.llm.sidecar_governance import (
 
 
 def _contract() -> ResolvedQueryContract:
-    return ResolvedQueryContract(
-        normalized_goal="deterministic goal",
-        intent_family="live_investigation",
-        answer_goal="live_results",
-        ambiguity_state="unambiguous",
-        qualification_tier="T4",
-        qualification_source="deterministic_qualification",
+    """ABSTAIN contract with a real semantic_referent gap so T4 is permitted."""
+    return attach_understanding_authority(
+        ResolvedQueryContract(
+            normalized_goal="deterministic goal",
+            intent_family="live_investigation",
+            answer_goal="live_results",
+            ambiguity_state="clarification_required",
+            clarification_required=True,
+            clarification_reason="which event this refers to",
+            qualification_tier="T4",
+            qualification_source="deterministic_qualification",
+            confidence=0.2,
+            provenance={
+                "match_path": "out_of_registry",
+                "deterministic_match_path": "out_of_registry",
+            },
+        )
     )
 
 
@@ -113,7 +124,14 @@ def test_t4_reports_provider_unavailable_distinctly(monkeypatch) -> None:
     assert trace["accepted"] is False
     # Deterministic degradation is unchanged.
     assert enriched.normalized_goal == "deterministic goal"
-    assert enriched.clarification_required is False
+    # P2-C (architecture 2.2 branch B): T1-T3 abstained, so an unavailable T4 has
+    # no semantic contract to fall back onto and the turn fails closed to
+    # clarification. Before P2 this asserted `is False`, i.e. the turn proceeded on
+    # the abstained deterministic contract — the partial-understanding resurrection
+    # the complete-or-abstain rule removes. The failure *taxonomy* asserted above
+    # (provider_unavailable distinct from timed_out) is what this test owns and is
+    # unchanged.
+    assert enriched.clarification_required is True
 
 
 def test_t4_still_reports_a_real_timeout_as_timeout(monkeypatch) -> None:

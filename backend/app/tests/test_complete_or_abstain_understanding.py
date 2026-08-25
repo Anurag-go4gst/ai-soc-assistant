@@ -93,7 +93,7 @@ def test_unclear_objective_abstains_completely() -> None:
 
 
 def test_unknown_soc_ask_abstains() -> None:
-    """Out-of-registry is not a governed tier, so it can never ACCEPT."""
+    """Out-of-registry with no complete deterministic contract abstains."""
     result = evaluate_complete_or_abstain(
         match_path="out_of_registry",
         candidates=[],
@@ -101,6 +101,18 @@ def test_unknown_soc_ask_abstains() -> None:
     assert result.is_abstain
     assert result.tier == "T4"
     assert "not_governed_tier" in result.reason_codes
+
+
+def test_complete_deterministic_out_of_registry_accepts_and_skips_t4() -> None:
+    """Fully resolved DET understanding ACCEPTs even without a catalogue tier."""
+    result = evaluate_complete_or_abstain(
+        match_path="out_of_registry",
+        candidates=[],
+        semantic_contract_complete=True,
+    )
+    assert result.is_accept
+    assert result.t4_permitted is False
+    assert result.reason_codes == ("complete_deterministic_understanding",)
 
 
 def test_single_generic_token_cannot_bind_rich_detection() -> None:

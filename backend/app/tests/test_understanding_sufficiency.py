@@ -35,6 +35,7 @@ def test_t1_locks_deterministic_fields_and_does_not_call_t4() -> None:
 
 
 def test_t4_names_only_unresolved_semantic_fields() -> None:
+    """Complete T4-lane DET understanding invents no unresolved patch list."""
     contract = _build(
         "Hunt for CI/CD supply-chain compromise indicators across our environment",
         tier="T4",
@@ -42,13 +43,13 @@ def test_t4_names_only_unresolved_semantic_fields() -> None:
     )
     assert contract.locked_fields["intent_family"] == contract.intent_family
     assert "normalized_goal" not in contract.locked_fields
-    assert "semantic_goal" in contract.unresolved_fields
+    # Architecture 2.2: do not invent semantic_goal merely because tier is T4.
+    assert "semantic_goal" not in (contract.unresolved_fields or [])
     assert "required_capabilities" not in contract.unresolved_fields
     assert "required_capabilities" in contract.derived_field_names
     sufficiency = contract.understanding_sufficiency or {}
-    assert sufficiency["next_action"] == "CALL_T4"
-    assert sufficiency["status"] == "PARTIAL"
-    assert "semantic_goal" in sufficiency["unresolved"]
+    assert sufficiency["next_action"] == "CONTINUE"
+    assert sufficiency["status"] == "SUFFICIENT"
 
 
 def test_explicit_source_ip_and_time_are_locked() -> None:

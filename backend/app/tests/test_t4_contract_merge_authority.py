@@ -20,6 +20,8 @@ def _t4_on(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _locked_live_contract() -> ResolvedQueryContract:
+    from app.tests.support.t4_abstain import force_t4_abstain
+
     query = "Hunt for CI/CD supply-chain compromise indicators across our environment"
     base = build_resolved_query_contract(
         query=query,
@@ -27,7 +29,7 @@ def _locked_live_contract() -> ResolvedQueryContract:
         qualification_tier="T4",
         qualification_source="out_of_registry",
     )
-    return attach_understanding_authority(
+    return force_t4_abstain(
         base.model_copy(
             update={
                 "entities": {**dict(base.entities), "source_ip": ["203.0.113.24"]},

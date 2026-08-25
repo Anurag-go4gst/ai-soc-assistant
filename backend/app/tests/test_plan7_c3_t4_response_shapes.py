@@ -47,6 +47,9 @@ def _t4_on(monkeypatch):
 
 
 def _contract(**overrides) -> ResolvedQueryContract:
+    from app.chat.resolved_query_builder import attach_understanding_authority
+    from app.tests.support.t4_abstain import force_t4_abstain
+
     payload = {
         "normalized_goal": "deterministic goal",
         "intent_family": "live_investigation",
@@ -56,7 +59,15 @@ def _contract(**overrides) -> ResolvedQueryContract:
         "qualification_source": "deterministic_qualification",
     }
     payload.update(overrides)
-    return ResolvedQueryContract(**payload)
+    contract = ResolvedQueryContract(**payload)
+    # Policy/unsafe clarification must stay on the keep-deterministic path —
+    # do not force a semantic_referent ABSTAIN that would clear it.
+    if (
+        overrides.get("ambiguity_state") == "policy_blocked"
+        or str(overrides.get("clarification_reason") or "").startswith("unsafe")
+    ):
+        return attach_understanding_authority(contract)
+    return force_t4_abstain(contract)
 
 
 def _raw(payload: object):

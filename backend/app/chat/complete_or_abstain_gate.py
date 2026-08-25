@@ -42,6 +42,19 @@ DEFAULT_MIN_CONFIDENCE = 0.70
 #: architecture lists "low margin / ambiguous candidates" as an abstain trigger.
 DEFAULT_MIN_MARGIN = 0.10
 
+#: Reasons that block *both* ACCEPT arms (catalogue and complete-deterministic).
+_HARD_INCOMPLETE_REASONS = frozenset(
+    {
+        "not_fully_governed",
+        "policy_blocked",
+        "clarification_required",
+        "completeness_incomplete",
+        "missing_required_fields",
+        "unresolved_semantic_fields",
+        "semantic_incompatibility",
+    }
+)
+
 
 @dataclass(frozen=True)
 class MatchCandidate:
@@ -99,6 +112,7 @@ def evaluate_complete_or_abstain(
     missing_required_fields: tuple[str, ...] | list[str] = (),
     semantically_compatible: bool = True,
     fully_governed: bool = True,
+    semantic_contract_complete: bool = False,
     min_confidence: float = DEFAULT_MIN_CONFIDENCE,
     min_margin: float = DEFAULT_MIN_MARGIN,
 ) -> UnderstandingAcceptance:
@@ -107,13 +121,20 @@ def evaluate_complete_or_abstain(
     Every abstain trigger named by the architecture is checked, and **all**
     applicable reason codes are collected rather than short-circuiting on the
     first one, so provenance can explain the decision (P4) without re-deriving it.
+
+    Two ACCEPT arms (both skip T4):
+
+    1. Catalogue T1–T3 complete governed match (confidence + margin + no gaps).
+    2. ``semantic_contract_complete`` — deterministic stages already resolved every
+       material semantic dimension. Covers fully specified review-only SPL
+       authoring and other out_of_registry happy paths that do not need a
+       semantic hop. Catalogue-tier confidence/margin and ``not_governed_tier``
+       do not veto this arm.
     """
     ordered = _ranked(tuple(candidates))
     tier = initial_tier_for_match_path(match_path)
     reasons: list[str] = []
 
-    if tier not in GOVERNED_TIERS:
-        reasons.append("not_governed_tier")
     if not fully_governed:
         reasons.append("not_fully_governed")
     if policy_blocked:
@@ -140,16 +161,30 @@ def evaluate_complete_or_abstain(
             float(winner.confidence) - float(runner_up.confidence) if runner_up is not None else None
         )
 
-    if tier in GOVERNED_TIERS:
-        if winner is None:
-            reasons.append("no_candidate")
-        else:
-            if winner_confidence is not None and winner_confidence < min_confidence:
-                reasons.append("low_confidence")
-            if winner_margin is not None and winner_margin < min_margin:
-                reasons.append("low_margin")
+    if tier not in GOVERNED_TIERS:
+        reasons.append("not_governed_tier")
+    elif winner is None:
+        reasons.append("no_candidate")
+    else:
+        if winner_confidence is not None and winner_confidence < min_confidence:
+            reasons.append("low_confidence")
+        if winner_margin is not None and winner_margin < min_margin:
+            reasons.append("low_margin")
 
     sources = tuple(sorted({str(c.source) for c in ordered}))
+    hard_incomplete = bool(_HARD_INCOMPLETE_REASONS & set(reasons))
+
+    # Arm 2: complete deterministic understanding (may be out_of_registry).
+    if semantic_contract_complete and not hard_incomplete:
+        return UnderstandingAcceptance(
+            decision="ACCEPT",
+            tier=tier,
+            reason_codes=("complete_deterministic_understanding",),
+            accepted_candidate_id=winner.candidate_id if winner is not None else None,
+            winner_confidence=winner_confidence,
+            winner_margin=winner_margin,
+            candidate_sources=sources,
+        )
 
     if reasons:
         return UnderstandingAcceptance(

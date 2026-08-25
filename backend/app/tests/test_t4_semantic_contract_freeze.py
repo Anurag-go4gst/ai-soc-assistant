@@ -12,7 +12,8 @@ from app.chat.contracts.semantic_t4_proposal import (
     FROZEN_SEMANTIC_T4_PROPOSAL_FIELDS,
     SemanticT4Proposal,
 )
-from app.chat.resolved_query_builder import build_resolved_query_contract
+from app.chat.contracts.staged_sufficiency import from_understanding_state
+from app.chat.resolved_query_builder import attach_understanding_authority, build_resolved_query_contract
 from app.chat.semantic_t4_understanding import (
     _SEMANTIC_T4_FEW_SHOT,
     _SEMANTIC_T4_SYSTEM_PROMPT,
@@ -33,13 +34,73 @@ def _t4_on(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_t4_semantic_understanding_enabled", True)
 
 
+def _force_t4_abstain(contract: ResolvedQueryContract) -> ResolvedQueryContract:
+    """Ensure a real semantic_referent gap so ABSTAIN permits the T4 hop.
+
+    Exact entity bindings must not cancel the gap — tests that need the hop
+    pin unresolved semantic_referent explicitly after attach.
+    """
+    attached = attach_understanding_authority(
+        contract.model_copy(
+            update={
+                "clarification_required": True,
+                "clarification_reason": "which event this refers to",
+                "ambiguity_state": "clarification_required",
+                "qualification_tier": "T4",
+                "understanding_sufficiency": None,
+                "locked_fields": {},
+                "unresolved_fields": [],
+                "provenance": {
+                    **(contract.provenance or {}),
+                    "match_path": "out_of_registry",
+                    "deterministic_match_path": "out_of_registry",
+                },
+            }
+        )
+    )
+    locked = attached.locked_fields or {}
+    # Preserve concrete entity locks from the original contract when present.
+    for key, value in (contract.locked_fields or {}).items():
+        if key.startswith("entities.") or key in {"time_scope", "intent_family", "answer_goal"}:
+            locked[key] = value
+    for key, value in (contract.entities or {}).items():
+        if value not in (None, "", [], {}):
+            locked.setdefault(f"entities.{key}", value)
+    sufficiency = from_understanding_state(
+        required=["semantic_referent"],
+        available=sorted(locked.keys()),
+        missing=[],
+        locked=sorted(locked.keys()),
+        unresolved=["semantic_referent"],
+        clarification_required=False,
+        policy_blocked=False,
+    )
+    return attached.model_copy(
+        update={
+            "entities": dict(contract.entities or attached.entities or {}),
+            "locked_fields": locked,
+            "clarification_required": False,
+            "clarification_reason": None,
+            "ambiguity_state": "unambiguous",
+            "unresolved_fields": ["semantic_referent"],
+            "understanding_sufficiency": sufficiency.model_dump(mode="json"),
+            "provenance": {
+                **(attached.provenance or {}),
+                "t4_owns_unresolved_semantic_referent": True,
+            },
+        }
+    )
+
+
 def _t4_contract() -> ResolvedQueryContract:
     query = "Hunt for CI/CD supply-chain compromise indicators across our environment"
-    return build_resolved_query_contract(
-        query=query,
-        query_understanding=understand_query(query),
-        qualification_tier="T4",
-        qualification_source="out_of_registry",
+    return _force_t4_abstain(
+        build_resolved_query_contract(
+            query=query,
+            query_understanding=understand_query(query),
+            qualification_tier="T4",
+            qualification_source="out_of_registry",
+        )
     )
 
 
@@ -150,7 +211,7 @@ def test_competing_hypotheses_merge_does_not_grant_authority(
 
 
 def test_semantic_confidence_does_not_overwrite_rqc_confidence() -> None:
-    original = ResolvedQueryContract(
+    original = _force_t4_abstain(ResolvedQueryContract(
         normalized_goal="hunt",
         intent_family="live_investigation",
         answer_goal="live_results",
@@ -158,7 +219,7 @@ def test_semantic_confidence_does_not_overwrite_rqc_confidence() -> None:
         qualification_tier="T4",
         qualification_source="out_of_registry",
         confidence=0.41,
-    )
+    ))
     enriched = maybe_enrich_t4_semantic(
         original,
         query="unusual outbound traffic from a finance server",
@@ -185,7 +246,7 @@ def test_material_dual_meaning_may_clarify_without_deictic_referent() -> None:
     domain authentication. Guessing one would change the investigation.
     """
     assert _has_unresolved_referent(DUAL_MEANING_QUERY) is False
-    original = ResolvedQueryContract(
+    original = _force_t4_abstain(ResolvedQueryContract(
         normalized_goal=DUAL_MEANING_QUERY,
         intent_family="live_investigation",
         answer_goal="live_results",
@@ -193,7 +254,7 @@ def test_material_dual_meaning_may_clarify_without_deictic_referent() -> None:
         qualification_tier="T4",
         qualification_source="out_of_registry",
         confidence=0.4,
-    )
+    ))
     enriched = maybe_enrich_t4_semantic(
         original,
         query=DUAL_MEANING_QUERY,
@@ -223,14 +284,14 @@ def test_material_dual_meaning_may_clarify_without_deictic_referent() -> None:
 def test_broad_actionable_hunt_does_not_clarify() -> None:
     query = "find signs of credential stuffing against our SSO portal"
     assert _has_unresolved_referent(query) is False
-    original = ResolvedQueryContract(
+    original = _force_t4_abstain(ResolvedQueryContract(
         normalized_goal=query,
         intent_family="live_investigation",
         answer_goal="live_results",
         ambiguity_state="unambiguous",
         qualification_tier="T4",
         qualification_source="out_of_registry",
-    )
+    ))
     enriched = maybe_enrich_t4_semantic(
         original,
         query=query,
@@ -252,14 +313,14 @@ def test_broad_actionable_hunt_does_not_clarify() -> None:
 
 def test_missing_evidence_does_not_clarify() -> None:
     query = "find signs of lateral movement across the estate"
-    original = ResolvedQueryContract(
+    original = _force_t4_abstain(ResolvedQueryContract(
         normalized_goal=query,
         intent_family="live_investigation",
         answer_goal="live_results",
         ambiguity_state="unambiguous",
         qualification_tier="T4",
         qualification_source="out_of_registry",
-    )
+    ))
     enriched = maybe_enrich_t4_semantic(
         original,
         query=query,
@@ -278,14 +339,14 @@ def test_missing_evidence_does_not_clarify() -> None:
 def test_unresolved_referent_still_clarifies() -> None:
     query = "compare this with what happened last week and tell me if it is getting worse"
     assert _has_unresolved_referent(query) is True
-    original = ResolvedQueryContract(
+    original = _force_t4_abstain(ResolvedQueryContract(
         normalized_goal=query,
         intent_family="live_investigation",
         answer_goal="live_results",
         ambiguity_state="unambiguous",
         qualification_tier="T4",
         qualification_source="out_of_registry",
-    )
+    ))
     enriched = maybe_enrich_t4_semantic(
         original,
         query=query,
@@ -309,14 +370,14 @@ RESOLVED_REFERENT_HOST = "ws-finance-04"
 
 
 def test_missing_referent_clarifies() -> None:
-    original = ResolvedQueryContract(
+    original = _force_t4_abstain(ResolvedQueryContract(
         normalized_goal=MISSING_REFERENT_QUERY,
         intent_family="live_investigation",
         answer_goal="live_results",
         ambiguity_state="unambiguous",
         qualification_tier="T4",
         qualification_source="out_of_registry",
-    )
+    ))
     enriched = maybe_enrich_t4_semantic(
         original,
         query=MISSING_REFERENT_QUERY,
@@ -345,7 +406,7 @@ def test_missing_referent_clarifies() -> None:
 
 
 def test_supplied_context_resolves_referent_no_clarify() -> None:
-    original = ResolvedQueryContract(
+    original = _force_t4_abstain(ResolvedQueryContract(
         normalized_goal=RESOLVED_REFERENT_QUERY,
         intent_family="live_investigation",
         answer_goal="live_results",
@@ -358,10 +419,11 @@ def test_supplied_context_resolves_referent_no_clarify() -> None:
             "answer_goal": "live_results",
             "entities.host": RESOLVED_REFERENT_HOST,
         },
-    )
+    ))
     prompt = _build_semantic_t4_user_prompt(RESOLVED_REFERENT_QUERY, original)
     assert RESOLVED_REFERENT_HOST in prompt
-    assert "supplied_context" in prompt
+    # P2-B: derived observations are now labelled as explicitly non-authoritative.
+    assert "derived_hints_non_authoritative" in prompt
     enriched = maybe_enrich_t4_semantic(
         original,
         query=RESOLVED_REFERENT_QUERY,
@@ -386,13 +448,15 @@ def test_supplied_context_resolves_referent_no_clarify() -> None:
 
 
 def test_unresolved_referent_not_emitted_as_entity() -> None:
-    original = ResolvedQueryContract(
-        normalized_goal=MISSING_REFERENT_QUERY,
-        intent_family="live_investigation",
-        answer_goal="live_results",
-        ambiguity_state="unambiguous",
-        qualification_tier="T4",
-        qualification_source="out_of_registry",
+    original = _force_t4_abstain(
+        ResolvedQueryContract(
+            normalized_goal=MISSING_REFERENT_QUERY,
+            intent_family="live_investigation",
+            answer_goal="live_results",
+            ambiguity_state="unambiguous",
+            qualification_tier="T4",
+            qualification_source="out_of_registry",
+        )
     )
     enriched = maybe_enrich_t4_semantic(
         original,
@@ -424,9 +488,9 @@ def test_prompt_encodes_referent_first_and_schema_types() -> None:
     assert "before ordinary semantic completion" in prompt
     assert "Naming a missing referent generically does not resolve" in prompt
     assert "Do not emit an unresolved referent as a concrete entity." in prompt
-    assert "do not copy locked ambiguity_state" in prompt
+    assert "Propose the meaning of the whole SOC request after T1-T3 abstained" in prompt
     assert "missing logs, evidence, examples, thresholds, or detection" in prompt
-    assert "Return only fields offered in unresolved_fields_to_resolve." in prompt
+    assert "Never contradict EXPLICIT_USER_LITERAL_CONSTRAINTS" in prompt
     assert '""' not in prompt
     assert "0.0" not in prompt
     user = _build_semantic_t4_user_prompt(
@@ -454,7 +518,7 @@ def test_prompt_encodes_referent_first_and_schema_types() -> None:
     assert "field_types" not in user
     assert "allowed_values" not in user
     assert "unresolved_query_fragment" not in user
-    assert "Return only fields offered in unresolved_fields_to_resolve." in user
+    assert "Never contradict EXPLICIT_USER_LITERAL_CONSTRAINTS" in user
     assert '""' not in user.split("TASK:")[1]
     assert "0.0" not in user
     diagnostic = "is this the same campaign as the one we escalated last month?"

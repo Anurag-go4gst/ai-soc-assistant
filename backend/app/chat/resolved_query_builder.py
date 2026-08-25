@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.chat.contracts.canonical_planning_input import CatalogueTier
+from app.chat.contracts.explicit_user_constraints import build_explicit_user_constraints
 from app.chat.contracts.intent_classification import IntentClassification, QueryToIntentResult
 from app.chat.contracts.resolved_query import (
     AmbiguityState,
@@ -14,12 +15,14 @@ from app.chat.contracts.resolved_query import (
 )
 from app.chat.contracts.staged_sufficiency import from_understanding_state
 from app.chat.intent_classifier import build_query_to_intent
+from app.chat.query_signals import extract_query_signals
 from app.chat.skill_intent_compatibility import (
     CAPABILITY_MCP,
     CAPABILITY_SPL,
     _INTENT_NO_CAPABILITY,
     _INTENT_REQUIRED_CAPABILITIES,
 )
+from app.spl.user_constraint_bindings import build_user_constraint_bindings
 
 _FAMILY_TO_ANSWER_GOAL: dict[str, AnswerGoal] = {
     "alert_summary": "severity_assessment",
@@ -126,6 +129,17 @@ def build_resolved_query_contract(
         time_scope = getattr(query_understanding, "time_window", None) or entities.get("time_window")
 
     ambiguity = _ambiguity_state(intent)
+    # Extract explicit user literals once at the deterministic understanding seam.
+    # Same object is carried into T4 grounding, DET validation, and Final RQC
+    # checks via provenance — T4 must not re-parse as authority.
+    explicit_constraints = build_explicit_user_constraints(
+        query_understanding=query_understanding,
+        query_signals=extract_query_signals(query, query_understanding),
+        bindings=build_user_constraint_bindings(
+            query, query_understanding=query_understanding
+        ),
+    )
+    match_path = (q2i.candidate_mappings or {}).get("match_path") or qualification_source
     contract = ResolvedQueryContract(
         normalized_goal=query.strip(),
         intent_family=intent.intent_family,
@@ -143,8 +157,14 @@ def build_resolved_query_contract(
         confidence=float(intent.confidence),
         provenance={
             **(provenance or {}),
-            "match_path": (q2i.candidate_mappings or {}).get("match_path"),
+            "match_path": match_path,
+            "deterministic_match_path": match_path,
+            "observed_match_path": match_path,
             "llm_intent_assist_status": q2i.llm_intent_assist_status,
+            "explicit_user_constraints": explicit_constraints.to_dict(),
+            "explicit_constraint_authority_path": (
+                "build_resolved_query_contract→provenance.explicit_user_constraints"
+            ),
         },
         understanding_source=understanding_source,
     )
@@ -371,16 +391,17 @@ def attach_understanding_authority(contract: ResolvedQueryContract) -> ResolvedQ
         locked["ambiguity_state"] = ambiguity_state
         deferred_semantic_referent = not exact_binding
 
+    # Architecture 2.2: do NOT invent unresolved semantic slots merely because
+    # qualification_tier is T4 / out_of_registry. That recreated the forbidden
+    # partial-contract patch list and forced T4 onto already-complete
+    # deterministic happy paths (utility SPL authoring, fully-specified
+    # review-only searches). Unresolved fields are only real semantic gaps.
     unresolved: list[str] = []
-    if contract.qualification_tier == "T4" and not clarification_required:
-        unresolved.append("semantic_goal")
-        if deferred_semantic_referent:
-            unresolved.append("semantic_referent")
-        if not any(name.startswith("entities.") for name in locked):
-            unresolved.append("investigation_target")
+    if deferred_semantic_referent:
+        unresolved.append("semantic_referent")
 
     sufficiency = from_understanding_state(
-        required=["semantic_goal"] if contract.qualification_tier == "T4" else [],
+        required=["semantic_referent"] if deferred_semantic_referent else [],
         available=sorted(locked.keys()),
         missing=[],
         locked=sorted(locked.keys()),

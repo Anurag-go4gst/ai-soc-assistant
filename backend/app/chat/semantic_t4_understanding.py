@@ -14,15 +14,23 @@ import re
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-from typing import Any, get_args
+from typing import Any
 
 from pydantic import ValidationError
 
-from app.chat.contracts.intent_classification import IntentFamily
 from app.chat.contracts.resolved_query import (
     ALLOWED_CAPABILITIES,
     AmbiguityState,
     ResolvedQueryContract,
+)
+from app.chat.complete_or_abstain_gate import (
+    MatchCandidate,
+    UnderstandingAcceptance,
+    evaluate_complete_or_abstain,
+)
+from app.chat.contracts.explicit_user_constraints import (
+    ExplicitUserConstraints,
+    build_explicit_user_constraints,
 )
 from app.chat.contracts.semantic_t4_proposal import (
     FROZEN_SEMANTIC_AMBIGUITY_VALUES,
@@ -47,7 +55,6 @@ from app.llm.sidecar_governance import (
 from app.safeguards.trust_boundary import CONTROL_PREAMBLE, wrap_untrusted_source
 
 SEMANTIC_T4_TIMEOUT_SECONDS = 2.0
-_KNOWN_FAMILIES = frozenset(get_args(IntentFamily))
 _AMBIGUITY_RANK: dict[str, int] = {
     "unambiguous": 0,
     "insufficient_signals": 1,
@@ -80,23 +87,23 @@ _SEMANTIC_T4_SCHEMA: dict[str, Any] = {
 
 
 _SEMANTIC_T4_SYSTEM_PROMPT = (
-    "Complete unresolved SOC query meaning. Check required referents before ordinary "
-    "semantic completion.\n"
+    "Propose the meaning of the whole SOC request after T1-T3 abstained. "
+    "Check required referents before ordinary semantic completion.\n"
     "Clarify only if a required referent (event, host, alert, identity, prior turn) is "
-    "missing from supplied context or locked entities, or the ask has two materially "
+    "missing from supplied context, or the ask has two materially "
     "different semantic meanings. Naming a missing referent generically does not resolve "
     "it. Do not emit an unresolved referent as a concrete entity.\n"
     "Do not clarify for missing logs, evidence, examples, thresholds, or detection "
     "criteria. A broad hunt is not missing meaning: resolve it and list evidence "
     "categories.\n"
-    "semantic_ambiguity is analyst meaning only; do not copy locked ambiguity_state. "
+    "semantic_ambiguity is analyst meaning only. "
     "semantic_confidence is understanding of the ask, not that an attack occurred. "
     "Keep semantic strength: new is not newly registered; unusual is not malicious. "
     "evidence_requirements are evidence categories, not findings. "
     "competing_hypotheses are possibilities, not conclusions.\n"
     "Do not grant route, capability, SPL, MCP, RBAC, HIL, or policy/action authority.\n"
-    "Return only fields offered in unresolved_fields_to_resolve. One JSON object, "
-    "no markdown, no prose."
+    "Never contradict EXPLICIT_USER_LITERAL_CONSTRAINTS; derived hints are "
+    "optional and non-authoritative. One JSON object, no markdown, no prose."
 )
 
 # One compact contrastive example for the known failure class:
@@ -211,9 +218,17 @@ def _supplied_context_payload(deterministic: ResolvedQueryContract) -> dict[str,
 
 
 def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContract) -> str:
-    """Untrusted query once, locked semantic context, unresolved field names."""
-    locked = _prompt_locked_fields(deterministic)
-    unresolved = _job_aware_unresolved_schema_names(deterministic)
+    """T4 input after a complete T1-T3 ABSTAIN.
+
+    T1-T3 committed no semantic contract, so T4 receives the **original query**
+    plus the trusted schema, meaning-aid vocabulary, few-shots, the binding
+    EXPLICIT_USER_LITERAL_CONSTRAINTS, and optional non-authoritative derived
+    hints. It is deliberately NOT given the old
+    ``locked_fields`` + ``unresolved_fields_to_resolve`` patch shape: that asked
+    T4 to fill gaps in a partially committed contract, which architecture 2.2
+    forbids. T4 proposes meaning for the whole request; DET validates it.
+    """
+    constraints = explicit_constraints_for(deterministic, query=query)
     example_lines: list[str] = []
     for example in _SEMANTIC_T4_FEW_SHOT:
         example_lines.append(
@@ -224,29 +239,113 @@ def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContr
             "MEANING (unresolved referent → clarify): " + example["meaning_query"]
         )
         example_lines.append(json.dumps(example["meaning_output"], separators=(",", ":")))
-    task: dict[str, Any] = {
-        "query": query,
-        "locked_fields_do_not_change": locked,
-        "unresolved_fields_to_resolve": unresolved,
-    }
+    task: dict[str, Any] = {"query": query}
+    grounding = constraints.to_grounding_payload()
+    if grounding:
+        # Binding: T4 may use these to understand the request; it may not
+        # contradict them, and DET rejects a proposal that does.
+        task["EXPLICIT_USER_LITERAL_CONSTRAINTS"] = grounding
     supplied = _supplied_context_payload(deterministic)
     if supplied is not None:
-        task["supplied_context"] = supplied
+        # Derived observations only — non-authoritative hints T4 may use or reject.
+        task["derived_hints_non_authoritative"] = supplied
     return "\n".join(
         [
             CONTROL_PREAMBLE,
             wrap_untrusted_source("user_query", query),
             *example_lines,
             f"TASK: {json.dumps(task, separators=(',', ':'))}",
-            "Return only fields offered in unresolved_fields_to_resolve.",
+            "Propose the meaning of the whole request. Never contradict "
+            "EXPLICIT_USER_LITERAL_CONSTRAINTS; derived hints are optional.",
             "ANSWER:",
         ]
     )
 
 
-def _permits_t4_call(deterministic: ResolvedQueryContract) -> bool:
+#: Abstain reasons that resolve the turn *without* a semantic hop. The
+#: architecture routes these to clarification / policy handling, not to T4.
+_ABSTAIN_REASONS_WITHOUT_T4 = frozenset({"clarification_required", "policy_blocked"})
+
+
+def _deterministic_semantic_complete(deterministic: ResolvedQueryContract) -> bool:
+    """True when DET already resolved every material semantic dimension.
+
+    This is the second ACCEPT arm (architecture complete governed happy path):
+    intent family + answer goal known, no clarification/policy block, and no
+    real unresolved semantic gaps. Catalogue match_path may still be
+    out_of_registry.
+    """
+    if deterministic.clarification_required:
+        return False
+    if str(deterministic.ambiguity_state or "") in {"clarification_required", "policy_blocked"}:
+        return False
+    if list(deterministic.unresolved_fields or ()):
+        return False
+    family = str(deterministic.intent_family or "").strip()
+    if not family or family in {"clarification_required", "unknown"}:
+        return False
+    goal = str(deterministic.answer_goal or "").strip()
+    if not goal or goal == "clarification":
+        return False
     sufficiency = deterministic.understanding_sufficiency or {}
-    return str(sufficiency.get("next_action") or "") == "CALL_T4"
+    if list(sufficiency.get("missing") or ()):
+        return False
+    return True
+
+
+def abstain_acceptance(deterministic: ResolvedQueryContract) -> UnderstandingAcceptance:
+    """Project the contract onto the P1 complete-or-abstain gate.
+
+    The gate is the single authority for "did T1-T3 accept a complete governed
+    match, or abstain entirely". Nothing here re-implements that decision.
+    """
+    sufficiency = deterministic.understanding_sufficiency or {}
+    provenance = deterministic.provenance or {}
+    match_path = str(
+        provenance.get("deterministic_match_path")
+        or provenance.get("observed_match_path")
+        or provenance.get("match_path")
+        or getattr(deterministic, "deterministic_match_path", "")
+        or deterministic.qualification_source
+        or ""
+    )
+    confidence = getattr(deterministic, "confidence", None)
+    candidates: tuple[MatchCandidate, ...] = ()
+    if match_path and confidence is not None:
+        candidates = (
+            MatchCandidate(
+                candidate_id=str(provenance.get("use_case_id") or match_path),
+                match_path=match_path,
+                confidence=float(confidence),
+            ),
+        )
+    return evaluate_complete_or_abstain(
+        match_path=match_path,
+        candidates=candidates,
+        clarification_required=bool(deterministic.clarification_required),
+        policy_blocked=str(deterministic.ambiguity_state or "") == "policy_blocked",
+        unresolved_fields=tuple(deterministic.unresolved_fields or ()),
+        missing_required_fields=tuple(sufficiency.get("missing") or ()),
+        semantic_contract_complete=_deterministic_semantic_complete(deterministic),
+    )
+
+
+def _permits_t4_call(deterministic: ResolvedQueryContract) -> bool:
+    """T4 runs only after a complete T1-T3 ABSTAIN (architecture 2.2 branch B).
+
+    ACCEPT skips T4 outright. An abstain that already resolves to clarification or
+    a policy block also skips it: those turns are answered by the governed
+    clarification path, not by a semantic hop.
+
+    Authority is the P1 complete-or-abstain result — not
+    ``bool(unresolved_fields)`` and not ``understanding_sufficiency.next_action``.
+    """
+    acceptance = abstain_acceptance(deterministic)
+    if not acceptance.t4_permitted:
+        return False
+    if _ABSTAIN_REASONS_WITHOUT_T4 & set(acceptance.reason_codes):
+        return False
+    return True
 
 
 def _owns_unresolved_semantic_referent(contract: ResolvedQueryContract) -> bool:
@@ -255,29 +354,49 @@ def _owns_unresolved_semantic_referent(contract: ResolvedQueryContract) -> bool:
     return "semantic_referent" in (contract.unresolved_fields or [])
 
 
-def _fail_closed_unresolved_semantic_referent(
+def _fail_closed_semantic_authority(
     deterministic: ResolvedQueryContract,
     trace: dict[str, Any],
+    *,
+    clarification_reason: str = "t4_unavailable_unresolved_semantic_referent",
 ) -> ResolvedQueryContract:
-    """T4 unavailable: do not guess the referent. Visible degradation, not normal resolve."""
+    """T1-T3 abstained and T4 could not resolve meaning: fail closed.
+
+    The turn must not proceed on the abstained deterministic contract. That
+    contract carries **no** semantic authority (architecture 2.2 branch B), so
+    reusing it here would resurrect exactly the partial understanding the
+    complete-or-abstain rule removed, and would let a thin deterministic
+    classification stand in as semantic authority. Instead the turn degrades
+    visibly to the governed clarification path: no invented Final RQC, no guessed
+    route, no accidental investigation lifecycle.
+    """
     semantic_trace = {
         **trace,
         "accepted": False,
         "fallback": "deterministic_fail_closed",
         "degradation": True,
         "authority": "t4_unavailable_failover",
+        "semantic_authority": "none",
     }
     provenance = dict(deterministic.provenance or {})
     provenance["semantic_t4"] = semantic_trace
     return deterministic.model_copy(
         update={
             "clarification_required": True,
-            "clarification_reason": "t4_unavailable_unresolved_semantic_referent",
+            "clarification_reason": clarification_reason,
             "ambiguity_state": "clarification_required",
             "understanding_source": "deterministic_qualification",
             "provenance": provenance,
         }
     )
+
+
+def _fail_closed_unresolved_semantic_referent(
+    deterministic: ResolvedQueryContract,
+    trace: dict[str, Any],
+) -> ResolvedQueryContract:
+    """Back-compat alias for the unresolved-referent case."""
+    return _fail_closed_semantic_authority(deterministic, trace)
 
 
 def maybe_enrich_t4_semantic(
@@ -359,9 +478,17 @@ def maybe_enrich_t4_semantic(
         else:
             reason = "empty_output"
         failed_trace = {**base_trace, "rejected_reasons": [reason]}
-        if _owns_unresolved_semantic_referent(prepared):
-            return _fail_closed_unresolved_semantic_referent(prepared, failed_trace)
-        return _with_semantic_trace(prepared, failed_trace)
+        # T1-T3 abstained, so there is no semantic contract to fall back onto.
+        # Unavailable / timeout / circuit-open all fail closed alike.
+        return _fail_closed_semantic_authority(
+            prepared,
+            failed_trace,
+            clarification_reason=(
+                "t4_unavailable_unresolved_semantic_referent"
+                if _owns_unresolved_semantic_referent(prepared)
+                else f"t4_semantic_unavailable:{reason}"
+            ),
+        )
 
     proposal, parse_reason = _parse_proposal(call.raw_output)
     if proposal is None:
@@ -369,9 +496,16 @@ def maybe_enrich_t4_semantic(
             **base_trace,
             "rejected_reasons": [parse_reason or "schema_invalid"],
         }
-        if _owns_unresolved_semantic_referent(prepared):
-            return _fail_closed_unresolved_semantic_referent(prepared, failed_trace)
-        return _with_semantic_trace(prepared, failed_trace)
+        # An invalid structured response is a T4 failure, not a licence to guess.
+        return _fail_closed_semantic_authority(
+            prepared,
+            failed_trace,
+            clarification_reason=(
+                "t4_unavailable_unresolved_semantic_referent"
+                if _owns_unresolved_semantic_referent(prepared)
+                else "t4_semantic_invalid_response"
+            ),
+        )
     return _merge_proposal(prepared, proposal, base_trace, query=query)
 
 
@@ -555,11 +689,15 @@ def _locked_fact_contradicts_clarification(deterministic: ResolvedQueryContract)
 
 
 def _semantic_ambiguity_eligible_for_t4(deterministic: ResolvedQueryContract) -> bool:
-    """T4 may propose semantic_ambiguity when that field is offered and not locked away."""
+    """T4 may propose semantic_ambiguity on the ABSTAIN path when not locked away.
+
+    Live ABSTAIN uses the full SemanticT4Proposal schema (not an unresolved-field
+    subset), so eligibility is lock-based rather than offered-field-list-based.
+    """
     if deterministic.qualification_tier != "T4":
         return False
-    offered = _job_aware_unresolved_schema_names(deterministic)
-    return "semantic_ambiguity" in offered and "clarification_required" in offered
+    locked = deterministic.locked_fields or {}
+    return "semantic_ambiguity" not in locked and "clarification_required" not in locked
 
 
 def _may_merge_t4_clarification(
@@ -629,6 +767,57 @@ def _proposed_field_names(proposal: SemanticT4Proposal) -> list[str]:
     return sorted(name for name, value in dumped.items() if value not in (None, "", [], {}))
 
 
+def explicit_constraints_for(
+    deterministic: ResolvedQueryContract, *, query: str | None = None
+) -> ExplicitUserConstraints:
+    """Explicit user literals carried alongside an abstained contract.
+
+    These are USER_INTENT facts, not a T1-T3 semantic commit, so they survive
+    abstain and stay binding for DET validation (architecture "Explicit user
+    literals vs derived observations").
+
+    Production authority path: ``build_resolved_query_contract`` extracts once
+    into ``provenance.explicit_user_constraints``. T4 grounding and DET
+    validation read that same object. Re-derivation from ``query`` is a
+    test/fallback only when provenance was not populated.
+    """
+    provenance = deterministic.provenance or {}
+    carried = provenance.get("explicit_user_constraints")
+    if isinstance(carried, dict):
+        return ExplicitUserConstraints(
+            entities={k: tuple(v) for k, v in (carried.get("entities") or {}).items()},
+            predicates={k: tuple(v) for k, v in (carried.get("predicates") or {}).items()},
+            data_scope={k: tuple(v) for k, v in (carried.get("data_scope") or {}).items()},
+            time_window=carried.get("time_window"),
+            requested_output_type=carried.get("requested_output_type"),
+            execution_prohibited=bool(carried.get("execution_prohibited")),
+            prohibitions=tuple(carried.get("prohibitions") or ()),
+        )
+    if not query:
+        return ExplicitUserConstraints()
+    # Fallback only — production must carry provenance from the DET seam.
+    from app.chat.query_signals import extract_query_signals
+    from app.spl.user_constraint_bindings import build_user_constraint_bindings
+
+    signals = extract_query_signals(query, None)
+    return build_explicit_user_constraints(
+        query_understanding=None,
+        query_signals=signals,
+        bindings=build_user_constraint_bindings(query, query_understanding=None),
+    )
+
+
+def _proposal_literal_view(proposal: SemanticT4Proposal) -> dict[str, Any]:
+    """Project the proposal onto the dimensions explicit literals constrain."""
+    return {
+        "entities": proposal.entities or {},
+        "time_scope": proposal.time_scope,
+        "requested_output_type": getattr(proposal, "requested_output_type", None),
+        "execution_intent": getattr(proposal, "execution_intent", None),
+        "execute": getattr(proposal, "execute", None),
+    }
+
+
 def _merge_proposal(
     deterministic: ResolvedQueryContract,
     proposal: SemanticT4Proposal,
@@ -637,6 +826,22 @@ def _merge_proposal(
     query: str,
 ) -> ResolvedQueryContract:
     rejected: list[str] = list(base_trace.get("rejected_reasons") or [])
+    # P2-C: DET MUST reject a proposal that materially contradicts an unambiguous
+    # explicit user literal (10.0.0.8 must not become 10.0.0.5, "2h" must not become
+    # "24h", do_not_execute must not become execute=true). Derived observations are
+    # non-authoritative and never trigger this. Checked before any field is adopted.
+    contradictions = explicit_constraints_for(deterministic, query=query).material_contradictions(
+        _proposal_literal_view(proposal)
+    )
+    if contradictions:
+        return _fail_closed_semantic_authority(
+            deterministic,
+            {
+                **base_trace,
+                "rejected_reasons": rejected + ["explicit_literal_contradiction", *contradictions],
+            },
+            clarification_reason="t4_contradicts_explicit_user_constraints",
+        )
     field_sources = {
         field: "deterministic_qualification"
         for field in (
@@ -670,19 +875,20 @@ def _merge_proposal(
             deterministic, {**base_trace, "rejected_reasons": rejected + ["schema_invalid"]}
         )
 
+    # P2-D: derived fields — required capabilities, evidence requirements, route
+    # hints — are recomputed deterministically from the *validated* understanding
+    # (architecture 11). A proposal may carry required_capabilities/
+    # prohibited_capabilities as schema data, but they never become authority, so
+    # nothing below reads `proposed_required` as a source. Any capability the
+    # proposal asked for beyond the family-derived set is recorded as rejected.
     family_required, family_prohibited = capabilities_for_intent_family(intent_family)
     required = set(deterministic.required_capabilities)
-    extras = proposed_required - deterministic.required_capabilities
-    accepted_extras = extras & family_required
-    rejected_extras = extras - accepted_extras
+    rejected_extras = (proposed_required - deterministic.required_capabilities) - set(family_required)
     if rejected_extras:
         rejected.append("capability_widening_rejected")
-    if accepted_extras:
-        required |= accepted_extras
-        field_sources["required_capabilities"] = "semantic_t4"
-        accepted_any = True
     if family_required:
         required |= set(family_required)
+    field_sources["required_capabilities"] = "deterministic_qualification"
 
     # Prohibitions may only be added, and never if they would drop a deterministic required cap.
     added_prohibitions = (proposed_prohibited & ALLOWED_CAPABILITIES) - deterministic.prohibited_capabilities
@@ -694,8 +900,8 @@ def _merge_proposal(
     if family_prohibited:
         prohibited |= set(family_prohibited) - deterministic.required_capabilities
     if prohibited != set(deterministic.prohibited_capabilities):
-        field_sources["prohibited_capabilities"] = "semantic_t4"
-        accepted_any = True
+        # Value is family-derived, so provenance must not claim semantic_t4 authority.
+        field_sources["prohibited_capabilities"] = "deterministic_qualification"
     required |= set(deterministic.required_capabilities)
     required -= prohibited - set(deterministic.required_capabilities)
 
@@ -859,26 +1065,6 @@ def _merge_proposal(
     return merged
 
 
-def _family_change_permitted(deterministic: ResolvedQueryContract, proposed_family: str) -> bool:
-    if proposed_family not in _KNOWN_FAMILIES:
-        return False
-    if deterministic.clarification_required or deterministic.ambiguity_state in {
-        "clarification_required",
-        "policy_blocked",
-    }:
-        return False
-    old_req, old_proh = capabilities_for_intent_family(deterministic.intent_family)
-    new_req, new_proh = capabilities_for_intent_family(proposed_family)
-    if not old_req.issubset(new_req):
-        return False
-    if new_req - old_req:
-        # Additional required capabilities are a widening — not auto-accepted.
-        return False
-    if not old_proh.issubset(new_proh):
-        return False
-    return True
-
-
 def _with_semantic_trace(
     deterministic: ResolvedQueryContract, trace: dict[str, Any]
 ) -> ResolvedQueryContract:
@@ -925,7 +1111,9 @@ def _live_single_hop_provider(query: str, deterministic: ResolvedQueryContract) 
             "type": "json_schema",
             "json_schema": {
                 "name": "semantic_t4_proposal",
-                "schema": _schema_limited_to_unresolved(deterministic),
+                # Full SemanticT4Proposal schema on ABSTAIN — not the legacy
+                # unresolved-field patch subset.
+                "schema": _SEMANTIC_T4_SCHEMA,
             },
         },
         timeout_seconds=timeout,

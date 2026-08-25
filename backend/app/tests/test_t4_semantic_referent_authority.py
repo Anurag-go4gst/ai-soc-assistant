@@ -134,7 +134,9 @@ def test_t4_unavailable_fail_closed_does_not_guess_referent(monkeypatch: pytest.
 
 
 def test_missing_investigation_evidence_does_not_become_clarification() -> None:
-    original = _build_t4(HUNT_QUERY)
+    from app.tests.support.t4_abstain import force_t4_abstain
+
+    original = force_t4_abstain(_build_t4(HUNT_QUERY))
     enriched = maybe_enrich_t4_semantic(
         original,
         query=HUNT_QUERY,

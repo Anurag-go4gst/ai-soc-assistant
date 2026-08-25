@@ -30,6 +30,8 @@ RESOLVED_ANSWER = {
 
 
 def _contract(**overrides) -> ResolvedQueryContract:
+    from app.tests.support.t4_abstain import force_t4_abstain
+
     payload = {
         "normalized_goal": "deterministic goal",
         "intent_family": "live_investigation",
@@ -39,7 +41,7 @@ def _contract(**overrides) -> ResolvedQueryContract:
         "qualification_source": "deterministic_qualification",
     }
     payload.update(overrides)
-    return ResolvedQueryContract(**payload)
+    return force_t4_abstain(ResolvedQueryContract(**payload))
 
 
 def _enriched(monkeypatch, payload: dict, query: str = "any domain lookups that look algorithmically generated"):

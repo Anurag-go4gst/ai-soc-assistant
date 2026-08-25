@@ -369,6 +369,8 @@ def test_exact_call_authorization_is_not_process_global(monkeypatch: pytest.Monk
 
 
 def test_t4_saturation_fails_closed_without_restart(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.tests.support.t4_abstain import force_t4_abstain
+
     monkeypatch.setattr(settings, "ai_soc_t4_semantic_understanding_enabled", True)
     monkeypatch.setattr(settings, "ai_soc_t4_semantic_understanding_timeout_seconds", 0.2)
 
@@ -378,14 +380,16 @@ def test_t4_saturation_fails_closed_without_restart(monkeypatch: pytest.MonkeyPa
         _time.sleep(1.0)
         return '{"normalized_goal":"should-not-merge"}'
 
-    original = ResolvedQueryContract(
-        normalized_goal="deterministic goal",
-        intent_family="live_investigation",
-        answer_goal="live_results",
-        ambiguity_state="unambiguous",
-        qualification_tier="T4",
-        qualification_source="out_of_registry",
-        required_capabilities=["spl", "mcp"],
+    original = force_t4_abstain(
+        ResolvedQueryContract(
+            normalized_goal="deterministic goal",
+            intent_family="live_investigation",
+            answer_goal="live_results",
+            ambiguity_state="unambiguous",
+            qualification_tier="T4",
+            qualification_source="out_of_registry",
+            required_capabilities=["spl", "mcp"],
+        )
     )
     enriched = maybe_enrich_t4_semantic(original, query="lateral movement hunt", raw_output_provider=_slow)
     trace = (enriched.provenance or {}).get("semantic_t4") or {}

@@ -74,7 +74,8 @@ def test_each_record_has_locked_prompt_and_expected_behaviour() -> None:
         assert row["expected_authority_behaviour"]
         assert "Do not grant route, capability, SPL, MCP, RBAC, HIL" in prompt["system"]
         assert "competing_hypotheses" in prompt["system"]
-        assert "Return only fields offered in unresolved_fields_to_resolve." in prompt["system"]
+        # P2-B: the patch-only framing is gone; explicit literals are binding instead.
+        assert "Never contradict EXPLICIT_USER_LITERAL_CONSTRAINTS" in prompt["system"]
 
 
 def test_referent_stays_production_clarify_hunts_permit_t4() -> None:

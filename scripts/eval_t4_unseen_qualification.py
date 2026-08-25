@@ -38,7 +38,7 @@ from app.chat.semantic_t4_understanding import (  # noqa: E402
     _SEMANTIC_T4_SYSTEM_PROMPT,
     _build_semantic_t4_user_prompt,
     _parse_proposal,
-    maybe_enrich_t4_semantic,
+    maybe_enrich_t4_semantic, _permits_t4_call,
 )
 from app.config import settings  # noqa: E402
 from app.query_understanding.parser import understand_query  # noqa: E402
@@ -465,20 +465,46 @@ def _measurement_contract(
         update={
             "intent_family": family,
             "answer_goal": answer_goal,
-            "ambiguity_state": (
-                "unambiguous"
-                if production.ambiguity_state == "clarification_required"
-                else production.ambiguity_state
-            ),
-            "clarification_required": False,
-            "clarification_reason": None,
+            "ambiguity_state": "clarification_required",
+            "clarification_required": True,
+            "clarification_reason": "measurement_overlay_semantic_referent",
             "qualification_tier": "T4",
             "locked_fields": {},
             "unresolved_fields": [],
             "understanding_sufficiency": None,
         }
     )
-    return attach_understanding_authority(overlay), "call_t4_measurement_overlay"
+    attached = attach_understanding_authority(overlay)
+    from app.chat.contracts.staged_sufficiency import from_understanding_state
+
+    locked = attached.locked_fields or {}
+    sufficiency = from_understanding_state(
+        required=["semantic_referent"],
+        available=sorted(locked.keys()),
+        missing=[],
+        locked=sorted(locked.keys()),
+        unresolved=["semantic_referent"],
+        clarification_required=False,
+        policy_blocked=False,
+    )
+    pinned = attached.model_copy(
+        update={
+            "clarification_required": False,
+            "clarification_reason": None,
+            "ambiguity_state": (
+                "unambiguous"
+                if attached.ambiguity_state == "clarification_required"
+                else attached.ambiguity_state
+            ),
+            "unresolved_fields": ["semantic_referent"],
+            "understanding_sufficiency": sufficiency.model_dump(mode="json"),
+            "provenance": {
+                **(attached.provenance or {}),
+                "t4_owns_unresolved_semantic_referent": True,
+            },
+        }
+    )
+    return pinned, "call_t4_measurement_overlay"
 
 
 def _prompt_pack(case: dict[str, Any]) -> dict[str, Any]:
@@ -497,7 +523,7 @@ def _prompt_pack(case: dict[str, Any]) -> dict[str, Any]:
         "unresolved_fields": list(base.unresolved_fields or []),
         "production_next_action": production_next,
         "measurement_overlay": overlay_kind,
-        "t4_call_permitted": hop_next == "CALL_T4",
+        "t4_call_permitted": _permits_t4_call(base),
         "exact_t4_prompt": {
             "system": _SEMANTIC_T4_SYSTEM_PROMPT,
             "user": user,

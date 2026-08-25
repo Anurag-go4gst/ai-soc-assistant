@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 from typing import Any
 import re
 
+from app.chat.contracts.explicit_user_constraints import (
+    ExplicitUserConstraints,
+    build_explicit_user_constraints,
+)
 from app.query_understanding.models import QueryUnderstandingResult, RequestedOutputType
 from app.spl.template_registry import SplTemplateDefinition
 from app.spl.user_constraint_bindings import UserConstraintBindings
@@ -41,6 +45,10 @@ class DeterministicRequestContract:
     sufficient_for_spl_authoring: bool = False
     unresolved_dimensions: tuple[str, ...] = ()
     t4_allowed_dimensions: tuple[str, ...] = ()
+    # P2-A: the generic, family-agnostic literal core this SPL contract composes.
+    # SPL-specific judgement (sufficient_for_spl_authoring, response_shape) stays
+    # above and is deliberately absent from the shared core.
+    explicit_constraints: ExplicitUserConstraints | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -56,6 +64,9 @@ class DeterministicRequestContract:
             "sufficient_for_spl_authoring": self.sufficient_for_spl_authoring,
             "unresolved_dimensions": list(self.unresolved_dimensions),
             "t4_allowed_dimensions": list(self.t4_allowed_dimensions),
+            "explicit_constraints": (
+                self.explicit_constraints.to_dict() if self.explicit_constraints is not None else None
+            ),
         }
 
 
@@ -156,6 +167,11 @@ def build_deterministic_request_contract(
         sufficient_for_spl_authoring=sufficient,
         unresolved_dimensions=tuple(unresolved),
         t4_allowed_dimensions=tuple(unresolved),
+        explicit_constraints=build_explicit_user_constraints(
+            query_understanding=qu,
+            query_signals=signals,
+            bindings=bindings,
+        ),
     )
 
 

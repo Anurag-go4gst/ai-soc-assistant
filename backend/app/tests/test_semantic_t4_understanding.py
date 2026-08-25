@@ -20,13 +20,17 @@ from app.query_understanding.parser import understand_query
 
 
 def _t4_contract() -> ResolvedQueryContract:
+    from app.tests.support.t4_abstain import force_t4_abstain
+
     query = "Hunt for CI/CD supply-chain compromise indicators across our environment"
     qu = understand_query(query)
-    return build_resolved_query_contract(
-        query=query,
-        query_understanding=qu,
-        qualification_tier="T4",
-        qualification_source="out_of_registry",
+    return force_t4_abstain(
+        build_resolved_query_contract(
+            query=query,
+            query_understanding=qu,
+            qualification_tier="T4",
+            qualification_source="out_of_registry",
+        )
     )
 
 
@@ -108,7 +112,14 @@ def test_flag_off_does_not_invoke_on_t4(monkeypatch: pytest.MonkeyPatch) -> None
         calls.append(1)
         return json.dumps({"normalized_goal": "mutated"})
 
-    original = _t4_contract()
+    # Complete T4-lane contract (ACCEPT / no semantic_referent ownership).
+    query = "Hunt for CI/CD supply-chain compromise indicators across our environment"
+    original = build_resolved_query_contract(
+        query=query,
+        query_understanding=understand_query(query),
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+    )
     enriched = maybe_enrich_t4_semantic(original, query="hunt", raw_output_provider=_provider)
     assert calls == []
     assert enriched.model_dump() == original.model_dump()
@@ -231,16 +242,20 @@ def test_model_cannot_reduce_required_capabilities(monkeypatch: pytest.MonkeyPat
 def test_proposed_additional_capabilities_rejected_without_family_requirement(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from app.tests.support.t4_abstain import force_t4_abstain
+
     monkeypatch.setattr(settings, "ai_soc_t4_semantic_understanding_enabled", True)
-    original = ResolvedQueryContract(
-        normalized_goal="what is our vacation policy",
-        intent_family="knowledge_only",
-        answer_goal="policy_citation",
-        ambiguity_state="unambiguous",
-        prohibited_capabilities=["spl", "mcp"],
-        qualification_tier="T4",
-        qualification_source="out_of_registry",
-        confidence=0.5,
+    original = force_t4_abstain(
+        ResolvedQueryContract(
+            normalized_goal="what is our vacation policy",
+            intent_family="knowledge_only",
+            answer_goal="policy_citation",
+            ambiguity_state="unambiguous",
+            prohibited_capabilities=["spl", "mcp"],
+            qualification_tier="T4",
+            qualification_source="out_of_registry",
+            confidence=0.5,
+        )
     )
     enriched = maybe_enrich_t4_semantic(
         original,

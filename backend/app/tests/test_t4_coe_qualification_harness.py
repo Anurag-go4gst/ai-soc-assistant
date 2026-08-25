@@ -79,7 +79,8 @@ def test_emit_prompts_records_required_fields_and_production_prompt() -> None:
         assert row["raw_proposal"] is None
         assert row["latency_ms"] is None
         assert row["provider_failure_kind"] is None
-        assert "locked_fields_do_not_change" in prompt["user"]
+        # P2-B: the locked/unresolved patch shape is removed from the T4 prompt.
+        assert "locked_fields_do_not_change" not in prompt["user"]
         assert "Do not grant route, capability, SPL, MCP, RBAC, HIL" in prompt["system"]
 
 
