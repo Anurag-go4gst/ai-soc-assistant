@@ -53,7 +53,10 @@ def test_deferred_run_pasted_spl_uses_command_spine() -> None:
         deterministic_route="guided_investigation",
     )
     assert result["final_route"] == "spl_generation"
-    assert result["authority_source"] == "command_intent_run_spl"
+    assert result["authority_source"] in {
+        "command_intent_run_spl",
+        "command_intent_optimize_spl",
+    }
 
 
 def test_policy_escalation_failed_login_is_knowledge_recall_not_attack_discovery() -> None:

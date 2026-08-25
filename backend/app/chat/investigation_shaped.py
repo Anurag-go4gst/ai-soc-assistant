@@ -121,6 +121,8 @@ def investigation_outcome_applicable(
     primary_skill: str | None = None,
     intent_classification: dict[str, Any] | None = None,
     query_understanding: Any | None = None,
+    evidence_plan: dict[str, Any] | None = None,
+    context_sufficiency: dict[str, Any] | None = None,
 ) -> bool:
     """Whether InvestigationOutcome V2 packaging applies to this Final RQC.
 
@@ -135,6 +137,9 @@ def investigation_outcome_applicable(
     packaging even when capability sets are still empty (contingent remediation
     asks often carry ``live_results`` before MCP capability is filled).
     """
+    for surface in (evidence_plan, context_sufficiency):
+        if isinstance(surface, dict) and str(surface.get("answer_mode") or "") == "spl_utility_authoring":
+            return False
     rqc = _as_dict(resolved_query_contract)
     intent = intent_classification if isinstance(intent_classification, dict) else {}
     has_product_semantics = bool(

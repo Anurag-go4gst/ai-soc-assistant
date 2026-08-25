@@ -533,51 +533,43 @@ def plan_evidence(
                     ],
                 )
             )
-        # Explicit review-only SPL authoring for out-of-catalogue Final RQCs only.
-        # Catalogue-matched SPL artifact rows keep the existing live_investigation
-        # path (MCP search eligibility pending validation). Live-data *interest*
-        # alone must not convert an out-of-registry SPL ask into investigation
-        # packaging when MCP/evidence is unavailable.
+        # Explicit review-only SPL authoring is a utility product regardless of
+        # catalogue membership. Catalogue match must not convert SPL-artifact /
+        # do-not-execute asks into investigation packaging. Live-data *interest*
+        # alone is not investigation product authority.
         if is_explicit_review_only_spl_authoring(signals if isinstance(signals, dict) else {}):
-            from app.chat.lane_router import is_known_catalogue_match
-
-            match_path = _deterministic_match_path_from_inputs(query_understanding, query_to_intent)
-            # Only relabel explicit SPL authoring when match path is known and
-            # out-of-catalogue. Unknown match path keeps prior live_investigation
-            # planner shape (e.g. unit fixtures without query_understanding).
-            if match_path is not None and not is_known_catalogue_match(match_path):
-                live_interest = is_live_data_request(signals if isinstance(signals, dict) else {})
-                return with_enrichment(
-                    EvidencePlan(
-                        answer_mode="spl_utility_authoring",
-                        rag_phase="post_mcp",
-                        needs_rag=False,
-                        needs_spl=True,
-                        needs_mcp=False,
-                        needs_mitre=False,
-                        spl_allowed=True,
-                        mcp_allowed=False,
-                        mcp_available=live_interest if live_interest else None,
-                        policy_context_required=False,
-                        policy_context_recommended=False,
-                        requires_hil=False,
-                        action_mode="recommend_only",
-                        discovery_allowed=True,
-                        reasons=[
-                            "explicit_spl_authoring_review_only",
-                            *(
-                                ["live_data_interest_not_investigation_product"]
-                                if live_interest
-                                else []
-                            ),
-                        ],
-                        answer_rules=[
-                            "render_spl_first",
-                            "governance_trace_only",
-                            "no_source_profile_clarification_for_placeholder",
-                        ],
-                    )
+            live_interest = is_live_data_request(signals if isinstance(signals, dict) else {})
+            return with_enrichment(
+                EvidencePlan(
+                    answer_mode="spl_utility_authoring",
+                    rag_phase="post_mcp",
+                    needs_rag=False,
+                    needs_spl=True,
+                    needs_mcp=False,
+                    needs_mitre=False,
+                    spl_allowed=True,
+                    mcp_allowed=False,
+                    mcp_available=live_interest if live_interest else None,
+                    policy_context_required=False,
+                    policy_context_recommended=False,
+                    requires_hil=False,
+                    action_mode="recommend_only",
+                    discovery_allowed=True,
+                    reasons=[
+                        "explicit_spl_authoring_review_only",
+                        *(
+                            ["live_data_interest_not_investigation_product"]
+                            if live_interest
+                            else []
+                        ),
+                    ],
+                    answer_rules=[
+                        "render_spl_first",
+                        "governance_trace_only",
+                        "no_source_profile_clarification_for_placeholder",
+                    ],
                 )
+            )
         live_data_request = is_live_data_request(signals if isinstance(signals, dict) else {})
         # Least privilege for out-of-catalogue work. The 2026-07 all-tier MCP grant was
         # written as `live_data_request and control_plane_enabled`; canonical cutover

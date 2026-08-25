@@ -152,7 +152,10 @@ def derive_investigation_outcome(
         # investigation-shaped Final RQCs. SPL authoring / knowledge / MITRE-only
         # products must not inherit blocked/incomplete investigation packaging merely
         # because MCP/evidence is unavailable or T4 ran.
-        if not investigation_outcome_applicable(resolved_query_contract=resolved_query):
+        if not investigation_outcome_applicable(
+            resolved_query_contract=resolved_query,
+            context_sufficiency=context,
+        ):
             if disposition == "blocked":
                 common["disposition"] = "inconclusive"
             common["provenance"] = {

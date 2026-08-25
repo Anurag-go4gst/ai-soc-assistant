@@ -207,7 +207,13 @@ def plan_evidence_from_canonical(
 
     target_mode = answer_mode_decision.answer_mode
     if target_mode is not None and plan.answer_mode != target_mode:
-        plan = plan.model_copy(update={"answer_mode": target_mode})  # type: ignore[arg-type]
+        # Evidence planner may classify explicit review-only SPL asks as
+        # spl_utility_authoring. The coarse canonical "spl" rule maps to
+        # live_investigation — do not upgrade utility authoring products.
+        if plan.answer_mode == "spl_utility_authoring" and target_mode == "live_investigation":
+            pass
+        else:
+            plan = plan.model_copy(update={"answer_mode": target_mode})  # type: ignore[arg-type]
 
     resource_plan_id = f"rp:{uuid.uuid4().hex[:12]}"
     with resource_plan_authority():

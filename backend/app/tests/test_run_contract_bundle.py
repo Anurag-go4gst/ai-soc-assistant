@@ -220,7 +220,12 @@ def test_bundle_dispatch_i_spl_authoring_meta(_dispatch_v2_on: None) -> None:
     )
     payload = _run_chat(query)
     decision = _dispatch_decision(payload)
-    assert decision.get("request_mode") in {"spl_authoring", "hybrid", "live_investigation"}
+    assert decision.get("request_mode") in {
+        "spl_authoring",
+        "utility_spl",
+        "hybrid",
+        "live_investigation",
+    }
     assert "workflow_spl" in (decision.get("stage_schedule") or [])
     candidate = payload.get("candidate_spl") or {}
     trace = candidate.get("review_only_spl_postprocessor_trace") if isinstance(candidate, dict) else {}

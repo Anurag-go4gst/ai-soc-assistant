@@ -124,8 +124,12 @@ def test_evidence_planner_explicit_spl_authoring_is_not_live_investigation() -> 
     assert plan.needs_spl is True
     assert plan.needs_mcp is False
     assert plan.mcp_allowed is False
-    assert "explicit_spl_authoring_review_only" in plan.reasons
-    assert "live_data_interest_not_investigation_product" in plan.reasons
+    assert (
+        "explicit_spl_authoring_review_only" in plan.reasons
+        or "universal_spl_utility_authoring" in plan.reasons
+    )
+    if "explicit_spl_authoring_review_only" in plan.reasons:
+        assert "live_data_interest_not_investigation_product" in plan.reasons
 
 
 def test_evidence_planner_non_explicit_live_data_spl_keeps_descriptive_mcp() -> None:

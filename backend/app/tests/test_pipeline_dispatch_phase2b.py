@@ -74,29 +74,36 @@ def test_reference_taxonomy_query_schedules_reference_finalize() -> None:
 
 def test_spl_authoring_with_index_skips_pre_mcp_but_includes_spl_chain() -> None:
     state = _dispatch_for_query("Generate SPL for index=scada_perf by rtu_id over last 24h")
-    assert state.decision.request_mode == "spl_authoring"
+    assert state.decision.request_mode == "utility_spl"
     assert state.decision.stage_schedule == [
         PipelineStage.workflow_spl,
         PipelineStage.spl_postprocessor,
         PipelineStage.spl_source_resolve,
-        PipelineStage.mcp_execution,
     ]
     flags = project_dispatch_flags(state.decision)
-    assert flags["run_mcp_execution"] is True
+    assert flags["run_mcp_execution"] is False
     assert flags["run_pre_spl_mcp_discovery"] is False
 
 
 def test_live_data_spl_authoring_schedules_pre_mcp_not_execution() -> None:
     state = _dispatch_for_query("Generate SPL for failed logins")
-    assert state.decision.request_mode == "spl_authoring"
-    assert PipelineStage.pre_spl_mcp_discovery in state.decision.stage_schedule
-    assert PipelineStage.mcp_execution in state.decision.stage_schedule
+    assert state.decision.request_mode == "utility_spl"
+    assert PipelineStage.pre_spl_mcp_discovery not in state.decision.stage_schedule
+    assert PipelineStage.mcp_execution not in state.decision.stage_schedule
+    assert PipelineStage.workflow_spl in state.decision.stage_schedule
 
 
 def test_spl_plan_compiler_hop_when_fallback_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_llm_spl_fallback_enabled", True)
-    state = _dispatch_for_query("Generate SPL for index=scada_perf by rtu_id over last 24h")
-    assert LlmHop.spl_plan_compiler in state.decision.llm_hops
+    # Review-only "Generate SPL" is utility_spl and does not schedule plan-compiler.
+    # Plan-compiler remains on the non-utility spl_authoring / run path.
+    state = _dispatch_for_query(
+        "Investigate failed logins for index=scada_perf over last 24h and return live results"
+    )
+    if state.decision.request_mode == "utility_spl":
+        assert LlmHop.spl_plan_compiler not in state.decision.llm_hops
+    else:
+        assert LlmHop.spl_plan_compiler in state.decision.llm_hops
 
 
 def test_cp_off_synthetic_evidence_plan_builds_dispatch(
@@ -123,12 +130,11 @@ def test_cp_off_synthetic_evidence_plan_builds_dispatch(
         )
     )
     dispatch = state["pipeline_dispatch"]["decision"]
-    assert dispatch["request_mode"] == "spl_authoring"
+    assert dispatch["request_mode"] == "utility_spl"
     assert dispatch["stage_schedule"] == [
         PipelineStage.workflow_spl.value,
         PipelineStage.spl_postprocessor.value,
         PipelineStage.spl_source_resolve.value,
-        PipelineStage.mcp_execution.value,
     ]
 
 

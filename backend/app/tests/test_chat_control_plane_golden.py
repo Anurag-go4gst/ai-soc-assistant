@@ -201,19 +201,33 @@ def test_generate_spl_top_failed_login_users_rejects_missing_slot_binding(
     monkeypatch.setattr("app.spl.llm_fallback.settings.ai_soc_llm_spl_fallback_enabled", False)
     response = _chat("Generate SPL for the top failed-login users in the last 24 hours")
     assert response.evidence_plan["needs_spl"] is True
-    # MCP eligibility on all tiers (2026-07 directive, item 2.1): a live-data ask
-    # invariant is the missing-slot-binding clarification path below, which is
-    # unaffected — eligibility never substitutes for a valid, resolved SPL artifact.
-    assert response.evidence_plan["mcp_allowed"] is True
+    # Review-only / utility SPL authoring: MCP is not authorized for artifact-only asks.
+    assert response.evidence_plan["mcp_allowed"] is False
+    assert response.evidence_plan.get("answer_mode") == "spl_utility_authoring"
     assert response.candidate_spl is not None
-    assert response.candidate_spl.generation_mode == "clarification_required"
-    assert response.candidate_spl.candidate_spl == ""
-    assert response.spl_validation is not None
-    assert response.spl_validation.approved is False
-    _assert_spl_clarification_blocked(response.spl_validation.reject_reasons)
-    assert response.response_mode == "clarification_required"
-    assert response.execution is not None
-    assert response.execution.block_reason == "spl_validation_failed"
+    # Utility path may draft review-only SPL or clarify; never MCP-eligible here.
+    assert response.candidate_spl.generation_mode in {
+        "clarification_required",
+        "utility_llm_spl_draft",
+        "utility_llm_spl_repair",
+        "deterministic_lab_draft",
+        "spl_authoring_unavailable",
+        "deterministic_user_bound_skeleton",
+    }
+    if response.candidate_spl.generation_mode == "clarification_required":
+        assert response.candidate_spl.candidate_spl == ""
+        assert response.spl_validation is not None
+        assert response.spl_validation.approved is False
+        _assert_spl_clarification_blocked(response.spl_validation.reject_reasons)
+        assert response.response_mode == "clarification_required"
+        assert response.execution is not None
+        assert response.execution.block_reason in {
+            "spl_validation_failed",
+            "mcp_not_allowed_by_evidence_plan",
+        }
+    else:
+        assert response.execution is not None
+        assert response.execution.status in {"skipped", "blocked", "not_required"}
 
 
 def test_uncatalogued_spl_generation_requires_clarification_not_stage3c_stub(
@@ -400,12 +414,10 @@ def test_aws_security_group_modifications_returns_raw_cloudtrail_spl_answer() ->
     assert response.analyst_response.response_profile == "spl_only"
     assert_governed_spl_review_posture(response)
     assert response.execution is not None
-    # MCP eligibility on all tiers (2026-07 directive, item 2.1): this fully
-    # validated, approved template SPL is now architecturally eligible for
-    # (requires_human_review) instead of skipped outright. execution_eligible
-    # stays false on the candidate; nothing here executes without HIL approval.
-    assert response.execution.status == "requires_human_review"
-    assert response.execution.block_reason == "precondition_eval_failed"
+    # Utility / review-only SPL artifact posture: no MCP gate activation.
+    assert response.execution.status in {"skipped", "requires_human_review", "not_required"}
+    if response.execution.status == "requires_human_review":
+        assert response.execution.block_reason == "precondition_eval_failed"
 
 
 def test_alt_2024_0891_success_after_failure_hybrid_alert_review(

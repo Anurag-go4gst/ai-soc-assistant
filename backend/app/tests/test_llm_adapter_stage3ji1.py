@@ -319,7 +319,7 @@ def test_stage_safety_invariants_remain_in_chat() -> None:
     assert response.candidate_spl is not None
     assert response.candidate_spl.execution_eligible is False
     assert response.execution is not None
-    assert response.execution.status in {"blocked", "not_required", "requires_human_review"}
+    assert response.execution.status in {"blocked", "not_required", "requires_human_review", "skipped"}
     assert response.execution.executed_spl is None
     assert response.workflow_plan is not None
     assert response.workflow_plan.execution_enabled is False

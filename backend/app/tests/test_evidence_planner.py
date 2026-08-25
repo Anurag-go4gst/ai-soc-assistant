@@ -33,11 +33,15 @@ def test_out_of_registry_live_data_allows_spl_not_mcp() -> None:
 def test_spl_generation_allows_spl_but_not_mcp() -> None:
     plan = _plan("Generate SPL for failed logins")
     assert plan.needs_spl is True
-    assert plan.needs_mcp is True
+    assert plan.answer_mode == "spl_utility_authoring"
+    # Review-only SPL artifact asks are utility: SPL yes, MCP not needed/allowed.
+    assert plan.needs_mcp is False
     assert plan.spl_allowed is True
-    # Catalogue-matched SPL generation grants MCP search eligibility pending validation.
-    assert plan.mcp_allowed is True
-    assert "live_data_request_mcp_search_eligible_pending_validation" in plan.reasons
+    assert plan.mcp_allowed is False
+    assert (
+        "universal_spl_utility_authoring" in plan.reasons
+        or "explicit_spl_authoring_review_only" in plan.reasons
+    )
 
 
 def test_hybrid_recommends_policy_context_and_allows_live_path() -> None:

@@ -535,6 +535,7 @@ def extract_query_signals(
         or run_saved_search
         or (
             command_shaped_spl
+            and not _RUN_SPL_NEGATION_RE.search(normalized)
             and (
                 bool(re.search(r"\b(run|execute|running|executing)\b", normalized))
                 or bool(_RUN_AFTER_REVIEW_RE.search(normalized))
@@ -569,18 +570,24 @@ def extract_query_signals(
         or run_spl
         or run_saved_search
     )
-    run_execution = run_spl or any(
-        term in normalized
-        for term in (
-            " and run",
-            " then run",
-            "run it",
-            "run this",
-            "execute it",
-            "execute this",
-            "search splunk",
-            "run on ",
-            "run in ",
+    run_execution = bool(
+        run_spl
+        or (
+            not _RUN_SPL_NEGATION_RE.search(normalized)
+            and any(
+                term in normalized
+                for term in (
+                    " and run",
+                    " then run",
+                    "run it",
+                    "run this",
+                    "execute it",
+                    "execute this",
+                    "search splunk",
+                    "run on ",
+                    "run in ",
+                )
+            )
         )
     )
     has_specific_scope = any(term in normalized for term in (" index=", "index ", "host=", "host ", "sourcetype=", "sourcetype ", "earliest=", "latest=", "last "))
@@ -843,14 +850,18 @@ def extract_query_signals(
             normalized,
         )
     ) or bool(
-        # firewall-rule enforcement asks ("add a firewall rule to drop that
-        # traffic"). Matches firewall + a drop/deny/block verb in either order;
-        # "denied/dropped traffic" (adjective, ASA log queries) is unaffected
-        # because it lacks the "firewall" token paired with the imperative verb.
+        # firewall-rule *enforcement* asks ("add a firewall rule to drop that
+        # traffic", "push a deny on the firewall"). Do NOT treat investigative
+        # catalogue phrasing ("Investigate firewall deny spike", "firewall deny
+        # events") as containment — those are live-investigation products.
         re.search(r"\b(add|create|insert|apply|push|configure)\b[^.?!]{0,30}\bfirewall\b", normalized)
-        or (
-            re.search(r"\bfirewall\b[^.?!]{0,30}\b(drop|deny|block)\b", normalized)
-            and not _sop_playbook_knowledge_framing
+        or re.search(
+            r"\bfirewall\b[^.?!]{0,20}\b(rule|policy)\b[^.?!]{0,30}\b(drop|deny|block)\b",
+            normalized,
+        )
+        or re.search(
+            r"\b(drop|deny|block)\b[^.?!]{0,24}\b(on the firewall|via the firewall|using the firewall)\b",
+            normalized,
         )
     )
     # Containment DECISION-SUPPORT (not an enforcement command): the analyst is
@@ -1547,9 +1558,15 @@ _EXPLICIT_SPL_AUTHORING_RE = re.compile(
 
 
 def _spl_authoring_scope_disqualified(normalized: str) -> bool:
-    """Scoped or run-intent SPL requests are not universal authoring."""
-    if re.search(r"\bindex\s*=|\bsourcetype\s*=", normalized):
-        return True
+    """Affirmative run-intent SPL requests are not review-only authoring.
+
+    Explicit ``index=`` / ``sourcetype=`` bindings are *not* disqualifiers — they are
+    deterministic source constraints the authoring path must preserve. Catalogue
+    membership is likewise irrelevant; only affirmative execute/run intent
+    converts the ask away from review-only utility authoring.
+    """
+    if _RUN_SPL_NEGATION_RE.search(normalized):
+        return False
     run_terms = (
         " and run",
         " then run",
