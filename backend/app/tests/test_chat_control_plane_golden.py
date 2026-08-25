@@ -529,20 +529,6 @@ def test_alt_2024_0891_success_after_failure_hybrid_alert_review(
     ("query", "use_case_id", "required_terms", "forbidden_terms"),
     [
         (
-            "Write SPL to find successful AWS Console logins by user in the last 24 hours",
-            "aws_console_success_logins_by_user",
-            [
-                "sourcetype=aws:cloudtrail",
-                "eventSource=signin.amazonaws.com",
-                "eventName=ConsoleLogin",
-                "responseElements.ConsoleLogin=Success",
-                "login_count",
-                "userIdentity.arn",
-                "earliest=-24h",
-            ],
-            ["sourcetype=pgcil:auth", "action=failure", "datamodel=", "tstats"],
-        ),
-        (
             "Write SPL to determine who changed AWS IAM policies or attached policies to users or roles",
             "aws_iam_policy_modifications",
             [
@@ -594,3 +580,21 @@ def test_known_questions_use_specific_raw_templates(
     assert response.analyst_response is not None
     _assert_multiline_spl_present(response.analyst_response.spl_code, spl)
     assert_governed_spl_review_posture(response)
+
+
+def test_aws_console_success_logins_requires_governed_source_binding() -> None:
+    response = _chat("Write SPL to find successful AWS Console logins by user in the last 24 hours")
+
+    assert response.selected_use_case is not None
+    assert response.selected_use_case.use_case_id == "aws_console_success_logins_by_user"
+    assert response.evidence_plan.get("answer_mode") == "spl_utility_authoring"
+    assert response.evidence_plan.get("mcp_allowed") is False
+    assert response.candidate_spl is not None
+    assert response.candidate_spl.generation_mode == "clarification_required"
+    assert response.candidate_spl.execution_eligible is False
+    assert response.spl_validation is not None
+    assert response.spl_validation.approved is False
+    assert response.spl_validation.normalized_spl is None
+    reasons = set(response.spl_validation.reject_reasons or [])
+    assert "missing_binding:index_or_datamodel" in reasons
+    assert "slot_validation_failed" in reasons
