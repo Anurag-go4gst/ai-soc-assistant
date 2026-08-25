@@ -7,10 +7,11 @@ Use this file as the durable execution dashboard. Update it only during authoriz
 ## Control state
 
 ```yaml
-CURRENT_PHASE: P1_BLOCKED_PENDING_REBASE
-CURRENT_BASE_SHA: ae03a2502ab4c83797151a11d4effa47d9d4532b
-INTEGRATION_SHA: GOVERNANCE_COMMIT_CONTAINING_P1_T2_EVIDENCESTATE_OWNERSHIP
-EXECUTION_INTEGRATION_SHA: GOVERNANCE_COMMIT_CONTAINING_P1_T2_EVIDENCESTATE_OWNERSHIP
+CURRENT_PHASE: P1_DONE_P2_REBASE_REQUIRED
+CURRENT_BASE_SHA: fd77d58ea1e9690eec25a83aa90d46949c4512b5
+INTEGRATION_SHA: POST_P1_INTEGRATION_SHA_FROZEN_EXTERNALLY_AFTER_THIS_EVIDENCE_COMMIT
+EXECUTION_INTEGRATION_SHA: POST_P1_INTEGRATION_SHA_FROZEN_EXTERNALLY_AFTER_THIS_EVIDENCE_COMMIT
+P1_PRODUCT_INTEGRATION_SHA: fd77d58ea1e9690eec25a83aa90d46949c4512b5
 PLAN_PREPARATION_SHA: fe3548e475e61e77f5204e02f74efd28690abb86
 P0_PRODUCT_BASELINE_SHA: 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
 CURRENT_LOOP: NONE
@@ -21,13 +22,15 @@ INTEGRATION_BRANCH: feat/complete-or-abstain-t4-ux
 INTEGRATION_OWNER: CODEX
 ACTIVE_WORKSTREAMS: []
 BLOCKED_WORKSTREAMS:
-  - P1 A TRACE: BLOCKED_PENDING_REBASE; preserve T1 db4e715ffdfe89b7165911d9431d08fb781961f4 and rebase onto the governance commit containing the accepted reconciliation
+  - P2 B SPL: BLOCKED_PENDING_REBASE; logical head 2d71666f34fbee9e3e8df50b05281d5ec808c583 must rebase onto POST_P1_INTEGRATION_SHA and rerun affected gates
+  - P4 D POLICY: BLOCKED_UNTIL_P2
 COMPLETED_WORKSTREAMS:
   - P0: Harness readiness at 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
   - P0.1: RACES baseline advanced and verified at ae03a2502ab4c83797151a11d4effa47d9d4532b
+  - P1: TRACE truth integrated at fd77d58ea1e9690eec25a83aa90d46949c4512b5; T1/T2/T3 PASS
 NEXT_SAFE_PARALLEL_STARTS:
-  - P1 TRACE T2 after ws/trace-truth rebases onto the governance commit containing the accepted reconciliation
-  - P2/P3 continue their existing work; this governance commit does not require an immediate interruption
+  - P2 B SPL rebase only, onto exact POST_P1_INTEGRATION_SHA after it is externally frozen
+  - P3 remains PARKED
 RECONCILIATION_QUEUE:
   - REQUEST_ID: P1-T2-EVIDENCESTATE-OWNERSHIP
     REQUESTING_STREAM: A TRACE
@@ -37,16 +40,17 @@ RECONCILIATION_QUEUE:
     WHY: P1 owns factual trace/evidence projection truth; this is not SPL semantics, routing, planning authority, MCP execution authority, or prompt policy
     DEPENDENT_ITEM: P1 T2/T3
     PROPOSED_TEST: execution-only and plan-only inputs never produce obtained RAG/MCP evidence; accepted collected evidence remains obtained
-    STATUS: ACCEPTED
-    RESOLUTION_SHA: GOVERNANCE_COMMIT_CONTAINING_THIS_DECISION
-MERGE_QUEUE: []
+    STATUS: MERGED
+    RESOLUTION_SHA: fd77d58ea1e9690eec25a83aa90d46949c4512b5
+MERGE_QUEUE:
+  - P2 B SPL: WAITING_FOR_EXACT_REBASE_AND_AFFECTED_GATES
 PROTECTED_CHANGE_QUEUE: []
 TEST_GATE_STATUS:
   PLAN_AUDIT: passed_zero_gaps_both_files
-  FOCUSED: not_started
-  L0: P0_1_RACES_8_passed; P1 rerun required after rebase
-  L1: not_started
-  L2: P0_13_reported_green_at_base
+  FOCUSED: P1_T1_T2_T3_passed
+  L0: P1_RACES_8_passed_post_integration
+  L1: P1_owned_and_cross_stream_297_passed
+  L2: P0_13_passed_post_P1_integration
   L2_SLOW: not_started
   L3: not_started
   FRONTEND: P0_111_and_build_reported_green_at_base
@@ -66,15 +70,48 @@ DECISION_LOG:
   - 2026-08-25: Plan-only mission; no worktrees or product changes created.
   - 2026-08-25: plans/README.md intentionally not edited because mission allowed only two plan artifacts.
   - 2026-08-25: P1-T2-EVIDENCESTATE-OWNERSHIP accepted for A TRACE P1 T2/T3 only; P1 is BLOCKED_PENDING_REBASE to this governance commit, while P2/P3 need not interrupt active work.
+  - 2026-08-25: P1 integrated by exact fast-forward at fd77d58e with T1/T2/T3 history preserved; 297 owned/cross-stream, P0 L2 13, and RACES 8 passed; P2 requires exact rebase, P3 remains parked, and P4 remains blocked on P2.
+```
+
+## P1 completion evidence
+
+```yaml
+P1_STATUS: DONE
+P1_SOURCE_SHA: fd77d58ea1e9690eec25a83aa90d46949c4512b5
+P1_COMMITS_INTEGRATED:
+  - 8fe81fd69ebf822a54578d08b5ccb5f4c03b5a76
+  - 58d5c4615ec3e555b3e5317e78969a69cc72ffdb
+  - fd77d58ea1e9690eec25a83aa90d46949c4512b5
+T1_STATUS: PASS
+T2_STATUS: PASS
+T3_STATUS: PASS
+TRACE_SCHEMA_VERSION: trace_oracle_v1
+EVIDENCE_STATE_SCHEMA_VERSION: minimal_evidence_state_v2
+RUN_SHAPE_TRANSITION_SCHEMA_VERSION: run_shape_transition_v2
+H_TRACE_01: CLOSED_P1
+H_TRACE_02: CLOSED_P1
+H_TRACE_03: CLOSED_P1
+H_TRACE_04: CLOSED_P1
+H_TRACE_05: REPROVED_ALREADY_CORRECT_P1
+H_TRACE_06: CLOSED_P1
+H_TRACE_07: CLOSED_P1
+H_TRACE_08: CLOSED_P1
+PROTECTED_FILES_CHANGED: NONE
+POST_INTEGRATION_TESTS: 297 passed; P0 L2 13 passed; RACES 8 passed
+P2_REBASE_REQUIRED: YES
+P2_LOGICAL_HEAD_BEFORE_REBASE: 2d71666f34fbee9e3e8df50b05281d5ec808c583
+P2_REBASE_TARGET: POST_P1_INTEGRATION_SHA_FROZEN_EXTERNALLY_AFTER_THIS_EVIDENCE_COMMIT
+P3_ACTION: PARKED
+P4_ACTION: BLOCKED_UNTIL_P2
 ```
 
 ## Workstream registry
 
 | Stream | Phase(s) | Agent | Branch | Start SHA | Status | Exclusive ownership |
 |---|---|---|---|---|---|---|
-| A TRACE | P1 | CODEX | `ws/trace-truth` | `ae03a2502ab4c83797151a11d4effa47d9d4532b` | BLOCKED_PENDING_REBASE | Trace/provenance modules and tests; P1 T2/T3-only ownership of `backend/app/evidence/minimal_evidence_state.py` and directly corresponding H-TRACE-03/H-TRACE-08 tests |
-| B SPL | P2 | CURSOR | `ws/spl-semantic-v2` | unset | BLOCKED_REVIEW | SPL semantic/compiler/fidelity/live SPL prompt modules and tests |
-| C EVAL | P3, P5, P6 | CLAUDE | `ws/l2-eval-bank` | unset | BLOCKED_REVIEW | L2 bank and test architecture only |
+| A TRACE | P1 | CODEX | `ws/trace-truth` | `2ba619df52d2c813f5f21186f6e711e593d62003` | DONE_AT_FD77D58E | Trace/provenance modules and tests; consumed P1 T2/T3-only ownership of `backend/app/evidence/minimal_evidence_state.py` and directly corresponding H-TRACE-03/H-TRACE-08 tests |
+| B SPL | P2 | CURSOR | `ws/spl-semantic-v2` | pre-P1 integration SHA | BLOCKED_PENDING_REBASE | SPL semantic/compiler/fidelity/live SPL prompt modules and tests; logical head `2d71666f34fbee9e3e8df50b05281d5ec808c583` |
+| C EVAL | P3, P5, P6 | CLAUDE | `ws/l2-eval-bank` | unset | PARKED | L2 bank and test architecture only |
 | D POLICY | P4 | CLAUDE | `ws/prompt-policy` | unset | BLOCKED_P2_FOR_WRITES | Generic prompt/role/policy files and tests |
 | E UI | P7 | CURSOR | `ws/production-ux` | unset | BLOCKED_P5 | Production non-EC frontend and tests |
 | F PROMOTION | P8-P11 | CODEX/operator | `ws/promotion-coe` | unset | BLOCKED_P5 | L3/promotion/COE evidence only |
@@ -337,9 +374,9 @@ edit a completed phase or retain evidence produced against an invalidated SHA/co
 - [x] SHA roles match: `PLAN_PREPARATION_SHA = fe3548e4`; `EXECUTION_INTEGRATION_SHA` is frozen externally after the final plan commit;
   `INTEGRATION_SHA` is only a compatibility alias after freeze.
 - [x] `P0_PRODUCT_BASELINE_SHA` is `615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2` and is not a worktree start SHA.
-- [x] P0/P0.1 are DONE; P1 T1 is green at `db4e715f` and P1 is `BLOCKED_PENDING_REBASE`; P2-P10 remain otherwise unchanged; P11 DEFERRED; current loop is NONE.
-- [x] Dependencies and merge order match the canonical plan.
-- [x] Protected queue is empty; reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` is ACCEPTED with A TRACE as bounded owner.
+- [x] P0/P0.1/P1 are DONE; P2 is `BLOCKED_PENDING_REBASE`; P3 is PARKED; P4 remains blocked on P2; later phase and P11 posture is unchanged; current loop is NONE.
+- [x] Dependencies and merge order match the canonical plan; P0.1 and A are complete, so B is next after exact rebase.
+- [x] Protected queue is empty; reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` is merged at `fd77d58e` and its bounded ownership is consumed.
 - [x] Post-P0.1 apply forces exact-SHA rebase before L0/return/integration.
 - [x] Live MCP remains disabled and deferred to P11 plus separate approval.
 
@@ -361,6 +398,7 @@ Append decisions; do not rewrite history.
 | 2026-08-25 plan correction | Commit policy | Red reproduction is loop evidence, not permanent history | Correction mission | Commit only bounded green contracts |
 | 2026-08-25 plan correction | Validation | Both plan-discipline audits passed with zero gaps | Audit output | Ready for operator review; implementation still blocked |
 | 2026-08-25 reconciliation | P1 T2/T3 | Accept `P1-T2-EVIDENCESTATE-OWNERSHIP` and assign the bounded EvidenceState truth seam to A TRACE | Explicit operator ownership decision | Preserve T1 `db4e715f`; P1 rebases to this governance commit before T2; P2/P3 continue without immediate rebase |
+| 2026-08-25 P1 integration | P1 | Fast-forward `fd77d58e`; preserve commits `8fe81fd6`, `58d5c461`, `fd77d58e`; freeze `trace_oracle_v1`, `minimal_evidence_state_v2`, `run_shape_transition_v2` | 297 owned/cross-stream tests, P0 L2 13, RACES 8; no protected paths | P1 DONE; P2 exact rebase required; P3 parked; P4 blocked until P2 |
 
 ## Runner stop
 

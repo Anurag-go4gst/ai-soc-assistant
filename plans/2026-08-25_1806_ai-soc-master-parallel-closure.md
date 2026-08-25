@@ -55,10 +55,10 @@ means the phase branch head, not the integration branch head. `NONE` means no im
 | PHASE | WORKSTREAM | OWNER | STATUS | BASE_SHA | HEAD_SHA | DEPENDENCIES | CURRENT_LOOP | LAST_GREEN_GATE | NEXT_ACTION | BLOCKER | MERGE_STATUS |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | P0 | Historical | Historical owners | DONE | `615069e6` | `615069e6` | None | CLOSED | P0 L2 13 | Preserve | None | IN_BASE |
-| P0.1 | Integration | CODEX/operator | TODO | frozen `EXECUTION_INTEGRATION_SHA` | NONE | P0 | NONE | Audit not run | Read-only proposal after approval to start audit | Operator approval required before apply | NOT_STARTED |
-| P1 | A TRACE | CODEX | TODO | frozen `EXECUTION_INTEGRATION_SHA` | NONE | P0 | NONE | P0 inherited | Start after plan approval | L0 remains blocked until approved P0.1 apply lands | NOT_STARTED |
-| P2 | B SPL | CURSOR | TODO | frozen `EXECUTION_INTEGRATION_SHA` | NONE | P0 | NONE | P0 inherited | Start after plan approval | None | NOT_STARTED |
-| P3 | C EVAL | CLAUDE | TODO | frozen `EXECUTION_INTEGRATION_SHA` | NONE | P0 scaffold | NONE | P0 L2 13 | Start scaffold after plan approval | Contract rows wait P1/P2/P4 | NOT_STARTED |
+| P0.1 | Integration | CODEX/operator | DONE | `d3a0cdb3` | `ae03a250` | P0 | CLOSED | RACES 8 | Preserve audited baseline | None | IN_BASE |
+| P1 | A TRACE | CODEX | DONE | `2ba619df` | `fd77d58e` | P0 | CLOSED | 297 owned/cross-stream; P0 L2 13; RACES 8 | Preserve; reopen only through phase re-entry | None | IN_BASE |
+| P2 | B SPL | CURSOR | BLOCKED_PENDING_REBASE | pre-P1 integration SHA | `2d71666f` | P0 | NONE | Pre-rebase gates are iteration history only | Rebase onto externally frozen `POST_P1_INTEGRATION_SHA` and rerun affected gates | Exact rebase required | NOT_STARTED |
+| P3 | C EVAL | CLAUDE | PARKED | frozen `EXECUTION_INTEGRATION_SHA` | NONE | P0 scaffold | NONE | P0 L2 13 | Remain parked | Contract rows wait P1/P2/P4 | NOT_STARTED |
 | P4 | D POLICY | CLAUDE | TODO | P2 integration SHA | NONE | P2 for writes | NONE | P0 inherited | Read-only inventory may start | Writes blocked by P2 | NOT_STARTED |
 | P5 | C/Integration | CODEX + CLAUDE | TODO | P1/P2/P4 integration SHA | NONE | P1/P2/P3/P4 | NONE | NONE | Wait | Dependencies | NOT_STARTED |
 | P6 | C EVAL | CLAUDE | TODO | P5 green SHA | NONE | P5 | NONE | NONE | Wait | P5 | NOT_STARTED |
@@ -189,14 +189,14 @@ explicit `SUPPORTED_NOW`, `DEFERRED`, or `SEPARATE_PRODUCT_PHASE` decision befor
 | H-MCP-08 | MCP audit | Real metadata/tool schemas remain unverified | OPEN | P11 | P10 + COE approval | Redacted real schema hashes | Close in P11 |
 | H-MCP-09 | Architecture | Live MCP remains default-off | DEFERRED | P11 | P10 + separate approval | COE gate and post-run flag evidence | P11 only |
 | H-MCP-10 | Historic audit | Non-Splunk MCP playbooks | PRODUCT_GAP | P11 | Capability inventory | Supported-now proof or explicit product decision | Decision required |
-| H-TRACE-01 | Trace audit | LLM attempted/response/accepted/used accounting | NEEDS_REPROOF | P1 | P0 | Lifecycle matrix tests | Close or mark already-correct in P1 |
-| H-TRACE-02 | Trace audit | Fallback terminology consistency | NEEDS_REPROOF | P1 | P0 | Stable-oracle table tests | P1 |
-| H-TRACE-03 | Trace audit | RAG skipped while `rag_citation` appears obtained | NEEDS_REPROOF | P1 | P0 | RAG no-match/match projection tests | P1 |
-| H-TRACE-04 | Trace audit | Artifact review versus execution HIL | OPEN | P1 | P0 | Distinct flag contract tests | P1 |
-| H-TRACE-05 | Trace audit | Pure-SPL InvestigationOutcome applicability | NEEDS_REPROOF | P1 | P0 | Pure-SPL L1/L2 rows | P1 |
-| H-TRACE-06 | Trace audit | Stable trace oracle versus diagnostics | OPEN | P1 | P0 | Versioned schema tests | P1 |
-| H-TRACE-07 | Provenance audit | `run_shape_transition` decision-site provenance | OPEN | P1 | P0 | Decision-site trace test | P1 |
-| H-TRACE-08 | Architecture | No fabricated RAG/MCP evidence | OPEN | P1 | P0 | EvidenceState truth matrix | P1 |
+| H-TRACE-01 | Trace audit | LLM attempted/response/accepted/used accounting | CLOSED_P1 | P1 | P0 | `trace_lifecycle_v1` matrix green | Preserve |
+| H-TRACE-02 | Trace audit | Fallback terminology consistency | CLOSED_P1 | P1 | P0 | Stable lifecycle/oracle tests green | Preserve |
+| H-TRACE-03 | Trace audit | RAG skipped while `rag_citation` appears obtained | CLOSED_P1 | P1 | P0 | Skipped/no-match RAG truth tests green | Preserve |
+| H-TRACE-04 | Trace audit | Artifact review versus execution HIL | CLOSED_P1 | P1 | P0 | Distinct `artifact_review_required` / `execution_hil_required` tests green | Preserve |
+| H-TRACE-05 | Trace audit | Pure-SPL InvestigationOutcome applicability | REPROVED_ALREADY_CORRECT_P1 | P1 | P0 | Pure-SPL outcome suites green | Preserve |
+| H-TRACE-06 | Trace audit | Stable trace oracle versus diagnostics | CLOSED_P1 | P1 | P0 | `trace_oracle_v1` exact-field tests green | Preserve |
+| H-TRACE-07 | Provenance audit | `run_shape_transition` decision-site provenance | CLOSED_P1 | P1 | P0 | `run_shape_transition_v2` decision-site tests green | Preserve |
+| H-TRACE-08 | Architecture | No fabricated RAG/MCP evidence | CLOSED_P1 | P1 | P0 | `minimal_evidence_state_v2` truth matrix green | Preserve |
 | H-SPL-01 | Semantic audit | Final RQC -> SPL semantic compiler | OPEN | P2 | P0 | Contract propagation test | P2 |
 | H-SPL-02 | Three-query audit | Search horizon versus analytical window | OPEN | P2 | H-SPL-01 | Rolling/trend tests | P2 |
 | H-SPL-03 | Three-query audit | Rolling windows | OPEN | P2 | H-SPL-02 | 10m rolling plus adjacent row | P2 |
@@ -322,7 +322,7 @@ Agent names express recommended responsibility, not permission for simultaneous 
 
 | Request | Requesting stream | Owning stream | File/contract | Status | Rationale and boundary |
 |---|---|---|---|---|---|
-| `P1-T2-EVIDENCESTATE-OWNERSHIP` | A TRACE | A TRACE / CODEX | `backend/app/evidence/minimal_evidence_state.py` plus directly corresponding H-TRACE-03/H-TRACE-08 truth tests | ACCEPTED | P1 owns factual trace/evidence projection truth. Execution metadata and canonical plan facts must not become obtained evidence; required/missing/diagnostic facts must remain distinct from accepted obtained evidence. This assignment is P1 T2/T3 only and grants no ownership over other `backend/app/evidence/` files, SPL semantics, routing, planning authority, MCP execution authority, or prompt policy. Future unrelated evidence work requires a new reconciliation. |
+| `P1-T2-EVIDENCESTATE-OWNERSHIP` | A TRACE | A TRACE / CODEX | `backend/app/evidence/minimal_evidence_state.py` plus directly corresponding H-TRACE-03/H-TRACE-08 truth tests | MERGED_AT_FD77D58E | P1 owns factual trace/evidence projection truth. Execution metadata and canonical plan facts must not become obtained evidence; required/missing/diagnostic facts must remain distinct from accepted obtained evidence. This assignment was consumed by P1 T2/T3 only and grants no ownership over other `backend/app/evidence/` files, SPL semantics, routing, planning authority, MCP execution authority, or prompt policy. Future unrelated evidence work requires a new reconciliation. |
 
 ## Branch return packet
 
@@ -679,10 +679,10 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **NEXT_PHASE_UNLOCK:** L0 RACES gate for P1, P4, P7, P9.
   - **Evidence:** Pending.
 
-- [ ] **P1 - Trace truth closure**
-  - **STATUS:** BLOCKED_PENDING_REBASE
+- [x] **P1 - Trace truth closure**
+  - **STATUS:** DONE
   - **OWNER:** Workstream A / CODEX
-  - **BASE_SHA:** Frozen `EXECUTION_INTEGRATION_SHA`.
+  - **BASE_SHA:** `2ba619df52d2c813f5f21186f6e711e593d62003` after the required exact-SHA rebase.
   - **DEPENDENCIES:** P0.
   - **ALLOWED_FILES:** A-owned trace/provenance modules and directly corresponding tests from the ownership matrix. Accepted reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` additionally assigns `backend/app/evidence/minimal_evidence_state.py` and directly corresponding H-TRACE-03/H-TRACE-08 truth tests to A for P1 T2/T3 only.
   - **PROTECTED_FILES:** `architecture.md` plus every enumerated `RACES_FREEZE_PATHS` prefix (see Protected-file policy). For A this most often means `backend/app/schemas/responses.py` when a new oracle field is needed — STOP and request the diff.
@@ -696,12 +696,12 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **EXPECTED_COMMIT_GROUPS:** T1 -> T2 -> T3 from Commit choreography; red repros are loop evidence, not commits.
   - **OUTPUT_REQUIRED:** Repro matrix, schema/version decision, branch return packet, exact tests, unresolved protected diff if any.
   - **NEXT_PHASE_UNLOCK:** P5 trace-dependent L2 assertions and P7 trace UX contract.
-  - **Evidence:** T1 is green at `db4e715ffdfe89b7165911d9431d08fb781961f4` and must be preserved. T2 is not implemented. Reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` is ACCEPTED; P1 must rebase onto the governance commit containing this decision before T2 resumes. P2/P3 are unaffected and need not interrupt active work for this governance commit.
+  - **Evidence:** Integrated by exact fast-forward at product SHA `fd77d58ea1e9690eec25a83aa90d46949c4512b5`, preserving T1 `8fe81fd69ebf822a54578d08b5ccb5f4c03b5a76`, T2 `58d5c4615ec3e555b3e5317e78969a69cc72ffdb`, and T3 `fd77d58ea1e9690eec25a83aa90d46949c4512b5`. T1/T2/T3 PASS; `trace_oracle_v1`, `minimal_evidence_state_v2`, and `run_shape_transition_v2` are frozen. Post-integration: owned/cross-stream trace suite 297 passed, P0 L2 13 passed, RACES 8 passed; no protected files changed and no unexplained failures. H-TRACE-01/02/03/04/06/07/08 are CLOSED_P1; H-TRACE-05 is REPROVED_ALREADY_CORRECT_P1. Reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` was respected and is consumed by this integration; it grants no future evidence-directory ownership.
 
 - [ ] **P2 - SPL semantic V2 contract, authoring, fidelity, and syntax**
-  - **STATUS:** TODO
+  - **STATUS:** BLOCKED_PENDING_REBASE
   - **OWNER:** Workstream B / CURSOR
-  - **BASE_SHA:** Frozen `EXECUTION_INTEGRATION_SHA`.
+  - **BASE_SHA:** Pre-P1 integration base; logical head before rebase is `2d71666f34fbee9e3e8df50b05281d5ec808c583`.
   - **DEPENDENCIES:** P0. Coordinate names with P1, but no file dependency.
   - **ALLOWED_FILES:** B-owned SPL modules, governed source-profile modules, validators, and directly corresponding tests.
   - **PROTECTED_FILES:** `architecture.md` plus every enumerated `RACES_FREEZE_PATHS` prefix (see Protected-file policy). For B this most often means `backend/app/safeguards/spl_validator.py`, `backend/app/schemas/responses.py`, and `backend/app/graph/resource_planner_graph.py` — all read-only here; STOP and request the diff.
@@ -715,10 +715,10 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **EXPECTED_COMMIT_GROUPS:** S1 -> S2 -> S3 -> S4 -> S5 -> S6 from Commit choreography; red repros are loop evidence.
   - **OUTPUT_REQUIRED:** Contract field table, support/degrade matrix by shape, prompt conflict resolution record, branch return packet, exact tests.
   - **NEXT_PHASE_UNLOCK:** P4 implementation, P5 semantic L2 assertions, P8 L3 bank.
-  - **Evidence:** Pending.
+  - **Evidence:** P1 is integrated. P2 must rebase onto the exact externally frozen `POST_P1_INTEGRATION_SHA` and rerun affected gates before return or integration; no P2 rebase was started by the P1 integrator.
 
 - [ ] **P3 - L2 production bank scaffold from 13 toward 23**
-  - **STATUS:** TODO
+  - **STATUS:** PARKED
   - **OWNER:** Workstream C / CLAUDE
   - **BASE_SHA:** Frozen `EXECUTION_INTEGRATION_SHA`.
   - **DEPENDENCIES:** P0 for scaffold; P1/P2/P4 for assertions against new contracts.
@@ -737,7 +737,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **Evidence:** Pending.
 
 - [ ] **P4 - Prompt, role policy, provenance, and Studio configuration contract**
-  - **STATUS:** TODO
+  - **STATUS:** BLOCKED_UNTIL_P2
   - **OWNER:** Workstream D / CLAUDE; B remains owner of `backend/app/spl/llm_fallback.py`.
   - **BASE_SHA:** Integration SHA after P2 merge for implementation. Read-only audit may start at P0.
   - **DEPENDENCIES:** P0 for audit; P2 contract for writes and final prompt semantics.
@@ -918,7 +918,7 @@ After the operator freezes and records one `EXECUTION_INTEGRATION_SHA`:
 ## Reconciliation and merge order
 
 0. P0.1 RACES baseline advance, as soon as it is approved — before any stream records an L0 gate.
-1. A TRACE, after P1 gates.
+1. A TRACE, integrated at `fd77d58e` after P1 gates.
 2. B SPL, rebased onto the new integration SHA and cross-tested with P1.
 3. D POLICY, implemented/rebased after B; B resolves the shared SPL prompt seam.
 4. C EVAL bank, rebased after A/B/D; complete P5.
@@ -949,12 +949,12 @@ P9 must remeasure by exact test ID. These are carried as hypotheses from prior m
 Run this checklist after every structural plan edit and before operator review:
 
 - [x] SHA roles: both files preserve `PLAN_PREPARATION_SHA = fe3548e4`, leave `EXECUTION_INTEGRATION_SHA` operator-frozen, and never require a plan to contain its own commit SHA.
-- [x] Phase status: P0/P0.1 DONE; P1 T1 is green at `db4e715f` and P1 is `BLOCKED_PENDING_REBASE`; P2-P10 remain otherwise unchanged; P11 DEFERRED.
+- [x] Phase status: P0/P0.1/P1 are DONE; P2 is `BLOCKED_PENDING_REBASE`; P3 is PARKED; P4 remains blocked on P2; later phases and P11 posture are unchanged.
 - [x] Dependencies: authoritative edge list and runner eligibility rules agree.
-- [x] Merge order: P0.1 is complete; remaining order is A, B, D, C/P5, C/P6, F/P8, E/P7, F/P9.
-- [x] Queues: protected queue is empty; reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` is ACCEPTED with A TRACE as bounded owner.
+- [x] Merge order: P0.1 and A are complete; remaining order is B, D, C/P5, C/P6, F/P8, E/P7, F/P9.
+- [x] Queues: protected queue is empty; reconciliation `P1-T2-EVIDENCESTATE-OWNERSHIP` is merged at `fd77d58e` and its bounded ownership is consumed.
 - [x] Current loop: `NONE`; `LOOP_ITERATION_ID = NONE`.
-- [x] Rebase rule: P1 must rebase to the governance commit containing the accepted ownership decision before T2; P2/P3 need no immediate interruption and rebase later before their own integration.
+- [x] Rebase rule: P1 integrated from exact base `2ba619df`; P2 must rebase logical head `2d71666f` onto the externally frozen `POST_P1_INTEGRATION_SHA` before integration; P3 remains parked.
 - [x] Live MCP posture: disabled/deferred until P11 plus separate approval.
 
 If any row disagrees, set `READY_FOR_OPERATOR_REVIEW = NO`, correct both files, and rerun the plan audit.
