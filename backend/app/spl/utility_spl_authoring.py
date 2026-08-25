@@ -501,6 +501,7 @@ def candidate_from_universal_utility_authoring(
             target_log_family=detection_family,
             is_universal_spl=is_universal,
         )
+        ctx["semantic_analyst_intent"] = intent_spec
         normalized = finalize_review_only_spl(
             raw_spl,
             query=user_query,

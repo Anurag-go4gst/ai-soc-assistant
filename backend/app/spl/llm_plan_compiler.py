@@ -97,24 +97,79 @@ def _safe_value(value: Any) -> str:
     return text[:80]
 
 
-def compile_plan_to_spl(plan: dict[str, Any]) -> str:
+_EVENT_SET_FILTERS: dict[str, str] = {
+    "failed_login": "(action=failure OR action=failed OR EventCode=4625)",
+    "successful_login": "(action=success OR EventCode=4624)",
+    "password_change": "(EventCode=4723 OR EventCode=4724 OR action=password_change)",
+    "account_lockout": "(EventCode=4740)",
+    "privilege_change": "(EventCode=4728 OR EventCode=4732 OR EventCode=4756)",
+    "denied_traffic": "(action=denied OR action=blocked OR action=drop)",
+}
+
+
+def compile_intent_spec_to_spl(spec: dict[str, Any]) -> str:
+    """Compile the immutable semantic contract without a second planner."""
+    if not isinstance(spec, dict) or spec.get("support_status") == "unsupported":
+        return ""
+    domain = str(spec.get("event_domain") or "auth")
+    if domain == "authentication":
+        domain = "auth"
+    if domain == "firewall":
+        domain = "firewall"
+    metric = "distinct_count" if spec.get("distinct_by") else "count"
+    metric_field = None
+    distinct = spec.get("distinct_by") or []
+    if distinct:
+        metric_field = str(distinct[0])
+    plan = {
+        "detection_family": str(spec.get("analysis_shape") or "aggregation"),
+        "data_domain": domain,
+        "group_by": list(spec.get("group_by") or []),
+        "metric": metric,
+        "metric_field": metric_field,
+        "filters": [],
+    }
+    return compile_plan_to_spl(plan, intent_spec=spec)
+
+
+def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | None = None) -> str:
     """Deterministically assemble SOC-STD-compliant SPL from a detection plan.
 
-    Guarantees by construction: placeholder index/sourcetype, explicit time bound,
-    a stats aggregation, strftime AFTER stats (never before), sort, head 100, and
-    only allowlisted commands. This is what makes the output pass validation +
-    quality where free-form 8B SPL did not.
+    When ``intent_spec`` is absent, the historical lab shape is preserved
+    (placeholders, stats, strftime after stats, sort, head 100). When the
+    semantic contract is present it is authority: analysis shape, search
+    horizon, rolling/sequence windows, and prohibitions override plan defaults.
     """
-    domain = str(plan.get("data_domain") or "")
+    spec = intent_spec if isinstance(intent_spec, dict) else {}
+    if spec.get("support_status") == "unsupported":
+        return ""
+
+    domain = str(plan.get("data_domain") or spec.get("event_domain") or "")
+    if domain == "authentication":
+        domain = "auth"
     index_ph, sourcetype_ph = _DOMAIN_PLACEHOLDERS.get(domain, ("<index>", "<sourcetype>"))
+    source = spec.get("source_constraints") if isinstance(spec.get("source_constraints"), dict) else {}
+    index_value = str(source.get("index") or "").strip() or index_ph
+    sourcetype_value = str(source.get("sourcetype") or "").strip() or sourcetype_ph
 
-    try:
-        hours = int(plan.get("time_window_hours") or 24)
-    except (TypeError, ValueError):
-        hours = 24
-    hours = max(1, min(hours, 168))
+    search_horizon = str(spec.get("search_horizon") or spec.get("time_window") or "").strip()
+    prohibitions = {str(item) for item in (spec.get("prohibitions") or [])}
+    if search_horizon and "earliest=" in search_horizon.lower():
+        time_clause_search = search_horizon
+    else:
+        try:
+            hours = int(plan.get("time_window_hours") or 24)
+        except (TypeError, ValueError):
+            hours = 24
+        hours = max(1, min(hours, 168))
+        if "implicit_default_24h_overwrite" in prohibitions and not search_horizon:
+            time_clause_search = ""
+        else:
+            time_clause_search = f"earliest=-{hours}h latest=now"
 
-    search_terms = [f"search index={index_ph} sourcetype={sourcetype_ph} earliest=-{hours}h latest=now"]
+    search_terms = [f"search index={index_value} sourcetype={sourcetype_value}"]
+    if time_clause_search:
+        search_terms.append(time_clause_search)
     for item in plan.get("filters") or []:
         if not isinstance(item, dict):
             continue
@@ -122,37 +177,157 @@ def compile_plan_to_spl(plan: dict[str, Any]) -> str:
         match = _safe_value(item.get("match"))
         if field and match:
             search_terms.append(f'{field}="{match}"')
+    for event_name in spec.get("required_event_sets") or []:
+        fragment = _EVENT_SET_FILTERS.get(str(event_name))
+        if fragment:
+            search_terms.append(fragment)
     search_line = " ".join(search_terms)
 
-    group_by = [g for g in (_safe_field(x) for x in (plan.get("group_by") or [])) if g] or ["src_ip"]
-    norm_evals = [f'{g}_norm=lower(coalesce({g}, "unknown"))' for g in group_by]
-    norm_fields = [f"{g}_norm" for g in group_by]
-    eval_clause = "| eval " + ", ".join(norm_evals)
+    analysis_shape = str(spec.get("analysis_shape") or "")
+    roles = spec.get("entity_roles") if isinstance(spec.get("entity_roles"), dict) else {}
+    group_by = [g for g in (_safe_field(x) for x in (spec.get("group_by") or plan.get("group_by") or [])) if g]
+    if not group_by and not analysis_shape:
+        group_by = ["src_ip"]
+
+    norm_reqs = spec.get("normalization_requirements") if isinstance(spec.get("normalization_requirements"), list) else []
+    alias_by_field: dict[str, str] = {}
+    eval_parts: list[str] = []
+    if norm_reqs:
+        for item in norm_reqs:
+            if not isinstance(item, dict):
+                continue
+            alias = _safe_field(item.get("alias"))
+            expr = str(item.get("expression") or "").strip()
+            if alias and expr:
+                eval_parts.append(f"{alias}={expr}")
+                sources = item.get("source_fields") if isinstance(item.get("source_fields"), list) else []
+                for src in sources:
+                    alias_by_field[str(src)] = alias
+    else:
+        for group in group_by:
+            eval_parts.append(f'{group}_norm=lower(coalesce({group}, "unknown"))')
+            alias_by_field[group] = f"{group}_norm"
+
+    def _alias(field_name: str) -> str:
+        return alias_by_field.get(field_name, field_name)
+
+    eval_clause = f"| eval {', '.join(eval_parts)}" if eval_parts else ""
+
+    if analysis_shape == "raw":
+        fields = spec.get("field_requirements") or ["_time", "src_ip", "user", "action"]
+        safe_fields = [f for f in (_safe_field(x) or str(x) for x in fields) if f][:8]
+        parts = [search_line]
+        if eval_clause:
+            parts.append(eval_clause)
+        parts.append("| table " + " ".join(["_time", *safe_fields]))
+        limit = spec.get("result_limit")
+        if limit is not None:
+            parts.append(f"| head {int(limit)}")
+        return re.sub(r"\s+", " ", " ".join(parts)).strip()
+
+    if analysis_shape == "trend":
+        grain = str(spec.get("temporal_grain") or "1h")
+        parts = [search_line]
+        if eval_clause:
+            parts.append(eval_clause)
+        by_fields = [_alias(g) for g in group_by[:2]]
+        by_clause = f" by {', '.join(by_fields)}" if by_fields else ""
+        parts.append(f"| timechart span={grain} count as event_count{by_clause}")
+        return re.sub(r"\s+", " ", " ".join(parts)).strip()
+
+    if analysis_shape == "rolling":
+        window = (spec.get("analytical_window") or {}) if isinstance(spec.get("analytical_window"), dict) else {}
+        size = str(window.get("size") or "10m")
+        subject = _alias((roles.get("subject") or group_by or ["src_ip"])[0])
+        distinct = (spec.get("distinct_by") or ["user"])[0]
+        distinct_alias = _alias(str(distinct))
+        parts = [search_line]
+        if eval_clause:
+            parts.append(eval_clause)
+        parts.append("| sort 0 _time")
+        parts.append(
+            f"| streamstats time_window={size} dc({distinct_alias}) as distinct_count by {subject}"
+        )
+        parts.append(f"| where distinct_count > 1")
+        parts.append(f"| stats max(distinct_count) as distinct_count by {subject}")
+        return re.sub(r"\s+", " ", " ".join(parts)).strip()
+
+    if analysis_shape == "sequence":
+        gap = str(spec.get("sequence_max_gap") or "5m")
+        ordered = [str(item) for item in (spec.get("ordered_sequence") or spec.get("required_event_sets") or [])]
+        correlate = _alias((roles.get("correlate_by") or roles.get("subject") or group_by or ["user"])[0])
+        case_parts: list[str] = []
+        for name in ordered:
+            fragment = _EVENT_SET_FILTERS.get(name)
+            if fragment:
+                case_parts.append(f'if({fragment}, "{name}",')
+        event_eval = ""
+        if case_parts:
+            nested = "null"
+            for part in reversed(case_parts):
+                nested = f"{part} {nested})"
+            event_eval = f"| eval event_type={nested}"
+        parts = [search_line]
+        if eval_clause:
+            parts.append(eval_clause)
+        if event_eval:
+            parts.append(event_eval)
+        parts.append("| sort 0 _time")
+        parts.append(f"| streamstats window=1 current=f last(event_type) as prev_event last(_time) as prev_time by {correlate}")
+        if len(ordered) >= 2:
+            parts.append(
+                f'| where prev_event="{ordered[0]}" AND event_type="{ordered[1]}" '
+                f"AND (_time-prev_time)<={_gap_seconds(gap)}"
+            )
+        else:
+            parts.append(f"| transaction {correlate} maxspan={gap}")
+        return re.sub(r"\s+", " ", " ".join(parts)).strip()
 
     metric = str(plan.get("metric") or "count")
-    metric_field = _safe_field(plan.get("metric_field"))
-    if metric == "distinct_count" and metric_field:
-        agg = f"dc({metric_field}) as distinct_count"
+    metric_field = _safe_field(plan.get("metric_field") or (spec.get("distinct_by") or [None])[0])
+    if (metric == "distinct_count" or spec.get("distinct_by")) and metric_field:
+        agg = f"dc({_alias(metric_field)}) as distinct_count"
         sort_field = "distinct_count"
     else:
         agg = "count as event_count"
         sort_field = "event_count"
 
+    norm_fields = [_alias(g) for g in group_by] or (["src_ip_norm"] if not spec else group_by)
+    if not norm_fields:
+        norm_fields = ["src_ip"]
     stats_clause = (
         f"| stats {agg} earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch "
         f"by {', '.join(norm_fields)}"
     )
-    # strftime is applied AFTER stats (SOC-STD-SPL-001-U02) — the exact rule the
-    # free-form model kept violating.
-    time_clause = (
+    time_format = (
         '| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S"), '
         'last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S") '
         "| fields - first_seen_epoch last_seen_epoch"
     )
-    tail = f"| sort - {sort_field} | head 100"
-
-    spl = " ".join([search_line, eval_clause, stats_clause, time_clause, tail])
+    parts = [search_line]
+    if eval_clause:
+        parts.append(eval_clause)
+    parts.extend([stats_clause, time_format])
+    if analysis_shape == "ranking" or spec.get("ranking") or not spec:
+        parts.append(f"| sort - {sort_field}")
+        limit = spec.get("result_limit")
+        if limit is not None:
+            parts.append(f"| head {int(limit)}")
+        elif "arbitrary_head_100" not in prohibitions:
+            parts.append("| head 100")
+    elif spec.get("result_limit") is not None:
+        parts.append(f"| head {int(spec['result_limit'])}")
+    spl = " ".join(parts)
     return re.sub(r"\s+", " ", spl).strip()
+
+
+def _gap_seconds(token: str) -> int:
+    match = re.fullmatch(r"(\d+)([smhd])", str(token or "").strip().lower())
+    if not match:
+        return 300
+    amount = int(match.group(1))
+    unit = match.group(2)
+    return amount * {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
 
 
 def _plan_system_prompt() -> str:
@@ -296,6 +471,8 @@ def generate_llm_spl_via_plan(
     client: LocalChatClient | None = None,
     seed: int = SPL_PLAN_SEED,
     plan_raw_output_provider: Callable[[], str] | None = None,
+    resolved_query_contract: dict[str, Any] | None = None,
+    intent_spec: dict[str, Any] | None = None,
 ) -> LlmSplFallbackResult | None:
     """Plan -> compile -> feed through the existing governed producer (gates unchanged).
 
@@ -324,7 +501,22 @@ def generate_llm_spl_via_plan(
     if plan is None:
         return _clarification(CLARIFICATION_INVALID_SCHEMA, adapter_errors=errors)
 
-    compiled_spl = compile_plan_to_spl(plan)
+    spec = intent_spec if isinstance(intent_spec, dict) else None
+    if spec is None:
+        from app.spl.spl_intent_spec import build_spl_intent_spec
+        from app.spl.source_profile_bindings import source_mappings_for_query
+
+        spec = build_spl_intent_spec(
+            user_query,
+            resolved_query_contract=resolved_query_contract,
+            source_mappings=source_mappings_for_query(user_query),
+        )
+    if spec.get("support_status") == "unsupported":
+        return _clarification("spl_semantic_contract_unsupported")
+    apply_spec = intent_spec is not None or spec.get("analysis_shape") in {"trend", "rolling", "sequence"}
+    compiled_spl = compile_plan_to_spl(plan, intent_spec=spec if apply_spec else None)
+    if not compiled_spl:
+        return _clarification("spl_semantic_contract_unsupported")
     redacted_plan = _redacted_detection_plan(plan)
     try:
         time_window_hours = int(plan.get("time_window_hours") or 24)

@@ -388,6 +388,12 @@ def normalize_review_only_spl(
     returned untouched so this can never reshape governed-template output.
     """
     ctx = dict(context or {})
+    spec = ctx.get("semantic_analyst_intent") if isinstance(ctx.get("semantic_analyst_intent"), dict) else {}
+    horizon = str(spec.get("search_horizon") or spec.get("time_window") or "").strip()
+    if horizon:
+        ctx["user_explicit_time_window"] = True
+        if not ctx.get("user_explicit_time_bounds"):
+            ctx["user_explicit_time_bounds"] = horizon
     spl = (raw_spl or "").strip()
     trace: dict[str, Any] = {
         "deterministic_postprocessor_applied": False,
@@ -491,11 +497,16 @@ def normalize_review_only_spl(
     lines = [ln.rstrip() for ln in spl.splitlines()]
     removed: list[str] = []
     kept: list[str] = []
+    required_streamstats = str(spec.get("analysis_shape") or "") in {"rolling", "sequence"} or "streamstats" in spl.lower()
     for ln in lines:
         stripped = ln.strip().lstrip("|").strip()
+        # Preserve streamstats / time-order for rolling and sequence contracts.
+        if required_streamstats and re.search(r"\b(streamstats|sort\s+0\s+_time)\b", stripped, re.I):
+            kept.append(ln)
+            continue
         # Drop an unnecessary leading `sort 0 ...` before any filter; cheap utility
         # drafts do not need a full sort, and it must not precede `where`.
-        if re.match(r"sort\s+\d+\b", stripped, re.IGNORECASE):
+        if re.match(r"sort\s+\d+\b", stripped, re.IGNORECASE) and not required_streamstats:
             removed.append(stripped)
             continue
         kept.append(ln)
