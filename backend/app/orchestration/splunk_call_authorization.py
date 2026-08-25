@@ -15,6 +15,7 @@ from typing import Any
 
 from app.config import settings
 from app.connectors.mcp.mcp_endpoint import normalize_mcp_endpoint_url
+from app.connectors.mcp.splunk_mcp_readiness import splunk_search_tool_arguments
 
 SCHEMA_VERSION = "splunk_call_grant_v1"
 GRANT_TTL_SECONDS = 900
@@ -114,14 +115,26 @@ def call_grant_from_validation(
     hil_required: bool = True,
     execution_intent: str = "spl_search",
     now: float | None = None,
+    tool_arguments: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """Exact-call AUTH0 grant for approved SPL searches.
+
+    When ``tool_arguments`` is omitted, bind the same governed search argument
+    dict the execution gate will pass to the connector so planned and executed
+    ``canonical_arguments_hash`` values cannot silently diverge.
+    """
     spl = str(spl_validation.get("normalized_spl") or "")
+    selected_tool = str(selection.get("selected_mcp_tool") or "")
+    bound_args = tool_arguments
+    if bound_args is None and spl and selected_tool in {"splunk_run_query", "run_splunk_query", ""}:
+        bound_args = splunk_search_tool_arguments(normalized_spl=spl, trace_id=trace_id)
     return build_splunk_call_grant(
         trace_id=trace_id,
         identity=identity,
         selected_mcp_server=str(selection.get("selected_mcp_server") or ""),
-        selected_mcp_tool=str(selection.get("selected_mcp_tool") or ""),
+        selected_mcp_tool=selected_tool,
         normalized_spl=spl,
+        tool_arguments=bound_args,
         max_result_limit=int(settings.spl_max_result_limit),
         execution_intent=execution_intent,
         read_write_mode="read" if execution_intent in {"spl_search", "saved_search_execution"} else "write",

@@ -12,6 +12,7 @@ from app.chat.contracts.investigation_plan import (
     InvestigationPlanProposal,
     ValidatedInvestigationPlan,
 )
+from app.chat.planned_mcp_call import enrich_capability_binding
 from app.connectors.mcp.discovery import classify_mcp_tool
 from app.planner.resource_registry import load_resource_registry
 from app.spl.guided_safe_spl_catalog import guided_safe_template_ids
@@ -130,11 +131,13 @@ def _capability_bindings(
         need = str(row.get("capability_need") or "optional")
         availability = str(row.get("availability") or "unavailable")
         bindings.append(
-            InvestigationCapabilityBinding(
-                capability_id=capability_id,
-                capability_need=need,  # type: ignore[arg-type]
-                availability=availability,  # type: ignore[arg-type]
-                access_mode="read_only" if availability == "available" else "manual_or_alternate",
+            enrich_capability_binding(
+                InvestigationCapabilityBinding(
+                    capability_id=capability_id,
+                    capability_need=need,  # type: ignore[arg-type]
+                    availability=availability,  # type: ignore[arg-type]
+                    access_mode="read_only" if availability == "available" else "manual_or_alternate",
+                )
             )
         )
         seen.add(capability_id)

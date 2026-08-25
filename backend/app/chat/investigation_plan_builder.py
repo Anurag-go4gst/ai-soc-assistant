@@ -12,6 +12,7 @@ from app.chat.contracts.investigation_plan import (
 )
 from app.chat.guidance_templates import build_guided_investigation_guidance
 from app.chat.guided_hunt_grounding import build_guided_hunt_grounding
+from app.chat.planned_mcp_call import enrich_capability_binding
 from app.chat.signal_class_guidance import classify_signal_class
 
 _GUIDED_BLOCKED_CAPABILITIES: tuple[str, ...] = (
@@ -143,14 +144,13 @@ def _required_capability_bindings(snapshot: dict[str, Any]) -> list[Investigatio
         if not isinstance(row, dict) or row.get("capability_need") != "required":
             continue
         availability = str(row.get("availability") or "unavailable")
-        bindings.append(
-            InvestigationCapabilityBinding(
-                capability_id=str(row.get("capability_id") or ""),
-                capability_need="required",
-                availability=availability,  # type: ignore[arg-type]
-                access_mode="read_only" if availability == "available" else "manual_or_alternate",
-            )
+        binding = InvestigationCapabilityBinding(
+            capability_id=str(row.get("capability_id") or ""),
+            capability_need="required",
+            availability=availability,  # type: ignore[arg-type]
+            access_mode="read_only" if availability == "available" else "manual_or_alternate",
         )
+        bindings.append(enrich_capability_binding(binding))
     return bindings
 
 

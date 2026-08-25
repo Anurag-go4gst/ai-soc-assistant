@@ -7,7 +7,7 @@ contract carries execution authority or a ResourcePlan.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -20,10 +20,15 @@ PlanSource = Literal[
 CapabilityNeed = Literal["required", "recommended", "optional"]
 CapabilityAvailability = Literal["available", "unavailable"]
 CapabilityAccessMode = Literal["read_only", "manual_or_alternate"]
+CapabilityReadWrite = Literal["read_only", "execution_gated"]
 
 
 class InvestigationCapabilityBinding(BaseModel):
-    """A deterministic projection of one CapabilitySnapshot row."""
+    """A deterministic projection of one CapabilitySnapshot row.
+
+    Optional planned-call fields carry enough information to derive the future
+    AUTH0 exact-call grant without reconstructing arguments at trace time.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -31,6 +36,12 @@ class InvestigationCapabilityBinding(BaseModel):
     capability_need: CapabilityNeed
     availability: CapabilityAvailability
     access_mode: CapabilityAccessMode
+    purpose: str | None = None
+    argument_template: dict[str, Any] | None = None
+    planned_arguments: dict[str, Any] | None = None
+    unresolved_arguments: list[str] = Field(default_factory=list)
+    read_write_classification: CapabilityReadWrite | None = None
+    authorization_posture: str | None = None
 
 
 class InvestigationPlanProposal(BaseModel):

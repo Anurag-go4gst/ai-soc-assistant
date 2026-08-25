@@ -8,12 +8,19 @@ import re
 from typing import Any
 
 from app.chat.contracts.investigation_envelope import ApprovedInvestigationEnvelope
+from app.chat.contracts.investigation_plan import InvestigationCapabilityBinding
 from app.chat.contracts.plan_delta import (
     PlanDeltaDecision,
     PlanDeltaProposal,
     ValidatedPlanDelta,
 )
+from app.chat.planned_mcp_call import (
+    argument_template_for_tool,
+    enrich_capability_bindings,
+    playbook_purpose,
+)
 from app.config import settings
+from app.connectors.mcp.splunk_mcp_readiness import splunk_search_tool_arguments
 from app.safeguards.spl_validator import validate_spl
 from app.spl.rqc_constraint_preservation import apply_rqc_constraint_preservation
 
@@ -45,44 +52,58 @@ def _validated_execution_arguments(
 ) -> tuple[dict[str, Any] | None, str | None]:
     """Bind a delta to an executable read-only call or fail closed.
 
-    P7 currently onboards only governed Splunk searches. A generic capability
-    name or prose-only argument record must not be labelled executable: the RP
-    hub needs a concrete, deterministically validated call payload for AUTH0.
+    Splunk searches require approved normalized SPL. Catalogue metadata tools
+    may bind only their declared argument template (no write/remediation path).
     """
     tool_name = proposal.capability_id.rsplit(":", 1)[-1]
-    if tool_name not in {"splunk_run_query", "run_splunk_query", "search_splunk"}:
+    if tool_name in {"splunk_run_query", "run_splunk_query", "search_splunk"}:
+        raw_spl = proposal.tool_arguments.get("normalized_spl") or proposal.tool_arguments.get("query")
+        if not isinstance(raw_spl, str) or not raw_spl.strip():
+            return None, "plan_delta_spl_missing"
+
+        validation = validate_spl(raw_spl)
+        validation = apply_rqc_constraint_preservation(
+            validation,
+            spl=raw_spl,
+            resolved_query_contract={
+                "entities": dict(envelope.entities),
+                "time_scope": envelope.time_scope,
+            },
+        )
+        if not isinstance(validation, dict) or validation.get("approved") is not True:
+            return None, "plan_delta_spl_validation_failed"
+        normalized_spl = str(validation.get("normalized_spl") or "").strip()
+        if not normalized_spl:
+            return None, "plan_delta_spl_validation_failed"
+
+        approved_indexes = set(envelope.source_index_scope.get("indexes") or [])
+        referenced_indexes = set(
+            re.findall(r"\bindex\s*=\s*[\"']?([^\s|\"']+)", normalized_spl, flags=re.IGNORECASE)
+        )
+        if approved_indexes and not referenced_indexes.issubset(approved_indexes):
+            return None, "plan_delta_spl_outside_approved_index_scope"
+
+        planned = splunk_search_tool_arguments(normalized_spl=normalized_spl)
+        return {
+            **proposal.tool_arguments,
+            **planned,
+            "query": normalized_spl,
+            "normalized_spl": normalized_spl,
+        }, None
+
+    template = argument_template_for_tool(tool_name)
+    if template is None:
         return None, "plan_delta_capability_has_no_execution_binding"
-    raw_spl = proposal.tool_arguments.get("normalized_spl") or proposal.tool_arguments.get("query")
-    if not isinstance(raw_spl, str) or not raw_spl.strip():
-        return None, "plan_delta_spl_missing"
-
-    validation = validate_spl(raw_spl)
-    validation = apply_rqc_constraint_preservation(
-        validation,
-        spl=raw_spl,
-        resolved_query_contract={
-            "entities": dict(envelope.entities),
-            "time_scope": envelope.time_scope,
-        },
-    )
-    if not isinstance(validation, dict) or validation.get("approved") is not True:
-        return None, "plan_delta_spl_validation_failed"
-    normalized_spl = str(validation.get("normalized_spl") or "").strip()
-    if not normalized_spl:
-        return None, "plan_delta_spl_validation_failed"
-
-    approved_indexes = set(envelope.source_index_scope.get("indexes") or [])
-    referenced_indexes = set(
-        re.findall(r"\bindex\s*=\s*[\"']?([^\s|\"']+)", normalized_spl, flags=re.IGNORECASE)
-    )
-    if approved_indexes and not referenced_indexes.issubset(approved_indexes):
-        return None, "plan_delta_spl_outside_approved_index_scope"
-
-    return {
-        **proposal.tool_arguments,
-        "query": normalized_spl,
-        "normalized_spl": normalized_spl,
-    }, None
+    # Metadata / discovery tools: bind only template keys; reject write-shaped keys.
+    forbidden = {"action", "command", "write", "delete", "create", "update"}
+    if any(str(key).lower() in forbidden for key in proposal.tool_arguments):
+        return None, "plan_delta_write_shaped_arguments_rejected"
+    bound: dict[str, Any] = {}
+    for key in template:
+        if key in proposal.tool_arguments and proposal.tool_arguments[key] not in (None, ""):
+            bound[key] = proposal.tool_arguments[key]
+    # Empty-template tools (get_info / get_indexes) are valid with {}.
+    return bound, None
 
 
 def _append_delta_resource_step(
@@ -109,7 +130,7 @@ def _append_delta_resource_step(
     step = {
         "step_id": step_id,
         "resource_id": f"mcp_tool:{tool_name}",
-        "purpose": "mcp_execution",
+        "purpose": playbook_purpose(tool_name) or "mcp_execution",
         "args_template": dict(delta["tool_arguments"]),
         "policy_checks": [
             "approved_investigation_envelope",
@@ -293,11 +314,49 @@ def attach_plan_delta_decision(state: dict[str, Any]) -> dict[str, Any]:
         }
     updated = bound_state
     updated["plan_delta_revisions"] = [*revisions, delta]
+    # Re-bind planned MCP arguments onto the validated investigation plan when present.
+    plan_raw = updated.get("validated_investigation_plan")
+    approval = updated.get("investigation_approval") if isinstance(updated.get("investigation_approval"), dict) else {}
+    if not isinstance(plan_raw, dict):
+        plan_raw = approval.get("validated_plan") if isinstance(approval.get("validated_plan"), dict) else None
+    if isinstance(plan_raw, dict) and isinstance(plan_raw.get("capability_bindings"), list):
+        bindings = []
+        for raw in plan_raw.get("capability_bindings") or []:
+            if not isinstance(raw, dict):
+                continue
+            binding = InvestigationCapabilityBinding.model_validate(raw)
+            if binding.capability_id == delta["capability_id"]:
+                planned = dict(delta.get("tool_arguments") or {})
+                binding = binding.model_copy(
+                    update={
+                        "planned_arguments": planned,
+                        "unresolved_arguments": [],
+                        "purpose": binding.purpose
+                        or playbook_purpose(binding.capability_id.rsplit(":", 1)[-1]),
+                        "authorization_posture": "exact_call_auth0_grant_required",
+                    }
+                )
+            bindings.append(binding)
+        enriched = enrich_capability_bindings(
+            bindings,
+            normalized_spl=str((delta.get("tool_arguments") or {}).get("normalized_spl") or "")
+            or None,
+        )
+        plan_raw = {
+            **plan_raw,
+            "capability_bindings": [item.model_dump(mode="json") for item in enriched],
+        }
+        updated["validated_investigation_plan"] = plan_raw
+        if approval:
+            updated["investigation_approval"] = {
+                **approval,
+                "validated_plan": plan_raw,
+            }
     updated["plan_delta_execution_request"] = {
         "revision_fingerprint": delta["revision_fingerprint"],
         "capability_id": delta["capability_id"],
         "tool_arguments": delta["tool_arguments"],
-        "validated_spl": delta["tool_arguments"]["normalized_spl"],
+        "validated_spl": delta["tool_arguments"].get("normalized_spl"),
         "resource_plan_step_id": updated["active_resource_plan_step_id"],
         "evidence_need": delta["evidence_need"],
         "exact_call_authorization_required": True,

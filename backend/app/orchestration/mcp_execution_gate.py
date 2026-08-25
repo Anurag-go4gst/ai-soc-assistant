@@ -253,6 +253,14 @@ def evaluate_mcp_execution(
         return execution, confirmation_review
     grant_source = execution_validation or spl_validation or {}
     grant_trace = str((pending_execution or {}).get("trace_id") or trace_id)
+    selected_tool_for_grant = str(selection.get("selected_mcp_tool") or "")
+    planned_tool_arguments: dict[str, Any] | None = None
+    grant_spl = str(grant_source.get("normalized_spl") or "")
+    if grant_spl and selected_tool_for_grant in {"splunk_run_query", "run_splunk_query"}:
+        planned_tool_arguments = splunk_search_tool_arguments(
+            normalized_spl=grant_spl,
+            trace_id=grant_trace,
+        )
     current_grant = call_grant_from_validation(
         trace_id=grant_trace,
         selection=selection,
@@ -261,6 +269,7 @@ def evaluate_mcp_execution(
         identity=rbac_role,
         hil_required=require_confirmation,
         execution_intent=execution_intent,
+        tool_arguments=planned_tool_arguments,
     )
     action = (execution_review_action or "").strip().lower()
     if pending_execution and action != "update_spl" and not grants_match(pending_execution, current_grant):
@@ -305,7 +314,10 @@ def evaluate_mcp_execution(
         normalized_spl = None
     else:
         normalized_spl = str(execution_validation["normalized_spl"])
-        tool_arguments = splunk_search_tool_arguments(normalized_spl=normalized_spl, trace_id=trace_id)
+        tool_arguments = planned_tool_arguments or splunk_search_tool_arguments(
+            normalized_spl=normalized_spl,
+            trace_id=grant_trace,
+        )
     def _connector_execute() -> tuple[dict[str, Any], dict[str, Any]]:
         started = perf_counter()
         telemetry.record_mcp_execution(

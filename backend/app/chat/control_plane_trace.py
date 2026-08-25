@@ -305,11 +305,20 @@ def _mcp_tool_readiness_trace(
     selected_tool = str(execution.get("selected_mcp_tool") or "").strip() or None
     exec_status = str(execution.get("status") or "").strip().lower()
     block_reason = str(execution.get("block_reason") or "").strip() or None
+    call_grant = execution.get("call_grant") if isinstance(execution.get("call_grant"), dict) else {}
+    pending = (
+        execution.get("pending_execution_confirmation")
+        if isinstance(execution.get("pending_execution_confirmation"), dict)
+        else {}
+    )
+    pending_grant = pending.get("call_grant") if isinstance(pending.get("call_grant"), dict) else {}
+    grant = call_grant or pending_grant
     attempted = exec_status not in {"", "skipped", "not_started", "none"}
     executed = exec_status in {"ok", "partial", "empty", "failed", "timeout", "denied", "error"}
     succeeded = exec_status in {"ok", "partial", "empty"}
     failed = exec_status in {"failed", "timeout", "denied", "error"}
     skipped = exec_status in {"skipped", "not_started", "none", ""} or bool(block_reason)
+    execution_eligible = bool(execution.get("execution_eligible") is True)
 
     for binding in bindings:
         if not isinstance(binding, dict):
@@ -331,46 +340,82 @@ def _mcp_tool_readiness_trace(
         tool_skipped = (not tool_attempted) and (
             skipped or availability in {"unavailable", "blocked"} or bool(block_reason)
         )
-        tools.append(
-            {
-                "server": server,
-                "tool": tool,
-                "capability_id": capability_id or None,
-                "purpose": str(binding.get("capability_need") or "required"),
-                "planned_arguments": binding.get("planned_arguments")
-                if isinstance(binding.get("planned_arguments"), dict)
-                else None,
-                "argument_template": binding.get("argument_template"),
-                "authorization_requirement": "exact_call_auth0_grant",
-                "execution_eligibility": False,
-                "availability": availability,
-                "access_mode": binding.get("access_mode"),
-                "lifecycle_state": _mcp_tool_lifecycle_state(
-                    planned=planned,
-                    attempted=tool_attempted,
-                    executed=tool_executed,
-                    succeeded=tool_succeeded,
-                    failed=tool_failed and not tool_succeeded,
-                    skipped=tool_skipped,
-                ),
-                "attempted": tool_attempted,
-                "result": exec_status or None,
-                "skip_or_block_reason": block_reason
-                or (f"capability_{availability}" if availability and availability != "available" else None),
-            }
+        purpose = str(binding.get("purpose") or "").strip() or None
+        planned_arguments = (
+            binding.get("planned_arguments")
+            if isinstance(binding.get("planned_arguments"), dict)
+            else None
         )
+        argument_template = (
+            binding.get("argument_template")
+            if isinstance(binding.get("argument_template"), dict)
+            else None
+        )
+        unresolved = [
+            str(item)
+            for item in (binding.get("unresolved_arguments") or [])
+            if str(item).strip()
+        ]
+        auth_posture = str(binding.get("authorization_posture") or "exact_call_auth0_grant_required")
+        if tool_attempted and grant.get("fingerprint"):
+            authorization_status = "granted" if exec_status not in {"denied"} else "denied"
+        elif unresolved or availability != "available":
+            authorization_status = "not_requested"
+        elif planned_arguments:
+            authorization_status = "pending_exact_call_grant"
+        else:
+            authorization_status = "blocked_unresolved_arguments" if unresolved else "not_requested"
+
+        entry: dict[str, Any] = {
+            "server": server,
+            "tool": tool,
+            "capability_id": capability_id or None,
+            "purpose": purpose,
+            "authorization_required": auth_posture,
+            "authorization_status": authorization_status,
+            "execution_eligible": False if not tool_attempted else execution_eligible,
+            "availability": availability,
+            "access_mode": binding.get("access_mode"),
+            "read_write_classification": binding.get("read_write_classification"),
+            "lifecycle_state": _mcp_tool_lifecycle_state(
+                planned=planned,
+                attempted=tool_attempted,
+                executed=tool_executed,
+                succeeded=tool_succeeded,
+                failed=tool_failed and not tool_succeeded,
+                skipped=tool_skipped,
+            ),
+            "planned": planned,
+            "attempted": tool_attempted,
+            "executed": tool_executed,
+            "succeeded": tool_succeeded,
+            "failed": tool_failed and not tool_succeeded,
+            "skipped": tool_skipped,
+            "result": exec_status or None,
+            "skip_or_block_reason": block_reason
+            or (f"capability_{availability}" if availability and availability != "available" else None),
+        }
+        if planned_arguments is not None:
+            entry["planned_arguments"] = planned_arguments
+            if grant.get("canonical_arguments_hash"):
+                entry["canonical_arguments_hash"] = grant.get("canonical_arguments_hash")
+        if argument_template is not None:
+            entry["argument_template"] = argument_template
+        if unresolved:
+            entry["unresolved_arguments"] = unresolved
+        tools.append(entry)
 
     if not tools and (selected_tool or selected_server or block_reason or exec_status):
+        purpose = str(execution.get("execution_intent") or "").strip() or None
         tools.append(
             {
                 "server": selected_server,
                 "tool": selected_tool,
                 "capability_id": None,
-                "purpose": str(execution.get("execution_intent") or "spl_search"),
-                "planned_arguments": None,
-                "argument_template": None,
-                "authorization_requirement": "exact_call_auth0_grant",
-                "execution_eligibility": False,
+                "purpose": purpose,
+                "authorization_required": "exact_call_auth0_grant_required",
+                "authorization_status": "granted" if grant.get("fingerprint") else "not_requested",
+                "execution_eligible": execution_eligible,
                 "availability": str(execution.get("tool_selection_status") or "") or None,
                 "access_mode": None,
                 "lifecycle_state": _mcp_tool_lifecycle_state(
@@ -381,7 +426,12 @@ def _mcp_tool_readiness_trace(
                     failed=failed,
                     skipped=skipped,
                 ),
+                "planned": bool(selected_tool or selected_server),
                 "attempted": attempted,
+                "executed": executed,
+                "succeeded": succeeded,
+                "failed": failed,
+                "skipped": skipped,
                 "result": exec_status or None,
                 "skip_or_block_reason": block_reason,
             }
@@ -390,7 +440,7 @@ def _mcp_tool_readiness_trace(
     workflow = state.get("workflow_plan") if isinstance(state.get("workflow_plan"), dict) else {}
     return attach_authority_tier(
         {
-            "schema_version": "mcp_tool_readiness_v1",
+            "schema_version": "mcp_tool_readiness_v2",
             "required_sources": list(workflow.get("required_sources") or []),
             "missing_sources": list(workflow.get("missing_sources") or []),
             "tools": tools,
