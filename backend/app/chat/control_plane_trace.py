@@ -42,6 +42,17 @@ _SECRET_KEYS = (
     "credential",
 )
 
+TRACE_ORACLE_SCHEMA_VERSION = "trace_oracle_v1"
+_ORACLE_EVIDENCE_BUCKETS = (
+    "required",
+    "obtained",
+    "missing",
+    "stale",
+    "invalidated",
+    "blocked",
+    "empty",
+)
+
 
 def build_control_plane_trace(
     state: dict[str, Any],
@@ -68,6 +79,25 @@ def build_control_plane_trace(
     advisory = state.get("llm_intent_advisory")
     if hasattr(advisory, "model_dump"):
         advisory = advisory.model_dump()
+    artifact_summary = build_spl_artifact_handoff_summary(
+        candidate_spl=candidate_spl,
+        spl_validation=spl_validation,
+        spl_draft_preview=spl_draft_preview,
+    )
+    spl_provenance = build_spl_provenance_summary(
+        candidate_spl,
+        spl_validation,
+        _budget_records(state),
+    )
+    evidence_state_raw = (
+        state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else {}
+    )
+    evidence_state = {
+        **project_evidence_state_debug(evidence_state_raw),
+        "empty": [str(item) for item in (evidence_state_raw.get("empty") or [])][:32],
+        "diagnostic": [str(item) for item in (evidence_state_raw.get("diagnostic") or [])][:32],
+    }
+    run_shape_transition = _run_shape_transition_trace(state, context_sufficiency)
     trace = {
         "routing_provenance": routing_provenance,
         "planning_decision": state.get("planning_decision"),
@@ -86,19 +116,11 @@ def build_control_plane_trace(
         "rag_trace": _rag_trace(rag),
         "candidate_spl_generation": _candidate_spl_generation_trace(candidate_spl, spl_validation),
         "spl_artifact_handoff_summary": attach_authority_tier(
-            build_spl_artifact_handoff_summary(
-                candidate_spl=candidate_spl,
-                spl_validation=spl_validation,
-                spl_draft_preview=spl_draft_preview,
-            ),
+            artifact_summary,
             tier=TIER_DIAGNOSTIC,
             note="SPL degrade-chain read model only; not execution authority.",
         ),
-        "spl_provenance": build_spl_provenance_summary(
-            candidate_spl,
-            spl_validation,
-            _budget_records(state),
-        ),
+        "spl_provenance": spl_provenance,
         "spl_slot_binding": _spl_slot_binding_trace(spl_validation),
         "mcp_execution": _mcp_trace(execution),
         "sufficiency": context_sufficiency,
@@ -136,9 +158,7 @@ def build_control_plane_trace(
             candidate_spl=candidate_spl,
             spl_validation=spl_validation,
         ),
-        "evidence_state": project_evidence_state_debug(
-            state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else None
-        ),
+        "evidence_state": evidence_state,
         "investigation_outcome": project_investigation_outcome_debug(
             state.get("investigation_outcome")
             if isinstance(state.get("investigation_outcome"), dict)
@@ -166,7 +186,13 @@ def build_control_plane_trace(
         "mcp_loop": state.get("mcp_loop")
         if isinstance(state.get("mcp_loop"), dict)
         else None,
-        "run_shape_transition": _run_shape_transition_trace(state, context_sufficiency),
+        "run_shape_transition": run_shape_transition,
+        "trace_oracle": _build_trace_oracle(
+            state=state,
+            spl_provenance=spl_provenance,
+            artifact_summary=artifact_summary,
+            run_shape_transition=run_shape_transition,
+        ),
         "mcp_tool_readiness": _mcp_tool_readiness_trace(state, execution),
         # Item 5.4 (2026-07-03): advisory grounding assembled from the
         # CanonicalFacts spine — row-derived evidence citations with lineage
@@ -227,17 +253,15 @@ def _run_shape_transition_trace(
     sufficiency = context_sufficiency if isinstance(context_sufficiency, dict) else {}
     answer_contract = state.get("answer_contract") if isinstance(state.get("answer_contract"), dict) else {}
 
-    initial = (
-        str(planning.get("answer_mode") or "").strip()
-        or str(q2i.get("answer_mode") or "").strip()
-        or str((evidence_plan.get("initial_answer_mode") or "")).strip()
-        or None
+    initial, initial_decision_site = _first_shape(
+        ("planning_decision", planning.get("answer_mode")),
+        ("query_to_intent", q2i.get("answer_mode")),
+        ("evidence_plan.initial_answer_mode", evidence_plan.get("initial_answer_mode")),
     )
-    final = (
-        str(sufficiency.get("answer_mode") or "").strip()
-        or str(evidence_plan.get("answer_mode") or "").strip()
-        or str(answer_contract.get("answer_mode") or "").strip()
-        or None
+    final, final_decision_site = _first_shape(
+        ("context_sufficiency", sufficiency.get("answer_mode")),
+        ("evidence_plan", evidence_plan.get("answer_mode")),
+        ("answer_contract", answer_contract.get("answer_mode")),
     )
     if not final:
         rqc = state.get("resolved_query_contract") if isinstance(state.get("resolved_query_contract"), dict) else {}
@@ -246,25 +270,122 @@ def _run_shape_transition_trace(
             final = "live_investigation" if intent_family == "live_investigation" else intent_family
         elif intent_family in {"spl_generation_only", "spl_generation_and_run"}:
             final = "spl_utility_authoring"
-    reasons = evidence_plan.get("reasons") if isinstance(evidence_plan.get("reasons"), list) else []
+        if final:
+            final_decision_site = "resolved_query_contract"
+    reasons = _run_shape_reasons(
+        final_decision_site=final_decision_site,
+        context_sufficiency=sufficiency,
+        evidence_plan=evidence_plan,
+        answer_contract=answer_contract,
+    )
     changed = bool(initial and final and initial != final)
-    authority = None
-    if changed:
-        authority = "evidence_plan" if evidence_plan.get("answer_mode") else "context_sufficiency"
-    elif final:
-        authority = "evidence_plan" if evidence_plan.get("answer_mode") == final else "context_sufficiency"
     return attach_authority_tier(
         {
-            "schema_version": "run_shape_transition_v1",
+            "schema_version": "run_shape_transition_v2",
             "initial_run_shape": initial,
             "final_run_shape": final,
             "changed": changed,
             "change_reasons": [str(item) for item in reasons][:12],
-            "authority": authority,
+            "initial_decision_site": initial_decision_site,
+            "final_decision_site": final_decision_site,
+            "authority": final_decision_site,
         },
         tier=TIER_PLANNING,
         note="Governed run-shape packaging only; not execution authority.",
     )
+
+
+def _first_shape(*candidates: tuple[str, Any]) -> tuple[str | None, str | None]:
+    for decision_site, value in candidates:
+        shape = str(value or "").strip()
+        if shape:
+            return shape, decision_site
+    return None, None
+
+
+def _run_shape_reasons(
+    *,
+    final_decision_site: str | None,
+    context_sufficiency: dict[str, Any],
+    evidence_plan: dict[str, Any],
+    answer_contract: dict[str, Any],
+) -> list[Any]:
+    payload = {
+        "context_sufficiency": context_sufficiency,
+        "evidence_plan": evidence_plan,
+        "answer_contract": answer_contract,
+    }.get(final_decision_site, {})
+    for key in ("reason_codes", "reasons"):
+        values = payload.get(key)
+        if isinstance(values, list):
+            return values
+    reason = payload.get("reason")
+    return [reason] if reason else []
+
+
+def _build_trace_oracle(
+    *,
+    state: dict[str, Any],
+    spl_provenance: dict[str, Any],
+    artifact_summary: dict[str, Any],
+    run_shape_transition: dict[str, Any],
+) -> dict[str, Any]:
+    """Stable factual contract; all richer trace fields remain diagnostic."""
+    lifecycle = (
+        spl_provenance.get("llm_lifecycle")
+        if isinstance(spl_provenance.get("llm_lifecycle"), dict)
+        else {}
+    )
+    evidence = state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else {}
+    run_contract = state.get("run_contract") if isinstance(state.get("run_contract"), dict) else {}
+    final_gate = (
+        state.get("final_evidence_gate")
+        if isinstance(state.get("final_evidence_gate"), dict)
+        else {}
+    )
+    if "effective_hil_required" in run_contract:
+        execution_hil_required: bool | None = bool(run_contract.get("effective_hil_required"))
+        hil_decision_site = "run_contract"
+    elif "effective_hil_required" in final_gate:
+        execution_hil_required = bool(final_gate.get("effective_hil_required"))
+        hil_decision_site = "final_evidence_gate"
+    else:
+        execution_hil_required = None
+        hil_decision_site = None
+
+    return {
+        "schema_version": TRACE_ORACLE_SCHEMA_VERSION,
+        "llm_lifecycle": {
+            "schema_version": lifecycle.get("schema_version"),
+            "states": [str(item) for item in (lifecycle.get("states") or [])],
+        },
+        "spl_artifact": {
+            "artifact_present": bool(artifact_summary.get("artifact_present")),
+            "artifact_review_required": bool(artifact_summary.get("artifact_review_required")),
+        },
+        "execution_review": {
+            "execution_hil_required": execution_hil_required,
+            "decision_site": hil_decision_site,
+        },
+        "run_shape_transition": {
+            key: run_shape_transition.get(key)
+            for key in (
+                "schema_version",
+                "initial_run_shape",
+                "final_run_shape",
+                "changed",
+                "initial_decision_site",
+                "final_decision_site",
+            )
+        },
+        "evidence_state": {
+            "schema_version": evidence.get("schema_version"),
+            **{
+                bucket: [str(item) for item in (evidence.get(bucket) or [])]
+                for bucket in _ORACLE_EVIDENCE_BUCKETS
+            },
+        },
+    }
 
 
 def _mcp_tool_lifecycle_state(
