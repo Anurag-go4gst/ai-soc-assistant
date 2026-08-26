@@ -21,10 +21,10 @@ J7 remains true. B1/B2/B3 are retired.
 | **Worktree** | `/Users/aagarwal/Downloads/ai-soc-wt-post-p10-convergence` |
 | **Branch** | `ws/post-p10-answer-tool-convergence` |
 | **HEAD at 2.5 start** | `fc183d3a` |
-| **Checklist** | **15 checked** / 27 unchecked (through **3.1**) |
-| **Next item** | **3.2** — Preserve J7 evidence authority (regression pin) |
+| **Checklist** | **16 checked** / 26 unchecked (through **3.2**) |
+| **Next item** | **3.3** — Implement B4 with two distinct eligibility gates end-to-end |
 | **0.2 note** | `DONE_WITH_ENVIRONMENT_UNRESOLVED_INPUTS` — two production traces unavailable; design-case diagnostic only |
-| **Product tip** | RQC `requested_conditional_actions` shipped in `09c3f97a`; pending-intent display `67246132`; 3.1 contract-gate change is the current item commit |
+| **Product tip** | RQC `requested_conditional_actions` shipped in `09c3f97a`; pending-intent display `67246132`; contract-gate change `010279f1`; 3.2 adds regression pins only |
 | **LLM status at 2.5** | `ENVIRONMENT_UNRESOLVED`: configured local-primary/reasoning probes red (`URLError`); Qwen intentionally wired-disabled |
 
 Do **not** execute from the Cursor product-tip checkout alone — use this worktree.
