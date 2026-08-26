@@ -4,6 +4,7 @@ from pydantic import BaseModel, field_validator, model_validator
 
 from app.actions.capability_policy import ActionCapability
 from app.answer_guard.models import AnswerGuardStatus
+from app.chat.contracts.email_draft import GovernedEmailDraft
 from app.lineage.models import InvestigationLineage
 from app.query_understanding.models import QueryUnderstandingResult
 from app.risk.severity_policy import SeverityDecision
@@ -576,6 +577,7 @@ class PlaceholderResponse(BaseModel):
     remediation_planning_trace: dict[str, object] | None = None
     approved_remediation_envelope: dict[str, object] | None = None
     remediation_execution: dict[str, object] | None = None
+    email_draft: GovernedEmailDraft | None = None
     planning_decision: dict[str, object] | None = None
     llm_intent_advisory: dict[str, object] | None = None
     route_adjudication: dict[str, object] | None = None

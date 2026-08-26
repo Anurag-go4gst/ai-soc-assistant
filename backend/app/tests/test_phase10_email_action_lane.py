@@ -9,6 +9,7 @@ from app.chat.pipeline import _apply_remediation_lifecycle
 from app.config import settings
 from app.planner.composer import compose_resource_plan
 from app.planner.resource_plan_authority import resource_plan_authority
+from app.schemas.responses import PlaceholderResponse
 
 
 def _conditional_state(*, predicate_satisfied: bool) -> dict:
@@ -29,6 +30,8 @@ def _conditional_state(*, predicate_satisfied: bool) -> dict:
             "disposition": "suspicious",
             "remediation_offer_required": False,
             "evidence_refs": ["ev.auth"],
+            "findings": ["25 failed SSH logins were followed by an admin login from 198.51.100.42."],
+            "severity_label": "P2 High",
             "action_eligibility": {"allowed_actions": [], "unavailable_actions": []},
         },
         "resolved_query_contract": {
@@ -72,6 +75,26 @@ def test_cv_multi_01b_plans_draft_on_phase10_without_planning_send(
     assert "remediation_approval" not in result
     assert "approved_remediation_envelope" not in result
     assert "remediation_execution" not in result
+    draft = result["email_draft"]
+    assert draft["status"] == "draft_ready"
+    assert draft["recipient_roles"] == ["firewall_team", "identity_team"]
+    assert draft["recipient_resolution_required"] is True
+    assert draft["findings"] == result["investigation_outcome"]["findings"]
+    assert draft["evidence_refs"] == ["ev.auth"]
+    assert draft["generation_source"] == "deterministic_governed"
+    assert draft["llm_attempted"] is False
+    assert draft["llm_status"] == "not_attempted_no_governed_email_role"
+    assert draft["send_authorized"] is False
+    assert draft["sent"] is False
+    assert "@" not in str(draft)
+    wire = PlaceholderResponse(
+        trace_id="cv-multi-01b",
+        message="draft ready",
+        note="test",
+        email_draft=draft,
+    )
+    assert wire.email_draft is not None
+    assert wire.email_draft.body == draft["body"]
 
 
 def test_cv_multi_01a_unmet_predicate_does_not_plan_draft_or_send(
@@ -87,6 +110,23 @@ def test_cv_multi_01a_unmet_predicate_does_not_plan_draft_or_send(
     ]
     assert "remediation_approval" not in result
     assert "remediation_execution" not in result
+    assert "email_draft" not in result
+
+
+def test_eligible_label_without_governed_outcome_cannot_produce_draft(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_soc_remediation_planner_enabled", False)
+    state = _conditional_state(predicate_satisfied=True)
+    state["investigation_outcome"] = {
+        **state["investigation_outcome"],
+        "evidence_refs": [],
+        "findings": [],
+    }
+
+    result = _apply_remediation_lifecycle(state)
+
+    assert "email_draft" not in result
 
 
 def test_resource_plan_contains_investigation_resources_not_email_actions() -> None:

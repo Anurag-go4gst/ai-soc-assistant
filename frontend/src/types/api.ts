@@ -96,6 +96,7 @@ export interface PlaceholderResponse {
   remediation_approval?: RemediationApprovalState | null;
   approved_remediation_envelope?: ApprovedRemediationEnvelope | null;
   remediation_execution?: RemediationExecutionResult | null;
+  email_draft?: GovernedEmailDraft | null;
   approved_investigation_envelope?: ApprovedInvestigationEnvelope | null;
   investigation_progress?: InvestigationProgressEvent[];
   investigation_run_status?: InvestigationRunStatus | null;
@@ -178,6 +179,22 @@ export interface RequestedConditionalAction {
   lifecycle_state: 'REQUESTED' | 'PENDING_CONDITION' | 'ELIGIBLE' | 'APPROVED' | 'EXECUTED';
   predicate_id?: string | null;
   recipient_roles?: string[];
+}
+
+export interface GovernedEmailDraft {
+  schema_version: 'governed_email_draft_v1';
+  status: 'draft_ready';
+  recipient_roles: string[];
+  recipient_resolution_required: true;
+  subject: string;
+  body: string;
+  findings: string[];
+  evidence_refs: string[];
+  generation_source: 'deterministic_governed';
+  llm_attempted: false;
+  llm_status: 'not_attempted_no_governed_email_role';
+  send_authorized: false;
+  sent: false;
 }
 
 export interface EcVisualLanes {

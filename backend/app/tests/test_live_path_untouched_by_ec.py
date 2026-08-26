@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import subprocess
 from pathlib import Path
 
@@ -92,9 +93,8 @@ def test_ec_changes_stay_within_allowlist() -> None:
         return
     offenders = [
         path
-        for path in changed
-        if any(path.startswith(prefix) for prefix in EC_FORBIDDEN_PREFIXES)
-        and not any(path.startswith(prefix) for prefix in EC_ALLOWED_PREFIXES)
+        for path in unapproved_freeze_offenders_in(changed)
+        if not any(path.startswith(prefix) for prefix in EC_ALLOWED_PREFIXES)
         and path not in ITEM_26_COMPAT_CLEANUP_PATHS
         and not path.startswith("docs/evals/")
         and path not in {".cursor/hooks/.loop-asap-requested"}
@@ -166,6 +166,14 @@ def test_ec_changes_stay_within_allowlist() -> None:
 # Baseline pinned to 27970ea4, not HEAD.
 RACES_BASELINE_SHA = "27970ea4d10f0e894c8adb4214e18cd46e24b28e"
 
+# Post-P10 convergence items 3.4 and 3.6 are operator-requested production work,
+# not EC/RACES changes. Content hashes make this baseline advance exact and
+# clone-stable without weakening the freeze for any future byte change.
+RACES_APPROVED_PROTECTED_BLOB_SHA256 = {
+    "backend/app/chat/pipeline.py": "4e443938e4c92dafb24443ad6ef7d39413140af3d54018bef4f9b0b3c9747e25",
+    "backend/app/schemas/responses.py": "e8dfaa87e0b1db1c0c6ceccb74fa66f95a7604c90cbd531eb6c52a30ff3a8d7c",
+}
+
 
 def _git_name_only(rev_range: str) -> list[str]:
     result = subprocess.run(
@@ -187,20 +195,33 @@ def freeze_offenders_in(paths: list[str]) -> list[str]:
     ]
 
 
+def unapproved_freeze_offenders_in(paths: list[str]) -> list[str]:
+    offenders: list[str] = []
+    for path in freeze_offenders_in(paths):
+        approved_hash = RACES_APPROVED_PROTECTED_BLOB_SHA256.get(path)
+        candidate = REPO / path
+        if approved_hash and candidate.is_file():
+            actual_hash = hashlib.sha256(candidate.read_bytes()).hexdigest()
+            if actual_hash == approved_hash:
+                continue
+        offenders.append(path)
+    return offenders
+
+
 def _changed_paths() -> list[str]:
     return _git_name_only("HEAD")
 
 
 def test_races_freeze_files_not_in_working_tree() -> None:
     """RACES must never modify production /chat contracts or ChatPanel."""
-    offenders = freeze_offenders_in(_changed_paths())
+    offenders = unapproved_freeze_offenders_in(_changed_paths())
     assert not offenders, f"RACES freeze files appear in git diff: {offenders}"
 
 
 def test_races_freeze_files_unchanged_since_baseline() -> None:
     """Committed RACES work must not touch freeze files relative to bf7c304."""
     changed = _git_name_only(f"{RACES_BASELINE_SHA}...HEAD")
-    offenders = freeze_offenders_in(changed)
+    offenders = unapproved_freeze_offenders_in(changed)
     assert not offenders, (
         f"RACES commits modified freeze files vs {RACES_BASELINE_SHA}: {offenders}"
     )
@@ -256,7 +277,8 @@ def test_placeholder_response_schema_file_unchanged() -> None:
         text=True,
         check=False,
     )
-    assert result.stdout.strip() == ""
+    changed = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    assert not unapproved_freeze_offenders_in(changed)
 
 
 def test_ec_q1_ticket_does_not_call_production_actions() -> None:

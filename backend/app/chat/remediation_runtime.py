@@ -21,6 +21,7 @@ import hashlib
 import json
 from typing import Any
 
+from app.chat.contracts.email_draft import GovernedEmailDraft
 from app.chat.contracts.remediation_plan import (
     ApprovedRemediationEnvelope,
     RemediationApprovalState,
@@ -280,6 +281,62 @@ def _requested_action(state: dict[str, Any], action_kind: str) -> dict[str, Any]
     return None
 
 
+def build_governed_email_draft(state: dict[str, Any]) -> GovernedEmailDraft | None:
+    """Build draft prose only from an eligible Final-RQC action and governed outcome.
+
+    There is no governed email-drafting LLM role in the current registry, and the
+    configured live providers are not treated as available authority. This bounded
+    deterministic projection is therefore the honest production fallback: it never
+    consumes raw user prose, resolves an address, proposes a send, or calls a connector.
+    """
+    action = _requested_action(state, "email_draft")
+    if action is None or str(action.get("lifecycle_state") or "") != "ELIGIBLE":
+        return None
+    outcome = _as_dict(state.get("investigation_outcome"))
+    evidence_refs = [
+        " ".join(str(ref).split())[:120]
+        for ref in outcome.get("evidence_refs") or []
+        if str(ref).strip()
+    ][:16]
+    findings = [
+        " ".join(str(finding).split())[:300]
+        for finding in outcome.get("findings") or []
+        if str(finding).strip()
+    ][:8]
+    if (
+        str(outcome.get("investigation_status") or "") != "completed"
+        or str(outcome.get("disposition") or "") != "suspicious"
+        or not evidence_refs
+        or not findings
+    ):
+        return None
+    roles = action.get("recipient_roles") if isinstance(action.get("recipient_roles"), list) else []
+    severity = " ".join(str(outcome.get("severity_label") or "").split())[:80]
+    subject = "Security investigation update: suspicious activity requires review"
+    if severity:
+        subject = f"{subject} ({severity})"
+    role_text = ", ".join(str(role).replace("_", " ") for role in roles) or "recipient role unresolved"
+    finding_lines = "\n".join(f"- {finding}" for finding in findings)
+    ref_lines = "\n".join(f"- {ref}" for ref in evidence_refs)
+    body = (
+        f"To roles: {role_text}\n\n"
+        "Investigation summary\n"
+        f"{finding_lines}\n\n"
+        "Evidence references\n"
+        f"{ref_lines}\n\n"
+        "Requested coordination\n"
+        "Review the evidence and coordinate any required containment through the approved process. "
+        "This is a draft only; it does not authorize or send an email."
+    )
+    return GovernedEmailDraft(
+        recipient_roles=roles,
+        subject=subject,
+        body=body,
+        findings=findings,
+        evidence_refs=evidence_refs,
+    )
+
+
 def maybe_attach_remediation_offer(
     state: dict[str, Any],
     *,
@@ -288,6 +345,9 @@ def maybe_attach_remediation_offer(
 ) -> dict[str, Any]:
     """Resolve requested actions and attach the governed remediation surface."""
     state = resolve_requested_conditional_actions(state)
+    email_draft = build_governed_email_draft(state)
+    if email_draft is not None:
+        state = {**state, "email_draft": email_draft.model_dump(mode="json")}
     existing = _as_dict(state.get("remediation_approval"))
     if existing.get("status"):
         return state

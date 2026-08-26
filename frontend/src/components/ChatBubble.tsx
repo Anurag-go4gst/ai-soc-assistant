@@ -14,6 +14,7 @@ import { InvestigationPlanApprovalCard } from '@/components/InvestigationPlanApp
 import { RemediationPlanApprovalCard } from '@/components/RemediationPlanApprovalCard';
 import { InvestigationOutcomeCard } from '@/components/InvestigationOutcomeCard';
 import { ConditionalRequestedActionsCard } from '@/components/ConditionalRequestedActionsCard';
+import { GovernedEmailDraftCard } from '@/components/GovernedEmailDraftCard';
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { Stage3DTracePanel } from '@/components/Stage3DTracePanel';
 import { Badge } from '@/components/ui/badge';
@@ -198,6 +199,9 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
         ) : null}
         {showFullAnswer && requestedConditionalActions.length ? (
           <ConditionalRequestedActionsCard actions={requestedConditionalActions} />
+        ) : null}
+        {showFullAnswer && message.trace?.email_draft ? (
+          <GovernedEmailDraftCard draft={message.trace.email_draft} />
         ) : null}
         {showFullAnswer && message.trace?.remediation_approval ? (
           <RemediationPlanApprovalCard

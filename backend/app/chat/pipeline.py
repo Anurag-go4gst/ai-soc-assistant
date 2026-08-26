@@ -418,6 +418,7 @@ class ChatPipelineState(TypedDict, total=False):
     remediation_planning_trace: dict[str, Any] | None
     approved_remediation_envelope: dict[str, Any] | None
     remediation_execution: dict[str, Any] | None
+    email_draft: dict[str, Any] | None
     llm_intent_advisory: LLMIntentAdvisory | None
     # LangGraph silently drops any state key not declared here (see executor
     # guide). shape_advisory was set by graph_node_query_understanding but
@@ -5827,6 +5828,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         remediation_planning_trace=state.get("remediation_planning_trace"),
         approved_remediation_envelope=state.get("approved_remediation_envelope"),
         remediation_execution=state.get("remediation_execution"),
+        email_draft=state.get("email_draft"),
         route_adjudication=state.get("route_adjudication"),
         control_plane_trace=control_plane_trace,
         answer_contract=answer_contract_payload,

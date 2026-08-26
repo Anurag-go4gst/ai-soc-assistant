@@ -78,6 +78,21 @@ describe('ChatBubble conditional requested actions', () => {
             trace_id: 'trace-eligible',
             message: 'Eligibility is handled by the governed Phase 10 lane.',
             note: 'deterministic',
+            email_draft: {
+              schema_version: 'governed_email_draft_v1',
+              status: 'draft_ready',
+              recipient_roles: ['firewall_team'],
+              recipient_resolution_required: true,
+              subject: 'Security investigation update: suspicious activity requires review',
+              body: 'Investigation summary\n- Accepted finding\n\nEvidence references\n- ev.auth',
+              findings: ['Accepted finding'],
+              evidence_refs: ['ev.auth'],
+              generation_source: 'deterministic_governed',
+              llm_attempted: false,
+              llm_status: 'not_attempted_no_governed_email_role',
+              send_authorized: false,
+              sent: false,
+            },
             control_plane_trace: {
               resolved_query: {
                 requested_conditional_actions: [
@@ -96,6 +111,9 @@ describe('ChatBubble conditional requested actions', () => {
     );
 
     expect(screen.queryByRole('region', { name: 'Requested conditional actions' })).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Governed email draft' })).toBeInTheDocument();
+    expect(screen.getByText('Recipients unresolved · not approved or sent')).toBeInTheDocument();
+    expect(screen.getByText(/no live model call · no send authority/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /approve/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /send/i })).not.toBeInTheDocument();
   });
