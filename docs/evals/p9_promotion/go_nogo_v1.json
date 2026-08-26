@@ -1,53 +1,35 @@
 {
   "decision_id": "p9_promotion_go_nogo_v1",
   "candidate_sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+  "product_promotion_sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+  "product_code_changed_in_p9": false,
   "p8_frozen_sha": "c109402d69956df455a780fd49a191fa173ab7ac",
-  "measured_at": "2026-08-26T18:50:00+05:30",
-  "host": "mac-darwin-arm64",
+  "measured_at": "2026-08-26T19:30:00+05:30",
+  "host": "mac-darwin-arm64 + docker-desktop-linuxkit",
   "live_mcp": "OFF",
-  "decision": "P9_PARTIAL",
-  "go_nogo": "NO-GO_FULL_PROMOTION",
+  "decision": "P9_COMPLETE",
+  "go_nogo": "GO_FULL_PROMOTION",
+  "go_full_promotion": true,
+  "p10_eligible_to_start": true,
+  "p10_started": false,
+  "new_unexplained_regressions": 0,
   "go_nogo_rationale": [
-    "Mac promotion evidence is substantially complete with zero unexplained regressions.",
-    "Exact-SHA Linux validation is ENVIRONMENT_BLOCKED (Docker daemon unavailable) — P9 ACCEPTANCE requires Mac and Linux same SHA.",
-    "Three named residuals require explicit operator adjudication before FULL GO: rt.para.011 (H-PROMO-02), golden Tier0 binding clarification, golden Tier0 AWS SG.",
-    "Composite Stage3 governance script fails early solely due to the named golden Tier0 residuals (identical at P8 product tip)."
+    "Mac promotion evidence complete (backend 7109/0 and supporting gates).",
+    "Linux exact-SHA attestation PASS: 7109 passed / 0 failed / 45 skipped / 6 xfailed — matches Mac.",
+    "ATTESTED_SOURCE_SHA == c109402d69956df455a780fd49a191fa173ab7ac; product tree empty vs that SHA.",
+    "Operator accepted three inherited residuals (rt.para.011 + golden Tier0 x2); they remain recorded as ACCEPTED_INHERITED_RESIDUAL, not PASS.",
+    "PRODUCT_CODE_CHANGED_IN_P9 = NO; evidence commits only."
   ],
-  "what_is_green": [
-    "Full backend 7109/0",
-    "Frontend 119 + build",
-    "RACES 8/8",
-    "Protected baseline 15/15",
-    "Bank hash match",
-    "105-path 105/105",
-    "Harness 6/6",
-    "Clean-answer 120/120",
-    "Template audit 19/19",
-    "105-shadow PASS",
-    "Dual parity 120 exact",
-    "Cisco 50/0/0",
-    "Dispatch 5/5",
-    "GitHub clone residual CLOSED by retirement"
+  "accepted_inherited_residuals": [
+    "rt.para.011",
+    "tier0.top_failed_login_spl_missing_binding_clarification",
+    "tier0.aws_security_group_modifications_spl_only"
   ],
-  "named_residuals_for_operator": [
-    {
-      "id": "H-PROMO-02",
-      "ask": "Accept carry of rt.para.011 frozen-arm drift (pre-existing P6+) without baseline refresh?"
-    },
-    {
-      "id": "GOLDEN_TIER0_*",
-      "ask": "Accept two golden Tier0 expectation mismatches identical to P8 tip, or return to Workstream B for golden update / product fix?"
-    },
-    {
-      "id": "H-PROMO-05",
-      "ask": "Run exact-SHA Linux validation when Docker is available and attach attestation."
-    }
-  ],
-  "p10_eligible_to_start": false,
-  "p10_note": "Do not start P10 until P9 reaches COMPLETE with Linux attestation and operator adjudication of named residuals (or explicit operator waiver).",
   "artifacts": [
     "docs/evals/p9_promotion/residual_failure_ledger_v1.json",
     "docs/evals/p9_promotion/gate_matrix_v1.json",
-    "docs/evals/p9_promotion/go_nogo_v1.json"
+    "docs/evals/p9_promotion/go_nogo_v1.json",
+    "docs/evals/p9_promotion/branch_packet.md",
+    "docs/evals/p9_promotion/linux_backend_attest.txt"
   ]
 }

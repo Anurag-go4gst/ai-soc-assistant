@@ -194,13 +194,34 @@
     },
     {
       "gate_id": "LINUX-EXACT-SHA",
-      "command": "Isolated Linux docker/compose validation at exact candidate SHA",
-      "env": "Docker daemon required",
+      "command": "docker exec -w /workspace/backend ai-soc-assistant-local-backend-1 env -i PATH=... PYTHONPATH=/workspace/backend:/workspace AI_SOC_REPO_ROOT=/workspace PYTHONPYCACHEPREFIX=/tmp/p9_pycache python3 -m pytest -q --tb=line -p no:cacheprovider",
+      "env": "Docker Desktop Linuxkit; compose project ai-soc-assistant-local; clean env -i (no compose .env flag pollution); PYTHONPYCACHEPREFIX isolates Mac host __pycache__",
       "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
-      "result": "ENVIRONMENT_BLOCKED",
-      "detail": "Cannot connect to the Docker daemon at unix:///Users/aagarwal/.docker/run/docker.sock",
-      "artifact": "/tmp/p9_gates/linux_probe.txt",
+      "result": "PASS",
+      "detail": "7109 passed, 0 failed, 45 skipped, 6 xfailed (matches Mac). START=2026-08-26T13:54:44Z END=2026-08-26T14:00:27Z. CONTAINER=ai-soc-assistant-local-backend-1 IMAGE=ai-soc-assistant-local-backend IMAGE_ID=sha256:a6d87476f45f92a6b2b9d314ea39c53212c4998453688b46caf1243cd98da95a",
+      "artifact": "docs/evals/p9_promotion/linux_backend_attest.txt",
       "residual_id": "H-PROMO-05"
+    },
+    {
+      "gate_id": "MAC-ROUTING-TRUTH-CHECK-ADJUDICATION",
+      "command": "scripts/eval_routing_truth_set.py --arm both --check",
+      "env": "operator adjudication 2026-08-26",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "ACCEPTED_INHERITED_RESIDUAL",
+      "detail": "rt.para.011 only; ACCEPT_INHERITED_RESIDUAL — not a promotion blocker; not recorded as PASS",
+      "residual_id": "H-PROMO-02"
+    },
+    {
+      "gate_id": "MAC-GOLDEN-TIER0-ADJUDICATION",
+      "command": "golden_answer_runner --tier 0",
+      "env": "operator adjudication 2026-08-26",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "ACCEPTED_INHERITED_RESIDUAL",
+      "detail": "tier0.top_failed_login_spl_missing_binding_clarification + tier0.aws_security_group_modifications_spl_only; ACCEPT_INHERITED_RESIDUAL — not PASS",
+      "residual_ids": [
+        "GOLDEN_TIER0_BINDING_CLARIFICATION",
+        "GOLDEN_TIER0_AWS_SG"
+      ]
     }
   ]
 }
