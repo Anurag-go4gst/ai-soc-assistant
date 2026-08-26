@@ -23,4 +23,9 @@ testpaths = ["app/tests"]
 markers = [
     "known_parity_gap: documented analyst vs severity_decision mismatch (follow-up)",
     "integration: PostgreSQL-backed integration tests (skip when DB unavailable locally)",
+    "l0: static governance, freeze, and authority checks",
+    "l1: deterministic unit and contract suites",
+    "l2: mocked production /chat journeys including the architecture bank",
+    "l2_slow: timeout, subprocess, and bounded-retry lifecycle tests",
+    "l3: live local LLM semantic evaluation (P8; not run in P6)",
 ]

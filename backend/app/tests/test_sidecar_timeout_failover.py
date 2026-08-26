@@ -4,10 +4,14 @@ import threading
 import time
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from app.llm import sidecar_governance as sg
 from app.llm.clients.failover_client import FailoverChatClient
 from app.llm.clients.local_chat_client import ChatResult, LocalChatClient
 from app.llm.sidecar_clients import invoke_sidecar_role
+
+pytestmark = pytest.mark.l2_slow
 
 
 def test_primary_timeout_falls_to_instruct(monkeypatch) -> None:

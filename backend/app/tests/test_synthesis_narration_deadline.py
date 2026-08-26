@@ -23,6 +23,8 @@ from app.tests.test_p6_guarded_synthesis_lab import (
     _sufficiency_ready,
 )
 
+pytestmark = pytest.mark.l2_slow
+
 _TOLERANCE_S = 0.35
 _EXECUTOR_TAIL_S = 2.5
 

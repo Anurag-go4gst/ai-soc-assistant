@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import time
 
+import pytest
+
 from app.llm.sidecar_governance import run_sidecar_llm_with_timeout
+
+pytestmark = pytest.mark.l2_slow
 
 
 def test_slow_provider_returns_within_budget() -> None:
