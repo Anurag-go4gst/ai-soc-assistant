@@ -7,7 +7,7 @@ Use this file as the durable execution dashboard. Update it only during authoriz
 ## Control state
 
 ```yaml
-CURRENT_PHASE: P8_L3_1_DONE_L3_2_BLOCKED_INFRASTRUCTURE
+CURRENT_PHASE: P8_EVALUATED_FAIL_MODEL_CAPABILITY_REVIEW
 CURRENT_BASE_SHA: 472ed89864e2323799ea7a13ab4c4fbef8e30185
 INTEGRATION_SHA: 472ed89864e2323799ea7a13ab4c4fbef8e30185
 EXECUTION_INTEGRATION_SHA: 472ed89864e2323799ea7a13ab4c4fbef8e30185
@@ -32,7 +32,9 @@ INTEGRATION_BRANCH: feat/complete-or-abstain-t4-ux
 INTEGRATION_OWNER: CODEX
 ACTIVE_WORKSTREAMS: []
 BLOCKED_WORKSTREAMS:
-  - P8 L3-2: live local/office LLM unreachable; LIVE_AB_EVAL_PERFORMED = NO
+  - P8 closed as P8_FAIL_MODEL_CAPABILITY_REVIEW after two bounded candidates; do not promote; do not start P9
+  - P8-J7 knowledge_recall remediation offer requires protected pipeline decision
+  - P8-D ChatPanel DemoScenarioPicker remains on production /chat (protected)
 COMPLETED_WORKSTREAMS:
   - P0: Harness readiness at 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
   - P0.1: RACES baseline advanced and verified at ae03a2502ab4c83797151a11d4effa47d9d4532b
@@ -45,8 +47,11 @@ COMPLETED_WORKSTREAMS:
   - P6: Conservative rationalization f87fd7e1; 0 removals; l2_slow marked
   - P7: Production HIL vocabulary 7ce96d69; ChatPanel untouched
   - P8 L3-1: bank/thresholds frozen at 472ed898; product SHA b6e4befe
+  - P8 L3-2: ACTIVE baseline measured; BASELINE_FAIL_REQUIRES_CANDIDATE
+  - P8-A/B: two candidate attempts; NO_PROMOTION; MODEL_CAPABILITY_CANDIDATE for t4/spl/planner
+  - P8-C/D: journeys 7/8 J7 fail; production /chat browser exercised; UI/UX remaining ChatPanel leakage
 NEXT_SAFE_PARALLEL_STARTS:
-  - P8 L3-2 live measurement once llama-server :8081 or COE 10.52.1.13:8004 is reachable; do not tune prompts first
+  - None. P8 evaluated. P9 blocked. Recommend larger/different model for semantic_t4, spl_advisory_generator, investigation_planner. Operator packets: P8-J7 pipeline remediation offer; P8-D ChatPanel scenario picker.
 RECONCILIATION_QUEUE:
   - REQUEST_ID: P1-T2-EVIDENCESTATE-OWNERSHIP
     REQUESTING_STREAM: A TRACE
@@ -59,7 +64,15 @@ RECONCILIATION_QUEUE:
     STATUS: MERGED
     RESOLUTION_SHA: fd77d58ea1e9690eec25a83aa90d46949c4512b5
 MERGE_QUEUE: []
-PROTECTED_CHANGE_QUEUE: []
+PROTECTED_CHANGE_QUEUE:
+  - REQUEST_ID: P8-J7-KNOWLEDGE-REMEDIATION-OFFER
+    FILE: backend/app/chat/pipeline.py
+    STATUS: OPEN
+    PACKET: docs/evals/p8_d/protected_change_packet.md
+  - REQUEST_ID: P8-D-CHATPANEL-SCENARIO-PICKER
+    FILE: frontend/src/components/ChatPanel.tsx
+    STATUS: OPEN
+    PACKET: docs/evals/p8_d/protected_change_packet.md
 PROTECTED_CHANGE_HISTORY:
   - REQUEST_ID: P2-FINAL-RQC-PIPELINE-WIRING
     FILE: backend/app/chat/pipeline.py
@@ -68,17 +81,17 @@ PROTECTED_CHANGE_HISTORY:
     STATUS: APPLIED_VERIFIED
 TEST_GATE_STATUS:
   PLAN_AUDIT: passed_zero_gaps_both_files
-  FOCUSED: P4_prompt_policy_702_passed; P6_7_passed; frontend_118_passed
+  FOCUSED: P0_L2_13; LIVE_RQC_10; P2_SEM_58; P4_719; P3P5_L2_88; P1_SLICE_14; RACES_13; P6_7; combined_924_passed; frontend_118_passed
   L0: RACES_8_passed
   L1: P1_trace_evidence_34; P2_semantic_58; LIVE_RQC_10
   L2: P0_13_plus_ACTIVE_41
   L2_SLOW: timeout_modules_21_passed
-  L3: not_started
-  FRONTEND: 118_passed_build_green
+  L3: live_ab_complete_no_promotion_floors_still_fail
+  FRONTEND: 118_passed_build_green_browser_exercised_ui_ux_fail
   GOVERNANCE: CLEAN_WITH_ENVIRONMENT_RESIDUAL
   LINUX: not_started
   LIVE_MCP: disabled_deferred_P11
-  FULL_BACKEND_P5: 1_failed_7059_passed_45_skipped_6_xfailed
+  FULL_BACKEND_P8: 1_failed_7081_passed_45_skipped_6_xfailed
   NEW_FAILURES: NONE
 RESIDUAL_FAILURE_LEDGER:
   - app/tests/test_canonical_handoff_e2e_probes.py::test_e2e_t1_spl_generation_canonical_graph_and_gate: PRE_EXISTING_FAILURE; P5/P9; blocks_P4_NO
@@ -123,6 +136,8 @@ DECISION_LOG:
   - 2026-08-26: P4.1 residual cleanup closed 13 of 14 inherited nodes with bounded test commits; GitHub clone-root remains ENVIRONMENT_FAILURE; CLEAN_WITH_ENVIRONMENT_RESIDUAL; P3/P5/P6/P7 not started.
   - 2026-08-26: P3-P7 loop completed through POST_P7 7ce96d69; P3 rebase+activation, P5 L2 closure ACTIVE 41, P6 KEEP+l2_slow, P7 Approve/Edit/Cancel without ChatPanel; GitHub clone-root remains the only environment residual; stop before P8.
   - 2026-08-26: Frozen LIVE_EVAL_PRODUCT_SHA b6e4befe; full backend 2 failed (GitHub env + stale P7 scan test). Scan test aligned fa6ad102. P8 L3-1 frozen 472ed898. L3-2 blocked: no reachable :8081 or COE :8004. No prompt tuning. LIVE_AB_EVAL_PERFORMED=NO.
+  - 2026-08-26: P8 L3-2 live baseline completed against 10.52.1.13:8004 foundation-sec-instruct (vLLM). Bank hash unchanged 5f78ccbe. 16/16 rows. BASELINE_FAIL_REQUIRES_CANDIDATE (semantic 0.2885 vs 0.5; initial_pass 0.20 vs 0.4). No candidate created. No prompt/model/threshold edits. Harness-only H1–H3 then rerun. RACES 8; P0 L2 13; LIVE-RQC 10. P9 blocked. LIVE_MCP_USED=NO. PUSH_PERFORMED=NO.
+  - 2026-08-26: P8-A/B/C/D evaluated on HEAD 6e7e379c (b6e4befe ancestor). Two candidate attempts, no promotion. Frozen floors still fail. Journeys 7/8; J7 unjustified SOP remediation. Browser exercised production /chat. Chrome EC copy fixed unprotected. ChatPanel picker + J7 remain protected packets. Full backend 7081 passed / 1 GitHub residual failed. Frontend 118 + build green. P8_FAIL_MODEL_CAPABILITY_REVIEW. P9 blocked. LIVE_MCP_USED=NO. PUSH_PERFORMED=NO.
 ```
 
 ## P1 completion evidence (historical checkpoint)
@@ -620,6 +635,8 @@ Append decisions; do not rewrite history.
 | 2026-08-26 P4.1 residual cleanup | P4.1 | Bounded test-only alignment of 13 stale/test-defect residuals; GitHub clone-root left as environment residual | 14-node 13/1; full backend 6971 passed / 1 failed; P0 L2 13; LIVE-RQC 10; RACES 8; P4 702; NEW_FAILURES NONE | CLEAN_WITH_ENVIRONMENT_RESIDUAL; freeze FINAL_CLEAN_INTEGRATION_SHA; P3 remains parked |
 | 2026-08-26 P3-P7 loop | P3/P5/P6/P7 | Exact P3 rebase onto b107b50b; activate P1/P2/P4 L2 rows; P5 D.01-03; P6 KEEP+l2_slow; P7 Approve/Edit/Cancel without ChatPanel | L2 41 ACTIVE; P0 13; RACES 8; P4 702; LIVE-RQC 10; frontend 118+build; GitHub residual only | Stop before P8; live MCP still OFF; blocked reasoners still blocked |
 | 2026-08-26 P8 L3-1 | P8 | Freeze live-eval product SHA b6e4befe; L3 bank+thresholds before scores; do not tune prompts or enable blocked roles | Suite at b6e4befe 2 failed/7065 passed; stale P7 scan fa6ad102; L3-1 472ed898; dry-run BLOCKED_INFRASTRUCTURE | L3-2 waits for reachable local/office LLM |
+| 2026-08-26 P8 L3-2 | P8 | ACTIVE baseline measurement of frozen 16-row bank on office vLLM; harness-only H1–H3 then rerun; do not tune prompts or create candidate | 16/16; LLM success 0.3077; semantic 0.2885; initial_pass 0.20; 0 authority / 0 evidence hallucinations; RACES 8; LIVE-RQC 10; P0 L2 13 | BASELINE_FAIL_REQUIRES_CANDIDATE; P9 blocked; no candidate; no live MCP; no push |
+| 2026-08-26 P8-A/B/C/D | P8 | Bounded candidates + fair A/B + journey bank + production /chat browser; do not promote; do not start P9 | A/B no gated gain; journeys 7/8 J7 fail; browser exercised; backend 7081/1 GitHub residual; frontend 118+build | P8_FAIL_MODEL_CAPABILITY_REVIEW; recommend larger model for t4/spl/planner; protected packets J7+ChatPanel; no live MCP; no push |
 
 ## Runner stop
 
