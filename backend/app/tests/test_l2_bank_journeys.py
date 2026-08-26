@@ -309,6 +309,70 @@ def test_l2_remediation_approval_yields_envelope_without_execution(
     assert "remediation_execution" not in approved
 
 
+def test_l2_remediation_cancel_calls_no_connector(_remediation_enabled: None) -> None:
+    """L2.D.01 — Cancel after seeing the plan calls no connector and writes nothing."""
+    offered = maybe_attach_remediation_offer(_completed_outcome_state())
+    created = handle_remediation_review(offered, action="create")
+    cancelled = handle_remediation_review(created, action="cancel")
+    approval = cancelled["remediation_approval"]
+
+    assert approval["status"] == "cancelled"
+    assert "No connector was called" in approval["safe_message"]
+    assert "approved_remediation_envelope" not in cancelled
+    assert approval.get("execution_result") is None
+    assert "remediation_execution" not in cancelled
+
+
+def test_l2_remediation_planning_is_off_by_default() -> None:
+    """L2.D.02 — a default deployment never surfaces a remediation CTA."""
+    from app.config import settings as live_settings
+
+    assert live_settings.ai_soc_remediation_planner_enabled is False
+    offered = maybe_attach_remediation_offer(_completed_outcome_state())
+    assert "remediation_approval" not in offered
+
+
+def test_l2_remediation_edit_revalidates_before_approval(_remediation_enabled: None) -> None:
+    """L2.D.03 — Edit revalidates; Approve is offered again and still executes nothing."""
+    offered = maybe_attach_remediation_offer(_completed_outcome_state())
+    offered = {
+        **offered,
+        "capability_snapshot": {
+            "schema_version": "capability_snapshot_v1",
+            "rows": [
+                {
+                    "capability_id": "firewall_block",
+                    "capability_need": "recommended",
+                    "availability": "available",
+                }
+            ],
+        },
+    }
+    created = handle_remediation_review(offered, action="create")
+    steps = list((created["remediation_approval"]["validated_plan"] or {}).get("steps") or [])
+    assert steps, "create must produce a plan the analyst can edit"
+    removed = str(steps[0]["step_id"])
+
+    edited = handle_remediation_review(
+        created,
+        action="edit",
+        edits={"removed_step_ids": [removed]},
+    )
+    approval = edited["remediation_approval"]
+    remaining = [step["step_id"] for step in (approval["validated_plan"] or {}).get("steps") or []]
+
+    assert approval["status"] == "edited_revalidated"
+    assert approval["allowed_actions"] == ["approve", "edit", "cancel"]
+    assert "analyst_edit_revalidated" in approval["revalidation_warnings"]
+    assert removed not in remaining
+    assert "approved_remediation_envelope" not in edited
+
+    approved = handle_remediation_review(edited, action="approve")
+    assert approved["remediation_approval"]["status"] == "approved"
+    assert approved["remediation_approval"]["execution_result"] is None
+    assert "remediation_execution" not in approved
+
+
 # ---------------------------------------------------------------------------
 # P1 contracts — L2.R.P1.01..06 (activated after rebase onto integrated P1)
 # ---------------------------------------------------------------------------

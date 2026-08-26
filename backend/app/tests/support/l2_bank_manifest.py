@@ -849,7 +849,12 @@ _RESERVED_CASES: tuple[L2Case, ...] = (
         expected_analyst_visible_result="The rejected conclusion is not restated as fact.",
         prohibited_outputs=("repeating a rejected conclusion unchanged",),
         current_status="PENDING_CONTRACT_P5",
-        why_this_case_exists="H-FOLLOW-05; needs P1 trace truth before it can assert cleanly.",
+        why_this_case_exists=(
+            "H-FOLLOW-05. P1 published trace_oracle_v1 and EvidenceState, but SessionPins has "
+            "no rejected-conclusion field and production /chat has no governed follow-up "
+            "contract that honours 'that is wrong' as a stable oracle. Left pending rather "
+            "than inventing a pin or asserting EC S6 chip behaviour as production."
+        ),
         findings=("H-FOLLOW-05",),
     ),
     L2Case(
@@ -864,7 +869,12 @@ _RESERVED_CASES: tuple[L2Case, ...] = (
         expected_analyst_visible_result="User-supplied evidence is used and attributed to the user.",
         prohibited_outputs=("user assertion presented as retrieved system evidence",),
         current_status="PENDING_CONTRACT_P5",
-        why_this_case_exists="H-FOLLOW-05; provenance depends on the P1 oracle.",
+        why_this_case_exists=(
+            "H-FOLLOW-05 / H-EVID-03. source_type=manual maps to untrusted_input in "
+            "minimal_evidence_state_v2, but that path is the skipped analyst_query "
+            "placeholder, not ticket/change-window intake. No production seam accepts "
+            "analyst-supplied SourceEvidence with declared user origin. Left pending."
+        ),
         findings=("H-FOLLOW-05", "H-EVID-03"),
     ),
     # --- PRODUCT_GAP: kept visible, never satisfied by weakening ------------
@@ -960,11 +970,19 @@ _RESERVED_CASES: tuple[L2Case, ...] = (
         tier="L2",
         dependency_phase="P5",
         mocks=("remediation_planner_enabled",),
-        expected_stable_oracle_fields=(),
+        expected_stable_oracle_fields=(
+            "remediation_approval.status",
+            "remediation_approval.safe_message",
+            "approved_remediation_envelope",
+        ),
         expected_analyst_visible_result="status 'cancelled' with an explicit no-connector message.",
         prohibited_outputs=("a partial write on cancel",),
-        current_status="DEFERRED",
-        why_this_case_exists="Held out only to keep the first bank at ~23 reviewable rows.",
+        current_status="ACTIVE_GREEN",
+        why_this_case_exists=(
+            "Held out of the first ~23-row bank; P5 activates it. Cancel is the "
+            "Approve/Edit/Cancel vocabulary's abort path and must call no connector."
+        ),
+        bound_test=f"{_JOURNEYS}::test_l2_remediation_cancel_calls_no_connector",
         future_disposition="SUPPORTED_NOW",
         support_evidence=(
             "Probed at ae03a250: handle_remediation_review(action='cancel') -> status 'cancelled', "
@@ -980,11 +998,15 @@ _RESERVED_CASES: tuple[L2Case, ...] = (
         tier="L2",
         dependency_phase="P5",
         mocks=(),
-        expected_stable_oracle_fields=(),
+        expected_stable_oracle_fields=("remediation_approval",),
         expected_analyst_visible_result="No remediation CTA appears at all.",
         prohibited_outputs=("an unrequested action affordance on a default deployment",),
-        current_status="DEFERRED",
-        why_this_case_exists="Held out to keep the first bank at ~23 reviewable rows.",
+        current_status="ACTIVE_GREEN",
+        why_this_case_exists=(
+            "Held out of the first ~23-row bank; P5 activates it. Default-off is the "
+            "deployment posture, not a test monkeypatch."
+        ),
+        bound_test=f"{_JOURNEYS}::test_l2_remediation_planning_is_off_by_default",
         future_disposition="SUPPORTED_NOW",
         support_evidence=(
             "Probed at ae03a250: settings.ai_soc_remediation_planner_enabled default is False and "
@@ -1000,15 +1022,23 @@ _RESERVED_CASES: tuple[L2Case, ...] = (
         tier="L2",
         dependency_phase="P5",
         mocks=("remediation_planner_enabled",),
-        expected_stable_oracle_fields=(),
+        expected_stable_oracle_fields=(
+            "remediation_approval.status",
+            "remediation_approval.allowed_actions",
+            "remediation_approval.revalidation_warnings",
+        ),
         expected_analyst_visible_result="status 'edited_revalidated' before approval is offered again.",
         prohibited_outputs=("approving an edited plan that was never revalidated",),
-        current_status="DEFERRED",
-        why_this_case_exists="Held out to keep the first bank at ~23 reviewable rows.",
+        current_status="ACTIVE_GREEN",
+        why_this_case_exists=(
+            "Held out of the first ~23-row bank; P5 activates it. Edit must revalidate "
+            "before Approve is offered again; approval still executes nothing."
+        ),
+        bound_test=f"{_JOURNEYS}::test_l2_remediation_edit_revalidates_before_approval",
         future_disposition="SUPPORTED_NOW",
         support_evidence=(
             "Read at ae03a250: handle_remediation_review(action='edit') builds status "
-            "'edited_revalidated' via _apply_edits + _approval_state. Not probed end to end."
+            "'edited_revalidated' via _apply_edits + _approval_state. Journey now proves it."
         ),
         findings=("H-REM-01",),
     ),
