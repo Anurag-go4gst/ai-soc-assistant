@@ -307,19 +307,24 @@ export function AnalystSummaryCard({ trace }: { trace: PlaceholderResponse }) {
           variant={ready ? 'success' : 'secondary'}
         />
       </div>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <Stat icon={<FileSearch className="h-3 w-3" />} label="SPL Template" value={splTemplate.label} variant={splTemplate.variant} />
-        <Stat icon={<ShieldAlert className="h-3 w-3" />} label="MITRE" value={mitre.label} variant={mitre.variant} />
-        <Stat icon={<ListChecks className="h-3 w-3" />} label="HIL" value={review.label} variant={review.variant} />
-        <Stat icon={<Database className="h-3 w-3" />} label="Session" value={session.label} variant={session.variant} />
-        <Stat icon={<Route className="h-3 w-3" />} label="Node Trace" value={nodes.label} variant={nodes.variant} />
-        <Stat icon={<Sparkles className="h-3 w-3" />} label="LLM" value={llmCalls.label} variant={llmCalls.variant} />
-      </div>
-      {llmCalls.count > 0 ? (
-        <p className="mt-2 text-xs text-amber-200/80">
-          LLM invoked at: {llmCalls.where.join(', ')} — advisory; deterministic checks stay authoritative.
-        </p>
-      ) : null}
+      <details className="mt-3 rounded-lg border border-slate-700/50 bg-slate-950/30 px-3 py-2">
+        <summary className="cursor-pointer select-none text-xs font-medium text-slate-400 hover:text-slate-200">
+          Technical diagnostics
+        </summary>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <Stat icon={<FileSearch className="h-3 w-3" />} label="SPL Template" value={splTemplate.label} variant={splTemplate.variant} />
+          <Stat icon={<ShieldAlert className="h-3 w-3" />} label="MITRE" value={mitre.label} variant={mitre.variant} />
+          <Stat icon={<ListChecks className="h-3 w-3" />} label="HIL" value={review.label} variant={review.variant} />
+          <Stat icon={<Database className="h-3 w-3" />} label="Session" value={session.label} variant={session.variant} />
+          <Stat icon={<Route className="h-3 w-3" />} label="Node Trace" value={nodes.label} variant={nodes.variant} />
+          <Stat icon={<Sparkles className="h-3 w-3" />} label="LLM" value={llmCalls.label} variant={llmCalls.variant} />
+        </div>
+        {llmCalls.count > 0 ? (
+          <p className="mt-2 text-xs text-amber-200/80">
+            LLM invoked at: {llmCalls.where.join(', ')} — advisory; deterministic checks stay authoritative.
+          </p>
+        ) : null}
+      </details>
       {reviewPending ? (
         <p className="mt-3 text-xs text-slate-400">Action needed — see the review notice below.</p>
       ) : (
