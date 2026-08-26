@@ -4374,7 +4374,7 @@
    "authentication",
    "brute_force",
    "failed_login",
-   "source:github_skill_intake",
+   "source:github_skill_provenance",
    "splunk"
   ],
   "owner": "SOC skill enrichment",
@@ -4451,7 +4451,7 @@
    "auth_success_after_failure",
    "brute_force",
    "sequence_correlation",
-   "source:github_skill_intake",
+   "source:github_skill_provenance",
    "splunk",
    "successful_login"
   ],
@@ -4532,7 +4532,7 @@
    "dns",
    "dns_beaconing_candidate",
    "network",
-   "source:github_skill_intake"
+   "source:github_skill_provenance"
   ],
   "owner": "SOC skill enrichment",
   "uploaded_by": "skill_enrichment_importer",
@@ -4571,7 +4571,7 @@
    "encoded_command",
    "powershell",
    "script_block",
-   "source:github_skill_intake"
+   "source:github_skill_provenance"
   ],
   "owner": "SOC skill enrichment",
   "uploaded_by": "skill_enrichment_importer",
@@ -4650,7 +4650,7 @@
    "email_headers",
    "email_phishing_header_review",
    "phishing",
-   "source:github_skill_intake",
+   "source:github_skill_provenance",
    "spf"
   ],
   "owner": "SOC skill enrichment",
@@ -4690,7 +4690,7 @@
    "endpoint_ransomware_impact_review",
    "impact",
    "ransomware",
-   "source:github_skill_intake"
+   "source:github_skill_provenance"
   ],
   "owner": "SOC skill enrichment",
   "uploaded_by": "skill_enrichment_importer",
@@ -4809,7 +4809,7 @@
    "incident_response",
    "playbook",
    "soc_incident_triage",
-   "source:github_skill_intake"
+   "source:github_skill_provenance"
   ],
   "owner": "SOC skill enrichment",
   "uploaded_by": "skill_enrichment_importer",

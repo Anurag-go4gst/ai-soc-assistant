@@ -25,26 +25,13 @@ from app.knowledge.mapping_exports import (
     SOC_VALIDATION_ARTIFACTS,
     build_soc_validation_export_payload,
     soc_validation_csv_rows,
-    build_github_skill_discovery_export_payload,
-    build_github_skill_triage_export_payload,
-    build_pending_backlog_export_payload,
-    build_proposed_use_cases_export_payload,
-    build_skill_enrichment_status_export_payload,
     build_mapping_summary,
     build_detection_coverage,
     build_atlas_coverage_gap,
     build_soc_capability_crosswalk_export_payload,
     build_skill_coverage_export_payload,
-    github_intake_csv_rows,
-    github_skill_discovery_csv_rows,
-    github_skill_triage_csv_rows,
-    load_github_intake_register,
-    load_markdown_export,
     load_use_case_catalog_export_rows,
-    pending_backlog_csv_rows,
-    proposed_use_cases_csv_rows,
     skill_coverage_csv_rows,
-    skill_enrichment_status_csv_rows,
     soc_capability_crosswalk_csv_rows,
     use_case_catalog_csv_row,
 )
@@ -249,48 +236,6 @@ def export_mapping_artifact(
         payload = build_skill_coverage_export_payload()
         csv_rows = skill_coverage_csv_rows()
         filename = f"ai_soc_skill_coverage_matrix_105.{file_format}"
-    elif normalized in {"github_skill_discovery_index", "github_discovery", "skill_discovery_index"}:
-        payload = build_github_skill_discovery_export_payload()
-        csv_rows = github_skill_discovery_csv_rows()
-        filename = f"ai_soc_github_skill_discovery_index.{file_format}"
-    elif normalized in {"github_skill_triage_scores", "github_triage", "skill_triage_scores"}:
-        payload = build_github_skill_triage_export_payload()
-        csv_rows = github_skill_triage_csv_rows()
-        filename = f"ai_soc_github_skill_triage_scores.{file_format}"
-    elif normalized in {"proposed_use_cases_from_github", "proposed_use_cases", "github_proposed_use_cases"}:
-        payload = build_proposed_use_cases_export_payload()
-        csv_rows = proposed_use_cases_csv_rows()
-        filename = f"ai_soc_proposed_use_cases_from_github.{file_format}"
-    elif normalized in {"github_skill_intake_register", "github_intake", "skill_intake_register"}:
-        register = load_github_intake_register()
-        records = register.get("records") or []
-        payload = {
-            "artifact": "github_skill_intake_register",
-            "source_file": "docs/skills/github_skill_intake_register.json",
-            "usage_rule": register.get("usage_rule"),
-            "row_count": len(records) if isinstance(records, list) else 0,
-            "records": records,
-        }
-        csv_rows = github_intake_csv_rows()
-        filename = f"ai_soc_github_skill_intake_register.{file_format}"
-    elif normalized in {"skill_enrichment_status_matrix", "enrichment_status_matrix"}:
-        payload = build_skill_enrichment_status_export_payload()
-        csv_rows = skill_enrichment_status_csv_rows()
-        filename = f"ai_soc_skill_enrichment_status_matrix.{file_format}"
-        if file_format == "csv" and not csv_rows:
-            raise HTTPException(status_code=400, detail="markdown_artifact_json_only")
-    elif normalized in {"rejected_github_skills", "rejected_skills"}:
-        payload = load_markdown_export("docs/skills/rejected_github_skills.md")
-        payload["export_kind"] = "markdown_backed"
-        filename = "ai_soc_rejected_github_skills.json"
-        if file_format == "csv":
-            raise HTTPException(status_code=400, detail="markdown_artifact_json_only")
-    elif normalized in {"pending_skill_enrichment_backlog", "pending_backlog", "skill_backlog"}:
-        payload = build_pending_backlog_export_payload()
-        csv_rows = pending_backlog_csv_rows()
-        filename = f"ai_soc_pending_skill_enrichment_backlog.{file_format}"
-        if file_format == "csv" and not csv_rows:
-            raise HTTPException(status_code=400, detail="markdown_artifact_json_only")
     elif normalized in SOC_VALIDATION_ARTIFACTS:
         payload = build_soc_validation_export_payload(normalized)
         if not payload.get("rows") and payload.get("row_counts", {}) in ({}, None):

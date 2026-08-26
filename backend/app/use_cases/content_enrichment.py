@@ -128,7 +128,6 @@ def resolve_use_case_activation(use_case_id: str | None) -> UseCaseActivationDec
     catalog_row = _load_catalog().get(use_case_id)
     enrichment = get_content_enrichment(use_case_id)
     crosswalk_row, lookup_status = _crosswalk_row(use_case_id)
-    github_row = _github_skill_row_for_use_case(use_case_id)
     proposed_row = _proposed_use_case_row(use_case_id)
 
     catalog_present = bool(catalog_row)
@@ -136,8 +135,8 @@ def resolve_use_case_activation(use_case_id: str | None) -> UseCaseActivationDec
         (crosswalk_row or {}).get("runtime_support_status"),
         (proposed_row or {}).get("runtime_support_status"),
     )
-    validation_status = _first_str((crosswalk_row or {}).get("validation_status"), (github_row or {}).get("validation_status"))
-    tests_added = bool((crosswalk_row or {}).get("tests_added") or (github_row or {}).get("tests_added"))
+    validation_status = _first_str((crosswalk_row or {}).get("validation_status"))
+    tests_added = bool((crosswalk_row or {}).get("tests_added"))
     spl_template_status = _first_str(
         (crosswalk_row or {}).get("spl_template_status"),
         (enrichment or {}).get("spl_template_status"),
@@ -151,7 +150,7 @@ def resolve_use_case_activation(use_case_id: str | None) -> UseCaseActivationDec
     )
     live_execution_skill_allowed = bool(live_execution_skill in ALLOWED_LIVE_EXECUTION_SKILLS)
     proposed_github_use_case = bool(proposed_row or (enrichment and enrichment.get("proposed_use_case_id") == use_case_id))
-    github_accepted_for_enrichment_only = _github_accepted_for_enrichment_only(github_row, enrichment)
+    github_accepted_for_enrichment_only = _github_accepted_for_enrichment_only(enrichment)
     enrichment_present = bool(enrichment)
     enrichment_only = bool(
         enrichment_present
@@ -210,10 +209,7 @@ def resolve_use_case_activation(use_case_id: str | None) -> UseCaseActivationDec
         enrichment_present=enrichment_present,
         enrichment_only=enrichment_only,
         proposed_github_use_case=proposed_github_use_case,
-        github_lifecycle_status=_first_str(
-            (github_row or {}).get("review_status"),
-            (github_row or {}).get("runtime_support_status"),
-        ),
+        github_lifecycle_status=_github_lifecycle_status(enrichment),
         github_accepted_for_enrichment_only=github_accepted_for_enrichment_only,
         activation_lifecycle_stage=lifecycle,
         planner_runtime_activation_allowed=planner_runtime_activation_allowed,
@@ -437,19 +433,6 @@ def _crosswalk_row(use_case_id: str) -> tuple[dict[str, Any] | None, str]:
     return None, "not_found"
 
 
-def _github_skill_row_for_use_case(use_case_id: str) -> dict[str, Any] | None:
-    crosswalk = _load_crosswalk()
-    for row in crosswalk.get("github_skill_rows") or []:
-        if not isinstance(row, dict):
-            continue
-        mapped = row.get("mapped_use_case_ids")
-        if isinstance(mapped, list) and use_case_id in {str(item) for item in mapped}:
-            return row
-        if row.get("mapped_use_case_id") == use_case_id:
-            return row
-    return None
-
-
 def _proposed_use_case_row(use_case_id: str) -> dict[str, Any] | None:
     crosswalk = _load_crosswalk()
     for row in crosswalk.get("proposed_use_case_rows") or []:
@@ -459,20 +442,21 @@ def _proposed_use_case_row(use_case_id: str) -> dict[str, Any] | None:
 
 
 def _github_accepted_for_enrichment_only(
-    github_row: dict[str, Any] | None,
     enrichment: dict[str, Any] | None,
 ) -> bool:
-    if github_row:
-        if github_row.get("acceptance_means") == "accepted_for_enrichment_only":
-            return True
-        if github_row.get("review_status") == "accepted_for_enrichment":
-            return True
-        if github_row.get("runtime_skill") is False:
-            return True
     for ref in (enrichment or {}).get("github_reference_skills") or []:
         if isinstance(ref, dict) and str(ref.get("decision") or "") == "accepted":
             return True
     return False
+
+
+def _github_lifecycle_status(enrichment: dict[str, Any] | None) -> str | None:
+    if _github_accepted_for_enrichment_only(enrichment):
+        return "accepted_for_enrichment"
+    refs = (enrichment or {}).get("github_reference_skills") or []
+    if refs:
+        return "provenance_only"
+    return None
 
 
 def _provenance_ref_ids(record: dict[str, Any]) -> list[str]:

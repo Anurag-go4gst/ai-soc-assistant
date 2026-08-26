@@ -39,21 +39,11 @@ const EXPORT_FILENAMES: Record<KnowledgeExportArtifact, string> = {
   catalogue_question_index: 'ai_soc_catalogue_question_index',
   soc_capability_crosswalk: 'ai_soc_soc_capability_crosswalk',
   skill_coverage_matrix: 'ai_soc_skill_coverage_matrix_105',
-  github_skill_discovery_index: 'ai_soc_github_skill_discovery_index',
-  github_skill_triage_scores: 'ai_soc_github_skill_triage_scores',
-  github_skill_intake_register: 'ai_soc_github_skill_intake_register',
-  proposed_use_cases_from_github: 'ai_soc_proposed_use_cases_from_github',
-  skill_enrichment_status_matrix: 'ai_soc_skill_enrichment_status_matrix',
-  rejected_github_skills: 'ai_soc_rejected_github_skills',
-  pending_skill_enrichment_backlog: 'ai_soc_pending_skill_enrichment_backlog',
   soc_validation_use_cases: 'ai_soc_soc_validation_use_cases',
   soc_validation_spl_templates: 'ai_soc_soc_validation_spl_templates',
   soc_validation_mitre: 'ai_soc_soc_validation_mitre',
   soc_validation_questions: 'ai_soc_soc_validation_questions',
-  soc_validation_github_enrichment: 'ai_soc_soc_validation_github_enrichment',
-  soc_validation_github_batch_intake: 'ai_soc_soc_validation_github_batch_intake',
   soc_validation_rag_sop: 'ai_soc_soc_validation_rag_sop',
-  soc_validation_pending_backlog: 'ai_soc_soc_validation_pending_backlog',
   soc_validation_combination_matrix: 'ai_soc_soc_validation_combination_matrix',
   soc_validation_demo_scenarios: 'ai_soc_soc_validation_demo_scenarios',
 };
@@ -172,9 +162,9 @@ export function KnowledgePage() {
 
   const reranker = ragStatus?.reranker;
   const assist = ragStatus?.ambiguity_assist;
-  const githubSkillRows = mappingSummary?.row_counts.github_skill_rows ?? 12;
   const questionRows = mappingSummary?.row_counts.question_rows ?? 105;
   const useCaseRows = mappingSummary?.row_counts.use_case_rows ?? 49;
+  const enrichmentRecords = mappingSummary?.row_counts.enrichment_records ?? 13;
   // No numeric fallback: this read `?? 46` while the catalogue held 65, so the
   // page confidently displayed a stale count whenever the summary was absent.
   // The same 46 literal was also asserted in a test. Show nothing rather than a
@@ -222,7 +212,7 @@ export function KnowledgePage() {
                 <Badge variant="outline">
                   {catalogUseCases === null ? 'catalog use cases —' : `${catalogUseCases} catalog use cases`}
                 </Badge>
-                <Badge variant="outline">{githubSkillRows} GitHub skill rows</Badge>
+                <Badge variant="outline">{enrichmentRecords} curated enrichment records</Badge>
                 <Badge variant="outline">{mappingSummary.questions_with_use_case_id} questions with curated use-case id</Badge>
               </div>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -359,14 +349,14 @@ export function KnowledgePage() {
             <div className="grid gap-3 lg:grid-cols-2">
               <ExportBlock
                 title="SOC Capability Crosswalk"
-                description={`Canonical Phase 0 mapping spine: ${questionRows} questions, ${useCaseRows} use-case export rows, ${githubSkillRows} GitHub skill rows (enrichment/provenance only), runtime_support_status, validation_status, and MITRE metadata role.`}
+                description={`Canonical Phase 0 mapping spine: ${questionRows} questions, ${useCaseRows} use-case export rows, ${enrichmentRecords} curated enrichment records, runtime_support_status, validation_status, and MITRE metadata role.`}
                 badge="recommended"
                 onJson={() => downloadExport('soc_capability_crosswalk', 'json')}
                 onCsv={() => downloadExport('soc_capability_crosswalk', 'csv')}
               />
               <ExportBlock
                 title="105 Question Coverage Matrix"
-                description="Legacy 105-question coverage view: live skill, planning skill, mapping status, SPL template status, GitHub references, enrichment status, and MITRE metadata."
+                description="Legacy 105-question coverage view: live skill, planning skill, mapping status, SPL template status, curated provenance references, enrichment status, and MITRE metadata."
                 onJson={() => downloadExport('skill_coverage_matrix', 'json')}
                 onCsv={() => downloadExport('skill_coverage_matrix', 'csv')}
               />
@@ -378,7 +368,7 @@ export function KnowledgePage() {
               />
               <ExportBlock
                 title="Use-case catalog (with enrichment join)"
-                description="Catalog rows joined with content_enrichment metadata: domain, GitHub refs, evidence, workflow, SPL status, and preserved mitre_registry."
+                description="Catalog rows joined with content_enrichment metadata: domain, provenance refs, evidence, workflow, SPL status, and preserved mitre_registry."
                 onJson={() => downloadExport('use_case_catalog', 'json')}
                 onCsv={() => downloadExport('use_case_catalog', 'csv')}
               />
@@ -388,50 +378,6 @@ export function KnowledgePage() {
                 badge="reference"
                 onJson={() => downloadExport('catalogue_question_index', 'json')}
                 onCsv={() => downloadExport('catalogue_question_index', 'csv')}
-              />
-              <ExportBlock
-                title="GitHub Skill Discovery Index"
-                description="Phase 0B factory scan of local reference clone metadata (no raw SKILL.md bodies). Merges intake-register decisions."
-                badge="factory"
-                onJson={() => downloadExport('github_skill_discovery_index', 'json')}
-                onCsv={() => downloadExport('github_skill_discovery_index', 'csv')}
-              />
-              <ExportBlock
-                title="GitHub Skill Triage Scores"
-                description="Advisory triage scores for discovered skills. Does not auto-accept skills or enable runtime activation."
-                badge="factory"
-                onJson={() => downloadExport('github_skill_triage_scores', 'json')}
-                onCsv={() => downloadExport('github_skill_triage_scores', 'csv')}
-              />
-              <ExportBlock
-                title="GitHub Skill Intake Register"
-                description="Tracks accepted-for-enrichment, rejected, deferred, and pending external GitHub skills used as reference/provenance only."
-                onJson={() => downloadExport('github_skill_intake_register', 'json')}
-                onCsv={() => downloadExport('github_skill_intake_register', 'csv')}
-              />
-              <ExportBlock
-                title="Proposed Use Cases from GitHub"
-                description="Enrichment-only / proposed internal use cases derived from GitHub references. Never runtime_active until catalog promotion and SOC approval."
-                onJson={() => downloadExport('proposed_use_cases_from_github', 'json')}
-                onCsv={() => downloadExport('proposed_use_cases_from_github', 'csv')}
-              />
-              <ExportBlock
-                title="Skill Enrichment Status Matrix"
-                description="JSON-backed enrichment implementation status per internal use case (MITRE metadata, evidence, workflow, SPL, tests)."
-                onJson={() => downloadExport('skill_enrichment_status_matrix', 'json')}
-                onCsv={() => downloadExport('skill_enrichment_status_matrix', 'csv')}
-              />
-              <ExportBlock
-                title="Rejected GitHub Skills"
-                description="Documents skills or sections rejected for safety, offensive content, unsupported execution, or non-demo suitability."
-                jsonOnly
-                onJson={() => downloadExport('rejected_github_skills', 'json')}
-              />
-              <ExportBlock
-                title="Pending Skill Enrichment Backlog"
-                description="JSON-backed advisory backlog of discovered GitHub skills awaiting human review (bounded export)."
-                onJson={() => downloadExport('pending_skill_enrichment_backlog', 'json')}
-                onCsv={() => downloadExport('pending_skill_enrichment_backlog', 'csv')}
               />
             </div>
             <div className="rounded border border-cyan-900/40 bg-cyan-950/10 p-3 text-xs text-cyan-100/90">
@@ -468,28 +414,10 @@ export function KnowledgePage() {
                 onCsv={() => downloadExport('soc_validation_mitre', 'csv')}
               />
               <ExportBlock
-                title={`Validation — GitHub Enrichment (${githubSkillRows})`}
-                description="GitHub skills as enrichment/provenance only — never runtime_active."
-                onJson={() => downloadExport('soc_validation_github_enrichment', 'json')}
-                onCsv={() => downloadExport('soc_validation_github_enrichment', 'csv')}
-              />
-              <ExportBlock
                 title="Validation — RAG / SOP"
                 description="RAG and SOP coverage status per use case for KB gap review."
                 onJson={() => downloadExport('soc_validation_rag_sop', 'json')}
                 onCsv={() => downloadExport('soc_validation_rag_sop', 'csv')}
-              />
-              <ExportBlock
-                title="Validation — GitHub Batch Intake"
-                description="Batch 1 factory intake summary. JSON only (nested row)."
-                jsonOnly
-                onJson={() => downloadExport('soc_validation_github_batch_intake', 'json')}
-              />
-              <ExportBlock
-                title="Validation — Pending Backlog (Phase 10)"
-                description="Crosswalk-derived backlog review sheet (distinct from legacy skills backlog export)."
-                jsonOnly
-                onJson={() => downloadExport('soc_validation_pending_backlog', 'json')}
               />
               <ExportBlock
                 title="Validation — Combination Matrix A–H"
@@ -667,7 +595,7 @@ function ExportBlock({
 }: {
   title: string;
   description: string;
-  badge?: 'recommended' | 'factory' | 'reference';
+  badge?: 'recommended' | 'reference';
   jsonOnly?: boolean;
   onJson: () => void;
   onCsv?: () => void;
@@ -679,11 +607,6 @@ function ExportBlock({
         {badge === 'recommended' ? (
           <Badge variant="success" className="text-[0.65rem]">
             recommended
-          </Badge>
-        ) : null}
-        {badge === 'factory' ? (
-          <Badge variant="secondary" className="text-[0.65rem]">
-            factory
           </Badge>
         ) : null}
       </div>

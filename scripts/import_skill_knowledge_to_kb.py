@@ -7,9 +7,10 @@ SOC-KB fixtures (documents/entries). Deterministic and idempotent: existing
 `skill-enrich-*` rows are replaced wholesale; `--check` exits 1 on drift.
 
 Provenance policy: GitHub/internal origin is recorded as clean tags
-(`source:github_skill_intake` / `source:internal_curated`) — never URLs or
+(`source:github_skill_provenance` / `source:internal_curated`) — never URLs or
 SKILL.md paths, so generated content can never trip the answer composer's
-provenance-marker guard. Full provenance stays in docs/skills/*.
+provenance-marker guard. Full provenance stays in the retained curated
+content_enrichment records.
 
 Usage:
   PYTHONPATH=backend:. python3 scripts/import_skill_knowledge_to_kb.py          # write
@@ -36,7 +37,7 @@ FORBIDDEN_MARKERS = ("skill.md", "github.com", "/skills/", "github_ref:")
 
 def _doc_for(record: dict[str, Any]) -> dict[str, Any]:
     use_case = record["use_case_id"]
-    origin = "source:github_skill_intake" if record.get("github_reference_skills") else "source:internal_curated"
+    origin = "source:github_skill_provenance" if record.get("github_reference_skills") else "source:internal_curated"
     return {
         "doc_id": f"{DOC_PREFIX}{use_case}-v1",
         "collection_id": "soc_sop",

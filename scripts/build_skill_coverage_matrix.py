@@ -18,8 +18,6 @@ JSON sources by explicit file path and emits a deterministic
     ``default_spl_template`` (the equality key for derivation).
   * ``backend/app/use_cases/content_enrichment.json`` — Batch 2 curated
     enrichment metadata, joined only by explicit resolved use-case id.
-  * ``docs/skills/github_skill_intake_register.json`` — Track D GitHub intake
-    decisions, keyed to internal use cases via ``internal_use_cases``.
   * ``docs/evals/question_use_case_map.json`` — BL-004 hand-curated
     ``question_ref -> use_case_id`` layer (precedence over auto-derivation).
 
@@ -31,8 +29,8 @@ and never reconstructing the live router:
      routing logic).
   3. ``missing_authoritative_mapping`` — no defensible offline source; the
      row's ``use_case_id`` and use_case-gated columns
-     (``github_reference_skill``, ``github_intake_decision``,
-     ``evidence_requirements``) stay null, with a per-question warning.
+     (``github_reference_skills``, ``evidence_requirements``) stay null, with
+     a per-question warning.
 
 Each row records ``mapping_status`` / ``mapping_source_file`` /
 ``mapping_confidence`` so the gap is auditable. Columns sourced directly from
@@ -56,7 +54,6 @@ MANIFEST_PATH = REPO_ROOT / "backend" / "app" / "coverage" / "pattern_coverage_v
 CATALOG_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "catalog.json"
 CONTENT_ENRICHMENT_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "content_enrichment.json"
 SPL_TEMPLATES_PATH = REPO_ROOT / "backend" / "app" / "spl" / "templates.json"
-INTAKE_REGISTER_PATH = REPO_ROOT / "docs" / "skills" / "github_skill_intake_register.json"
 CURATED_MAP_PATH = REPO_ROOT / "docs" / "evals" / "question_use_case_map.json"
 OUTPUT_PATH = REPO_ROOT / "docs" / "evals" / "skill_coverage_matrix.json"
 
@@ -108,31 +105,6 @@ def _index_catalog_by_use_case(catalog: Any, warnings: list[str]) -> dict[str, d
         use_case_id = record.get("use_case_id")
         if isinstance(use_case_id, str) and use_case_id:
             index[use_case_id] = record
-    return index
-
-
-def _index_register_by_use_case(register: Any, warnings: list[str]) -> dict[str, list[dict]]:
-    """Return a ``use_case_id -> [intake records]`` index from the intake register.
-
-    The register links GitHub skills to internal use cases through each
-    record's ``internal_use_cases`` list, so a single use case may carry
-    several GitHub references.
-    """
-    index: dict[str, list[dict]] = {}
-    if not isinstance(register, dict):
-        if register is not None:
-            warnings.append("intake register is not an object; github join index empty")
-        return index
-    records = register.get("records")
-    if not isinstance(records, list):
-        warnings.append("intake register missing a 'records' list; github join index empty")
-        return index
-    for record in records:
-        if not isinstance(record, dict):
-            continue
-        for use_case_id in record.get("internal_use_cases") or []:
-            if isinstance(use_case_id, str) and use_case_id:
-                index.setdefault(use_case_id, []).append(record)
     return index
 
 
@@ -381,30 +353,6 @@ def _mitre_permitted_for(entry: dict) -> list[str]:
     return []
 
 
-def _github_join(
-    use_case_id: str | None,
-    register_index: dict[str, list[dict]],
-) -> tuple[list[str] | None, list[str] | None]:
-    """Join the intake register by ``use_case_id``.
-
-    Returns ``(github_reference_skills, github_intake_decisions)`` as sorted
-    lists, or ``(None, None)`` when there is no use case to join on or no
-    matching register record.
-    """
-    if not use_case_id:
-        return None, None
-    records = register_index.get(use_case_id)
-    if not records:
-        return None, None
-    skill_ids = sorted(
-        {r["github_skill_id"] for r in records if isinstance(r.get("github_skill_id"), str)}
-    )
-    decisions = sorted(
-        {r["decision"] for r in records if isinstance(r.get("decision"), str)}
-    )
-    return (skill_ids or None), (decisions or None)
-
-
 def _github_reference_paths_from_enrichment(enrichment: dict | None) -> list[str] | None:
     """Return GitHub reference skill paths from an enrichment record."""
     if not isinstance(enrichment, dict):
@@ -428,7 +376,6 @@ def build_rows(
     template_to_use_case: dict[str, list[str]],
     curated_index: dict[str, dict],
     catalog_index: dict[str, dict],
-    register_index: dict[str, list[dict]],
     enrichment_index: dict[str, dict],
     warnings: list[str],
     spl_registry_index: dict[str, str] | None = None,
@@ -467,7 +414,7 @@ def build_rows(
         )
         if use_case_id is None:
             warnings.append(
-                f"{question_id}: {mapping_status}; use_case_id, github join, and "
+                f"{question_id}: {mapping_status}; use_case_id and "
                 "evidence_requirements are null (curate via question_use_case_map.json)"
             )
         use_case = catalog_index.get(use_case_id) if use_case_id else None
@@ -477,7 +424,6 @@ def build_rows(
             )
         enrichment = enrichment_index.get(use_case_id) if use_case_id else None
 
-        github_skills, github_decisions = _github_join(use_case_id, register_index)
         enrichment_github_refs = _github_reference_paths_from_enrichment(enrichment)
 
         rows.append(
@@ -490,9 +436,8 @@ def build_rows(
                 "mapping_confidence": mapping_confidence,
                 "live_execution_skill": entry.get("legacy_router_intent_hint"),
                 "planning_or_analytic_skill": entry.get("proposed_primary_skill"),
-                "github_reference_skill": github_skills,
+                "github_reference_skill": None,
                 "github_reference_skills": enrichment_github_refs,
-                "github_intake_decision": github_decisions,
                 "enrichment_status": enrichment.get("enrichment_status") if enrichment else None,
                 "mitre_candidates": _mitre_candidates_for(entry, use_case),
                 "mitre_permitted": _mitre_permitted_for(entry),
@@ -519,12 +464,10 @@ def generate_matrix(warnings: list[str]) -> list[dict]:
     catalog = _load_json(CATALOG_PATH, warnings)
     enrichment = _load_json(CONTENT_ENRICHMENT_PATH, warnings)
     spl_templates = _load_json(SPL_TEMPLATES_PATH, warnings)
-    register = _load_json(INTAKE_REGISTER_PATH, warnings)
     curated = _load_json(CURATED_MAP_PATH, warnings)
 
     catalog_index = _index_catalog_by_use_case(catalog, warnings)
     enrichment_index = _index_enrichment_by_use_case(enrichment, warnings)
-    register_index = _index_register_by_use_case(register, warnings)
     manifest_template_index = _index_manifest_template_by_question(manifest, warnings)
     template_to_use_case = _index_template_to_use_case(catalog_index)
     spl_registry_index = _index_spl_registry_by_template_id(spl_templates, warnings)
@@ -536,7 +479,6 @@ def generate_matrix(warnings: list[str]) -> list[dict]:
         template_to_use_case,
         curated_index,
         catalog_index,
-        register_index,
         enrichment_index,
         warnings,
         spl_registry_index=spl_registry_index,

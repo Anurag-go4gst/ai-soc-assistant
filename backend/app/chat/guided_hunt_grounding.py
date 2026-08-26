@@ -7,11 +7,12 @@ supplies advisory context for trace surfaces and weak-case LLM composition.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from app.chat.grounding_assembler import GroundingBlock, assemble_grounding
-from app.knowledge.mapping_exports import load_github_intake_register
 from app.threat.attack_data_resolver import technique_resolver_from_settings
+from app.use_cases.content_enrichment import content_enrichment_records
 
 T2_UNVERIFIED_BANNER = (
     "Out-of-catalogue, review-only — validate against local telemetry and policy."
@@ -33,9 +34,25 @@ _DETECTION_FAMILY_SIGNALS: tuple[tuple[tuple[str, ...], str], ...] = (
 
 @lru_cache(maxsize=1)
 def _skill_register_records() -> list[dict[str, Any]]:
-    register = load_github_intake_register()
-    records = register.get("records")
-    return [row for row in records if isinstance(row, dict)] if isinstance(records, list) else []
+    rows: list[dict[str, Any]] = []
+    for use_case_id, record in content_enrichment_records().items():
+        refs = record.get("github_reference_skills")
+        if not isinstance(refs, list):
+            continue
+        for ref in refs:
+            if not isinstance(ref, dict):
+                continue
+            path = str(ref.get("path") or "").strip()
+            if not path:
+                continue
+            skill_id = Path(path).parent.name if "/" in path else path
+            rows.append(
+                {
+                    "github_skill_id": skill_id,
+                    "internal_use_cases": [use_case_id],
+                }
+            )
+    return rows
 
 
 def soc_kb_refs_from_retrieval(soc_kb_retrieval: dict[str, Any] | None) -> list[str]:

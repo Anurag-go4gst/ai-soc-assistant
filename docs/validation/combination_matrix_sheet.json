@@ -2,7 +2,7 @@
   "artifact": "soc_validation_combination_matrix",
   "csv_supported": false,
   "export_kind": "validation_review_sheet",
-  "generated_at": "2026-08-20T17:15:54+00:00",
+  "generated_at": "2026-08-26T04:16:38+00:00",
   "row_counts": {
     "cases": 8
   },
@@ -51,14 +51,14 @@
     },
     {
       "case": "E",
-      "condition": "catalog + enrichment + GitHub ref",
+      "condition": "catalog + enrichment + provenance ref",
       "example_use_case_ids": [
         "auth_failed_login_spike",
         "auth_success_after_failure",
         "dns_beaconing_candidate",
         "edr_powershell_suspicious_command"
       ],
-      "planner_runtime_behavior": "Best supported; curated enrichment drives evidence plan + contract; GitHub = provenance.",
+      "planner_runtime_behavior": "Best supported; curated enrichment drives evidence plan + contract; external-origin refs are provenance only.",
       "review_note": ""
     },
     {
