@@ -252,13 +252,13 @@ explicit `SUPPORTED_NOW`, `DEFERRED`, or `SEPARATE_PRODUCT_PHASE` decision befor
 | H-TESTUX-09 | UX audit | Degradation UI | OPEN | P7 | P5 | Frontend journeys | P7 |
 | H-TESTUX-10 | Historic test audit | Dead planner test disposition | NEEDS_REPROOF | P6 | P5 | Keep/archive/replace decision with invariant owner | Decision required |
 | H-TESTUX-11 | Historic test audit | Orphan eval bank disposition | NEEDS_REPROOF | P6 | P5 | Provenance/consumer/archive decision | Decision required |
-| H-PROMO-01 | Promotion audit | Exact residual failure ledger | OPEN | P9 | P6/P7/P8 | Named baseline/candidate table | P9 |
-| H-PROMO-02 | Routing audit | `rt.para.011` | OPEN | P9 | Routing gate | Exact layer/result and decision | P9 |
-| H-PROMO-03 | Environment audit | GitHub clone-root environment | OPEN | P9 | Valid clone or operator block | Governance evidence | P9 |
-| H-PROMO-04 | Environment audit | PostgreSQL/migration/plugin failures | OPEN | P9 | Required environments | Exact test IDs/results | P9 |
-| H-PROMO-05 | Promotion | Mac/Linux same candidate SHA | OPEN | P9 | All candidate gates | SHA attestations | P9 |
-| H-PROMO-06 | Freeze audit | RACES baseline and protected changes | OPERATOR_DECISION | P0.1/P9 | Explicit approvals | P0.1 packet plus final RACES gate | Decision required |
-| H-PROMO-07 | Governance | Stage 3 governance | OPEN | P9 | Environment prerequisites | Canonical runner result | P9 |
+| H-PROMO-01 | Promotion audit | Exact residual failure ledger | DONE | P9 | P6/P7/P8 | `docs/evals/p9_promotion/residual_failure_ledger_v1.json` | P9 |
+| H-PROMO-02 | Routing audit | `rt.para.011` | OPERATOR_ADJUDICATE | P9 | Routing gate | Pre-existing P6+; `--check` FAIL named only | P9 |
+| H-PROMO-03 | Environment audit | GitHub clone-root environment | CLOSED | P9 | Retirement removed test | Factory residual cleared | P9 |
+| H-PROMO-04 | Environment audit | PostgreSQL/migration/plugin failures | PARTIAL | P9 | Migration 7p/2s; PG integration 1p/35s | Exact IDs in ledger | P9 |
+| H-PROMO-05 | Promotion | Mac/Linux same candidate SHA | ENVIRONMENT_BLOCKED | P9 | Docker daemon down on Mac host | Linux attestation pending | P9 |
+| H-PROMO-06 | Freeze audit | RACES baseline and protected changes | DONE | P0.1/P9 | RACES 8/8; freeze probe PASS | P9 remasure | P9 |
+| H-PROMO-07 | Governance | Stage 3 governance | PARTIAL | P9 | Composite FAIL at golden Tier0 (2 named, =P8 tip); shadow/parity/cisco/dispatch PASS | Named residuals | P9 |
 | H-PROMO-08 | Architecture | Live MCP last | DEFERRED | P11 | P10 + separate approval | COE authorization/evidence | P11 only |
 
 ## Protected-file policy
@@ -858,10 +858,10 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **Evidence (2026-08-26 binding proof + Qwen72B ACTIVE — do not rewrite L3-2):** P8 evidence tip before this continuation: `9f12de89`. Wire-side binding: `LocalChatClient` hashes provider system message; `live_system_prompt` records selected instruction; eval arm made visible inside sidecar worker threads (`EVAL_AB_HARNESS_DEFECT` found: ContextVar arm defaulted to ACTIVE in ThreadPool → T4/planner wire used ACTIVE text while registry identity claimed CANDIDATE). Fair candidate rerun prefix `ab_binding_fair`: `binding_proven=true`, harness_defect=false; SEMANTIC_T4 / SPL / PLANNER bound hashes match expected `6e897303…` / `42ede55d…` / `ff1a47c9…`. Classification retained `MODEL_CAPABILITY_CANDIDATE`; no 1.3+ candidates; no promotion. Office models: `:8004` foundation-sec-instruct 8B; `:8003` foundation-sec-reasoning 8B; `:8000` `./qwen72b` (72B instruct, max_model_len 32768) CURRENTLY_SERVABLE=YES. Selected comparison: Qwen72B ACTIVE prompts only (no failed 8B candidates). Artifacts `docs/evals/p8_l3/ab_qwen72b_active_*`. vs 8B ACTIVE: semantic 0.2885→0.4423; initial_pass 0.20→0.2667; T4 accept 0/4→4/4; SPL 1/5→1/5; planner schema FAIL→FAIL; fallback 0.3125→0.3125; authority 0; evidence hallucinations 0; latency P50/P95/MAX 3302/16819/17092 ms. Frozen floors still FAIL (semantic & initial_pass). MODEL_WINNER_BY_ROLE: T4=QWEN72B; SPL=TIE_BOTH_FAIL; PLANNER=TIE_BOTH_FAIL. MODEL_QUALITY_GATE=FAIL. Role gaps: T4_MODEL_GAP narrowed but semantic floors unmet; SPL_MODEL_GAP; PLANNER_MODEL_GAP / SCHEMA_CONSTRAINING_GAP. Protected packets completed (not applied): `docs/evals/p8_d/protected_change_packet.md` J7 exact pipeline diff + ChatPanel exact empty-state diff. Diagnostic dump: ChatBubble/Stage3DTrace already collapsed; AnalystSummaryCard 6-stat grid unprotected polish; Lab draft = POLISH. Retirement branch `ws/github-skill-factory-retirement` @ `0b719561` not merged. LIVE_MCP_USED=NO. PROMPTS_PROMOTED=NO. PUSH_PERFORMED=NO. P9_ACTION=BLOCKED.
 
 - [ ] **P9 - Promotion governance and residual failure adjudication**
-  - **STATUS:** TODO
+  - **STATUS:** PARTIAL — Mac evidence complete; Linux ENVIRONMENT_BLOCKED; named residuals await operator adjudication. Decision `P9_PARTIAL` / `NO-GO_FULL_PROMOTION`. Do not start P10.
   - **OWNER:** Workstream F / integration CODEX
-  - **BASE_SHA:** Candidate integration SHA containing P6, P7, and P8 outcomes.
-  - **DEPENDENCIES:** P6, P7, P8.
+  - **BASE_SHA:** `c109402d69956df455a780fd49a191fa173ab7ac` (P8 frozen tip; P6/P7/P8 ancestors).
+  - **DEPENDENCIES:** P6, P7, P8. (satisfied)
   - **ALLOWED_FILES:** Promotion evidence, eval reports, plan/loop status; defects return to owning stream.
   - **PROTECTED_FILES:** `architecture.md` plus every enumerated `RACES_FREEZE_PATHS` prefix (see Protected-file policy); advancing any baseline requires protected approval.
   - **MISSION:** Prove one exact candidate SHA on Mac and isolated Linux, carrying every residual by exact test identity and promotion decision.
@@ -874,7 +874,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **EXPECTED_COMMIT_GROUPS:** `docs(promotion): record exact-sha gate and residual evidence`; owning-stream fixes are separate commits before rerun.
   - **OUTPUT_REQUIRED:** Complete residual ledger, gate matrix, exact final candidate SHA, operator GO/NO-GO recommendation, branch packet.
   - **NEXT_PHASE_UNLOCK:** P10 only on operator-accepted GO.
-  - **Evidence:** Pending.
+  - **Evidence:** Candidate SHA `c109402d69956df455a780fd49a191fa173ab7ac` on `ws/p9-execution`. Artifacts: `docs/evals/p9_promotion/{residual_failure_ledger_v1,gate_matrix_v1,go_nogo_v1}.json` + `branch_packet.md`. Mac: backend 7109/0; FE 119+build; RACES 8; protected 15/15; bank `5f78ccbe…`; 105-path 105/105; harness 6/6; clean-answer 120; template 19/19; shadow PASS; parity 120 exact; Cisco 50/0/0; dispatch 5/5. Routing `--check` FAIL only `rt.para.011` (pre-existing P6+). Golden Tier0 2 fails identical to P8 tip `64c95798`. Stage3 composite FAIL early at those goldens. GitHub factory residual CLOSED (retired). Migration 7p/2s; PG integration 1p/35s. P4 handoff e2e pair PASS. Linux exact-SHA: Docker daemon unavailable → ENVIRONMENT_BLOCKED. Unexplained regressions: 0. LIVE_MCP=OFF. PUSH=NO. P10 not started.
 
 - [ ] **P10 - PR and merge handoff**
   - **STATUS:** TODO

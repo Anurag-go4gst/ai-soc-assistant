@@ -7,12 +7,14 @@ Use this file as the durable execution dashboard. Update it only during authoriz
 ## Control state
 
 ```yaml
-CURRENT_PHASE: P8_BINDING_PROVEN_QWEN72B_ACTIVE_STILL_FAIL_FLOORS
-CURRENT_BASE_SHA: 472ed89864e2323799ea7a13ab4c4fbef8e30185
-INTEGRATION_SHA: 472ed89864e2323799ea7a13ab4c4fbef8e30185
-EXECUTION_INTEGRATION_SHA: 472ed89864e2323799ea7a13ab4c4fbef8e30185
+CURRENT_PHASE: P9_PARTIAL_MAC_COMPLETE_LINUX_BLOCKED
+CURRENT_BASE_SHA: c109402d69956df455a780fd49a191fa173ab7ac
+INTEGRATION_SHA: c109402d69956df455a780fd49a191fa173ab7ac
+EXECUTION_INTEGRATION_SHA: c109402d69956df455a780fd49a191fa173ab7ac
 FINAL_CLEAN_INTEGRATION_SHA: b6e4befe9a79dd722a09a09fdd345bae82880884
 LIVE_EVAL_PRODUCT_SHA: b6e4befe9a79dd722a09a09fdd345bae82880884
+P8_FROZEN_SHA: c109402d69956df455a780fd49a191fa173ab7ac
+P9_CANDIDATE_SHA: c109402d69956df455a780fd49a191fa173ab7ac
 P8_EVIDENCE_COMMIT_SHA: 9f12de89bf19541a5002bd240160dad81010fa9b
 P4_1_LAST_TEST_SHA: 7f763b5b12078534e96f1860474138b7dcc83707
 P4_1_STATUS: CLEAN_WITH_ENVIRONMENT_RESIDUAL
@@ -30,12 +32,15 @@ LOOP_ITERATION_ID: NONE
 READY_FOR_OPERATOR_REVIEW: YES
 PYVENV: /Users/aagarwal/Downloads/ai-soc-assistant-t4-architecture-20260821/.venv/bin/python
 INTEGRATION_BRANCH: feat/complete-or-abstain-t4-ux
+P9_BRANCH: ws/p9-execution
 INTEGRATION_OWNER: CODEX
-ACTIVE_WORKSTREAMS: []
+ACTIVE_WORKSTREAMS:
+  - P9 promotion evidence (Mac done; awaiting Linux + residual adjudication)
 BLOCKED_WORKSTREAMS:
-  - P8 model gate still FAIL after proven binding + Qwen72B ACTIVE; do not promote; do not start P9
-  - P8-J7 knowledge_recall remediation offer requires protected pipeline decision (exact diff ready)
-  - P8-D ChatPanel DemoScenarioPicker remains on production /chat (exact diff ready)
+  - P9 Linux exact-SHA validation ENVIRONMENT_BLOCKED (Docker daemon down)
+  - P9 H-PROMO-02 rt.para.011 needs operator accept/fix
+  - P9 golden Tier0 two named residuals (=P8 tip) need operator adjudication
+  - P10 blocked until P9 GO
 COMPLETED_WORKSTREAMS:
   - P0: Harness readiness at 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
   - P0.1: RACES baseline advanced and verified at ae03a2502ab4c83797151a11d4effa47d9d4532b
@@ -53,8 +58,10 @@ COMPLETED_WORKSTREAMS:
   - P8-C/D: journeys 7/8 J7 fail; production /chat browser exercised; UI/UX remaining ChatPanel leakage
   - P8 binding: fair wire proof YES (`ab_binding_fair`); harness ContextVar defect fixed
   - P8 model compare: Qwen72B ACTIVE improves T4 accept 0→4 and semantic 0.2885→0.4423; floors still FAIL; SPL/planner still fail
+  - P8 FINAL FF: primary fast-forwarded to c109402d; P8_COMPLETE / P9_ELIGIBLE
+  - P9 Mac gates + residual ledger recorded under docs/evals/p9_promotion/; decision P9_PARTIAL
 NEXT_SAFE_PARALLEL_STARTS:
-  - None. Operator approval of exact protected diffs (J7 + ChatPanel). Do not start P9. Do not merge retirement branch yet.
+  - Operator: adjudicate named P9 residuals; start Docker and attach Linux attestation at c109402d. Do not start P10 until P9_COMPLETE/GO.
 RECONCILIATION_QUEUE:
   - REQUEST_ID: P1-T2-EVIDENCESTATE-OWNERSHIP
     REQUESTING_STREAM: A TRACE
@@ -642,6 +649,7 @@ Append decisions; do not rewrite history.
 | 2026-08-26 P8 L3-2 | P8 | ACTIVE baseline measurement of frozen 16-row bank on office vLLM; harness-only H1–H3 then rerun; do not tune prompts or create candidate | 16/16; LLM success 0.3077; semantic 0.2885; initial_pass 0.20; 0 authority / 0 evidence hallucinations; RACES 8; LIVE-RQC 10; P0 L2 13 | BASELINE_FAIL_REQUIRES_CANDIDATE; P9 blocked; no candidate; no live MCP; no push |
 | 2026-08-26 P8-A/B/C/D | P8 | Bounded candidates + fair A/B + journey bank + production /chat browser; do not promote; do not start P9 | A/B no gated gain; journeys 7/8 J7 fail; browser exercised; backend 7081/1 GitHub residual; frontend 118+build | P8_FAIL_MODEL_CAPABILITY_REVIEW; recommend larger model for t4/spl/planner; protected packets J7+ChatPanel; no live MCP; no push |
 | 2026-08-26 P8 binding+models | P8 | Fix eval-arm ContextVar harness defect; fair wire binding; ACTIVE compare Qwen72B + Reasoning 8B; exact protected diffs prepared not applied | `ab_binding_fair` MATCH=YES; Qwen semantic 0.4423 T4 4/4 floors FAIL; Reasoning 8B worse than Instruct (semantic 0.2273, SPL 0/5) | MODEL_QUALITY_GATE FAIL; no promotion; P9 blocked; operator packets ready |
+| 2026-08-26 P9 Mac promotion | P9 | Residual ledger + Mac gate matrix on frozen tip c109402d; no product edits; no baseline refresh | backend 7109/0; FE 119+build; RACES 8; named residuals rt.para.011 + golden Tier0×2; Linux Docker blocked | P9_PARTIAL / NO-GO_FULL_PROMOTION; P10 not started; LIVE_MCP OFF |
 
 ## Runner stop
 

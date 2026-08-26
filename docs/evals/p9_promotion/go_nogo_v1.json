@@ -1,0 +1,53 @@
+{
+  "decision_id": "p9_promotion_go_nogo_v1",
+  "candidate_sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+  "p8_frozen_sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+  "measured_at": "2026-08-26T18:50:00+05:30",
+  "host": "mac-darwin-arm64",
+  "live_mcp": "OFF",
+  "decision": "P9_PARTIAL",
+  "go_nogo": "NO-GO_FULL_PROMOTION",
+  "go_nogo_rationale": [
+    "Mac promotion evidence is substantially complete with zero unexplained regressions.",
+    "Exact-SHA Linux validation is ENVIRONMENT_BLOCKED (Docker daemon unavailable) — P9 ACCEPTANCE requires Mac and Linux same SHA.",
+    "Three named residuals require explicit operator adjudication before FULL GO: rt.para.011 (H-PROMO-02), golden Tier0 binding clarification, golden Tier0 AWS SG.",
+    "Composite Stage3 governance script fails early solely due to the named golden Tier0 residuals (identical at P8 product tip)."
+  ],
+  "what_is_green": [
+    "Full backend 7109/0",
+    "Frontend 119 + build",
+    "RACES 8/8",
+    "Protected baseline 15/15",
+    "Bank hash match",
+    "105-path 105/105",
+    "Harness 6/6",
+    "Clean-answer 120/120",
+    "Template audit 19/19",
+    "105-shadow PASS",
+    "Dual parity 120 exact",
+    "Cisco 50/0/0",
+    "Dispatch 5/5",
+    "GitHub clone residual CLOSED by retirement"
+  ],
+  "named_residuals_for_operator": [
+    {
+      "id": "H-PROMO-02",
+      "ask": "Accept carry of rt.para.011 frozen-arm drift (pre-existing P6+) without baseline refresh?"
+    },
+    {
+      "id": "GOLDEN_TIER0_*",
+      "ask": "Accept two golden Tier0 expectation mismatches identical to P8 tip, or return to Workstream B for golden update / product fix?"
+    },
+    {
+      "id": "H-PROMO-05",
+      "ask": "Run exact-SHA Linux validation when Docker is available and attach attestation."
+    }
+  ],
+  "p10_eligible_to_start": false,
+  "p10_note": "Do not start P10 until P9 reaches COMPLETE with Linux attestation and operator adjudication of named residuals (or explicit operator waiver).",
+  "artifacts": [
+    "docs/evals/p9_promotion/residual_failure_ledger_v1.json",
+    "docs/evals/p9_promotion/gate_matrix_v1.json",
+    "docs/evals/p9_promotion/go_nogo_v1.json"
+  ]
+}

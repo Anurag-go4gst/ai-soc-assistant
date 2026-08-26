@@ -1,0 +1,206 @@
+{
+  "matrix_id": "p9_promotion_gate_matrix_v1",
+  "candidate_sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+  "measured_at": "2026-08-26T18:45:00+05:30",
+  "host": "mac-darwin-arm64",
+  "live_mcp": "OFF",
+  "gates": [
+    {
+      "gate_id": "MAC-BACKEND-FULL",
+      "command": "cd backend && python3 -m pytest -q --tb=line -p no:cacheprovider",
+      "env": "PYTHONPATH=../backend:.. ; no live MCP",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "7109 passed, 0 failed, 45 skipped, 6 xfailed",
+      "artifact": "/tmp/p9_gates/backend_full.txt"
+    },
+    {
+      "gate_id": "MAC-FRONTEND-TEST",
+      "command": "cd frontend && npm test -- --run",
+      "env": "node",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "119 passed",
+      "artifact": "/tmp/p9_gates/frontend_test.txt"
+    },
+    {
+      "gate_id": "MAC-FRONTEND-BUILD",
+      "command": "cd frontend && npm run build",
+      "env": "node",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "tsc + vite build OK; postbuild chmod applied",
+      "artifact": "/tmp/p9_gates/frontend_build.txt"
+    },
+    {
+      "gate_id": "MAC-RACES",
+      "command": "cd backend && python3 -m pytest app/tests/test_races_*.py -q --tb=line -p no:cacheprovider",
+      "env": "PYTHONPATH=../backend:..",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "8 passed",
+      "artifact": "/tmp/p9_gates/races.txt"
+    },
+    {
+      "gate_id": "MAC-ARCHITECTURE-FREEZE",
+      "command": "scripts/freeze_execution_baseline.py --check",
+      "env": "docs/evals/protected_execution_baseline.json",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "15/15 protected members match",
+      "artifact": "/tmp/p9_gates/protected_baseline.txt"
+    },
+    {
+      "gate_id": "MAC-BANK-HASH",
+      "command": "sha256sum docs/evals/t4_semantic_serving_bank_v1.json (or equivalent)",
+      "env": "frozen bank",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "canonical hash 5f78ccbe1940149a67dcd1052140c44c854ec42a409d7644b47e5357010dbf51",
+      "artifact": "/tmp/p9_gates/bank_hash.txt"
+    },
+    {
+      "gate_id": "MAC-105-PATH",
+      "command": "scripts/eval_question_runtime_path.py --check",
+      "env": "PYTHONPATH=backend:.",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "105/105",
+      "artifact": "/tmp/p9_gates/105_path.txt"
+    },
+    {
+      "gate_id": "MAC-ROUTING-TRUTH-ABSOLUTE",
+      "command": "scripts/eval_routing_truth_set.py --arm both",
+      "env": "PYTHONPATH=backend:.",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS_ABSOLUTE",
+      "detail": "67/85 route_ok (absolute; matches non-check PASS semantics)",
+      "artifact": "/tmp/p9_gates/routing_truth.txt"
+    },
+    {
+      "gate_id": "MAC-ROUTING-TRUTH-CHECK",
+      "command": "scripts/eval_routing_truth_set.py --arm both --check",
+      "env": "PYTHONPATH=backend:.; baseline docs/evals/routing_truth_set_baseline_v1.json",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "FAIL_NAMED_RESIDUAL",
+      "detail": "2 regressions both rt.para.011 (PRE_EXISTING since P6+; see residual ledger)",
+      "artifact": "/tmp/p9_gates/routing_truth_check.txt",
+      "residual_id": "H-PROMO-02"
+    },
+    {
+      "gate_id": "MAC-HARNESS",
+      "command": "TELEMETRY_MODE=none PYTHONPATH=backend:. python3 -m test_harness.harness.runner --json",
+      "env": "TELEMETRY_MODE=none",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "6/6",
+      "artifact": "/tmp/p9_gates/harness.txt"
+    },
+    {
+      "gate_id": "MAC-MIGRATION",
+      "command": "cd backend && python3 -m pytest app/tests/test_migration_readiness.py -q",
+      "env": "PYTHONPATH=../backend:..",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "7 passed, 2 skipped",
+      "artifact": "/tmp/p9_gates/migration.txt"
+    },
+    {
+      "gate_id": "MAC-INTEGRATION-PG",
+      "command": "cd backend && python3 -m pytest app/tests/integration -q",
+      "env": "no DATABASE_URL / compose PG for this host probe",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS_WITH_SKIPS",
+      "detail": "1 passed, 35 skipped",
+      "artifact": "/tmp/p9_gates/integration.txt",
+      "residual_id": "H-PROMO-04-POSTGRES"
+    },
+    {
+      "gate_id": "MAC-CLEAN-ANSWER",
+      "command": "scripts/run_soc_clean_answer_eval.py --check",
+      "env": "PYTHONPATH=backend:.",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "120/120; pytest 17 passed",
+      "artifact": "/tmp/p9_gates/clean_answer.txt"
+    },
+    {
+      "gate_id": "MAC-TEMPLATE-AUDIT",
+      "command": "scripts/llm_template_audit.py --write-report",
+      "env": "PYTHONPATH=backend:.",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "19/19 templates",
+      "artifact": "/tmp/p9_gates/template_audit.txt"
+    },
+    {
+      "gate_id": "MAC-GOLDEN-TIER0",
+      "command": "python3 -m app.evals.golden_answer_runner --tier 0",
+      "env": "PYTHONPATH=backend:.; MCP off",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "FAIL_NAMED_RESIDUAL",
+      "detail": "2 fails identical to P8 product tip 64c95798",
+      "artifact": "/tmp/p9_gates/golden_tier0.json",
+      "residual_ids": [
+        "GOLDEN_TIER0_BINDING_CLARIFICATION",
+        "GOLDEN_TIER0_AWS_SG"
+      ]
+    },
+    {
+      "gate_id": "MAC-105-SHADOW",
+      "command": "scripts/run_105_shadow_eval.py --check (or governance section)",
+      "env": "PYTHONPATH=backend:.",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "PASS",
+      "artifact": "/tmp/p9_gates/shadow.txt"
+    },
+    {
+      "gate_id": "MAC-DUAL-PARITY",
+      "command": "scripts/eval_langgraph_dual_parity.py --check",
+      "env": "PYTHONPATH=backend:.",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "120 exact / 0 critical",
+      "artifact": "/tmp/p9_gates/parity.txt"
+    },
+    {
+      "gate_id": "MAC-CISCO-50",
+      "command": "scripts/eval_cisco_50.py --check (or governance section)",
+      "env": "PYTHONPATH=backend:.",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "50/0/0",
+      "artifact": "/tmp/p9_gates/cisco.txt"
+    },
+    {
+      "gate_id": "MAC-DISPATCH-MATRIX",
+      "command": "scripts/eval_dispatch_matrix.py --check",
+      "env": "PYTHONPATH=backend:.",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "PASS",
+      "detail": "5/5",
+      "artifact": "/tmp/p9_gates/dispatch.txt"
+    },
+    {
+      "gate_id": "MAC-STAGE3-COMPOSITE",
+      "command": "./scripts/run_stage3_governance_regression.sh",
+      "env": "full script; early-exits on golden Tier 0",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "FAIL_COMPOSITE_NAMED_GOLDEN",
+      "detail": "Fails at golden Tier 0 (pre-existing). Later sections PASS when re-run independently.",
+      "artifact": "/tmp/p9_gates/governance.txt",
+      "residual_id": "H-PROMO-07"
+    },
+    {
+      "gate_id": "LINUX-EXACT-SHA",
+      "command": "Isolated Linux docker/compose validation at exact candidate SHA",
+      "env": "Docker daemon required",
+      "sha": "c109402d69956df455a780fd49a191fa173ab7ac",
+      "result": "ENVIRONMENT_BLOCKED",
+      "detail": "Cannot connect to the Docker daemon at unix:///Users/aagarwal/.docker/run/docker.sock",
+      "artifact": "/tmp/p9_gates/linux_probe.txt",
+      "residual_id": "H-PROMO-05"
+    }
+  ]
+}
