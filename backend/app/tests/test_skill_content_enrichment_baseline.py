@@ -10,8 +10,6 @@ from app.routing.skills import SKILL_ENUM
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ENRICHMENT_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "content_enrichment.json"
-INTAKE_PATH = REPO_ROOT / "docs" / "skills" / "github_skill_intake_register.json"
-STATUS_MATRIX_PATH = REPO_ROOT / "docs" / "skills" / "skill_enrichment_status_matrix.md"
 COVERAGE_MATRIX_PATH = REPO_ROOT / "docs" / "evals" / "skill_coverage_matrix.json"
 GENERATOR_PATH = REPO_ROOT / "scripts" / "build_skill_coverage_matrix.py"
 REGISTRY_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "registry.py"
@@ -119,16 +117,16 @@ def test_content_enrichment_exists_and_is_valid_json() -> None:
     assert set(payload["records"]) == REQUIRED_RECORD_IDS
 
 
-def test_required_github_reference_skills_are_represented_in_intake_and_status_docs() -> None:
-    intake = _load_json(INTAKE_PATH)
-    assert isinstance(intake, dict)
-    intake_skill_ids = {record["github_skill_id"] for record in intake["records"]}
+def test_required_external_reference_skills_are_preserved_as_curated_provenance() -> None:
+    records = _load_enrichment_records()
+    referenced = {
+        str(reference["path"]).split("/")[1]
+        for record in records.values()
+        for reference in record.get("github_reference_skills") or []
+        if isinstance(reference, dict) and isinstance(reference.get("path"), str)
+    }
 
-    status_doc = STATUS_MATRIX_PATH.read_text(encoding="utf-8")
-
-    assert REQUIRED_GITHUB_SKILLS <= intake_skill_ids
-    for skill_id in REQUIRED_GITHUB_SKILLS:
-        assert skill_id in status_doc
+    assert REQUIRED_GITHUB_SKILLS <= referenced
 
 
 def test_every_enrichment_record_has_required_contract_fields() -> None:

@@ -29,7 +29,7 @@ def test_mapping_summary_endpoint_matches_crosswalk() -> None:
 
     assert summary["row_counts"]["question_rows"] == 105
     assert summary["row_counts"]["use_case_rows"] == 45
-    assert summary["row_counts"]["github_skill_rows"] == 12
+    assert summary["row_counts"]["enrichment_records"] == 13
     assert summary["live_route_skills"] == list(
         ("alert_summary", "spl_generation", "attack_discovery", "knowledge_recall", "guided_investigation")
     )
@@ -107,7 +107,7 @@ def test_soc_capability_crosswalk_json_export_contains_expected_rows() -> None:
     assert payload["artifact"] == "soc_capability_crosswalk"
     assert payload["row_counts"]["question_rows"] == 105
     assert payload["row_counts"]["use_case_rows"] == 45
-    assert payload["row_counts"]["github_skill_rows"] == 12
+    assert payload["row_counts"]["enrichment_records"] == 13
     assert payload["mitre_metadata_role"] == MITRE_METADATA_ROLE
 
 
@@ -133,77 +133,22 @@ def test_skill_coverage_matrix_csv_includes_mapping_and_metadata_role() -> None:
     assert q062["use_case_id"] == "auth_failed_login_spike"
 
 
-def test_github_intake_register_export_works() -> None:
-    response = export_mapping_artifact("github_skill_intake_register", file_format="json")
-    payload = json.loads(response.body)
-
-    assert payload["artifact"] == "github_skill_intake_register"
-    assert payload["row_count"] == 12
-    assert payload["records"][0]["github_skill_id"]
-
-
-def test_github_intake_register_csv_export_works() -> None:
-    response = export_mapping_artifact("github_intake", file_format="csv")
-    rows = list(csv.DictReader(io.StringIO(response.body.decode("utf-8"))))
-
-    assert len(rows) == 12
-    assert rows[0]["github_skill_id"]
-
-
-def test_github_skill_discovery_export_works() -> None:
-    response = export_mapping_artifact("github_skill_discovery_index", file_format="json")
-    payload = json.loads(response.body)
-
-    assert payload["artifact"] == "github_skill_discovery_index"
-    assert payload["row_counts"]["accepted_for_enrichment"] == 12
-
-
-def test_github_skill_triage_export_works() -> None:
-    response = export_mapping_artifact("github_skill_triage_scores", file_format="json")
-    payload = json.loads(response.body)
-
-    assert payload["artifact"] == "github_skill_triage_scores"
-    assert payload["row_counts"]["scores"] >= 7
-
-
-def test_proposed_use_cases_export_works() -> None:
-    response = export_mapping_artifact("proposed_use_cases_from_github", file_format="json")
-    payload = json.loads(response.body)
-
-    assert payload["artifact"] == "proposed_use_cases_from_github"
-    assert payload["row_counts"]["proposed_use_cases"] >= 1
-
-
-def test_skill_enrichment_status_matrix_json_export_works() -> None:
-    response = export_mapping_artifact("skill_enrichment_status_matrix", file_format="json")
-    payload = json.loads(response.body)
-
-    assert payload["artifact"] == "skill_enrichment_status_matrix"
-    assert payload.get("export_kind") == "json_backed"
-    assert payload["row_counts"]["use_cases"] == 13
-
-
-def test_rejected_github_skills_markdown_export_works() -> None:
-    response = export_mapping_artifact("rejected_github_skills", file_format="json")
-    payload = json.loads(response.body)
-
-    assert payload["artifact"] == "rejected_github_skills"
-    assert "Rejected GitHub Skills" in payload["content"]
-
-
-def test_pending_skill_enrichment_backlog_json_export_works() -> None:
-    response = export_mapping_artifact("pending_backlog", file_format="json")
-    payload = json.loads(response.body)
-
-    assert payload["artifact"] == "pending_skill_enrichment_backlog"
-    assert payload.get("export_kind") == "json_backed"
-    assert payload["row_counts"]["backlog_items"] >= 1
-
-
-def test_markdown_exports_reject_csv() -> None:
+@pytest.mark.parametrize(
+    "artifact",
+    [
+        "github_skill_intake_register",
+        "github_skill_discovery_index",
+        "github_skill_triage_scores",
+        "proposed_use_cases_from_github",
+        "skill_enrichment_status_matrix",
+        "rejected_github_skills",
+        "pending_skill_enrichment_backlog",
+    ],
+)
+def test_retired_github_factory_exports_are_removed(artifact: str) -> None:
     with pytest.raises(HTTPException) as exc:
-        export_mapping_artifact("rejected_github_skills", file_format="csv")
-    assert exc.value.status_code == 400
+        export_mapping_artifact(artifact, file_format="json")
+    assert exc.value.status_code == 404
 
 
 def test_soc_validation_exports_cover_all_phase10_artifacts() -> None:
@@ -212,10 +157,7 @@ def test_soc_validation_exports_cover_all_phase10_artifacts() -> None:
         "soc_validation_spl_templates",
         "soc_validation_mitre",
         "soc_validation_questions",
-        "soc_validation_github_enrichment",
-        "soc_validation_github_batch_intake",
         "soc_validation_rag_sop",
-        "soc_validation_pending_backlog",
         "soc_validation_combination_matrix",
         "soc_validation_demo_scenarios",
     }
@@ -231,22 +173,9 @@ def test_soc_validation_json_exports(artifact: str) -> None:
     assert len(payload["rows"]) >= 1
 
 
-def test_soc_validation_github_batch_intake_export() -> None:
-    response = export_mapping_artifact("soc_validation_github_batch_intake", file_format="json")
-    payload = json.loads(response.body)
-    assert payload["row_counts"]["batches"] == 1
-
-
 def test_soc_validation_combination_matrix_has_eight_cases() -> None:
     response = export_mapping_artifact("soc_validation_combination_matrix", file_format="json")
     payload = json.loads(response.body)
     assert payload["row_counts"]["cases"] == 8
     codes = {row["case"] for row in payload["rows"]}
     assert codes == {"A", "B", "C", "D", "E", "F", "G", "H"}
-
-
-def test_soc_validation_pending_backlog_phase10_export() -> None:
-    response = export_mapping_artifact("soc_validation_pending_backlog", file_format="json")
-    payload = json.loads(response.body)
-    assert payload["artifact"] == "soc_validation_pending_backlog"
-    assert payload["row_counts"]["backlog_items"] >= 1

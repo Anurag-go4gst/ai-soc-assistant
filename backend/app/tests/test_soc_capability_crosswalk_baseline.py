@@ -25,7 +25,6 @@ REQUIRED_TOP_LEVEL_KEYS = {
     "row_counts",
     "question_rows",
     "use_case_rows",
-    "github_skill_rows",
     "warnings",
 }
 
@@ -69,10 +68,11 @@ def test_crosswalk_file_exists_with_schema(crosswalk: dict) -> None:
     assert REQUIRED_TOP_LEVEL_KEYS.issubset(crosswalk.keys())
     assert crosswalk["row_counts"]["question_rows"] == 105
     assert crosswalk["row_counts"]["use_case_rows"] == 45
-    assert crosswalk["row_counts"]["github_skill_rows"] == 12
     assert crosswalk["row_counts"]["catalog_use_cases"] == 42
     assert crosswalk["row_counts"]["enrichment_records"] == 13
     assert crosswalk["row_counts"]["enrichment_only_use_cases"] == 3
+    assert "github_skill_rows" not in crosswalk
+    assert "factory_visibility" not in crosswalk
 
 
 def test_question_and_use_case_rows_have_required_fields(crosswalk: dict) -> None:
@@ -96,19 +96,6 @@ def test_no_enrichment_only_runtime_active(crosswalk: dict) -> None:
     for row in crosswalk["use_case_rows"]:
         if row.get("catalog_present") is False and row.get("enrichment_present") is True:
             assert row["runtime_support_status"] != "runtime_active"
-
-
-def test_no_github_skill_runtime_active(crosswalk: dict) -> None:
-    for row in crosswalk["github_skill_rows"]:
-        assert row["runtime_support_status"] != "runtime_active"
-        assert row.get("runtime_skill") is False
-
-
-def test_github_skills_map_to_use_cases_or_state(crosswalk: dict) -> None:
-    for row in crosswalk["github_skill_rows"]:
-        mapped_ids = row.get("mapped_use_case_ids") or []
-        mapping_state = row.get("mapping_state")
-        assert mapped_ids or mapping_state in {"deferred", "rejected", "mapped"}
 
 
 def test_runtime_active_rows_satisfy_activation_rules(crosswalk: dict) -> None:
@@ -137,7 +124,6 @@ def test_knowledge_export_includes_soc_capability_crosswalk() -> None:
     assert payload["artifact"] == "soc_capability_crosswalk"
     assert payload["row_counts"]["question_rows"] == 105
     assert payload["row_counts"]["use_case_rows"] == 45
-    assert payload["row_counts"]["github_skill_rows"] == 12
     assert len(payload["question_rows"]) == 105
     assert payload["mitre_metadata_role"] == MITRE_METADATA_ROLE
 
@@ -146,7 +132,7 @@ def test_knowledge_export_csv_includes_row_kinds() -> None:
     response = export_mapping_artifact("crosswalk", file_format="csv")
     body = response.body.decode("utf-8")
     assert "row_kind" in body.splitlines()[0]
-    assert body.count("\n") >= 105 + 45 + 7
+    assert body.count("\n") >= 105 + 45
 
 
 def test_generator_is_not_imported_by_runtime_chat_path() -> None:
@@ -166,4 +152,3 @@ def test_generator_check_matches_committed_artifact() -> None:
     assert generated["row_counts"] == committed["row_counts"]
     assert len(generated["question_rows"]) == len(committed["question_rows"])
     assert len(generated["use_case_rows"]) == len(committed["use_case_rows"])
-    assert len(generated["github_skill_rows"]) == len(committed["github_skill_rows"])

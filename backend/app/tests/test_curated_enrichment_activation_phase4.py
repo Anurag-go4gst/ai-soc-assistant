@@ -15,7 +15,7 @@ from app.use_cases.content_enrichment import (
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CROSSWALK_PATH = REPO_ROOT / "docs" / "evals" / "soc_capability_crosswalk.json"
-FACTORY_PATHS = [
+RETIRED_FACTORY_PATHS = [
     REPO_ROOT / "docs" / "skills" / "github_skill_discovery_index.json",
     REPO_ROOT / "docs" / "skills" / "github_skill_triage_scores.json",
     REPO_ROOT / "docs" / "skills" / "proposed_use_cases_from_github.json",
@@ -156,10 +156,11 @@ def test_canonical_runtime_surfaces_planning_trace(monkeypatch) -> None:
     assert response.planning_decision["execution_enabled"] is False
 
 
-def test_knowledge_crosswalk_and_factory_artifacts_remain_present() -> None:
+def test_knowledge_crosswalk_retired_factory_artifacts_removed() -> None:
     crosswalk = json.loads(CROSSWALK_PATH.read_text(encoding="utf-8"))
 
     assert crosswalk["use_case_rows"]
-    assert crosswalk["github_skill_rows"]
-    assert crosswalk["proposed_use_case_rows"]
-    assert all(path.exists() for path in FACTORY_PATHS)
+    assert "github_skill_rows" not in crosswalk
+    assert "proposed_use_case_rows" not in crosswalk
+    assert "factory_visibility" not in crosswalk
+    assert all(not path.exists() for path in RETIRED_FACTORY_PATHS)
