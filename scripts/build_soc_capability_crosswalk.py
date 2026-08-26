@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Build the SOC Capability Crosswalk spine (Phase 0 offline artifact).
 
-Connects 105 question/runtime rows, 49 use-case catalog/export rows, 4 allowed
-live execution skills, and 7 accepted GitHub-derived enrichments into a single
-governed mapping document for SOC review and Knowledge exports.
+Connects 105 question/runtime rows, use-case catalog/export rows, 4 allowed
+live execution skills, and retained curated enrichments into a single governed
+mapping document for SOC review and Knowledge exports.
 
 OFFLINE ONLY — must not import ``app.*`` and must not be wired into ``/chat``.
 """
@@ -23,10 +23,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_MAP_PATH = REPO_ROOT / "backend" / "app" / "coverage" / "question_runtime_map_v1.json"
 CATALOG_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "catalog.json"
 CONTENT_ENRICHMENT_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "content_enrichment.json"
-INTAKE_REGISTER_PATH = REPO_ROOT / "docs" / "skills" / "github_skill_intake_register.json"
-DISCOVERY_INDEX_PATH = REPO_ROOT / "docs" / "skills" / "github_skill_discovery_index.json"
-TRIAGE_SCORES_PATH = REPO_ROOT / "docs" / "skills" / "github_skill_triage_scores.json"
-PROPOSED_USE_CASES_PATH = REPO_ROOT / "docs" / "skills" / "proposed_use_cases_from_github.json"
 SPL_TEMPLATES_PATH = REPO_ROOT / "backend" / "app" / "spl" / "templates.json"
 MATRIX_GENERATOR_PATH = REPO_ROOT / "scripts" / "build_skill_coverage_matrix.py"
 OUTPUT_PATH = REPO_ROOT / "docs" / "evals" / "soc_capability_crosswalk.json"
@@ -44,17 +40,6 @@ CATALOG_SKILL_COLLAPSE: dict[str, str] = {
     "mitre_mapping": "knowledge_recall",
     "ticket_drafting": "knowledge_recall",
 }
-
-GITHUB_NOT_RUNTIME_NOTE = (
-    "GitHub-derived skills are provenance/enrichment reference only; "
-    "never runtime skills and never loaded as raw SKILL.md into prompts or RAG."
-)
-
-GITHUB_ACCEPTANCE_NOTE = (
-    "GitHub decision=accept means accepted_for_enrichment only — not runtime_active "
-    "and not a live execution skill."
-)
-
 
 def _load_json(path: Path, warnings: list[str]) -> Any:
     try:
@@ -116,19 +101,6 @@ def _index_templates(templates: Any, warnings: list[str]) -> dict[str, dict[str,
     for record in templates.get("templates") or []:
         if isinstance(record, dict) and record.get("template_id"):
             index[str(record["template_id"])] = record
-    return index
-
-
-def _index_intake_by_use_case(register: Any, warnings: list[str]) -> dict[str, list[dict[str, Any]]]:
-    index: dict[str, list[dict[str, Any]]] = {}
-    if not isinstance(register, dict):
-        return index
-    for record in register.get("records") or []:
-        if not isinstance(record, dict):
-            continue
-        for use_case_id in record.get("internal_use_cases") or []:
-            if isinstance(use_case_id, str) and use_case_id:
-                index.setdefault(use_case_id, []).append(record)
     return index
 
 
@@ -263,14 +235,9 @@ def _rag_status(enrichment: dict[str, Any] | None) -> str:
 
 def _derive_tests_added(
     enrichment: dict[str, Any] | None,
-    intake_records: list[dict[str, Any]],
 ) -> bool:
     if enrichment and enrichment.get("test_status") == "tested":
         return True
-    for record in intake_records:
-        impl = record.get("implementation_status")
-        if isinstance(impl, dict) and impl.get("tests_added") is True:
-            return True
     return False
 
 
@@ -289,14 +256,9 @@ def _derive_validation_status(
 
 def _no_runtime_markdown_loading(
     enrichment: dict[str, Any] | None,
-    intake_records: list[dict[str, Any]],
 ) -> bool:
     if enrichment:
         safety = enrichment.get("safety_review")
-        if isinstance(safety, dict) and safety.get("no_runtime_markdown_loading") is False:
-            return False
-    for record in intake_records:
-        safety = record.get("safety_review")
         if isinstance(safety, dict) and safety.get("no_runtime_markdown_loading") is False:
             return False
     return True
@@ -348,7 +310,6 @@ def _build_common_row_fields(
     use_case_id: str | None,
     catalog: dict[str, Any] | None,
     enrichment: dict[str, Any] | None,
-    intake_records: list[dict[str, Any]],
     matrix_row: dict[str, Any] | None,
     live_execution_skill: str | None,
     planning_or_analytic_skill: str | None,
@@ -359,9 +320,9 @@ def _build_common_row_fields(
 ) -> dict[str, Any]:
     catalog_present = catalog is not None
     enrichment_present = enrichment is not None
-    tests_added = _derive_tests_added(enrichment, intake_records)
+    tests_added = _derive_tests_added(enrichment)
     validation_status = _derive_validation_status(enrichment, tests_added)
-    no_runtime_md = _no_runtime_markdown_loading(enrichment, intake_records)
+    no_runtime_md = _no_runtime_markdown_loading(enrichment)
     mitre_candidates = _mitre_candidates(matrix_row, catalog, enrichment)
     runtime_status = _derive_runtime_support_status(
         catalog_present=catalog_present,
@@ -416,7 +377,6 @@ def _build_question_rows(
     runtime_map: dict[str, Any],
     catalog_index: dict[str, dict[str, Any]],
     enrichment_index: dict[str, dict[str, Any]],
-    intake_by_use_case: dict[str, list[dict[str, Any]]],
     template_index: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
     runtime_by_ref: dict[str, dict[str, Any]] = {}
@@ -430,7 +390,6 @@ def _build_question_rows(
         use_case_id = matrix_row.get("use_case_id")
         catalog = catalog_index.get(use_case_id) if use_case_id else None
         enrichment = enrichment_index.get(use_case_id) if use_case_id else None
-        intake_records = intake_by_use_case.get(use_case_id or "", [])
         runtime_entry = runtime_by_ref.get(question_id, {})
         live_skill = matrix_row.get("live_execution_skill")
         if live_skill not in ALLOWED_LIVE_SKILLS:
@@ -454,7 +413,6 @@ def _build_question_rows(
             use_case_id=use_case_id,
             catalog=catalog,
             enrichment=enrichment,
-            intake_records=intake_records,
             matrix_row=matrix_row,
             live_execution_skill=live_skill,
             planning_or_analytic_skill=planning_skill,
@@ -480,7 +438,6 @@ def _build_question_rows(
 def _build_use_case_rows(
     catalog_index: dict[str, dict[str, Any]],
     enrichment_index: dict[str, dict[str, Any]],
-    intake_by_use_case: dict[str, list[dict[str, Any]]],
     template_index: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
@@ -488,7 +445,6 @@ def _build_use_case_rows(
 
     for use_case_id, catalog in sorted(catalog_index.items()):
         enrichment = enrichment_index.get(use_case_id)
-        intake_records = intake_by_use_case.get(use_case_id, [])
         live_skill = _collapse_live_skill(
             (enrichment or {}).get("live_execution_skill") or catalog.get("primary_skill")
         )
@@ -505,7 +461,6 @@ def _build_use_case_rows(
             use_case_id=use_case_id,
             catalog=catalog,
             enrichment=enrichment,
-            intake_records=intake_records,
             matrix_row=None,
             live_execution_skill=live_skill,
             planning_or_analytic_skill=planning_skill,
@@ -526,7 +481,6 @@ def _build_use_case_rows(
     for use_case_id, enrichment in sorted(enrichment_index.items()):
         if use_case_id in seen:
             continue
-        intake_records = intake_by_use_case.get(use_case_id, [])
         spl_status = _registry_spl_template_status(
             catalog=None,
             enrichment=enrichment,
@@ -537,7 +491,6 @@ def _build_use_case_rows(
             use_case_id=use_case_id,
             catalog=None,
             enrichment=enrichment,
-            intake_records=intake_records,
             matrix_row=None,
             live_execution_skill=_collapse_live_skill(enrichment.get("live_execution_skill")),
             planning_or_analytic_skill=enrichment.get("planning_or_analytic_skill"),
@@ -558,112 +511,6 @@ def _build_use_case_rows(
     return rows
 
 
-def _index_discovery(discovery: Any) -> dict[str, dict[str, Any]]:
-    index: dict[str, dict[str, Any]] = {}
-    if not isinstance(discovery, dict):
-        return index
-    for row in discovery.get("skills") or []:
-        if isinstance(row, dict) and row.get("github_skill_id"):
-            index[str(row["github_skill_id"])] = row
-    return index
-
-
-def _index_triage(triage: Any) -> dict[str, dict[str, Any]]:
-    index: dict[str, dict[str, Any]] = {}
-    if not isinstance(triage, dict):
-        return index
-    for row in triage.get("scores") or []:
-        if isinstance(row, dict) and row.get("github_skill_id"):
-            index[str(row["github_skill_id"])] = row
-    return index
-
-
-def _index_proposed_by_github_skill(proposed: Any) -> dict[str, list[str]]:
-    index: dict[str, list[str]] = {}
-    if not isinstance(proposed, dict):
-        return index
-    for row in proposed.get("proposed_use_cases") or []:
-        if not isinstance(row, dict):
-            continue
-        skill_id = row.get("source_github_skill_id")
-        proposed_id = row.get("proposed_use_case_id")
-        if isinstance(skill_id, str) and isinstance(proposed_id, str):
-            index.setdefault(skill_id, []).append(proposed_id)
-    return index
-
-
-def _build_github_skill_rows(
-    register: dict[str, Any],
-    enrichment_index: dict[str, dict[str, Any]],
-    discovery_index: dict[str, dict[str, Any]],
-    triage_index: dict[str, dict[str, Any]],
-    proposed_by_skill: dict[str, list[str]],
-) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for record in register.get("records") or []:
-        if not isinstance(record, dict):
-            continue
-        github_skill_id = record.get("github_skill_id")
-        internal_use_cases = [
-            uc for uc in (record.get("internal_use_cases") or []) if isinstance(uc, str) and uc
-        ]
-        mapped_use_case_id = internal_use_cases[0] if len(internal_use_cases) == 1 else None
-        mapping_state = (
-            "mapped"
-            if internal_use_cases
-            else ("deferred" if record.get("decision") == "defer" else "rejected")
-        )
-        enrichment = enrichment_index.get(mapped_use_case_id) if mapped_use_case_id else None
-        impl = record.get("implementation_status") if isinstance(record.get("implementation_status"), dict) else {}
-        safety = record.get("safety_review") if isinstance(record.get("safety_review"), dict) else {}
-        discovery = discovery_index.get(str(github_skill_id)) if github_skill_id else None
-        triage = triage_index.get(str(github_skill_id)) if github_skill_id else None
-        proposed_ids = proposed_by_skill.get(str(github_skill_id), [])
-        rows.append(
-            {
-                "github_skill_id": github_skill_id,
-                "decision": record.get("decision"),
-                "review_status": record.get("review_status"),
-                "acceptance_means": (
-                    "accepted_for_enrichment_only"
-                    if record.get("decision") == "accept"
-                    else None
-                ),
-                "mapping_state": mapping_state,
-                "mapped_use_case_id": mapped_use_case_id,
-                "mapped_use_case_ids": internal_use_cases,
-                "proposed_use_case_ids": proposed_ids,
-                "runtime_skill": False,
-                "runtime_support_status": "metadata_only",
-                "validation_status": (
-                    "tests_added" if impl.get("tests_added") else "needs_soc_review"
-                ),
-                "tests_added": bool(impl.get("tests_added")),
-                "evidence_requirements_added": bool(impl.get("evidence_requirements_added")),
-                "content_enrichment_added": bool(impl.get("content_enrichment_added")),
-                "github_reuse_type": record.get("reuse_type"),
-                "no_runtime_markdown_loading": safety.get("no_runtime_markdown_loading", True),
-                "usage_note": GITHUB_NOT_RUNTIME_NOTE,
-                "acceptance_not_runtime_activation": GITHUB_ACCEPTANCE_NOTE,
-                "factory_visibility": {
-                    "discovery_present": discovery is not None,
-                    "discovery_review_status": discovery.get("review_status") if discovery else None,
-                    "triage_recommended_decision": triage.get("recommended_decision") if triage else None,
-                    "triage_priority": triage.get("priority") if triage else None,
-                    "triage_soc_relevance": triage.get("soc_relevance") if triage else None,
-                    "proposed_use_case_ids": proposed_ids,
-                },
-                "enrichment_linkage": {
-                    "use_case_id": mapped_use_case_id,
-                    "enrichment_present": enrichment is not None,
-                    "github_reference_paths": _github_reference_paths(enrichment),
-                },
-            }
-        )
-    rows.sort(key=lambda row: str(row.get("github_skill_id")))
-    return rows
-
-
 def generate_crosswalk(warnings: list[str]) -> dict[str, Any]:
     matrix_mod = _load_matrix_generator()
     matrix_rows = matrix_mod.generate_matrix(warnings)
@@ -671,47 +518,25 @@ def generate_crosswalk(warnings: list[str]) -> dict[str, Any]:
     runtime_map = _load_json(RUNTIME_MAP_PATH, warnings) or {}
     catalog = _load_json(CATALOG_PATH, warnings)
     enrichment = _load_json(CONTENT_ENRICHMENT_PATH, warnings)
-    register = _load_json(INTAKE_REGISTER_PATH, warnings) or {}
-    discovery = _load_json(DISCOVERY_INDEX_PATH, warnings)
-    triage = _load_json(TRIAGE_SCORES_PATH, warnings)
-    proposed = _load_json(PROPOSED_USE_CASES_PATH, warnings)
-    if discovery is None:
-        warnings.append("Phase 0B discovery index missing; github factory_visibility will be partial")
-    if triage is None:
-        warnings.append("Phase 0B triage scores missing; github factory_visibility will be partial")
 
     catalog_index = _index_catalog(catalog, warnings)
     enrichment_index = _index_enrichment(enrichment, warnings)
     template_index = _index_templates(_load_json(SPL_TEMPLATES_PATH, warnings), warnings)
-    intake_by_use_case = _index_intake_by_use_case(register, warnings)
-    discovery_index = _index_discovery(discovery)
-    triage_index = _index_triage(triage)
-    proposed_by_skill = _index_proposed_by_github_skill(proposed)
 
     question_rows = _build_question_rows(
         matrix_rows,
         runtime_map,
         catalog_index,
         enrichment_index,
-        intake_by_use_case,
         template_index,
     )
     use_case_rows = _build_use_case_rows(
-        catalog_index, enrichment_index, intake_by_use_case, template_index
+        catalog_index, enrichment_index, template_index
     )
-    github_skill_rows = _build_github_skill_rows(
-        register,
-        enrichment_index,
-        discovery_index,
-        triage_index,
-        proposed_by_skill,
-    )
-    proposed_use_case_rows = proposed.get("proposed_use_cases") if isinstance(proposed, dict) else []
 
     expected_questions = 105
     enrichment_only_ids = set(enrichment_index) - set(catalog_index)
     expected_use_cases = len(catalog_index) + len(enrichment_only_ids)
-    expected_github = 12
     if len(question_rows) != expected_questions:
         warnings.append(
             f"question row count drift: expected {expected_questions}, got {len(question_rows)}"
@@ -720,10 +545,6 @@ def generate_crosswalk(warnings: list[str]) -> dict[str, Any]:
         warnings.append(
             f"use_case row count drift: expected {expected_use_cases} "
             f"(catalog {len(catalog_index)} + enrichment-only {len(enrichment_only_ids)}), got {len(use_case_rows)}"
-        )
-    if len(github_skill_rows) != expected_github:
-        warnings.append(
-            f"github_skill row count drift: expected {expected_github}, got {len(github_skill_rows)}"
         )
 
     return {
@@ -734,26 +555,14 @@ def generate_crosswalk(warnings: list[str]) -> dict[str, Any]:
         "row_counts": {
             "question_rows": len(question_rows),
             "use_case_rows": len(use_case_rows),
-            "github_skill_rows": len(github_skill_rows),
-            "proposed_use_case_rows": len(proposed_use_case_rows or []),
             "catalog_use_cases": len(catalog_index),
             "enrichment_records": len(enrichment_index),
             "enrichment_only_use_cases": len(enrichment_index) - len(
                 set(enrichment_index) & set(catalog_index)
             ),
-            "discovery_skills": len(discovery_index),
-            "triage_scores": len(triage_index),
-        },
-        "factory_visibility": {
-            "discovery_index_present": discovery is not None,
-            "triage_scores_present": triage is not None,
-            "proposed_use_cases_present": proposed is not None,
-            "github_acceptance_not_runtime_activation": GITHUB_ACCEPTANCE_NOTE,
         },
         "question_rows": question_rows,
         "use_case_rows": use_case_rows,
-        "github_skill_rows": github_skill_rows,
-        "proposed_use_case_rows": proposed_use_case_rows or [],
         "warnings": warnings,
     }
 
@@ -818,8 +627,7 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"wrote {OUTPUT_PATH} "
         f"(questions={payload['row_counts']['question_rows']}, "
-        f"use_cases={payload['row_counts']['use_case_rows']}, "
-        f"github={payload['row_counts']['github_skill_rows']})."
+        f"use_cases={payload['row_counts']['use_case_rows']})."
     )
     return 0
 

@@ -5,557 +5,8 @@
     "knowledge_recall",
     "spl_generation"
   ],
-  "factory_visibility": {
-    "discovery_index_present": true,
-    "github_acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
-    "proposed_use_cases_present": true,
-    "triage_scores_present": true
-  },
-  "generated_at": "2026-08-20T17:15:54+00:00",
-  "github_skill_rows": [
-    {
-      "acceptance_means": "accepted_for_enrichment_only",
-      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
-      "content_enrichment_added": true,
-      "decision": "accept",
-      "enrichment_linkage": {
-        "enrichment_present": true,
-        "github_reference_paths": [
-          "skills/analyzing-email-headers-for-phishing-investigation/SKILL.md",
-          "skills/triaging-security-alerts-in-splunk/SKILL.md"
-        ],
-        "use_case_id": "email_phishing_header_review"
-      },
-      "evidence_requirements_added": true,
-      "factory_visibility": {
-        "discovery_present": true,
-        "discovery_review_status": "accepted_for_enrichment",
-        "proposed_use_case_ids": [
-          "email_phishing_header_review"
-        ],
-        "triage_priority": "P1",
-        "triage_recommended_decision": "accept_for_enrichment_only",
-        "triage_soc_relevance": 0.9
-      },
-      "github_reuse_type": "evidence_reference",
-      "github_skill_id": "analyzing-email-headers-for-phishing-investigation",
-      "mapped_use_case_id": "email_phishing_header_review",
-      "mapped_use_case_ids": [
-        "email_phishing_header_review"
-      ],
-      "mapping_state": "mapped",
-      "no_runtime_markdown_loading": true,
-      "proposed_use_case_ids": [
-        "email_phishing_header_review"
-      ],
-      "review_status": "accepted_for_enrichment",
-      "runtime_skill": false,
-      "runtime_support_status": "metadata_only",
-      "tests_added": true,
-      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
-      "validation_status": "tests_added"
-    },
-    {
-      "acceptance_means": "accepted_for_enrichment_only",
-      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
-      "content_enrichment_added": true,
-      "decision": "accept",
-      "enrichment_linkage": {
-        "enrichment_present": true,
-        "github_reference_paths": [
-          "skills/analyzing-ransomware-encryption-mechanisms/SKILL.md",
-          "skills/triaging-security-incident-with-ir-playbook/SKILL.md"
-        ],
-        "use_case_id": "endpoint_ransomware_impact_review"
-      },
-      "evidence_requirements_added": true,
-      "factory_visibility": {
-        "discovery_present": true,
-        "discovery_review_status": "accepted_for_enrichment",
-        "proposed_use_case_ids": [
-          "endpoint_ransomware_impact_review"
-        ],
-        "triage_priority": "P1",
-        "triage_recommended_decision": "accept_for_enrichment_only",
-        "triage_soc_relevance": 0.9
-      },
-      "github_reuse_type": "evidence_reference",
-      "github_skill_id": "analyzing-ransomware-encryption-mechanisms",
-      "mapped_use_case_id": "endpoint_ransomware_impact_review",
-      "mapped_use_case_ids": [
-        "endpoint_ransomware_impact_review"
-      ],
-      "mapping_state": "mapped",
-      "no_runtime_markdown_loading": true,
-      "proposed_use_case_ids": [
-        "endpoint_ransomware_impact_review"
-      ],
-      "review_status": "accepted_for_enrichment",
-      "runtime_skill": false,
-      "runtime_support_status": "metadata_only",
-      "tests_added": true,
-      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
-      "validation_status": "tests_added"
-    },
-    {
-      "acceptance_means": "accepted_for_enrichment_only",
-      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
-      "content_enrichment_added": false,
-      "decision": "accept",
-      "enrichment_linkage": {
-        "enrichment_present": false,
-        "github_reference_paths": [],
-        "use_case_id": null
-      },
-      "evidence_requirements_added": false,
-      "factory_visibility": {
-        "discovery_present": true,
-        "discovery_review_status": "accepted_for_enrichment",
-        "proposed_use_case_ids": [],
-        "triage_priority": "P1",
-        "triage_recommended_decision": "accept_for_enrichment_only",
-        "triage_soc_relevance": 0.9
-      },
-      "github_reuse_type": "sop_reference",
-      "github_skill_id": "automating-ioc-enrichment",
-      "mapped_use_case_id": null,
-      "mapped_use_case_ids": [],
-      "mapping_state": "rejected",
-      "no_runtime_markdown_loading": true,
-      "proposed_use_case_ids": [],
-      "review_status": "accepted_for_enrichment",
-      "runtime_skill": false,
-      "runtime_support_status": "metadata_only",
-      "tests_added": false,
-      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "acceptance_means": "accepted_for_enrichment_only",
-      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
-      "content_enrichment_added": false,
-      "decision": "accept",
-      "enrichment_linkage": {
-        "enrichment_present": false,
-        "github_reference_paths": [],
-        "use_case_id": null
-      },
-      "evidence_requirements_added": false,
-      "factory_visibility": {
-        "discovery_present": true,
-        "discovery_review_status": "accepted_for_enrichment",
-        "proposed_use_case_ids": [],
-        "triage_priority": "P1",
-        "triage_recommended_decision": "accept_for_enrichment_only",
-        "triage_soc_relevance": 0.9
-      },
-      "github_reuse_type": "sop_reference",
-      "github_skill_id": "building-threat-intelligence-enrichment-in-splunk",
-      "mapped_use_case_id": null,
-      "mapped_use_case_ids": [],
-      "mapping_state": "rejected",
-      "no_runtime_markdown_loading": true,
-      "proposed_use_case_ids": [],
-      "review_status": "accepted_for_enrichment",
-      "runtime_skill": false,
-      "runtime_support_status": "metadata_only",
-      "tests_added": false,
-      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "acceptance_means": "accepted_for_enrichment_only",
-      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
-      "content_enrichment_added": false,
-      "decision": "accept",
-      "enrichment_linkage": {
-        "enrichment_present": false,
-        "github_reference_paths": [],
-        "use_case_id": null
-      },
-      "evidence_requirements_added": false,
-      "factory_visibility": {
-        "discovery_present": true,
-        "discovery_review_status": "accepted_for_enrichment",
-        "proposed_use_case_ids": [],
-        "triage_priority": "P1",
-        "triage_recommended_decision": "accept_for_enrichment_only",
-        "triage_soc_relevance": 0.9
-      },
-      "github_reuse_type": "sop_reference",
-      "github_skill_id": "configuring-windows-event-logging-for-detection",
-      "mapped_use_case_id": null,
-      "mapped_use_case_ids": [],
-      "mapping_state": "rejected",
-      "no_runtime_markdown_loading": true,
-      "proposed_use_case_ids": [],
-      "review_status": "accepted_for_enrichment",
-      "runtime_skill": false,
-      "runtime_support_status": "metadata_only",
-      "tests_added": false,
-      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "acceptance_means": "accepted_for_enrichment_only",
-      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
-      "content_enrichment_added": true,
-      "decision": "accept",
-      "enrichment_linkage": {
-        "enrichment_present": false,
-        "github_reference_paths": [],
-        "use_case_id": null
-      },
-      "evidence_requirements_added": true,
-      "factory_visibility": {
-        "discovery_present": true,
-        "discovery_review_status": "accepted_for_enrichment",
-        "proposed_use_case_ids": [],
-        "triage_priority": "P0",
-        "triage_recommended_decision": "accept_for_enrichment_only",
-        "triage_soc_relevance": 0.9
-      },
-      "github_reuse_type": "workflow_reference",
-      "github_skill_id": "detecting-rdp-brute-force-attacks",
-      "mapped_use_case_id": null,
-      "mapped_use_case_ids": [
-        "auth_failed_login_spike",
-        "auth_success_after_failure"
-      ],
-      "mapping_state": "mapped",
-      "no_runtime_markdown_loading": true,
-      "proposed_use_case_ids": [],
-      "review_status": "accepted_for_enrichment",
-      "runtime_skill": false,
-      "runtime_support_status": "metadata_only",
-      "tests_added": true,
-      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
-      "validation_status": "tests_added"
-    },
-    {
-      "acceptance_means": "accepted_for_enrichment_only",
-      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
-      "content_enrichment_added": true,
-      "decision": "accept",
-      "enrichment_linkage": {
-        "enrichment_present": true,
-        "github_reference_paths": [
-          "skills/hunting-for-anomalous-powershell-execution/SKILL.md"
-        ],
-        "use_case_id": "edr_powershell_suspicious_command"
-      },
-      "evidence_requirements_added": true,
-      "factory_visibility": {
-        "discovery_present": true,
-        "discovery_review_status": "accepted_for_enrichment",
-        "proposed_use_case_ids": [],
-        "triage_priority": "P1",
-        "triage_recommended_decision": "accept_for_enrichment_only",
-        "triage_soc_relevance": 0.9
-      },
-      "github_reuse_type": "evidence_reference",
-      "github_skill_id": "hunting-for-anomalous-powershell-execution",
-      "mapped_use_case_id": "edr_powershell_suspicious_command",
-      "mapped_use_case_ids": [
-        "edr_powershell_suspicious_command"
-      ],
-      "mapping_state": "mapped",
-      "no_runtime_markdown_loading": true,
-      "proposed_use_case_ids": [],
-      "review_status": "accepted_for_enrichment",
-      "runtime_skill": false,
-      "runtime_support_status": "metadata_only",
-      "tests_added": true,
-      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
-      "validation_status": "tests_added"
-    },
-    {
-      "acceptance_means": "accepted_for_enrichment_only",
-      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
-      "content_enrichment_added": true,
-      "decision": "accept",
-      "enrichment_linkage": {
-        "enrichment_present": true,
-        "github_reference_paths": [
-          "skills/hunting-for-command-and-control-beaconing/SKILL.md"
-        ],
-        "use_case_id": "dns_beaconing_candidate"
-      },
-      "evidence_requirements_added": true,
-      "factory_visibility": {
-        "discovery_present": true,
-        "discovery_review_status": "accepted_for_enrichment",
-        "proposed_use_case_ids": [],
-        "triage_priority": "P1",
-        "triage_recommended_decision": "accept_for_enrichment_only",
-        "triage_soc_relevance": 0.9
-      },
-      "github_reuse_type": "evidence_reference",
-      "github_skill_id": "hunting-for-command-and-control-beaconing",
-      "mapped_use_case_id": "dns_beaconing_candidate",
-      "mapped_use_case_ids": [
-        "dns_beaconing_candidate"
-      ],
-      "mapping_state": "mapped",
-      "no_runtime_markdown_loading": true,
-      "proposed_use_case_ids": [],
-      "review_status": "accepted_for_enrichment",
-      "runtime_skill": false,
-      "runtime_support_status": "metadata_only",
-      "tests_added": true,
-      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
-      "validation_status": "tests_added"
-    },
-    {
-      "acceptance_means": "accepted_for_enrichment_only",
-      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
-      "content_enrichment_added": false,
-      "decision": "accept",
-      "enrichment_linkage": {
-        "enrichment_present": false,
-        "github_reference_paths": [],
-        "use_case_id": null
-      },
-      "evidence_requirements_added": false,
-      "factory_visibility": {
-        "discovery_present": true,
-        "discovery_review_status": "accepted_for_enrichment",
-        "proposed_use_case_ids": [],
-        "triage_priority": "P1",
-        "triage_recommended_decision": "accept_for_enrichment_only",
-        "triage_soc_relevance": 0.9
-      },
-      "github_reuse_type": "sop_reference",
-      "github_skill_id": "implementing-alert-fatigue-reduction",
-      "mapped_use_case_id": null,
-      "mapped_use_case_ids": [],
-      "mapping_state": "rejected",
-      "no_runtime_markdown_loading": true,
-      "proposed_use_case_ids": [],
-      "review_status": "accepted_for_enrichment",
-      "runtime_skill": false,
-      "runtime_support_status": "metadata_only",
-      "tests_added": false,
-      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "acceptance_means": "accepted_for_enrichment_only",
-      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
-      "content_enrichment_added": false,
-      "decision": "accept",
-      "enrichment_linkage": {
-        "enrichment_present": false,
-        "github_reference_paths": [],
-        "use_case_id": null
-      },
-      "evidence_requirements_added": false,
-      "factory_visibility": {
-        "discovery_present": true,
-        "discovery_review_status": "accepted_for_enrichment",
-        "proposed_use_case_ids": [],
-        "triage_priority": "P1",
-        "triage_recommended_decision": "accept_for_enrichment_only",
-        "triage_soc_relevance": 0.9
-      },
-      "github_reuse_type": "sop_reference",
-      "github_skill_id": "performing-asset-criticality-scoring-for-vulns",
-      "mapped_use_case_id": null,
-      "mapped_use_case_ids": [],
-      "mapping_state": "rejected",
-      "no_runtime_markdown_loading": true,
-      "proposed_use_case_ids": [],
-      "review_status": "accepted_for_enrichment",
-      "runtime_skill": false,
-      "runtime_support_status": "metadata_only",
-      "tests_added": false,
-      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
-      "validation_status": "needs_soc_review"
-    },
-    {
-      "acceptance_means": "accepted_for_enrichment_only",
-      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
-      "content_enrichment_added": true,
-      "decision": "accept",
-      "enrichment_linkage": {
-        "enrichment_present": false,
-        "github_reference_paths": [],
-        "use_case_id": null
-      },
-      "evidence_requirements_added": true,
-      "factory_visibility": {
-        "discovery_present": true,
-        "discovery_review_status": "accepted_for_enrichment",
-        "proposed_use_case_ids": [],
-        "triage_priority": "P0",
-        "triage_recommended_decision": "accept_for_enrichment_only",
-        "triage_soc_relevance": 0.9
-      },
-      "github_reuse_type": "sop_reference",
-      "github_skill_id": "triaging-security-alerts-in-splunk",
-      "mapped_use_case_id": null,
-      "mapped_use_case_ids": [
-        "auth_failed_login_spike",
-        "auth_success_after_failure",
-        "soc_incident_triage"
-      ],
-      "mapping_state": "mapped",
-      "no_runtime_markdown_loading": true,
-      "proposed_use_case_ids": [],
-      "review_status": "accepted_for_enrichment",
-      "runtime_skill": false,
-      "runtime_support_status": "metadata_only",
-      "tests_added": true,
-      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
-      "validation_status": "tests_added"
-    },
-    {
-      "acceptance_means": "accepted_for_enrichment_only",
-      "acceptance_not_runtime_activation": "GitHub decision=accept means accepted_for_enrichment only — not runtime_active and not a live execution skill.",
-      "content_enrichment_added": true,
-      "decision": "accept",
-      "enrichment_linkage": {
-        "enrichment_present": false,
-        "github_reference_paths": [],
-        "use_case_id": null
-      },
-      "evidence_requirements_added": true,
-      "factory_visibility": {
-        "discovery_present": true,
-        "discovery_review_status": "accepted_for_enrichment",
-        "proposed_use_case_ids": [
-          "soc_incident_triage"
-        ],
-        "triage_priority": "P1",
-        "triage_recommended_decision": "accept_for_enrichment_only",
-        "triage_soc_relevance": 0.9
-      },
-      "github_reuse_type": "sop_reference",
-      "github_skill_id": "triaging-security-incident-with-ir-playbook",
-      "mapped_use_case_id": null,
-      "mapped_use_case_ids": [
-        "soc_incident_triage",
-        "soc_show_sop"
-      ],
-      "mapping_state": "mapped",
-      "no_runtime_markdown_loading": true,
-      "proposed_use_case_ids": [
-        "soc_incident_triage"
-      ],
-      "review_status": "accepted_for_enrichment",
-      "runtime_skill": false,
-      "runtime_support_status": "metadata_only",
-      "tests_added": true,
-      "usage_note": "GitHub-derived skills are provenance/enrichment reference only; never runtime skills and never loaded as raw SKILL.md into prompts or RAG.",
-      "validation_status": "tests_added"
-    }
-  ],
+  "generated_at": "2026-08-26T04:15:13+00:00",
   "mitre_metadata_role": "metadata_not_evidence",
-  "proposed_use_case_rows": [
-    {
-      "catalog_promotion_required": true,
-      "evidence_requirements": [
-        "sender",
-        "return_path",
-        "reply_to",
-        "SPF",
-        "DKIM",
-        "DMARC",
-        "URLs/domains",
-        "attachments/hashes",
-        "recipients",
-        "mail_gateway_verdict"
-      ],
-      "github_acceptance_not_runtime_activation": true,
-      "implementation_status": "content_added",
-      "mitre_metadata": {
-        "candidates": [
-          "T1566",
-          "T1566.001",
-          "T1566.002"
-        ],
-        "role": "metadata_not_evidence"
-      },
-      "proposed_display_name": "email phishing header review",
-      "proposed_domain": "phishing-defense",
-      "proposed_live_execution_skill": "attack_discovery",
-      "proposed_planning_skill": "phishing_triage",
-      "proposed_subdomain": "email-header-analysis",
-      "proposed_use_case_id": "email_phishing_header_review",
-      "rag_sop_need": false,
-      "required_sources": [],
-      "runtime_support_status": "metadata_only",
-      "safety_notes": "Derived from curated enrichment metadata only; not catalog-promoted.",
-      "soc_approval_status": "needs_soc_review",
-      "source_github_skill_id": "analyzing-email-headers-for-phishing-investigation",
-      "spl_template_need": "planned"
-    },
-    {
-      "catalog_promotion_required": true,
-      "evidence_requirements": [
-        "file_rename_count",
-        "extension_pattern",
-        "affected_paths",
-        "process_name",
-        "shadow_copy_deletion_indicator",
-        "service_stop_event",
-        "encryption_behavior",
-        "impacted_host_count"
-      ],
-      "github_acceptance_not_runtime_activation": true,
-      "implementation_status": "content_added",
-      "mitre_metadata": {
-        "candidates": [
-          "T1486"
-        ],
-        "role": "metadata_not_evidence"
-      },
-      "proposed_display_name": "endpoint ransomware impact review",
-      "proposed_domain": "ransomware-defense",
-      "proposed_live_execution_skill": "attack_discovery",
-      "proposed_planning_skill": "ransomware_impact_review",
-      "proposed_subdomain": "impact-assessment",
-      "proposed_use_case_id": "endpoint_ransomware_impact_review",
-      "rag_sop_need": true,
-      "required_sources": [],
-      "runtime_support_status": "metadata_only",
-      "safety_notes": "Derived from curated enrichment metadata only; not catalog-promoted.",
-      "soc_approval_status": "needs_soc_review",
-      "source_github_skill_id": "analyzing-ransomware-encryption-mechanisms",
-      "spl_template_need": "planned"
-    },
-    {
-      "catalog_promotion_required": true,
-      "evidence_requirements": [
-        "alert_type",
-        "affected_asset",
-        "user",
-        "severity_policy_inputs",
-        "current_status",
-        "prior_related_alerts",
-        "containment_state"
-      ],
-      "github_acceptance_not_runtime_activation": true,
-      "implementation_status": "content_added",
-      "mitre_metadata": {
-        "candidates": [],
-        "role": "metadata_not_evidence"
-      },
-      "proposed_display_name": "soc incident triage",
-      "proposed_domain": "incident-response",
-      "proposed_live_execution_skill": "alert_summary",
-      "proposed_planning_skill": "incident_triage_playbook",
-      "proposed_subdomain": "incident-triage",
-      "proposed_use_case_id": "soc_incident_triage",
-      "rag_sop_need": true,
-      "required_sources": [],
-      "runtime_support_status": "metadata_only",
-      "safety_notes": "Derived from curated enrichment metadata only; not catalog-promoted.",
-      "soc_approval_status": "needs_soc_review",
-      "source_github_skill_id": "triaging-security-incident-with-ir-playbook",
-      "spl_template_need": "unavailable"
-    }
-  ],
   "question_rows": [
     {
       "answer_rules_status": "missing",
@@ -3766,13 +3217,9 @@
   ],
   "row_counts": {
     "catalog_use_cases": 42,
-    "discovery_skills": 754,
     "enrichment_only_use_cases": 3,
     "enrichment_records": 13,
-    "github_skill_rows": 12,
-    "proposed_use_case_rows": 3,
     "question_rows": 105,
-    "triage_scores": 754,
     "use_case_rows": 45
   },
   "schema_version": "2026-06-07-phase0b-v1",
@@ -5665,78 +5112,78 @@
       "runtime_support_status": "planned",
       "spl_template_id": null,
       "spl_template_status": "unavailable",
-      "tests_added": true,
+      "tests_added": false,
       "use_case_id": "soc_show_sop",
-      "validation_status": "tests_added"
+      "validation_status": "needs_soc_review"
     }
   ],
   "warnings": [
-    "q0.q001: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q003: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q005: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q006: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q007: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q008: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q010: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q011: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q012: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q015: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q018: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q019: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q020: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q021: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q023: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q024: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q025: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q027: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q028: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q029: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q030: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q032: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q034: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q037: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q039: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q040: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q044: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q045: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q048: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q049: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q050: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q053: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q055: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q056: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q058: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q059: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q061: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q064: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q065: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q066: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q068: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q069: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q071: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q072: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q073: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q074: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q080: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q081: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q084: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q085: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q086: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q087: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q088: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q090: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q091: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q092: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q093: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q094: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q095: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q096: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q099: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q100: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q101: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q102: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q103: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q104: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)",
-    "q0.q105: missing_authoritative_mapping; use_case_id, github join, and evidence_requirements are null (curate via question_use_case_map.json)"
+    "q0.q001: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q003: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q005: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q006: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q007: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q008: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q010: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q011: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q012: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q015: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q018: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q019: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q020: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q021: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q023: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q024: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q025: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q027: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q028: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q029: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q030: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q032: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q034: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q037: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q039: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q040: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q044: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q045: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q048: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q049: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q050: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q053: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q055: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q056: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q058: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q059: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q061: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q064: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q065: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q066: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q068: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q069: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q071: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q072: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q073: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q074: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q080: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q081: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q084: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q085: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q086: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q087: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q088: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q090: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q091: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q092: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q093: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q094: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q095: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q096: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q099: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q100: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q101: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q102: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q103: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q104: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)",
+    "q0.q105: missing_authoritative_mapping; use_case_id and evidence_requirements are null (curate via question_use_case_map.json)"
   ]
 }

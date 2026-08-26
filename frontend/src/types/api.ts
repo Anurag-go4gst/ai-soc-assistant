@@ -1716,7 +1716,6 @@ export interface KnowledgeMappingSummary {
   row_counts: {
     question_rows?: number;
     use_case_rows?: number;
-    github_skill_rows?: number;
     catalog_use_cases?: number;
     enrichment_records?: number;
     enrichment_only_use_cases?: number;
@@ -1736,21 +1735,11 @@ export type KnowledgeExportArtifact =
   | 'catalogue_question_index'
   | 'soc_capability_crosswalk'
   | 'skill_coverage_matrix'
-  | 'github_skill_discovery_index'
-  | 'github_skill_triage_scores'
-  | 'github_skill_intake_register'
-  | 'proposed_use_cases_from_github'
-  | 'skill_enrichment_status_matrix'
-  | 'rejected_github_skills'
-  | 'pending_skill_enrichment_backlog'
   | 'soc_validation_use_cases'
   | 'soc_validation_spl_templates'
   | 'soc_validation_mitre'
   | 'soc_validation_questions'
-  | 'soc_validation_github_enrichment'
-  | 'soc_validation_github_batch_intake'
   | 'soc_validation_rag_sop'
-  | 'soc_validation_pending_backlog'
   | 'soc_validation_combination_matrix'
   | 'soc_validation_demo_scenarios';
 

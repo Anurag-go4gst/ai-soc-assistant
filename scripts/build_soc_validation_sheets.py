@@ -2,9 +2,9 @@
 """Build the SOC/COE validation package (Phase 10 offline artifacts).
 
 Derives SOC review sheets from the governed SOC Capability Crosswalk spine
-(plus templates, enrichment, intake register, proposed use cases, and backlog
-detail joins) so the SOC/COE team can review what is runtime-active, planned,
-metadata-only, unsupported, and safe to demonstrate.
+(plus templates and curated enrichment detail joins) so the SOC/COE team can
+review what is runtime-active, planned, metadata-only, unsupported, and safe
+to demonstrate.
 
 Phase 10 is validation and documentation, NOT runtime activation:
   - The crosswalk is the single authority for runtime_support_status,
@@ -31,10 +31,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 CROSSWALK_PATH = REPO_ROOT / "docs" / "evals" / "soc_capability_crosswalk.json"
 TEMPLATES_PATH = REPO_ROOT / "backend" / "app" / "spl" / "templates.json"
 CONTENT_ENRICHMENT_PATH = REPO_ROOT / "backend" / "app" / "use_cases" / "content_enrichment.json"
-INTAKE_REGISTER_PATH = REPO_ROOT / "docs" / "skills" / "github_skill_intake_register.json"
-DISCOVERY_INDEX_PATH = REPO_ROOT / "docs" / "skills" / "github_skill_discovery_index.json"
-PROPOSED_USE_CASES_PATH = REPO_ROOT / "docs" / "skills" / "proposed_use_cases_from_github.json"
-BACKLOG_PATH = REPO_ROOT / "docs" / "skills" / "pending_skill_enrichment_backlog.json"
 OUTPUT_DIR = REPO_ROOT / "docs" / "validation"
 
 SCHEMA_VERSION = "2026-06-08-phase10-v1"
@@ -45,10 +41,6 @@ VALIDATION_NOT_ACTIVATION_NOTE = (
     "activation. runtime_support_status and validation_status are authoritative "
     "from the SOC Capability Crosswalk; review_decision/*_review_notes are blank "
     "for SOC to complete."
-)
-GITHUB_NOT_RUNTIME_NOTE = (
-    "GitHub-derived skill is enrichment/provenance reference only — never a "
-    "runtime/routable skill and never loaded as raw SKILL.md into prompts or RAG."
 )
 MITRE_EVIDENCE_SOURCE = (
     "Runtime MITRE evidence status comes only from the planner MITRE branch "
@@ -92,13 +84,6 @@ def _template_index(templates: Any) -> dict[str, dict[str, Any]]:
     if not isinstance(items, list):
         return {}
     return {t["template_id"]: t for t in items if isinstance(t, dict) and t.get("template_id")}
-
-
-def _intake_index(register: Any) -> dict[str, dict[str, Any]]:
-    records = register.get("records") if isinstance(register, dict) else None
-    if not isinstance(records, list):
-        return {}
-    return {r["github_skill_id"]: r for r in records if isinstance(r, dict) and r.get("github_skill_id")}
 
 
 def _provenance_refs(github_reference_skills: Any) -> list[dict[str, Any]]:
@@ -262,115 +247,6 @@ def build_question_validation_sheet(q_rows, warnings) -> dict[str, Any]:
     )
 
 
-def build_github_enrichment_review_sheet(gh_rows, intake_idx, enrich_idx, warnings) -> dict[str, Any]:
-    rows = []
-    for row in gh_rows:
-        gid = row.get("github_skill_id")
-        intake = intake_idx.get(gid or "", {})
-        mapped = row.get("mapped_use_case_id") or row.get("mapped_use_case_ids")
-        safety = intake.get("safety_review") if isinstance(intake.get("safety_review"), dict) else {}
-        checklist_passed = bool(safety) and all(bool(v) for v in safety.values())
-        runtime_status = row.get("runtime_support_status")
-        if runtime_status == "runtime_active":
-            warnings.append(f"github_skill {gid}: runtime_support_status=runtime_active (must not happen)")
-        rows.append(
-            {
-                "github_skill_id": gid,
-                "decision": row.get("decision") or intake.get("decision"),
-                "review_status": row.get("review_status") or intake.get("review_status"),
-                "mapped_use_case_id": mapped,
-                "github_reuse_type": row.get("github_reuse_type") or intake.get("reuse_type"),
-                "lifecycle_stage": intake.get("implementation_status") or row.get("mapping_state"),
-                "runtime_support_status": runtime_status,
-                "validation_status": row.get("validation_status"),
-                "defensive_checklist_status": "passed" if checklist_passed else "incomplete",
-                "defensive_checklist": safety,
-                "runtime_skill": False,
-                "note": GITHUB_NOT_RUNTIME_NOTE,
-                "soc_review_notes": "",
-            }
-        )
-    rows.sort(key=lambda r: (r["github_skill_id"] is None, r["github_skill_id"] or ""))
-    return _sheet(
-        "soc_validation_github_enrichment",
-        source_files=[
-            "docs/evals/soc_capability_crosswalk.json",
-            "docs/skills/github_skill_intake_register.json",
-        ],
-        rows=rows,
-        row_counts={"github_skills": len(rows)},
-        warnings=warnings,
-    )
-
-
-def _mapping_type(row: dict[str, Any]) -> str:
-    """Map an accepted GitHub skill to mapping type A-E (Section B3.4)."""
-    runtime = row.get("runtime_support_status")
-    mapped = row.get("mapped_use_case_id") or row.get("mapped_use_case_ids")
-    proposed = row.get("proposed_use_case_ids")
-    decision = row.get("decision")
-    if decision in {"reject", "defer", "duplicate", "blocked"}:
-        return "E"
-    if proposed:
-        return "C"
-    if mapped and runtime == "runtime_active":
-        return "A"
-    if mapped and runtime in {"planned", "metadata_only"}:
-        return "B"
-    if runtime == "sop_only":
-        return "D"
-    if mapped:
-        return "B"
-    return "E"
-
-
-def build_github_batch_intake_sheet(gh_rows, intake_idx, discovery, backlog, warnings) -> dict[str, Any]:
-    decision_counts: dict[str, int] = {}
-    for rec in intake_idx.values():
-        d = rec.get("decision") or "unknown"
-        decision_counts[d] = decision_counts.get(d, 0) + 1
-    mapping_type_counts: dict[str, int] = {}
-    for row in gh_rows:
-        mt = _mapping_type(row)
-        mapping_type_counts[mt] = mapping_type_counts.get(mt, 0) + 1
-    disc_counts = discovery.get("row_counts") if isinstance(discovery, dict) else {}
-    backlog_items = backlog.get("backlog") if isinstance(backlog, dict) else None
-    batches = [
-        {
-            "batch": "batch_1_initial_seven",
-            "status": "validated",
-            "theme": "baseline factory validation (mixed identity/endpoint/triage)",
-            "accepted": decision_counts.get("accept", 0),
-            "rejected": decision_counts.get("reject", 0),
-            "deferred": decision_counts.get("defer", 0),
-            "duplicate": decision_counts.get("duplicate", 0),
-            "blocked": decision_counts.get("blocked", 0),
-            "mapping_type_counts_A_to_E": mapping_type_counts,
-            "next_review_action": (
-                "Batch 2 candidates are planned-only per the intake playbook; "
-                "no Batch 2 implementation in this phase."
-            ),
-        }
-    ]
-    return _sheet(
-        "soc_validation_github_batch_intake",
-        source_files=[
-            "docs/evals/soc_capability_crosswalk.json",
-            "docs/skills/github_skill_intake_register.json",
-            "docs/skills/github_skill_discovery_index.json",
-            "docs/skills/pending_skill_enrichment_backlog.json",
-        ],
-        rows=batches,
-        row_counts={
-            "batches": len(batches),
-            "discovered_skills": (disc_counts or {}).get("skills") or (disc_counts or {}).get("total"),
-            "accepted_for_enrichment": (disc_counts or {}).get("accepted_for_enrichment"),
-            "pending_backlog_items": len(backlog_items) if isinstance(backlog_items, list) else None,
-        },
-        warnings=warnings,
-    )
-
-
 def build_rag_sop_validation_sheet(uc_rows, enrich_idx, warnings) -> dict[str, Any]:
     rows = []
     for row in uc_rows:
@@ -402,22 +278,6 @@ def build_rag_sop_validation_sheet(uc_rows, enrich_idx, warnings) -> dict[str, A
     )
 
 
-def build_pending_backlog_sheet(backlog, warnings) -> dict[str, Any]:
-    items = backlog.get("backlog") if isinstance(backlog, dict) else None
-    rows = []
-    for item in items or []:
-        if not isinstance(item, dict):
-            continue
-        rows.append({**item, "review_decision": "", "review_notes": ""})
-    return _sheet(
-        "soc_validation_pending_backlog",
-        source_files=["docs/skills/pending_skill_enrichment_backlog.json"],
-        rows=rows,
-        row_counts={"backlog_items": len(rows)},
-        warnings=warnings,
-    )
-
-
 def _classify_cases(uc_rows, q_rows) -> dict[str, list[str]]:
     examples: dict[str, list[str]] = {c: [] for c in "ABCDEFGH"}
     for row in uc_rows:
@@ -427,8 +287,8 @@ def _classify_cases(uc_rows, q_rows) -> dict[str, list[str]]:
         has_105 = row.get("question_id") is not None
         catalog = bool(row.get("catalog_present"))
         enrichment = bool(row.get("enrichment_present"))
-        has_github = bool(row.get("github_reference_skills"))
-        if catalog and enrichment and has_github:
+        has_provenance = bool(row.get("github_reference_skills"))
+        if catalog and enrichment and has_provenance:
             examples["E"].append(ucid)
         if has_105 and catalog and enrichment:
             examples["A"].append(ucid)
@@ -451,7 +311,7 @@ def build_combination_matrix_sheet(uc_rows, q_rows, warnings) -> dict[str, Any]:
         ("B", "105 + catalog, no enrichment", "Runtime-supported but thinner; catalog SPL + registry MITRE, generic rules."),
         ("C", "105 only, no catalog", "No full runtime support; routing hint/eval only; RAG/generic/clarification."),
         ("D", "catalog only, no 105", "Valid for paraphrases; catalog authority; use_case_id activation."),
-        ("E", "catalog + enrichment + GitHub ref", "Best supported; curated enrichment drives evidence plan + contract; GitHub = provenance."),
+        ("E", "catalog + enrichment + provenance ref", "Best supported; curated enrichment drives evidence plan + contract; external-origin refs are provenance only."),
         ("F", "enrichment-only, no catalog", "metadata_only/planned; NO runtime activation; promote to catalog first."),
         ("G", "no 105/no catalog, SOC-related", "generic_soc_guidance or RAG-only; no fake use_case/SPL/MITRE evidence."),
         ("H", "unsafe / out-of-scope", "path_type=unsafe_blocked; HIL + blocked contract."),
@@ -530,9 +390,9 @@ def _readme(sheets: dict[str, dict[str, Any]]) -> str:
         "",
         "- The crosswalk is authoritative for `runtime_support_status`, "
         "`validation_status`, `tests_added`, `live_execution_skill`, and row "
-        "membership (105 questions / 49 use-case rows / 7 GitHub skills).",
-        "- Detail columns (SPL template status, enrichment, RAG docs, intake "
-        "decisions) are joined by `use_case_id` / `github_skill_id`.",
+        "membership (105 questions / use-case rows).",
+        "- Detail columns (SPL template status, enrichment, and RAG docs) are "
+        "joined by `use_case_id`.",
         "- `review_decision` / `*_review_notes` are blank for SOC to complete. "
         "This generator never invents approval.",
         "- No `/chat` runtime behavior, flags, SPL execution, MCP enablement, or "
@@ -555,10 +415,7 @@ def _readme(sheets: dict[str, dict[str, Any]]) -> str:
         "spl_template_review_sheet.json": ("soc_validation_spl_templates", "yes"),
         "mitre_validation_sheet.json": ("soc_validation_mitre", "yes"),
         "question_validation_sheet.json": ("soc_validation_questions", "yes"),
-        "github_enrichment_review_sheet.json": ("soc_validation_github_enrichment", "yes"),
-        "github_batch_intake_sheet.json": ("soc_validation_github_batch_intake", "no"),
         "rag_sop_validation_sheet.json": ("soc_validation_rag_sop", "yes"),
-        "pending_skill_enrichment_backlog_sheet.json": ("soc_validation_pending_backlog", "no"),
         "combination_matrix_sheet.json": ("soc_validation_combination_matrix", "no"),
         "demo_scenario_sheet.json": ("soc_validation_demo_scenarios", "no"),
     }
@@ -567,7 +424,7 @@ def _readme(sheets: dict[str, dict[str, Any]]) -> str:
     lines.extend(
         [
             "",
-            "All ten sheets are exposed via `GET /knowledge/exports/{artifact}` "
+            "All seven sheets are exposed via `GET /knowledge/exports/{artifact}` "
             "using the keys above.",
             "Phase 11 demo/flag guidance: `docs/demo/flag_cutover_matrix.md`, "
             "`docs/demo/demo_scenarios_readiness.md`.",
@@ -597,10 +454,7 @@ FILE_MAP = {
     "spl_template_review_sheet.json": "soc_validation_spl_templates",
     "mitre_validation_sheet.json": "soc_validation_mitre",
     "question_validation_sheet.json": "soc_validation_questions",
-    "github_enrichment_review_sheet.json": "soc_validation_github_enrichment",
-    "github_batch_intake_sheet.json": "soc_validation_github_batch_intake",
     "rag_sop_validation_sheet.json": "soc_validation_rag_sop",
-    "pending_skill_enrichment_backlog_sheet.json": "soc_validation_pending_backlog",
     "combination_matrix_sheet.json": "soc_validation_combination_matrix",
     "demo_scenario_sheet.json": "soc_validation_demo_scenarios",
 }
@@ -611,16 +465,11 @@ def generate_sheets() -> tuple[dict[str, dict[str, Any]], str, list[str]]:
     crosswalk = _load_json(CROSSWALK_PATH, warnings) or {}
     templates = _load_json(TEMPLATES_PATH, warnings)
     enrichment = _load_json(CONTENT_ENRICHMENT_PATH, warnings)
-    register = _load_json(INTAKE_REGISTER_PATH, warnings)
-    discovery = _load_json(DISCOVERY_INDEX_PATH, warnings)
-    backlog = _load_json(BACKLOG_PATH, warnings) or {}
 
     uc_rows = _rows(crosswalk, "use_case_rows")
     q_rows = _rows(crosswalk, "question_rows")
-    gh_rows = _rows(crosswalk, "github_skill_rows")
     enrich_idx = _enrichment_index(enrichment)
     template_idx = _template_index(templates)
-    intake_idx = _intake_index(register)
     uc_index = {r.get("use_case_id"): r for r in uc_rows if r.get("use_case_id")}
 
     sheets = {
@@ -628,10 +477,7 @@ def generate_sheets() -> tuple[dict[str, dict[str, Any]], str, list[str]]:
         "spl_template_review_sheet.json": build_spl_template_review_sheet(uc_rows, enrich_idx, template_idx, []),
         "mitre_validation_sheet.json": build_mitre_validation_sheet(uc_rows, []),
         "question_validation_sheet.json": build_question_validation_sheet(q_rows, []),
-        "github_enrichment_review_sheet.json": build_github_enrichment_review_sheet(gh_rows, intake_idx, enrich_idx, []),
-        "github_batch_intake_sheet.json": build_github_batch_intake_sheet(gh_rows, intake_idx, discovery, backlog, []),
         "rag_sop_validation_sheet.json": build_rag_sop_validation_sheet(uc_rows, enrich_idx, []),
-        "pending_skill_enrichment_backlog_sheet.json": build_pending_backlog_sheet(backlog, []),
         "combination_matrix_sheet.json": build_combination_matrix_sheet(uc_rows, q_rows, []),
         "demo_scenario_sheet.json": build_demo_scenario_sheet(uc_index, []),
     }
