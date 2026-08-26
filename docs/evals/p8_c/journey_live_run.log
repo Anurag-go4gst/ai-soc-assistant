@@ -1,0 +1,15 @@
+P8-C J1 suspicious/brute-force login investigation
+P8-C J2 malicious IP / denied traffic investigation
+P8-C J3 rolling-window anomaly question
+P8-C J4 sequence investigation
+P8-C J5 insufficient evidence / clarification
+P8-C J6 supported remediation recommendation posture
+P8-C J7 remediation not justified
+P8-C J8 follow-up host correction continuity
+{
+  "ok": true,
+  "report": "/Users/aagarwal/Downloads/ai-soc-assistant-t4-architecture-20260821/docs/evals/p8_c/journey_scorecard.json",
+  "passed": 3,
+  "failed": 5,
+  "execution_overclaims": 0
+}

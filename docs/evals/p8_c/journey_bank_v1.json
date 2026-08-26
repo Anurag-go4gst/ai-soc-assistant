@@ -1,0 +1,140 @@
+{
+  "bank_id": "p8_c_journey_bank_v1",
+  "live_mcp": false,
+  "prompt_arm": "active",
+  "notes": [
+    "Supported production /chat journeys with live LLM and MCP execution off.",
+    "Evidence may be planned/not obtained; that is scored as evidence-truth, not as a fake live result.",
+    "Relative-time and rejection follow-ups that are PENDING remain PRODUCT_GAP."
+  ],
+  "journeys": [
+    {
+      "journey_id": "J1",
+      "title": "suspicious/brute-force login investigation",
+      "l2_anchor": "L3.CHAT.02",
+      "ec_reference": "flagship failed-login investigation arc (plan -> evidence need -> conclusion)",
+      "turns": [
+        {
+          "message": "Investigate failed login spike for user:alice host:APP-01 from 10.0.0.8 in the last 24 hours"
+        }
+      ],
+      "expect": {
+        "investigation_shaped": true,
+        "remediation_justified": false,
+        "clarification_required": false
+      }
+    },
+    {
+      "journey_id": "J2",
+      "title": "malicious IP / denied traffic investigation",
+      "l2_anchor": "L2 denied-traffic ranking as investigation",
+      "ec_reference": "firewall/denied-traffic hunt arc",
+      "turns": [
+        {
+          "message": "Investigate top source IPs generating denied firewall traffic in the last 24 hours"
+        }
+      ],
+      "expect": {
+        "investigation_shaped": true,
+        "remediation_justified": false,
+        "clarification_required": false
+      }
+    },
+    {
+      "journey_id": "J3",
+      "title": "rolling-window anomaly question",
+      "l2_anchor": "L3.SPL.01",
+      "ec_reference": "bounded hunt with window semantics",
+      "turns": [
+        {
+          "message": "one source IP attacking multiple distinct accounts over a rolling 10-minute window"
+        }
+      ],
+      "expect": {
+        "investigation_shaped": true,
+        "preserve_rolling": true
+      }
+    },
+    {
+      "journey_id": "J4",
+      "title": "sequence investigation",
+      "l2_anchor": "L3.SPL.03",
+      "ec_reference": "sequence hunt (password change then login)",
+      "turns": [
+        {
+          "message": "Investigate password change followed by successful login within 5 minutes"
+        }
+      ],
+      "expect": {
+        "investigation_shaped": true,
+        "preserve_sequence": true
+      }
+    },
+    {
+      "journey_id": "J5",
+      "title": "insufficient evidence / clarification",
+      "l2_anchor": "L3.T4.03",
+      "ec_reference": "clarification before investigation",
+      "turns": [
+        {
+          "message": "compare this with what happened last week and tell me if it is getting worse"
+        }
+      ],
+      "expect": {
+        "clarification_required": true,
+        "remediation_justified": false
+      }
+    },
+    {
+      "journey_id": "J6",
+      "title": "supported remediation recommendation posture",
+      "l2_anchor": "L2.P3.09/P3.10 remediation offer is not execution",
+      "ec_reference": "remediation offer / HIL, not completed containment",
+      "turns": [
+        {
+          "message": "Investigate confirmed brute-force against user alice on host APP-01 from 10.0.0.8 and recommend the next containment action"
+        }
+      ],
+      "expect": {
+        "investigation_shaped": true,
+        "may_recommend_remediation": true,
+        "must_not_claim_executed": true
+      }
+    },
+    {
+      "journey_id": "J7",
+      "title": "remediation not justified",
+      "l2_anchor": "L2.P3.01 SOP knowledge",
+      "ec_reference": "knowledge/SOP answer without containment CTA",
+      "turns": [
+        {
+          "message": "What is the SOP for investigating a failed login spike?"
+        }
+      ],
+      "expect": {
+        "investigation_shaped": false,
+        "remediation_justified": false,
+        "knowledge": true
+      }
+    },
+    {
+      "journey_id": "J8",
+      "title": "follow-up host correction continuity",
+      "l2_anchor": "L2.P0.13 entity correction (supported grant invariant); chat continuity observed",
+      "ec_reference": "follow-up correction without restating stale host as fact",
+      "turns": [
+        {
+          "message": "Investigate failed login spike for user:alice host:APP-01 from 10.0.0.8 in the last 24 hours"
+        },
+        {
+          "message": "actually the host is APP-02"
+        }
+      ],
+      "expect": {
+        "followup": true,
+        "corrected_host": "APP-02",
+        "stale_host": "APP-01"
+      }
+    }
+  ]
+}

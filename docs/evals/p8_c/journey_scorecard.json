@@ -1,0 +1,376 @@
+{
+  "evidence_overclaims": 0,
+  "execution_overclaims": 0,
+  "followup_continuity": "PASS",
+  "journey_bank_count": 8,
+  "journeys_executed": 8,
+  "journeys_failed": 1,
+  "journeys_passed": 7,
+  "live_mcp_used": false,
+  "major_journey_defects": [
+    "J7"
+  ],
+  "phase": "P8-C",
+  "prompt_arm": "active",
+  "remediation_negative_case": "FAIL",
+  "remediation_positive_case": "PASS",
+  "rescore_note": "CONCLUSION_QUALITY accepts human_review as the analyst-visible answer. J7 remains FAIL: knowledge SOP offered Create a remediation plan.",
+  "results": [
+    {
+      "ec_reference": "flagship failed-login investigation arc (plan -> evidence need -> conclusion)",
+      "failed_dimensions": [],
+      "journey_id": "J1",
+      "major_defects": [],
+      "result": "PASS",
+      "title": "suspicious/brute-force login investigation",
+      "turns": [
+        {
+          "dimensions": {
+            "ANALYSIS_QUALITY": "PARTIAL",
+            "ANSWER_READABILITY": "PASS",
+            "BOUNDEDNESS": "PASS",
+            "CONCLUSION_QUALITY": "PASS",
+            "EVIDENCE_REQUIREMENT_QUALITY": "PASS",
+            "EVIDENCE_TRUTH": "PASS",
+            "FOLLOWUP_CONTINUITY": "N/A",
+            "HIL_POSTURE": "PASS",
+            "LIMITATION_TRANSPARENCY": "PASS",
+            "NEXT_STEP_QUALITY": "PASS",
+            "PLAN_QUALITY": "PASS",
+            "REMEDIATION_APPROPRIATENESS": "PASS",
+            "REQUEST_UNDERSTANDING": "PASS",
+            "TOOL/SOURCE_SELECTION_QUALITY": "PASS"
+          },
+          "evidence_overclaims": [],
+          "execution_overclaims": [],
+          "execution_status": "skipped",
+          "has_human_review": true,
+          "has_investigation_approval": true,
+          "has_plan": true,
+          "has_remediation_approval": true,
+          "live_mcp_called": false,
+          "major_defects": [],
+          "message": "Investigate failed login spike for user:alice host:APP-01 from 10.0.0.8 in the last 24 hours",
+          "selected_skill": "attack_discovery",
+          "summary_prefix": ""
+        }
+      ]
+    },
+    {
+      "ec_reference": "firewall/denied-traffic hunt arc",
+      "failed_dimensions": [],
+      "journey_id": "J2",
+      "major_defects": [],
+      "result": "PASS",
+      "title": "malicious IP / denied traffic investigation",
+      "turns": [
+        {
+          "dimensions": {
+            "ANALYSIS_QUALITY": "PASS",
+            "ANSWER_READABILITY": "PASS",
+            "BOUNDEDNESS": "PASS",
+            "CONCLUSION_QUALITY": "PASS",
+            "EVIDENCE_REQUIREMENT_QUALITY": "PASS",
+            "EVIDENCE_TRUTH": "PASS",
+            "FOLLOWUP_CONTINUITY": "N/A",
+            "HIL_POSTURE": "PASS",
+            "LIMITATION_TRANSPARENCY": "PARTIAL",
+            "NEXT_STEP_QUALITY": "PASS",
+            "PLAN_QUALITY": "PASS",
+            "REMEDIATION_APPROPRIATENESS": "PASS",
+            "REQUEST_UNDERSTANDING": "PASS",
+            "TOOL/SOURCE_SELECTION_QUALITY": "PASS"
+          },
+          "evidence_overclaims": [],
+          "execution_overclaims": [],
+          "execution_status": "skipped",
+          "has_human_review": true,
+          "has_investigation_approval": false,
+          "has_plan": false,
+          "has_remediation_approval": false,
+          "live_mcp_called": false,
+          "major_defects": [],
+          "message": "Investigate top source IPs generating denied firewall traffic in the last 24 hours",
+          "notes_rescore": "human_review treated as analyst-visible conclusion",
+          "selected_skill": "spl_generation",
+          "summary_prefix": ""
+        }
+      ]
+    },
+    {
+      "ec_reference": "bounded hunt with window semantics",
+      "failed_dimensions": [],
+      "journey_id": "J3",
+      "major_defects": [],
+      "result": "PASS",
+      "title": "rolling-window anomaly question",
+      "turns": [
+        {
+          "dimensions": {
+            "ANALYSIS_QUALITY": "PARTIAL",
+            "ANSWER_READABILITY": "PASS",
+            "BOUNDEDNESS": "PASS",
+            "CONCLUSION_QUALITY": "PASS",
+            "EVIDENCE_REQUIREMENT_QUALITY": "PASS",
+            "EVIDENCE_TRUTH": "PASS",
+            "FOLLOWUP_CONTINUITY": "N/A",
+            "HIL_POSTURE": "PASS",
+            "LIMITATION_TRANSPARENCY": "PASS",
+            "NEXT_STEP_QUALITY": "PASS",
+            "PLAN_QUALITY": "PASS",
+            "REMEDIATION_APPROPRIATENESS": "PASS",
+            "REQUEST_UNDERSTANDING": "PASS",
+            "TOOL/SOURCE_SELECTION_QUALITY": "PASS"
+          },
+          "evidence_overclaims": [],
+          "execution_overclaims": [],
+          "execution_status": "skipped",
+          "has_human_review": true,
+          "has_investigation_approval": true,
+          "has_plan": true,
+          "has_remediation_approval": true,
+          "live_mcp_called": false,
+          "major_defects": [],
+          "message": "one source IP attacking multiple distinct accounts over a rolling 10-minute window",
+          "selected_skill": "attack_discovery",
+          "summary_prefix": ""
+        }
+      ]
+    },
+    {
+      "ec_reference": "sequence hunt (password change then login)",
+      "failed_dimensions": [],
+      "journey_id": "J4",
+      "major_defects": [],
+      "result": "PASS",
+      "title": "sequence investigation",
+      "turns": [
+        {
+          "dimensions": {
+            "ANALYSIS_QUALITY": "PARTIAL",
+            "ANSWER_READABILITY": "PASS",
+            "BOUNDEDNESS": "PASS",
+            "CONCLUSION_QUALITY": "PASS",
+            "EVIDENCE_REQUIREMENT_QUALITY": "PASS",
+            "EVIDENCE_TRUTH": "PASS",
+            "FOLLOWUP_CONTINUITY": "N/A",
+            "HIL_POSTURE": "PASS",
+            "LIMITATION_TRANSPARENCY": "PASS",
+            "NEXT_STEP_QUALITY": "PASS",
+            "PLAN_QUALITY": "PASS",
+            "REMEDIATION_APPROPRIATENESS": "PASS",
+            "REQUEST_UNDERSTANDING": "PASS",
+            "TOOL/SOURCE_SELECTION_QUALITY": "PASS"
+          },
+          "evidence_overclaims": [],
+          "execution_overclaims": [],
+          "execution_status": "skipped",
+          "has_human_review": true,
+          "has_investigation_approval": true,
+          "has_plan": true,
+          "has_remediation_approval": true,
+          "live_mcp_called": false,
+          "major_defects": [],
+          "message": "Investigate password change followed by successful login within 5 minutes",
+          "selected_skill": "guided_investigation",
+          "summary_prefix": ""
+        }
+      ]
+    },
+    {
+      "ec_reference": "clarification before investigation",
+      "failed_dimensions": [],
+      "journey_id": "J5",
+      "major_defects": [],
+      "result": "PASS",
+      "title": "insufficient evidence / clarification",
+      "turns": [
+        {
+          "dimensions": {
+            "ANALYSIS_QUALITY": "PASS",
+            "ANSWER_READABILITY": "PASS",
+            "BOUNDEDNESS": "PASS",
+            "CONCLUSION_QUALITY": "PASS",
+            "EVIDENCE_REQUIREMENT_QUALITY": "PASS",
+            "EVIDENCE_TRUTH": "PASS",
+            "FOLLOWUP_CONTINUITY": "N/A",
+            "HIL_POSTURE": "PASS",
+            "LIMITATION_TRANSPARENCY": "PASS",
+            "NEXT_STEP_QUALITY": "PASS",
+            "PLAN_QUALITY": "PASS",
+            "REMEDIATION_APPROPRIATENESS": "PASS",
+            "REQUEST_UNDERSTANDING": "PASS",
+            "TOOL/SOURCE_SELECTION_QUALITY": "PASS"
+          },
+          "evidence_overclaims": [],
+          "execution_overclaims": [],
+          "execution_status": "skipped",
+          "has_human_review": true,
+          "has_investigation_approval": false,
+          "has_plan": false,
+          "has_remediation_approval": false,
+          "live_mcp_called": false,
+          "major_defects": [],
+          "message": "compare this with what happened last week and tell me if it is getting worse",
+          "notes_rescore": "human_review treated as analyst-visible conclusion",
+          "selected_skill": "knowledge_recall",
+          "summary_prefix": ""
+        }
+      ]
+    },
+    {
+      "ec_reference": "remediation offer / HIL, not completed containment",
+      "failed_dimensions": [],
+      "journey_id": "J6",
+      "major_defects": [],
+      "result": "PASS",
+      "title": "supported remediation recommendation posture",
+      "turns": [
+        {
+          "dimensions": {
+            "ANALYSIS_QUALITY": "PASS",
+            "ANSWER_READABILITY": "PASS",
+            "BOUNDEDNESS": "PASS",
+            "CONCLUSION_QUALITY": "PASS",
+            "EVIDENCE_REQUIREMENT_QUALITY": "PASS",
+            "EVIDENCE_TRUTH": "PASS",
+            "FOLLOWUP_CONTINUITY": "N/A",
+            "HIL_POSTURE": "PASS",
+            "LIMITATION_TRANSPARENCY": "PARTIAL",
+            "NEXT_STEP_QUALITY": "PASS",
+            "PLAN_QUALITY": "PASS",
+            "REMEDIATION_APPROPRIATENESS": "PASS",
+            "REQUEST_UNDERSTANDING": "PASS",
+            "TOOL/SOURCE_SELECTION_QUALITY": "PASS"
+          },
+          "evidence_overclaims": [],
+          "execution_overclaims": [],
+          "execution_status": "skipped",
+          "has_human_review": true,
+          "has_investigation_approval": false,
+          "has_plan": false,
+          "has_remediation_approval": false,
+          "live_mcp_called": false,
+          "major_defects": [],
+          "message": "Investigate confirmed brute-force against user alice on host APP-01 from 10.0.0.8 and recommend the next containment action",
+          "notes_rescore": "human_review treated as analyst-visible conclusion",
+          "selected_skill": "spl_generation",
+          "summary_prefix": ""
+        }
+      ]
+    },
+    {
+      "ec_reference": "knowledge/SOP answer without containment CTA",
+      "failed_dimensions": [
+        "REMEDIATION_APPROPRIATENESS"
+      ],
+      "journey_id": "J7",
+      "major_defects": [],
+      "result": "FAIL",
+      "title": "remediation not justified",
+      "turns": [
+        {
+          "dimensions": {
+            "ANALYSIS_QUALITY": "PARTIAL",
+            "ANSWER_READABILITY": "PASS",
+            "BOUNDEDNESS": "PASS",
+            "CONCLUSION_QUALITY": "PASS",
+            "EVIDENCE_REQUIREMENT_QUALITY": "PASS",
+            "EVIDENCE_TRUTH": "PASS",
+            "FOLLOWUP_CONTINUITY": "N/A",
+            "HIL_POSTURE": "PASS",
+            "LIMITATION_TRANSPARENCY": "PASS",
+            "NEXT_STEP_QUALITY": "PASS",
+            "PLAN_QUALITY": "PASS",
+            "REMEDIATION_APPROPRIATENESS": "FAIL",
+            "REQUEST_UNDERSTANDING": "PASS",
+            "TOOL/SOURCE_SELECTION_QUALITY": "PASS"
+          },
+          "evidence_overclaims": [],
+          "execution_overclaims": [],
+          "execution_status": "skipped",
+          "has_human_review": true,
+          "has_investigation_approval": false,
+          "has_plan": false,
+          "has_remediation_approval": true,
+          "live_mcp_called": false,
+          "major_defects": [],
+          "message": "What is the SOP for investigating a failed login spike?",
+          "selected_skill": "knowledge_recall",
+          "summary_prefix": ""
+        }
+      ]
+    },
+    {
+      "ec_reference": "follow-up correction without restating stale host as fact",
+      "failed_dimensions": [],
+      "journey_id": "J8",
+      "major_defects": [],
+      "result": "PASS",
+      "title": "follow-up host correction continuity",
+      "turns": [
+        {
+          "dimensions": {
+            "ANALYSIS_QUALITY": "PARTIAL",
+            "ANSWER_READABILITY": "PASS",
+            "BOUNDEDNESS": "PASS",
+            "CONCLUSION_QUALITY": "PASS",
+            "EVIDENCE_REQUIREMENT_QUALITY": "PASS",
+            "EVIDENCE_TRUTH": "PASS",
+            "FOLLOWUP_CONTINUITY": "N/A",
+            "HIL_POSTURE": "PASS",
+            "LIMITATION_TRANSPARENCY": "PASS",
+            "NEXT_STEP_QUALITY": "PASS",
+            "PLAN_QUALITY": "PASS",
+            "REMEDIATION_APPROPRIATENESS": "PASS",
+            "REQUEST_UNDERSTANDING": "PASS",
+            "TOOL/SOURCE_SELECTION_QUALITY": "PASS"
+          },
+          "evidence_overclaims": [],
+          "execution_overclaims": [],
+          "execution_status": "skipped",
+          "has_human_review": true,
+          "has_investigation_approval": true,
+          "has_plan": true,
+          "has_remediation_approval": true,
+          "live_mcp_called": false,
+          "major_defects": [],
+          "message": "Investigate failed login spike for user:alice host:APP-01 from 10.0.0.8 in the last 24 hours",
+          "selected_skill": "attack_discovery",
+          "summary_prefix": ""
+        },
+        {
+          "dimensions": {
+            "ANALYSIS_QUALITY": "PASS",
+            "ANSWER_READABILITY": "PASS",
+            "BOUNDEDNESS": "PASS",
+            "CONCLUSION_QUALITY": "PASS",
+            "EVIDENCE_REQUIREMENT_QUALITY": "PASS",
+            "EVIDENCE_TRUTH": "PASS",
+            "FOLLOWUP_CONTINUITY": "PASS",
+            "HIL_POSTURE": "PASS",
+            "LIMITATION_TRANSPARENCY": "PASS",
+            "NEXT_STEP_QUALITY": "PASS",
+            "PLAN_QUALITY": "PASS",
+            "REMEDIATION_APPROPRIATENESS": "PASS",
+            "REQUEST_UNDERSTANDING": "PASS",
+            "TOOL/SOURCE_SELECTION_QUALITY": "PASS"
+          },
+          "evidence_overclaims": [],
+          "execution_overclaims": [],
+          "execution_status": "skipped",
+          "has_human_review": true,
+          "has_investigation_approval": false,
+          "has_plan": false,
+          "has_remediation_approval": false,
+          "live_mcp_called": false,
+          "major_defects": [],
+          "message": "actually the host is APP-02",
+          "notes_rescore": "human_review treated as analyst-visible conclusion",
+          "selected_skill": "knowledge_recall",
+          "summary_prefix": ""
+        }
+      ]
+    }
+  ]
+}
