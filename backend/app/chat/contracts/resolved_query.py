@@ -14,7 +14,7 @@ from app.chat.contracts.canonical_planning_input import CatalogueTier
 from app.chat.skill_intent_compatibility import CAPABILITY_MCP, CAPABILITY_SPL
 
 SCHEMA_VERSION = "resolved_query_contract_v1"
-CONTRACT_VERSION = "2026-08-12"
+CONTRACT_VERSION = "2026-08-26"
 
 # Closed capability vocabulary — must align with skill_intent_compatibility (B5 reuses it).
 ALLOWED_CAPABILITIES = frozenset({CAPABILITY_SPL, CAPABILITY_MCP})
@@ -39,6 +39,25 @@ AnswerGoal = Literal[
     "reference_lookup",
     "reference_explanation",
 ]
+
+# Post-P10 convergence — requested conditional actions live on Final RQC (not ResourcePlan).
+ConditionalActionKind = Literal["remediation", "email_draft"]
+ConditionalActionLifecycle = Literal[
+    "REQUESTED",
+    "PENDING_CONDITION",
+    "ELIGIBLE",
+    "APPROVED",
+    "EXECUTED",
+]
+
+
+class RequestedConditionalAction(BaseModel):
+    """User-requested downstream action preserved without granting eligibility/authority."""
+
+    action_kind: ConditionalActionKind
+    lifecycle_state: ConditionalActionLifecycle = "REQUESTED"
+    predicate_id: str | None = None
+    recipient_roles: list[str] = Field(default_factory=list)
 
 
 class ResolvedQueryContract(BaseModel):
@@ -74,6 +93,10 @@ class ResolvedQueryContract(BaseModel):
     unresolved_fields: list[str] = Field(default_factory=list)
     derived_field_names: list[str] = Field(default_factory=list)
     understanding_sufficiency: dict[str, Any] | None = None
+
+    # Post-P10: structural home for multi-goal conditional intents (Phase 10 path).
+    requested_conditional_actions: list[RequestedConditionalAction] = Field(default_factory=list)
+    requested_outputs: list[str] = Field(default_factory=list)
 
     @field_validator("required_capabilities", "prohibited_capabilities", mode="before")
     @classmethod

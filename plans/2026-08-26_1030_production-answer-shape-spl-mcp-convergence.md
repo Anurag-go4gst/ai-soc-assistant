@@ -523,17 +523,17 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
   - **Depends on:** 1.2
   - **Evidence:** Frozen harness `CV.MULTI.01A` = PRODUCT_GAP (investigation_plan_PRESENT_unmet; conditional_remediation/email intents not preserved). VERIFY_1.3_PASS.
 
-- [ ] **1.4** — Minimal Final RQC contract support only if missing
+- [x] **1.4** — Minimal Final RQC contract support only if missing
   - **Do:** If 1.1–1.3 prove Final RQC cannot represent requested conditional actions + governed `predicate_id` + `recipient_roles` + lifecycle states, extend **`resolved_query.py` / `resolved_query_builder.py`** (and only then other consumers). Raise a protected packet for `schemas/responses.py` / pipeline **only if** wire exposure is required after RQC owns the fields. **Reuse an existing field only when its current semantics exactly represent the required concept.** Do **not** repurpose provenance, diagnostics, generic metadata, or `workflow_plan` message fields. Do **not** put conditional actions into ResourcePlan. **No** second planner / condition engine / side-channel registry.
   - **Verify:** Either “no schema change required” with proof that named RQC fields already mean the required concepts, or an exact protected packet path starting with RQC CURRENT/PROPOSED contract.
   - **Depends on:** 1.3
-  - **Evidence:** _(fill)_
+  - **Evidence:** Extended RQC (`RequestedConditionalAction`, `requested_conditional_actions`, `requested_outputs`); packet `docs/evals/answer_shape/rqc_1_4_contract_packet.md`; `schemas/responses.py` not touched. Tests `test_resolved_query_contract.py` 10 passed.
 
-- [ ] **1.5** — Persist investigation + SOP + remediation condition + email intent on Final RQC simultaneously
+- [x] **1.5** — Persist investigation + SOP + remediation condition + email intent on Final RQC simultaneously
   - **Do:** Implement the minimal RQC persistence wiring approved in 1.4 so multi-goal turns keep all intents without granting write/send authority early and without ResourcePlan ownership of those actions.
   - **Verify:** `CV.MULTI.01A` — intents PRESERVED on RQC; remediation plan ABSENT when not plan-eligible; email send ABSENT; `CV.SOP.01` unchanged (no remediation).
   - **Depends on:** 1.4
-  - **Evidence:** _(fill)_
+  - **Evidence:** Builder `_extract_requested_conditional_actions` preserves remediation+email_draft+roles+predicate as PENDING_CONDITION on design-case (VERIFY_1.4_EXTRACT_PASS). No write/send granted. End-to-end answer-shape CV.MULTI.01A remains PRODUCT_GAP until Phase 2/3 surfacing (RQC persistence proven separately).
 
 ### Phase 2 — State-aware answer contract
 

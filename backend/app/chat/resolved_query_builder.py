@@ -10,6 +10,7 @@ from app.chat.contracts.intent_classification import IntentClassification, Query
 from app.chat.contracts.resolved_query import (
     AmbiguityState,
     AnswerGoal,
+    RequestedConditionalAction,
     ResolvedQueryContract,
     UnderstandingSource,
 )
@@ -96,6 +97,65 @@ def _answer_goal(intent: IntentClassification) -> AnswerGoal:
     return _FAMILY_TO_ANSWER_GOAL.get(intent.intent_family, "analyst_action_guidance")
 
 
+def _extract_requested_conditional_actions(query: str) -> list[RequestedConditionalAction]:
+    """Deterministic preservation of user-requested conditional actions on Final RQC.
+
+    Does **not** grant eligibility, authorize writes/sends, or place actions on ResourcePlan.
+    Lifecycle starts at REQUESTED (or PENDING_CONDITION when a governed predicate is present).
+    """
+    text = (query or "").lower()
+    actions: list[RequestedConditionalAction] = []
+
+    # Governed predicate ids only — free-text conditions are never action authority.
+    predicate_id: str | None = None
+    if "if the evidence confirms" in text or "if compromise" in text or "compromise is confirmed" in text:
+        predicate_id = "account_compromise_confirmed"
+    elif "if the evidence confirms malicious" in text or "confirms malicious activity" in text:
+        predicate_id = "account_compromise_confirmed"
+
+    lifecycle = "PENDING_CONDITION" if predicate_id else "REQUESTED"
+
+    if any(tok in text for tok in ("remediat", "containment action", "prepare the remediation")):
+        actions.append(
+            RequestedConditionalAction(
+                action_kind="remediation",
+                lifecycle_state=lifecycle,  # type: ignore[arg-type]
+                predicate_id=predicate_id,
+            )
+        )
+
+    if "draft an email" in text or ("email to the" in text and "draft" in text) or (
+        "email to the" in text and "summarizing" in text
+    ):
+        roles: list[str] = []
+        if "firewall" in text:
+            roles.append("firewall_team")
+        if "identity" in text:
+            roles.append("identity_team")
+        actions.append(
+            RequestedConditionalAction(
+                action_kind="email_draft",
+                lifecycle_state=lifecycle,  # type: ignore[arg-type]
+                predicate_id=predicate_id,
+                recipient_roles=roles,
+            )
+        )
+
+    return actions
+
+
+def _requested_outputs_from_actions(
+    actions: list[RequestedConditionalAction],
+) -> list[str]:
+    outputs: list[str] = []
+    for action in actions:
+        if action.action_kind == "remediation" and "remediation_plan" not in outputs:
+            outputs.append("remediation_plan")
+        if action.action_kind == "email_draft" and "email_draft" not in outputs:
+            outputs.append("email_draft")
+    return outputs
+
+
 def build_resolved_query_contract(
     *,
     query: str,
@@ -140,6 +200,7 @@ def build_resolved_query_contract(
         ),
     )
     match_path = (q2i.candidate_mappings or {}).get("match_path") or qualification_source
+    requested_actions = _extract_requested_conditional_actions(query)
     contract = ResolvedQueryContract(
         normalized_goal=query.strip(),
         intent_family=intent.intent_family,
@@ -167,6 +228,8 @@ def build_resolved_query_contract(
             ),
         },
         understanding_source=understanding_source,
+        requested_conditional_actions=requested_actions,
+        requested_outputs=_requested_outputs_from_actions(requested_actions),
     )
     return attach_understanding_authority(contract)
 

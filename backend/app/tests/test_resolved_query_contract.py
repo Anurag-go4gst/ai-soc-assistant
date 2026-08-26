@@ -96,3 +96,43 @@ def test_module_does_not_import_run_contract() -> None:
     ]
     assert "app.chat.contracts.run_contract" not in imports
     assert ALLOWED_CAPABILITIES == frozenset({"spl", "mcp"})
+
+
+def test_requested_conditional_actions_default_empty() -> None:
+    contract = ResolvedQueryContract(
+        normalized_goal="summarize alert severity",
+        intent_family="alert_summary",
+        answer_goal="severity_assessment",
+        ambiguity_state="unambiguous",
+        qualification_tier="T1",
+        qualification_source="exact_105_question",
+        confidence=0.95,
+    )
+    assert contract.requested_conditional_actions == []
+    assert contract.requested_outputs == []
+    assert contract.contract_version == "2026-08-26"
+
+
+def test_builder_preserves_design_case_conditional_intents() -> None:
+    from app.chat.resolved_query_builder import build_resolved_query_contract
+
+    query = (
+        "Investigate the 25 failed SSH logins followed by a successful login to the "
+        "admin account from 198.51.100.42. Determine whether the account is "
+        "compromised. If the evidence confirms malicious activity, prepare the "
+        "remediation actions and draft an email to the firewall and identity teams "
+        "summarizing the evidence and requesting the required containment actions."
+    )
+    contract = build_resolved_query_contract(
+        query=query,
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+    )
+    kinds = {a.action_kind for a in contract.requested_conditional_actions}
+    assert kinds == {"remediation", "email_draft"}
+    email = next(a for a in contract.requested_conditional_actions if a.action_kind == "email_draft")
+    assert email.lifecycle_state == "PENDING_CONDITION"
+    assert email.predicate_id == "account_compromise_confirmed"
+    assert email.recipient_roles == ["firewall_team", "identity_team"]
+    assert "remediation_plan" in contract.requested_outputs
+    assert "email_draft" in contract.requested_outputs
