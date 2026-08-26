@@ -1101,7 +1101,7 @@ def _live_single_hop_provider(query: str, deterministic: ResolvedQueryContract) 
         api_key=endpoint.api_key,
         timeout_seconds=max(1, int(timeout + 0.5)),
     )
-    from app.llm.policy.candidates import live_system_prompt
+    from app.llm.policy.candidates import candidate_t4_response_schema, live_system_prompt
 
     result = client.generate(
         system_prompt=live_system_prompt("semantic_t4", _SEMANTIC_T4_SYSTEM_PROMPT),
@@ -1120,8 +1120,9 @@ def _live_single_hop_provider(query: str, deterministic: ResolvedQueryContract) 
             "json_schema": {
                 "name": "semantic_t4_proposal",
                 # Full SemanticT4Proposal schema on ABSTAIN — not the legacy
-                # unresolved-field patch subset.
-                "schema": _SEMANTIC_T4_SCHEMA,
+                # unresolved-field patch subset. Returned unchanged outside the
+                # P8 candidate eval arm; production decoding is untouched.
+                "schema": candidate_t4_response_schema(_SEMANTIC_T4_SCHEMA),
             },
         },
         timeout_seconds=timeout,

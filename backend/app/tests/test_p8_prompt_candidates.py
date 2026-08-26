@@ -91,13 +91,15 @@ def test_candidate_arm_selects_candidate_live_text() -> None:
             "You are the advisory investigation planning role. Return JSON only.",
         )
         assert t4 == CANDIDATES["semantic_t4"].system_instruction
-        assert "LOCKED FIELDS ARE IMMUTABLE" in t4
+        # v2 keeps the locked-field prohibition, stated plainly rather than shouted.
+        assert "locked" in t4.lower()
         assert spl == CANDIDATES["spl_advisory_generator"].system_instruction
-        assert "Never drop a denied_traffic" in spl
+        assert "denied" in spl
         assert "investigation_plan" in planner
         assert "hypotheses" in planner
-        assert extra_few_shots_for_live("semantic_t4")
     assert prompt_eval_arm() == "active"
+    # v2 deliberately ships no T4 extra shots: the v1 shots were near-verbatim
+    # frozen-bank questions and measurably bled into unrelated answers.
     assert extra_few_shots_for_live("semantic_t4") == ()
 
 
@@ -118,7 +120,13 @@ def test_candidate_eval_arm_is_visible_inside_sidecar_worker_thread() -> None:
     assert prompt_eval_arm() == "active"
 
 
-def test_candidate_t4_few_shots_are_eval_arm_only() -> None:
+def test_t4_renders_no_candidate_extra_shots_in_either_arm() -> None:
+    """v2 ships no T4 extra shots, so both arms render the same example block.
+
+    The v1 shots were near-verbatim frozen-bank questions; they contaminated the
+    measurement and bled across examples, so they were withdrawn rather than
+    re-tuned.
+    """
     from app.chat.intent_classifier import build_query_to_intent
     from app.query_understanding.parser import understand_query
 
@@ -133,11 +141,48 @@ def test_candidate_t4_few_shots_are_eval_arm_only() -> None:
         query_to_intent=q2i,
     )
     active_user = _build_semantic_t4_user_prompt(query, contract)
-    assert "NEG invented host" not in active_user
     with use_prompt_eval_arm("candidate"):
         candidate_user = _build_semantic_t4_user_prompt(query, contract)
-    assert "NEG invented host" in candidate_user
-    assert "LOCKED FIELDS ARE IMMUTABLE" not in active_user
+    assert "NEG invented host" not in active_user
+    assert "NEG invented host" not in candidate_user
+    assert active_user == candidate_user
+
+
+def test_spl_shape_few_shot_is_candidate_arm_only_and_shape_selected() -> None:
+    """One shape-keyed plan example, chosen deterministically, candidate arm only."""
+    from app.llm.policy.candidates import spl_shape_few_shot_block
+
+    for shape in ("rolling", "trend", "sequence", "ranking", "raw"):
+        assert spl_shape_few_shot_block(shape) == "", f"{shape} leaked into ACTIVE"
+
+    with use_prompt_eval_arm("candidate"):
+        rolling = spl_shape_few_shot_block("rolling")
+        sequence = spl_shape_few_shot_block("sequence")
+        assert "fs.spl.rolling.plan.candidate" in rolling
+        assert "fs.spl.sequence.plan.candidate" in sequence
+        assert rolling != sequence
+        # An unsupported or unknown shape renders nothing, never a wrong example.
+        assert spl_shape_few_shot_block("comparison") == ""
+        assert spl_shape_few_shot_block("") == ""
+
+
+def test_spl_shape_few_shots_are_not_frozen_bank_questions() -> None:
+    """An example keyed to a bank question memorises the answer key.
+
+    ``few_shot_catalog_v1`` states the rule directly: examples teach a shape,
+    not a query.
+    """
+    import json as _json
+    from pathlib import Path
+
+    from app.llm.policy.candidates import _SPL_SHAPE_FEW_SHOTS
+
+    bank = _json.loads(
+        (Path(__file__).resolve().parents[3] / "docs/evals/p8_l3/bank_v1.json").read_text()
+    )
+    bank_queries = {str(row.get("query") or "").strip().lower() for row in bank["rows"]}
+    for shape, shot in _SPL_SHAPE_FEW_SHOTS.items():
+        assert str(shot["request"]).strip().lower() not in bank_queries, shape
 
 
 def test_roles_without_candidates_keep_active_on_candidate_arm() -> None:
@@ -145,10 +190,15 @@ def test_roles_without_candidates_keep_active_on_candidate_arm() -> None:
         assert live_system_prompt("shape_advisor", "ACTIVE_SHAPE") == "ACTIVE_SHAPE"
 
 
+# v1.3.0-candidate stable prefixes. Frozen so a prompt edit cannot silently
+# change what an A/B arm measured. v1.2.0-candidate's hashes were
+# semantic_t4=6e897303..., spl_advisory_generator=42ede55d...,
+# investigation_planner=ff1a47c9...; its results live in
+# docs/evals/p8_l3/ab_binding_fair_*.json.
 _EXPECTED_CANDIDATE_PREFIX = {
-    "semantic_t4": "6e897303f7401d0a303e3a87fe683eaa538c605435bb80a8878bfdebbefc844b",
-    "spl_advisory_generator": "42ede55dab7e163ff4281c6b7c7d5aa7f6ebfb50aa3e0885a382e08290338874",
-    "investigation_planner": "ff1a47c929fc11ae0cdab02b22c6273ec180e744935d2e113377d1ee3d5fb1c4",
+    "semantic_t4": "ade105b77baad8ae009f2c080441c0301276d71efe14cf8a8b5cc8ed2b22fcec",
+    "spl_advisory_generator": "1e68b2908b8bcdb1c89a3a3125b342ad9b841b3895c7c85a5d71f8d38a703a49",
+    "investigation_planner": "5283ec8a1bf24201b8bfce023d7722cdd3f9f892fc834a7f592cbbdecb4ec67b",
 }
 
 
@@ -167,7 +217,10 @@ def test_candidate_arm_records_selected_instruction_hash_for_provider_binding() 
             assert selected is not None
             assert text == CANDIDATES[role_id].system_instruction
             assert selected["template_id"] == CANDIDATES[role_id].template_id
-            assert selected["version"] == "1.2.0-candidate"
+            # Track the registry rather than a literal: candidate versions are
+            # immutable once evaluated, but a new bounded attempt bumps them.
+            assert selected["version"] == CANDIDATES[role_id].version
+            assert selected["version"].endswith("-candidate")
             assert selected["prefix_hash"] == _EXPECTED_CANDIDATE_PREFIX[role_id]
             assert selected["instruction_sha256"] == hash_prompt_text(text)
             assert candidate_stable_prefix_hash(role_id) == _EXPECTED_CANDIDATE_PREFIX[role_id]

@@ -97,6 +97,19 @@ def _safe_value(value: Any) -> str:
     return text[:80]
 
 
+#: Match values that are not predicates. A planner reaching for "select everything"
+#: writes one of these; compiled literally they become a filter that matches only
+#: the literal string ('src_ip="*"'), silently narrowing the search to nothing.
+#: The prompt already forbids them, but the compiler must not depend on that.
+_NON_PREDICATE_MATCHES: frozenset[str] = frozenset(
+    {"*", "%", "any", "all", "null", "not null", "is not null", "notnull", "distinct", "none", "-"}
+)
+
+
+def _is_predicate_match(value: str) -> bool:
+    return bool(value) and value.strip().lower() not in _NON_PREDICATE_MATCHES
+
+
 _EVENT_SET_FILTERS: dict[str, str] = {
     "failed_login": "(action=failure OR action=failed OR EventCode=4625)",
     "successful_login": "(action=success OR EventCode=4624)",
@@ -175,7 +188,7 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
             continue
         field = _safe_field(item.get("field"))
         match = _safe_value(item.get("match"))
-        if field and match:
+        if field and _is_predicate_match(match):
             search_terms.append(f'{field}="{match}"')
     for event_name in spec.get("required_event_sets") or []:
         fragment = _EVENT_SET_FILTERS.get(str(event_name))
@@ -418,10 +431,15 @@ def _grounding_block(
     return "\n".join(lines)
 
 
-def _plan_user_prompt(user_query: str, grounding: str = "") -> str:
+def _plan_user_prompt(user_query: str, grounding: str = "", shape_example: str = "") -> str:
     base = f"Investigation request:\n{user_query}"
     if grounding:
         base += f"\n\nPlanning context (advisory; do not invent beyond it):\n{grounding}"
+    if shape_example:
+        # One shape-keyed example, selected by the deterministic semantic
+        # contract. It goes in the user prompt, not the system prompt, so the
+        # cacheable stable prefix is identical across every request.
+        base += f"\n\n{shape_example}"
     return base + "\n\nReturn only the detection plan JSON."
 
 
@@ -432,8 +450,14 @@ def get_detection_plan(
     seed: int = SPL_PLAN_SEED,
     llm_raw_output_provider: Callable[[], str] | None = None,
     grounding: str = "",
+    analysis_shape: str = "",
 ) -> tuple[dict[str, Any] | None, list[str]]:
-    """Ask the LLM for a small detection plan; parse it tolerantly. Returns (plan, errors)."""
+    """Ask the LLM for a small detection plan; parse it tolerantly. Returns (plan, errors).
+
+    ``analysis_shape`` is the shape the deterministic semantic contract already
+    resolved. It selects at most one governed few-shot, and only under the
+    candidate eval arm; production renders no example and is unchanged.
+    """
     if llm_raw_output_provider is not None:
         raw = llm_raw_output_provider()
     else:
@@ -441,11 +465,13 @@ def get_detection_plan(
         if active_client is None:
             return None, [CLARIFICATION_NO_CLIENT]
         try:
-            from app.llm.policy.candidates import live_system_prompt
+            from app.llm.policy.candidates import live_system_prompt, spl_shape_few_shot_block
 
             completion = active_client.generate(
                 system_prompt=live_system_prompt("spl_advisory_generator", _plan_system_prompt()),
-                user_prompt=_plan_user_prompt(user_query, grounding),
+                user_prompt=_plan_user_prompt(
+                    user_query, grounding, spl_shape_few_shot_block(analysis_shape)
+                ),
                 max_tokens=_spl_max_output_tokens(),
                 temperature=0.0,
                 seed=seed,
@@ -472,7 +498,9 @@ def _redacted_detection_plan(plan: dict[str, Any]) -> dict[str, Any]:
     filters = [
         f"{_safe_field(f.get('field'))}={_safe_value(f.get('match'))}"
         for f in (plan.get("filters") or [])
-        if isinstance(f, dict) and _safe_field(f.get("field")) and _safe_value(f.get("match"))
+        if isinstance(f, dict)
+        and _safe_field(f.get("field"))
+        and _is_predicate_match(_safe_value(f.get("match")))
     ]
     return {
         "index": index_ph,
@@ -514,16 +542,9 @@ def generate_llm_spl_via_plan(
         mcp_discovery_context=mcp_discovery_context,
         llm_intent_advisory=llm_intent_advisory,
     )
-    plan, errors = get_detection_plan(
-        user_query,
-        client=client,
-        seed=seed,
-        llm_raw_output_provider=plan_raw_output_provider,
-        grounding=grounding,
-    )
-    if plan is None:
-        return _clarification(CLARIFICATION_INVALID_SCHEMA, adapter_errors=errors)
-
+    # The semantic contract is resolved BEFORE the model call: it is deterministic
+    # and depends only on the query, and its analysis_shape is what selects the
+    # single governed few-shot. Nothing about the plan feeds back into it.
     spec = intent_spec if isinstance(intent_spec, dict) else None
     if spec is None:
         from app.spl.spl_intent_spec import build_spl_intent_spec
@@ -536,6 +557,17 @@ def generate_llm_spl_via_plan(
         )
     if spec.get("support_status") == "unsupported":
         return _clarification("spl_semantic_contract_unsupported")
+
+    plan, errors = get_detection_plan(
+        user_query,
+        client=client,
+        seed=seed,
+        llm_raw_output_provider=plan_raw_output_provider,
+        grounding=grounding,
+        analysis_shape=str(spec.get("analysis_shape") or ""),
+    )
+    if plan is None:
+        return _clarification(CLARIFICATION_INVALID_SCHEMA, adapter_errors=errors)
     apply_spec = intent_spec is not None or spec.get("analysis_shape") in {"trend", "rolling", "sequence"}
     compiled_spl = compile_plan_to_spl(plan, intent_spec=spec if apply_spec else None)
     if not compiled_spl:

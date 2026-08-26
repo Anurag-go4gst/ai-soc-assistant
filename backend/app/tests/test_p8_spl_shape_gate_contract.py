@@ -96,6 +96,30 @@ def test_trend_satisfies_result_limit_without_truncating_the_series() -> None:
     assert "missing_result_limit" not in validate_spl(spl)["reject_reasons"]
 
 
+def test_non_predicate_filter_matches_are_dropped_not_compiled() -> None:
+    """A planner writing "select everything" must not narrow the search to nothing.
+
+    ``src_ip="*"`` is not a wildcard in a base search term — it matches the literal
+    string. The prompt forbids these values; the compiler does not rely on that.
+    """
+    plan = {
+        "data_domain": "auth",
+        "group_by": ["src_ip"],
+        "metric": "count",
+        "detection_family": "junk_filters",
+        "filters": [
+            {"field": "src_ip", "match": "*"},
+            {"field": "user", "match": "not null"},
+            {"field": "host", "match": "any"},
+            {"field": "action", "match": "failure"},
+        ],
+    }
+    spl = compile_plan_to_spl(plan)
+    assert 'action="failure"' in spl
+    for dropped in ('src_ip="*"', 'user="not null"', 'host="any"'):
+        assert dropped not in spl
+
+
 def test_denied_filter_match_is_not_weakened_by_quote_tolerance() -> None:
     """Crediting action="denied" must not credit a query with no denied filter."""
     assert _DENIED_SPL_RE.search('action="denied"')
