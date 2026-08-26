@@ -4,17 +4,14 @@
   "followup_continuity": "PASS",
   "journey_bank_count": 8,
   "journeys_executed": 8,
-  "journeys_failed": 1,
-  "journeys_passed": 7,
+  "journeys_failed": 0,
+  "journeys_passed": 8,
   "live_mcp_used": false,
-  "major_journey_defects": [
-    "J7"
-  ],
+  "major_journey_defects": [],
   "phase": "P8-C",
   "prompt_arm": "active",
-  "remediation_negative_case": "FAIL",
+  "remediation_negative_case": "PASS",
   "remediation_positive_case": "PASS",
-  "rescore_note": "CONCLUSION_QUALITY accepts human_review as the analyst-visible answer. J7 remains FAIL: knowledge SOP offered Create a remediation plan.",
   "results": [
     {
       "ec_reference": "flagship failed-login investigation arc (plan -> evidence need -> conclusion)",
@@ -26,7 +23,7 @@
       "turns": [
         {
           "dimensions": {
-            "ANALYSIS_QUALITY": "PARTIAL",
+            "ANALYSIS_QUALITY": "PASS",
             "ANSWER_READABILITY": "PASS",
             "BOUNDEDNESS": "PASS",
             "CONCLUSION_QUALITY": "PASS",
@@ -47,7 +44,7 @@
           "has_human_review": true,
           "has_investigation_approval": true,
           "has_plan": true,
-          "has_remediation_approval": true,
+          "has_remediation_approval": false,
           "live_mcp_called": false,
           "major_defects": [],
           "message": "Investigate failed login spike for user:alice host:APP-01 from 10.0.0.8 in the last 24 hours",
@@ -91,7 +88,6 @@
           "live_mcp_called": false,
           "major_defects": [],
           "message": "Investigate top source IPs generating denied firewall traffic in the last 24 hours",
-          "notes_rescore": "human_review treated as analyst-visible conclusion",
           "selected_skill": "spl_generation",
           "summary_prefix": ""
         }
@@ -107,7 +103,7 @@
       "turns": [
         {
           "dimensions": {
-            "ANALYSIS_QUALITY": "PARTIAL",
+            "ANALYSIS_QUALITY": "PASS",
             "ANSWER_READABILITY": "PASS",
             "BOUNDEDNESS": "PASS",
             "CONCLUSION_QUALITY": "PASS",
@@ -128,7 +124,7 @@
           "has_human_review": true,
           "has_investigation_approval": true,
           "has_plan": true,
-          "has_remediation_approval": true,
+          "has_remediation_approval": false,
           "live_mcp_called": false,
           "major_defects": [],
           "message": "one source IP attacking multiple distinct accounts over a rolling 10-minute window",
@@ -147,7 +143,7 @@
       "turns": [
         {
           "dimensions": {
-            "ANALYSIS_QUALITY": "PARTIAL",
+            "ANALYSIS_QUALITY": "PASS",
             "ANSWER_READABILITY": "PASS",
             "BOUNDEDNESS": "PASS",
             "CONCLUSION_QUALITY": "PASS",
@@ -168,7 +164,7 @@
           "has_human_review": true,
           "has_investigation_approval": true,
           "has_plan": true,
-          "has_remediation_approval": true,
+          "has_remediation_approval": false,
           "live_mcp_called": false,
           "major_defects": [],
           "message": "Investigate password change followed by successful login within 5 minutes",
@@ -212,7 +208,6 @@
           "live_mcp_called": false,
           "major_defects": [],
           "message": "compare this with what happened last week and tell me if it is getting worse",
-          "notes_rescore": "human_review treated as analyst-visible conclusion",
           "selected_skill": "knowledge_recall",
           "summary_prefix": ""
         }
@@ -253,7 +248,6 @@
           "live_mcp_called": false,
           "major_defects": [],
           "message": "Investigate confirmed brute-force against user alice on host APP-01 from 10.0.0.8 and recommend the next containment action",
-          "notes_rescore": "human_review treated as analyst-visible conclusion",
           "selected_skill": "spl_generation",
           "summary_prefix": ""
         }
@@ -261,17 +255,15 @@
     },
     {
       "ec_reference": "knowledge/SOP answer without containment CTA",
-      "failed_dimensions": [
-        "REMEDIATION_APPROPRIATENESS"
-      ],
+      "failed_dimensions": [],
       "journey_id": "J7",
       "major_defects": [],
-      "result": "FAIL",
+      "result": "PASS",
       "title": "remediation not justified",
       "turns": [
         {
           "dimensions": {
-            "ANALYSIS_QUALITY": "PARTIAL",
+            "ANALYSIS_QUALITY": "PASS",
             "ANSWER_READABILITY": "PASS",
             "BOUNDEDNESS": "PASS",
             "CONCLUSION_QUALITY": "PASS",
@@ -282,7 +274,7 @@
             "LIMITATION_TRANSPARENCY": "PASS",
             "NEXT_STEP_QUALITY": "PASS",
             "PLAN_QUALITY": "PASS",
-            "REMEDIATION_APPROPRIATENESS": "FAIL",
+            "REMEDIATION_APPROPRIATENESS": "PASS",
             "REQUEST_UNDERSTANDING": "PASS",
             "TOOL/SOURCE_SELECTION_QUALITY": "PASS"
           },
@@ -292,7 +284,7 @@
           "has_human_review": true,
           "has_investigation_approval": false,
           "has_plan": false,
-          "has_remediation_approval": true,
+          "has_remediation_approval": false,
           "live_mcp_called": false,
           "major_defects": [],
           "message": "What is the SOP for investigating a failed login spike?",
@@ -311,7 +303,7 @@
       "turns": [
         {
           "dimensions": {
-            "ANALYSIS_QUALITY": "PARTIAL",
+            "ANALYSIS_QUALITY": "PASS",
             "ANSWER_READABILITY": "PASS",
             "BOUNDEDNESS": "PASS",
             "CONCLUSION_QUALITY": "PASS",
@@ -332,7 +324,7 @@
           "has_human_review": true,
           "has_investigation_approval": true,
           "has_plan": true,
-          "has_remediation_approval": true,
+          "has_remediation_approval": false,
           "live_mcp_called": false,
           "major_defects": [],
           "message": "Investigate failed login spike for user:alice host:APP-01 from 10.0.0.8 in the last 24 hours",
@@ -366,7 +358,6 @@
           "live_mcp_called": false,
           "major_defects": [],
           "message": "actually the host is APP-02",
-          "notes_rescore": "human_review treated as analyst-visible conclusion",
           "selected_skill": "knowledge_recall",
           "summary_prefix": ""
         }

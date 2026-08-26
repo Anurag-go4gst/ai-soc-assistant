@@ -156,7 +156,15 @@ def test_ec_changes_stay_within_allowlist() -> None:
 # The freeze detector observed backend/app/chat/pipeline.py vs 615069e6 before
 # this advancement. The baseline is pinned to 5921f1d0, not HEAD. All future
 # protected edits still require STOP plus explicit operator approval.
-RACES_BASELINE_SHA = "5921f1d0cf569695db97ef0fd277ffdac8ec5338"
+# Advanced to 27970ea4d10f0e894c8adb4214e18cd46e24b28e after explicit operator
+# approval of P8-D-CHATPANEL-SCENARIO-PICKER
+# (docs/evals/p8_d/protected_change_packet.md). Production /chat empty state
+# removes DemoScenarioPicker, StarterPrompts, and handleRunDemo only. Experience
+# Center /scenarios is untouched. No routing, MCP, HIL vocabulary, write
+# authority, or backend wire-contract rename. The freeze detector observed
+# frontend/src/components/ChatPanel.tsx vs 5921f1d0 before this advancement.
+# Baseline pinned to 27970ea4, not HEAD.
+RACES_BASELINE_SHA = "27970ea4d10f0e894c8adb4214e18cd46e24b28e"
 
 
 def _git_name_only(rev_range: str) -> list[str]:
