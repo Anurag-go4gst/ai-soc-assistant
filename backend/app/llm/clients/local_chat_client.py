@@ -155,6 +155,9 @@ class LocalChatClient:
         # forces valid JSON on llama.cpp servers that support it.
         if response_format is not None:
             payload["response_format"] = response_format
+        from app.llm.policy.request_provenance import record_provider_system_prompt
+
+        record_provider_system_prompt(str(payload["messages"][0]["content"]))
         body = json.dumps(payload).encode("utf-8")
         request = Request(url, data=body, method="POST", headers=headers)
         started = time.monotonic()

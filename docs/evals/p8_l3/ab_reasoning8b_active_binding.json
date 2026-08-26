@@ -1,0 +1,8 @@
+{
+  "binding_proven": null,
+  "by_role": {},
+  "candidate_roles_missing_llm_call": [],
+  "candidate_roles_observed": [],
+  "harness_defect": false,
+  "note": "candidate prefix/instruction matching applies only to the candidate arm"
+}

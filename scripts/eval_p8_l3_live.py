@@ -547,9 +547,27 @@ def _role_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def live_run(*, persist: bool = False, arm: str = "active", report_prefix: str | None = None) -> int:
+def live_run(
+    *,
+    persist: bool = False,
+    arm: str = "active",
+    report_prefix: str | None = None,
+    intended_model: str = "foundation-sec-instruct",
+    local_base_url: str | None = None,
+    local_model: str | None = None,
+) -> int:
     os.environ["AI_SOC_TESTS_ALLOW_LIVE_LLM"] = "1"
     applied_keys = sorted(apply_compose_like_env())
+    if local_base_url:
+        os.environ["AI_SOC_LLM_LOCAL_BASE_URL"] = local_base_url
+        # Fair comparison: do not prepend/failover the 8B specialists.
+        os.environ["AI_SOC_LLM_FOUNDATION_SEC_REASONING_BASE_URL"] = ""
+        os.environ["AI_SOC_LLM_FOUNDATION_SEC_INSTRUCT_BASE_URL"] = ""
+        os.environ["AI_SOC_LLM_QWEN_PRIMARY_ENABLED"] = "false"
+    if local_model:
+        os.environ["AI_SOC_LLM_LOCAL_MODEL"] = local_model
+        os.environ["AI_SOC_LLM_DEFAULT_MODEL"] = local_model
+        os.environ["AI_SOC_LLM_ACTIVE_MODEL"] = local_model
     scripts_dir = str(ROOT / "scripts")
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
@@ -587,11 +605,11 @@ def live_run(*, persist: bool = False, arm: str = "active", report_prefix: str |
         return 2
 
     identity = capture_model_identity()
-    intended = "foundation-sec-instruct"
+    intended = intended_model
     actual_model = str(identity.get("model") or "")
     build = identity.get("model_version_or_build") or {}
     actual_id = str(build.get("id") or actual_model)
-    if intended not in actual_model and intended not in actual_id:
+    if intended and intended not in actual_model and intended not in actual_id:
         mismatch = {
             "phase": "L3-2" if is_l32 else "P8-B",
             "eval_status": "MODEL_IDENTITY_MISMATCH",
@@ -604,7 +622,7 @@ def live_run(*, persist: bool = False, arm: str = "active", report_prefix: str |
         return 2
 
     from app.llm.policy.eval_arm import use_prompt_eval_arm
-    from p8_l3_live_seams import execute_row
+    from p8_l3_live_seams import execute_row, summarize_request_binding
 
     bank = load_bank()
     thresholds = load_thresholds()
@@ -621,6 +639,22 @@ def live_run(*, persist: bool = False, arm: str = "active", report_prefix: str |
                     "ok": False,
                     "eval_status": "L3_2_ARTIFACT_PROTECTED",
                     "reason": "Refusing to overwrite frozen L3-2 artifacts. Use --ab-arm.",
+                },
+                indent=2,
+            )
+        )
+        return 2
+    frozen_ab = {"ab_active", "ab_candidate"}
+    if persist and prefix in frozen_ab and (REPORT_DIR / f"{prefix}_scorecard.json").exists():
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "eval_status": "AB_ARTIFACT_PROTECTED",
+                    "reason": (
+                        f"Refusing to overwrite committed {prefix} artifacts. "
+                        "Pass --report-prefix with a new name (for example ab_binding)."
+                    ),
                 },
                 indent=2,
             )
@@ -656,6 +690,13 @@ def live_run(*, persist: bool = False, arm: str = "active", report_prefix: str |
     scorecard["p4_contract_candidate_activated"] = False
     scorecard["compose_env_keys_applied"] = applied_keys
     scorecard["healthy_endpoint"] = dry.get("healthy_endpoint")
+    binding = summarize_request_binding(raw_rows)
+    scorecard["request_binding"] = {
+        "binding_proven": binding.get("binding_proven"),
+        "harness_defect": binding.get("harness_defect"),
+        "candidate_roles_observed": binding.get("candidate_roles_observed"),
+        "candidate_roles_missing_llm_call": binding.get("candidate_roles_missing_llm_call"),
+    }
     failures = {
         "prompt_arm": arm,
         "authority_violations": scorecard["authority_violations"],
@@ -675,6 +716,7 @@ def live_run(*, persist: bool = False, arm: str = "active", report_prefix: str |
     if persist:
         write_report(f"{prefix}_scorecard.json", scorecard)
         write_report(f"{prefix}_failure_analysis.json", failures)
+        write_report(f"{prefix}_binding.json", binding)
     print(
         json.dumps(
             {
@@ -686,6 +728,8 @@ def live_run(*, persist: bool = False, arm: str = "active", report_prefix: str |
                 "semantic_success_rate": scorecard["semantic_success_rate"],
                 "llm_success_rate": scorecard["llm_success_rate"],
                 "role_metrics": scorecard.get("role_metrics"),
+                "binding_proven": binding.get("binding_proven"),
+                "binding_harness_defect": binding.get("harness_defect"),
             },
             indent=2,
         )
@@ -769,21 +813,45 @@ def main() -> int:
         choices=("active", "candidate", "both"),
         help="P8-B A/B arm. Writes ab_* artifacts and never overwrites L3-2.",
     )
+    parser.add_argument(
+        "--report-prefix",
+        help="Artifact prefix under docs/evals/p8_l3/. Never overwrites l3_2 / committed ab_*.",
+    )
+    parser.add_argument(
+        "--intended-model",
+        default="foundation-sec-instruct",
+        help="Require this model id/name in /v1/models before scoring.",
+    )
+    parser.add_argument(
+        "--local-base-url",
+        help="Eval-only overlay for AI_SOC_LLM_LOCAL_BASE_URL. Does not rewrite .env.",
+    )
+    parser.add_argument(
+        "--local-model",
+        help="Eval-only overlay for AI_SOC_LLM_LOCAL_MODEL. Does not rewrite .env.",
+    )
     args = parser.parse_args()
     if args.live:
+        kwargs = {
+            "persist": args.write_report,
+            "intended_model": args.intended_model,
+            "local_base_url": args.local_base_url,
+            "local_model": args.local_model,
+        }
         if args.ab_arm in {None, "active"} and args.ab_arm != "both":
             arm = args.ab_arm or "active"
-            prefix = "ab_active" if args.ab_arm else "l3_2"
-            if args.ab_arm is None:
-                return live_run(persist=args.write_report, arm="active", report_prefix="l3_2")
-            return live_run(persist=args.write_report, arm=arm, report_prefix=prefix)
+            prefix = args.report_prefix or ("ab_active" if args.ab_arm else "l3_2")
+            return live_run(arm=arm, report_prefix=prefix, **kwargs)
         if args.ab_arm == "candidate":
-            return live_run(persist=args.write_report, arm="candidate", report_prefix="ab_candidate")
+            prefix = args.report_prefix or "ab_candidate"
+            return live_run(arm="candidate", report_prefix=prefix, **kwargs)
         # both
-        active_rc = live_run(persist=args.write_report, arm="active", report_prefix="ab_active")
+        active_prefix = args.report_prefix or "ab_active"
+        active_rc = live_run(arm="active", report_prefix=active_prefix, **kwargs)
         if active_rc != 0:
             return active_rc
-        candidate_rc = live_run(persist=args.write_report, arm="candidate", report_prefix="ab_candidate")
+        candidate_prefix = "ab_candidate" if args.report_prefix is None else f"{args.report_prefix}_candidate"
+        candidate_rc = live_run(arm="candidate", report_prefix=candidate_prefix, **kwargs)
         if candidate_rc != 0:
             return candidate_rc
         if args.write_report:

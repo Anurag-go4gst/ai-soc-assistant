@@ -195,11 +195,35 @@ def candidate_stable_prefix_hash(role_id: str) -> str:
 
 def live_system_prompt(role_id: str, active_prompt: str) -> str:
     """Production default is the supplied ACTIVE live prompt. Candidate only under eval arm."""
+    from app.llm.policy.request_provenance import record_selected_system_prompt
+
     if prompt_eval_arm() != "candidate":
+        record_selected_system_prompt(
+            role_id=role_id,
+            template_id="",
+            version="",
+            status="ACTIVE",
+            system_instruction=active_prompt,
+        )
         return active_prompt
     cand = candidate_for(role_id)
     if cand is None:
+        record_selected_system_prompt(
+            role_id=role_id,
+            template_id="",
+            version="",
+            status="ACTIVE",
+            system_instruction=active_prompt,
+        )
         return active_prompt
+    record_selected_system_prompt(
+        role_id=role_id,
+        template_id=cand.template_id,
+        version=cand.version,
+        status=cand.status,
+        system_instruction=cand.system_instruction,
+        prefix_hash=candidate_stable_prefix_hash(role_id),
+    )
     return cand.system_instruction
 
 

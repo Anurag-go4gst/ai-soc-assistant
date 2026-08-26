@@ -7,12 +7,13 @@ Use this file as the durable execution dashboard. Update it only during authoriz
 ## Control state
 
 ```yaml
-CURRENT_PHASE: P8_EVALUATED_FAIL_MODEL_CAPABILITY_REVIEW
+CURRENT_PHASE: P8_BINDING_PROVEN_QWEN72B_ACTIVE_STILL_FAIL_FLOORS
 CURRENT_BASE_SHA: 472ed89864e2323799ea7a13ab4c4fbef8e30185
 INTEGRATION_SHA: 472ed89864e2323799ea7a13ab4c4fbef8e30185
 EXECUTION_INTEGRATION_SHA: 472ed89864e2323799ea7a13ab4c4fbef8e30185
 FINAL_CLEAN_INTEGRATION_SHA: b6e4befe9a79dd722a09a09fdd345bae82880884
 LIVE_EVAL_PRODUCT_SHA: b6e4befe9a79dd722a09a09fdd345bae82880884
+P8_EVIDENCE_COMMIT_SHA: 9f12de89bf19541a5002bd240160dad81010fa9b
 P4_1_LAST_TEST_SHA: 7f763b5b12078534e96f1860474138b7dcc83707
 P4_1_STATUS: CLEAN_WITH_ENVIRONMENT_RESIDUAL
 POST_P3_INTEGRATION_SHA: caeab0d7a3dba10a173f89bc0d7641b21c14c283
@@ -32,9 +33,9 @@ INTEGRATION_BRANCH: feat/complete-or-abstain-t4-ux
 INTEGRATION_OWNER: CODEX
 ACTIVE_WORKSTREAMS: []
 BLOCKED_WORKSTREAMS:
-  - P8 closed as P8_FAIL_MODEL_CAPABILITY_REVIEW after two bounded candidates; do not promote; do not start P9
-  - P8-J7 knowledge_recall remediation offer requires protected pipeline decision
-  - P8-D ChatPanel DemoScenarioPicker remains on production /chat (protected)
+  - P8 model gate still FAIL after proven binding + Qwen72B ACTIVE; do not promote; do not start P9
+  - P8-J7 knowledge_recall remediation offer requires protected pipeline decision (exact diff ready)
+  - P8-D ChatPanel DemoScenarioPicker remains on production /chat (exact diff ready)
 COMPLETED_WORKSTREAMS:
   - P0: Harness readiness at 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
   - P0.1: RACES baseline advanced and verified at ae03a2502ab4c83797151a11d4effa47d9d4532b
@@ -50,8 +51,10 @@ COMPLETED_WORKSTREAMS:
   - P8 L3-2: ACTIVE baseline measured; BASELINE_FAIL_REQUIRES_CANDIDATE
   - P8-A/B: two candidate attempts; NO_PROMOTION; MODEL_CAPABILITY_CANDIDATE for t4/spl/planner
   - P8-C/D: journeys 7/8 J7 fail; production /chat browser exercised; UI/UX remaining ChatPanel leakage
+  - P8 binding: fair wire proof YES (`ab_binding_fair`); harness ContextVar defect fixed
+  - P8 model compare: Qwen72B ACTIVE improves T4 accept 0→4 and semantic 0.2885→0.4423; floors still FAIL; SPL/planner still fail
 NEXT_SAFE_PARALLEL_STARTS:
-  - None. P8 evaluated. P9 blocked. Recommend larger/different model for semantic_t4, spl_advisory_generator, investigation_planner. Operator packets: P8-J7 pipeline remediation offer; P8-D ChatPanel scenario picker.
+  - None. Operator approval of exact protected diffs (J7 + ChatPanel). Do not start P9. Do not merge retirement branch yet.
 RECONCILIATION_QUEUE:
   - REQUEST_ID: P1-T2-EVIDENCESTATE-OWNERSHIP
     REQUESTING_STREAM: A TRACE
@@ -67,11 +70,11 @@ MERGE_QUEUE: []
 PROTECTED_CHANGE_QUEUE:
   - REQUEST_ID: P8-J7-KNOWLEDGE-REMEDIATION-OFFER
     FILE: backend/app/chat/pipeline.py
-    STATUS: OPEN
+    STATUS: PACKET_COMPLETE_AWAITING_OPERATOR_APPROVAL
     PACKET: docs/evals/p8_d/protected_change_packet.md
   - REQUEST_ID: P8-D-CHATPANEL-SCENARIO-PICKER
     FILE: frontend/src/components/ChatPanel.tsx
-    STATUS: OPEN
+    STATUS: PACKET_COMPLETE_AWAITING_OPERATOR_APPROVAL
     PACKET: docs/evals/p8_d/protected_change_packet.md
 PROTECTED_CHANGE_HISTORY:
   - REQUEST_ID: P2-FINAL-RQC-PIPELINE-WIRING
@@ -86,7 +89,7 @@ TEST_GATE_STATUS:
   L1: P1_trace_evidence_34; P2_semantic_58; LIVE_RQC_10
   L2: P0_13_plus_ACTIVE_41
   L2_SLOW: timeout_modules_21_passed
-  L3: live_ab_complete_no_promotion_floors_still_fail
+  L3: binding_proven_yes_qwen72b_active_floors_still_fail
   FRONTEND: 118_passed_build_green_browser_exercised_ui_ux_fail
   GOVERNANCE: CLEAN_WITH_ENVIRONMENT_RESIDUAL
   LINUX: not_started
@@ -138,6 +141,7 @@ DECISION_LOG:
   - 2026-08-26: Frozen LIVE_EVAL_PRODUCT_SHA b6e4befe; full backend 2 failed (GitHub env + stale P7 scan test). Scan test aligned fa6ad102. P8 L3-1 frozen 472ed898. L3-2 blocked: no reachable :8081 or COE :8004. No prompt tuning. LIVE_AB_EVAL_PERFORMED=NO.
   - 2026-08-26: P8 L3-2 live baseline completed against 10.52.1.13:8004 foundation-sec-instruct (vLLM). Bank hash unchanged 5f78ccbe. 16/16 rows. BASELINE_FAIL_REQUIRES_CANDIDATE (semantic 0.2885 vs 0.5; initial_pass 0.20 vs 0.4). No candidate created. No prompt/model/threshold edits. Harness-only H1–H3 then rerun. RACES 8; P0 L2 13; LIVE-RQC 10. P9 blocked. LIVE_MCP_USED=NO. PUSH_PERFORMED=NO.
   - 2026-08-26: P8-A/B/C/D evaluated on HEAD 6e7e379c (b6e4befe ancestor). Two candidate attempts, no promotion. Frozen floors still fail. Journeys 7/8; J7 unjustified SOP remediation. Browser exercised production /chat. Chrome EC copy fixed unprotected. ChatPanel picker + J7 remain protected packets. Full backend 7081 passed / 1 GitHub residual failed. Frontend 118 + build green. P8_FAIL_MODEL_CAPABILITY_REVIEW. P9 blocked. LIVE_MCP_USED=NO. PUSH_PERFORMED=NO.
+  - 2026-08-26: After P8 evidence tip 9f12de89: wire binding harness defect found (ContextVar eval arm invisible in sidecar threads). Fair `ab_binding_fair` proves candidate hashes on the wire YES. Qwen72B ACTIVE comparison on same frozen bank: T4 4/4, semantic 0.4423, initial_pass 0.2667, SPL 1/5, planner schema FAIL — floors still FAIL. Exact J7+ChatPanel diffs in protected packet. No promotion. No push. P9 blocked.
 ```
 
 ## P1 completion evidence (historical checkpoint)
@@ -637,6 +641,7 @@ Append decisions; do not rewrite history.
 | 2026-08-26 P8 L3-1 | P8 | Freeze live-eval product SHA b6e4befe; L3 bank+thresholds before scores; do not tune prompts or enable blocked roles | Suite at b6e4befe 2 failed/7065 passed; stale P7 scan fa6ad102; L3-1 472ed898; dry-run BLOCKED_INFRASTRUCTURE | L3-2 waits for reachable local/office LLM |
 | 2026-08-26 P8 L3-2 | P8 | ACTIVE baseline measurement of frozen 16-row bank on office vLLM; harness-only H1–H3 then rerun; do not tune prompts or create candidate | 16/16; LLM success 0.3077; semantic 0.2885; initial_pass 0.20; 0 authority / 0 evidence hallucinations; RACES 8; LIVE-RQC 10; P0 L2 13 | BASELINE_FAIL_REQUIRES_CANDIDATE; P9 blocked; no candidate; no live MCP; no push |
 | 2026-08-26 P8-A/B/C/D | P8 | Bounded candidates + fair A/B + journey bank + production /chat browser; do not promote; do not start P9 | A/B no gated gain; journeys 7/8 J7 fail; browser exercised; backend 7081/1 GitHub residual; frontend 118+build | P8_FAIL_MODEL_CAPABILITY_REVIEW; recommend larger model for t4/spl/planner; protected packets J7+ChatPanel; no live MCP; no push |
+| 2026-08-26 P8 binding+models | P8 | Fix eval-arm ContextVar harness defect; fair wire binding; ACTIVE compare Qwen72B + Reasoning 8B; exact protected diffs prepared not applied | `ab_binding_fair` MATCH=YES; Qwen semantic 0.4423 T4 4/4 floors FAIL; Reasoning 8B worse than Instruct (semantic 0.2273, SPL 0/5) | MODEL_QUALITY_GATE FAIL; no promotion; P9 blocked; operator packets ready |
 
 ## Runner stop
 

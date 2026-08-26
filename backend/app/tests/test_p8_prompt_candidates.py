@@ -101,6 +101,23 @@ def test_candidate_arm_selects_candidate_live_text() -> None:
     assert extra_few_shots_for_live("semantic_t4") == ()
 
 
+def test_candidate_eval_arm_is_visible_inside_sidecar_worker_thread() -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.llm.policy.candidates import live_system_prompt
+    from app.llm.policy.eval_arm import prompt_eval_arm, use_prompt_eval_arm
+
+    def _worker() -> tuple[str, str]:
+        return prompt_eval_arm(), live_system_prompt("semantic_t4", "ACTIVE_MUST_NOT_WIN")
+
+    with use_prompt_eval_arm("candidate"):
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            arm, text = pool.submit(_worker).result(timeout=5)
+    assert arm == "candidate"
+    assert text == CANDIDATES["semantic_t4"].system_instruction
+    assert prompt_eval_arm() == "active"
+
+
 def test_candidate_t4_few_shots_are_eval_arm_only() -> None:
     from app.chat.intent_classifier import build_query_to_intent
     from app.query_understanding.parser import understand_query
@@ -126,3 +143,114 @@ def test_candidate_t4_few_shots_are_eval_arm_only() -> None:
 def test_roles_without_candidates_keep_active_on_candidate_arm() -> None:
     with use_prompt_eval_arm("candidate"):
         assert live_system_prompt("shape_advisor", "ACTIVE_SHAPE") == "ACTIVE_SHAPE"
+
+
+_EXPECTED_CANDIDATE_PREFIX = {
+    "semantic_t4": "6e897303f7401d0a303e3a87fe683eaa538c605435bb80a8878bfdebbefc844b",
+    "spl_advisory_generator": "42ede55dab7e163ff4281c6b7c7d5aa7f6ebfb50aa3e0885a382e08290338874",
+    "investigation_planner": "ff1a47c929fc11ae0cdab02b22c6273ec180e744935d2e113377d1ee3d5fb1c4",
+}
+
+
+def test_candidate_arm_records_selected_instruction_hash_for_provider_binding() -> None:
+    from app.llm.policy.request_provenance import (
+        hash_prompt_text,
+        reset_prompt_provenance,
+        selected_prompt_for_role,
+    )
+
+    reset_prompt_provenance()
+    with use_prompt_eval_arm("candidate"):
+        for role_id in _CANDIDATE_ROLES:
+            text = live_system_prompt(role_id, "ACTIVE_MUST_NOT_WIN")
+            selected = selected_prompt_for_role(role_id)
+            assert selected is not None
+            assert text == CANDIDATES[role_id].system_instruction
+            assert selected["template_id"] == CANDIDATES[role_id].template_id
+            assert selected["version"] == "1.2.0-candidate"
+            assert selected["prefix_hash"] == _EXPECTED_CANDIDATE_PREFIX[role_id]
+            assert selected["instruction_sha256"] == hash_prompt_text(text)
+            assert candidate_stable_prefix_hash(role_id) == _EXPECTED_CANDIDATE_PREFIX[role_id]
+
+
+def test_local_chat_client_hashes_the_system_message_placed_on_the_wire(monkeypatch) -> None:
+    import json
+
+    from app.llm.clients.local_chat_client import LocalChatClient
+    from app.llm.policy.request_provenance import (
+        hash_prompt_text,
+        last_provider_request,
+        record_selected_system_prompt,
+        reset_prompt_provenance,
+    )
+
+    class _Resp:
+        def read(self, _n: int) -> bytes:
+            return json.dumps(
+                {
+                    "choices": [{"message": {"content": "{}"}, "finish_reason": "stop"}],
+                    "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+                }
+            ).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a) -> bool:
+            return False
+
+    reset_prompt_provenance()
+    monkeypatch.setattr("app.llm.clients.local_chat_client.urlopen", lambda *_a, **_k: _Resp())
+    system = "CANDIDATE_SYSTEM_ON_THE_WIRE"
+    record_selected_system_prompt(
+        role_id="semantic_t4",
+        template_id="tmpl.semantic_t4.candidate",
+        version="1.2.0-candidate",
+        status="CANDIDATE",
+        system_instruction=system,
+        prefix_hash=_EXPECTED_CANDIDATE_PREFIX["semantic_t4"],
+    )
+    client = LocalChatClient(base_url="http://example.invalid/v1", model="foundation-sec-instruct")
+    client.generate(system_prompt=system, user_prompt="user", max_tokens=8, temperature=0.0)
+    request = last_provider_request()
+    assert request is not None
+    assert request["system_prompt_sha256"] == hash_prompt_text(system)
+    assert request["matches_selected_instruction"] is True
+    assert request["role_id"] == "semantic_t4"
+
+
+def test_prompt_provenance_survives_sidecar_worker_thread() -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.llm.policy.request_provenance import (
+        hash_prompt_text,
+        provider_request_for_role,
+        record_provider_system_prompt,
+        record_selected_system_prompt,
+        reset_prompt_provenance,
+        selected_prompt_for_role,
+    )
+
+    reset_prompt_provenance()
+    system = "WORKER_THREAD_CANDIDATE"
+
+    def _worker() -> None:
+        record_selected_system_prompt(
+            role_id="semantic_t4",
+            template_id="tmpl.semantic_t4.candidate",
+            version="1.2.0-candidate",
+            status="CANDIDATE",
+            system_instruction=system,
+            prefix_hash=_EXPECTED_CANDIDATE_PREFIX["semantic_t4"],
+        )
+        record_provider_system_prompt(system)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pool.submit(_worker).result(timeout=5)
+    selected = selected_prompt_for_role("semantic_t4")
+    request = provider_request_for_role("semantic_t4")
+    assert selected is not None
+    assert request is not None
+    assert selected["instruction_sha256"] == hash_prompt_text(system)
+    assert request["system_prompt_sha256"] == hash_prompt_text(system)
+    assert request["matches_selected_instruction"] is True

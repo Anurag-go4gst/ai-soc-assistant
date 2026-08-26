@@ -24,6 +24,15 @@ INFRA_RETRY_MARKERS = (
     "RemoteDisconnected",
 )
 
+# Frozen 1.2.0-candidate stable-prefix hashes. Binding MATCH requires these plus
+# the provider request system message hashing to the selected instruction.
+EXPECTED_CANDIDATE_PREFIX_HASHES = {
+    "semantic_t4": "6e897303f7401d0a303e3a87fe683eaa538c605435bb80a8878bfdebbefc844b",
+    "spl_advisory_generator": "42ede55dab7e163ff4281c6b7c7d5aa7f6ebfb50aa3e0885a382e08290338874",
+    "investigation_planner": "ff1a47c929fc11ae0cdab02b22c6273ec180e744935d2e113377d1ee3d5fb1c4",
+}
+_ROLE_ALIASES = {"spl_generation": "spl_advisory_generator"}
+
 
 def empty_row_result(row: dict[str, Any], **over: Any) -> dict[str, Any]:
     base = {
@@ -61,6 +70,13 @@ def empty_row_result(row: dict[str, Any], **over: Any) -> dict[str, Any]:
         "prompt_version": None,
         "prompt_hash": None,
         "prompt_status": None,
+        "request_system_prompt_sha256": None,
+        "selected_instruction_sha256": None,
+        "selected_template_id": None,
+        "selected_template_version": None,
+        "request_matches_selected_instruction": None,
+        "selected_matches_expected_prefix": None,
+        "binding_match": None,
     }
     identity = _prompt_identity(row.get("role_id"))
     base.update(identity)
@@ -83,8 +99,7 @@ def _prompt_identity(role_id: str | None) -> dict[str, Any]:
     }
     if not role_id:
         return identity
-    aliases = {"spl_generation": "spl_advisory_generator"}
-    mapped = aliases.get(role_id, role_id)
+    mapped = _ROLE_ALIASES.get(role_id, role_id)
     if arm == "candidate":
         cand = candidate_for(mapped)
         if cand is not None:
@@ -686,20 +701,123 @@ def run_provenance_row(row: dict[str, Any], *, model: str) -> dict[str, Any]:
     )
 
 
+def attach_request_binding(result: dict[str, Any]) -> dict[str, Any]:
+    """Stamp hashes of the selected live prompt and the provider request body.
+
+    MATCH is YES only when the candidate arm's selected prefix hash is the expected
+    frozen candidate hash AND the HTTP system message hashes to that instruction.
+    """
+    from app.llm.policy.request_provenance import provider_request_for_role, selected_prompt_for_role
+
+    role = _ROLE_ALIASES.get(str(result.get("role") or ""), str(result.get("role") or ""))
+    selected = selected_prompt_for_role(role) or {}
+    request = provider_request_for_role(role) or {}
+    expected = EXPECTED_CANDIDATE_PREFIX_HASHES.get(role)
+    req_hash = request.get("system_prompt_sha256")
+    inst_hash = selected.get("instruction_sha256")
+    selected_prefix = selected.get("prefix_hash") or result.get("prompt_hash")
+    request_matches = bool(req_hash and inst_hash and req_hash == inst_hash)
+    expected_matches = bool(expected and selected_prefix == expected)
+    instruction_is_expected_candidate = False
+    if result.get("eval_arm") == "candidate" and expected:
+        from app.llm.policy.candidates import candidate_for
+        from app.llm.policy.request_provenance import hash_prompt_text
+
+        cand = candidate_for(role)
+        if cand is not None and inst_hash:
+            instruction_is_expected_candidate = inst_hash == hash_prompt_text(cand.system_instruction)
+    result["request_system_prompt_sha256"] = req_hash
+    result["selected_instruction_sha256"] = inst_hash
+    result["selected_template_id"] = selected.get("template_id") or result.get("prompt_id")
+    result["selected_template_version"] = selected.get("version") or result.get("prompt_version")
+    result["request_matches_selected_instruction"] = request_matches if req_hash or inst_hash else None
+    if result.get("eval_arm") == "candidate" and expected:
+        result["selected_matches_expected_prefix"] = expected_matches
+        result["binding_match"] = bool(
+            result.get("llm_called")
+            and request_matches
+            and expected_matches
+            and instruction_is_expected_candidate
+        )
+    else:
+        result["selected_matches_expected_prefix"] = None
+        result["binding_match"] = None
+    return result
+
+
+def summarize_request_binding(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    by_role: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        role = _ROLE_ALIASES.get(str(row.get("role") or ""), str(row.get("role") or ""))
+        if role not in EXPECTED_CANDIDATE_PREFIX_HASHES:
+            continue
+        if not row.get("llm_called"):
+            continue
+        entry = by_role.setdefault(
+            role,
+            {
+                "role": role,
+                "cases": [],
+                "expected_candidate_hash": EXPECTED_CANDIDATE_PREFIX_HASHES[role],
+                "all_match": True,
+            },
+        )
+        match = bool(row.get("binding_match"))
+        entry["cases"].append(
+            {
+                "request_case_id": row.get("case_id"),
+                "selected_template_id": row.get("selected_template_id") or row.get("prompt_id"),
+                "selected_template_version": row.get("selected_template_version") or row.get("prompt_version"),
+                "selected_template_hash": row.get("prompt_hash"),
+                "expected_candidate_hash": EXPECTED_CANDIDATE_PREFIX_HASHES[role],
+                "request_system_prompt_sha256": row.get("request_system_prompt_sha256"),
+                "selected_instruction_sha256": row.get("selected_instruction_sha256"),
+                "match": "YES" if match else "NO",
+            }
+        )
+        entry["all_match"] = entry["all_match"] and match
+    proven = bool(by_role) and all(item["all_match"] for item in by_role.values())
+    missing = [role for role in EXPECTED_CANDIDATE_PREFIX_HASHES if role not in by_role]
+    arm = next((row.get("eval_arm") for row in rows if row.get("eval_arm")), None)
+    if arm != "candidate":
+        return {
+            "candidate_roles_observed": [],
+            "candidate_roles_missing_llm_call": [],
+            "by_role": {},
+            "binding_proven": None,
+            "harness_defect": False,
+            "note": "candidate prefix/instruction matching applies only to the candidate arm",
+        }
+    return {
+        "candidate_roles_observed": sorted(by_role),
+        "candidate_roles_missing_llm_call": missing,
+        "by_role": by_role,
+        "binding_proven": proven and not missing,
+        "harness_defect": (not proven) or bool(missing),
+    }
+
+
 def execute_row(row: dict[str, Any], *, model: str, session_id: str | None) -> dict[str, Any]:
+    from app.llm.policy.request_provenance import reset_prompt_provenance
+
+    reset_prompt_provenance()
     seam = row.get("seam")
     if seam == "t4":
-        return _one_infra_retry(lambda r: run_t4_row(r, model=model), row)
-    if seam == "spl_plan":
-        return _one_infra_retry(lambda r: run_spl_row(r, model=model), row)
-    if seam == "chat":
+        result = _one_infra_retry(lambda r: run_t4_row(r, model=model), row)
+    elif seam == "spl_plan":
+        result = _one_infra_retry(lambda r: run_spl_row(r, model=model), row)
+    elif seam == "chat":
         def _chat(r: dict[str, Any]) -> dict[str, Any]:
             prior = session_id if r["row_id"] == "L3.FU.01" else None
             return run_chat_row(r, model=model, prior_session=prior)
 
-        return _one_infra_retry(_chat, row)
-    if seam == "planner":
-        return _one_infra_retry(lambda r: run_planner_row(r, model=model), row)
-    if seam == "provenance":
-        return run_provenance_row(row, model=model)
-    return empty_row_result(row, final_result="FAIL", failure_class="EVAL_HARNESS_DEFECT", notes=[f"unknown seam {seam}"])
+        result = _one_infra_retry(_chat, row)
+    elif seam == "planner":
+        result = _one_infra_retry(lambda r: run_planner_row(r, model=model), row)
+    elif seam == "provenance":
+        result = run_provenance_row(row, model=model)
+    else:
+        result = empty_row_result(
+            row, final_result="FAIL", failure_class="EVAL_HARNESS_DEFECT", notes=[f"unknown seam {seam}"]
+        )
+    return attach_request_binding(result)
