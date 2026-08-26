@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { runDemoScenario } from '@/api/client';
 import { FlaskConical } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatBubble, type SocChatMessage } from './ChatBubble';
 import { ChatInput } from './ChatInput';
-import { DemoScenarioPicker } from './DemoScenarioPicker';
-import { StarterPrompts } from './StarterPrompts';
 import { cn } from '@/lib/utils';
 import { newClientId } from '@/lib/id';
 import { isClearChatCommand } from '@/lib/chatCommands';
@@ -34,7 +31,7 @@ import {
 } from '@/lib/legacyDemoCoordination';
 import { playLegacyDemoInvestigationWithCoordination } from '@/lib/legacyDemoCoordinationPlayer';
 import { executeLegacyDemoCoordination } from '@/lib/legacyDemoEmail';
-import type { ChatExecutionReviewOptions, ChatInvestigationReviewOptions, ChatRemediationReviewOptions, ChatReviewOptions, DemoScenarioSummary, PlaceholderResponse } from '@/types/api';
+import type { ChatExecutionReviewOptions, ChatInvestigationReviewOptions, ChatRemediationReviewOptions, ChatReviewOptions, PlaceholderResponse } from '@/types/api';
 
 interface ChatPanelProps {
   onTrace?: (response: PlaceholderResponse) => void;
@@ -71,7 +68,7 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
       id: 'welcome',
       role: 'assistant',
       content:
-        'Hi Anurag. I am V.AI SOC. Choose a starter prompt or ask for triage, SPL, MITRE mapping, or investigation notes.',
+        'Hi Anurag. I am V.AI SOC. Ask for triage, SPL, MITRE mapping, or investigation notes.',
     }),
     [],
   );
@@ -87,8 +84,6 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
   const sessionIdRef = useRef<string | null>(
     typeof window !== 'undefined' ? window.sessionStorage.getItem('ai_soc_session_id') : null,
   );
-
-  const conversationStarted = messages.some((message) => message.role === 'user');
 
   const isStaleInvestigation = (epoch: number) => epoch !== investigationEpochRef.current;
 
@@ -617,22 +612,6 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
     resolve('skip');
   };
 
-  const handleRunDemo = async (scenario: DemoScenarioSummary) => {
-    const userMessage: SocChatMessage = {
-      id: newClientId(),
-      role: 'user',
-      content: scenario.query,
-    };
-    setMessages((current) => [...current, userMessage]);
-    await runStagedInvestigation({
-      fetcher: () => runDemoScenario(scenario.scenario_id),
-      expectedSkill: scenario.expected_skill,
-      expectedSources: scenario.expected_sources,
-      demoMode: true,
-      demoScenarioId: scenario.scenario_id,
-    });
-  };
-
   return (
     <Card
       className={cn(
@@ -670,12 +649,6 @@ export function ChatPanel({ onTrace, onClear, title = 'Investigation Workspace',
             />
           </button>
         </div>
-        {!conversationStarted ? (
-          <>
-            <StarterPrompts disabled={loading} onPick={handleSend} />
-            <DemoScenarioPicker disabled={loading} onRun={handleRunDemo} />
-          </>
-        ) : null}
       </CardHeader>
       <CardContent className="min-h-0 min-w-0 flex-1 overflow-hidden p-0">
         <ScrollArea className="soc-chat-canvas h-full w-full min-w-0">
