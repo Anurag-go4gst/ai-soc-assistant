@@ -49,6 +49,9 @@ ConditionalActionLifecycle = Literal[
     "APPROVED",
     "EXECUTED",
 ]
+ALLOWED_RECIPIENT_ROLES = frozenset(
+    {"firewall_team", "identity_team", "incident_commander", "system_owner"}
+)
 
 
 class RequestedConditionalAction(BaseModel):
@@ -58,6 +61,19 @@ class RequestedConditionalAction(BaseModel):
     lifecycle_state: ConditionalActionLifecycle = "REQUESTED"
     predicate_id: str | None = None
     recipient_roles: list[str] = Field(default_factory=list)
+
+    @field_validator("recipient_roles", mode="before")
+    @classmethod
+    def _role_identifiers_only(cls, value: object) -> list[str]:
+        """Keep governed role ids only; never accept or derive an address."""
+        if not isinstance(value, (list, tuple, set, frozenset)):
+            return []
+        roles: list[str] = []
+        for raw in value:
+            role = str(raw or "").strip().lower()
+            if role in ALLOWED_RECIPIENT_ROLES and role not in roles:
+                roles.append(role)
+        return roles
 
 
 class ResolvedQueryContract(BaseModel):

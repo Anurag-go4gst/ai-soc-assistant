@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from app.chat.contracts.resolved_query import ALLOWED_RECIPIENT_ROLES
 from app.chat.final_output_trace import build_final_output_trace
 
 _MAX_SKIPPED_ROLES = 7
@@ -224,12 +225,6 @@ def _safe_requested_conditional_actions(raw: object) -> list[dict[str, Any]]:
     allowed_kinds = {"remediation", "email_draft"}
     allowed_states = {"REQUESTED", "PENDING_CONDITION", "ELIGIBLE", "APPROVED", "EXECUTED"}
     allowed_predicates = {"account_compromise_confirmed"}
-    allowed_recipient_roles = {
-        "firewall_team",
-        "identity_team",
-        "incident_commander",
-        "system_owner",
-    }
     for item in raw:
         if not isinstance(item, dict):
             continue
@@ -245,7 +240,7 @@ def _safe_requested_conditional_actions(raw: object) -> list[dict[str, Any]]:
                 "lifecycle_state": lifecycle_state,
                 "predicate_id": predicate_id if predicate_id in allowed_predicates else None,
                 "recipient_roles": [
-                    role for role in roles if isinstance(role, str) and role in allowed_recipient_roles
+                    role for role in roles if isinstance(role, str) and role in ALLOWED_RECIPIENT_ROLES
                 ][:8]
                 if isinstance(roles, list)
                 else [],

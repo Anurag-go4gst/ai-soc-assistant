@@ -41,6 +41,20 @@ def test_pins_store_redacted_rqc_and_outcome_refs() -> None:
                 "time_scope": "-24h",
                 "clarification_required": False,
                 "required_capabilities": ["mcp"],
+                "requested_conditional_actions": [
+                    {
+                        "action_kind": "email_draft",
+                        "lifecycle_state": "PENDING_CONDITION",
+                        "predicate_id": "account_compromise_confirmed",
+                        "recipient_roles": [
+                            "firewall_team",
+                            "identity_team",
+                            "invented_team",
+                            "analyst@example.invalid",
+                        ],
+                        "recipient_addresses": ["must-not-persist@example.invalid"],
+                    }
+                ],
             },
             "investigation_outcome": {
                 "disposition": "inconclusive",
@@ -54,6 +68,15 @@ def test_pins_store_redacted_rqc_and_outcome_refs() -> None:
     )
     assert pins.last_rqc_redacted["entities"]["user"] == "admin"
     assert pins.last_rqc_redacted["time_scope"] == "-24h"
+    assert pins.last_rqc_redacted["requested_conditional_actions"] == [
+        {
+            "action_kind": "email_draft",
+            "lifecycle_state": "PENDING_CONDITION",
+            "predicate_id": "account_compromise_confirmed",
+            "recipient_roles": ["firewall_team", "identity_team"],
+        }
+    ]
+    assert "@" not in str(pins.last_rqc_redacted)
     assert pins.last_investigation_outcome_ref["disposition"] == "inconclusive"
     assert "mcp" in pins.last_evidence_refs
     assert pins.last_plan_identity["resource_plan_id"] == "rp:1"

@@ -132,6 +132,10 @@ def _extract_requested_conditional_actions(query: str) -> list[RequestedConditio
             roles.append("firewall_team")
         if "identity" in text:
             roles.append("identity_team")
+        if "incident commander" in text:
+            roles.append("incident_commander")
+        if "system owner" in text:
+            roles.append("system_owner")
         actions.append(
             RequestedConditionalAction(
                 action_kind="email_draft",

@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from app.chat.contracts.resolved_query import RequestedConditionalAction
 from app.chat.session_store import SessionPins, delete_session_pins, get_session_pins, new_session_id, save_session_pins
 from app.config import settings
 from app.schemas.requests import ChatRequest
@@ -479,6 +480,15 @@ def _redact_rqc_for_session(rqc: Any) -> dict[str, Any] | None:
     caps = rqc.get("required_capabilities")
     if isinstance(caps, (set, frozenset)):
         caps = sorted(str(item) for item in caps)
+    requested_actions: list[dict[str, Any]] = []
+    for raw in rqc.get("requested_conditional_actions") or []:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            action = RequestedConditionalAction.model_validate(raw)
+        except ValueError:
+            continue
+        requested_actions.append(action.model_dump(mode="json"))
     return {
         "intent_family": rqc.get("intent_family"),
         "answer_goal": rqc.get("answer_goal"),
@@ -487,6 +497,9 @@ def _redact_rqc_for_session(rqc: Any) -> dict[str, Any] | None:
         "time_scope": rqc.get("time_scope"),
         "entities": rqc.get("entities") if isinstance(rqc.get("entities"), dict) else {},
         "clarification_required": bool(rqc.get("clarification_required")),
+        # Safe continuity pin: governed action/condition/role identifiers only.
+        # No recipient address or draft content is accepted by this contract.
+        "requested_conditional_actions": requested_actions[:8],
     }
 
 

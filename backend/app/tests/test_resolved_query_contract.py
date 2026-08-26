@@ -136,3 +136,36 @@ def test_builder_preserves_design_case_conditional_intents() -> None:
     assert email.recipient_roles == ["firewall_team", "identity_team"]
     assert "remediation_plan" in contract.requested_outputs
     assert "email_draft" in contract.requested_outputs
+
+
+def test_builder_preserves_all_governed_recipient_roles_without_addresses() -> None:
+    from app.chat.resolved_query_builder import build_resolved_query_contract
+
+    contract = build_resolved_query_contract(
+        query=(
+            "If compromise is confirmed, draft an email to the firewall team, identity team, "
+            "incident commander, and system owner. Do not send it to analyst@example.invalid."
+        ),
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+    )
+
+    email = next(a for a in contract.requested_conditional_actions if a.action_kind == "email_draft")
+    assert email.recipient_roles == [
+        "firewall_team",
+        "identity_team",
+        "incident_commander",
+        "system_owner",
+    ]
+    assert "@" not in str(email.model_dump())
+
+
+def test_conditional_action_drops_unknown_roles_and_address_values() -> None:
+    from app.chat.contracts.resolved_query import RequestedConditionalAction
+
+    action = RequestedConditionalAction(
+        action_kind="email_draft",
+        recipient_roles=["firewall_team", "invented_team", "analyst@example.invalid"],
+    )
+
+    assert action.recipient_roles == ["firewall_team"]
