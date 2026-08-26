@@ -164,6 +164,73 @@ def test_build_debug_summary_includes_qualification_tier() -> None:
     assert "normalized_goal" not in resolved
 
 
+def test_redact_resolved_query_preserves_governed_conditional_intent_only() -> None:
+    payload = _scada_like_payload()
+    payload["resolved_query_contract"] = {
+        "qualification_tier": "T1",
+        "intent_family": "live_investigation",
+        "answer_goal": "live_results",
+        "requested_conditional_actions": [
+            {
+                "action_kind": "remediation",
+                "lifecycle_state": "PENDING_CONDITION",
+                "predicate_id": "account_compromise_confirmed",
+                "recipient_roles": [],
+                "recipient_addresses": ["must-not-surface@example.invalid"],
+                "execution_eligible": True,
+            },
+            {
+                "action_kind": "email_draft",
+                "lifecycle_state": "PENDING_CONDITION",
+                "predicate_id": "account_compromise_confirmed",
+                "recipient_roles": ["firewall_team", "identity_team", "invented_team"],
+            },
+        ],
+    }
+
+    actions = build_debug_summary(payload=payload)["resolved_query"]["requested_conditional_actions"]
+    assert actions == [
+        {
+            "action_kind": "remediation",
+            "lifecycle_state": "PENDING_CONDITION",
+            "predicate_id": "account_compromise_confirmed",
+            "recipient_roles": [],
+        },
+        {
+            "action_kind": "email_draft",
+            "lifecycle_state": "PENDING_CONDITION",
+            "predicate_id": "account_compromise_confirmed",
+            "recipient_roles": ["firewall_team", "identity_team"],
+        },
+    ]
+    assert "execution_eligible" not in str(actions)
+    assert "recipient_addresses" not in str(actions)
+    assert "@" not in str(actions)
+
+
+def test_redact_resolved_query_conditional_intent_is_idempotent() -> None:
+    payload = _scada_like_payload()
+    payload["control_plane_trace"] = {
+        **payload["control_plane_trace"],
+        "resolved_query": {
+            "qualification_tier": "T1",
+            "intent_family": "live_investigation",
+            "answer_goal": "live_results",
+            "requested_conditional_actions": [
+                {
+                    "action_kind": "email_draft",
+                    "lifecycle_state": "PENDING_CONDITION",
+                    "predicate_id": "account_compromise_confirmed",
+                    "recipient_roles": ["firewall_team"],
+                }
+            ],
+        },
+    }
+    actions = build_debug_summary(payload=payload)["resolved_query"]["requested_conditional_actions"]
+    assert actions[0]["lifecycle_state"] == "PENDING_CONDITION"
+    assert actions[0]["recipient_roles"] == ["firewall_team"]
+
+
 def test_redact_resolved_query_includes_semantic_t4_status_only() -> None:
     payload = _scada_like_payload()
     payload["resolved_query_contract"] = {

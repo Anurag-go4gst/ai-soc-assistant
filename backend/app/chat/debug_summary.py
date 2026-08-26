@@ -189,6 +189,9 @@ def redact_resolved_query(raw: dict[str, Any] | None) -> dict[str, Any]:
     semantic_fields = sorted(key for key, value in field_sources.items() if value == "semantic_t4")
     if not semantic_fields and isinstance(source.get("semantic_t4_fields"), list):
         semantic_fields = [str(item) for item in source["semantic_t4_fields"]]
+    requested_conditional_actions = _safe_requested_conditional_actions(
+        source.get("requested_conditional_actions")
+    )
     return {
         "qualification_tier": source.get("qualification_tier"),
         "field_sources": field_sources,
@@ -205,8 +208,50 @@ def redact_resolved_query(raw: dict[str, Any] | None) -> dict[str, Any]:
         "clarification_required": bool(source.get("clarification_required")),
         "understanding_source": source.get("understanding_source"),
         "qualification_source": source.get("qualification_source"),
+        # Final RQC owns these governed identifiers. This projection deliberately
+        # excludes free-form text, resolved addresses, eligibility, approval, and
+        # execution authority; it exists only so analysts can see preserved intent.
+        "requested_conditional_actions": requested_conditional_actions,
         "semantic_t4": semantic_block,
     }
+
+
+def _safe_requested_conditional_actions(raw: object) -> list[dict[str, Any]]:
+    """Project Final RQC conditional intents without granting action authority."""
+    if not isinstance(raw, list):
+        return []
+    projected: list[dict[str, Any]] = []
+    allowed_kinds = {"remediation", "email_draft"}
+    allowed_states = {"REQUESTED", "PENDING_CONDITION", "ELIGIBLE", "APPROVED", "EXECUTED"}
+    allowed_predicates = {"account_compromise_confirmed"}
+    allowed_recipient_roles = {
+        "firewall_team",
+        "identity_team",
+        "incident_commander",
+        "system_owner",
+    }
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        action_kind = str(item.get("action_kind") or "")
+        lifecycle_state = str(item.get("lifecycle_state") or "")
+        if action_kind not in allowed_kinds or lifecycle_state not in allowed_states:
+            continue
+        predicate_id = item.get("predicate_id")
+        roles = item.get("recipient_roles")
+        projected.append(
+            {
+                "action_kind": action_kind,
+                "lifecycle_state": lifecycle_state,
+                "predicate_id": predicate_id if predicate_id in allowed_predicates else None,
+                "recipient_roles": [
+                    role for role in roles if isinstance(role, str) and role in allowed_recipient_roles
+                ][:8]
+                if isinstance(roles, list)
+                else [],
+            }
+        )
+    return projected[:8]
 
 
 def project_evidence_state_debug(raw: dict[str, Any] | None) -> dict[str, Any]:
@@ -724,4 +769,3 @@ def _dispatch_block(payload: dict[str, Any], control_plane_trace: dict[str, Any]
         "dispatch_reasons": list(decision.get("dispatch_reasons") or [])[:6],
         "dispatch_cursor": runtime.get("dispatch_cursor"),
     }
-

@@ -20,11 +20,12 @@ J7 remains true. B1/B2/B3 are retired.
 |---|---|
 | **Worktree** | `/Users/aagarwal/Downloads/ai-soc-wt-post-p10-convergence` |
 | **Branch** | `ws/post-p10-answer-tool-convergence` |
-| **HEAD (as of sync)** | `2496e3dc` |
-| **Checklist** | **13 checked** / 29 unchecked (through **2.4**) |
-| **Next item** | **2.5** — Conditional requested-actions display without CTA inflation |
+| **HEAD at 2.5 start** | `fc183d3a` |
+| **Checklist** | **14 checked** / 28 unchecked (through **2.5**) |
+| **Next item** | **3.1** — Remove skill-identity veto via contract logic |
 | **0.2 note** | `DONE_WITH_ENVIRONMENT_UNRESOLVED_INPUTS` — two production traces unavailable; design-case diagnostic only |
-| **Product tip** | RQC `requested_conditional_actions` shipped in `09c3f97a`; findings/conclusion contract pinned in `2496e3dc` |
+| **Product tip** | RQC `requested_conditional_actions` shipped in `09c3f97a`; pending-intent display completed in the current 2.5 item commit |
+| **LLM status at 2.5** | `ENVIRONMENT_UNRESOLVED`: configured local-primary/reasoning probes red (`URLError`); Qwen intentionally wired-disabled |
 
 Do **not** execute from the Cursor product-tip checkout alone — use this worktree.
 

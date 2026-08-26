@@ -13,6 +13,7 @@ import { InvestigationProgressPanel, McpTransportBadge } from '@/components/Inve
 import { InvestigationPlanApprovalCard } from '@/components/InvestigationPlanApprovalCard';
 import { RemediationPlanApprovalCard } from '@/components/RemediationPlanApprovalCard';
 import { InvestigationOutcomeCard } from '@/components/InvestigationOutcomeCard';
+import { ConditionalRequestedActionsCard } from '@/components/ConditionalRequestedActionsCard';
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { Stage3DTracePanel } from '@/components/Stage3DTracePanel';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +30,7 @@ import type {
   ExecutionEnvelope,
   HumanReviewEnvelope,
   PlaceholderResponse,
+  RequestedConditionalAction,
   RoutePlanShadowEnvelope,
   SplValidationEnvelope,
   WorkflowPlan,
@@ -88,6 +90,7 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
     message.trace?.investigation_lineage || understandingProvenance,
   );
   const blockedActionState = visibleBlockedActionState(message.trace);
+  const requestedConditionalActions = requestedConditionalActionsFromTrace(message.trace);
 
   return (
     <div className={cn('flex gap-3', isUser && 'flex-row-reverse')} data-message-id={message.id}>
@@ -192,6 +195,9 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
             progress={message.trace.investigation_progress}
             runStatus={message.trace.investigation_run_status}
           />
+        ) : null}
+        {showFullAnswer && requestedConditionalActions.length ? (
+          <ConditionalRequestedActionsCard actions={requestedConditionalActions} />
         ) : null}
         {showFullAnswer && message.trace?.remediation_approval ? (
           <RemediationPlanApprovalCard
@@ -388,6 +394,23 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
       </div>
     </div>
   );
+}
+
+function requestedConditionalActionsFromTrace(
+  trace: PlaceholderResponse | null | undefined,
+): RequestedConditionalAction[] {
+  const resolved = trace?.control_plane_trace?.resolved_query;
+  if (!resolved || typeof resolved !== 'object' || Array.isArray(resolved)) return [];
+  const actions = (resolved as Record<string, unknown>).requested_conditional_actions;
+  return Array.isArray(actions)
+    ? actions.filter((action): action is RequestedConditionalAction => (
+        Boolean(action)
+        && typeof action === 'object'
+        && !Array.isArray(action)
+        && ['remediation', 'email_draft'].includes(String((action as Record<string, unknown>).action_kind))
+        && (action as Record<string, unknown>).lifecycle_state === 'PENDING_CONDITION'
+      ))
+    : [];
 }
 
 function visibleBlockedActionState(trace: PlaceholderResponse | null | undefined): Record<string, unknown> | null {

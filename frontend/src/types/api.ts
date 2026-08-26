@@ -173,6 +173,13 @@ export interface InvestigationOutcomeEnvelope {
   llm_proposal_accepted: boolean;
 }
 
+export interface RequestedConditionalAction {
+  action_kind: 'remediation' | 'email_draft';
+  lifecycle_state: 'REQUESTED' | 'PENDING_CONDITION' | 'ELIGIBLE' | 'APPROVED' | 'EXECUTED';
+  predicate_id?: string | null;
+  recipient_roles?: string[];
+}
+
 export interface EcVisualLanes {
   coe_logic?: {
     title: string;
