@@ -20,11 +20,11 @@ J7 remains true. B1/B2/B3 are retired.
 |---|---|
 | **Worktree** | `/Users/aagarwal/Downloads/ai-soc-wt-post-p10-convergence` |
 | **Branch** | `ws/post-p10-answer-tool-convergence` |
-| **HEAD (as of sync)** | `4b824164` |
-| **Checklist** | **12 checked** / 30 unchecked (through **2.3**) |
-| **Next item** | **2.4** — Findings / conclusion / limitations contract |
+| **HEAD (as of sync)** | `2496e3dc` |
+| **Checklist** | **13 checked** / 29 unchecked (through **2.4**) |
+| **Next item** | **2.5** — Conditional requested-actions display without CTA inflation |
 | **0.2 note** | `DONE_WITH_ENVIRONMENT_UNRESOLVED_INPUTS` — two production traces unavailable; design-case diagnostic only |
-| **Product tip** | RQC `requested_conditional_actions` shipped in `09c3f97a` |
+| **Product tip** | RQC `requested_conditional_actions` shipped in `09c3f97a`; findings/conclusion contract pinned in `2496e3dc` |
 
 Do **not** execute from the Cursor product-tip checkout alone — use this worktree.
 
