@@ -484,11 +484,11 @@ CONTRIBUTING_SEAMS:   [<zero or more>]
   - **Depends on:** 0.1
   - **Evidence:** **DONE_WITH_ENVIRONMENT_UNRESOLVED_INPUTS** (operator decision 2026-08-26 continue-loop). Safe non-credentialled discovery **FOUND_NONE** (`docs/evals/answer_shape/traces/0.2_discovery_audit.md`). Prod failures #1/#2 recorded as `ENVIRONMENT_UNRESOLVED` with reason `authoritative trace_id / redacted bundle unavailable to this execution environment.` (not fabricated/substituted). In-process design-case capture `docs/evals/answer_shape/traces/design_case_ssh_admin_in_process.json`: `trace_id=97a0661e-24b2-4fd5-bc16-7579853a34e6`, steps=3, skill=`knowledge_recall`, mode=`clarification`, VERIFY_NONEMPTY=True; role=ADDITIONAL_DIAGNOSTIC_ONLY. No credentialed fetch. Conclusions about the two unavailable production traces remain unresolved.
 
-- [ ] **0.3** — Classify failure seams (primary + contributing)
+- [x] **0.3** — Classify failure seams (primary + contributing)
   - **Do:** For each trace, assign exactly one `PRIMARY_FAILURE_SEAM` (earliest/root architectural seam that materially prevented the intended outcome) and zero or more `CONTRIBUTING_SEAMS` (later or parallel blockers). Use the Trace diagnosis schema above. Separately note whether conditional remediation/email intent was lost (`OBJECTIVE_PERSISTENCE` often primary even when MCP is also off).
   - **Verify:** `docs/evals/answer_shape/trace_diagnosis_v1.md` — every trace has exactly one primary; contributing list may be empty; **no** bare `"unknown"` primary (use `ENVIRONMENT_UNRESOLVED` if needed); primary counts sum to traces reviewed.
   - **Depends on:** 0.2
-  - **Evidence:** _(fill)_
+  - **Evidence:** Wrote `docs/evals/answer_shape/trace_diagnosis_v1.md`. Primaries: prod#1/#2 = `ENVIRONMENT_UNRESOLVED` (no invented root cause); design-case = `OBJECTIVE_PERSISTENCE` with CONTRIBUTING `[CAPABILITY_SELECTION, ENVIRONMENT_UNRESOLVED]`. Checksum 2+1=3 reviewed. VERIFY_0.3_PASS. Commit: _(fill after commit)_.
 
 - [ ] **0.4** — Build and freeze the convergence bank + suite baseline
   - **Do:** Add `scripts/eval_convergence_expectations.py` + `docs/evals/answer_shape/convergence_expectation_bank_v1.json` with MULTI.01A/B/C, SOP, SPL, NOMCP, TRACE rows and the primary design-case text. Where TRACE rows carry diagnosis, include `PRIMARY_FAILURE_SEAM` + `CONTRIBUTING_SEAMS`. Freeze baseline. Record full pytest failure **node-ID** set, governance, frontend test/build, RACES baseline SHA.
