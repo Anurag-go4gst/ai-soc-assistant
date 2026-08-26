@@ -569,11 +569,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
 
 ### Phase 3 — Remediation + email under B4
 
-- [ ] **3.1** — Remove skill-identity veto via contract logic (governance-sensitive)
+- [x] **3.1** — Remove skill-identity veto via contract logic (governance-sensitive)
   - **Do:** Replace `_selected_skill == "knowledge_recall"` business veto with contract gates (`knowledge_only_answer`, investigation-shaped RQC, outcome eligibility). Keep distinct **REMEDIATION PLAN ELIGIBILITY** (completed+suspicious+J7) vs **USER-CONDITIONAL ACTION ELIGIBILITY** (REQUESTED + predicate). Record CURRENT/PROPOSED/WHY J7 REMAINS TRUE/tests/rollback before editing `remediation_runtime.py`.
   - **Verify:** Updated `test_j7_remediation_evidence_authority.py`; pure SOP → no remediation plan; multi-goal with insufficient evidence → no plan CTA but intents preserved; completed+suspicious → remediation plan may PRESENT; predicate-unmet email stays PENDING_CONDITION.
   - **Depends on:** 2.5
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Required packet: `docs/evals/answer_shape/remediation_runtime_3_1_contract_packet.md` (CURRENT/PROPOSED/J7/POSITIVE/NEGATIVE/ROLLBACK). Removed the direct `_selected_skill == knowledge_recall` veto and reused existing `investigation_outcome_applicable()` over Final RQC + current contract surfaces. All J7 positive gates remain: planner enabled + Outcome V2 applicability + `remediation_offer_required` + completed + suspicious; `knowledge_only_answer` remains negative. Tests pin pure SOP no CTA, multi-goal investigation survives a stale knowledge skill label, incomplete/inconclusive preserves actions without CTA, and predicate-unmet email stays PENDING_CONDITION. J7 + P10 + product-applicability → **53 passed**; RACES isolation → **8 passed**; convergence bank `--check` byte-identical PASS. Invariant check PASS: no LLM/MCP/SPL/state/flag/demo/connector changes; no lifecycle transition added.
 
 - [ ] **3.2** — Preserve J7 evidence authority (regression pin)
   - **Do:** No weakening of evidence-backed plan eligibility. Incomplete/inconclusive → remediation plan ABSENT. Do not require `compromise_confirmed` merely to show a plan when completed+suspicious.

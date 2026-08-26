@@ -18,8 +18,8 @@ def _enable_remediation(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "ai_soc_remediation_planner_enabled", True)
 
 
-def _investigation_rqc() -> dict:
-    return {
+def _investigation_rqc(**overrides) -> dict:
+    payload = {
         "intent_family": "live_investigation",
         "answer_goal": "live_results",
         "required_capabilities": [CAPABILITY_SPL, CAPABILITY_MCP],
@@ -27,6 +27,20 @@ def _investigation_rqc() -> dict:
         "clarification_required": False,
         "ambiguity_state": "unambiguous",
         "normalized_goal": "investigate confirmed brute force",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _pure_sop_rqc() -> dict:
+    return {
+        "intent_family": "knowledge_only",
+        "answer_goal": "policy_citation",
+        "required_capabilities": [],
+        "understanding_source": "deterministic_qualification",
+        "clarification_required": False,
+        "ambiguity_state": "unambiguous",
+        "normalized_goal": "show the incident response SOP",
     }
 
 
@@ -53,9 +67,10 @@ def _state(outcome: dict, **extra) -> dict:
 
 def test_neg1_knowledge_recall_sop_no_cta() -> None:
     state = _state(
-        _completed_suspicious(disposition="inconclusive"),
+        _completed_suspicious(),
         routed={"skill": "knowledge_recall"},
-        context_sufficiency={"answer_mode": "rag_only"},
+        resolved_query_contract=_pure_sop_rqc(),
+        context_sufficiency={"answer_mode": "knowledge_only_answer"},
     )
     assert remediation_offer_cta_eligible(state) is False
     assert "remediation_approval" not in maybe_attach_remediation_offer(state)
@@ -118,12 +133,79 @@ def test_pos_completed_suspicious_attaches_cta() -> None:
     state = _state(
         _completed_suspicious(),
         routed={"skill": "attack_discovery"},
+        resolved_query_contract=_investigation_rqc(),
         context_sufficiency={"answer_mode": "live_investigation"},
     )
     assert remediation_offer_cta_eligible(state) is True
     offered = maybe_attach_remediation_offer(state)
     assert offered["remediation_approval"]["status"] == "offered"
     assert offered["remediation_approval"]["validated_plan"] is None
+
+
+def test_multi_goal_investigation_not_vetoed_by_legacy_knowledge_skill() -> None:
+    requested_actions = [
+        {
+            "action_kind": "remediation",
+            "lifecycle_state": "PENDING_CONDITION",
+            "predicate_id": "account_compromise_confirmed",
+            "recipient_roles": [],
+        },
+        {
+            "action_kind": "email_draft",
+            "lifecycle_state": "PENDING_CONDITION",
+            "predicate_id": "account_compromise_confirmed",
+            "recipient_roles": ["firewall_team", "identity_team"],
+        },
+    ]
+    state = _state(
+        _completed_suspicious(),
+        routed={"skill": "knowledge_recall"},
+        resolved_query_contract=_investigation_rqc(
+            intent_family="hybrid_investigation_plus_policy",
+            answer_goal="analyst_action_guidance",
+            requested_conditional_actions=requested_actions,
+        ),
+        context_sufficiency={"answer_mode": "rag_plus_live"},
+    )
+    assert remediation_offer_cta_eligible(state) is True
+    offered = maybe_attach_remediation_offer(state)
+    assert offered["remediation_approval"]["status"] == "offered"
+    assert offered["resolved_query_contract"]["requested_conditional_actions"] == requested_actions
+    email = next(
+        action
+        for action in offered["resolved_query_contract"]["requested_conditional_actions"]
+        if action["action_kind"] == "email_draft"
+    )
+    assert email["lifecycle_state"] == "PENDING_CONDITION"
+
+
+def test_multi_goal_inconclusive_preserves_intents_without_cta() -> None:
+    requested_actions = [
+        {
+            "action_kind": "email_draft",
+            "lifecycle_state": "PENDING_CONDITION",
+            "predicate_id": "account_compromise_confirmed",
+            "recipient_roles": ["firewall_team"],
+        }
+    ]
+    state = _state(
+        _completed_suspicious(
+            investigation_status="incomplete",
+            disposition="inconclusive",
+            remediation_offer_required=False,
+            evidence_refs=[],
+        ),
+        routed={"skill": "knowledge_recall"},
+        resolved_query_contract=_investigation_rqc(
+            intent_family="hybrid_investigation_plus_policy",
+            answer_goal="analyst_action_guidance",
+            requested_conditional_actions=requested_actions,
+        ),
+        context_sufficiency={"answer_mode": "insufficient_evidence"},
+    )
+    unchanged = maybe_attach_remediation_offer(state)
+    assert "remediation_approval" not in unchanged
+    assert unchanged["resolved_query_contract"]["requested_conditional_actions"] == requested_actions
 
 
 def test_pos_derived_outcome_with_live_obtained_p2_is_suspicious() -> None:

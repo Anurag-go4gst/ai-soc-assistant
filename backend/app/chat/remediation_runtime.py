@@ -28,6 +28,7 @@ from app.chat.contracts.remediation_plan import (
     RemediationPlanSummary,
     ValidatedRemediationPlan,
 )
+from app.chat.investigation_shaped import investigation_outcome_applicable
 from app.chat.remediation_plan_builder import build_deterministic_remediation_plan
 from app.chat.remediation_plan_validator import validate_remediation_plan
 from app.config import settings
@@ -141,21 +142,6 @@ def build_validated_remediation_plan(
     return validated, trace
 
 
-def _selected_skill(state: dict[str, Any]) -> str:
-    routed = state.get("routed")
-    if isinstance(routed, dict):
-        skill = routed.get("skill")
-        if isinstance(skill, str) and skill.strip():
-            return skill.strip()
-    workflow = state.get("workflow_plan")
-    if isinstance(workflow, dict):
-        skill = workflow.get("skill")
-        if isinstance(skill, str) and skill.strip():
-            return skill.strip()
-    selected = state.get("selected_skill")
-    return str(selected).strip() if isinstance(selected, str) else ""
-
-
 def remediation_offer_cta_eligible(state: dict[str, Any]) -> bool:
     """Offer remediation CTA only for completed evidence-backed suspicious outcomes.
 
@@ -164,8 +150,8 @@ def remediation_offer_cta_eligible(state: dict[str, Any]) -> bool:
     ``suspicious`` is derived from obtained evidence ∧ live-result language ∧
     high severity — not from LLM prose and not from skill name alone.
 
-    Knowledge / SOP guidance is a defensive veto; packaging flag
-    ``remediation_offer_required`` alone is never enough.
+    Final-RQC product applicability and knowledge-only answer mode are defensive
+    vetoes; packaging flag ``remediation_offer_required`` alone is never enough.
     """
     if not settings.ai_soc_remediation_planner_enabled:
         return False
@@ -182,11 +168,22 @@ def remediation_offer_cta_eligible(state: dict[str, Any]) -> bool:
         return False
     if str(outcome.get("disposition") or "") != "suspicious":
         return False
-    # Defensive negative: SOP / knowledge_recall is never remediation authority.
-    if _selected_skill(state) == "knowledge_recall":
-        return False
     context = state.get("context_sufficiency")
     if isinstance(context, dict) and str(context.get("answer_mode") or "") == "knowledge_only_answer":
+        return False
+    if not investigation_outcome_applicable(
+        resolved_query_contract=state.get("resolved_query_contract"),
+        intent_classification=(
+            state.get("intent_classification")
+            if isinstance(state.get("intent_classification"), dict)
+            else None
+        ),
+        query_understanding=state.get("query_understanding"),
+        evidence_plan=state.get("evidence_plan")
+        if isinstance(state.get("evidence_plan"), dict)
+        else None,
+        context_sufficiency=context if isinstance(context, dict) else None,
+    ):
         return False
     return True
 
