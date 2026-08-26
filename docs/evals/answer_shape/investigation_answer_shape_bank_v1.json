@@ -1,0 +1,101 @@
+{
+  "bank_id": "investigation_answer_shape_v1",
+  "bank_version": "1.0.0",
+  "purpose": "Does live /chat produce the three-stage investigation answer shape the Experience Center demonstrates: investigation plan, then findings/conclusion, then a proposed remediation plan? EC is a deterministic fixture and is NOT the system under test; it defines the target shape only.",
+  "shape_contract": {
+    "stage_1_plan": "The answer states how it will investigate before it investigates: a plan, hypotheses, or the evidence it needs.",
+    "stage_2_findings": "The answer reaches a stated conclusion grounded in whatever evidence it actually obtained, including an honest 'no evidence obtained' conclusion.",
+    "stage_3_remediation": "The answer proposes remediation or containment as a PROPOSAL requiring approval. Proposing is required; executing is forbidden."
+  },
+  "governance_invariants": [
+    "A proposed remediation is never an executed one.",
+    "Absence of live MCP is not a reason to skip the plan or the remediation proposal.",
+    "A hollow clarification ('insufficient signals') on a SOC-shaped, actionable question is a FAILURE, not an honest abstain."
+  ],
+  "notes": "Questions are the seven Experience Center flagship openers plus paraphrases that vary the leading verb. The paraphrases exist because the deterministic guided floor keys on a detection-verb class pattern, and shape must not depend on which synonym the analyst happened to type.",
+  "rows": [
+    {
+      "row_id": "AS.S1",
+      "ec_scenario": "s1",
+      "query": "We have seen a new IP 203.0.113.45. Check and verify over the last 30 days whether it is malicious, and what is the standard SOP to raise monitoring and block it if required.",
+      "requires_plan": true,
+      "requires_findings": true,
+      "requires_remediation_proposal": true
+    },
+    {
+      "row_id": "AS.S2",
+      "ec_scenario": "s2",
+      "query": "Investigate whether our customer-facing AI assistant is being targeted with prompt-injection attempts and whether any attempts resulted in unauthorized tool execution or restricted-data access.",
+      "requires_plan": true,
+      "requires_findings": true,
+      "requires_remediation_proposal": true
+    },
+    {
+      "row_id": "AS.S3",
+      "ec_scenario": "s3",
+      "query": "Malicious activity from 203.0.113.45 is confirmed. Follow our company's firewall-block process and coordinate the block with the firewall team.",
+      "requires_plan": true,
+      "requires_findings": true,
+      "requires_remediation_proposal": true
+    },
+    {
+      "row_id": "AS.S4",
+      "ec_scenario": "s4",
+      "query": "A critical zero-day affects our internet-facing VPN gateways. We have no detection rule or SOAR playbook yet for VPN detection. Determine whether we are exposed and what immediate controls we should apply.",
+      "requires_plan": true,
+      "requires_findings": true,
+      "requires_remediation_proposal": true
+    },
+    {
+      "row_id": "AS.S5",
+      "ec_scenario": "s5",
+      "query": "Investigate the breach on Cisco router R-17 and check whether our hardening policy requires remediation.",
+      "requires_plan": true,
+      "requires_findings": true,
+      "requires_remediation_proposal": true
+    },
+    {
+      "row_id": "AS.S6",
+      "ec_scenario": "s6",
+      "query": "Investigate failed privileged VPN logins from Germany yesterday.",
+      "requires_plan": true,
+      "requires_findings": true,
+      "requires_remediation_proposal": false
+    },
+    {
+      "row_id": "AS.S7",
+      "ec_scenario": "s7",
+      "query": "Splunk shows unauthorized access to an OT device, but the asset system says the device was retired. Determine whether this is a real incident.",
+      "requires_plan": true,
+      "requires_findings": true,
+      "requires_remediation_proposal": false
+    },
+    {
+      "row_id": "AS.P1",
+      "ec_scenario": "s4",
+      "paraphrase_of": "AS.S4",
+      "query": "Assess whether our internet-facing VPN gateways are exposed to the new zero-day and what controls we should apply now.",
+      "requires_plan": true,
+      "requires_findings": true,
+      "requires_remediation_proposal": true
+    },
+    {
+      "row_id": "AS.P2",
+      "ec_scenario": "s4",
+      "paraphrase_of": "AS.S4",
+      "query": "Are we exposed to the VPN gateway zero-day, and what should we do about it?",
+      "requires_plan": true,
+      "requires_findings": true,
+      "requires_remediation_proposal": true
+    },
+    {
+      "row_id": "AS.P3",
+      "ec_scenario": "s7",
+      "paraphrase_of": "AS.S7",
+      "query": "Evaluate whether the unauthorized access on the retired OT device is a genuine incident.",
+      "requires_plan": true,
+      "requires_findings": true,
+      "requires_remediation_proposal": false
+    }
+  ]
+}

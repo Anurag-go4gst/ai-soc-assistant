@@ -1,0 +1,220 @@
+{
+  "authority_violation_rows": [],
+  "bank_id": "investigation_answer_shape_v1",
+  "bank_version": "1.0.0",
+  "hollow_clarification_rows": [],
+  "mean_shape_score": 0.4833,
+  "pass_rate": 0.1,
+  "results": [
+    {
+      "answer_mode": "rag_only",
+      "authority_violations": [],
+      "ec_scenario": "s1",
+      "failures": [
+        "missing_investigation_plan"
+      ],
+      "latency_ms": 2751,
+      "paraphrase_of": null,
+      "planning_reason": "policy_context_required",
+      "result": "FAIL",
+      "row_id": "AS.S1",
+      "selected_skill": "knowledge_recall",
+      "shape_score": 0.6667,
+      "stage_findings": "investigation_outcome",
+      "stage_plan": null,
+      "stage_remediation": "remediation_approval",
+      "stages_met": 2,
+      "stages_required": 3
+    },
+    {
+      "answer_mode": "live_investigation",
+      "authority_violations": [],
+      "ec_scenario": "s2",
+      "failures": [
+        "missing_investigation_plan",
+        "missing_remediation_proposal"
+      ],
+      "latency_ms": 11067,
+      "paraphrase_of": null,
+      "planning_reason": "spl_artifact_requested; live_data_available_mcp_not_authorised_for_out_of_catalogue",
+      "result": "FAIL",
+      "row_id": "AS.S2",
+      "selected_skill": "spl_generation",
+      "shape_score": 0.3333,
+      "stage_findings": "analyst_response",
+      "stage_plan": null,
+      "stage_remediation": null,
+      "stages_met": 1,
+      "stages_required": 3
+    },
+    {
+      "answer_mode": "clarification",
+      "authority_violations": [],
+      "ec_scenario": "s3",
+      "failures": [
+        "missing_investigation_plan",
+        "missing_remediation_proposal"
+      ],
+      "latency_ms": 1046,
+      "paraphrase_of": null,
+      "planning_reason": "intent_requires_clarification",
+      "result": "FAIL",
+      "row_id": "AS.S3",
+      "selected_skill": "knowledge_recall",
+      "shape_score": 0.3333,
+      "stage_findings": "analyst_summary",
+      "stage_plan": null,
+      "stage_remediation": null,
+      "stages_met": 1,
+      "stages_required": 3
+    },
+    {
+      "answer_mode": "clarification",
+      "authority_violations": [],
+      "ec_scenario": "s4",
+      "failures": [
+        "missing_investigation_plan",
+        "missing_remediation_proposal"
+      ],
+      "latency_ms": 1172,
+      "paraphrase_of": null,
+      "planning_reason": "intent_requires_clarification",
+      "result": "FAIL",
+      "row_id": "AS.S4",
+      "selected_skill": "knowledge_recall",
+      "shape_score": 0.3333,
+      "stage_findings": "analyst_response",
+      "stage_plan": null,
+      "stage_remediation": null,
+      "stages_met": 1,
+      "stages_required": 3
+    },
+    {
+      "answer_mode": "live_investigation",
+      "authority_violations": [],
+      "ec_scenario": "s5",
+      "failures": [
+        "missing_investigation_plan",
+        "missing_remediation_proposal"
+      ],
+      "latency_ms": 840,
+      "paraphrase_of": null,
+      "planning_reason": "spl_artifact_requested; live_data_available_mcp_not_authorised_for_out_of_catalogue",
+      "result": "FAIL",
+      "row_id": "AS.S5",
+      "selected_skill": "spl_generation",
+      "shape_score": 0.3333,
+      "stage_findings": "analyst_response",
+      "stage_plan": null,
+      "stage_remediation": null,
+      "stages_met": 1,
+      "stages_required": 3
+    },
+    {
+      "answer_mode": "clarification",
+      "authority_violations": [],
+      "ec_scenario": "s6",
+      "failures": [
+        "missing_investigation_plan"
+      ],
+      "latency_ms": 1022,
+      "paraphrase_of": null,
+      "planning_reason": "User requested live investigative results.",
+      "result": "FAIL",
+      "row_id": "AS.S6",
+      "selected_skill": "knowledge_recall",
+      "shape_score": 0.5,
+      "stage_findings": "analyst_response",
+      "stage_plan": null,
+      "stage_remediation": null,
+      "stages_met": 1,
+      "stages_required": 2
+    },
+    {
+      "answer_mode": "clarification",
+      "authority_violations": [],
+      "ec_scenario": "s7",
+      "failures": [
+        "missing_investigation_plan"
+      ],
+      "latency_ms": 1086,
+      "paraphrase_of": null,
+      "planning_reason": "intent_requires_clarification",
+      "result": "FAIL",
+      "row_id": "AS.S7",
+      "selected_skill": "knowledge_recall",
+      "shape_score": 0.5,
+      "stage_findings": "analyst_response",
+      "stage_plan": null,
+      "stage_remediation": null,
+      "stages_met": 1,
+      "stages_required": 2
+    },
+    {
+      "answer_mode": null,
+      "authority_violations": [],
+      "ec_scenario": "s4",
+      "failures": [],
+      "latency_ms": 5071,
+      "paraphrase_of": "AS.S4",
+      "planning_reason": "Explicit guided-investigation or evidence-led triage request without a registry match; governed review-only guidance.",
+      "result": "PASS",
+      "row_id": "AS.P1",
+      "selected_skill": "guided_investigation",
+      "shape_score": 1.0,
+      "stage_findings": "investigation_outcome",
+      "stage_plan": "validated_investigation_plan",
+      "stage_remediation": "remediation_approval",
+      "stages_met": 3,
+      "stages_required": 3
+    },
+    {
+      "answer_mode": "live_investigation",
+      "authority_violations": [],
+      "ec_scenario": "s4",
+      "failures": [
+        "missing_investigation_plan",
+        "missing_remediation_proposal"
+      ],
+      "latency_ms": 78,
+      "paraphrase_of": "AS.S4",
+      "planning_reason": "hybrid_alert_review_severity_mitre_spl",
+      "result": "FAIL",
+      "row_id": "AS.P2",
+      "selected_skill": "knowledge_recall",
+      "shape_score": 0.3333,
+      "stage_findings": "analyst_response",
+      "stage_plan": null,
+      "stage_remediation": null,
+      "stages_met": 1,
+      "stages_required": 3
+    },
+    {
+      "answer_mode": "clarification",
+      "authority_violations": [],
+      "ec_scenario": "s7",
+      "failures": [
+        "missing_investigation_plan"
+      ],
+      "latency_ms": 1239,
+      "paraphrase_of": "AS.S7",
+      "planning_reason": "intent_requires_clarification",
+      "result": "FAIL",
+      "row_id": "AS.P3",
+      "selected_skill": "knowledge_recall",
+      "shape_score": 0.5,
+      "stage_findings": "analyst_response",
+      "stage_plan": null,
+      "stage_remediation": null,
+      "stages_met": 1,
+      "stages_required": 2
+    }
+  ],
+  "rows": 10,
+  "rows_passed": 1,
+  "stage_coverage": {
+    "findings": 10,
+    "plan": 1,
+    "remediation": 2
+  }
+}
