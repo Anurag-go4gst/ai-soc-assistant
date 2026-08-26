@@ -1312,6 +1312,24 @@ def extract_query_signals(
         and not cve_focus_investigation
     )
 
+    # Investigation OBJECTIVE, distinct from soc_actionable_hunt on purpose.
+    # It is NOT a disjunct of soc_detection_intent or live_data_request: that
+    # shared-signal coupling is what made widening _DETECTION_VERB_RE regress
+    # the answer-shape eval from 1/10 to 0/10.
+    posture_determination = bool(
+        _POSTURE_OBJECTIVE_RE.search(normalized)
+        and (_has_security_telemetry_subject(normalized) or _POSTURE_SUBJECT_RE.search(normalized))
+        and not explicit_run_spl
+        and not run_spl
+        and not spl_generation
+        and not explicit_search_intent
+        and not block_or_contain
+        and not knowledge_definition
+        and not playbook_procedure
+        and not sop_show_request
+        and not guidance_request
+    )
+
     return {
         "normalized_query": normalized,
         "policy_terms": policy_terms,
@@ -1400,6 +1418,7 @@ def extract_query_signals(
         "meaningful_t2_entities": meaningful_t2_entities,
         "guidance_request": guidance_request,
         "soc_actionable_hunt": soc_actionable_hunt,
+        "posture_determination": posture_determination,
         "soc_detection_intent": soc_detection_intent,
         "sop_or_playbook_shaped": bool(playbook_procedure or sop_show_request),
         "explicit_spl_authoring": explicit_spl_authoring,
@@ -1458,6 +1477,21 @@ _DETECTION_VERB_RE = re.compile(
     r"which hosts|which users|which accounts|which ips?|give me|map|check)\b"
     r"|\balert on\b"
     r"|\b(?:are|is) there\b",
+    re.IGNORECASE,
+)
+_POSTURE_OBJECTIVE_RE = re.compile(
+    r"\b(?:determine|assess|evaluate|ascertain)\s+(?:whether|if|our|the)"
+    r"|\b(?:determine|assess|evaluate|ascertain)\b(?=[^.?]*\b(?:whether|if|exposed|"
+    r"affected|impacted|compromise|posture|risk|incident)\b)"
+    r"|\bare\s+we\s+(?:exposed|affected|impacted|vulnerable|at\s+risk)\b"
+    r"|\bdo\s+we\s+have\s+(?:any\s+)?(?:exposure|vulnerable|affected|impacted)\b"
+    r"|\bis\s+this\s+a\s+(?:real|genuine|true)\s+(?:incident|compromise|attack)\b",
+    re.IGNORECASE,
+)
+_POSTURE_SUBJECT_RE = re.compile(
+    r"\b(?:exposed|exposure|affected|impacted|vulnerable|vulnerability|compromise|"
+    r"compromised|breach|breached|incident|campaign|intrusion|threat|attack|"
+    r"zero-?day|cve-\d|posture|risk)\b",
     re.IGNORECASE,
 )
 _SECURITY_SUBJECT_TERMS = (

@@ -1085,6 +1085,26 @@ def classify_intent(
             requested_output_type="SPL",
         )
 
+    # An investigation objective outranks the generic analytics floor: the
+    # analyst asked what is true, not for a query. The Resource Planner still
+    # decides which evidence sources that needs; this grants no SPL and no MCP.
+    if signals.get("posture_determination"):
+        return _build_classification(
+            intent_family="guided_investigation",
+            primary_intent="investigation_guidance",
+            query_type="investigation_with_guidance",
+            answer_goal=["procedural_steps", "analyst_action_guidance"],
+            confidence=0.55,
+            requires_clarification=False,
+            requires_hil=True,
+            action_mode="recommend_only",
+            reason=(
+                "Stated investigation objective with no registry match; governed, "
+                "review-only guided investigation instead of a clarification dump."
+            ),
+            requested_output_type="INVESTIGATION",
+        )
+
     if signals.get("soc_detection_intent"):
         return _build_classification(
             intent_family="spl_generation_only",
