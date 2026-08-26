@@ -1,4 +1,5 @@
 import { LogOut, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { HealthResponse } from '@/types/api';
@@ -11,6 +12,8 @@ interface TopBarProps {
 }
 
 export function TopBar({ username, health, healthError, onLogout }: TopBarProps) {
+  const location = useLocation();
+  const onExperienceCenter = location.pathname.startsWith('/scenarios');
   const backendOk = health?.status === 'ok';
   const migration = health?.readiness?.database_migrations;
   const migrationReady = migration?.ready !== false;
@@ -23,7 +26,7 @@ export function TopBar({ username, health, healthError, onLogout }: TopBarProps)
     >
       <div className="flex items-center gap-3">
         <h1 className="text-base font-semibold tracking-tight">AI SOC Assistant</h1>
-        <Badge>Experience Center</Badge>
+        {onExperienceCenter ? <Badge>Experience Center</Badge> : null}
       </div>
       <div className="flex items-center gap-2">
         <Badge variant={backendOk ? 'success' : 'warning'} className="hidden md:inline-flex">

@@ -90,7 +90,7 @@ export default function App() {
       <TooltipProvider>
         <main className="soc-canvas flex h-screen items-center justify-center p-6">
           <section className="soc-panel-strong rounded-xl p-8 text-center">
-            <p className="soc-eyebrow text-cyan-300">Protected demo environment</p>
+            <p className="soc-eyebrow text-cyan-300">Governed SOC workspace</p>
             <h1 className="mt-3 text-2xl font-semibold">Velocis AI SOC Assistant</h1>
             <p className="mt-2 text-sm text-slate-400">Checking access…</p>
           </section>

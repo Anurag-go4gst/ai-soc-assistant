@@ -123,8 +123,8 @@ def _approval_state(
     warnings: list[str] | None = None,
 ) -> InvestigationApprovalState:
     messages = {
-        "awaiting_approval": "Investigation plan ready. Review the scope, then Run, Edit, or Cancel.",
-        "edited_revalidated": "Edited investigation plan revalidated. Review it before running.",
+        "awaiting_approval": "Investigation plan ready. Review the scope, then Approve, Edit, or Cancel.",
+        "edited_revalidated": "Edited investigation plan revalidated. Review it before approving.",
         "approved": "Investigation plan approved as an immutable read-only envelope. Any execution remains governed by the Resource Planner and its policy gates.",
         "cancelled": "Investigation cancelled. No ResourcePlan was compiled and no tool was executed.",
         "replanning_required": "The requested edit changes material scope. Re-enter query resolution before approval.",

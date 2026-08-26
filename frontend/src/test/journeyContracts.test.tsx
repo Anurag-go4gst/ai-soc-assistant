@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { PlanningOutcomeBanner } from '@/components/PlanningOutcomeBanner';
 import { ExecutionReconciliationCard } from '@/components/ExecutionReconciliationCard';
@@ -149,34 +150,38 @@ describe('journey contract surfaces', () => {
 
   it('9 auth expiry — health still distinguishes API reachability', () => {
     render(
-      <TopBar
-        username="analyst"
-        health={null}
-        healthError="401"
-        onLogout={async () => undefined}
-      />,
+      <MemoryRouter>
+        <TopBar
+          username="analyst"
+          health={null}
+          healthError="401"
+          onLogout={async () => undefined}
+        />
+      </MemoryRouter>,
     );
     expect(screen.getByText(/API unreachable/i)).toBeInTheDocument();
   });
 
   it('10 migration readiness — TopBar shows migrations pending', () => {
     render(
-      <TopBar
-        username="analyst"
-        health={{
-          status: 'ok',
-          service: 'ai-soc-assistant-backend',
-          readiness: {
-            database_migrations: {
-              ready: false,
-              missing_versions: ['20260701'],
-              remediation: 'alembic upgrade head',
+      <MemoryRouter>
+        <TopBar
+          username="analyst"
+          health={{
+            status: 'ok',
+            service: 'ai-soc-assistant-backend',
+            readiness: {
+              database_migrations: {
+                ready: false,
+                missing_versions: ['20260701'],
+                remediation: 'alembic upgrade head',
+              },
             },
-          },
-        }}
-        healthError={null}
-        onLogout={async () => undefined}
-      />,
+          }}
+          healthError={null}
+          onLogout={async () => undefined}
+        />
+      </MemoryRouter>,
     );
     expect(screen.getByText(/Migrations pending/i)).toBeInTheDocument();
   });

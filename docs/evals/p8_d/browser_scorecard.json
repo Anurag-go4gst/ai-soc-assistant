@@ -1,0 +1,117 @@
+{
+  "phase": "P8-D",
+  "production_browser_exercised": true,
+  "app_url": "http://127.0.0.1:3013/chat",
+  "live_mcp_used": false,
+  "live_llm_endpoint": "http://10.52.1.13:8004/v1",
+  "model": "foundation-sec-instruct",
+  "network_errors": [],
+  "console_errors": [],
+  "ec_leakage_after_chrome_fix": {
+    "login_copy": "FIXED_UNPROTECTED",
+    "document_title": "FIXED_UNPROTECTED",
+    "topbar_badge_on_chat": "FIXED_UNPROTECTED",
+    "sidenav_subtitle": "FIXED_UNPROTECTED",
+    "sidenav_destination_item": "ALLOWED_EC_ROUTE",
+    "empty_chat_scenario_picker": "REMAINS_MAJOR_CHATPANEL_PROTECTED",
+    "empty_chat_demo_chips": "REMAINS_MAJOR_CHATPANEL_PROTECTED"
+  },
+  "journeys": [
+    {
+      "journey_id": "UI-J1",
+      "input": "Investigate failed login spike for user:alice host:APP-01 from 10.0.0.8 in the last 24 hours",
+      "rendered_stages": [
+        "loading pipeline",
+        "investigation steps",
+        "evidence required",
+        "limitations",
+        "investigation plan approval",
+        "investigation conclusion",
+        "remediation offer"
+      ],
+      "visible_actions": ["Approve", "Edit", "Cancel", "Create remediation plan", "Not now"],
+      "plan_card_vocabulary": "Approve / Edit / Cancel",
+      "final_visible_conclusion": "Investigation conclusion; missing mcp/spl evidence; next action Continue with available evidence",
+      "visible_remediation": "offered — Investigation complete. Create a remediation plan?",
+      "screenshots": [
+        "docs/evals/p8_d/ui_j1_loading.png",
+        "docs/evals/p8_d/ui_j1_result.png",
+        "docs/evals/p8_d/ui_j1_plan_card.png",
+        "docs/evals/p8_d/ui_j1_plan_and_remediation.png"
+      ],
+      "ux_issues": [
+        "MAJOR: diagnostic lineage/authority dump visible without expanding developer trace",
+        "MAJOR: remediation offered despite missing MCP/SPL evidence",
+        "MINOR: helper text originally said Run (fixed in investigation_envelope_runtime.py)"
+      ]
+    },
+    {
+      "journey_id": "UI-J2",
+      "input": "Investigate top source IPs generating denied firewall traffic in the last 24 hours",
+      "rendered_stages": [
+        "loading pipeline",
+        "review-only SPL draft",
+        "assumptions and placeholders"
+      ],
+      "visible_actions": ["copy SPL"],
+      "spl_execution_posture": "Review-only SPL draft — no live query was performed; Lab only; not executed",
+      "execution_hil_vocabulary": "NOT_SHOWN — execution was not offered",
+      "final_visible_conclusion": "insufficient_evidence; do not declare compromise from draft SPL",
+      "visible_remediation": "none",
+      "screenshots": ["docs/evals/p8_d/ui_j2_spl_review.png"],
+      "ux_issues": [
+        "MAJOR: diagnostic dump still expanded by default"
+      ]
+    },
+    {
+      "journey_id": "UI-J3",
+      "input": "same as UI-J1 remediation HIL (Create remediation plan / Not now)",
+      "rendered_stages": ["remediation available offered"],
+      "visible_actions": ["Create remediation plan", "Not now"],
+      "visible_remediation": "offered, not executed; review-only / no live execution badge present",
+      "screenshots": ["docs/evals/p8_d/ui_j1_plan_and_remediation.png"],
+      "ux_issues": [
+        "MAJOR: offer appears after incomplete investigation (same as J7 class)"
+      ]
+    },
+    {
+      "journey_id": "UI-J4",
+      "input": "What is the SOP for investigating a failed login spike?",
+      "rendered_stages": [
+        "SOP knowledge card",
+        "governed RAG citation",
+        "investigation conclusion completed",
+        "remediation offer"
+      ],
+      "visible_actions": ["Create remediation plan", "Not now"],
+      "selected_skill": "knowledge_recall",
+      "final_visible_conclusion": "COE Sample Auth Investigation SOP with governed citation",
+      "visible_remediation": "MAJOR unjustified CTA: Investigation complete. Create a remediation plan?",
+      "screenshots": [
+        "docs/evals/p8_d/ui_j4_sop_remediation.png",
+        "docs/evals/p8_d/ui_j4_remediation_cta.png"
+      ],
+      "ux_issues": [
+        "BLOCKER_FOR_JOURNEY_GATE: SOP knowledge_recall offers containment-shaped remediation",
+        "MAJOR: conclusion status completed + Supported by governed evidence for knowledge-only SOP"
+      ]
+    }
+  ],
+  "loading_ux": "PASS — staged investigation pipeline, composer disabled while running",
+  "failure_fallback_ux": "PASS — SOP path is intentional knowledge card, not a crash",
+  "followup_ux": "NOT_EXERCISED_IN_BROWSER — P8-C J8 follow-up PASS in live journey eval",
+  "blocker_ux_issues": [],
+  "major_ux_issues": [
+    "ChatPanel empty-state DemoScenarioPicker + demo chips + Run control on production /chat",
+    "Unjustified remediation CTA on SOP knowledge_recall (UI-J4 / J7)",
+    "Default-visible diagnostic/authority dump on analyst answer"
+  ],
+  "minor_ux_issues": [
+    "Plan helper text previously said Run (fixed unprotected)"
+  ],
+  "polish_backlog": [
+    "Experience Center remains a legitimate sidenav destination to /scenarios",
+    "Lab draft switch remains on production chat chrome"
+  ],
+  "ui_ux_gate": "FAIL"
+}

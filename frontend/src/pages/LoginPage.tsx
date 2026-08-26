@@ -43,12 +43,12 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
             </div>
             <div>
               <p className="text-base font-semibold tracking-tight">Velocis AI SOC Assistant</p>
-              <p className="text-xs font-medium text-slate-400">Experience Center access verification</p>
+              <p className="text-xs font-medium text-slate-400">Analyst access verification</p>
             </div>
           </div>
           <Badge variant="success" className="hidden md:inline-flex">
             <span className="mr-2 h-2 w-2 rounded-full bg-emerald-400" />
-            Protected demo environment
+            Governed workspace
           </Badge>
         </div>
       </header>
@@ -63,11 +63,11 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
             SOC triage with visible routing, evidence, and safeguards.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
-            Validate analyst access, review mock Splunk evidence, compare routing decisions, and keep every AI step explainable before real MCP and RAG integrations arrive.
+            Validate analyst access, review governed evidence, compare routing decisions, and keep every AI step explainable before any execution is authorized.
           </p>
           <div className="mt-8 grid gap-3 sm:grid-cols-3">
             {[
-              { icon: Radar, label: 'Alert triage', text: 'Scenario-led investigation flow' },
+              { icon: Radar, label: 'Alert triage', text: 'Governed investigation flow' },
               { icon: Workflow, label: 'Route compare', text: 'Planner vs deterministic router' },
               { icon: Network, label: 'Evidence graph', text: 'Context ready for GraphRAG' },
             ].map((item) => (
@@ -89,7 +89,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <CardTitle id="login-title" className="text-2xl">Sign in</CardTitle>
-                <p className="mt-2 text-sm leading-6 text-slate-400">Use your authorized Experience Center account.</p>
+                <p className="mt-2 text-sm leading-6 text-slate-400">Use your authorized analyst account.</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-400/10 text-cyan-200">
                 <LockKeyhole className="h-5 w-5" />

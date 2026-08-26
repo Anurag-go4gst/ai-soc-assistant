@@ -47,7 +47,7 @@ export function SideNav({ debugAccess = false }: SideNavProps) {
         </div>
         <div className="leading-tight">
           <p className="text-sm font-semibold">V.AI SOC</p>
-          <p className="text-[0.65rem] text-slate-500">Experience Center</p>
+          <p className="text-[0.65rem] text-slate-500">Analyst workspace</p>
         </div>
       </div>
       <nav className="flex flex-col gap-0.5">
