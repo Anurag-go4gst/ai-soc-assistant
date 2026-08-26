@@ -201,9 +201,10 @@ def test_production_chatpanel_has_readable_actions_without_ec_contracts() -> Non
     assert "Why" in card
     assert "Scope and time" in card
     assert "Useful resources and capabilities" in card
-    assert "Run investigation" in card
-    assert "Edit plan" in card
+    assert "Approve" in card
+    assert "Edit" in card
     assert "Cancel" in card
+    assert "Run investigation" not in card
     combined = "\n".join((card, chat_panel, chat_bubble))
     assert "app/demo" not in combined
     assert "components/ec/" not in combined
