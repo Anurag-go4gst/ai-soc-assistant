@@ -201,9 +201,17 @@ def test_production_chatpanel_has_readable_actions_without_ec_contracts() -> Non
     assert "Why" in card
     assert "Scope and time" in card
     assert "Useful resources and capabilities" in card
-    assert "Run investigation" in card
-    assert "Edit plan" in card
-    assert "Cancel" in card
+    # P7 vocabulary (7ce96d69): the plan-review controls are Approve / Edit / Cancel.
+    # The visible label changed; the governed wire action did not, so assert both halves.
+    assert "> Approve" in card
+    assert "> Edit" in card
+    assert "> Cancel" in card
+    assert "'Approve investigation plan'" in card
+    assert "'Cancel investigation'" in card
+    assert "investigation_review_action: 'run'" in card
+    # The retired pre-P7 labels must not come back on the production surface.
+    assert "Run investigation" not in card
+    assert "Edit plan" not in card
     combined = "\n".join((card, chat_panel, chat_bubble))
     assert "app/demo" not in combined
     assert "components/ec/" not in combined
