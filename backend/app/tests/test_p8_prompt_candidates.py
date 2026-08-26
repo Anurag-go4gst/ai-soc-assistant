@@ -9,6 +9,7 @@ from app.chat.semantic_t4_understanding import (
 from app.chat.resolved_query_builder import build_resolved_query_contract
 from app.llm.policy.candidates import (
     CANDIDATES,
+    PROMOTED_TO_ACTIVE,
     candidate_for,
     candidate_stable_prefix_hash,
     extra_few_shots_for_live,
@@ -33,12 +34,16 @@ def test_production_eval_arm_defaults_to_active() -> None:
 
 
 def test_active_live_prompts_are_unchanged_on_default_arm() -> None:
+    """Unpromoted roles still serve their registry ACTIVE text on the default arm.
+
+    investigation_planner is deliberately not asserted here: it has been promoted,
+    so its ACTIVE text is now the promoted one. That is pinned separately in
+    test_p8_planner_promotion.py, including that the promoted bytes are exactly
+    the bytes the frozen A/B measured.
+    """
     assert live_system_prompt("semantic_t4", _SEMANTIC_T4_SYSTEM_PROMPT) == _SEMANTIC_T4_SYSTEM_PROMPT
     assert live_system_prompt("spl_advisory_generator", _plan_system_prompt()) == _plan_system_prompt()
-    from app.llm.prompts import PROMPT_CONTRACTS
-
-    planner = str(PROMPT_CONTRACTS["investigation_planner"]["system_instruction"])
-    assert _system_prompt_for_role("investigation_planner", None) == planner
+    assert "investigation_planner" in PROMOTED_TO_ACTIVE
 
 
 def test_candidates_are_registered_separately_with_distinct_identity() -> None:
@@ -211,7 +216,9 @@ def test_candidate_arm_records_selected_instruction_hash_for_provider_binding() 
 
     reset_prompt_provenance()
     with use_prompt_eval_arm("candidate"):
-        for role_id in _CANDIDATE_ROLES:
+        # A promoted role no longer has a candidate arm to bind: its promoted
+        # binding is pinned in test_p8_planner_promotion.py instead.
+        for role_id in (r for r in _CANDIDATE_ROLES if r not in PROMOTED_TO_ACTIVE):
             text = live_system_prompt(role_id, "ACTIVE_MUST_NOT_WIN")
             selected = selected_prompt_for_role(role_id)
             assert selected is not None

@@ -327,6 +327,67 @@ CANDIDATES: dict[str, CandidatePrompt] = {
 }
 
 
+@dataclass(frozen=True)
+class PromotedPrompt:
+    """A candidate an operator has promoted to ACTIVE.
+
+    Promotion is a POINTER, never an edit. ``system_instruction`` is the same
+    immutable string the A/B measured -- ``PROMOTIONS`` asserts that below by
+    hash -- so the text that was evaluated is exactly the text that now serves.
+    The candidate entry in ``CANDIDATES`` is left untouched as historical
+    evidence. Rollback is deleting the role's entry from ``PROMOTED_TO_ACTIVE``.
+    """
+
+    role_id: str
+    #: ACTIVE identity after promotion: the ACTIVE template id, next version.
+    template_id: str
+    version: str
+    #: What this rolls back to. Recorded because activation without a rollback
+    #: target is refused by ``studio_config.record_activation``.
+    rollback_template_id: str
+    rollback_version: str
+    #: The candidate this came from, for provenance.
+    promoted_from_template_id: str
+    promoted_from_version: str
+    #: Evidence that authorised the promotion.
+    evidence_ref: str
+
+
+#: Roles whose evaluated candidate now serves as ACTIVE.
+#:
+#: investigation_planner: on the frozen 16-row bank at bank_hash 5f78ccbe…,
+#: ACTIVE produced an `investigation_plan` wrapper key that
+#: `additionalProperties: false` rejects, plus missing required hypotheses and
+#: evidence_needed -> planner schema 0/1. The candidate produced a
+#: contract-valid proposal -> 1/1, `plan_source=llm_proposed_validated`, zero
+#: authority violations, zero evidence claims. Reconfirmed live before
+#: promotion. See docs/evals/p8_l3/ab_v131_candidate_scorecard.json.
+PROMOTED_TO_ACTIVE: dict[str, PromotedPrompt] = {
+    "investigation_planner": PromotedPrompt(
+        role_id="investigation_planner",
+        template_id="tmpl.investigation_planner",
+        version="1.1.0",
+        rollback_template_id="tmpl.investigation_planner",
+        rollback_version="1.0.0",
+        promoted_from_template_id="tmpl.investigation_planner.candidate",
+        promoted_from_version="1.3.0-candidate",
+        evidence_ref="docs/evals/p8_l3/ab_v131_comparison.json",
+    ),
+}
+
+
+def promoted_for(role_id: str) -> PromotedPrompt | None:
+    return PROMOTED_TO_ACTIVE.get(role_id)
+
+
+def promoted_system_instruction(role_id: str) -> str | None:
+    """The promoted text, sourced from the immutable candidate it was promoted from."""
+    promoted = PROMOTED_TO_ACTIVE.get(role_id)
+    if promoted is None:
+        return None
+    return CANDIDATES[role_id].system_instruction
+
+
 def candidate_for(role_id: str) -> CandidatePrompt | None:
     return CANDIDATES.get(role_id)
 
@@ -345,9 +406,42 @@ def candidate_stable_prefix_hash(role_id: str) -> str:
     return sha256(build_stable_prefix(overlay).encode("utf-8")).hexdigest()
 
 
+def promoted_stable_prefix_hash(role_id: str) -> str:
+    """Stable prefix under the promoted ACTIVE identity (new template id/version)."""
+    from app.llm.policy.registry import contract_for
+    from app.llm.policy.templates import build_stable_prefix
+
+    promoted = PROMOTED_TO_ACTIVE[role_id]
+    overlay = replace(
+        contract_for(role_id),
+        system_instruction=promoted_system_instruction(role_id) or "",
+        prompt_template_id=promoted.template_id,
+        prompt_version=promoted.version,
+    )
+    return sha256(build_stable_prefix(overlay).encode("utf-8")).hexdigest()
+
+
 def live_system_prompt(role_id: str, active_prompt: str) -> str:
-    """Production default is the supplied ACTIVE live prompt. Candidate only under eval arm."""
+    """Production default is the supplied ACTIVE live prompt. Candidate only under eval arm.
+
+    A promoted role serves its promoted text in BOTH arms: once a candidate is
+    ACTIVE there is no longer a second arm for it, and reporting one would
+    fabricate a delta against a prompt no longer in service.
+    """
     from app.llm.policy.request_provenance import record_selected_system_prompt
+
+    promoted = PROMOTED_TO_ACTIVE.get(role_id)
+    if promoted is not None:
+        text = promoted_system_instruction(role_id) or active_prompt
+        record_selected_system_prompt(
+            role_id=role_id,
+            template_id=promoted.template_id,
+            version=promoted.version,
+            status="ACTIVE",
+            system_instruction=text,
+            prefix_hash=promoted_stable_prefix_hash(role_id),
+        )
+        return text
 
     if prompt_eval_arm() != "candidate":
         record_selected_system_prompt(
