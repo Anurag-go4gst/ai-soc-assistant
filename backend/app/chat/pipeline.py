@@ -3716,14 +3716,15 @@ def _environment_hygiene_envelope(state: ChatPipelineState) -> dict[str, Any] | 
 
 
 def _apply_remediation_lifecycle(state: ChatPipelineState) -> ChatPipelineState:
-    """P10 seam: attach the remediation offer, or advance an explicit analyst decision.
+    """P10 seam: resolve conditional actions and govern remediation review.
 
-    Planning only. Approval produces an immutable envelope that P11's action gate
-    later consumes; nothing in this path calls a connector, and a failure here must
-    never take down the investigation answer that already exists.
+    Conditional draft eligibility belongs to this post-InvestigationOutcome lane and
+    remains active even when the optional remediation planner is disabled. Remediation
+    review itself stays behind that feature flag. Planning only: approval produces an
+    immutable envelope that P11's action gate later consumes; nothing in this path calls
+    a connector, and a failure here must never take down the investigation answer that
+    already exists.
     """
-    if not settings.ai_soc_remediation_planner_enabled:
-        return state
     from app.chat.remediation_runtime import (
         handle_remediation_review,
         maybe_attach_remediation_offer,
@@ -3733,6 +3734,8 @@ def _apply_remediation_lifecycle(state: ChatPipelineState) -> ChatPipelineState:
     action = str(getattr(request, "remediation_review_action", "") or "").strip().lower()
     try:
         if action:
+            if not settings.ai_soc_remediation_planner_enabled:
+                return state
             reviewed = handle_remediation_review(
                 dict(state),
                 action=action,

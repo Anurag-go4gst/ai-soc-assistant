@@ -21,10 +21,10 @@ J7 remains true. B1/B2/B3 are retired.
 | **Worktree** | `/Users/aagarwal/Downloads/ai-soc-wt-post-p10-convergence` |
 | **Branch** | `ws/post-p10-answer-tool-convergence` |
 | **HEAD at 2.5 start** | `fc183d3a` |
-| **Checklist** | **17 checked** / 25 unchecked (through **3.3**) |
-| **Next item** | **3.4** — Email draft on Phase 10 / action lane (not ResourcePlan) |
+| **Checklist** | **18 checked** / 24 unchecked (through **3.4**) |
+| **Next item** | **3.5** — Role-based recipients |
 | **0.2 note** | `DONE_WITH_ENVIRONMENT_UNRESOLVED_INPUTS` — two production traces unavailable; design-case diagnostic only |
-| **Product tip** | RQC persistence `09c3f97a`; pending display `67246132`; contract gate `010279f1`; J7 pins `72c74c13`; 3.3 dual-gate lifecycle is the current item commit |
+| **Product tip** | RQC persistence `09c3f97a`; pending display `67246132`; contract gate `010279f1`; J7 pins `72c74c13`; dual-gate lifecycle `f0678916`; 3.4 Phase-10 email-lane separation is the current item commit |
 | **LLM status at 2.5** | `ENVIRONMENT_UNRESOLVED`: configured local-primary/reasoning probes red (`URLError`); Qwen intentionally wired-disabled |
 
 Do **not** execute from the Cursor product-tip checkout alone — use this worktree.
