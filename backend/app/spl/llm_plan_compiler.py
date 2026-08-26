@@ -420,8 +420,10 @@ def get_detection_plan(
         if active_client is None:
             return None, [CLARIFICATION_NO_CLIENT]
         try:
+            from app.llm.policy.candidates import live_system_prompt
+
             completion = active_client.generate(
-                system_prompt=_plan_system_prompt(),
+                system_prompt=live_system_prompt("spl_advisory_generator", _plan_system_prompt()),
                 user_prompt=_plan_user_prompt(user_query, grounding),
                 max_tokens=_spl_max_output_tokens(),
                 temperature=0.0,

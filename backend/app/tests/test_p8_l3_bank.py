@@ -87,12 +87,23 @@ def test_l3_thresholds_freeze_before_any_live_score() -> None:
         assert set(frozen.metric_names()) == set(REQUIRED_FROZEN_METRICS)
 
 
+_ACTIVE_PREFIX_HASHES = {
+    "investigation_planner": "a19fb35608a25aa9dd2aa3d4a865a685d7ed5ac0473abdff91a0f6762c6c9df1",
+    "semantic_t4": "6ccdbaee5c9d0779672a9b879581de8a5a2498ac28177f9a61cfb77acb905592",
+    "shape_advisor": "04ae28f20ce84137da0a7e543bc20b7678e8f06ba90beb56bd977fdc268fb6e6",
+    "spl_advisory_generator": "6f8380e028ca4b4d4a79c379028f13ccb853ac6264333a1591642cdbb109a1fb",
+}
+
+
 def test_l3_active_prompts_have_no_candidate() -> None:
     for role_id in ("semantic_t4", "spl_advisory_generator", "investigation_planner", "shape_advisor"):
         contract = contract_for_role(role_id)
         assert contract.candidate is None
         assert contract.eval_status == "NOT_RUN_LIVE"
-        assert len(contract.active.stable_prefix_hash) == 64
+        assert contract.active.stable_prefix_hash == _ACTIVE_PREFIX_HASHES[role_id]
+        allowed, reason = contract.can_activate()
+        assert allowed is False
+        assert reason == "no_candidate_prompt"
 
 
 def test_l3_dry_run_runner_exits_zero() -> None:

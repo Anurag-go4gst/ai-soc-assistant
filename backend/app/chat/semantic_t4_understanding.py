@@ -239,6 +239,12 @@ def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContr
             "MEANING (unresolved referent → clarify): " + example["meaning_query"]
         )
         example_lines.append(json.dumps(example["meaning_output"], separators=(",", ":")))
+    from app.llm.policy.candidates import extra_few_shots_for_live
+
+    for extra in extra_few_shots_for_live("semantic_t4"):
+        label = str(extra.get("label") or "CANDIDATE")
+        example_lines.append(f"{label}: " + str(extra.get("query") or ""))
+        example_lines.append(json.dumps(extra.get("output") or {}, separators=(",", ":")))
     task: dict[str, Any] = {"query": query}
     grounding = constraints.to_grounding_payload()
     if grounding:
@@ -1095,8 +1101,10 @@ def _live_single_hop_provider(query: str, deterministic: ResolvedQueryContract) 
         api_key=endpoint.api_key,
         timeout_seconds=max(1, int(timeout + 0.5)),
     )
+    from app.llm.policy.candidates import live_system_prompt
+
     result = client.generate(
-        system_prompt=_SEMANTIC_T4_SYSTEM_PROMPT,
+        system_prompt=live_system_prompt("semantic_t4", _SEMANTIC_T4_SYSTEM_PROMPT),
         user_prompt=_build_semantic_t4_user_prompt(query, deterministic),
         # 400 tokens at the measured 4.1-4.5 tok/s is ~90s of generation alone,
         # which is most of the 120s VPS remediation budget (C2/C3 measurements).

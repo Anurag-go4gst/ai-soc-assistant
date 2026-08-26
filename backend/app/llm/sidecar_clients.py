@@ -101,10 +101,12 @@ def _contract_for_role(role: str) -> dict[str, Any]:
 
 
 def _system_prompt_for_role(role: str, system_prompt: str | None) -> str:
+    from app.llm.policy.candidates import live_system_prompt
+
     system = system_prompt or str(_contract_for_role(role).get("system_instruction") or "").strip()
     if not system:
         system = "Return JSON only. Do not add markdown."
-    return system
+    return live_system_prompt(role, system)
 
 
 def _build_callable_for_client(
