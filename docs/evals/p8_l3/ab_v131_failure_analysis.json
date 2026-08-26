@@ -1,0 +1,35 @@
+{
+  "authority_violations": [],
+  "eval_harness_defects": [],
+  "evidence_hallucinations": [],
+  "failed_case_ids": [
+    "L3.T4.01",
+    "L3.T4.02",
+    "L3.T4.03",
+    "L3.T4.04"
+  ],
+  "failure_classification_by_case": {
+    "L3.PL.01": "MODEL_STRUCTURED_OUTPUT_FAILURE",
+    "L3.T4.01": "DETERMINISTIC_VALIDATOR_REJECTION",
+    "L3.T4.02": "DETERMINISTIC_VALIDATOR_REJECTION",
+    "L3.T4.03": "DETERMINISTIC_VALIDATOR_REJECTION",
+    "L3.T4.04": "DETERMINISTIC_VALIDATOR_REJECTION"
+  },
+  "fallback_rescued_cases": [
+    "L3.PL.01"
+  ],
+  "product_contract_defects": [],
+  "prompt_arm": "active",
+  "role_metrics": {
+    "planner_n": 1,
+    "planner_schema_success": 0,
+    "planner_schema_success_rate": 0.0,
+    "spl_n": 5,
+    "spl_pass": 5,
+    "spl_success_rate": 1.0,
+    "t4_accept_rate": 0.0,
+    "t4_accepted": 0,
+    "t4_attempted": 4
+  },
+  "threshold_review_candidate": []
+}

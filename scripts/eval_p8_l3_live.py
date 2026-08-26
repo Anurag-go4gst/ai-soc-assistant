@@ -855,10 +855,22 @@ def main() -> int:
         if candidate_rc != 0:
             return candidate_rc
         if args.write_report:
-            active = json.loads((REPORT_DIR / "ab_active_scorecard.json").read_text(encoding="utf-8"))
-            candidate = json.loads((REPORT_DIR / "ab_candidate_scorecard.json").read_text(encoding="utf-8"))
+            # Compare the scorecards this run actually wrote. Reading the fixed
+            # ab_active/ab_candidate names meant a --report-prefix run silently
+            # compared whichever committed artifacts happened to be on disk.
+            active_card = REPORT_DIR / f"{active_prefix}_scorecard.json"
+            candidate_card = REPORT_DIR / f"{candidate_prefix}_scorecard.json"
+            active = json.loads(active_card.read_text(encoding="utf-8"))
+            candidate = json.loads(candidate_card.read_text(encoding="utf-8"))
             comparison = compare_ab(active, candidate)
-            write_report("ab_comparison.json", comparison)
+            comparison["active_scorecard"] = active_card.name
+            comparison["candidate_scorecard"] = candidate_card.name
+            comparison_name = (
+                "ab_comparison.json"
+                if args.report_prefix is None
+                else f"{args.report_prefix}_comparison.json"
+            )
+            write_report(comparison_name, comparison)
             print(json.dumps({"ok": True, "eval_status": "P8_B_AB_COMPLETE", **{
                 k: comparison[k] for k in (
                     "promotion_status",

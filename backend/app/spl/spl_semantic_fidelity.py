@@ -92,6 +92,10 @@ def validate_semantic_fidelity(
     """Return preserved/lost requirements and repair feedback (not safety validation)."""
     text = str(spl or "")
     lowered = text.lower()
+    # Quote-stripped view for `field=value` token checks. The compiler writes
+    # every filter quoted, so 'action="failure"' must satisfy the bare token
+    # 'action=failure'. Used only for token presence, never for safety checks.
+    _unquoted = lowered.replace('"', "").replace("'", "")
     losses: list[str] = []
     preserved: list[str] = []
     repair_feedback: list[str] = []
@@ -230,7 +234,10 @@ def validate_semantic_fidelity(
 
     for event_name in spec.get("required_event_sets") or []:
         tokens = _EVENT_SET_TOKENS.get(str(event_name), (str(event_name),))
-        if any(token.lower() in lowered for token in tokens):
+        # The compiler emits filters quoted (action="failure"), so a bare
+        # `field=value` token must also be matched in its quoted spelling.
+        # Presence still has to be real: a query with no such filter still fails.
+        if any(token.lower() in _unquoted for token in tokens):
             preserved.append(f"event_set:{event_name}")
         else:
             losses.append("required_event_type_missing")

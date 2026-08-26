@@ -24,13 +24,26 @@ INFRA_RETRY_MARKERS = (
     "RemoteDisconnected",
 )
 
-# Frozen 1.2.0-candidate stable-prefix hashes. Binding MATCH requires these plus
-# the provider request system message hashing to the selected instruction.
-EXPECTED_CANDIDATE_PREFIX_HASHES = {
-    "semantic_t4": "6e897303f7401d0a303e3a87fe683eaa538c605435bb80a8878bfdebbefc844b",
-    "spl_advisory_generator": "42ede55dab7e163ff4281c6b7c7d5aa7f6ebfb50aa3e0885a382e08290338874",
-    "investigation_planner": "ff1a47c929fc11ae0cdab02b22c6273ec180e744935d2e113377d1ee3d5fb1c4",
-}
+def _expected_candidate_prefix_hashes() -> dict[str, str]:
+    """The prefix hash each candidate role should present, read from the registry.
+
+    These were previously frozen as 1.2.0-candidate literals, so a candidate
+    revision reported a binding defect for a binding that was in fact correct
+    (1.3.0 selected 1.3.0, matched the wire, and was still marked NO).
+
+    The literals never carried the proof anyway. Binding is proven by the two
+    checks that remain: the registry-selected instruction is what the provider
+    request actually carried, and that instruction is the candidate's own text.
+    The registry values are pinned in
+    ``backend/app/tests/test_p8_prompt_candidates.py``, so a prompt edit still
+    cannot silently change what an arm measured.
+    """
+    from app.llm.policy.candidates import CANDIDATES, candidate_stable_prefix_hash
+
+    return {role: candidate_stable_prefix_hash(role) for role in CANDIDATES}
+
+
+EXPECTED_CANDIDATE_PREFIX_HASHES = _expected_candidate_prefix_hashes()
 _ROLE_ALIASES = {"spl_generation": "spl_advisory_generator"}
 
 
@@ -303,7 +316,14 @@ def run_spl_row(row: dict[str, Any], *, model: str) -> dict[str, Any]:
     reason = str(getattr(result, "clarification_reason", "") or "") if result else "no_result"
     adapter_errors = list(getattr(result, "adapter_errors", []) or []) if result else []
     plan = getattr(result, "detection_plan", None) if result else None
-    llm_called = result is not None and reason not in {"llm_spl_fallback_disabled", "llm_unavailable"}
+    # `spl_semantic_contract_unsupported` short-circuits before the provider call:
+    # the deterministic contract fails closed and the model is never asked. Counting
+    # it as an LLM call made the abstain row look like an unbound candidate request.
+    llm_called = result is not None and reason not in {
+        "llm_spl_fallback_disabled",
+        "llm_unavailable",
+        "spl_semantic_contract_unsupported",
+    }
     structured_valid = bool(plan) or (not clarif and bool(candidate))
     if adapter_errors and not plan:
         structured_valid = False
