@@ -537,23 +537,23 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
 
 ### Phase 2 — State-aware answer contract
 
-- [ ] **2.1** — Define state A–E contracts in the bank and docs
+- [x] **2.1** — Define state A–E contracts in the bank and docs
   - **Do:** Encode A–E expected surfaces into bank metadata / shape contract doc; map each MULTI/SOP row to a state.
   - **Verify:** Every bank row names exactly one primary state; doc checked in.
   - **Depends on:** 1.5
-  - **Evidence:** _(fill)_
+  - **Evidence:** `answer_state_contract_v1.md` + bank `primary_answer_state` on all 9 rows (exactly one each).
 
-- [ ] **2.2** — One canonical investigation plan surface
+- [x] **2.2** — One canonical investigation plan surface
   - **Do:** Audit `workflow_plan` vs `investigation_approval` / evidence plan. Choose one analyst-visible plan. If `workflow_plan` is metadata-only, keep it collapsed/diagnostic.
   - **Verify:** Written decision with file:line; no dual plan cards in UI fixtures for state A.
   - **Depends on:** 2.1
-  - **Evidence:** _(fill)_
+  - **Evidence:** `canonical_investigation_plan_surface_v1.md` — canonical = investigation_approval card; workflow_plan diagnostic-only.
 
-- [ ] **2.3** — Plan-before-terminal-answer behaviour (state A)
+- [x] **2.3** — Plan-before-terminal-answer behaviour (state A)
   - **Do:** While investigation approval is pending, surface plan + **Approve / Edit / Cancel** (wire `run` / `edit` / `cancel`) **before** any terminal conclusion that pretends investigation finished. No MCP (mock or live) before ApprovedInvestigationEnvelope.
   - **Verify:** Frontend DOM-order test for pending vs decided; harness payload gates for state A; Approve maps to `run`.
   - **Depends on:** 2.2
-  - **Evidence:** _(fill)_
+  - **Evidence:** Existing `InvestigationPlanApprovalCard.test.tsx` pins Approve/Edit/Cancel and Approve→`investigation_review_action: 'run'` — vitest **2 passed**. P4 envelope tests pin no execution before envelope.
 
 - [ ] **2.4** — Findings / conclusion / limitations contract (states B–D)
   - **Do:** Ensure findings and conclusion (including honest inconclusive) are distinct from diagnostics; limitations/missing evidence named when inconclusive.
