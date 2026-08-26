@@ -37,10 +37,23 @@ def _expected_candidate_prefix_hashes() -> dict[str, str]:
     The registry values are pinned in
     ``backend/app/tests/test_p8_prompt_candidates.py``, so a prompt edit still
     cannot silently change what an arm measured.
-    """
-    from app.llm.policy.candidates import CANDIDATES, candidate_stable_prefix_hash
 
-    return {role: candidate_stable_prefix_hash(role) for role in CANDIDATES}
+    A PROMOTED role is excluded: once its candidate is ACTIVE there is no
+    candidate arm left to bind, and the run correctly selects the promoted
+    ACTIVE template instead. Expecting a candidate hash there reported a defect
+    for a promotion that had worked exactly as intended.
+    """
+    from app.llm.policy.candidates import (
+        CANDIDATES,
+        PROMOTED_TO_ACTIVE,
+        candidate_stable_prefix_hash,
+    )
+
+    return {
+        role: candidate_stable_prefix_hash(role)
+        for role in CANDIDATES
+        if role not in PROMOTED_TO_ACTIVE
+    }
 
 
 EXPECTED_CANDIDATE_PREFIX_HASHES = _expected_candidate_prefix_hashes()

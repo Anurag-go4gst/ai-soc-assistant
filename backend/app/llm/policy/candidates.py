@@ -33,23 +33,38 @@ class CandidatePrompt:
 #: row is actually scored on), and on two unrelated rows it emitted a goal
 #: containing "compare ... with last week", copied out of a neighbouring example.
 #:
-#: v2 states the required output first, keeps three prohibitions, and adds no
-#: examples of its own. T4 stays a small semantic proposal, not a reasoning hop.
+#: v2 stated the required output first, kept three prohibitions, and added no
+#: examples of its own. It took T4 accept 0/4 -> 4/4, but left one defect:
+#: v2 said "give clarification_reason and stop", which contradicts the required
+#: arrays -- the model cannot stop and also fill them. Measured, the model
+#: resolved the contradiction by not clarifying at all, so L3.T4.03 kept failing
+#: even though the same model clarifies that request correctly when the arrays
+#: are optional.
+#:
+#: v3 removes the contradiction rather than the requirement: clarifying and
+#: filling the arrays are stated as compatible, because naming the evidence that
+#: WOULD settle a question is not a claim to have understood which question was
+#: asked. One synthetic example, deliberately not from the frozen bank.
 _T4_CANDIDATE_INSTRUCTION = (
     "T1-T3 abstained. Propose the meaning of the whole SOC request. "
     "Return one JSON object, no markdown, no prose.\n"
-    "FIRST, check for an unresolved referent. If the request points at something you were "
-    "not given — it says 'this', 'that', 'that alert', 'the same as before', 'what happened "
-    "last week', or otherwise refers to an earlier event, incident or turn that is not in "
-    "the request — then set clarification_required true, give clarification_reason naming "
-    "what is missing, and do not guess what it referred to. Missing logs, evidence, "
-    "thresholds or detection criteria are NOT unresolved referents: a broad hunt has a clear "
-    "meaning, so resolve it normally.\n"
-    "ALWAYS include both of these, and never leave either empty:\n"
+    "ALWAYS include both of these, and never leave either empty — in every answer, "
+    "including a clarification:\n"
     "  competing_hypotheses: exactly two short labels, one benign and one malicious, "
     "as possibilities — never a conclusion.\n"
     "  evidence_requirements: exactly two categories of evidence that would settle it "
     "(for example 'authentication logs', 'dns query logs') — categories, never findings.\n"
+    "CLARIFICATION. Set clarification_required true when the request points at something "
+    "you were not given: 'this', 'that alert', 'the same as before', an earlier incident, "
+    "campaign or turn that is not in the request. Give clarification_reason naming exactly "
+    "what is unidentified. Do not invent the missing thing.\n"
+    "Filling the two arrays above is NOT a claim that you understood the request. Naming the "
+    "evidence that WOULD settle a question is always possible; identifying WHICH question was "
+    "asked is not. So a clarification answer still carries both arrays, fully populated, "
+    "alongside clarification_required true. Never drop clarification just to fill them, and "
+    "never invent an identity just to fill them.\n"
+    "Missing logs, evidence, thresholds or detection criteria are NOT a reason to clarify: a "
+    "broad hunt has a clear meaning, so resolve it normally.\n"
     "Restate the request as normalized_goal in your own words. Describe ONLY what this "
     "request asks. Never carry over wording, a time period, or a comparison from any "
     "example — an example shows the shape, not the content.\n"
@@ -59,17 +74,30 @@ _T4_CANDIDATE_INSTRUCTION = (
     "Do not invent a time window. If the request states no time period, omit time_scope.\n"
     "Never change a value already supplied in EXPLICIT_USER_LITERAL_CONSTRAINTS or in the "
     "derived hints; those are locked.\n"
-    "Set clarification_required true ONLY when the request points at something you were "
-    "not given — 'this', 'that alert', 'the same as before' with no such context. Then give "
-    "clarification_reason and stop. Missing logs, evidence or thresholds are NOT a reason "
-    "to clarify: a broad hunt has a clear meaning, so resolve it.\n"
     "Grant no route, capability, SPL, MCP, RBAC, HIL or action authority."
 )
 
-#: v2 adds no extra shots. The four v1 shots were near-verbatim frozen-bank
-#: questions, which both contaminated the measurement and — as the goals above
-#: show — taught the model to blend examples together.
-_T4_EXTRA_SHOTS: tuple[dict[str, object], ...] = ()
+#: One synthetic shot for the clarification-with-arrays shape.
+#:
+#: Deliberately NOT a frozen-bank question, and not a paraphrase of one:
+#: test_p8_prompt_candidates.py pins that no shape example matches a bank row.
+#: v1's shots were near-verbatim bank questions and bled across examples, which
+#: is why v2 shipped none at all; this one exists only because the measured
+#: v2 defect is specifically that the model never demonstrates the combination.
+_T4_EXTRA_SHOTS: tuple[dict[str, object], ...] = (
+    {
+        "label": "CLARIFY (unidentified referent) — note both arrays stay populated",
+        "query": "is the current activity the same intrusion campaign we tracked before",
+        "output": {
+            "normalized_goal": "compare current activity against a previously tracked intrusion campaign",
+            "semantic_ambiguity": "clarification_required",
+            "clarification_required": True,
+            "clarification_reason": "neither the current activity nor the earlier campaign is identified in the request",
+            "competing_hypotheses": ["unrelated activity", "same actor resuming"],
+            "evidence_requirements": ["prior campaign case record", "current detection telemetry"],
+        },
+    },
+)
 
 _SPL_CANDIDATE_INSTRUCTION = (
     "You are a Splunk SOC detection PLANNER. The SIEM is Splunk and the query language is SPL, "
@@ -288,15 +316,43 @@ _T4_CANDIDATE_REQUIRED_FIELDS: tuple[str, ...] = (
 _T4_CANDIDATE_WITHHELD_ALIASES: frozenset[str] = frozenset({"ambiguity_state", "confidence"})
 
 
+#: Order the candidate schema puts the clarification decision in.
+#:
+#: Guided decoding emits properties in schema order, and generation is
+#: autoregressive: with the ACTIVE order the model writes ``normalized_goal``
+#: FIRST -- committing to a confident reading of the request -- and only then
+#: answers ``clarification_required``, where "false" is the self-consistent
+#: continuation of the goal it just wrote. Deciding first, then describing,
+#: matches the order the contract actually reasons in.
+#:
+#: This reorders keys only. No field is added, removed, relaxed or renamed, and
+#: the frozen ``SemanticT4Proposal`` is untouched -- JSON object key order is not
+#: semantic to any consumer.
+_T4_CANDIDATE_FIELD_ORDER: tuple[str, ...] = (
+    "clarification_required",
+    "clarification_reason",
+    "semantic_ambiguity",
+    "normalized_goal",
+    "competing_hypotheses",
+    "evidence_requirements",
+    "semantic_confidence",
+    "entities",
+    "time_scope",
+)
+
+
 def candidate_t4_response_schema(active_schema: dict[str, object]) -> dict[str, object]:
     """Return the ACTIVE schema unchanged outside the candidate eval arm."""
     if prompt_eval_arm() != "candidate":
         return active_schema
-    properties = {
+    source = {
         key: value
         for key, value in dict(active_schema.get("properties") or {}).items()
         if key not in _T4_CANDIDATE_WITHHELD_ALIASES
     }
+    ordered = [k for k in _T4_CANDIDATE_FIELD_ORDER if k in source]
+    ordered += [k for k in source if k not in ordered]
+    properties = {key: source[key] for key in ordered}
     required = [name for name in _T4_CANDIDATE_REQUIRED_FIELDS if name in properties]
     return {"type": "object", "properties": properties, "required": required}
 
@@ -305,7 +361,7 @@ CANDIDATES: dict[str, CandidatePrompt] = {
     "semantic_t4": CandidatePrompt(
         role_id="semantic_t4",
         template_id="tmpl.semantic_t4.candidate",
-        version="1.3.0-candidate",
+        version="1.4.0-candidate",
         status=CANDIDATE_STATUS,
         system_instruction=_T4_CANDIDATE_INSTRUCTION,
         extra_few_shots=_T4_EXTRA_SHOTS,

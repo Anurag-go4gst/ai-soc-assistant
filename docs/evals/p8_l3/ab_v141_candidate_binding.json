@@ -1,0 +1,115 @@
+{
+  "binding_proven": true,
+  "by_role": {
+    "semantic_t4": {
+      "all_match": true,
+      "cases": [
+        {
+          "expected_candidate_hash": "b335f4c74583c6db24c62892b97d2ea929381ed09f20129fd803697c2e979a47",
+          "match": "YES",
+          "request_case_id": "L3.T4.01",
+          "request_system_prompt_sha256": "b14234b8e7de9ee9d5971053e2b17519401d9f4d741b99ce634edf386d5d2424",
+          "selected_instruction_sha256": "b14234b8e7de9ee9d5971053e2b17519401d9f4d741b99ce634edf386d5d2424",
+          "selected_template_hash": "b335f4c74583c6db24c62892b97d2ea929381ed09f20129fd803697c2e979a47",
+          "selected_template_id": "tmpl.semantic_t4.candidate",
+          "selected_template_version": "1.4.0-candidate"
+        },
+        {
+          "expected_candidate_hash": "b335f4c74583c6db24c62892b97d2ea929381ed09f20129fd803697c2e979a47",
+          "match": "YES",
+          "request_case_id": "L3.T4.02",
+          "request_system_prompt_sha256": "b14234b8e7de9ee9d5971053e2b17519401d9f4d741b99ce634edf386d5d2424",
+          "selected_instruction_sha256": "b14234b8e7de9ee9d5971053e2b17519401d9f4d741b99ce634edf386d5d2424",
+          "selected_template_hash": "b335f4c74583c6db24c62892b97d2ea929381ed09f20129fd803697c2e979a47",
+          "selected_template_id": "tmpl.semantic_t4.candidate",
+          "selected_template_version": "1.4.0-candidate"
+        },
+        {
+          "expected_candidate_hash": "b335f4c74583c6db24c62892b97d2ea929381ed09f20129fd803697c2e979a47",
+          "match": "YES",
+          "request_case_id": "L3.T4.03",
+          "request_system_prompt_sha256": "b14234b8e7de9ee9d5971053e2b17519401d9f4d741b99ce634edf386d5d2424",
+          "selected_instruction_sha256": "b14234b8e7de9ee9d5971053e2b17519401d9f4d741b99ce634edf386d5d2424",
+          "selected_template_hash": "b335f4c74583c6db24c62892b97d2ea929381ed09f20129fd803697c2e979a47",
+          "selected_template_id": "tmpl.semantic_t4.candidate",
+          "selected_template_version": "1.4.0-candidate"
+        },
+        {
+          "expected_candidate_hash": "b335f4c74583c6db24c62892b97d2ea929381ed09f20129fd803697c2e979a47",
+          "match": "YES",
+          "request_case_id": "L3.T4.04",
+          "request_system_prompt_sha256": "b14234b8e7de9ee9d5971053e2b17519401d9f4d741b99ce634edf386d5d2424",
+          "selected_instruction_sha256": "b14234b8e7de9ee9d5971053e2b17519401d9f4d741b99ce634edf386d5d2424",
+          "selected_template_hash": "b335f4c74583c6db24c62892b97d2ea929381ed09f20129fd803697c2e979a47",
+          "selected_template_id": "tmpl.semantic_t4.candidate",
+          "selected_template_version": "1.4.0-candidate"
+        }
+      ],
+      "expected_candidate_hash": "b335f4c74583c6db24c62892b97d2ea929381ed09f20129fd803697c2e979a47",
+      "role": "semantic_t4"
+    },
+    "spl_advisory_generator": {
+      "all_match": true,
+      "cases": [
+        {
+          "expected_candidate_hash": "1e68b2908b8bcdb1c89a3a3125b342ad9b841b3895c7c85a5d71f8d38a703a49",
+          "match": "YES",
+          "request_case_id": "L3.SPL.01",
+          "request_system_prompt_sha256": "3202cc00b4097a3896baf3e23fbcf86a52a6a912c1e4b2f0d793735c2ce4edbe",
+          "selected_instruction_sha256": "3202cc00b4097a3896baf3e23fbcf86a52a6a912c1e4b2f0d793735c2ce4edbe",
+          "selected_template_hash": "1e68b2908b8bcdb1c89a3a3125b342ad9b841b3895c7c85a5d71f8d38a703a49",
+          "selected_template_id": "tmpl.spl_advisory_generator.candidate",
+          "selected_template_version": "1.3.0-candidate"
+        },
+        {
+          "expected_candidate_hash": "1e68b2908b8bcdb1c89a3a3125b342ad9b841b3895c7c85a5d71f8d38a703a49",
+          "match": "YES",
+          "request_case_id": "L3.SPL.02",
+          "request_system_prompt_sha256": "3202cc00b4097a3896baf3e23fbcf86a52a6a912c1e4b2f0d793735c2ce4edbe",
+          "selected_instruction_sha256": "3202cc00b4097a3896baf3e23fbcf86a52a6a912c1e4b2f0d793735c2ce4edbe",
+          "selected_template_hash": "1e68b2908b8bcdb1c89a3a3125b342ad9b841b3895c7c85a5d71f8d38a703a49",
+          "selected_template_id": "tmpl.spl_advisory_generator.candidate",
+          "selected_template_version": "1.3.0-candidate"
+        },
+        {
+          "expected_candidate_hash": "1e68b2908b8bcdb1c89a3a3125b342ad9b841b3895c7c85a5d71f8d38a703a49",
+          "match": "YES",
+          "request_case_id": "L3.SPL.03",
+          "request_system_prompt_sha256": "3202cc00b4097a3896baf3e23fbcf86a52a6a912c1e4b2f0d793735c2ce4edbe",
+          "selected_instruction_sha256": "3202cc00b4097a3896baf3e23fbcf86a52a6a912c1e4b2f0d793735c2ce4edbe",
+          "selected_template_hash": "1e68b2908b8bcdb1c89a3a3125b342ad9b841b3895c7c85a5d71f8d38a703a49",
+          "selected_template_id": "tmpl.spl_advisory_generator.candidate",
+          "selected_template_version": "1.3.0-candidate"
+        },
+        {
+          "expected_candidate_hash": "1e68b2908b8bcdb1c89a3a3125b342ad9b841b3895c7c85a5d71f8d38a703a49",
+          "match": "YES",
+          "request_case_id": "L3.SPL.04",
+          "request_system_prompt_sha256": "3202cc00b4097a3896baf3e23fbcf86a52a6a912c1e4b2f0d793735c2ce4edbe",
+          "selected_instruction_sha256": "3202cc00b4097a3896baf3e23fbcf86a52a6a912c1e4b2f0d793735c2ce4edbe",
+          "selected_template_hash": "1e68b2908b8bcdb1c89a3a3125b342ad9b841b3895c7c85a5d71f8d38a703a49",
+          "selected_template_id": "tmpl.spl_advisory_generator.candidate",
+          "selected_template_version": "1.3.0-candidate"
+        },
+        {
+          "expected_candidate_hash": "1e68b2908b8bcdb1c89a3a3125b342ad9b841b3895c7c85a5d71f8d38a703a49",
+          "match": "YES",
+          "request_case_id": "L3.SPL.05",
+          "request_system_prompt_sha256": "3202cc00b4097a3896baf3e23fbcf86a52a6a912c1e4b2f0d793735c2ce4edbe",
+          "selected_instruction_sha256": "3202cc00b4097a3896baf3e23fbcf86a52a6a912c1e4b2f0d793735c2ce4edbe",
+          "selected_template_hash": "1e68b2908b8bcdb1c89a3a3125b342ad9b841b3895c7c85a5d71f8d38a703a49",
+          "selected_template_id": "tmpl.spl_advisory_generator.candidate",
+          "selected_template_version": "1.3.0-candidate"
+        }
+      ],
+      "expected_candidate_hash": "1e68b2908b8bcdb1c89a3a3125b342ad9b841b3895c7c85a5d71f8d38a703a49",
+      "role": "spl_advisory_generator"
+    }
+  },
+  "candidate_roles_missing_llm_call": [],
+  "candidate_roles_observed": [
+    "semantic_t4",
+    "spl_advisory_generator"
+  ],
+  "harness_defect": false
+}

@@ -103,8 +103,8 @@ def test_candidate_arm_selects_candidate_live_text() -> None:
         assert "investigation_plan" in planner
         assert "hypotheses" in planner
     assert prompt_eval_arm() == "active"
-    # v2 deliberately ships no T4 extra shots: the v1 shots were near-verbatim
-    # frozen-bank questions and measurably bled into unrelated answers.
+    # No candidate shot ever reaches the ACTIVE arm. Which shots the candidate arm
+    # carries is asserted in test_t4_candidate_shot_is_arm_scoped_and_not_a_bank_question.
     assert extra_few_shots_for_live("semantic_t4") == ()
 
 
@@ -125,14 +125,20 @@ def test_candidate_eval_arm_is_visible_inside_sidecar_worker_thread() -> None:
     assert prompt_eval_arm() == "active"
 
 
-def test_t4_renders_no_candidate_extra_shots_in_either_arm() -> None:
-    """v2 ships no T4 extra shots, so both arms render the same example block.
+def test_t4_candidate_shot_is_arm_scoped_and_not_a_bank_question() -> None:
+    """v1.4.0 ships ONE synthetic clarification shot, candidate arm only.
 
-    The v1 shots were near-verbatim frozen-bank questions; they contaminated the
-    measurement and bled across examples, so they were withdrawn rather than
-    re-tuned.
+    v1's five shots were near-verbatim frozen-bank questions; they contaminated
+    the measurement and bled across examples, so v1.3.0 withdrew them entirely.
+    v1.4.0 reintroduces exactly one, for the clarification-with-arrays shape that
+    the model otherwise never demonstrates -- written from scratch, never taken
+    from the bank.
     """
+    import json as _json
+    from pathlib import Path
+
     from app.chat.intent_classifier import build_query_to_intent
+    from app.llm.policy.candidates import _T4_EXTRA_SHOTS
     from app.query_understanding.parser import understand_query
 
     query = "signs that something is moving sideways through the estate"
@@ -148,9 +154,24 @@ def test_t4_renders_no_candidate_extra_shots_in_either_arm() -> None:
     active_user = _build_semantic_t4_user_prompt(query, contract)
     with use_prompt_eval_arm("candidate"):
         candidate_user = _build_semantic_t4_user_prompt(query, contract)
+
+    # The withdrawn v1 shots stay withdrawn.
     assert "NEG invented host" not in active_user
     assert "NEG invented host" not in candidate_user
-    assert active_user == candidate_user
+    # The one v1.4.0 shot reaches the candidate arm and only the candidate arm.
+    assert len(_T4_EXTRA_SHOTS) == 1
+    marker = str(_T4_EXTRA_SHOTS[0]["query"])
+    assert marker in candidate_user
+    assert marker not in active_user
+
+    # No T4 shot may be a frozen-bank question: an example keyed to a bank row
+    # memorises the answer key. few_shot_catalog_v1 states the rule directly.
+    bank = _json.loads(
+        (Path(__file__).resolve().parents[3] / "docs/evals/p8_l3/bank_v1.json").read_text()
+    )
+    bank_queries = {str(row.get("query") or "").strip().lower() for row in bank["rows"]}
+    for shot in _T4_EXTRA_SHOTS:
+        assert str(shot["query"]).strip().lower() not in bank_queries
 
 
 def test_spl_shape_few_shot_is_candidate_arm_only_and_shape_selected() -> None:
@@ -201,7 +222,9 @@ def test_roles_without_candidates_keep_active_on_candidate_arm() -> None:
 # investigation_planner=ff1a47c9...; its results live in
 # docs/evals/p8_l3/ab_binding_fair_*.json.
 _EXPECTED_CANDIDATE_PREFIX = {
-    "semantic_t4": "ade105b77baad8ae009f2c080441c0301276d71efe14cf8a8b5cc8ed2b22fcec",
+    # v1.4.0-candidate. v1.3.0's was ade105b7…; its results are in
+    # docs/evals/p8_l3/ab_v131_candidate_scorecard.json.
+    "semantic_t4": "b335f4c74583c6db24c62892b97d2ea929381ed09f20129fd803697c2e979a47",
     "spl_advisory_generator": "1e68b2908b8bcdb1c89a3a3125b342ad9b841b3895c7c85a5d71f8d38a703a49",
     "investigation_planner": "5283ec8a1bf24201b8bfce023d7722cdd3f9f892fc834a7f592cbbdecb4ec67b",
 }
@@ -314,3 +337,36 @@ def test_prompt_provenance_survives_sidecar_worker_thread() -> None:
     assert selected["instruction_sha256"] == hash_prompt_text(system)
     assert request["system_prompt_sha256"] == hash_prompt_text(system)
     assert request["matches_selected_instruction"] is True
+
+
+def test_candidate_t4_schema_decides_clarification_before_describing_the_goal() -> None:
+    """Field order is the mechanism that fixed L3.T4.03, so it is pinned.
+
+    Guided decoding emits properties in schema order and generation is
+    autoregressive. Under the ACTIVE order the model writes ``normalized_goal``
+    first -- committing to a confident reading -- and then answers
+    ``clarification_required``, where "false" is the self-consistent
+    continuation. Measured: with the ACTIVE order the model refused to clarify
+    L3.T4.03 even with that exact question and its correct clarify answer
+    present in the prompt; moving the decision ahead of the goal flipped it.
+
+    Reordering keys adds, removes and relaxes nothing: JSON object key order is
+    not semantic to any consumer, and the frozen SemanticT4Proposal is untouched.
+    """
+    from app.chat.semantic_t4_understanding import _SEMANTIC_T4_SCHEMA
+    from app.llm.policy.candidates import candidate_t4_response_schema
+
+    # Production is byte-identical to the ACTIVE schema object.
+    assert candidate_t4_response_schema(_SEMANTIC_T4_SCHEMA) is _SEMANTIC_T4_SCHEMA
+
+    with use_prompt_eval_arm("candidate"):
+        schema = candidate_t4_response_schema(_SEMANTIC_T4_SCHEMA)
+    keys = list(schema["properties"])
+    assert keys.index("clarification_required") < keys.index("normalized_goal")
+    assert keys.index("clarification_reason") < keys.index("normalized_goal")
+
+    # Same field set as ACTIVE minus only the deprecated aliases: nothing invented.
+    assert set(keys) == set(_SEMANTIC_T4_SCHEMA["properties"]) - {"ambiguity_state", "confidence"}
+    # T4 is never offered capability authority, in either arm.
+    for forbidden in ("required_capabilities", "prohibited_capabilities", "intent_family"):
+        assert forbidden not in keys
