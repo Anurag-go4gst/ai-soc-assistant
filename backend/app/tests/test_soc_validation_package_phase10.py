@@ -32,10 +32,7 @@ EXPECTED_FILES = {
     "spl_template_review_sheet.json",
     "mitre_validation_sheet.json",
     "question_validation_sheet.json",
-    "github_enrichment_review_sheet.json",
-    "github_batch_intake_sheet.json",
     "rag_sop_validation_sheet.json",
-    "pending_skill_enrichment_backlog_sheet.json",
     "combination_matrix_sheet.json",
     "demo_scenario_sheet.json",
 }
@@ -81,12 +78,6 @@ def test_question_sheet_has_all_105_rows() -> None:
     assert len(sheet["rows"]) == 105
 
 
-def test_github_sheet_has_all_12_rows() -> None:
-    sheet = _sheet("github_enrichment_review_sheet.json")
-    assert sheet["row_counts"]["github_skills"] == 12
-    assert len(sheet["rows"]) == 12
-
-
 def test_runtime_active_rows_satisfy_freeze_gate_2() -> None:
     rows = _sheet("use_case_validation_sheet.json")["rows"]
     active = [r for r in rows if r["runtime_support_status"] == "runtime_active"]
@@ -104,13 +95,6 @@ def test_enrichment_only_rows_are_not_runtime_active() -> None:
     for row in rows:
         if row["enrichment_present"] and not row["catalog_present"]:
             assert row["runtime_support_status"] != "runtime_active"
-
-
-def test_github_rows_are_not_runtime_active() -> None:
-    rows = _sheet("github_enrichment_review_sheet.json")["rows"]
-    for row in rows:
-        assert row["runtime_support_status"] != "runtime_active"
-        assert row["runtime_skill"] is False
 
 
 def test_mitre_sheet_labels_metadata_not_evidence() -> None:

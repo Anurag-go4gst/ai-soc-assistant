@@ -1,6 +1,6 @@
 """Phase 11 demo readiness — documentation and Knowledge export sync only.
 
-Asserts cutover/demo docs exist, all ten Phase 10 validation sheets are
+Asserts cutover/demo docs exist, all seven retained Phase 10 validation sheets are
 Knowledge-exportable, and regression wiring is present. No /chat behavior.
 """
 
@@ -23,10 +23,7 @@ EXPECTED_VALIDATION_ARTIFACTS = frozenset(
         "soc_validation_spl_templates",
         "soc_validation_mitre",
         "soc_validation_questions",
-        "soc_validation_github_enrichment",
-        "soc_validation_github_batch_intake",
         "soc_validation_rag_sop",
-        "soc_validation_pending_backlog",
         "soc_validation_combination_matrix",
         "soc_validation_demo_scenarios",
     }
