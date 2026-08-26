@@ -258,8 +258,11 @@ def test_known_findings_are_represented_in_the_bank() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_first_bank_is_about_twenty_three_active_rows() -> None:
-    """P3 targets ~23 intentional rows, not 80-120. This is the size fence."""
+def test_active_bank_is_p0_plus_supported_contract_rows() -> None:
+    """First E1 bank was ~23. After P1/P2/P4 activation the count is the real manifest."""
     count = len(active_cases())
-    assert 20 <= count <= 26, f"active bank drifted to {count} rows"
-    assert len(P0_CASES) + len(NEW_ACTIVE_CASES) == count
+    assert len(P0_CASES) == 13
+    assert count == len([c for c in CASES if c.current_status == "ACTIVE_GREEN"])
+    assert count >= 23
+    pending_p5 = cases_by_status("PENDING_CONTRACT_P5")
+    assert pending_p5, "P5-dependent rows must remain reserved until P5"
