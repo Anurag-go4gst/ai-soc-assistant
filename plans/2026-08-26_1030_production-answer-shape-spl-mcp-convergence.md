@@ -555,11 +555,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
   - **Depends on:** 2.2
   - **Evidence:** Existing `InvestigationPlanApprovalCard.test.tsx` pins Approve/Edit/Cancel and Approve→`investigation_review_action: 'run'` — vitest **2 passed**. P4 envelope tests pin no execution before envelope.
 
-- [ ] **2.4** — Findings / conclusion / limitations contract (states B–D)
+- [x] **2.4** — Findings / conclusion / limitations contract (states B–D)
   - **Do:** Ensure findings and conclusion (including honest inconclusive) are distinct from diagnostics; limitations/missing evidence named when inconclusive.
   - **Verify:** `CV.MULTI.01A` inconclusive conclusion + missing-evidence; `CV.MULTI.01B` suspicious conclusion.
   - **Depends on:** 2.3
-  - **Evidence:** _(fill)_
+  - **Evidence:** Production `InvestigationOutcome`/`InvestigationOutcomeCard` already separates findings, disposition (conclusion), missing_evidence/limitations from progress diagnostics — pinned. Fixtures `docs/evals/answer_shape/fixtures/cv_multi_01{a,b}_outcome.json`. `pytest app/tests/test_answer_shape_findings_conclusion_contract.py -q` → **4 passed** (01A disposition=inconclusive + missing_evidence/limitations named; 01B disposition=suspicious + findings PRESENT; progress not in findings; no compromise_confirmed). Vitest `InvestigationOutcomeCard.test.tsx` → **8 passed**. Harness scores fixture contract: 01A observed disposition=inconclusive missing_evidence_count=2; 01B disposition=suspicious findings_count=1; conclusion/findings/missing gaps cleared (end-to-end plan/intent gaps remain PRODUCT_GAP). `eval_convergence_expectations.py --check` PASS after baseline refresh.
 
 - [ ] **2.5** — Conditional requested-actions display without CTA inflation
   - **Do:** When intents are PENDING_CONDITION, surface them as requested/conditional next actions — **not** as remediation CTA or send buttons.

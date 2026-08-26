@@ -1,0 +1,79 @@
+{
+  "investigation_outcome": {
+    "action_eligibility": {
+      "allowed_actions": [
+        "summarize",
+        "explain",
+        "show_sop",
+        "generate_spl",
+        "draft_investigation_note"
+      ],
+      "current_tier": 1,
+      "hil_required": false,
+      "unavailable_actions": [
+        "run_saved_search",
+        "create_ticket",
+        "block_ip",
+        "disable_user",
+        "isolate_endpoint"
+      ]
+    },
+    "disposition": "suspicious",
+    "evidence_refs": [
+      "ev-auth"
+    ],
+    "findings": [
+      "25 failed SSH then success from 198.51.100.42 to admin"
+    ],
+    "investigation_status": "completed",
+    "limitations": [],
+    "llm_proposal_accepted": false,
+    "missing_evidence": [],
+    "policy_eligibility": {
+      "evidence_sufficiency": "SUFFICIENT",
+      "human_review_required": false,
+      "next_action": "CONTINUE",
+      "synthesis_allowed": false
+    },
+    "provenance": {
+      "derived_from": [
+        "evidence_state",
+        "evidence_sufficiency",
+        "final_evidence_gate",
+        "action_capability"
+      ],
+      "not_canonical_planning_outcome": true,
+      "not_decision_record": true,
+      "trace_id": null
+    },
+    "recommended_actions": [
+      "summarize",
+      "explain",
+      "show_sop",
+      "generate_spl",
+      "draft_investigation_note"
+    ],
+    "recommended_next_action": "Continue investigation",
+    "remediation_offer_required": false,
+    "schema_version": "investigation_outcome_v2",
+    "severity_label": "P2 High",
+    "supported_hypotheses": [],
+    "unconfirmed_hypotheses": []
+  },
+  "investigation_progress_sample": [
+    {
+      "evidence_refs": [],
+      "evidence_summary": "MCP execution disabled",
+      "failure": "mcp_off",
+      "purpose": "authentication_correlation",
+      "source": "splunk_search",
+      "status": "failed",
+      "step_id": "auth"
+    }
+  ],
+  "not_end_to_end_chat_capture": true,
+  "notes": "Evidence-backed completed + suspicious findings; does not claim compromise_confirmed",
+  "primary_answer_state": "D",
+  "role": "outcome_contract_fixture_v1",
+  "row_id": "CV.MULTI.01B"
+}

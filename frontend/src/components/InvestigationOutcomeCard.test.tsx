@@ -101,4 +101,61 @@ describe('InvestigationOutcomeCard', () => {
     render(<InvestigationOutcomeCard outcome={outcome({ remediation_offer_required: false })} />);
     expect(screen.queryByText('Create remediation plan?')).not.toBeInTheDocument();
   });
+
+  it('CV.MULTI.01A state C: inconclusive conclusion + named missing evidence/limitations', () => {
+    render(
+      <InvestigationOutcomeCard
+        outcome={outcome({
+          investigation_status: 'incomplete',
+          disposition: 'inconclusive',
+          findings: [],
+          unconfirmed_hypotheses: [],
+          missing_evidence: ['authentication_correlation', 'session_corroboration'],
+          limitations: ['Missing governed evidence: authentication_correlation', 'MCP execution disabled'],
+          remediation_offer_required: false,
+        })}
+        progress={[
+          {
+            step_id: 'auth',
+            purpose: 'authentication_correlation',
+            status: 'failed',
+            source: 'splunk_search',
+            evidence_summary: 'MCP execution disabled',
+            evidence_refs: [],
+            failure: 'mcp_off',
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText('disposition: inconclusive')).toBeInTheDocument();
+    expect(screen.getByText('Important missing evidence')).toBeInTheDocument();
+    expect(screen.getByText('authentication_correlation')).toBeInTheDocument();
+    expect(screen.getByText('Limitations')).toBeInTheDocument();
+    expect(screen.getByText('Missing governed evidence: authentication_correlation')).toBeInTheDocument();
+    // Progress telemetry is labeled separately from findings (same stop phrase may also appear in progress copy)
+    expect(screen.getByLabelText('Operational progress')).toBeInTheDocument();
+    expect(screen.getAllByText('MCP execution disabled').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('Supported by governed evidence')).not.toBeInTheDocument();
+  });
+
+  it('CV.MULTI.01B state D: suspicious conclusion with findings, no invented compromise_confirmed', () => {
+    const { container } = render(
+      <InvestigationOutcomeCard
+        outcome={outcome({
+          investigation_status: 'completed',
+          disposition: 'suspicious',
+          findings: ['25 failed SSH then success from 198.51.100.42 to admin'],
+          unconfirmed_hypotheses: [],
+          missing_evidence: [],
+          limitations: [],
+          remediation_offer_required: false,
+        })}
+      />,
+    );
+    expect(screen.getByText('disposition: suspicious')).toBeInTheDocument();
+    expect(screen.getByText('Supported by governed evidence')).toBeInTheDocument();
+    expect(screen.getByText('25 failed SSH then success from 198.51.100.42 to admin')).toBeInTheDocument();
+    expect(container.textContent?.toLowerCase() ?? '').not.toContain('compromise_confirmed');
+    expect(screen.queryByText('Important missing evidence')).not.toBeInTheDocument();
+  });
 });

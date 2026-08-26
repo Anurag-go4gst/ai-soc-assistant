@@ -17,7 +17,9 @@
         "conditional_email_intent": "PENDING_CONDITION",
         "remediation_plan": "ABSENT",
         "email_send": "ABSENT",
-        "false_execution_claims": 0
+        "false_execution_claims": 0,
+        "missing_evidence": "NAMED",
+        "limitations": "NAMED"
       },
       "baseline_status": "PRODUCT_GAP_EXPECTED",
       "primary_answer_state": "C"

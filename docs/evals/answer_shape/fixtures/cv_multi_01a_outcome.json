@@ -1,0 +1,82 @@
+{
+  "investigation_outcome": {
+    "action_eligibility": {
+      "allowed_actions": [
+        "summarize",
+        "explain",
+        "show_sop",
+        "generate_spl",
+        "draft_investigation_note"
+      ],
+      "current_tier": 1,
+      "hil_required": false,
+      "unavailable_actions": [
+        "run_saved_search",
+        "create_ticket",
+        "block_ip",
+        "disable_user",
+        "isolate_endpoint"
+      ]
+    },
+    "disposition": "inconclusive",
+    "evidence_refs": [],
+    "findings": [],
+    "investigation_status": "incomplete",
+    "limitations": [
+      "Missing governed evidence: authentication_correlation",
+      "Missing governed evidence: session_corroboration",
+      "Investigation stopped: mcp_off",
+      "MCP execution disabled"
+    ],
+    "llm_proposal_accepted": false,
+    "missing_evidence": [
+      "authentication_correlation",
+      "session_corroboration"
+    ],
+    "policy_eligibility": {
+      "evidence_sufficiency": "INSUFFICIENT",
+      "human_review_required": false,
+      "next_action": "DEGRADE",
+      "synthesis_allowed": false
+    },
+    "provenance": {
+      "derived_from": [
+        "evidence_state",
+        "evidence_sufficiency",
+        "action_capability"
+      ],
+      "not_canonical_planning_outcome": true,
+      "not_decision_record": true,
+      "trace_id": null
+    },
+    "recommended_actions": [
+      "summarize",
+      "explain",
+      "show_sop",
+      "generate_spl",
+      "draft_investigation_note"
+    ],
+    "recommended_next_action": "Continue with available evidence",
+    "remediation_offer_required": true,
+    "schema_version": "investigation_outcome_v2",
+    "severity_label": "Not assigned",
+    "supported_hypotheses": [],
+    "unconfirmed_hypotheses": []
+  },
+  "investigation_progress_sample": [
+    {
+      "evidence_refs": [],
+      "evidence_summary": "MCP execution disabled",
+      "failure": "mcp_off",
+      "purpose": "authentication_correlation",
+      "source": "splunk_search",
+      "status": "failed",
+      "step_id": "auth"
+    }
+  ],
+  "not_end_to_end_chat_capture": true,
+  "notes": "MCP-off / insufficient evidence \u2192 incomplete + inconclusive + named missing_evidence/limitations",
+  "primary_answer_state": "C",
+  "role": "outcome_contract_fixture_v1",
+  "row_id": "CV.MULTI.01A"
+}

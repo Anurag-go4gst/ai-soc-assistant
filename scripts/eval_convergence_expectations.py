@@ -26,6 +26,10 @@ DIAGNOSIS_PATH = ROOT / "docs/evals/answer_shape/trace_diagnosis_v1.md"
 DESIGN_CASE_PATH = (
     ROOT / "docs/evals/answer_shape/traces/design_case_ssh_admin_in_process.json"
 )
+OUTCOME_FIXTURES = {
+    "CV.MULTI.01A": ROOT / "docs/evals/answer_shape/fixtures/cv_multi_01a_outcome.json",
+    "CV.MULTI.01B": ROOT / "docs/evals/answer_shape/fixtures/cv_multi_01b_outcome.json",
+}
 UNRESOLVED_PATHS = (
     ROOT / "docs/evals/answer_shape/traces/prod_failure_01_ENVIRONMENT_UNRESOLVED.json",
     ROOT / "docs/evals/answer_shape/traces/prod_failure_02_ENVIRONMENT_UNRESOLVED.json",
@@ -95,11 +99,71 @@ def _score_nomcp_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _score_outcome_contract_pins(row: dict[str, Any], gaps: list[str]) -> dict[str, Any]:
+    """Score findings/conclusion/limitations from committed outcome fixtures (item 2.4).
+
+    Design-case capture remains PRODUCT_GAP for end-to-end plan/intent surfacing;
+    these pins assert the InvestigationOutcome contract independently.
+    """
+    pins = row["pins"]
+    fixture_path = OUTCOME_FIXTURES.get(row["row_id"])
+    observed: dict[str, Any] = {"outcome_fixture": None}
+    if fixture_path is None or not fixture_path.exists():
+        if pins.get("conclusion") or pins.get("findings") or pins.get("missing_evidence"):
+            gaps.append("outcome_contract_fixture_missing")
+        return observed
+    fixture = _load_json(fixture_path)
+    outcome = fixture.get("investigation_outcome") or {}
+    progress = fixture.get("investigation_progress_sample") or []
+    observed = {
+        "outcome_fixture": str(fixture_path.relative_to(ROOT)),
+        "disposition": outcome.get("disposition"),
+        "investigation_status": outcome.get("investigation_status"),
+        "findings_count": len(outcome.get("findings") or []),
+        "missing_evidence_count": len(outcome.get("missing_evidence") or []),
+        "limitations_count": len(outcome.get("limitations") or []),
+        "progress_not_in_findings": True,
+    }
+    # Progress diagnostics must not appear as findings
+    findings_blob = " ".join(str(item) for item in (outcome.get("findings") or [])).lower()
+    for step in progress:
+        failure = str(step.get("failure") or "").strip().lower()
+        if failure and failure in findings_blob:
+            observed["progress_not_in_findings"] = False
+            gaps.append("progress_diagnostics_leaked_into_findings")
+            break
+
+    expected_conclusion = str(pins.get("conclusion") or "").upper()
+    if expected_conclusion:
+        actual = str(outcome.get("disposition") or "").upper()
+        if actual != expected_conclusion:
+            gaps.append(f"conclusion_{expected_conclusion}_unmet")
+
+    if pins.get("findings") == "PRESENT":
+        if not (outcome.get("findings") or []):
+            gaps.append("findings_PRESENT_unmet")
+
+    if pins.get("missing_evidence") in {"PRESENT", "NAMED"}:
+        if not (outcome.get("missing_evidence") or []):
+            gaps.append("missing_evidence_NAMED_unmet")
+    if pins.get("limitations") in {"PRESENT", "NAMED"}:
+        if not (outcome.get("limitations") or []):
+            gaps.append("limitations_NAMED_unmet")
+
+    if pins.get("claim_compromise_confirmed_without_predicate") is False:
+        blob = json.dumps(outcome).lower()
+        if "compromise_confirmed" in blob or '"compromise": true' in blob:
+            gaps.append("invented_compromise_confirmed")
+
+    return observed
+
+
 def _score_multi_from_design_case(row: dict[str, Any]) -> dict[str, Any]:
     """Baseline measurement against the 0.2 in-process design-case capture only.
 
     Does not claim production failures. PRODUCT_GAP_EXPECTED rows report GAP when
-    pins are unmet on the measured diagnostic capture.
+    pins are unmet on the measured diagnostic capture. Item 2.4 also scores
+    findings/conclusion/limitations from committed outcome fixtures.
     """
     capture = _load_json(DESIGN_CASE_PATH)
     pins = row["pins"]
@@ -135,8 +199,7 @@ def _score_multi_from_design_case(row: dict[str, Any]) -> dict[str, Any]:
         # Envelope-bound mock not exercised in design-case capture
         gaps.append("mock_envelope_path_not_exercised_in_design_case_capture")
 
-    if row["row_id"] == "CV.MULTI.01B":
-        gaps.append("suspicious_completed_path_not_exercised_in_design_case_capture")
+    outcome_observed = _score_outcome_contract_pins(row, gaps)
 
     status = row.get("baseline_status")
     if status == "PRODUCT_GAP_EXPECTED":
@@ -154,6 +217,7 @@ def _score_multi_from_design_case(row: dict[str, Any]) -> dict[str, Any]:
             "answer_mode": capture.get("answer_mode"),
             "trace_id": capture.get("trace_id"),
             "capture_role": capture.get("role"),
+            **outcome_observed,
         },
         "expected": pins,
     }
