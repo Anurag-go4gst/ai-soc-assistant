@@ -1,0 +1,99 @@
+{
+  "ok": true,
+  "bank_hash": "5f78ccbe1940149a67dcd1052140c44c854ec42a409d7644b47e5357010dbf51",
+  "report": null,
+  "eval_status": "DRY_RUN_READY",
+  "errors": []
+}
+ab_active running L3.T4.01 seam=t4 arm=active
+ab_active running L3.T4.02 seam=t4 arm=active
+ab_active running L3.T4.03 seam=t4 arm=active
+ab_active running L3.T4.04 seam=t4 arm=active
+ab_active running L3.SPL.01 seam=spl_plan arm=active
+ab_active running L3.SPL.02 seam=spl_plan arm=active
+ab_active running L3.SPL.03 seam=spl_plan arm=active
+ab_active running L3.SPL.04 seam=spl_plan arm=active
+ab_active running L3.SPL.05 seam=spl_plan arm=active
+ab_active running L3.CHAT.01 seam=chat arm=active
+ab_active running L3.CHAT.02 seam=chat arm=active
+ab_active running L3.FU.01 seam=chat arm=active
+ab_active running L3.EV.01 seam=chat arm=active
+ab_active running L3.PL.01 seam=planner arm=active
+ab_active running L3.AB.01 seam=spl_plan arm=active
+ab_active running L3.PR.01 seam=provenance arm=active
+{
+  "ok": true,
+  "eval_status": "LIVE_BASELINE_COMPLETE",
+  "prompt_arm": "active",
+  "baseline_decision": "BASELINE_FAIL_REQUIRES_CANDIDATE",
+  "rows_failed": 8,
+  "semantic_success_rate": 0.2885,
+  "llm_success_rate": 0.3077,
+  "role_metrics": {
+    "t4_attempted": 4,
+    "t4_accepted": 0,
+    "t4_accept_rate": 0.0,
+    "spl_pass": 1,
+    "spl_n": 5,
+    "spl_success_rate": 0.2,
+    "planner_schema_success": 0,
+    "planner_n": 1,
+    "planner_schema_success_rate": 0.0
+  }
+}
+{
+  "ok": true,
+  "bank_hash": "5f78ccbe1940149a67dcd1052140c44c854ec42a409d7644b47e5357010dbf51",
+  "report": null,
+  "eval_status": "DRY_RUN_READY",
+  "errors": []
+}
+ab_candidate running L3.T4.01 seam=t4 arm=candidate
+ab_candidate running L3.T4.02 seam=t4 arm=candidate
+ab_candidate running L3.T4.03 seam=t4 arm=candidate
+ab_candidate running L3.T4.04 seam=t4 arm=candidate
+ab_candidate running L3.SPL.01 seam=spl_plan arm=candidate
+ab_candidate running L3.SPL.02 seam=spl_plan arm=candidate
+ab_candidate running L3.SPL.03 seam=spl_plan arm=candidate
+ab_candidate running L3.SPL.04 seam=spl_plan arm=candidate
+ab_candidate running L3.SPL.05 seam=spl_plan arm=candidate
+ab_candidate running L3.CHAT.01 seam=chat arm=candidate
+ab_candidate running L3.CHAT.02 seam=chat arm=candidate
+ab_candidate running L3.FU.01 seam=chat arm=candidate
+ab_candidate running L3.EV.01 seam=chat arm=candidate
+ab_candidate running L3.PL.01 seam=planner arm=candidate
+ab_candidate running L3.AB.01 seam=spl_plan arm=candidate
+ab_candidate running L3.PR.01 seam=provenance arm=candidate
+{
+  "ok": true,
+  "eval_status": "LIVE_BASELINE_COMPLETE",
+  "prompt_arm": "candidate",
+  "baseline_decision": "BASELINE_FAIL_REQUIRES_CANDIDATE",
+  "rows_failed": 8,
+  "semantic_success_rate": 0.2885,
+  "llm_success_rate": 0.3077,
+  "role_metrics": {
+    "t4_attempted": 4,
+    "t4_accepted": 0,
+    "t4_accept_rate": 0.0,
+    "spl_pass": 1,
+    "spl_n": 5,
+    "spl_success_rate": 0.2,
+    "planner_schema_success": 0,
+    "planner_n": 1,
+    "planner_schema_success_rate": 0.0
+  }
+}
+{
+  "ok": true,
+  "eval_status": "P8_B_AB_COMPLETE",
+  "promotion_status": "NO_PROMOTION",
+  "candidate_winners_by_role": {},
+  "candidates_rejected_by_role": {
+    "semantic_t4": "no_safe_improvement",
+    "spl_advisory_generator": "no_safe_improvement",
+    "investigation_planner": "no_safe_improvement"
+  },
+  "active_semantic_score": 0.2885,
+  "candidate_semantic_score": 0.2885
+}

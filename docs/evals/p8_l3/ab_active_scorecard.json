@@ -1,0 +1,554 @@
+{
+  "authority_violations": [],
+  "bank_hash": "5f78ccbe1940149a67dcd1052140c44c854ec42a409d7644b47e5357010dbf51",
+  "bank_row_count": 16,
+  "baseline_decision": "BASELINE_FAIL_REQUIRES_CANDIDATE",
+  "blocked_roles_enabled": false,
+  "candidate_prompt_created": true,
+  "category_results": {
+    "evidence_truth_negative": [
+      {
+        "case_id": "L3.EV.01",
+        "failure_class": null,
+        "fallback_used": false,
+        "final_result": "PASS",
+        "llm_used": false
+      }
+    ],
+    "failure_abstain": [
+      {
+        "case_id": "L3.T4.03",
+        "failure_class": "DETERMINISTIC_VALIDATOR_REJECTION",
+        "fallback_used": false,
+        "final_result": "FAIL",
+        "llm_used": false
+      },
+      {
+        "case_id": "L3.AB.01",
+        "failure_class": null,
+        "fallback_used": true,
+        "final_result": "PASS",
+        "llm_used": false
+      }
+    ],
+    "followup_correction": [
+      {
+        "case_id": "L3.FU.01",
+        "failure_class": null,
+        "fallback_used": false,
+        "final_result": "OBSERVED_NOT_SCORED",
+        "llm_used": false
+      }
+    ],
+    "investigation_planner": [
+      {
+        "case_id": "L3.PL.01",
+        "failure_class": "MODEL_STRUCTURED_OUTPUT_FAILURE",
+        "fallback_used": true,
+        "final_result": "PRODUCT_SUCCESS_MODEL_FAILURE",
+        "llm_used": false
+      }
+    ],
+    "l2_production": [
+      {
+        "case_id": "L3.CHAT.01",
+        "failure_class": null,
+        "fallback_used": false,
+        "final_result": "PASS",
+        "llm_used": true
+      },
+      {
+        "case_id": "L3.CHAT.02",
+        "failure_class": null,
+        "fallback_used": false,
+        "final_result": "PASS",
+        "llm_used": true
+      }
+    ],
+    "prompt_role": [
+      {
+        "case_id": "L3.PR.01",
+        "failure_class": null,
+        "fallback_used": false,
+        "final_result": "PASS",
+        "llm_used": false
+      }
+    ],
+    "spl_ranking": [
+      {
+        "case_id": "L3.SPL.04",
+        "failure_class": "MODEL_SEMANTIC_FAILURE",
+        "fallback_used": false,
+        "final_result": "FAIL",
+        "llm_used": true
+      }
+    ],
+    "spl_raw_events": [
+      {
+        "case_id": "L3.SPL.05",
+        "failure_class": null,
+        "fallback_used": false,
+        "final_result": "PASS",
+        "llm_used": true
+      }
+    ],
+    "spl_rolling": [
+      {
+        "case_id": "L3.SPL.01",
+        "failure_class": "MODEL_SEMANTIC_FAILURE",
+        "fallback_used": true,
+        "final_result": "FAIL",
+        "llm_used": false
+      }
+    ],
+    "spl_sequence": [
+      {
+        "case_id": "L3.SPL.03",
+        "failure_class": "MODEL_SEMANTIC_FAILURE",
+        "fallback_used": true,
+        "final_result": "FAIL",
+        "llm_used": false
+      }
+    ],
+    "spl_trend": [
+      {
+        "case_id": "L3.SPL.02",
+        "failure_class": "MODEL_SEMANTIC_FAILURE",
+        "fallback_used": true,
+        "final_result": "FAIL",
+        "llm_used": false
+      }
+    ],
+    "t4_semantic": [
+      {
+        "case_id": "L3.T4.01",
+        "failure_class": "DETERMINISTIC_VALIDATOR_REJECTION",
+        "fallback_used": false,
+        "final_result": "FAIL",
+        "llm_used": false
+      },
+      {
+        "case_id": "L3.T4.02",
+        "failure_class": "DETERMINISTIC_VALIDATOR_REJECTION",
+        "fallback_used": false,
+        "final_result": "FAIL",
+        "llm_used": false
+      },
+      {
+        "case_id": "L3.T4.04",
+        "failure_class": "DETERMINISTIC_VALIDATOR_REJECTION",
+        "fallback_used": false,
+        "final_result": "FAIL",
+        "llm_used": false
+      }
+    ]
+  },
+  "compose_env_keys_applied": [
+    "AI_SOC_ACTION_EMAIL_ENABLED",
+    "AI_SOC_ANSWER_GUARD_LAB_ENABLED",
+    "AI_SOC_BACKEND_HOST_PORT",
+    "AI_SOC_CAPABILITY_SNAPSHOT_ENABLED",
+    "AI_SOC_CORS_ALLOWED_ORIGINS",
+    "AI_SOC_CURATED_ENRICHMENT_ACTIVATION_ENABLED",
+    "AI_SOC_DEBUG_API_ENABLED",
+    "AI_SOC_ENVIRONMENT_MODE",
+    "AI_SOC_ENV_PROFILE",
+    "AI_SOC_FRONTEND_HOST_PORT",
+    "AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED",
+    "AI_SOC_GUIDED_HYBRID_INVESTIGATION_ENABLED",
+    "AI_SOC_GUIDED_LLM_ENABLED",
+    "AI_SOC_GUIDED_LLM_INTENT_ADVISOR_TIMEOUT_SECONDS",
+    "AI_SOC_GUIDED_LLM_MAX_CALLS",
+    "AI_SOC_GUIDED_LLM_MIN_FINAL_RESERVE_SECONDS",
+    "AI_SOC_GUIDED_LLM_TIMEOUT_SECONDS",
+    "AI_SOC_HOST_BIND",
+    "AI_SOC_INVESTIGATION_OUTCOME_V2_ENABLED",
+    "AI_SOC_INVESTIGATION_PLANNER_ENABLED",
+    "AI_SOC_INVESTIGATION_PLAN_BEFORE_RESOURCE_PLAN_ENABLED",
+    "AI_SOC_LANGGRAPH_SHADOW_ENABLED",
+    "AI_SOC_LIVE_CAPABILITY_ENFORCEMENT_ENABLED",
+    "AI_SOC_LIVE_CHAT_EC_PARITY_ENABLED",
+    "AI_SOC_LLM_ACTIVE_MODEL",
+    "AI_SOC_LLM_AIRGAP_ENFORCED",
+    "AI_SOC_LLM_ALLOW_CLOUD",
+    "AI_SOC_LLM_ANSWER_GUARD_ENABLED",
+    "AI_SOC_LLM_AVAILABLE_MODELS",
+    "AI_SOC_LLM_CONTROL_DIR",
+    "AI_SOC_LLM_CONTROL_ENABLED",
+    "AI_SOC_LLM_DEFAULT_MODEL",
+    "AI_SOC_LLM_DEFAULT_PROVIDER",
+    "AI_SOC_LLM_ENABLED",
+    "AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED",
+    "AI_SOC_LLM_FOUNDATION_SEC_REASONING_API_KEY",
+    "AI_SOC_LLM_FOUNDATION_SEC_REASONING_BASE_URL",
+    "AI_SOC_LLM_FOUNDATION_SEC_REASONING_MODEL",
+    "AI_SOC_LLM_INTENT_ADVISOR_ENABLED",
+    "AI_SOC_LLM_INTENT_ADVISOR_RESERVE_SECONDS",
+    "AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED",
+    "AI_SOC_LLM_LOCAL_API_KEY",
+    "AI_SOC_LLM_LOCAL_BASE_URL",
+    "AI_SOC_LLM_LOCAL_MODEL",
+    "AI_SOC_LLM_MAX_INPUT_TOKENS",
+    "AI_SOC_LLM_MAX_OUTPUT_TOKENS",
+    "AI_SOC_LLM_MITRE_CANDIDATE_MAPPING_ENABLED",
+    "AI_SOC_LLM_MODE",
+    "AI_SOC_LLM_SHADOW_NARRATION_ENABLED",
+    "AI_SOC_LLM_SPL_FALLBACK_ENABLED",
+    "AI_SOC_LLM_T2_TURN_DEADLINE_SECONDS",
+    "AI_SOC_LLM_TEMPERATURE",
+    "AI_SOC_LLM_TIMEOUT_SECONDS",
+    "AI_SOC_LLM_TURN_DEADLINE_SECONDS",
+    "AI_SOC_PIPELINE_DISPATCH_V2_ENABLED",
+    "AI_SOC_PIPELINE_SPLIT_ROUTING_NODES_ENABLED",
+    "AI_SOC_PLANNER_MITRE_BRANCH_ENABLED",
+    "AI_SOC_PLANNER_PATH_SELECTION_ENABLED",
+    "AI_SOC_PLAN_DELTA_ENABLED",
+    "AI_SOC_POSTGRES_HOST_PORT",
+    "AI_SOC_PUBLIC_API_BASE_URL",
+    "AI_SOC_REMEDIATION_PLANNER_ENABLED",
+    "AI_SOC_RESOURCE_PLAN_EXECUTION_ENABLED",
+    "AI_SOC_RUNTIME_ENRICHMENT_ENABLED",
+    "AI_SOC_SESSION_CONTEXT_ENABLED",
+    "AI_SOC_SESSION_CONTEXT_TTL_MINUTES",
+    "AI_SOC_SESSION_STORE_BACKEND",
+    "AI_SOC_SESSION_STORE_FILE_DIR",
+    "AI_SOC_SOURCE_PROFILE_MAP",
+    "AI_SOC_SPL_DRAFT_PREVIEW_ENABLED",
+    "AI_SOC_SPL_TEMPLATE_GOVERNANCE_ENABLED",
+    "AI_SOC_T2_ANSWER_SHAPE_ENABLED",
+    "AI_SOC_T2_ANSWER_SURFACING_ENABLED",
+    "AI_SOC_T2_RAG_SURFACING_ENABLED",
+    "AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED",
+    "AI_SOC_T4_SEMANTIC_UNDERSTANDING_TIMEOUT_SECONDS",
+    "AI_SOC_TELEMETRY_SINK",
+    "AI_SOC_TEMPLATE_ENV_BINDING_ENABLED",
+    "APP_AUTH_ENABLED",
+    "APP_AUTH_PASSWORD",
+    "APP_AUTH_ROLE",
+    "APP_AUTH_SESSION_SECRET",
+    "APP_AUTH_USER",
+    "APP_ENV",
+    "BACKEND_PORT",
+    "COMPOSE_PROJECT_NAME",
+    "DATABASE_URL",
+    "DEBUG_TRACE_ENABLED",
+    "DEMO_LLM_SHADOW_ENABLED",
+    "DEMO_LLM_SHADOW_PROVIDER",
+    "DEMO_LLM_SHADOW_TIMEOUT_SECONDS",
+    "DETECTION_REGISTRY_ENABLED",
+    "DETECTION_REGISTRY_PATH",
+    "EMBEDDINGS_MODE",
+    "FRONTEND_PORT",
+    "IOC_REGISTRY_ENABLED",
+    "IOC_REGISTRY_PATH",
+    "LANGGRAPH_ORCHESTRATION_ENABLED",
+    "LEGACY_SELECTED_SKILL_AUTHORITY_ENABLED",
+    "LLM_ENABLED",
+    "LLM_HEALTH_CANARY_ENABLED",
+    "LLM_MODE",
+    "LLM_TOOL_RECOMMENDATION_ENABLED",
+    "MCP_DEFAULT_SERVER",
+    "MCP_DISCOVERY_ENABLED",
+    "MCP_GLOBAL_EXECUTION_ENABLED",
+    "MCP_MODE",
+    "MCP_SERVERS",
+    "MCP_SERVER_MOCK_EXECUTION_ENABLED",
+    "MCP_SERVER_SPLUNK_SOC_AUTH_MODE",
+    "MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN",
+    "MCP_SERVER_SPLUNK_SOC_BEARER_TOKEN_FILE",
+    "MCP_SERVER_SPLUNK_SOC_CA_CERT_PATH",
+    "MCP_SERVER_SPLUNK_SOC_ENABLED",
+    "MCP_SERVER_SPLUNK_SOC_EXECUTION_ENABLED",
+    "MCP_SERVER_SPLUNK_SOC_TLS_VERIFY",
+    "MCP_SERVER_SPLUNK_SOC_TOOL_ALLOWLIST",
+    "MCP_SERVER_SPLUNK_SOC_TRANSPORT",
+    "MCP_SERVER_SPLUNK_SOC_TYPE",
+    "MCP_SERVER_SPLUNK_SOC_URL",
+    "OPERATION_AUDIT_PERSISTENCE_ENABLED",
+    "QUALITY_REVIEW_ALLOW_ANY_AUTHENTICATED",
+    "QUALITY_REVIEW_ENABLED",
+    "RAG_MODE",
+    "REASONING_ENABLED",
+    "ROUTE_AUTHORITY_COMPARE_ENABLED",
+    "ROUTE_AUTHORITY_OPERATION_AUTHORITATIVE_ENABLED",
+    "ROUTE_AUTHORITY_OPERATION_COVERAGE_ALLOWLIST",
+    "ROUTE_PLAN_OPEN_OPERATIONS_ENABLED",
+    "ROUTE_PLAN_SUPPORTERS_RUNTIME_ENABLED",
+    "ROUTING_COMPARE_LOGGING_ENABLED",
+    "ROUTING_DETERMINISTIC_THRESHOLD",
+    "ROUTING_LAB_LLM_PRIMARY_ENABLED",
+    "ROUTING_LLM_SHADOW_ENABLED",
+    "ROUTING_MODE",
+    "SOC_KB_GRAPH_EXPANSION_ENABLED",
+    "SOC_KB_LLM_AMBIGUITY_ASSIST_ENABLED",
+    "SOC_KB_REPOSITORY_BACKEND",
+    "SOC_KB_RERANKER_ENABLED",
+    "SOC_KB_RERANKER_PROVIDER",
+    "SOC_KB_RETRIEVAL_ENABLED",
+    "SOC_KB_RETRIEVAL_MODE",
+    "SOC_KB_VECTOR_BACKEND",
+    "SPLUNK_MCP_BASE_URL",
+    "SPLUNK_MCP_CA_CERT_PATH",
+    "SPLUNK_MCP_ENABLED",
+    "SPLUNK_MCP_TLS_VERIFY",
+    "SPLUNK_MCP_TOKEN",
+    "SPLUNK_MCP_TOKEN_FILE",
+    "SPL_ALLOWED_COMMANDS",
+    "SPL_ALLOWED_INDEXES",
+    "SPL_ALLOWED_SOURCETYPES",
+    "SPL_BLOCKED_COMMANDS",
+    "SPL_DEFAULT_EARLIEST",
+    "SPL_DEFAULT_LATEST",
+    "SPL_MAX_RESULT_LIMIT",
+    "SPL_VALIDATION_ENABLED",
+    "TELEMETRY_MODE"
+  ],
+  "eval_status": "LIVE_BASELINE_COMPLETE",
+  "evidence_hallucinations": [],
+  "failed_case_ids": [
+    "L3.T4.01",
+    "L3.T4.02",
+    "L3.T4.03",
+    "L3.T4.04",
+    "L3.SPL.01",
+    "L3.SPL.02",
+    "L3.SPL.03",
+    "L3.SPL.04"
+  ],
+  "failure_classification_by_case": {
+    "L3.PL.01": "MODEL_STRUCTURED_OUTPUT_FAILURE",
+    "L3.SPL.01": "MODEL_SEMANTIC_FAILURE",
+    "L3.SPL.02": "MODEL_SEMANTIC_FAILURE",
+    "L3.SPL.03": "MODEL_SEMANTIC_FAILURE",
+    "L3.SPL.04": "MODEL_SEMANTIC_FAILURE",
+    "L3.T4.01": "DETERMINISTIC_VALIDATOR_REJECTION",
+    "L3.T4.02": "DETERMINISTIC_VALIDATOR_REJECTION",
+    "L3.T4.03": "DETERMINISTIC_VALIDATOR_REJECTION",
+    "L3.T4.04": "DETERMINISTIC_VALIDATOR_REJECTION"
+  },
+  "fallback_rescued_cases": [
+    "L3.PL.01"
+  ],
+  "healthy_endpoint": {
+    "base_url": "http://10.52.1.13:8004/v1",
+    "error": null,
+    "healthy": true,
+    "http_status": 200,
+    "label": "coe_instruct_8004",
+    "latency_ms": 60,
+    "model": "foundation-sec-instruct",
+    "tcp_open": true
+  },
+  "identity": {
+    "endpoint": "http://10.52.1.13:8004/v1",
+    "llm_enabled": true,
+    "llm_mode": "local",
+    "mcp_global_execution_enabled": false,
+    "model": "foundation-sec-instruct",
+    "model_version_or_build": {
+      "id": "foundation-sec-instruct",
+      "max_model_len": 32768,
+      "owned_by": "vllm",
+      "root": "/home/administrator/velocis-eval/models/foundation-sec-8b-instruct"
+    },
+    "provider": "vllm",
+    "retry_policy": "one_infra_retry_transport_only",
+    "t4_timeout_seconds": 10.0,
+    "temperature": 0.1,
+    "timeout_seconds": 120
+  },
+  "latency_max": 5205,
+  "latency_p50": 841,
+  "latency_p95": 4387,
+  "live_ab_eval_performed": true,
+  "live_mcp_used": false,
+  "llm_fallback_rate": 0.3125,
+  "llm_reject_rate": 0.6923,
+  "llm_success_rate": 0.3077,
+  "llm_timeout_rate": 0.0,
+  "mode": "live",
+  "p4_contract_candidate_activated": false,
+  "phase": "P8-B",
+  "product_sha": "b6e4befe9a79dd722a09a09fdd345bae82880884",
+  "prompt_arm": "active",
+  "prompt_provenance": {
+    "active_prompt_arms": {
+      "investigation_planner": {
+        "candidate": null,
+        "eval_status": "NOT_RUN_LIVE",
+        "stable_prefix_hash": "a19fb35608a25aa9dd2aa3d4a865a685d7ed5ac0473abdff91a0f6762c6c9df1",
+        "template_id": "tmpl.investigation_planner",
+        "version": "1.0.0"
+      },
+      "semantic_t4": {
+        "candidate": null,
+        "eval_status": "NOT_RUN_LIVE",
+        "stable_prefix_hash": "6ccdbaee5c9d0779672a9b879581de8a5a2498ac28177f9a61cfb77acb905592",
+        "template_id": "tmpl.semantic_t4",
+        "version": "1.0.0"
+      },
+      "shape_advisor": {
+        "candidate": null,
+        "eval_status": "NOT_RUN_LIVE",
+        "stable_prefix_hash": "04ae28f20ce84137da0a7e543bc20b7678e8f06ba90beb56bd977fdc268fb6e6",
+        "template_id": "tmpl.shape_advisor",
+        "version": "1.0.0"
+      },
+      "spl_advisory_generator": {
+        "candidate": null,
+        "eval_status": "NOT_RUN_LIVE",
+        "stable_prefix_hash": "6f8380e028ca4b4d4a79c379028f13ccb853ac6264333a1591642cdbb109a1fb",
+        "template_id": "tmpl.spl_advisory_generator",
+        "version": "1.0.0"
+      }
+    },
+    "blocked_role_ids": [
+      "evidence_reasoner",
+      "hypothesis_reasoner",
+      "missing_evidence_reasoner",
+      "mitre_reasoner",
+      "pattern_reasoner",
+      "plan_delta_reasoner",
+      "risk_rationale_reasoner"
+    ],
+    "reasoning_allowlist_expected": [
+      "investigation_planner"
+    ],
+    "registered_candidates": {
+      "investigation_planner": {
+        "stable_prefix_hash": "1d4fdf53a7ad3491bcbd214dc9a0337044ebe240d0e3cf39ef2f879222aac1c7",
+        "status": "CANDIDATE",
+        "template_id": "tmpl.investigation_planner.candidate",
+        "version": "1.1.0-candidate"
+      },
+      "semantic_t4": {
+        "stable_prefix_hash": "43a327e96e79abdeae748a6abb9755db7fc09cc70b805408e8d01be88a85c762",
+        "status": "CANDIDATE",
+        "template_id": "tmpl.semantic_t4.candidate",
+        "version": "1.1.0-candidate"
+      },
+      "spl_advisory_generator": {
+        "stable_prefix_hash": "316985809a4940faa77d2db9a47fe46b354cb05c8e7a4491d5666e1c21f848bf",
+        "status": "CANDIDATE",
+        "template_id": "tmpl.spl_advisory_generator.candidate",
+        "version": "1.1.0-candidate"
+      }
+    }
+  },
+  "role_metrics": {
+    "planner_n": 1,
+    "planner_schema_success": 0,
+    "planner_schema_success_rate": 0.0,
+    "spl_n": 5,
+    "spl_pass": 1,
+    "spl_success_rate": 0.2,
+    "t4_accept_rate": 0.0,
+    "t4_accepted": 0,
+    "t4_attempted": 4
+  },
+  "rows_executed": 16,
+  "rows_failed": 8,
+  "rows_passed": 3,
+  "rows_product_pass": 7,
+  "rows_product_success_model_failure": 1,
+  "semantic_success_rate": 0.2885,
+  "structured_output_valid_rate": 0.9375,
+  "threshold_results": [
+    {
+      "actual": 0.2885,
+      "metric": "semantic_correctness",
+      "pass": false,
+      "polarity": "higher_better",
+      "threshold": 0.5
+    },
+    {
+      "actual": 0.9375,
+      "metric": "schema_validity",
+      "pass": true,
+      "polarity": "higher_better",
+      "threshold": 0.8
+    },
+    {
+      "actual": 0.2,
+      "metric": "initial_pass_rate",
+      "pass": false,
+      "polarity": "higher_better",
+      "threshold": 0.4
+    },
+    {
+      "actual": 0.0,
+      "metric": "repair_rate",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.3125,
+      "metric": "fallback_rate",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "invented_constraint_rate",
+      "pass": true,
+      "polarity": "lower_better_record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.8333,
+      "metric": "semantic_loss_rate",
+      "pass": true,
+      "polarity": "lower_better_record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 841.0,
+      "metric": "latency_p50_ms",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 4387.0,
+      "metric": "latency_p95_ms",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "input_tokens",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "output_tokens",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "cache_eligibility",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "provider_cache_hit_rate",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    }
+  ],
+  "threshold_review_candidate": [
+    "semantic_correctness",
+    "initial_pass_rate"
+  ],
+  "thresholds_frozen": true
+}

@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "bank_hash": "5f78ccbe1940149a67dcd1052140c44c854ec42a409d7644b47e5357010dbf51",
+  "report": null,
+  "eval_status": "DRY_RUN_READY",
+  "errors": []
+}
+L3-2 running L3.T4.01 seam=t4
+L3-2 running L3.T4.02 seam=t4
+L3-2 running L3.T4.03 seam=t4
+L3-2 running L3.T4.04 seam=t4
+L3-2 running L3.SPL.01 seam=spl_plan
+L3-2 running L3.SPL.02 seam=spl_plan
+L3-2 running L3.SPL.03 seam=spl_plan
+L3-2 running L3.SPL.04 seam=spl_plan
+L3-2 running L3.SPL.05 seam=spl_plan
+L3-2 running L3.CHAT.01 seam=chat
+L3-2 running L3.CHAT.02 seam=chat
+L3-2 running L3.FU.01 seam=chat
+L3-2 running L3.EV.01 seam=chat
+L3-2 running L3.PL.01 seam=planner
+L3-2 running L3.AB.01 seam=spl_plan
+L3-2 running L3.PR.01 seam=provenance
+{
+  "ok": true,
+  "eval_status": "LIVE_BASELINE_COMPLETE",
+  "baseline_decision": "BASELINE_FAIL_REQUIRES_CANDIDATE",
+  "rows_failed": 8,
+  "llm_success_rate": 0.3077
+}

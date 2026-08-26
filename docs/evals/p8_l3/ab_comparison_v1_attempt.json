@@ -1,0 +1,226 @@
+{
+  "active_fallback_rate": 0.3125,
+  "active_initial_pass_rate": 0.2,
+  "active_planner_schema_success": 0.0,
+  "active_schema_validity": 0.9375,
+  "active_semantic_score": 0.2885,
+  "active_spl_success": 0.2,
+  "active_t4_accept_rate": 0.0,
+  "authority_violations_active": [],
+  "authority_violations_candidate": [],
+  "bank_hash": "5f78ccbe1940149a67dcd1052140c44c854ec42a409d7644b47e5357010dbf51",
+  "candidate_fallback_rate": 0.3125,
+  "candidate_initial_pass_rate": 0.2,
+  "candidate_planner_schema_success": 0.0,
+  "candidate_schema_validity": 0.9375,
+  "candidate_semantic_score": 0.2885,
+  "candidate_spl_success": 0.2,
+  "candidate_t4_accept_rate": 0.0,
+  "candidate_winners_by_role": {},
+  "candidates_rejected_by_role": {
+    "investigation_planner": "no_safe_improvement",
+    "semantic_t4": "no_safe_improvement",
+    "spl_advisory_generator": "no_safe_improvement"
+  },
+  "evidence_hallucinations_active": [],
+  "evidence_hallucinations_candidate": [],
+  "frozen_threshold_results_active": [
+    {
+      "actual": 0.2885,
+      "metric": "semantic_correctness",
+      "pass": false,
+      "polarity": "higher_better",
+      "threshold": 0.5
+    },
+    {
+      "actual": 0.9375,
+      "metric": "schema_validity",
+      "pass": true,
+      "polarity": "higher_better",
+      "threshold": 0.8
+    },
+    {
+      "actual": 0.2,
+      "metric": "initial_pass_rate",
+      "pass": false,
+      "polarity": "higher_better",
+      "threshold": 0.4
+    },
+    {
+      "actual": 0.0,
+      "metric": "repair_rate",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.3125,
+      "metric": "fallback_rate",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "invented_constraint_rate",
+      "pass": true,
+      "polarity": "lower_better_record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.8333,
+      "metric": "semantic_loss_rate",
+      "pass": true,
+      "polarity": "lower_better_record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 841.0,
+      "metric": "latency_p50_ms",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 4387.0,
+      "metric": "latency_p95_ms",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "input_tokens",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "output_tokens",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "cache_eligibility",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "provider_cache_hit_rate",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    }
+  ],
+  "frozen_threshold_results_candidate": [
+    {
+      "actual": 0.2885,
+      "metric": "semantic_correctness",
+      "pass": false,
+      "polarity": "higher_better",
+      "threshold": 0.5
+    },
+    {
+      "actual": 0.9375,
+      "metric": "schema_validity",
+      "pass": true,
+      "polarity": "higher_better",
+      "threshold": 0.8
+    },
+    {
+      "actual": 0.2,
+      "metric": "initial_pass_rate",
+      "pass": false,
+      "polarity": "higher_better",
+      "threshold": 0.4
+    },
+    {
+      "actual": 0.0,
+      "metric": "repair_rate",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.3125,
+      "metric": "fallback_rate",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "invented_constraint_rate",
+      "pass": true,
+      "polarity": "lower_better_record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.8333,
+      "metric": "semantic_loss_rate",
+      "pass": true,
+      "polarity": "lower_better_record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 760.0,
+      "metric": "latency_p50_ms",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 4481.0,
+      "metric": "latency_p95_ms",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "input_tokens",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "output_tokens",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "cache_eligibility",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    },
+    {
+      "actual": 0.0,
+      "metric": "provider_cache_hit_rate",
+      "pass": true,
+      "polarity": "record_only",
+      "threshold": 0.0
+    }
+  ],
+  "latency_active": {
+    "p50": 841,
+    "p95": 4387
+  },
+  "latency_candidate": {
+    "p50": 760,
+    "p95": 4481
+  },
+  "live_mcp_used": false,
+  "p4_contract_still_active_only": true,
+  "phase": "P8-B",
+  "promotion_status": "NO_PROMOTION",
+  "safety_ok": true
+}

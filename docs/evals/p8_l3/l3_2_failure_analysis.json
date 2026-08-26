@@ -1,0 +1,62 @@
+{
+  "authority_violations": [],
+  "bank_changed": false,
+  "blocked_reasoning_roles_enabled": false,
+  "candidate_prompt_created": false,
+  "eval_harness_defects": [
+    {
+      "class": "EVAL_HARNESS_DEFECT",
+      "fix": "Score required_capabilities for spl/search/log tokens only.",
+      "id": "H1",
+      "summary": "L3.T4.04 second constraint used `or True`, forcing semantic 1.0."
+    },
+    {
+      "class": "EVAL_HARNESS_DEFECT",
+      "fix": "Invoked + not accepted is never LLM PASS; product-ok becomes PRODUCT_SUCCESS_MODEL_FAILURE.",
+      "id": "H2",
+      "summary": "T4 invoked-but-rejected rows could still PASS if deterministic leftover fields satisfied constraints."
+    },
+    {
+      "class": "EVAL_HARNESS_DEFECT",
+      "fix": "Detect live SPL/planner/synthesis traces; fallback only from real degrade signals.",
+      "id": "H3",
+      "summary": "Chat llm_called ignored utility_llm_spl_draft / investigation_planner traces; fallback was inferred from missing detection."
+    }
+  ],
+  "evidence_hallucinations": [],
+  "failed_case_ids": [
+    "L3.T4.01",
+    "L3.T4.02",
+    "L3.T4.03",
+    "L3.T4.04",
+    "L3.SPL.01",
+    "L3.SPL.02",
+    "L3.SPL.03",
+    "L3.SPL.04"
+  ],
+  "failure_classification_by_case": {
+    "L3.PL.01": "MODEL_STRUCTURED_OUTPUT_FAILURE",
+    "L3.SPL.01": "MODEL_SEMANTIC_FAILURE",
+    "L3.SPL.02": "MODEL_SEMANTIC_FAILURE",
+    "L3.SPL.03": "MODEL_SEMANTIC_FAILURE",
+    "L3.SPL.04": "MODEL_SEMANTIC_FAILURE",
+    "L3.T4.01": "DETERMINISTIC_VALIDATOR_REJECTION",
+    "L3.T4.02": "DETERMINISTIC_VALIDATOR_REJECTION",
+    "L3.T4.03": "DETERMINISTIC_VALIDATOR_REJECTION",
+    "L3.T4.04": "DETERMINISTIC_VALIDATOR_REJECTION"
+  },
+  "fallback_rescued_cases": [
+    "L3.PL.01"
+  ],
+  "harness_fix_rerun": true,
+  "live_ab_eval_performed": false,
+  "live_mcp_used": false,
+  "product_changed": false,
+  "product_contract_defects": [],
+  "prompts_changed": false,
+  "threshold_review_candidate": [
+    "semantic_correctness",
+    "initial_pass_rate"
+  ],
+  "thresholds_changed": false
+}

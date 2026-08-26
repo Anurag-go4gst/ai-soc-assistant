@@ -1,0 +1,27 @@
+{
+  "eval_harness_defects": [
+    {
+      "id": "H1",
+      "class": "EVAL_HARNESS_DEFECT",
+      "summary": "L3.T4.04 second constraint used `or True`, forcing semantic 1.0.",
+      "fix": "Score required_capabilities for spl/search/log tokens only."
+    },
+    {
+      "id": "H2",
+      "class": "EVAL_HARNESS_DEFECT",
+      "summary": "T4 invoked-but-rejected rows could still PASS if deterministic leftover fields satisfied constraints.",
+      "fix": "Invoked + not accepted is never LLM PASS; product-ok becomes PRODUCT_SUCCESS_MODEL_FAILURE."
+    },
+    {
+      "id": "H3",
+      "class": "EVAL_HARNESS_DEFECT",
+      "summary": "Chat llm_called ignored utility_llm_spl_draft / investigation_planner traces; fallback was inferred from missing detection.",
+      "fix": "Detect live SPL/planner/synthesis traces; fallback only from real degrade signals."
+    }
+  ],
+  "product_changed": false,
+  "prompts_changed": false,
+  "bank_changed": false,
+  "thresholds_changed": false,
+  "action": "rerun all 16 rows after harness-only fix"
+}
