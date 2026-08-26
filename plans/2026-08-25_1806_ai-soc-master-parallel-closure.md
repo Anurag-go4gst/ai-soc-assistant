@@ -876,11 +876,11 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **NEXT_PHASE_UNLOCK:** P10 only on operator-accepted GO.
   - **Evidence:** PRODUCT_PROMOTION_SHA=`c109402d69956df455a780fd49a191fa173ab7ac`; PRODUCT_CODE_CHANGED_IN_P9=NO. Artifacts under `docs/evals/p9_promotion/` including `linux_backend_attest.txt`. Mac backend 7109/0; FE 119+build; RACES 8; protected 15/15; bank `5f78ccbe…`; 105-path 105/105; harness 6/6; clean-answer 120; template 19/19; shadow/parity/Cisco/dispatch PASS. Operator ACCEPT_INHERITED_RESIDUAL: `rt.para.011`, `tier0.top_failed_login_spl_missing_binding_clarification`, `tier0.aws_security_group_modifications_spl_only` (recorded as ACCEPTED_INHERITED_RESIDUAL, not PASS). Linux exact-SHA in compose backend Linuxkit: HEAD=`c109402d…`; **7109 passed, 0 failed, 45 skipped, 6 xfailed** (2026-08-26T13:54:44Z–14:00:27Z); matches Mac. Unexplained regressions: 0. LIVE_MCP=OFF. PUSH=NO. P10 eligible, not started.
 
-- [ ] **P10 - PR and merge handoff**
-  - **STATUS:** TODO
+- [x] **P10 - PR and merge handoff**
+  - **STATUS:** DONE — handoff packet complete; **STOP awaiting operator** for push/PR/merge. Decision `P10_COMPLETE`. No network actions performed. P11 not started.
   - **OWNER:** Integration CODEX prepares; operator authorizes network actions and merge.
-  - **BASE_SHA:** P9 final candidate SHA.
-  - **DEPENDENCIES:** P9 GO.
+  - **BASE_SHA:** Lineage tip `09f02e46308b7918c81b525dfcbb629da607d9e7`; product baseline `c109402d69956df455a780fd49a191fa173ab7ac`.
+  - **DEPENDENCIES:** P9 GO. (satisfied)
   - **ALLOWED_FILES:** PR description/release evidence if needed; no new product behavior.
   - **PROTECTED_FILES:** All product/protected files unless promotion is reopened.
   - **MISSION:** Prepare a reviewable, ordered PR/merge packet without direct push or merge from any working stream.
@@ -893,7 +893,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **EXPECTED_COMMIT_GROUPS:** None after P9 unless documentation-only handoff was predeclared and revalidated.
   - **OUTPUT_REQUIRED:** PR/merge packet and exact commands; explicit STOP awaiting operator.
   - **NEXT_PHASE_UNLOCK:** P11 only after approved merge/promotion and separate COE authorization.
-  - **Evidence:** Pending.
+  - **Evidence:** Worktree `/Users/aagarwal/Downloads/ai-soc-p10-execution` branch `ws/p10-execution` from `09f02e46`. `PRODUCT_CODE_DELTA c109402d..09f02e46 = NONE`. Packet `docs/evals/p10_handoff/pr_merge_packet.md` + `handoff_meta.json`. Merge order landmarks verified as ancestors of tip. P9 Mac/Linux 7109/0 cited; bank canonical hash `5f78ccbe…`. Accepted residuals unchanged. PUSH=NO PR=NO MERGE=NO DEPLOY=NO LIVE_MCP=OFF. `FUTURE_POST_MASTER_PLAN_GAP` email/tool orchestration recorded, not fixed. STOP awaiting operator network approval.
 
 - [ ] **P11 - Live Splunk MCP COE, last and separately approved**
   - **STATUS:** DEFERRED

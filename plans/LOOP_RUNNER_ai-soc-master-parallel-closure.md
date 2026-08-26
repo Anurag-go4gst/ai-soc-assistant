@@ -7,8 +7,8 @@ Use this file as the durable execution dashboard. Update it only during authoriz
 ## Control state
 
 ```yaml
-CURRENT_PHASE: P9_COMPLETE_GO_FULL_PROMOTION
-CURRENT_BASE_SHA: c109402d69956df455a780fd49a191fa173ab7ac
+CURRENT_PHASE: P10_COMPLETE_AWAITING_OPERATOR_NETWORK
+CURRENT_BASE_SHA: 09f02e46308b7918c81b525dfcbb629da607d9e7
 INTEGRATION_SHA: c109402d69956df455a780fd49a191fa173ab7ac
 EXECUTION_INTEGRATION_SHA: c109402d69956df455a780fd49a191fa173ab7ac
 FINAL_CLEAN_INTEGRATION_SHA: b6e4befe9a79dd722a09a09fdd345bae82880884
@@ -16,6 +16,8 @@ LIVE_EVAL_PRODUCT_SHA: b6e4befe9a79dd722a09a09fdd345bae82880884
 P8_FROZEN_SHA: c109402d69956df455a780fd49a191fa173ab7ac
 P9_CANDIDATE_SHA: c109402d69956df455a780fd49a191fa173ab7ac
 P9_PRODUCT_SHA: c109402d69956df455a780fd49a191fa173ab7ac
+P10_LINEAGE_START_SHA: 09f02e46308b7918c81b525dfcbb629da607d9e7
+P10_PRODUCT_BASELINE_SHA: c109402d69956df455a780fd49a191fa173ab7ac
 P8_EVIDENCE_COMMIT_SHA: 9f12de89bf19541a5002bd240160dad81010fa9b
 P4_1_LAST_TEST_SHA: 7f763b5b12078534e96f1860474138b7dcc83707
 P4_1_STATUS: CLEAN_WITH_ENVIRONMENT_RESIDUAL
@@ -34,10 +36,12 @@ READY_FOR_OPERATOR_REVIEW: YES
 PYVENV: /Users/aagarwal/Downloads/ai-soc-assistant-t4-architecture-20260821/.venv/bin/python
 INTEGRATION_BRANCH: feat/complete-or-abstain-t4-ux
 P9_BRANCH: ws/p9-execution
+P10_BRANCH: ws/p10-execution
 INTEGRATION_OWNER: CODEX
 ACTIVE_WORKSTREAMS: []
 BLOCKED_WORKSTREAMS:
-  - P10 awaits operator start (P9 GO complete; do not auto-start)
+  - P10 STOP: awaiting operator authorization for push/PR/merge (packet ready)
+  - P11 blocked until approved merge + separate COE live-MCP authorization
 COMPLETED_WORKSTREAMS:
   - P0: Harness readiness at 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
   - P0.1: RACES baseline advanced and verified at ae03a2502ab4c83797151a11d4effa47d9d4532b
@@ -58,8 +62,9 @@ COMPLETED_WORKSTREAMS:
   - P8 FINAL FF: primary fast-forwarded to c109402d; P8_COMPLETE / P9_ELIGIBLE
   - P9 Mac gates + residual ledger recorded under docs/evals/p9_promotion/; decision P9_PARTIAL
   - P9 COMPLETE: Linux 7109/0 matches Mac; operator accepted 3 inherited residuals; GO_FULL_PROMOTION
+  - P10 COMPLETE: PR/merge handoff packet at docs/evals/p10_handoff/; STOP awaiting operator network actions
 NEXT_SAFE_PARALLEL_STARTS:
-  - Operator may start P10 handoff when ready. Do not auto-start P10.
+  - Operator: authorize push/PR/merge per docs/evals/p10_handoff/pr_merge_packet.md. Do not start P11 until merge + separate COE auth.
 RECONCILIATION_QUEUE:
   - REQUEST_ID: P1-T2-EVIDENCESTATE-OWNERSHIP
     REQUESTING_STREAM: A TRACE
@@ -649,6 +654,7 @@ Append decisions; do not rewrite history.
 | 2026-08-26 P8 binding+models | P8 | Fix eval-arm ContextVar harness defect; fair wire binding; ACTIVE compare Qwen72B + Reasoning 8B; exact protected diffs prepared not applied | `ab_binding_fair` MATCH=YES; Qwen semantic 0.4423 T4 4/4 floors FAIL; Reasoning 8B worse than Instruct (semantic 0.2273, SPL 0/5) | MODEL_QUALITY_GATE FAIL; no promotion; P9 blocked; operator packets ready |
 | 2026-08-26 P9 Mac promotion | P9 | Residual ledger + Mac gate matrix on frozen tip c109402d; no product edits; no baseline refresh | backend 7109/0; FE 119+build; RACES 8; named residuals rt.para.011 + golden Tier0×2; Linux Docker blocked | P9_PARTIAL / NO-GO_FULL_PROMOTION; P10 not started; LIVE_MCP OFF |
 | 2026-08-26 P9 Linux+adjudication | P9 | Operator ACCEPT_INHERITED on rt.para.011 + Tier0×2; Linux exact-SHA pytest in compose backend | Linux 7109/0 matches Mac; ATTESTED_SOURCE_SHA=c109402d; PRODUCT_CODE_CHANGED_IN_P9=NO | P9_COMPLETE / GO_FULL_PROMOTION; P10 eligible not started |
+| 2026-08-26 P10 handoff | P10 | Docs-only PR/merge packet from lineage tip 09f02e46; no product edits; no push/PR/merge | Packet docs/evals/p10_handoff/; PRODUCT_CODE_DELTA NONE; merge order landmarks ancestors of tip | P10_COMPLETE; STOP awaiting operator network; P11 not started |
 
 ## Runner stop
 
