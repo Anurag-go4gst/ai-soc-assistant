@@ -505,23 +505,23 @@ CONTRIBUTING_SEAMS:   [<zero or more>]
 
 Current RQC does **not** structurally preserve `requested_actions` / conditional actions / recipient roles / requested outputs. Audit/extend **Final RQC first**. Do **not** smuggle into provenance, `workflow_plan`, or unrelated metadata. Do **not** jump first to `schemas/responses.py`.
 
-- [ ] **1.1** — Trace current Final RQC extraction for multi-goal / conditional language
+- [x] **1.1** — Trace current Final RQC extraction for multi-goal / conditional language
   - **Do:** On the primary design-case query (in-process), document which fields survive into Final RQC today by reading `resolved_query.py` + `resolved_query_builder.py` (goals, remediation request, communication/email, recipient roles, **governed condition/predicate** if any). File:line evidence only — no product change. Preflight: does a deterministic predicate mechanism already exist on RQC?
   - **Verify:** Memo under `docs/evals/answer_shape/` with file:line; lists present vs lost intents; predicate mechanism PRESENT/ABSENT; confirms RQC is the structural gap if intents are lost.
   - **Depends on:** 0.4
-  - **Evidence:** _(fill)_
+  - **Evidence:** `docs/evals/answer_shape/rqc_multigoal_audit_v1.md` — RQC fields at `resolved_query.py:44-76`; requested_conditional_actions/email/recipient_roles/predicate ABSENT; RQC structural gap confirmed; predicate mechanism ABSENT.
 
-- [ ] **1.2** — Confirm ResourcePlan stays read-only investigation (no conditional action smuggling)
+- [x] **1.2** — Confirm ResourcePlan stays read-only investigation (no conditional action smuggling)
   - **Do:** Same query: confirm ResourcePlan / PhaseContract carries **investigation evidence steps only**. Document that remediation/email/recipient_roles/predicates must **not** be ResourcePlan steps; they belong on Final RQC → Phase 10 after InvestigationOutcome. Record any current incorrect placement as a defect to remove, not extend.
   - **Verify:** Memo continues 1.1; explicit “ResourcePlan must remain read-only investigation” attestation; gap list for RQC-owned requested actions.
   - **Depends on:** 1.1
-  - **Evidence:** _(fill)_
+  - **Evidence:** Same memo §1.2 — no typed email/remediation/recipient ResourcePlan step kinds; read-only investigation attested; RQC-owned gap list recorded.
 
-- [ ] **1.3** — Prove whether conditional actions / recipient roles survive end-to-end today
+- [x] **1.3** — Prove whether conditional actions / recipient roles survive end-to-end today
   - **Do:** Run `CV.MULTI.01A` expectations against current HEAD; record actual vs expected for intent preservation and remediation-plan / email gates.
   - **Verify:** Harness report row `CV.MULTI.01A`; failures named as PRODUCT_GAP vs PASS.
   - **Depends on:** 1.2
-  - **Evidence:** _(fill)_
+  - **Evidence:** Frozen harness `CV.MULTI.01A` = PRODUCT_GAP (investigation_plan_PRESENT_unmet; conditional_remediation/email intents not preserved). VERIFY_1.3_PASS.
 
 - [ ] **1.4** — Minimal Final RQC contract support only if missing
   - **Do:** If 1.1–1.3 prove Final RQC cannot represent requested conditional actions + governed `predicate_id` + `recipient_roles` + lifecycle states, extend **`resolved_query.py` / `resolved_query_builder.py`** (and only then other consumers). Raise a protected packet for `schemas/responses.py` / pipeline **only if** wire exposure is required after RQC owns the fields. **Reuse an existing field only when its current semantics exactly represent the required concept.** Do **not** repurpose provenance, diagnostics, generic metadata, or `workflow_plan` message fields. Do **not** put conditional actions into ResourcePlan. **No** second planner / condition engine / side-channel registry.
