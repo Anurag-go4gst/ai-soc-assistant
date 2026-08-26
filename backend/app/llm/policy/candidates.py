@@ -343,7 +343,9 @@ _T4_CANDIDATE_FIELD_ORDER: tuple[str, ...] = (
 
 def candidate_t4_response_schema(active_schema: dict[str, object]) -> dict[str, object]:
     """Return the ACTIVE schema unchanged outside the candidate eval arm."""
-    if prompt_eval_arm() != "candidate":
+    promoted = PROMOTED_TO_ACTIVE.get("semantic_t4")
+    use_candidate_schema = bool(promoted and promoted.use_candidate_t4_schema)
+    if prompt_eval_arm() != "candidate" and not use_candidate_schema:
         return active_schema
     source = {
         key: value
@@ -407,6 +409,10 @@ class PromotedPrompt:
     promoted_from_version: str
     #: Evidence that authorised the promotion.
     evidence_ref: str
+    #: semantic_t4-only: keep candidate guided-decoding order/required fields.
+    use_candidate_t4_schema: bool = False
+    #: semantic_t4-only: keep candidate extra shots after promotion.
+    use_candidate_few_shots: bool = False
 
 
 #: Roles whose evaluated candidate now serves as ACTIVE.
@@ -419,6 +425,18 @@ class PromotedPrompt:
 #: authority violations, zero evidence claims. Reconfirmed live before
 #: promotion. See docs/evals/p8_l3/ab_v131_candidate_scorecard.json.
 PROMOTED_TO_ACTIVE: dict[str, PromotedPrompt] = {
+    "semantic_t4": PromotedPrompt(
+        role_id="semantic_t4",
+        template_id="tmpl.semantic_t4",
+        version="1.1.0",
+        rollback_template_id="tmpl.semantic_t4",
+        rollback_version="1.0.0",
+        promoted_from_template_id="tmpl.semantic_t4.candidate",
+        promoted_from_version="1.4.0-candidate",
+        evidence_ref="docs/evals/p8_l3/ab_v141_candidate_scorecard.json",
+        use_candidate_t4_schema=True,
+        use_candidate_few_shots=True,
+    ),
     "investigation_planner": PromotedPrompt(
         role_id="investigation_planner",
         template_id="tmpl.investigation_planner",
@@ -530,6 +548,12 @@ def live_system_prompt(role_id: str, active_prompt: str) -> str:
 
 
 def extra_few_shots_for_live(role_id: str) -> tuple[dict[str, object], ...]:
+    promoted = PROMOTED_TO_ACTIVE.get(role_id)
+    if role_id == "semantic_t4" and promoted and promoted.use_candidate_few_shots:
+        cand = candidate_for(role_id)
+        if cand is None:
+            return ()
+        return cand.extra_few_shots
     if prompt_eval_arm() != "candidate":
         return ()
     cand = candidate_for(role_id)

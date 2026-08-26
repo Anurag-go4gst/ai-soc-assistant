@@ -93,14 +93,14 @@ def test_promoted_selection_is_recorded_as_active_provenance() -> None:
     assert selected["prefix_hash"] == promoted_stable_prefix_hash(ROLE)
 
 
-def test_only_the_planner_is_promoted() -> None:
-    """SPL and T4 were NOT promoted: SPL showed no safe improvement (the gain came
-    from the compiler fix, and both arms score 5/5), and T4 is still open."""
-    assert set(PROMOTED_TO_ACTIVE) == {ROLE}
+def test_planner_remains_promoted_and_spl_stays_unpromoted() -> None:
+    """SPL stays unpromoted; planner promotion remains ACTIVE."""
+    assert "investigation_planner" in PROMOTED_TO_ACTIVE
+    assert "spl_advisory_generator" not in PROMOTED_TO_ACTIVE
 
 
 def test_unpromoted_roles_keep_the_two_arm_behaviour() -> None:
-    for role in ("semantic_t4", "spl_advisory_generator"):
+    for role in ("spl_advisory_generator",):
         assert role not in PROMOTED_TO_ACTIVE
         with use_prompt_eval_arm("active"):
             assert live_system_prompt(role, "ACTIVE_TEXT") == "ACTIVE_TEXT"

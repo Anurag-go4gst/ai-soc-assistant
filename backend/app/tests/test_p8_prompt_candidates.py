@@ -34,16 +34,10 @@ def test_production_eval_arm_defaults_to_active() -> None:
 
 
 def test_active_live_prompts_are_unchanged_on_default_arm() -> None:
-    """Unpromoted roles still serve their registry ACTIVE text on the default arm.
-
-    investigation_planner is deliberately not asserted here: it has been promoted,
-    so its ACTIVE text is now the promoted one. That is pinned separately in
-    test_p8_planner_promotion.py, including that the promoted bytes are exactly
-    the bytes the frozen A/B measured.
-    """
-    assert live_system_prompt("semantic_t4", _SEMANTIC_T4_SYSTEM_PROMPT) == _SEMANTIC_T4_SYSTEM_PROMPT
+    """Unpromoted roles keep registry ACTIVE text; promoted roles serve promoted text."""
+    assert live_system_prompt("semantic_t4", _SEMANTIC_T4_SYSTEM_PROMPT) == CANDIDATES["semantic_t4"].system_instruction
     assert live_system_prompt("spl_advisory_generator", _plan_system_prompt()) == _plan_system_prompt()
-    assert "investigation_planner" in PROMOTED_TO_ACTIVE
+    assert {"semantic_t4", "investigation_planner"} <= set(PROMOTED_TO_ACTIVE)
 
 
 def test_candidates_are_registered_separately_with_distinct_identity() -> None:
@@ -103,9 +97,7 @@ def test_candidate_arm_selects_candidate_live_text() -> None:
         assert "investigation_plan" in planner
         assert "hypotheses" in planner
     assert prompt_eval_arm() == "active"
-    # No candidate shot ever reaches the ACTIVE arm. Which shots the candidate arm
-    # carries is asserted in test_t4_candidate_shot_is_arm_scoped_and_not_a_bank_question.
-    assert extra_few_shots_for_live("semantic_t4") == ()
+    assert len(extra_few_shots_for_live("semantic_t4")) == len(CANDIDATES["semantic_t4"].extra_few_shots) == 1
 
 
 def test_candidate_eval_arm_is_visible_inside_sidecar_worker_thread() -> None:
@@ -125,8 +117,8 @@ def test_candidate_eval_arm_is_visible_inside_sidecar_worker_thread() -> None:
     assert prompt_eval_arm() == "active"
 
 
-def test_t4_candidate_shot_is_arm_scoped_and_not_a_bank_question() -> None:
-    """v1.4.0 ships ONE synthetic clarification shot, candidate arm only.
+def test_t4_candidate_shot_is_not_a_bank_question() -> None:
+    """v1.4.0 ships one synthetic clarification shot, never a frozen-bank query.
 
     v1's five shots were near-verbatim frozen-bank questions; they contaminated
     the measurement and bled across examples, so v1.3.0 withdrew them entirely.
@@ -158,11 +150,12 @@ def test_t4_candidate_shot_is_arm_scoped_and_not_a_bank_question() -> None:
     # The withdrawn v1 shots stay withdrawn.
     assert "NEG invented host" not in active_user
     assert "NEG invented host" not in candidate_user
-    # The one v1.4.0 shot reaches the candidate arm and only the candidate arm.
+    # After promotion, semantic_t4 serves the promoted candidate bytes in both arms.
+    # The key guardrail is that the shot is synthetic and not a frozen bank row.
     assert len(_T4_EXTRA_SHOTS) == 1
     marker = str(_T4_EXTRA_SHOTS[0]["query"])
     assert marker in candidate_user
-    assert marker not in active_user
+    assert marker in active_user
 
     # No T4 shot may be a frozen-bank question: an example keyed to a bank row
     # memorises the answer key. few_shot_catalog_v1 states the rule directly.
@@ -356,11 +349,10 @@ def test_candidate_t4_schema_decides_clarification_before_describing_the_goal() 
     from app.chat.semantic_t4_understanding import _SEMANTIC_T4_SCHEMA
     from app.llm.policy.candidates import candidate_t4_response_schema
 
-    # Production is byte-identical to the ACTIVE schema object.
-    assert candidate_t4_response_schema(_SEMANTIC_T4_SCHEMA) is _SEMANTIC_T4_SCHEMA
-
+    schema = candidate_t4_response_schema(_SEMANTIC_T4_SCHEMA)
     with use_prompt_eval_arm("candidate"):
-        schema = candidate_t4_response_schema(_SEMANTIC_T4_SCHEMA)
+        candidate_schema = candidate_t4_response_schema(_SEMANTIC_T4_SCHEMA)
+    assert schema == candidate_schema
     keys = list(schema["properties"])
     assert keys.index("clarification_required") < keys.index("normalized_goal")
     assert keys.index("clarification_reason") < keys.index("normalized_goal")
