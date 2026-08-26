@@ -1,0 +1,47 @@
+{
+  "contract_version": "prompt_ab_eval_contract_v1",
+  "frozen_before_live": true,
+  "product_sha": "b6e4befe9a79dd722a09a09fdd345bae82880884",
+  "purpose": "Pre-declared measurement floors for the current ACTIVE prompts. Not a promotion decision. No CANDIDATE_PROMPT exists. LIVE_AB_EVAL_PERFORMED remains NO until a two-arm live comparison completes.",
+  "polarity": {
+    "semantic_correctness": "higher_better",
+    "schema_validity": "higher_better",
+    "initial_pass_rate": "higher_better",
+    "repair_rate": "record_only",
+    "fallback_rate": "record_only",
+    "invented_constraint_rate": "lower_better_record_only",
+    "semantic_loss_rate": "lower_better_record_only",
+    "latency_p50_ms": "record_only",
+    "latency_p95_ms": "record_only",
+    "input_tokens": "record_only",
+    "output_tokens": "record_only",
+    "cache_eligibility": "record_only",
+    "provider_cache_hit_rate": "record_only"
+  },
+  "measurement_floors": {
+    "semantic_correctness": 0.5,
+    "schema_validity": 0.8,
+    "initial_pass_rate": 0.4,
+    "repair_rate": 0.0,
+    "fallback_rate": 0.0,
+    "invented_constraint_rate": 0.0,
+    "semantic_loss_rate": 0.0,
+    "latency_p50_ms": 0.0,
+    "latency_p95_ms": 0.0,
+    "input_tokens": 0.0,
+    "output_tokens": 0.0,
+    "cache_eligibility": 0.0,
+    "provider_cache_hit_rate": 0.0
+  },
+  "promotion_bars": {
+    "comment": "Short-output advisory rubric from docs/ai/t4_semantic_prompting_playbook.md / llm-live-probe. Frozen here so they cannot be invented after seeing scores. Not applied in L3-1. Activation still requires a candidate arm, LIVE_AB_COMPLETE, and operator approval.",
+    "semantic_correctness": 0.875,
+    "schema_validity": 1.0
+  },
+  "roles": [
+    "semantic_t4",
+    "spl_advisory_generator",
+    "investigation_planner",
+    "shape_advisor"
+  ]
+}

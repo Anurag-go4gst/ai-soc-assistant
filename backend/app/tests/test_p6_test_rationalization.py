@@ -46,7 +46,7 @@ def test_p6_removed_no_tests_without_four_part_record() -> None:
 
 def test_p6_collection_before_is_pinned() -> None:
     assert COLLECTION_BEFORE == 7111
-    assert COLLECTION_AFTER == 7118
+    assert COLLECTION_AFTER == 7125
     assert COLLECTION_AFTER >= COLLECTION_BEFORE
 
 

@@ -25,8 +25,9 @@ class RetirementRecord(TypedDict):
 
 # BEFORE collection measured at P5 SHA f1b741f8 on ws/l2-eval-bank:
 # `pytest --collect-only -q -p no:cacheprovider` → 7111 tests collected.
+# P6 added 7 contract tests → 7118. P8 L3-1 added 7 bank/threshold self-tests → 7125.
 COLLECTION_BEFORE = 7111
-COLLECTION_AFTER = 7118
+COLLECTION_AFTER = 7125
 
 LEDGER: tuple[RetirementRecord, ...] = (
     {

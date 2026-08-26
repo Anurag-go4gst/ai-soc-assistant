@@ -27,8 +27,10 @@ TIER_COMMANDS: dict[str, str] = {
         'cd backend && PYTHONPATH=../backend:.. "$PYVENV" -m pytest -q -m l2_slow'
     ),
     "L3": (
-        "P8-owned live local LLM semantic bank; not executed in P6. "
-        "LIVE_AB_EVAL_PERFORMED = NO."
+        'PYTHONPATH=backend:. python3 scripts/eval_p8_l3_live.py ; '
+        'live: AI_SOC_TESTS_ALLOW_LIVE_LLM=1 PYTHONPATH=backend:. '
+        'python3 scripts/eval_p8_l3_live.py --live --write-report. '
+        'LIVE_AB_EVAL_PERFORMED = NO.'
     ),
 }
 
