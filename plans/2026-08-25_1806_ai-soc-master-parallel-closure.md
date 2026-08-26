@@ -63,7 +63,7 @@ means the phase branch head, not the integration branch head. `NONE` means no im
 | P5 | C/Integration | CODEX + CLAUDE | DONE | `caeab0d7` | `f1b741f8` | P1/P2/P3/P4 | CLOSED | ACTIVE 41; P0 13; LIVE-RQC 10; P4 702; RACES 8 | Preserve; reopen only through phase re-entry | None | IN_BASE |
 | P6 | C EVAL | CLAUDE | DONE | `f1b741f8` | `f87fd7e1` | P5 | CLOSED | P6 7; L2-SLOW 21; collection 7111→7118; 0 removals | Preserve; reopen only through phase re-entry | None | IN_BASE |
 | P7 | E UI | CURSOR | DONE | `f87fd7e1` | `7ce96d69` | P1/P2/P4/P5 | CLOSED | frontend 118; build green; RACES 8; ChatPanel untouched | Preserve; P8 is next authorized | None | IN_BASE |
-| P8 | F EVAL | CODEX | TODO | P5 green SHA | NONE | P2/P4/P5 | NONE | NONE | Wait | P5/live local LLM | NOT_STARTED |
+| P8 | F EVAL | CODEX | IN_PROGRESS | `b6e4befe` | `472ed898` | P2/P4/P5 | L3-1 | bank hash 5f78ccbe; 15 P8/P6 tests | L3-2 live run | no reachable local/office LLM | NOT_MERGED_AS_DONE |
 | P9 | F PROMOTION | CODEX | TODO | P6/P7/P8 candidate SHA | NONE | P6/P7/P8 | NONE | NONE | Wait | Dependencies | NOT_STARTED |
 | P10 | Integration | CODEX/operator | TODO | P9 final SHA | NONE | P9 GO | NONE | NONE | Wait | Operator network approval | NOT_STARTED |
 | P11 | F COE | Operator + CODEX | DEFERRED | Approved merged SHA | NONE | P10 + separate approval | NONE | NONE | Keep live MCP OFF | Separate COE authorization | NOT_STARTED |
@@ -831,7 +831,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **Evidence:** `P7_START_SHA=f87fd7e1`. ChatPanel untouched (no protected packet). Investigation card relabeled Approve/Edit/Cancel; backend action remains `run`. Execution HIL relabeled Confirm execution / Submit updated SPL / Reject. Remediation already used Approve/Edit/Cancel. Candidate SPL fail-closed reason surfaces on ChatBubble. Frontend 118 passed; `npm run build` green; RACES 8. Browser not exercised (no running UI session). Commit `7ce96d698d4a65667fcc7328e119bcf171123606` on integration. Blocked reasoning roles not enabled. Studio UI not built (not required without ChatPanel).
 
 - [ ] **P8 - L3 live local LLM semantic evaluation**
-  - **STATUS:** TODO
+  - **STATUS:** IN_PROGRESS (L3-1 frozen; L3-2 BLOCKED_INFRASTRUCTURE)
   - **OWNER:** Workstream F / CODEX, with B/D reviewing semantic and prompt metrics.
   - **BASE_SHA:** P5 green integration SHA; use exact configured local candidate.
   - **DEPENDENCIES:** P2, P4, P5. Independent of P7 file ownership.
@@ -853,7 +853,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **EXPECTED_COMMIT_GROUPS:** L3-1 -> L3-2 from Commit choreography.
   - **OUTPUT_REQUIRED:** Bank hash, environment/provenance, metrics report, failure ledger, branch packet.
   - **NEXT_PHASE_UNLOCK:** P9 L3 promotion decision.
-  - **Evidence:** Pending.
+  - **Evidence:** LIVE_EVAL_PRODUCT_SHA=`b6e4befe`. Full backend at that SHA: 2 failed / 7065 passed / 45 skipped / 6 xfailed. Failures: GitHub clone-root ENVIRONMENT residual; `test_production_chatpanel_has_readable_actions_without_ec_contracts` STALE_EXPECTATION (expected pre-P7 "Run investigation"/"Edit plan"). ChatPanel not edited; scan test aligned in `fa6ad102`. L3-1 commit `472ed898`: 16-row bank, thresholds frozen via `freeze_thresholds` before any live score, bank_hash `5f78ccbe1940149a67dcd1052140c44c854ec42a409d7644b47e5357010dbf51`. ACTIVE prompts only; candidate=null; blocked reasoners not invoked. Dry-run: :8081 tcp_closed, 10.52.1.13:8004 tcp_closed. LIVE_AB_EVAL_PERFORMED=NO. No prompts tuned. L3-2 not started.
 
 - [ ] **P9 - Promotion governance and residual failure adjudication**
   - **STATUS:** TODO

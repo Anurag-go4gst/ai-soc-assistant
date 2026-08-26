@@ -7,11 +7,12 @@ Use this file as the durable execution dashboard. Update it only during authoriz
 ## Control state
 
 ```yaml
-CURRENT_PHASE: P7_DONE_STOP_BEFORE_P8
-CURRENT_BASE_SHA: 7ce96d698d4a65667fcc7328e119bcf171123606
-INTEGRATION_SHA: 7ce96d698d4a65667fcc7328e119bcf171123606
-EXECUTION_INTEGRATION_SHA: 7ce96d698d4a65667fcc7328e119bcf171123606
-FINAL_CLEAN_INTEGRATION_SHA: 7ce96d698d4a65667fcc7328e119bcf171123606
+CURRENT_PHASE: P8_L3_1_DONE_L3_2_BLOCKED_INFRASTRUCTURE
+CURRENT_BASE_SHA: 472ed89864e2323799ea7a13ab4c4fbef8e30185
+INTEGRATION_SHA: 472ed89864e2323799ea7a13ab4c4fbef8e30185
+EXECUTION_INTEGRATION_SHA: 472ed89864e2323799ea7a13ab4c4fbef8e30185
+FINAL_CLEAN_INTEGRATION_SHA: b6e4befe9a79dd722a09a09fdd345bae82880884
+LIVE_EVAL_PRODUCT_SHA: b6e4befe9a79dd722a09a09fdd345bae82880884
 P4_1_LAST_TEST_SHA: 7f763b5b12078534e96f1860474138b7dcc83707
 P4_1_STATUS: CLEAN_WITH_ENVIRONMENT_RESIDUAL
 POST_P3_INTEGRATION_SHA: caeab0d7a3dba10a173f89bc0d7641b21c14c283
@@ -31,7 +32,7 @@ INTEGRATION_BRANCH: feat/complete-or-abstain-t4-ux
 INTEGRATION_OWNER: CODEX
 ACTIVE_WORKSTREAMS: []
 BLOCKED_WORKSTREAMS:
-  - P8 F EVAL: live local LLM semantic bank; LIVE_AB_EVAL_PERFORMED = NO
+  - P8 L3-2: live local/office LLM unreachable; LIVE_AB_EVAL_PERFORMED = NO
 COMPLETED_WORKSTREAMS:
   - P0: Harness readiness at 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
   - P0.1: RACES baseline advanced and verified at ae03a2502ab4c83797151a11d4effa47d9d4532b
@@ -43,8 +44,9 @@ COMPLETED_WORKSTREAMS:
   - P5: L2 closure f1b741f8; ACTIVE 41; H-FOLLOW-05 still pending
   - P6: Conservative rationalization f87fd7e1; 0 removals; l2_slow marked
   - P7: Production HIL vocabulary 7ce96d69; ChatPanel untouched
+  - P8 L3-1: bank/thresholds frozen at 472ed898; product SHA b6e4befe
 NEXT_SAFE_PARALLEL_STARTS:
-  - P8 L3 live local LLM semantic evaluation (requires live local model evidence; do not fake)
+  - P8 L3-2 live measurement once llama-server :8081 or COE 10.52.1.13:8004 is reachable; do not tune prompts first
 RECONCILIATION_QUEUE:
   - REQUEST_ID: P1-T2-EVIDENCESTATE-OWNERSHIP
     REQUESTING_STREAM: A TRACE
@@ -120,6 +122,7 @@ DECISION_LOG:
   - 2026-08-26: P4 integrated by exact fast-forward at cdb146df with 25/18/7/0 role posture, seven frozen prompt-policy contracts, no runtime role activation, no live A/B, and an exact baseline-matched 14-failure residual set; P3 rebase is next and P5 remains blocked.
   - 2026-08-26: P4.1 residual cleanup closed 13 of 14 inherited nodes with bounded test commits; GitHub clone-root remains ENVIRONMENT_FAILURE; CLEAN_WITH_ENVIRONMENT_RESIDUAL; P3/P5/P6/P7 not started.
   - 2026-08-26: P3-P7 loop completed through POST_P7 7ce96d69; P3 rebase+activation, P5 L2 closure ACTIVE 41, P6 KEEP+l2_slow, P7 Approve/Edit/Cancel without ChatPanel; GitHub clone-root remains the only environment residual; stop before P8.
+  - 2026-08-26: Frozen LIVE_EVAL_PRODUCT_SHA b6e4befe; full backend 2 failed (GitHub env + stale P7 scan test). Scan test aligned fa6ad102. P8 L3-1 frozen 472ed898. L3-2 blocked: no reachable :8081 or COE :8004. No prompt tuning. LIVE_AB_EVAL_PERFORMED=NO.
 ```
 
 ## P1 completion evidence (historical checkpoint)
@@ -616,6 +619,7 @@ Append decisions; do not rewrite history.
 | 2026-08-26 P4 integration | P4 | Fast-forward `cdb146df`; preserve seven bounded commits; freeze seven prompt-policy contract versions without runtime activation | P4 702, P0 L2 13, P1 49, P2 98, RACES 8; full backend exact 14-node residual match | P4 DONE; P3 exact rebase required onto post-P4 governance SHA; P5 blocked pending P3 |
 | 2026-08-26 P4.1 residual cleanup | P4.1 | Bounded test-only alignment of 13 stale/test-defect residuals; GitHub clone-root left as environment residual | 14-node 13/1; full backend 6971 passed / 1 failed; P0 L2 13; LIVE-RQC 10; RACES 8; P4 702; NEW_FAILURES NONE | CLEAN_WITH_ENVIRONMENT_RESIDUAL; freeze FINAL_CLEAN_INTEGRATION_SHA; P3 remains parked |
 | 2026-08-26 P3-P7 loop | P3/P5/P6/P7 | Exact P3 rebase onto b107b50b; activate P1/P2/P4 L2 rows; P5 D.01-03; P6 KEEP+l2_slow; P7 Approve/Edit/Cancel without ChatPanel | L2 41 ACTIVE; P0 13; RACES 8; P4 702; LIVE-RQC 10; frontend 118+build; GitHub residual only | Stop before P8; live MCP still OFF; blocked reasoners still blocked |
+| 2026-08-26 P8 L3-1 | P8 | Freeze live-eval product SHA b6e4befe; L3 bank+thresholds before scores; do not tune prompts or enable blocked roles | Suite at b6e4befe 2 failed/7065 passed; stale P7 scan fa6ad102; L3-1 472ed898; dry-run BLOCKED_INFRASTRUCTURE | L3-2 waits for reachable local/office LLM |
 
 ## Runner stop
 
