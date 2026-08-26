@@ -233,6 +233,11 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         by_fields = [_alias(g) for g in group_by[:2]]
         by_clause = f" by {', '.join(by_fields)}" if by_fields else ""
         parts.append(f"| timechart span={grain} count as event_count{by_clause}")
+        # `| sort 0 _time` keeps the buckets chronological AND satisfies the
+        # validator's result-limit contract (_result_limit_value reads `sort 0`).
+        # A `| head N` cannot be used here: the trend contract prohibits
+        # arbitrary_head_100 / arbitrary_truncation / time_series_truncation.
+        parts.append("| sort 0 _time")
         return re.sub(r"\s+", " ", " ".join(parts)).strip()
 
     if analysis_shape == "rolling":
@@ -244,7 +249,9 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         parts = [search_line]
         if eval_clause:
             parts.append(eval_clause)
-        parts.append("| sort 0 _time")
+        # Q11 (draft_quality) requires the explicit `sort 0 + _time` form before
+        # streamstats; `sort 0 _time` is the same ascending sort but fails the lint.
+        parts.append("| sort 0 + _time")
         parts.append(
             f"| streamstats time_window={size} dc({distinct_alias}) as distinct_count by {subject}"
         )
@@ -272,7 +279,7 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
             parts.append(eval_clause)
         if event_eval:
             parts.append(event_eval)
-        parts.append("| sort 0 _time")
+        parts.append("| sort 0 + _time")  # Q11: explicit ascending sort before streamstats
         parts.append(f"| streamstats window=1 current=f last(event_type) as prev_event last(_time) as prev_time by {correlate}")
         if len(ordered) >= 2:
             parts.append(
@@ -281,6 +288,20 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
             )
         else:
             parts.append(f"| transaction {correlate} maxspan={gap}")
+        # The ordered A->B match is already decided above; this summarises the
+        # matched pairs per correlation entity. It is required because the SPL
+        # validator rejects a query with no stats/timechart stage
+        # (`missing_aggregation`) — it does not collapse the sequence semantics.
+        parts.append(
+            f"| stats count as sequence_matches earliest(_time) as first_match_epoch "
+            f"latest(_time) as last_match_epoch by {correlate}"
+        )
+        # U02: earliest(_time)/latest(_time) require a readable strftime() after stats.
+        parts.append(
+            '| eval first_match=strftime(first_match_epoch, "%Y-%m-%d %H:%M:%S"), '
+            'last_match=strftime(last_match_epoch, "%Y-%m-%d %H:%M:%S") '
+            "| fields - first_match_epoch last_match_epoch"
+        )
         return re.sub(r"\s+", " ", " ".join(parts)).strip()
 
     metric = str(plan.get("metric") or "count")

@@ -36,7 +36,9 @@ def test_sequence_compile_preserves_order_and_gap() -> None:
     spl = compile_intent_spec_to_spl(spec)
     assert "password_change" in spl
     assert "successful_login" in spl
-    assert "sort 0 _time" in spl
+    # SOC-STD-SPL-001-Q11 requires the explicit `sort 0 + _time` form before
+    # streamstats; the bare `sort 0 _time` is the same sort but hard-fails the lint.
+    assert "sort 0 + _time" in spl
     assert "300" in spl or "maxspan=5m" in spl
     assert "head 100" not in spl
 

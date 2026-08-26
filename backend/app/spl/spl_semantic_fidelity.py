@@ -6,7 +6,10 @@ import re
 from typing import Any
 
 _DENIED_SPL_RE = re.compile(
-    r"(action\s*=\s*(?:denied|deny|blocked|block|drop|reject)|"
+    # The deterministic compiler emits filters in the quoted form (action="denied"),
+    # so the optional quote is needed to credit a filter that IS present. A query
+    # with no denied/blocked filter at all still reports the loss.
+    r"(action\s*=\s*[\"']?(?:denied|deny|blocked|block|drop|reject)|"
     r"like\s*\(\s*action[^)]*(?:denied|deny|blocked|drop|reject)|"
     r"%denied%|%deny%|%blocked%)",
     re.I,
