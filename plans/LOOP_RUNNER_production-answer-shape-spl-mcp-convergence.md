@@ -14,6 +14,20 @@ Not P8 closure. Not a P9/P10 prerequisite. Not P11 / live MCP.
 Lifecycle: REQUESTED → PENDING_CONDITION → ELIGIBLE → APPROVED → EXECUTED.  
 J7 remains true. B1/B2/B3 are retired.
 
+## Execution status (living)
+
+| Field | Value |
+|---|---|
+| **Worktree** | `/Users/aagarwal/Downloads/ai-soc-wt-post-p10-convergence` |
+| **Branch** | `ws/post-p10-answer-tool-convergence` |
+| **HEAD (as of sync)** | `ede02f94` |
+| **Checklist** | **12 checked** / 30 unchecked (through **2.3**) |
+| **Next item** | **2.4** — Findings / conclusion / limitations contract |
+| **0.2 note** | `DONE_WITH_ENVIRONMENT_UNRESOLVED_INPUTS` — two production traces unavailable; design-case diagnostic only |
+| **Product tip** | RQC `requested_conditional_actions` shipped in `09c3f97a` |
+
+Do **not** execute from the Cursor product-tip checkout alone — use this worktree.
+
 ## Architecture anchors (do not drift)
 
 1. **Investigation HIL vocabulary:** visible **Approve / Edit / Cancel** → wire `run` / `edit` / `cancel`. Approve → `investigation_review_action = "run"` → immutable **ApprovedInvestigationEnvelope**. Do **not** revert UI to “Run investigation.” Remediation also uses Approve/Edit/Cancel as a **separate write HIL**.
