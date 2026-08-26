@@ -142,8 +142,8 @@ def build_validated_remediation_plan(
     return validated, trace
 
 
-def remediation_offer_cta_eligible(state: dict[str, Any]) -> bool:
-    """Offer remediation CTA only for completed evidence-backed suspicious outcomes.
+def remediation_plan_eligible(state: dict[str, Any]) -> bool:
+    """Allow a plan only for completed evidence-backed suspicious outcomes.
 
     Positive authority reuses InvestigationOutcome fields only:
     ``investigation_status == completed`` and ``disposition == suspicious``.
@@ -151,7 +151,8 @@ def remediation_offer_cta_eligible(state: dict[str, Any]) -> bool:
     high severity — not from LLM prose and not from skill name alone.
 
     Final-RQC product applicability and knowledge-only answer mode are defensive
-    vetoes; packaging flag ``remediation_offer_required`` alone is never enough.
+    vetoes. User-conditional predicate truth is a separate gate and cannot make
+    an ineligible outcome eligible for a remediation plan.
     """
     if not settings.ai_soc_remediation_planner_enabled:
         return False
@@ -161,12 +162,12 @@ def remediation_offer_cta_eligible(state: dict[str, Any]) -> bool:
     # not receive a remediation CTA merely because an outcome dict is present.
     if not outcome.get("investigation_status"):
         return False
-    if not outcome.get("remediation_offer_required"):
-        return False
     status = str(outcome.get("investigation_status") or "")
     if status != "completed":
         return False
     if str(outcome.get("disposition") or "") != "suspicious":
+        return False
+    if not list(outcome.get("evidence_refs") or []):
         return False
     context = state.get("context_sufficiency")
     if isinstance(context, dict) and str(context.get("answer_mode") or "") == "knowledge_only_answer":
@@ -188,8 +189,137 @@ def remediation_offer_cta_eligible(state: dict[str, Any]) -> bool:
     return True
 
 
-def maybe_attach_remediation_offer(state: dict[str, Any]) -> dict[str, Any]:
-    """Attach the P8 remediation offer as a P10 affordance. No plan is built yet."""
+def remediation_offer_cta_eligible(state: dict[str, Any]) -> bool:
+    """Whether to ask to create a plan; distinct from plan eligibility itself."""
+    outcome = _as_dict(state.get("investigation_outcome"))
+    return remediation_plan_eligible(state) and bool(outcome.get("remediation_offer_required"))
+
+
+def resolve_requested_conditional_actions(state: dict[str, Any]) -> dict[str, Any]:
+    """Advance Final-RQC requested actions through deterministic predicate truth only."""
+    rqc = _as_dict(state.get("resolved_query_contract"))
+    raw_actions = rqc.get("requested_conditional_actions")
+    if not isinstance(raw_actions, list):
+        return state
+    changed = False
+    actions: list[dict[str, Any]] = []
+    for raw in raw_actions:
+        if not isinstance(raw, dict):
+            continue
+        action = dict(raw)
+        lifecycle = str(action.get("lifecycle_state") or "REQUESTED")
+        predicate_id = action.get("predicate_id")
+        if predicate_id and lifecycle == "REQUESTED":
+            lifecycle = "PENDING_CONDITION"
+        if lifecycle == "PENDING_CONDITION" and _predicate_satisfied(
+            str(predicate_id or ""),
+            state=state,
+        ):
+            lifecycle = "ELIGIBLE"
+        if lifecycle != action.get("lifecycle_state"):
+            action["lifecycle_state"] = lifecycle
+            changed = True
+        actions.append(action)
+    if not changed:
+        return state
+    return {
+        **state,
+        "resolved_query_contract": {
+            **rqc,
+            "requested_conditional_actions": actions,
+        },
+    }
+
+
+def _predicate_satisfied(predicate_id: str, *, state: dict[str, Any]) -> bool:
+    """Closed predicate vocabulary; unknown or incomplete inputs fail closed."""
+    if predicate_id != "account_compromise_confirmed":
+        return False
+    outcome = _as_dict(state.get("investigation_outcome"))
+    if (
+        str(outcome.get("investigation_status") or "") != "completed"
+        or str(outcome.get("disposition") or "") != "suspicious"
+        or not list(outcome.get("evidence_refs") or [])
+    ):
+        return False
+    gate = _as_dict(state.get("final_evidence_gate"))
+    if (
+        gate.get("allow_environment_fact_claims") is not True
+        or int(gate.get("environment_evidence_count") or 0) < 1
+        or str(gate.get("source_evidence_status") or "") != "collected"
+    ):
+        return False
+    evidence = _as_dict(state.get("evidence_state"))
+    if predicate_id not in {str(item) for item in evidence.get("obtained") or []}:
+        return False
+    for item in evidence.get("items") or []:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("key") or "") != predicate_id or str(item.get("status") or "") != "obtained":
+            continue
+        provenance = str(item.get("provenance") or "").lower()
+        scope = item.get("scope") if isinstance(item.get("scope"), dict) else {}
+        if "mock" in provenance or "simulat" in provenance or scope.get("simulated") is True:
+            return False
+        asserted_refs = {str(ref) for ref in scope.get("evidence_refs") or []}
+        if (
+            str(scope.get("predicate_id") or "") != predicate_id
+            or scope.get("predicate_value") is not True
+            or not asserted_refs.intersection(str(ref) for ref in outcome.get("evidence_refs") or [])
+        ):
+            return False
+        return True
+    return False
+
+
+def _requested_action(state: dict[str, Any], action_kind: str) -> dict[str, Any] | None:
+    rqc = _as_dict(state.get("resolved_query_contract"))
+    for action in rqc.get("requested_conditional_actions") or []:
+        if isinstance(action, dict) and str(action.get("action_kind") or "") == action_kind:
+            return action
+    return None
+
+
+def maybe_attach_remediation_offer(
+    state: dict[str, Any],
+    *,
+    turn_budget: Any | None = None,
+    raw_output_provider: Any | None = None,
+) -> dict[str, Any]:
+    """Resolve requested actions and attach the governed remediation surface."""
+    state = resolve_requested_conditional_actions(state)
+    existing = _as_dict(state.get("remediation_approval"))
+    if existing.get("status"):
+        return state
+    if not remediation_plan_eligible(state):
+        return state
+    if _requested_action(state, "remediation") is not None:
+        if turn_budget is None and raw_output_provider is None:
+            plan = build_deterministic_remediation_plan(
+                investigation_outcome=_as_dict(state.get("investigation_outcome")),
+                capability_snapshot=state.get("capability_snapshot"),
+            )
+            trace = {
+                "role": "remediation_planner",
+                "authority": "advisory",
+                "attempted": False,
+                "skipped_reason": "automatic_requested_plan_uses_deterministic_baseline",
+                "plan_source": plan.plan_source,
+                "execution_authorized": False,
+            }
+        else:
+            plan, trace = build_validated_remediation_plan(
+                investigation_outcome=_as_dict(state.get("investigation_outcome")),
+                capability_snapshot=state.get("capability_snapshot"),
+                turn_budget=turn_budget,
+                raw_output_provider=raw_output_provider,
+            )
+        approval = _approval_state(status="awaiting_approval", plan=plan)
+        return {
+            **state,
+            "remediation_approval": approval.model_dump(mode="json"),
+            "remediation_planning_trace": trace,
+        }
     if not remediation_offer_cta_eligible(state):
         return state
     approval = _approval_state(status="offered", plan=None)

@@ -255,6 +255,7 @@ def _completed_outcome_state() -> dict[str, Any]:
             "investigation_status": "completed",
             "disposition": "suspicious",
             "remediation_offer_required": True,
+            "evidence_refs": ["ev.auth"],
             "findings": ["repeated failed logins from 10.0.0.8"],
             "severity_label": "P2",
             "recommended_actions": ["block source ip"],

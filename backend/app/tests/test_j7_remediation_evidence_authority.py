@@ -168,8 +168,9 @@ def test_multi_goal_investigation_not_vetoed_by_legacy_knowledge_skill() -> None
         context_sufficiency={"answer_mode": "rag_plus_live"},
     )
     assert remediation_offer_cta_eligible(state) is True
-    offered = maybe_attach_remediation_offer(state)
-    assert offered["remediation_approval"]["status"] == "offered"
+    offered = maybe_attach_remediation_offer(state, raw_output_provider=lambda: "{}")
+    assert offered["remediation_approval"]["status"] == "awaiting_approval"
+    assert offered["remediation_approval"]["validated_plan"] is not None
     assert offered["resolved_query_contract"]["requested_conditional_actions"] == requested_actions
     email = next(
         action

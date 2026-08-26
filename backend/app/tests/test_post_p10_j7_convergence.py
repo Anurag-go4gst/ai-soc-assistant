@@ -7,11 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from app.chat.remediation_runtime import (
-    handle_remediation_review,
-    maybe_attach_remediation_offer,
-    remediation_offer_cta_eligible,
-)
+from app.chat.remediation_runtime import maybe_attach_remediation_offer, remediation_offer_cta_eligible
 from app.config import settings
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -103,10 +99,8 @@ def test_cv_multi_01b_plan_may_present_without_compromise_claim_or_write() -> No
     }
 
     assert remediation_offer_cta_eligible(state) is True
-    offered = maybe_attach_remediation_offer(state)
-    planned = handle_remediation_review(
-        offered,
-        action="create",
+    planned = maybe_attach_remediation_offer(
+        state,
         raw_output_provider=lambda: "{}",
     )
 

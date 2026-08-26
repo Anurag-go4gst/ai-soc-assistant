@@ -46,6 +46,7 @@ def _outcome(**overrides) -> dict:
         "disposition": "suspicious",
         "severity_label": "P2",
         "remediation_offer_required": True,
+        "evidence_refs": ["ev.auth"],
         "action_eligibility": {
             "allowed_actions": ["email_send"],
             "unavailable_actions": ["firewall_block"],
