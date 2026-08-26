@@ -1,0 +1,9 @@
+{
+  "slot": "operator_reported_production_failure_01",
+  "status": "ENVIRONMENT_UNRESOLVED",
+  "reason": "authoritative trace_id / redacted bundle unavailable to this execution environment.",
+  "not_fabricated": true,
+  "not_substituted": true,
+  "safe_discovery_verdict": "FOUND_NONE",
+  "discovery_audit": "docs/evals/answer_shape/traces/0.2_discovery_audit.md"
+}
