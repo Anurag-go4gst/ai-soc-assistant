@@ -141,19 +141,59 @@ def build_validated_remediation_plan(
     return validated, trace
 
 
-def maybe_attach_remediation_offer(state: dict[str, Any]) -> dict[str, Any]:
-    """Attach the P8 remediation offer as a P10 affordance. No plan is built yet."""
+def _selected_skill(state: dict[str, Any]) -> str:
+    routed = state.get("routed")
+    if isinstance(routed, dict):
+        skill = routed.get("skill")
+        if isinstance(skill, str) and skill.strip():
+            return skill.strip()
+    workflow = state.get("workflow_plan")
+    if isinstance(workflow, dict):
+        skill = workflow.get("skill")
+        if isinstance(skill, str) and skill.strip():
+            return skill.strip()
+    selected = state.get("selected_skill")
+    return str(selected).strip() if isinstance(selected, str) else ""
+
+
+def remediation_offer_cta_eligible(state: dict[str, Any]) -> bool:
+    """Offer remediation CTA only for completed evidence-backed suspicious outcomes.
+
+    Positive authority reuses InvestigationOutcome fields only:
+    ``investigation_status == completed`` and ``disposition == suspicious``.
+    ``suspicious`` is derived from obtained evidence ∧ live-result language ∧
+    high severity — not from LLM prose and not from skill name alone.
+
+    Knowledge / SOP guidance is a defensive veto; packaging flag
+    ``remediation_offer_required`` alone is never enough.
+    """
     if not settings.ai_soc_remediation_planner_enabled:
-        return state
+        return False
     outcome = _as_dict(state.get("investigation_outcome"))
     # InvestigationOutcome V2 packages investigation_status only when the Final RQC
     # is investigation-shaped. Non-investigation products (SPL authoring, etc.) must
     # not receive a remediation CTA merely because an outcome dict is present.
     if not outcome.get("investigation_status"):
-        return state
+        return False
     if not outcome.get("remediation_offer_required"):
-        return state
-    if str(outcome.get("investigation_status") or "") == "cancelled":
+        return False
+    status = str(outcome.get("investigation_status") or "")
+    if status != "completed":
+        return False
+    if str(outcome.get("disposition") or "") != "suspicious":
+        return False
+    # Defensive negative: SOP / knowledge_recall is never remediation authority.
+    if _selected_skill(state) == "knowledge_recall":
+        return False
+    context = state.get("context_sufficiency")
+    if isinstance(context, dict) and str(context.get("answer_mode") or "") == "knowledge_only_answer":
+        return False
+    return True
+
+
+def maybe_attach_remediation_offer(state: dict[str, Any]) -> dict[str, Any]:
+    """Attach the P8 remediation offer as a P10 affordance. No plan is built yet."""
+    if not remediation_offer_cta_eligible(state):
         return state
     approval = _approval_state(status="offered", plan=None)
     return {**state, "remediation_approval": approval.model_dump(mode="json")}

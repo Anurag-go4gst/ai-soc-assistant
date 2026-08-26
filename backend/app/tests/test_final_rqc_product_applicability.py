@@ -285,12 +285,20 @@ def test_remediation_offer_preserved_for_investigation(monkeypatch: pytest.Monke
     monkeypatch.setattr(settings, "ai_soc_remediation_planner_enabled", True)
     outcome = derive_investigation_outcome(
         evidence_sufficiency={"status": "SUFFICIENT", "missing": [], "next_action": "CONTINUE"},
+        evidence_state={"obtained": ["auth_events"], "missing": []},
+        final_evidence_gate={
+            "collected_evidence_refs": ["ev.auth"],
+            "allow_live_result_language": True,
+        },
         investigation_run_status={"status": "completed"},
         investigation_approval={"status": "approved"},
+        severity_label="P2",
         resolved_query_contract=_investigation_rqc(),
         outcome_v2_enabled=True,
     ).model_dump(mode="json")
     assert outcome.get("remediation_offer_required") is True
+    assert outcome.get("investigation_status") == "completed"
+    assert outcome.get("disposition") == "suspicious"
     state = maybe_attach_remediation_offer({"investigation_outcome": outcome})
     assert state.get("remediation_approval", {}).get("status") == "offered"
 
