@@ -58,11 +58,11 @@ means the phase branch head, not the integration branch head. `NONE` means no im
 | P0.1 | Integration | CODEX/operator | DONE | `d3a0cdb3` | `ae03a250` | P0 | CLOSED | RACES 8 | Preserve audited baseline | None | IN_BASE |
 | P1 | A TRACE | CODEX | DONE | `2ba619df` | `fd77d58e` | P0 | CLOSED | 297 owned/cross-stream; P0 L2 13; RACES 8 | Preserve; reopen only through phase re-entry | None | IN_BASE |
 | P2 | B SPL | CURSOR | DONE | `fcba3426` | `7fbdf83f` | P0 | CLOSED | P2 128; LIVE-RQC 10; P1 cross-contract 80; P0 L2 13; RACES 8 | Preserve; reopen only through phase re-entry | None | IN_BASE |
-| P3 | C EVAL | CLAUDE | REBASE_REQUIRED | frozen pre-P2 SHA | `838659ad` | P0 scaffold; P1/P2/P4 for activation | NONE | P0 L2 13 | Rebase only in the next authorized iteration onto `POST_P4_INTEGRATION_SHA` | Exact rebase and E1 reproof required | PARKED |
+| P3 | C EVAL | CLAUDE | DONE | `b107b50b` | `caeab0d7` | P0 scaffold; P1/P2/P4 for activation | CLOSED | L2 bank 103 then 38 ACTIVE; P0 13; RACES 8 | Preserve; reopen only through phase re-entry | None | IN_BASE |
 | P4 | D POLICY | CLAUDE | DONE | `29933dda` | `cdb146df` | P2 for writes | CLOSED | P4 702; P0 L2 13; P1 49; P2 98; RACES 8; full backend exact residual match | Preserve; reopen only through phase re-entry | None | IN_BASE |
-| P5 | C/Integration | CODEX + CLAUDE | BLOCKED_PENDING_P3_REBASE | post-P4 integration SHA | NONE | P1/P2/P3/P4 | NONE | NONE | Wait for P3 exact rebase and E1 reproof | P3 rebase | NOT_STARTED |
-| P6 | C EVAL | CLAUDE | TODO | P5 green SHA | NONE | P5 | NONE | NONE | Wait | P5 | NOT_STARTED |
-| P7 | E UI | CURSOR | TODO | P5 green SHA | NONE | P1/P2/P4/P5 | NONE | NONE | Wait | P5/protected wiring | NOT_STARTED |
+| P5 | C/Integration | CODEX + CLAUDE | DONE | `caeab0d7` | `f1b741f8` | P1/P2/P3/P4 | CLOSED | ACTIVE 41; P0 13; LIVE-RQC 10; P4 702; RACES 8 | Preserve; reopen only through phase re-entry | None | IN_BASE |
+| P6 | C EVAL | CLAUDE | DONE | `f1b741f8` | `f87fd7e1` | P5 | CLOSED | P6 7; L2-SLOW 21; collection 7111→7118; 0 removals | Preserve; reopen only through phase re-entry | None | IN_BASE |
+| P7 | E UI | CURSOR | DONE | `f87fd7e1` | `7ce96d69` | P1/P2/P4/P5 | CLOSED | frontend 118; build green; RACES 8; ChatPanel untouched | Preserve; P8 is next authorized | None | IN_BASE |
 | P8 | F EVAL | CODEX | TODO | P5 green SHA | NONE | P2/P4/P5 | NONE | NONE | Wait | P5/live local LLM | NOT_STARTED |
 | P9 | F PROMOTION | CODEX | TODO | P6/P7/P8 candidate SHA | NONE | P6/P7/P8 | NONE | NONE | Wait | Dependencies | NOT_STARTED |
 | P10 | Integration | CODEX/operator | TODO | P9 final SHA | NONE | P9 GO | NONE | NONE | Wait | Operator network approval | NOT_STARTED |
@@ -723,8 +723,8 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **NEXT_PHASE_UNLOCK:** P4 implementation, P5 semantic L2 assertions, P8 L3 bank.
   - **Evidence:** Integrated by exact fast-forward at product SHA `7fbdf83f4508886529121998256face8d3c9edf1`, preserving S1 `5952d254`, S2 `639477c7`, S3 `6d4458b2`, S4 `a214946f`, S5 `09072610`, S6 `1f379f7a`, protected wiring `5921f1d0`, and RACES baseline commit `7fbdf83f`. S1-S6 PASS. Contract `spl_semantic_v2` supports raw, aggregation, ranking, trend, rolling, and sequence; comparison remains `PRODUCT_GAP / unsupported_comparison_semantics`. `P2-FINAL-RQC-PIPELINE-WIRING` is APPLIED_VERIFIED; `RACES_BASELINE_SHA = 5921f1d0cf569695db97ef0fd277ffdac8ec5338`, not P2 HEAD. Integrated gates: P2 owned 128 passed, LIVE-RQC-01..10 10 passed, P1 cross-contract 80 passed, P0 L2 13 passed, RACES 8 passed. Unfaithful SPL cannot be emitted; candidate SPL remains non-executable; one-repair maximum and Final RQC provenance are green. Two HIL mirror tests fail identically at pre-P2 `fd77d58e` and P2, classified `PRE_EXISTING_FAILURE`; no P2 regression. No live LLM or MCP was used.
 
-- [ ] **P3 - L2 production bank scaffold from 13 toward 23**
-  - **STATUS:** PARKED_REBASE_REQUIRED
+- [x] **P3 - L2 production bank scaffold from 13 toward 23**
+  - **STATUS:** DONE
   - **OWNER:** Workstream C / CLAUDE
   - **BASE_SHA:** Parked logical branch head `838659ada898b5a8bf071fda2b233c125f51ac00`; next authorized iteration must rebase it exactly onto `POST_P4_INTEGRATION_SHA` and reprove E1 before P5.
   - **DEPENDENCIES:** P0 for scaffold; P1/P2/P4 for assertions against new contracts.
@@ -741,6 +741,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **OUTPUT_REQUIRED:** Case matrix, pending dependency list, branch return packet, exact collection/test result.
   - **NEXT_PHASE_UNLOCK:** P5 after rebase onto merged P1/P2/P4.
   - **Evidence:** E1 remains parked at `838659ada898b5a8bf071fda2b233c125f51ac00`. P4 is now integrated; rebase is required but was intentionally not performed in the P4 integration iteration.
+  - **Evidence (2026-08-26 P3 rebase+activation):** Rebased exactly onto `b107b50b9280f041ff854fbb079681f87f2375de`. `P3_PRE_REBASE_SHA=838659ada898b5a8bf071fda2b233c125f51ac00`, `P3_POST_REBASE_SHA=P3_REWRITTEN_E1_SHA=d4018684bae5540d1bc206c08c79e174bd1b948b`. E1 reproof 52+13+8 passed. Activation commit `caeab0d7a3dba10a173f89bc0d7641b21c14c283` (`test(l2): activate integrated P1 P2 P4 contracts`); local ff-only into `feat/complete-or-abstain-t4-ux`. Manifest after activation: TOTAL 49, ACTIVE 38, PENDING P2.04 + P5.01/02, PRODUCT_GAP 5, DEFERRED 3. Runtime files changed: NONE. Gates: L2+P0+RACES 103 passed; P4 702; LIVE-RQC 10; P1 slice 34.
 
 - [x] **P4 - Prompt, role policy, provenance, and Studio configuration contract**
   - **STATUS:** DONE
@@ -772,8 +773,8 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **NEXT_PHASE_UNLOCK:** P5 prompt-aware L2 rows, P7 Studio UI if approved in scope, P8 live prompt metrics.
   - **Evidence:** Integrated by exact fast-forward at product SHA `cdb146df32b0214aa96bac8d037891835b696a46`, preserving seven bounded commits from `eee4ad66` through `cdb146df`; no protected file changed and `backend/app/llm/prompts.py` changed only its docstring. The code-derived inventory proves 25 total roles, 18 production-reachable, 7 `BLOCKED_BY_ALLOWLIST`, and 0 legacy/dead; the blocked set is `mitre_reasoner`, `missing_evidence_reasoner`, `risk_rationale_reasoner`, `plan_delta_reasoner`, `pattern_reasoner`, `evidence_reasoner`, and `hypothesis_reasoner`. `_REASONING_ALLOWED_ROLES` remains unchanged with only `investigation_planner`; prompt registration and ACTIVE template metadata grant no runtime authority. Confirmed off-registry/runtime observations: `governed_composer`, `remediation_planner`, `semantic_t4`, and `spl_repair`. Frozen contracts: `prompt_role_contract_v1`, `prompt_role_registry_v1`, `few_shot_catalog_v1`, `negative_example_catalog_v1`, `prompt_cache_policy_v1`, `prompt_ab_eval_contract_v1`, and `prompt_studio_config_v1`. Every role has one ACTIVE prompt template and no CANDIDATE; this is template posture only, not runtime enablement. `LIVE_AB_EVAL_PERFORMED = NO`; no live LLM or MCP was used. Pre/post focused gates: P4 702 passed, P0 L2 13 passed plus reasoning reachability 2, P1 trace/evidence 49 passed, P2 semantic/Final-RQC/LIVE-RQC 98 passed, and RACES 8 passed. Full backend at base: 14 failed/6256 passed; at P4: 14 failed/6958 passed. Exact failure node-ID sets are identical and all 14 are `PRE_EXISTING_FAILURE`; no P4 regression. P1 `trace_oracle_v1`/`minimal_evidence_state_v2`, P2 `spl_semantic_v2`, candidate non-execution, unsupported comparison, and one-repair maximum remain preserved.
 
-- [ ] **P5 - Cross-stream reconciliation and approximately 23-case L2 closure**
-  - **STATUS:** BLOCKED_PENDING_P3_REBASE
+- [x] **P5 - Cross-stream reconciliation and approximately 23-case L2 closure**
+  - **STATUS:** DONE
   - **OWNER:** Integration owner / CODEX with C as L2 bank owner.
   - **BASE_SHA:** Integration SHA containing P1, P2, and P4; C rebases onto it.
   - **DEPENDENCIES:** P1, P2, P3 scaffold, P4.
@@ -789,10 +790,10 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **EXPECTED_COMMIT_GROUPS:** E2 -> E3 from Commit choreography; optional seam-owner fixes return to and are committed by that owner.
   - **OUTPUT_REQUIRED:** Merge/rebase log, final case matrix, branch packets, tests, known failures, new integration SHA.
   - **NEXT_PHASE_UNLOCK:** P6, P7, and P8.
-  - **Evidence:** Pending.
+  - **Evidence:** `P5_START_SHA=caeab0d7`. Activated DEFERRED L2.D.01–03. Left L2.R.P5.01/02 PENDING (no production follow-up rejection or analyst-supplied SourceEvidence intake). PRODUCT_GAP L2.G.01–05 remain UNDECIDED. H-REM-01 observed not classified as defect: `remediation_offer_required` is independent of obtained evidence; default-off attaches no CTA; P8 tests pin blocked→offer-required True; no side effects. Commit `f1b741f80fd3896947a324a8697672afad2c99f5`; ff-only integrated. ACTIVE 41. Gates: L2+P0+RACES 109; LIVE-RQC 10; P4 702. Full backend at this SHA: 1 failed (GitHub clone-root ENVIRONMENT residual) / 7059 passed / 45 skipped / 6 xfailed. NEW_FAILURES NONE.
 
-- [ ] **P6 - Conservative test rationalization and tiering**
-  - **STATUS:** TODO
+- [x] **P6 - Conservative test rationalization and tiering**
+  - **STATUS:** DONE
   - **OWNER:** Workstream C / CLAUDE
   - **BASE_SHA:** P5 green integration SHA.
   - **DEPENDENCIES:** P5.
@@ -808,10 +809,10 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **EXPECTED_COMMIT_GROUPS:** R1 -> R2 -> R3 -> R4 from Commit choreography.
   - **OUTPUT_REQUIRED:** Before/after inventory, retirement ledger, tier matrix, branch packet, exact tests.
   - **NEXT_PHASE_UNLOCK:** P9 promotion full-suite comparison.
-  - **Evidence:** Pending.
+  - **Evidence:** `P6_START_SHA=f1b741f8`. R1 KEEP for H-TESTUX-04/10/11; R2/R3 zero consolidations (distinct failure meaning). R4 marked three timeout modules `l2_slow` and froze L0/L1/L2/L2-SLOW/L3 command strings. Collection 7111 → 7118 (+7 contract tests). Zero REMOVE/ARCHIVE. Commit `f87fd7e1a3b5fcf2c05e9ad8144144ad768e1743`; ff-only integrated. P6 tests 7 passed; l2_slow modules 21 passed; L2+P0+RACES 116 passed. Did not chase 4,850.
 
-- [ ] **P7 - Production UI and trace/operator UX**
-  - **STATUS:** TODO
+- [x] **P7 - Production UI and trace/operator UX**
+  - **STATUS:** DONE
   - **OWNER:** Workstream E / CURSOR
   - **BASE_SHA:** P5 green integration SHA; rebase after any backend contract movement.
   - **DEPENDENCIES:** P1, P2, P4, P5.
@@ -827,7 +828,7 @@ The findings ledger row remains present and moves from `CLOSED` to `OPEN` or `NE
   - **EXPECTED_COMMIT_GROUPS:** U1 -> U2 -> U3 from Commit choreography.
   - **OUTPUT_REQUIRED:** State/journey matrix, screenshots or browser evidence, protected diff request if needed, branch packet.
   - **NEXT_PHASE_UNLOCK:** P9 production UX promotion gate.
-  - **Evidence:** Pending.
+  - **Evidence:** `P7_START_SHA=f87fd7e1`. ChatPanel untouched (no protected packet). Investigation card relabeled Approve/Edit/Cancel; backend action remains `run`. Execution HIL relabeled Confirm execution / Submit updated SPL / Reject. Remediation already used Approve/Edit/Cancel. Candidate SPL fail-closed reason surfaces on ChatBubble. Frontend 118 passed; `npm run build` green; RACES 8. Browser not exercised (no running UI session). Commit `7ce96d698d4a65667fcc7328e119bcf171123606` on integration. Blocked reasoning roles not enabled. Studio UI not built (not required without ChatPanel).
 
 - [ ] **P8 - L3 live local LLM semantic evaluation**
   - **STATUS:** TODO

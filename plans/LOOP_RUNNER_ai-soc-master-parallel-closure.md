@@ -7,13 +7,17 @@ Use this file as the durable execution dashboard. Update it only during authoriz
 ## Control state
 
 ```yaml
-CURRENT_PHASE: P4_1_CLEAN_WITH_ENVIRONMENT_RESIDUAL_P3_REBASE_REQUIRED
-CURRENT_BASE_SHA: 7f763b5b12078534e96f1860474138b7dcc83707
-INTEGRATION_SHA: FINAL_CLEAN_INTEGRATION_SHA_THIS_GOVERNANCE_COMMIT
-EXECUTION_INTEGRATION_SHA: FINAL_CLEAN_INTEGRATION_SHA_THIS_GOVERNANCE_COMMIT
-FINAL_CLEAN_INTEGRATION_SHA: FINAL_CLEAN_INTEGRATION_SHA_THIS_GOVERNANCE_COMMIT
+CURRENT_PHASE: P7_DONE_STOP_BEFORE_P8
+CURRENT_BASE_SHA: 7ce96d698d4a65667fcc7328e119bcf171123606
+INTEGRATION_SHA: 7ce96d698d4a65667fcc7328e119bcf171123606
+EXECUTION_INTEGRATION_SHA: 7ce96d698d4a65667fcc7328e119bcf171123606
+FINAL_CLEAN_INTEGRATION_SHA: 7ce96d698d4a65667fcc7328e119bcf171123606
 P4_1_LAST_TEST_SHA: 7f763b5b12078534e96f1860474138b7dcc83707
 P4_1_STATUS: CLEAN_WITH_ENVIRONMENT_RESIDUAL
+POST_P3_INTEGRATION_SHA: caeab0d7a3dba10a173f89bc0d7641b21c14c283
+POST_P5_INTEGRATION_SHA: f1b741f80fd3896947a324a8697672afad2c99f5
+POST_P6_INTEGRATION_SHA: f87fd7e1a3b5fcf2c05e9ad8144144ad768e1743
+POST_P7_INTEGRATION_SHA: 7ce96d698d4a65667fcc7328e119bcf171123606
 P1_PRODUCT_INTEGRATION_SHA: fd77d58ea1e9690eec25a83aa90d46949c4512b5
 P2_PRODUCT_INTEGRATION_SHA: 7fbdf83f4508886529121998256face8d3c9edf1
 P4_PRODUCT_INTEGRATION_SHA: cdb146df32b0214aa96bac8d037891835b696a46
@@ -27,8 +31,7 @@ INTEGRATION_BRANCH: feat/complete-or-abstain-t4-ux
 INTEGRATION_OWNER: CODEX
 ACTIVE_WORKSTREAMS: []
 BLOCKED_WORKSTREAMS:
-  - P3 C EVAL: PARKED at 838659ada898b5a8bf071fda2b233c125f51ac00; exact rebase required onto FINAL_CLEAN_INTEGRATION_SHA in the next authorized iteration
-  - P5 C/Integration: BLOCKED_PENDING_P3_REBASE
+  - P8 F EVAL: live local LLM semantic bank; LIVE_AB_EVAL_PERFORMED = NO
 COMPLETED_WORKSTREAMS:
   - P0: Harness readiness at 615069e6ca9cdb3d40b51d6a2f071346ecf3d6a2
   - P0.1: RACES baseline advanced and verified at ae03a2502ab4c83797151a11d4effa47d9d4532b
@@ -36,8 +39,12 @@ COMPLETED_WORKSTREAMS:
   - P2: SPL semantic V2 integrated at 7fbdf83f4508886529121998256face8d3c9edf1; S1-S6 PASS
   - P4: Prompt/policy architecture integrated at cdb146df32b0214aa96bac8d037891835b696a46; PP1-PP6 PASS
   - P4.1: Residual baseline cleanup at P4_1_LAST_TEST_SHA 7f763b5b; CLEAN_WITH_ENVIRONMENT_RESIDUAL (GitHub clone root only)
+  - P3: Rebased onto b107b50b; E1 rewritten d4018684; activation caeab0d7; ff-only integrated
+  - P5: L2 closure f1b741f8; ACTIVE 41; H-FOLLOW-05 still pending
+  - P6: Conservative rationalization f87fd7e1; 0 removals; l2_slow marked
+  - P7: Production HIL vocabulary 7ce96d69; ChatPanel untouched
 NEXT_SAFE_PARALLEL_STARTS:
-  - P3 exact rebase onto FINAL_CLEAN_INTEGRATION_SHA in a separately authorized iteration, then reprove E1. Combined P3 rebase plus PENDING_CONTRACT_P1/P2/P4 activation is the next operation; it must not start in this iteration.
+  - P8 L3 live local LLM semantic evaluation (requires live local model evidence; do not fake)
 RECONCILIATION_QUEUE:
   - REQUEST_ID: P1-T2-EVIDENCESTATE-OWNERSHIP
     REQUESTING_STREAM: A TRACE
@@ -59,17 +66,17 @@ PROTECTED_CHANGE_HISTORY:
     STATUS: APPLIED_VERIFIED
 TEST_GATE_STATUS:
   PLAN_AUDIT: passed_zero_gaps_both_files
-  FOCUSED: P4_prompt_policy_702_passed_post_P4_1
-  L0: RACES_8_passed_post_P4_1; reasoning_reachability_2_passed
-  L1: P1_trace_evidence_75_passed_1_skipped; P2_semantic_plus_LIVE_RQC_79_passed
-  L2: P0_13_passed_post_P4_1
-  L2_SLOW: not_started
+  FOCUSED: P4_prompt_policy_702_passed; P6_7_passed; frontend_118_passed
+  L0: RACES_8_passed
+  L1: P1_trace_evidence_34; P2_semantic_58; LIVE_RQC_10
+  L2: P0_13_plus_ACTIVE_41
+  L2_SLOW: timeout_modules_21_passed
   L3: not_started
-  FRONTEND: P0_111_and_build_reported_green_at_base
-  GOVERNANCE: P4_1_CLEAN_WITH_ENVIRONMENT_RESIDUAL
+  FRONTEND: 118_passed_build_green
+  GOVERNANCE: CLEAN_WITH_ENVIRONMENT_RESIDUAL
   LINUX: not_started
   LIVE_MCP: disabled_deferred_P11
-  FULL_BACKEND_P4_1: 1_failed_6971_passed_45_skipped_6_xfailed
+  FULL_BACKEND_P5: 1_failed_7059_passed_45_skipped_6_xfailed
   NEW_FAILURES: NONE
 RESIDUAL_FAILURE_LEDGER:
   - app/tests/test_canonical_handoff_e2e_probes.py::test_e2e_t1_spl_generation_canonical_graph_and_gate: PRE_EXISTING_FAILURE; P5/P9; blocks_P4_NO
@@ -112,6 +119,7 @@ DECISION_LOG:
   - 2026-08-25: P2 integrated by exact fast-forward at 7fbdf83f with S1-S6 plus approved Final-RQC wiring and exact RACES baseline history preserved; P4 is ready only from POST_P2_INTEGRATION_SHA, while P3 remains parked.
   - 2026-08-26: P4 integrated by exact fast-forward at cdb146df with 25/18/7/0 role posture, seven frozen prompt-policy contracts, no runtime role activation, no live A/B, and an exact baseline-matched 14-failure residual set; P3 rebase is next and P5 remains blocked.
   - 2026-08-26: P4.1 residual cleanup closed 13 of 14 inherited nodes with bounded test commits; GitHub clone-root remains ENVIRONMENT_FAILURE; CLEAN_WITH_ENVIRONMENT_RESIDUAL; P3/P5/P6/P7 not started.
+  - 2026-08-26: P3-P7 loop completed through POST_P7 7ce96d69; P3 rebase+activation, P5 L2 closure ACTIVE 41, P6 KEEP+l2_slow, P7 Approve/Edit/Cancel without ChatPanel; GitHub clone-root remains the only environment residual; stop before P8.
 ```
 
 ## P1 completion evidence (historical checkpoint)
@@ -575,6 +583,11 @@ edit a completed phase or retain evidence produced against an invalidated SHA/co
   - **Verify:** `.cursor/hooks/audit-plan-discipline.sh` on both plan files; full backend `1 failed, 6971 passed, 45 skipped, 6 xfailed`; GitHub-only residual.
   - **Depends on:** P4 DONE
   - **Evidence:** P4.1 completion evidence block; `P4_1_LAST_TEST_SHA = 7f763b5b12078534e96f1860474138b7dcc83707`.
+- [x] **P3-P7 multi-phase loop** — rebase/activate P3, close P5 L2, P6 rationalization, P7 HIL vocabulary
+  - **Do:** Rebase `ws/l2-eval-bank` onto `b107b50b`; activate P1/P2/P4 rows; P5 deferred remediation rows; P6 KEEP ledger + l2_slow; P7 Approve/Edit/Cancel without ChatPanel.
+  - **Verify:** L2+P0+RACES; P4 702; LIVE-RQC 10; frontend 118 + build; GitHub residual only.
+  - **Depends on:** P4.1 CLEAN_WITH_ENVIRONMENT_RESIDUAL
+  - **Evidence:** POST_P3=`caeab0d7`; POST_P5=`f1b741f8`; POST_P6=`f87fd7e1`; POST_P7=`7ce96d69`. NEW_FAILURES NONE. Stop before P8.
 - [x] Dependencies and merge order match the canonical plan; P0.1, A, B, and D are complete, so C/P3 rebase and P5 are next.
 - [x] Protected queue is empty; P1 reconciliation is consumed; `P2-FINAL-RQC-PIPELINE-WIRING` is APPLIED_VERIFIED at `5921f1d0` with the RACES baseline pinned to that exact SHA.
 - [x] Post-P0.1 apply forces exact-SHA rebase before L0/return/integration.
@@ -602,6 +615,7 @@ Append decisions; do not rewrite history.
 | 2026-08-25 P2 integration | P2 | Fast-forward `7fbdf83f`; preserve S1-S6, protected wiring `5921f1d0`, and RACES commit; freeze `spl_semantic_v2` | P2 128, LIVE-RQC 10, P1 cross-contract 80, P0 L2 13, RACES 8; two baseline-matched HIL residuals | P2 DONE; P3 parked at `838659ad`; P4 ready from exact post-governance SHA |
 | 2026-08-26 P4 integration | P4 | Fast-forward `cdb146df`; preserve seven bounded commits; freeze seven prompt-policy contract versions without runtime activation | P4 702, P0 L2 13, P1 49, P2 98, RACES 8; full backend exact 14-node residual match | P4 DONE; P3 exact rebase required onto post-P4 governance SHA; P5 blocked pending P3 |
 | 2026-08-26 P4.1 residual cleanup | P4.1 | Bounded test-only alignment of 13 stale/test-defect residuals; GitHub clone-root left as environment residual | 14-node 13/1; full backend 6971 passed / 1 failed; P0 L2 13; LIVE-RQC 10; RACES 8; P4 702; NEW_FAILURES NONE | CLEAN_WITH_ENVIRONMENT_RESIDUAL; freeze FINAL_CLEAN_INTEGRATION_SHA; P3 remains parked |
+| 2026-08-26 P3-P7 loop | P3/P5/P6/P7 | Exact P3 rebase onto b107b50b; activate P1/P2/P4 L2 rows; P5 D.01-03; P6 KEEP+l2_slow; P7 Approve/Edit/Cancel without ChatPanel | L2 41 ACTIVE; P0 13; RACES 8; P4 702; LIVE-RQC 10; frontend 118+build; GitHub residual only | Stop before P8; live MCP still OFF; blocked reasoners still blocked |
 
 ## Runner stop
 
