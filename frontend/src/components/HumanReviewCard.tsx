@@ -63,7 +63,7 @@ export function HumanReviewCard({
         execution_review_action: 'update_spl',
         analyst_provided_spl: updatedSpl.trim(),
       },
-      'Run updated SPL after safety checks',
+      'Submit updated SPL for revalidation',
     );
   };
 
@@ -119,7 +119,7 @@ export function HumanReviewCard({
           ) : null}
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" disabled={busy || !onExecutionReview} onClick={() => submitReview('confirm')}>
-              Confirm & run
+              Confirm execution
             </Button>
             <Button
               type="button"
@@ -128,7 +128,7 @@ export function HumanReviewCard({
               disabled={busy || !onExecutionReview || !updatedSpl.trim()}
               onClick={() => submitReview('update_spl')}
             >
-              Run updated SPL
+              Submit updated SPL
             </Button>
             <Button type="button" size="sm" variant="outline" disabled={busy || !onExecutionReview} onClick={() => submitReview('reject')}>
               Reject

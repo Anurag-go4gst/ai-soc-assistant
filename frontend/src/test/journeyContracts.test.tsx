@@ -105,7 +105,7 @@ describe('journey contract surfaces', () => {
         runContract={{ mcp_allowed: false, execution_authorized: false }}
       />,
     );
-    expect(screen.getByRole('button', { name: /confirm & run/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirm execution/i })).toBeInTheDocument();
     expect(screen.getByText(/mcp_global_execution_disabled/)).toBeInTheDocument();
   });
 

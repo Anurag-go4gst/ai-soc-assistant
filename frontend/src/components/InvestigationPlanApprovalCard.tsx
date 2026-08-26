@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CheckCircle2, PencilLine, Play, ShieldCheck, XCircle } from 'lucide-react';
+import { CheckCircle2, PencilLine, ShieldCheck, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { ChatInvestigationReviewOptions, InvestigationApprovalState } from '@/types/api';
 
@@ -104,13 +104,13 @@ export function InvestigationPlanApprovalCard({
               investigation_review_action: 'run',
               investigation_handoff_id: approval.handoff_id,
               investigation_handoff_version: approval.handoff_version,
-            }, 'Run investigation')}
+            }, 'Approve investigation plan')}
             className="inline-flex items-center gap-1.5 rounded-md bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 disabled:opacity-50"
           >
-            <Play className="h-3.5 w-3.5" /> Run investigation
+            <CheckCircle2 className="h-3.5 w-3.5" /> Approve
           </button>
           <button type="button" disabled={busy} onClick={() => setEditing(true)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-600 px-3 py-2 text-xs text-slate-100 disabled:opacity-50">
-            <PencilLine className="h-3.5 w-3.5" /> Edit plan
+            <PencilLine className="h-3.5 w-3.5" /> Edit
           </button>
           <button
             type="button"
