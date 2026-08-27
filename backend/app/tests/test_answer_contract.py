@@ -109,7 +109,9 @@ def test_execution_label_mock_vs_live() -> None:
         execution={"status": "executed", "splunk_result_envelope": {"origin": "live"}},
         human_review={"required": False},
     )
-    assert mock.execution_status_display == "Executed — mock evidence"
+    assert mock.execution_status_display == (
+        "Executed — simulated / mock evidence (not live Splunk)"
+    )
     assert live.execution_status_display == "Executed — live evidence"
 
 
