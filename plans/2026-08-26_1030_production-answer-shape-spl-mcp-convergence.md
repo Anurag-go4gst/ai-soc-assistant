@@ -697,47 +697,47 @@ Starts after Phase **3** closes (objective persistence + state contract + B4 + e
   - **Depends on:** 6.1
   - **Evidence:** DONE 2026-08-27. InvestigationPlanApprovalCard renders before AnalystResponseCard when present; guidance relabelled "Recommended checks" (not a peer "Investigation plan"). Vitest AnalystResponseCard + InvestigationPlanApprovalCard → **6 passed**. ChatPanel untouched.
 
-- [ ] **6.3** — Evidence / findings
+- [x] **6.3** — Evidence / findings
   - **Do:** Findings from accepted EvidenceState only; no fabricated MCP/RAG; progress events never become SourceEvidence.
   - **Verify:** Trace/evidence truth tests still green; harness.
   - **Depends on:** 6.2
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Re-Verify `test_answer_shape_findings_conclusion_contract.py` + harness `--check` PASS. Progress diagnostics remain out of findings (2.4 fixture pins).
 
-- [ ] **6.4** — Conclusion
+- [x] **6.4** — Conclusion
   - **Do:** Inconclusive vs suspicious conclusions match outcome.
   - **Verify:** MULTI.01A/B.
   - **Depends on:** 6.3
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. MULTI.01A inconclusive + 01B suspicious pinned by answer-shape contract tests + outcome fixtures (re-Verify green).
 
-- [ ] **6.5** — Recommended next action
+- [x] **6.5** — Recommended next action
   - **Do:** Surface recommended next action without implying execution; PENDING_CONDITION intents may appear without CTA.
   - **Verify:** Harness + UI test.
   - **Depends on:** 6.4
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Re-Verify `ChatBubble.conditionalActions.test.tsx` → pending intents without Approve/Send CTA (2.5). Outcome card recommended_next_action remains advisory.
 
-- [ ] **6.6** — Eligible remediation plan (separate write HIL)
+- [x] **6.6** — Eligible remediation plan (separate write HIL)
   - **Do:** Under REMEDIATION PLAN ELIGIBILITY, remediation plan may PRESENT with Approve/Edit/Cancel; write only after Approve. Do not require user `compromise_confirmed` merely to show the plan. Do not conflate with USER-CONDITIONAL ACTION ELIGIBILITY for email.
   - **Verify:** MULTI.01A absent / 01B may present; write not automatic.
   - **Depends on:** 6.5
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Re-Verify `test_post_p10_j7_convergence.py` → 01A ABSENT / 01B MAY PRESENT without compromise_confirmed or write. RemediationPlanApprovalCard Approve/Edit/Cancel separate from investigation HIL.
 
-- [ ] **6.7** — Conditional communication
+- [x] **6.7** — Conditional communication
   - **Do:** Draft eligibility and role display per Phase 3.
   - **Verify:** MULTI.01A/B email axes.
   - **Depends on:** 6.6
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Re-Verify phase10 email lane + `test_email_send_hil_3_7.py` → draft ≠ send; roles only; PENDING_CONDITION on unmet predicate.
 
-- [ ] **6.8** — Technical provenance secondary
+- [x] **6.8** — Technical provenance secondary
   - **Do:** Diagnostics/trace collapsed by default; oracle fields primary. Items that render MCP/mock execution state (if any in this item or adjacent UI) may additionally **Depends on** 5.5–5.6; unrelated provenance collapse does **not** wait on Phase 5.
   - **Verify:** Frontend default-collapsed tests / browser note.
   - **Depends on:** 6.7
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Production ChatBubble keeps oracle cards primary; Technical evidence path / provenance remain in native `<details>` (collapsed by default). Mock labelling from 5.6 applies when mock execution is rendered. No ChatPanel change.
 
-- [ ] **6.9** — Compare production answer arc with EC target shape
+- [x] **6.9** — Compare production answer arc with EC target shape
   - **Do:** Score against shape bank (not EC prose). Record pass_rate movement vs pre-change scorecard if still valid on baseline. Optionally incorporate Phase 4/5 harness deltas when those streams have closed.
   - **Verify:** Convergence harness + shape scorecard report.
   - **Depends on:** 6.8
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Report: `docs/evals/answer_shape/phase6_shape_scorecard_v1.md`. Harness total=10 pass=5 product_gap=3 deferred=2 fail=0; `--check` PASS. Shape arc A–E pinned; EC prose not chased; MULTI gaps named honest PRODUCT_GAP.
 
 ### Phase 7 — Final regression / acceptance
 
