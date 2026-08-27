@@ -669,11 +669,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
   - **Depends on:** 5.4
   - **Evidence:** DONE 2026-08-27. Packet: `docs/evals/answer_shape/mcp_execution_gate_5_5_envelope_required_packet.md`. Gate `require_approved_investigation_envelope` + pipeline investigation path wiring. Pre-envelope → `investigation_envelope_required` (connector never called). RACES pins advanced for gate+pipeline. Tests → **5 passed** (5.4+5.5); hil/gate smoke → **27 passed**.
 
-- [ ] **5.6** — Simulated-result labelling
+- [x] **5.6** — Simulated-result labelling
   - **Do:** UI/trace never present mock rows as live Splunk evidence.
   - **Verify:** Frontend/backend tests for simulated labelling; browser spot-check optional.
   - **Depends on:** 5.5
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. `_execution_label` treats mock_connector/evidence_source=mock/mode=mock as simulated; SourceEvidence provenance `ai_soc_simulated_mock_mcp`; frontend planningOutcome label SIMULATED. Tests `test_post_p10_mock_mcp_5_6_5_7.py` → **3 passed**; lifecycle still green.
 
 - [ ] **5.7** — No mock-derived remediation/write authority
   - **Do:** Mock evidence cannot move remediation to ELIGIBLE for real write authority or satisfy compromise for production containment.

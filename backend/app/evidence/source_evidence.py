@@ -135,6 +135,15 @@ def build_source_evidence(
         result_count = int(execution.get("result_count") or 0)
         if status == "executed" and result_count == 0:
             warnings.append("execution_completed_zero_rows")
+        is_mock = (
+            str(execution.get("evidence_source") or "") == "mock"
+            or str(execution.get("execution") or "") == "simulated"
+            or str(execution.get("mode") or "") == "mock"
+            or str((execution.get("splunk_result_envelope") or {}).get("origin") or "")
+            in {"fixture", "mock_connector"}
+        )
+        if is_mock:
+            warnings.append("simulated_mock_evidence_not_live_splunk")
 
         evidence.append(
             _evidence(
@@ -157,7 +166,11 @@ def build_source_evidence(
                 tool_category=_tool_category(execution.get("selected_mcp_tool")),
                 provider_used="splunk_run_query" if execution.get("executed_spl") else None,
                 saved_search_name=execution.get("saved_search_name"),
-                provenance="ai_soc_validated_execution_gate",
+                provenance=(
+                    "ai_soc_simulated_mock_mcp"
+                    if is_mock
+                    else "ai_soc_validated_execution_gate"
+                ),
             )
         )
 

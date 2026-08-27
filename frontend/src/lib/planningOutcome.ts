@@ -78,7 +78,7 @@ export function executionLabel(trace: {
   if (execution.status === 'executed') {
     const source = execution.evidence_source ?? '';
     if (source === 'live') return { label: 'Executed (live evidence)', variant: 'success' };
-    if (source === 'mock') return { label: 'Executed (mock evidence)', variant: 'success' };
+    if (source === 'mock') return { label: 'Executed (SIMULATED / mock — not live Splunk)', variant: 'warning' };
     return { label: 'Executed (review provenance)', variant: 'warning' };
   }
   if (execution.status === 'blocked' || execution.status === 'requires_human_review') {

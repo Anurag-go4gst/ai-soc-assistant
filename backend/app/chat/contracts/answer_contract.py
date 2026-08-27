@@ -633,9 +633,16 @@ def _execution_label(
         return "blocked_approval_required", "Blocked — approval required"
     status = str(execution_payload.get("status") or "")
     if status == "executed":
-        origin = (execution_payload.get("splunk_result_envelope") or {}).get("origin")
-        if origin == "fixture":
-            return "executed_mock_evidence", "Executed — mock evidence"
+        origin = str((execution_payload.get("splunk_result_envelope") or {}).get("origin") or "")
+        evidence_source = str(execution_payload.get("evidence_source") or "")
+        execution_kind = str(execution_payload.get("execution") or "")
+        if (
+            origin in {"fixture", "mock_connector"}
+            or evidence_source == "mock"
+            or execution_kind == "simulated"
+            or str(execution_payload.get("mode") or "") == "mock"
+        ):
+            return "executed_mock_evidence", "Executed — simulated / mock evidence (not live Splunk)"
         return "executed_live_evidence", "Executed — live evidence"
     if not spl_present:
         return None, None
