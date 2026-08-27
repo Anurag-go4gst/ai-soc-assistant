@@ -169,8 +169,15 @@ RACES_BASELINE_SHA = "27970ea4d10f0e894c8adb4214e18cd46e24b28e"
 # Post-P10 convergence items 3.4 and 3.6 are operator-requested production work,
 # not EC/RACES changes. Content hashes make this baseline advance exact and
 # clone-stable without weakening the freeze for any future byte change.
+# OPTIONAL_PHASE_S S7 (2026-08-27): operator-approved protected pipeline.py edit
+# per docs/evals/spl_optimization/s7_pipeline_protected_change_packet.md —
+# replace hardcoded producer_lineage with resolve_producer_lineage; stamp
+# optimization_trace / llm_lineage on LLM fallback candidates; run Layer 2/3
+# optimization chain. Does not change execution_eligible posture (one-way),
+# MCP mediation, HIL/RBAC, write authority, or EC/demo. Validator/policy NO DIFF.
+# Candidate SPL remains non-executable; Layer 3 flag default OFF.
 RACES_APPROVED_PROTECTED_BLOB_SHA256 = {
-    "backend/app/chat/pipeline.py": "d156f0a503308ec7d49617407c87141a52d910babb9adf882fd176e42a55b551",
+    "backend/app/chat/pipeline.py": "08bcee4e703dd56e0b17335da3ce5b93c8dff16573dad08f17042a2e1c331f49",
     "backend/app/schemas/responses.py": "e8dfaa87e0b1db1c0c6ceccb74fa66f95a7604c90cbd531eb6c52a30ff3a8d7c",
     # Post-P10 5.4/5.5: envelope_version AUTH0 + investigation-envelope hard-block.
     "backend/app/orchestration/mcp_execution_gate.py": "f45957827fe05844c0702bf6979d55dea5bd0c422380fc1ce8b946d78b718a98",
