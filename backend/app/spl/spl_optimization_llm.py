@@ -204,6 +204,11 @@ def _user_prompt(
     return "\n".join(parts)
 
 
+def _whitespace_normalized(spl: str) -> str:
+    """Collapse benign whitespace so a reformatted-but-identical rewrite is recognised."""
+    return " ".join((spl or "").split())
+
+
 def _parse_payload(raw: str) -> tuple[dict[str, Any] | None, list[str]]:
     from app.llm.adapter.json_extractor import extract_first_json_object
 
@@ -341,7 +346,9 @@ def apply_optimization_llm(
 
     status = str(payload.get("status") or "").strip().upper()
     v2 = str(payload.get("candidate_spl") or v1).strip() or v1
-    if status == "NO_SAFE_OPTIMIZATION" or v2 == v1:
+    # H2 — an unchanged candidate is never an optimization, whatever the model claims.
+    # Deterministic and independent of self-report: benign whitespace differences only.
+    if status == "NO_SAFE_OPTIMIZATION" or _whitespace_normalized(v2) == _whitespace_normalized(v1):
         return OptimizationLlmResult(
             outcome="NO_SAFE_OPTIMIZATION",
             candidate_spl_v1=v1,

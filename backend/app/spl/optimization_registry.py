@@ -353,13 +353,19 @@ def _guard_entries() -> list[SplLogicEntry]:
         "aggregation_meaning",
         "governed_filters",
         "semantic_fidelity",
+        # H2 — base-search match semantics (wildcards, NOT vs !=, operators, quoting,
+        # TERM()/cidrmatch tokenization, field-value pairs).
+        "match_semantics_dropped",
+        "match_semantics_added",
+        "boolean_grouping",
+        "required_output_fields",
     ]
     if rewrite_guard is not None:
         anchor = _anchor(rewrite_guard.assert_rewrite_preserves, "assert_rewrite_preserves")
         runtime = True
         phase = "S2"
     else:
-        anchor = _static_anchor("backend/app/spl/rewrite_guard.py", "assert_rewrite_preserves", 41)
+        anchor = _static_anchor("backend/app/spl/rewrite_guard.py", "assert_rewrite_preserves", 336)
         runtime = False
         phase = "S2 (ws/spl-optimization)"
     return [
