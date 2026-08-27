@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 TRACE_LIFECYCLE_SCHEMA_VERSION = "trace_lifecycle_v1"
 TRACE_LIFECYCLE_STATES = (
@@ -297,7 +297,7 @@ def build_spl_provenance_summary(
         spl_validation=validation,
         budget_records=budget_records,
     )
-    return {
+    summary = {
         "trace_schema_version": TRACE_LIFECYCLE_SCHEMA_VERSION,
         "llm_lifecycle": lifecycle,
         "llm_attempted": lifecycle["attempted"],
@@ -316,3 +316,62 @@ def build_spl_provenance_summary(
         ),
         "trace_authority": "read_model_projection_only",
     }
+    opt_trace = candidate.get("optimization_trace")
+    if isinstance(opt_trace, dict):
+        summary["optimization_trace"] = opt_trace
+    return summary
+
+
+OptimizationSource = Literal["compiler", "deterministic_rewrite", "generation_prompt", "optimization_llm"]
+
+
+def build_deterministic_optimization_trace(
+    *,
+    optimization_source: OptimizationSource,
+    candidate_version: str,
+    rules_triggered: list[str] | None = None,
+    rules_resolved: list[str] | None = None,
+    rewrite_guard: dict[str, Any] | None = None,
+    validator: dict[str, Any] | None = None,
+    llm_lineage: bool = False,
+    producer_lineage: str | None = None,
+) -> dict[str, Any]:
+    """Trace block for Layer 1a/2 deterministic optimization (read-model only)."""
+    return {
+        "optimization_source": optimization_source,
+        "candidate_version": candidate_version,
+        "rules_triggered": list(rules_triggered or []),
+        "rules_resolved": list(rules_resolved or []),
+        "rewrite_guard": rewrite_guard if isinstance(rewrite_guard, dict) else {},
+        "validator": validator if isinstance(validator, dict) else {},
+        "llm_lineage": bool(llm_lineage),
+        "producer_lineage": str(producer_lineage or "").strip() or None,
+        "trace_authority": "read_model_projection_only",
+    }
+
+
+def build_optimization_analyst_summary(
+    *,
+    optimization_source: OptimizationSource,
+    steps: list[str] | None = None,
+    explicit_optimize_intent: bool = False,
+) -> list[str]:
+    """Plain-language change summary (≤3 lines). Shown only on explicit optimize/review ask."""
+    if not explicit_optimize_intent:
+        return []
+    lines: list[str] = []
+    step_set = set(steps or [])
+    if "or_chain_to_in" in step_set:
+        lines.append("Grouped repeated field matches into a single filter.")
+    if optimization_source == "compiler" and "early_projection" in step_set:
+        lines.append("Reduced columns before aggregation where safe.")
+    if optimization_source == "compiler" and not step_set:
+        lines.append("Search structure was tightened during compilation.")
+    if not lines:
+        lines.append("No safe automatic query changes were applied.")
+    return lines[:3]
+
+
+def should_surface_optimization_advisory(*, explicit_optimize_intent: bool) -> bool:
+    """Advisory prose only when the analyst explicitly asked to optimize or review SPL."""
+    return bool(explicit_optimize_intent)
