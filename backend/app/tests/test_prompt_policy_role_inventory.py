@@ -23,8 +23,10 @@ from app.llm.prompts import PROMPT_CONTRACTS
 from app.llm.registry_settings import ROLE_DEFAULTS, ROLE_ENV_MAP
 from app.llm.sidecar_clients import _REASONING_ALLOWED_ROLES
 
-#: Measured at 29933dda. Rises only with a deliberate, reviewed role addition.
-_EXPECTED_ROLE_COUNT = 25
+#: Measured at 29933dda; 25 -> 26 for OPTIONAL_PHASE_S Layer 3 `spl_optimization_llm`,
+#: a deliberate reviewed addition with an OFF_REGISTRY_ROLES call site and a contract.
+#: Rises only with a deliberate, reviewed role addition.
+_EXPECTED_ROLE_COUNT = 26
 
 #: Measured at 29933dda. The master plan named four blocked reasoners; the live
 #: allowlist blocks seven by the identical mechanism. Recorded as the reproved set.

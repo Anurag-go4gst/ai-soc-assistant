@@ -93,6 +93,15 @@ OFF_REGISTRY_ROLES: dict[str, str] = {
         "app/chat/semantic_t4_understanding.py::_build_semantic_t4_user_prompt via "
         "resolve_local_primary_endpoint + LocalChatClient; no registry entry of any kind"
     ),
+    # OPTIONAL_PHASE_S Layer 3. Builds the synthesis client directly, so it has no
+    # ROLE_DEFAULTS row and deliberately no sidecar timeout: a _ROLE_TIMEOUT_SECONDS
+    # entry would claim a wrapper bound that never applies to this call path.
+    "spl_optimization_llm": (
+        "app/spl/spl_optimization_llm.py::SPL_OPTIMIZATION_LLM_ROLE, invoked from "
+        "apply_optimization_llm via build_synthesis_client_from_settings; reached from "
+        "app/spl/spl_optimization_chain.py under ai_soc_spl_optimization_llm_enabled "
+        "(default false); no registry entry of any kind"
+    ),
     # The second pass of SPL authoring. Shares spl_advisory_generator's registry entry
     # but has a distinct prompt payload and a hard one-attempt bound (P2-owned).
     "spl_repair": (

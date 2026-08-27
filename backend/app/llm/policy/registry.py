@@ -185,6 +185,51 @@ _CONTRACTS: tuple[RoleContract, ...] = (
         owning_workstream="B_SPL",
     ),
     _c(
+        role_id="spl_optimization_llm",
+        why_llm=(
+            "When no deterministic rewrite is provably safe, propose one bounded "
+            "efficiency revision. Abstention is the expected outcome; the value is the "
+            "occasional safe rewrite deterministic rules cannot prove."
+        ),
+        authoritative_inputs=(
+            "selected_candidate_spl_v1",
+            "triggered_efficiency_rule_ids",
+            "governed_time_scope",
+            "required_filters_and_output_fields",
+        ),
+        non_authoritative_context=("original_investigation_question",),
+        system_instruction=(
+            "Propose an efficiency revision only when it is both observably more "
+            "efficient under a named quality rule and semantics-preserving. If either "
+            "is uncertain, abstain with NO_SAFE_OPTIMIZATION. Never remove, add or move "
+            "a wildcard, never swap NOT for != or the reverse, never invent or drop "
+            "governed time bounds, an index, sourcetype, field, lookup or value, and "
+            "never change boolean grouping, required filters, required output fields, "
+            "aggregation meaning or result limit. The candidate is review-only and is "
+            f"never execution eligible. {_NO_INVENT} {_ADVISORY} {_JSON_ONLY}"
+        ),
+        dynamic_context=("candidate_spl_v1", "advisory_rules", "user_query"),
+        output_schema="spl_optimization",
+        few_shot_set="fewshot:spl_optimization_abstain_v1",
+        negative_example_set="negative:spl_semantic_v1",
+        model_class="general_structured_reasoner",
+        decoding="deterministic",
+        retry_repair_policy="exactly one pass; no optimization loop, no repair attempt",
+        allowed_authority=("propose_candidate_spl",),
+        extra_prohibited_authority=(
+            "marking_candidate_execution_eligible",
+            "deciding_whether_its_own_rewrite_is_safe",
+            "forcing_a_rewrite_of_valid_spl",
+            "second_optimization_pass",
+        ),
+        validator="assert_rewrite_preserves (match semantics + RQC) then the existing SPL chain",
+        fallback="retain candidate_spl_v1 unchanged",
+        trace_fields=_PROVENANCE_TRACE + ("optimization_trace.optimization_llm.outcome",),
+        prompt_template_id="tmpl.spl_optimization_llm",
+        prompt_version="1.1.0",
+        owning_workstream="B_SPL",
+    ),
+    _c(
         role_id="spl_repair",
         why_llm="Correct a rejected candidate against deterministic loss findings, once.",
         authoritative_inputs=(

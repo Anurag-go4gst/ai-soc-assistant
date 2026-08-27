@@ -62,7 +62,9 @@ def test_no_contract_exists_for_an_uninventoried_role() -> None:
 
 
 def test_contract_count_matches_inventory() -> None:
-    assert len(ROLE_CONTRACTS) == len(role_ids()) == 25
+    # 25 -> 26: OPTIONAL_PHASE_S Layer 3 `spl_optimization_llm` is a real live role with
+    # an OFF_REGISTRY_ROLES call site, so it gets a contract rather than being hidden.
+    assert len(ROLE_CONTRACTS) == len(role_ids()) == 26
 
 
 @pytest.mark.parametrize("role_id", sorted(ROLE_CONTRACTS))
