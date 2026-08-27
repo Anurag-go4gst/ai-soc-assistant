@@ -166,6 +166,14 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
         {showFullAnswer && message.trace?.planning_outcome ? (
           <PlanningOutcomeBanner outcome={message.trace.planning_outcome} />
         ) : null}
+        {showFullAnswer && message.trace?.investigation_approval ? (
+          <InvestigationPlanApprovalCard
+            approval={message.trace.investigation_approval}
+            busy={investigationBusy}
+            originalQuery={message.trace.user_query}
+            onReview={onInvestigationReview}
+          />
+        ) : null}
         {showFullAnswer && message.trace?.analyst_response ? (
           <div className="w-full min-w-0 space-y-2">
             {message.trace.human_review?.sop_reference ? (
@@ -176,16 +184,9 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
             <AnalystResponseCard
               response={message.trace.analyst_response}
               foundationSecGovernance={message.trace.foundation_sec_governance}
+              canonicalInvestigationPlanElsewhere={Boolean(message.trace.investigation_approval)}
             />
           </div>
-        ) : null}
-        {showFullAnswer && message.trace?.investigation_approval ? (
-          <InvestigationPlanApprovalCard
-            approval={message.trace.investigation_approval}
-            busy={investigationBusy}
-            originalQuery={message.trace.user_query}
-            onReview={onInvestigationReview}
-          />
         ) : null}
         {showFullAnswer && message.trace?.execution ? (
           <ExecutionReconciliationCard execution={message.trace.execution} />

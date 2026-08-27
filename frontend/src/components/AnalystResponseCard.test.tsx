@@ -59,4 +59,22 @@ describe('AnalystResponseCard SPL utility rendering', () => {
     expect(container.querySelectorAll('pre').length).toBe(0);
     expect(container.querySelector('code')).toBeNull();
   });
+
+  it('does not label guidance as Investigation plan when canonical approval card owns the plan', () => {
+    render(
+      <AnalystResponseCard
+        response={{
+          response_profile: 'full',
+          direct_answer_summary: 'Review the pending investigation plan.',
+          recommended_actions: [
+            'P1 — Correlate failed then successful SSH',
+            'P2 — Confirm admin session source',
+          ],
+        }}
+        canonicalInvestigationPlanElsewhere
+      />,
+    );
+    expect(screen.queryByText('Investigation plan')).not.toBeInTheDocument();
+    expect(screen.getByText('Recommended checks')).toBeInTheDocument();
+  });
 });

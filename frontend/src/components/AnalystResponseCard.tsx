@@ -38,9 +38,12 @@ const PHASE_ACCENT: Record<PhaseAccent, { node: string; label: string }> = {
 export function AnalystResponseCard({
   response,
   foundationSecGovernance,
+  canonicalInvestigationPlanElsewhere = false,
 }: {
   response: AnalystResponseEnvelope;
   foundationSecGovernance?: FoundationSecGovernance | null;
+  /** When the Approve/Edit/Cancel investigation card owns the plan, do not label guidance as a peer plan. */
+  canonicalInvestigationPlanElsewhere?: boolean;
 }) {
   const [expandedInteractiveActionId, setExpandedInteractiveActionId] = useState<string | null>(null);
   const [pendingInteractiveActionId, setPendingInteractiveActionId] = useState<string | null>(null);
@@ -429,9 +432,14 @@ export function AnalystResponseCard({
   }
 
   if (showInvestigationPlan || interactiveActions.length || response.escalation_criteria?.length || response.closure_conditions?.length) {
+    const planPhaseLabel = canonicalInvestigationPlanElsewhere
+      ? 'Recommended checks'
+      : hasPriorityInvestigation
+        ? 'Investigation plan'
+        : 'What to look for';
     phases.push({
       key: 'plan',
-      label: hasPriorityInvestigation ? 'Investigation plan' : 'What to look for',
+      label: planPhaseLabel,
       icon: <ListChecks className="h-3.5 w-3.5" />,
       accent: 'amber',
       chips: [{ text: 'V.AI SOC governed', variant: 'outline' }],

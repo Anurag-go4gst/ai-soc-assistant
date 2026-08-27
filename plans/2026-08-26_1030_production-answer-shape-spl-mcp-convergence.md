@@ -691,11 +691,11 @@ Starts after Phase **3** closes (objective persistence + state contract + B4 + e
   - **Depends on:** 3.7
   - **Evidence:** DONE 2026-08-27. Re-Verify: `ChatBubble.progress.test.tsx` + `InvestigationOutcomeCard.test.tsx` → **10 passed** (no Experience Center copy on live; operational progress distinct from findings). States A–E contract already in `answer_state_contract_v1.md` (2.1). ChatPanel untouched.
 
-- [ ] **6.2** — Plan presentation
+- [x] **6.2** — Plan presentation
   - **Do:** Canonical plan surface only (2.2 decision).
   - **Verify:** No dual cards; state A order test.
   - **Depends on:** 6.1
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. InvestigationPlanApprovalCard renders before AnalystResponseCard when present; guidance relabelled "Recommended checks" (not a peer "Investigation plan"). Vitest AnalystResponseCard + InvestigationPlanApprovalCard → **6 passed**. ChatPanel untouched.
 
 - [ ] **6.3** — Evidence / findings
   - **Do:** Findings from accepted EvidenceState only; no fabricated MCP/RAG; progress events never become SourceEvidence.
