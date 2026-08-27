@@ -1,0 +1,349 @@
+{
+  "applied_count": 0,
+  "false_positives": 0,
+  "rows": [
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "CV.MULTI.01A",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "CV.MULTI.01B",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "CV.MULTI.01C",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "CV.NOMCP.01",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "CV.SOP.01",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "CV.SPL.01",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "CV.SPL.02",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "CV.TRACE.01",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "CV.TRACE.02",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "CV.TRACE.03",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "compiler.intent.rolling",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "compiler.intent.sequence",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "compiler.intent.trend",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "compiler.plan.ot_modbus_unauthorized_write",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.after_hours_login_critical_asset",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.auth_account_lockout_trend",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.auth_failed_login_spike",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.auth_failed_login_top_users_exclude_service_accounts",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.auth_mfa_failure_spike",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.auth_new_source_ip",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.auth_success_after_failure",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.aws_console_success_logins_by_user",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.aws_iam_policy_modifications",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.aws_security_group_modifications",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.cert_in_hash_match",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.cii_scan_detection",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.cisco_asa_ioc_lookup",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.cisco_cleartext_to_rtu",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.cisco_duo_mfa_fatigue",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.cisco_stealthwatch_scan_with_asset",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.dns_beaconing_candidate",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.edr_powershell_suspicious_command",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.edr_suspicious_process",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.email_phishing_header_review",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.endpoint_ransomware_impact_review",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.firewall_deny_spike",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.loto_breaker_correlation",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.notable_critical_review_mitre",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.ot_firmware_drift",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.ot_master_spoof",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.ot_tftp_hmi",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.physical_access_impossible",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.privileged_account_failure",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.sample_dlp_exfiltration_volume",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.sample_ioc_correlation_indicator_match",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.sample_powershell_suspicious_execution",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.sample_threshold_anomaly_volume_spike",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.scada_perf_threshold_anomaly",
+      "steps": []
+    },
+    {
+      "applied": false,
+      "authority_ok": true,
+      "retained_v1": true,
+      "row_id": "tpl.vpn_failure_spike",
+      "steps": []
+    }
+  ]
+}
