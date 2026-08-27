@@ -1,0 +1,475 @@
+{
+  "authority_contract": {
+    "approved": "IDENTICAL",
+    "execution_eligible": "ONE_WAY_TIGHTEN_CEILING",
+    "normalized_spl": "IDENTICAL_FOR_PASS_AND_NO_SAFE_OPTIMIZATION__OPTIMIZED_MAY_DIFF_UNDER_GUARD"
+  },
+  "base_sha": "11a273653c3acb1a34f715ee417e2d94447b762d",
+  "freeze_id": "spl_optimization_authority_baseline_v1",
+  "notes": "advisory_count / findings / provenance keys are expected to change; approved must stay identical; execution_eligible may only tighten (true\u2192false enumerated); normalized_spl identity for PASS/NO_SAFE_OPTIMIZATION rows.",
+  "row_count": 49,
+  "rows": [
+    {
+      "approved": false,
+      "bank": "convergence",
+      "candidate_spl": null,
+      "execution_eligible": false,
+      "family": "MULTI",
+      "normalized_spl": null,
+      "pins_execution_eligible": null,
+      "producer_path": "convergence_pin",
+      "row_id": "CV.MULTI.01A"
+    },
+    {
+      "approved": false,
+      "bank": "convergence",
+      "candidate_spl": null,
+      "execution_eligible": false,
+      "family": "MULTI",
+      "normalized_spl": null,
+      "pins_execution_eligible": null,
+      "producer_path": "convergence_pin",
+      "row_id": "CV.MULTI.01B"
+    },
+    {
+      "approved": false,
+      "bank": "convergence",
+      "candidate_spl": null,
+      "execution_eligible": false,
+      "family": "MULTI",
+      "normalized_spl": null,
+      "pins_execution_eligible": null,
+      "producer_path": "convergence_pin",
+      "row_id": "CV.MULTI.01C"
+    },
+    {
+      "approved": false,
+      "bank": "convergence",
+      "candidate_spl": null,
+      "execution_eligible": false,
+      "family": "NOMCP",
+      "normalized_spl": null,
+      "pins_execution_eligible": null,
+      "producer_path": "convergence_pin",
+      "row_id": "CV.NOMCP.01"
+    },
+    {
+      "approved": false,
+      "bank": "convergence",
+      "candidate_spl": null,
+      "execution_eligible": false,
+      "family": "SOP",
+      "normalized_spl": null,
+      "pins_execution_eligible": null,
+      "producer_path": "convergence_pin",
+      "row_id": "CV.SOP.01"
+    },
+    {
+      "approved": false,
+      "bank": "convergence",
+      "candidate_spl": null,
+      "execution_eligible": false,
+      "family": "SPL",
+      "normalized_spl": null,
+      "pins_execution_eligible": false,
+      "producer_path": "convergence_pin",
+      "row_id": "CV.SPL.01"
+    },
+    {
+      "approved": false,
+      "bank": "convergence",
+      "candidate_spl": null,
+      "execution_eligible": false,
+      "family": "SPL",
+      "normalized_spl": null,
+      "pins_execution_eligible": false,
+      "producer_path": "convergence_pin",
+      "row_id": "CV.SPL.02"
+    },
+    {
+      "approved": false,
+      "bank": "convergence",
+      "candidate_spl": null,
+      "execution_eligible": false,
+      "family": "TRACE",
+      "normalized_spl": null,
+      "pins_execution_eligible": null,
+      "producer_path": "convergence_pin",
+      "row_id": "CV.TRACE.01"
+    },
+    {
+      "approved": false,
+      "bank": "convergence",
+      "candidate_spl": null,
+      "execution_eligible": false,
+      "family": "TRACE",
+      "normalized_spl": null,
+      "pins_execution_eligible": null,
+      "producer_path": "convergence_pin",
+      "row_id": "CV.TRACE.02"
+    },
+    {
+      "approved": false,
+      "bank": "convergence",
+      "candidate_spl": null,
+      "execution_eligible": false,
+      "family": "TRACE",
+      "normalized_spl": null,
+      "pins_execution_eligible": null,
+      "producer_path": "convergence_pin",
+      "row_id": "CV.TRACE.03"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now | eval user_norm=lower(coalesce(user, username, src_user, Account_Name, TargetUserName, \"unknown\")), src_ip_norm=coalesce(src_ip, src, source, source_ip, Source_Network_Address, \"unknown\") | sort 0 + _time | streamstats time_window=10m dc(user_norm) as distinct_count by src_ip_norm | where distinct_count > 1 | stats max(distinct_count) as distinct_count by src_ip_norm",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "plan_compiler",
+      "row_id": "compiler.intent.rolling"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now (action=success OR EventCode=4624) (EventCode=4723 OR EventCode=4724 OR action=password_change) | eval event_type=if((EventCode=4723 OR EventCode=4724 OR action=password_change), \"password_change\", if((action=success OR EventCode=4624), \"successful_login\", null)) | sort 0 + _time | streamstats window=1 current=f last(event_type) as prev_event last(_time) as prev_time by user | where prev_event=\"password_change\" AND event_type=\"successful_login\" AND (_time-prev_time)<=300 | stats count as sequence_matches earliest(_time) as first_match_epoch latest(_time) as last_match_epoch by user | eval first_match=strftime(first_match_epoch, \"%Y-%m-%d %H:%M:%S\"), last_match=strftime(last_match_epoch, \"%Y-%m-%d %H:%M:%S\") | fields - first_match_epoch last_match_epoch",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "plan_compiler",
+      "row_id": "compiler.intent.sequence"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now (action=failure OR action=failed OR EventCode=4625) | timechart span=1h count as event_count | sort 0 _time",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "plan_compiler",
+      "row_id": "compiler.intent.trend"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<ot_network_index> sourcetype=<ot_network_sourcetype> earliest=-24h latest=now protocol=\"modbus\" | eval src_ip_norm=lower(coalesce(src_ip, \"unknown\")), dest_ip_norm=lower(coalesce(dest_ip, \"unknown\")) | stats count as event_count earliest(_time) as first_seen_epoch latest(_time) as last_seen_epoch by src_ip_norm, dest_ip_norm | eval first_seen=strftime(first_seen_epoch, \"%Y-%m-%d %H:%M:%S\"), last_seen=strftime(last_seen_epoch, \"%Y-%m-%d %H:%M:%S\") | fields - first_seen_epoch last_seen_epoch | sort - event_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "plan_compiler",
+      "row_id": "compiler.plan.ot_modbus_unauthorized_write"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now (action=success OR action=failure) | where (date_hour<7) OR (date_hour>=19) | stats count as after_hours_logins dc(host) as distinct_hosts values(host) as hosts values(src) as source_ips min(_time) as first_seen max(_time) as last_seen by user | sort -after_hours_logins | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.after_hours_login_critical_asset"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now signature=account_locked | timechart span=1h count as lockout_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.auth_account_lockout_trend"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-60m latest=now action=failure | stats count as failed_logins dc(user) as distinct_users min(_time) as first_seen max(_time) as last_seen values(action) as action by host, src | where failed_logins >= 25 | sort -failed_logins | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.auth_failed_login_spike"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now action=failure NOT (user=\"svc_*\" OR user=\"service_*\" OR user=\"*_svc\") | stats count as fail_count values(src) as source_ips min(_time) as first_seen max(_time) as last_seen by user | sort -fail_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.auth_failed_login_top_users_exclude_service_accounts"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-60m latest=now action=failure (mfa=* OR factor=* OR authentication_method=mfa) | stats count as mfa_failures dc(user) as distinct_users values(src) as src min(_time) as first_seen max(_time) as last_seen by user | where mfa_failures >= 5 | sort -mfa_failures | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.auth_mfa_failure_spike"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now action=success | stats count as login_count min(_time) as first_seen max(_time) as last_seen values(action) as action by user, host, src | where NOT cidrmatch(\"10.0.0.0/8\", src) | sort -login_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.auth_new_source_ip"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-60m latest=now (action=failure OR action=success) | stats count(eval(action=\"failure\")) as fail_count count(eval(action=\"success\")) as success_count values(src) as source_ips values(host) as hosts min(eval(if(action=\"failure\", _time, null()))) as first_failure max(eval(if(action=\"success\", _time, null()))) as last_success max(_time) as last_event by user | where fail_count >= 5 AND success_count >= 1 | eval risk=\"P2 review - successful login after repeated failures\" | table user hosts source_ips fail_count success_count first_failure last_success last_event risk | sort -fail_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.auth_success_after_failure"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<aws_index> sourcetype=<aws_cloudtrail_sourcetype> earliest=-24h latest=now eventSource=signin.amazonaws.com eventName=ConsoleLogin responseElements.ConsoleLogin=Success | stats count as login_count values(sourceIPAddress) as source_ips values(userAgent) as user_agents min(_time) as first_seen max(_time) as last_seen by userIdentity.arn userIdentity.userName awsRegion | sort -login_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.aws_console_success_logins_by_user"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<aws_index> sourcetype=<aws_cloudtrail_sourcetype> earliest=-24h latest=now eventSource=iam.amazonaws.com (eventName=CreatePolicy OR eventName=CreatePolicyVersion OR eventName=SetDefaultPolicyVersion OR eventName=DeletePolicy OR eventName=DeletePolicyVersion OR eventName=PutUserPolicy OR eventName=PutRolePolicy OR eventName=PutGroupPolicy OR eventName=DeleteUserPolicy OR eventName=DeleteRolePolicy OR eventName=DeleteGroupPolicy OR eventName=AttachUserPolicy OR eventName=AttachRolePolicy OR eventName=AttachGroupPolicy OR eventName=DetachUserPolicy OR eventName=DetachRolePolicy OR eventName=DetachGroupPolicy) | stats count as change_count values(eventName) as event_names values(requestParameters.policyArn) as policy_arns values(requestParameters.userName) as target_users values(requestParameters.roleName) as target_roles values(sourceIPAddress) as source_ips min(_time) as first_seen max(_time) as last_seen by userIdentity.arn userIdentity.userName awsRegion | sort -change_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.aws_iam_policy_modifications"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<aws_index> sourcetype=<aws_cloudtrail_sourcetype> earliest=-24h latest=now eventSource=ec2.amazonaws.com (eventName=AuthorizeSecurityGroupIngress OR eventName=AuthorizeSecurityGroupEgress OR eventName=RevokeSecurityGroupIngress OR eventName=RevokeSecurityGroupEgress OR eventName=ModifySecurityGroupRules OR eventName=CreateSecurityGroup OR eventName=DeleteSecurityGroup) | stats count as change_count values(eventName) as event_names values(requestParameters.groupId) as security_group_ids values(sourceIPAddress) as source_ips min(_time) as first_seen max(_time) as last_seen by userIdentity.arn userIdentity.userName awsRegion | sort -change_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.aws_security_group_modifications"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=-24h latest=now (action=download OR event_type=file_download) | lookup cert_in_ioc.csv hash as file_hash OUTPUT ioc_label advisory_id | where isnotnull(ioc_label) | stats count as match_count values(ioc_label) as ioc_matches values(advisory_id) as advisories earliest(_time) as first_seen latest(_time) as last_seen by host file_hash file_name | sort -match_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.cert_in_hash_match"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now | stats dc(dest_ip) as scanned_hosts count as scan_events by src_ip | lookup cii_registry.csv ip as dest_ip OUTPUT cii_node cii_tier | where isnotnull(cii_node) | sort -scan_events | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.cii_scan_detection"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<cisco_asa_index> sourcetype=<cisco_asa_sourcetype> earliest=-24h latest=now dest_ip=* | lookup power_sector_iocs.csv indicator_ip as dest_ip OUTPUT indicator_ip as matched_ioc | where isnotnull(matched_ioc) | stats count as event_count values(action) as actions by src_ip dest_ip matched_ioc | table src_ip dest_ip actions event_count matched_ioc | sort -event_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.cisco_asa_ioc_lookup"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<cisco_firewall_index> sourcetype=<cisco_firewall_sourcetype> earliest=-24h latest=now (dest_port=80 OR dest_port=5900 OR app=HTTP OR app=VNC) | where dest_ip IN ([ search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-7d latest=now tag=phase1_rtu | stats count by ip | fields ip | rename ip as dest_ip | head 100 ]) | stats count as session_count values(app) as applications values(dest_port) as dest_ports min(_time) as first_seen max(_time) as last_seen by src_ip dest_ip | sort -session_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.cisco_cleartext_to_rtu"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<cisco_duo_index> sourcetype=<cisco_duo_sourcetype> earliest=-24h latest=now factor=push | transaction user maxspan=15m maxevents=20 | where eventcount>=3 AND mvcount(result)>1 AND mvindex(result,-1)=\"allow\" | stats count as fatigue_sequences values(result) as auth_results min(_time) as first_seen max(_time) as last_seen by user | sort -fatigue_sequences | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.cisco_duo_mfa_fatigue"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<stealthwatch_index> sourcetype=<stealthwatch_sourcetype> earliest=-24h latest=now (alert_type=horizontal_scan OR threat_category=scan) | lookup ot_asset_inventory.csv ip as src_ip OUTPUT asset_name asset_type criticality | where isnotnull(asset_name) | stats count as scan_events values(asset_name) as assets values(asset_type) as asset_types values(criticality) as criticality min(_time) as first_seen max(_time) as last_seen by src_ip | sort -scan_events | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.cisco_stealthwatch_scan_with_asset"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<dns_index> sourcetype=<dns_sourcetype> earliest=-24h latest=now | stats count as DNS_query_count values(query) as domain values(dest) as dest values(bytes_out) as bytes_out dc(query) as distinct_domains min(_time) as first_seen max(_time) as last_seen by src | eval observation_window=last_seen-first_seen | eval periodicity=if(DNS_query_count>1,round(observation_window/(DNS_query_count-1),2),null()) | eval jitter=\"requires_review\" | eval rare_domain_indicator=if(distinct_domains<=3 AND DNS_query_count>=20,\"review\",\"unknown\") | eval user_host_association=src | where DNS_query_count >= 20 | table src dest domain DNS_query_count periodicity jitter bytes_out rare_domain_indicator user_host_association first_seen last_seen | sort -DNS_query_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.dns_beaconing_candidate"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=-24h latest=now (process_name=powershell.exe OR process_name=pwsh.exe OR command_line=\"*powershell*\" OR script_block_text=\"*\") | eval encoded_command_flag=if(match(command_line,\"(?i)(-enc|-encodedcommand)\"),\"true\",\"false\") | stats count as event_count values(command_line) as command_line values(script_block_text) as script_block_text values(parent_process) as parent_process values(process_name) as process_name values(event_id) as event_id values(encoded_command_flag) as encoded_command_flag values(dest) as network_connection min(_time) as first_seen max(_time) as last_seen by host,user | sort -event_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.edr_powershell_suspicious_command"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=-24h latest=now (process_name=\"rundll32.exe\" OR process_name=\"regsvr32.exe\" OR process_name=\"mshta.exe\" OR process_name=\"wscript.exe\" OR process_name=\"cscript.exe\" OR process_name=\"certutil.exe\" OR process_name=\"bitsadmin.exe\" OR process_name=\"msbuild.exe\" OR command_line=\"*-enc*\" OR command_line=\"*downloadstring*\") | stats count as event_count values(command_line) as command_line values(parent_process) as parent_process values(process_path) as process_path values(signature_status) as signature_status values(dest) as network_connection min(_time) as first_seen max(_time) as last_seen by host,user,process_name | sort -event_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.edr_suspicious_process"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<mail_index> sourcetype=<mail_sourcetype> earliest=-24h latest=now | stats count values(sender) as sender values(return_path) as return_path values(reply_to) as reply_to values(spf_result) as SPF values(dkim_result) as DKIM values(dmarc_result) as DMARC by recipient | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.email_phishing_header_review"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=-24h latest=now | stats count as file_rename_count values(extension_pattern) as extension_pattern values(affected_paths) as affected_paths values(process_name) as process_name min(_time) as first_seen max(_time) as last_seen by host | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.endpoint_ransomware_impact_review"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<firewall_index> sourcetype=<firewall_sourcetype> earliest=-24h latest=now action=deny | stats count as deny_count dc(dest_port) as distinct_ports values(dest_port) as dest_ports values(app) as apps min(_time) as first_seen max(_time) as last_seen by src, dest | where deny_count >= 50 | sort -deny_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.firewall_deny_spike"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now (action=breaker_command OR command=breaker_update) | stats count as command_count values(command) as commands min(_time) as cmd_time by host src_ip | join max=1 type=left host [ search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now tag=loto active=1 | stats latest(loto_state) as loto_state values(work_order) as work_orders by host | head 100 ] | where loto_state=active AND command_count>0 | table host src_ip commands loto_state work_orders cmd_time | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.loto_breaker_correlation"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> earliest=-6h latest=now | eval rule_name=coalesce(rule_name,process_name,\"edr_detection\") | eval mitre_technique=coalesce(mitre_technique_id,\"T1059.001\") | eval mitre_tactic=coalesce(mitre_tactic,\"Execution\") | eval urgency=case(match(severity,\"(?i)critical\"),\"critical\",match(severity,\"(?i)high\"),\"high\",true(),\"medium\") | stats count as alert_count values(rule_name) as rule_name values(mitre_technique) as mitre_technique values(mitre_tactic) as mitre_tactic values(urgency) as urgency values(severity) as severity min(_time) as first_seen max(_time) as last_seen by host | where urgency IN (\"critical\",\"high\") | sort -alert_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.notable_critical_review_mitre"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now | stats latest(banner) as observed_banner latest(firmware) as observed_firmware by ip | lookup ot_asset_inventory.csv ip OUTPUT expected_firmware asset_name asset_type | where isnotnull(expected_firmware) AND observed_firmware!=expected_firmware | table ip asset_name asset_type observed_firmware expected_firmware | sort ip | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.ot_firmware_drift"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now (action=poll OR message_type=broadcast) | lookup master_stations.csv ip as src_ip OUTPUT station_name allowed | where allowed!=1 OR isnull(allowed) | stats count as poll_events values(station_name) as claimed_stations min(_time) as first_seen max(_time) as last_seen by src_ip | sort -poll_events | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.ot_master_spoof"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<network_index> sourcetype=<network_traffic_sourcetype> earliest=-24h latest=now (dest_port=69 OR app=tftp) | lookup ot_assets.csv ip as src_ip OUTPUT asset_name asset_type hmi_profile | where asset_type=HMI OR isnotnull(hmi_profile) | stats count as tftp_events values(dest_ip) as tftp_targets values(asset_name) as hmi_assets min(_time) as first_seen max(_time) as last_seen by src_ip | sort -tftp_events | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.ot_tftp_hmi"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now action=success | lookup physical_access.csv user OUTPUT badge_site badge_time | eval login_site=coalesce(substation, host_site, host) | where isnotnull(badge_site) AND badge_site!=login_site | stats count as mismatch_events values(badge_site) as badge_sites values(login_site) as login_sites by user host | sort -mismatch_events | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.physical_access_impossible"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now (action=success OR action=failure) (user=\"*admin*\" OR user=\"*_adm\" OR user=\"administrator\" OR user=\"root\") NOT (user=\"svc_*\" OR user=\"service_*\" OR user=\"*_svc\") | stats count as event_count count(eval(action=\"failure\")) as fail_count count(eval(action=\"success\")) as success_count values(src) as source_ips values(host) as hosts min(_time) as first_seen max(_time) as last_seen by user | sort -event_count | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.privileged_account_failure"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=* earliest=-24h latest=now | head 100 /* sample:sample_dlp_exfiltration_volume */",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.sample_dlp_exfiltration_volume"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=* earliest=-24h latest=now | head 100 /* sample:sample_ioc_correlation_indicator_match */",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.sample_ioc_correlation_indicator_match"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=* earliest=-24h latest=now | head 100 /* sample:sample_powershell_suspicious_execution */",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.sample_powershell_suspicious_execution"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=* earliest=-24h latest=now | head 100 /* sample:sample_threshold_anomaly_volume_spike */",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.sample_threshold_anomaly_volume_spike"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<scada_perf_index> sourcetype=<scada_sourcetype> earliest=-30d latest=now rtu_id=* transmission_error_count=* | bin _time span=1h | stats avg(transmission_error_count) as hourly_metric by _time rtu_id | eval is_recent=if(_time>=relative_time(now(), \"-24h\"), 1, 0) | eventstats avg(eval(if(is_recent=0, hourly_metric, null()))) as baseline_avg stdev(eval(if(is_recent=0, hourly_metric, null()))) as baseline_stdev by rtu_id | eval z_score=if(baseline_stdev>0, (hourly_metric-baseline_avg)/baseline_stdev, null()) | where is_recent=1 AND z_score>=3 | table _time rtu_id hourly_metric baseline_avg baseline_stdev z_score | sort -z_score | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.scada_perf_threshold_anomaly"
+    },
+    {
+      "approved": false,
+      "bank": "spl_golden",
+      "candidate_spl": "search index=<vpn_index> sourcetype=<vpn_sourcetype> earliest=-24h latest=now action=failure | stats count as failed_vpn_logins dc(src) as distinct_sources values(src) as source_ips min(_time) as first_seen max(_time) as last_seen by user | where failed_vpn_logins >= 10 | sort -failed_vpn_logins | head 100",
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "producer_path": "template",
+      "row_id": "tpl.vpn_failure_spike"
+    }
+  ],
+  "schema_version": 1
+}
