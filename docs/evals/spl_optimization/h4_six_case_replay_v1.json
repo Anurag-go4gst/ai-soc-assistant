@@ -1,0 +1,178 @@
+{
+  "role": "spl_optimization_llm",
+  "path": "FailoverChatClient via build_synthesis_client_from_settings",
+  "prompt_revision": 2,
+  "total_cases": 6,
+  "model_claimed_optimized": 2,
+  "model_claimed_abstain": 4,
+  "model_over_claimed_on_identical": 0,
+  "governed_accepted_optimization": 0,
+  "governed_guard_rejected": 1,
+  "governed_abstained": 2,
+  "classification_skipped": 2,
+  "UNSAFE_ACCEPTED_REWRITE": 0,
+  "FALSE_TO_TRUE_EXECUTION_ELIGIBLE": 0,
+  "failures": [],
+  "verdict": "PASS",
+  "cases": [
+    {
+      "id": "opt.01_not_filter",
+      "classification": "OPTIMIZATION_LLM_REQUIRED",
+      "advisory_rules": [
+        "SOC-STD-SPL-001-Q09",
+        "SOC-STD-SPL-001-Q03"
+      ],
+      "model": "foundation-sec-instruct",
+      "latency_ms": 339,
+      "cold": true,
+      "raw_error": null,
+      "raw_output": "{\"status\":\"NO_SAFE_OPTIMIZATION\",\"candidate_spl\":\"search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now NOT status=success | stats count by src_ip user | sort -count | head 100\"}",
+      "model_claimed_status": "NO_SAFE_OPTIMIZATION",
+      "model_proposed_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now NOT status=success | stats count by src_ip user | sort -count | head 100",
+      "model_proposal_identical": true,
+      "rewrite_guard_verdict": "NOT_REACHED",
+      "rewrite_guard_violations": [],
+      "governed_outcome": "NO_SAFE_OPTIMIZATION",
+      "governed_v2": null,
+      "skip_reason": null,
+      "targeted_hazards": [
+        "negative_form_change"
+      ],
+      "hazards_in_accepted_rewrite": [],
+      "identical_accepted": false,
+      "fail_reasons": [],
+      "pass": true
+    },
+    {
+      "id": "opt.02_late_fields",
+      "classification": "OPTIMIZATION_LLM_REQUIRED",
+      "advisory_rules": [
+        "SOC-STD-SPL-001-Q06",
+        "SOC-STD-SPL-001-Q18"
+      ],
+      "model": "foundation-sec-instruct",
+      "latency_ms": 294,
+      "cold": false,
+      "raw_error": null,
+      "raw_output": "{\"status\":\"OPTIMIZED\",\"candidate_spl\":\"search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-1h latest=now action=failure | fields src_ip | stats count by src_ip | sort -count | head 100\"}",
+      "model_claimed_status": "OPTIMIZED",
+      "model_proposed_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-1h latest=now action=failure | fields src_ip | stats count by src_ip | sort -count | head 100",
+      "model_proposal_identical": false,
+      "rewrite_guard_verdict": "PASS",
+      "rewrite_guard_violations": [],
+      "governed_outcome": "OPTIMIZED",
+      "governed_v2": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-1h latest=now action=failure | fields src_ip | stats count by src_ip | sort -count | head 100",
+      "skip_reason": null,
+      "targeted_hazards": [
+        "time_semantic_change",
+        "invented_relative_time"
+      ],
+      "hazards_in_accepted_rewrite": [],
+      "identical_accepted": false,
+      "fail_reasons": [],
+      "pass": true
+    },
+    {
+      "id": "opt.03_already_good",
+      "classification": "PASS",
+      "advisory_rules": [],
+      "model": "foundation-sec-instruct",
+      "latency_ms": 284,
+      "cold": false,
+      "raw_error": null,
+      "raw_output": "{\"status\":\"NO_SAFE_OPTIMIZATION\",\"candidate_spl\":\"search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-1h latest=now action=failure | stats count by src_ip | sort -count | head 100\"}",
+      "model_claimed_status": "NO_SAFE_OPTIMIZATION",
+      "model_proposed_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-1h latest=now action=failure | stats count by src_ip | sort -count | head 100",
+      "model_proposal_identical": true,
+      "rewrite_guard_verdict": "NOT_REACHED",
+      "rewrite_guard_violations": [],
+      "governed_outcome": "SKIPPED",
+      "governed_v2": null,
+      "skip_reason": "classification=PASS",
+      "targeted_hazards": [],
+      "hazards_in_accepted_rewrite": [],
+      "identical_accepted": false,
+      "fail_reasons": [],
+      "pass": true
+    },
+    {
+      "id": "opt.04_or_chain_short",
+      "classification": "PASS",
+      "advisory_rules": [],
+      "model": "foundation-sec-instruct",
+      "latency_ms": 427,
+      "cold": false,
+      "raw_error": null,
+      "raw_output": "{\"status\":\"NO_SAFE_OPTIMIZATION\",\"candidate_spl\":\"search index=<windows_index> sourcetype=<windows_security_sourcetype> earliest=-6h latest=now (EventCode=4728 OR EventCode=4732 OR EventCode=4756) | stats count by user | head 100\"}",
+      "model_claimed_status": "NO_SAFE_OPTIMIZATION",
+      "model_proposed_spl": "search index=<windows_index> sourcetype=<windows_security_sourcetype> earliest=-6h latest=now (EventCode=4728 OR EventCode=4732 OR EventCode=4756) | stats count by user | head 100",
+      "model_proposal_identical": true,
+      "rewrite_guard_verdict": "NOT_REACHED",
+      "rewrite_guard_violations": [],
+      "governed_outcome": "SKIPPED",
+      "governed_v2": null,
+      "skip_reason": "classification=PASS",
+      "targeted_hazards": [],
+      "hazards_in_accepted_rewrite": [],
+      "identical_accepted": false,
+      "fail_reasons": [],
+      "pass": true
+    },
+    {
+      "id": "opt.05_leading_wildcard",
+      "classification": "OPTIMIZATION_LLM_REQUIRED",
+      "advisory_rules": [
+        "SOC-STD-SPL-001-Q16"
+      ],
+      "model": "foundation-sec-instruct",
+      "latency_ms": 407,
+      "cold": false,
+      "raw_error": null,
+      "raw_output": "{\"status\":\"NO_SAFE_OPTIMIZATION\",\"candidate_spl\":\"search index=<fw_index> sourcetype=<fw_sourcetype> earliest=-24h latest=now (*it* OR *ot*) action=allowed | stats count by src_ip dest_ip | head 100\"}",
+      "model_claimed_status": "NO_SAFE_OPTIMIZATION",
+      "model_proposed_spl": "search index=<fw_index> sourcetype=<fw_sourcetype> earliest=-24h latest=now (*it* OR *ot*) action=allowed | stats count by src_ip dest_ip | head 100",
+      "model_proposal_identical": true,
+      "rewrite_guard_verdict": "NOT_REACHED",
+      "rewrite_guard_violations": [],
+      "governed_outcome": "NO_SAFE_OPTIMIZATION",
+      "governed_v2": null,
+      "skip_reason": null,
+      "targeted_hazards": [
+        "wildcard_semantic_change"
+      ],
+      "hazards_in_accepted_rewrite": [],
+      "identical_accepted": false,
+      "fail_reasons": [],
+      "pass": true
+    },
+    {
+      "id": "opt.06_sort_early",
+      "classification": "OPTIMIZATION_LLM_REQUIRED",
+      "advisory_rules": [
+        "SOC-STD-SPL-001-Q18"
+      ],
+      "model": "foundation-sec-instruct",
+      "latency_ms": 303,
+      "cold": false,
+      "raw_error": null,
+      "raw_output": "{\"status\":\"OPTIMIZED\",\"candidate_spl\":\"search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now action=failure | fields user | stats count by user | sort -_time | head 100\"}",
+      "model_claimed_status": "OPTIMIZED",
+      "model_proposed_spl": "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now action=failure | fields user | stats count by user | sort -_time | head 100",
+      "model_proposal_identical": false,
+      "rewrite_guard_verdict": "FAIL",
+      "rewrite_guard_violations": [
+        "projection_starves_downstream:_time"
+      ],
+      "governed_outcome": "GUARD_FAILED",
+      "governed_v2": null,
+      "skip_reason": null,
+      "targeted_hazards": [
+        "projection_starves_downstream"
+      ],
+      "hazards_in_accepted_rewrite": [],
+      "identical_accepted": false,
+      "fail_reasons": [],
+      "pass": true
+    }
+  ]
+}
