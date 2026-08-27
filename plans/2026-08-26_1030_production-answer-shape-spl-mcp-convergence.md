@@ -675,11 +675,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
   - **Depends on:** 5.5
   - **Evidence:** DONE 2026-08-27. `_execution_label` treats mock_connector/evidence_source=mock/mode=mock as simulated; SourceEvidence provenance `ai_soc_simulated_mock_mcp`; frontend planningOutcome label SIMULATED. Tests `test_post_p10_mock_mcp_5_6_5_7.py` → **3 passed**; lifecycle still green.
 
-- [ ] **5.7** — No mock-derived remediation/write authority
+- [x] **5.7** — No mock-derived remediation/write authority
   - **Do:** Mock evidence cannot move remediation to ELIGIBLE for real write authority or satisfy compromise for production containment.
   - **Verify:** Negative tests; `CV.MULTI.01C` remediation write authority = NO.
   - **Depends on:** 5.6
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. `test_mock_evidence_cannot_satisfy_compromise_or_authorize_email_send` pins simulated provenance leaves email_draft PENDING_CONDITION and `email_send_eligible=false`; no `live_mcp_proven`. Combined with 5.6 suite → **3 passed**; conditional lifecycle green.
 
 ### Phase 6 — Answer / UI convergence
 

@@ -189,6 +189,6 @@ describe('journey contract surfaces', () => {
   it('execution live vs mock labels', () => {
     expect(executionLabel({ execution: { status: 'executed', evidence_source: 'live' } }).label).toMatch(/live evidence/i);
     expect(executionLabel({ execution: { status: 'executed', evidence_source: 'mock' } }).label).toMatch(/simulated|mock/i);
-    expect(executionLabel({ execution: { status: 'executed', evidence_source: 'mock' } }).label).not.toMatch(/live splunk/i);
+    expect(executionLabel({ execution: { status: 'executed', evidence_source: 'mock' } }).label).not.toMatch(/live evidence/i);
   });
 });
