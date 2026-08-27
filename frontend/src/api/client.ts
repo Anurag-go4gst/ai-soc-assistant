@@ -744,6 +744,62 @@ export async function getAtlasCoverage(): Promise<AtlasCoverageGap> {
   return response.json();
 }
 
+export interface SplLogicCodeAnchor {
+  module: string;
+  symbol: string;
+  line: number;
+  path: string;
+  display: string;
+}
+
+export interface SplLogicEntry {
+  logic_id: string;
+  layer: string;
+  phase: string;
+  rule_id: string | null;
+  title: string;
+  description: string;
+  severity: string;
+  runtime_active: boolean;
+  ui_toggle_allowed: boolean;
+  code: SplLogicCodeAnchor;
+  triggers_classification: string | null;
+  rewrite_step: string | null;
+  guard_invariants: string[];
+  ui_enabled: boolean;
+  ui_note: string;
+}
+
+export interface SplOptimizationRegistry {
+  schema_version: string;
+  generated_at: string;
+  phase_status: Record<string, string>;
+  ui_toggle_policy: string;
+  q04_or_chain_threshold: number;
+  entry_count: number;
+  layers: Record<string, SplLogicEntry[]>;
+  entries: SplLogicEntry[];
+}
+
+export async function getSplOptimizationRegistry(): Promise<SplOptimizationRegistry> {
+  const response = await fetch(`${API_BASE_URL}/knowledge/spl-optimization-registry`, { credentials: 'include' });
+  if (!response.ok) throw new Error(`SPL optimization registry failed: ${response.status}`);
+  return response.json();
+}
+
+export async function saveSplOptimizationRegistryOverrides(
+  overrides: Record<string, { ui_enabled: boolean; ui_note?: string }>,
+): Promise<{ saved: Record<string, unknown>; registry: SplOptimizationRegistry }> {
+  const response = await fetch(`${API_BASE_URL}/knowledge/spl-optimization-registry/overrides`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ overrides }),
+  });
+  if (!response.ok) throw new Error(`SPL optimization overrides save failed: ${response.status}`);
+  return response.json();
+}
+
 export async function getKnowledgeCollections(): Promise<{ collections: KnowledgeCollection[]; count: number }> {
   const response = await fetch(`${API_BASE_URL}/knowledge/collections`, { credentials: 'include' });
   if (!response.ok) throw new Error(`Knowledge collections failed: ${response.status}`);

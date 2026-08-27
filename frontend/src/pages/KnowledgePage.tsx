@@ -32,6 +32,7 @@ import type {
   SettingsStatus,
 } from '@/types/api';
 import { ARCHITECTURE_QUERY_FLOW_DOC_HREF } from '@/lib/architectureDoc';
+import { SplOptimizationRegistryPanel } from '@/components/SplOptimizationRegistryPanel';
 
 const EXPORT_FILENAMES: Record<KnowledgeExportArtifact, string> = {
   question_runtime_map: 'ai_soc_question_runtime_map_105',
@@ -195,6 +196,8 @@ export function KnowledgePage() {
           </Button>
         </header>
         {error ? <Badge variant="destructive">{error}</Badge> : null}
+
+        <SplOptimizationRegistryPanel />
 
         {mappingSummary ? (
           <Card className="soc-panel border-cyan-900/40">

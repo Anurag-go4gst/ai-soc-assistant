@@ -35,6 +35,7 @@ from app.knowledge.mapping_exports import (
     soc_capability_crosswalk_csv_rows,
     use_case_catalog_csv_row,
 )
+from app.spl.optimization_registry import build_spl_optimization_registry, save_ui_overrides
 
 router = APIRouter(dependencies=[Depends(require_auth)])
 
@@ -184,6 +185,22 @@ def knowledge_detection_coverage() -> dict[str, Any]:
 @router.get("/knowledge/atlas-coverage")
 def knowledge_atlas_coverage() -> dict[str, Any]:
     return build_atlas_coverage_gap()
+
+
+@router.get("/knowledge/spl-optimization-registry")
+def knowledge_spl_optimization_registry() -> dict[str, Any]:
+    """Live-linked catalog of SPL draft-quality, compiler, and rewrite logic."""
+    return build_spl_optimization_registry()
+
+
+@router.put("/knowledge/spl-optimization-registry/overrides")
+def knowledge_spl_optimization_registry_overrides(body: dict[str, Any]) -> dict[str, Any]:
+    """Persist UI-only enable/disable preferences (does not change runtime yet)."""
+    overrides = body.get("overrides")
+    if not isinstance(overrides, dict):
+        raise HTTPException(status_code=400, detail="overrides object required")
+    saved = save_ui_overrides(overrides)
+    return {"saved": saved, "registry": build_spl_optimization_registry()}
 
 
 @router.get("/knowledge/exports/{artifact}")
