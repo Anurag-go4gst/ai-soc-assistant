@@ -37,4 +37,26 @@ describe('AnalystResponseCard SPL utility rendering', () => {
     const text = container.textContent ?? '';
     expect(text.toLowerCase().split(/\s+/).filter((token) => token === 'svg')).toHaveLength(0);
   });
+
+  it('CV.SPL.02-class: blocked no-SPL shows non-null reason and no empty code block', () => {
+    const { container } = render(
+      <AnalystResponseCard
+        response={{
+          response_profile: 'spl_only',
+          direct_answer_summary: 'No governed SPL is available for this ask.',
+          spl_code: '   ',
+          spl_status_detail: {
+            template_status: 'unavailable',
+            generation_status: 'blocked',
+            reason: 'source_profile_unresolved',
+            reason_display: 'Source profile unresolved — SPL withheld.',
+            block_reason: 'source_profile_unresolved',
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText(/Source profile unresolved/i)).toBeInTheDocument();
+    expect(container.querySelectorAll('pre').length).toBe(0);
+    expect(container.querySelector('code')).toBeNull();
+  });
 });

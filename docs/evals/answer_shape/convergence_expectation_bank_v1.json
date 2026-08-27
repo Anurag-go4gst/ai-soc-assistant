@@ -86,6 +86,19 @@
       "primary_answer_state": "A"
     },
     {
+      "row_id": "CV.SPL.02",
+      "family": "SPL",
+      "profile": "honest_no_spl_reason_surface",
+      "query": "Generate SPL for an underspecified hunt without a governed source profile",
+      "pins": {
+        "no_spl_reason_non_null": true,
+        "empty_code_block": false,
+        "candidate_spl_execution_eligible": false
+      },
+      "baseline_status": "STRUCTURAL",
+      "primary_answer_state": "A"
+    },
+    {
       "row_id": "CV.NOMCP.01",
       "family": "NOMCP",
       "profile": "mock_mode_alone_must_not_trigger",

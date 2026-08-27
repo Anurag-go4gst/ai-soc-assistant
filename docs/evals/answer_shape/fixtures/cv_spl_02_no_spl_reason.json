@@ -1,0 +1,22 @@
+{
+  "row_id": "CV.SPL.02",
+  "role": "no_spl_honesty_contract_fixture_v1",
+  "notes": "When SPL is withheld/blocked, analyst surface must show a non-null reason and must not render an empty code block.",
+  "analyst_response": {
+    "response_profile": "spl_only",
+    "direct_answer_summary": "No governed SPL is available for this ask.",
+    "spl_code": "",
+    "spl_status_detail": {
+      "template_status": "unavailable",
+      "generation_status": "blocked",
+      "reason": "source_profile_unresolved",
+      "reason_display": "Source profile unresolved — SPL withheld.",
+      "block_reason": "source_profile_unresolved"
+    }
+  },
+  "pins": {
+    "no_spl_reason_non_null": true,
+    "empty_code_block": false,
+    "candidate_spl_execution_eligible": false
+  }
+}

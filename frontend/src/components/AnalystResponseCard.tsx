@@ -140,7 +140,8 @@ export function AnalystResponseCard({
     isReviewOnlySplDraft && !response.spl_status_detail && !response.spl_code;
   const llmSplCandidate = response.llm_spl_candidate;
   const showLlmSplCandidate = Boolean(llmSplCandidate);
-  const showSpl = Boolean(response.spl_code && (renderSections.spl_artifact ?? true));
+  const displaySplCode = formatSplForDisplay(response.spl_code ?? '').trim();
+  const showSpl = Boolean(displaySplCode && (renderSections.spl_artifact ?? true));
   // Lab draft preview is independent of governed spl_artifact visibility.
   const showDraftSpl = Boolean(draftSplCode);
   const showLiveResults =
@@ -337,7 +338,7 @@ export function AnalystResponseCard({
                   splReviewNotice || response.spl_status_detail || showDraftSpl ? 'mt-3' : '',
                 )}
               >
-                <code className="whitespace-pre-wrap break-words">{formatSplForDisplay(response.spl_code ?? '')}</code>
+                <code className="whitespace-pre-wrap break-words">{displaySplCode}</code>
               </pre>
             </>
           ) : null}

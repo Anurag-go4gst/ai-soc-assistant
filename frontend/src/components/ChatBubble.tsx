@@ -334,9 +334,11 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
                 {message.splValidation?.approved ? 'approved' : 'rejected'}
               </Badge>
             </div>
-            <code className="mt-2 block overflow-x-auto rounded border border-slate-800 bg-slate-950 p-2 font-mono text-[0.7rem] text-cyan-100">
-              {message.candidateSpl.candidate_spl}
-            </code>
+            {message.candidateSpl.candidate_spl.trim() ? (
+              <code className="mt-2 block overflow-x-auto rounded border border-slate-800 bg-slate-950 p-2 font-mono text-[0.7rem] text-cyan-100">
+                {message.candidateSpl.candidate_spl}
+              </code>
+            ) : null}
             {message.splValidation?.reject_reasons.length ? (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {message.splValidation.reject_reasons.map((reason) => (

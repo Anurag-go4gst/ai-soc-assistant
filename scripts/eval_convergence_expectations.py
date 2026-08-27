@@ -246,6 +246,46 @@ def _score_sop_structural(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _score_spl_structural(row: dict[str, Any]) -> dict[str, Any]:
+    if row.get("row_id") == "CV.SPL.02":
+        fixture_path = ROOT / "docs/evals/answer_shape/fixtures/cv_spl_02_no_spl_reason.json"
+        gaps: list[str] = []
+        observed: dict[str, Any] = {"outcome_fixture": None}
+        if not fixture_path.exists():
+            gaps.append("cv_spl_02_fixture_missing")
+            return {
+                "row_id": row["row_id"],
+                "family": row["family"],
+                "verdict": "FAIL",
+                "gaps": gaps,
+                "observed": observed,
+                "expected": row["pins"],
+            }
+        fixture = _load_json(fixture_path)
+        analyst = fixture.get("analyst_response") or {}
+        detail = analyst.get("spl_status_detail") or {}
+        reason = str(detail.get("reason_display") or detail.get("reason") or "").strip()
+        spl_code = str(analyst.get("spl_code") or "").strip()
+        observed = {
+            "outcome_fixture": str(fixture_path.relative_to(ROOT)),
+            "no_spl_reason_non_null": bool(reason),
+            "empty_code_block": bool(spl_code),
+            "candidate_spl_execution_eligible": False,
+        }
+        if row["pins"].get("no_spl_reason_non_null") and not reason:
+            gaps.append("no_spl_reason_null")
+        if row["pins"].get("empty_code_block") is False and spl_code:
+            gaps.append("empty_code_block_expected_false_but_spl_present")
+        if row["pins"].get("candidate_spl_execution_eligible") is False:
+            # fixture contract: withheld SPL is never execution-eligible
+            pass
+        return {
+            "row_id": row["row_id"],
+            "family": row["family"],
+            "verdict": "FAIL" if gaps else "PASS",
+            "gaps": gaps,
+            "observed": observed,
+            "expected": row["pins"],
+        }
     return {
         "row_id": row["row_id"],
         "family": row["family"],

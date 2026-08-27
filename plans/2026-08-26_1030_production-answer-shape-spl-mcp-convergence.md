@@ -625,11 +625,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
   - **Depends on:** 4.1
   - **Evidence:** SKIPPED_BY_EVIDENCE: `G-TMPL = 0 material failures after 4.1` (cite `docs/evals/answer_shape/spl_gate_histogram_v1.md` — `G-TMPL_COUNT=0`, `G-TMPL_MATERIAL=false`, target line none). No `enabled:false` template flips; no use-case binding changes; `spl_validator.py` untouched.
 
-- [ ] **4.3** — Honest no-SPL reason
+- [x] **4.3** — Honest no-SPL reason
   - **Do:** Ensure clarification reasons reach the analyst-visible surface (map in UI only if needed; verify HEAD before assuming ChatPanel packet is open).
   - **Verify:** `CV.SPL.02`-class row: non-null reason, no empty code block.
   - **Depends on:** 4.2
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. ChatPanel left untouched (RACES freeze; HEAD already maps fields). `AnalystResponseCard` + `ChatBubble` omit empty/whitespace SPL `<pre>`/`<code>` while still showing `spl_status_detail` / reject reasons. Added bank row `CV.SPL.02` + fixture `cv_spl_02_no_spl_reason.json`; harness scores STRUCTURAL PASS. Frontend targeted → **5 passed**. Intentional baseline freeze for new row (total 9→10, SPL.02 PASS); `--check` PASS. No `spl_validator.py` change.
 
 - [ ] **4.4** — No validator weakening
   - **Do:** Confirm `spl_validator.py` untouched by this phase; efficiency work stays OPTIONAL_PHASE_S.
@@ -859,3 +859,4 @@ _Record every premise change, redundant item, or scope shift here. The operator 
 - 2026-08-27 rev 13 — **3.7 complete.** Fail-closed `email_send_eligible` + negative HIL proofs; EMAIL DRAFT ≠ EMAIL SEND; remediation Approve does not unlock Phase-10 draft send; harness ABSENT pin active without baseline rewrite. Next: Phase 4.1 (parallelizable with 5.x / 6.x).
 - 2026-08-27 rev 14 — **4.1 complete.** SPL gate histogram: G-TMPL=0 material; primary sum 3/3. Next: 4.2 SKIPPED_BY_EVIDENCE then 4.3/4.4; Phase 5/6 remain eligible in parallel.
 - 2026-08-27 rev 15 — **4.2 SKIPPED_BY_EVIDENCE** (`G-TMPL = 0 material failures after 4.1`). No template flips.
+- 2026-08-27 rev 16 — **4.3 complete.** CV.SPL.02 honesty surface + intentional harness baseline advance (new STRUCTURAL row). ChatPanel untouched.

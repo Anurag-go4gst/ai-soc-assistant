@@ -6,7 +6,7 @@
   },
   "bank_id": "convergence_expectation_v1",
   "bank_version": "1.0.0",
-  "content_sha256": "4e4816d457991374b0ed443cf4839027d5f5528bc76e06501bdbe7d8236b66f6",
+  "content_sha256": "c9496c6fb026fa0563e2a5ccd6a51dfd6fececde0ca7ec2f809b9e828a75ea77",
   "design_case_query": "Investigate the 25 failed SSH logins followed by a successful login to the admin account from 198.51.100.42. Determine whether the account is compromised. If the evidence confirms malicious activity, prepare the remediation actions and draft an email to the firewall and identity teams summarizing the evidence and requesting the required containment actions.",
   "rows": [
     {
@@ -127,6 +127,23 @@
     },
     {
       "expected": {
+        "candidate_spl_execution_eligible": false,
+        "empty_code_block": false,
+        "no_spl_reason_non_null": true
+      },
+      "family": "SPL",
+      "gaps": [],
+      "observed": {
+        "candidate_spl_execution_eligible": false,
+        "empty_code_block": false,
+        "no_spl_reason_non_null": true,
+        "outcome_fixture": "docs/evals/answer_shape/fixtures/cv_spl_02_no_spl_reason.json"
+      },
+      "row_id": "CV.SPL.02",
+      "verdict": "PASS"
+    },
+    {
+      "expected": {
         "mcp_global_execution_default": false,
         "mock_mode_alone_triggers_call": false,
         "mock_profile_is_non_default": true
@@ -191,8 +208,8 @@
   "summary": {
     "deferred_live": 2,
     "fail": 0,
-    "pass": 4,
+    "pass": 5,
     "product_gap": 3,
-    "total": 9
+    "total": 10
   }
 }
