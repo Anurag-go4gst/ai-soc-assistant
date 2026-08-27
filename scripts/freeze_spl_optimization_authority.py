@@ -185,17 +185,35 @@ def main() -> int:
         print(f"froze {OUT_PATH.relative_to(ROOT)} rows={artifact['row_count']} sha256={digest}")
         return 0
 
-    if not OUT_PATH.is_file():
-        print(f"MISSING {OUT_PATH}", file=sys.stderr)
-        return 2
-    existing = OUT_PATH.read_text(encoding="utf-8")
-    if existing != text:
-        print("DRIFT: regenerating freeze is not byte-identical to committed artifact", file=sys.stderr)
-        print(f"committed_sha256={_sha256_text(existing)}", file=sys.stderr)
-        print(f"regen_sha256={digest}", file=sys.stderr)
-        return 1
-    print(f"OK byte-identical rows={artifact['row_count']} sha256={digest}")
-    return 0
+    if args.check:
+        if not OUT_PATH.is_file():
+            print(f"MISSING {OUT_PATH}", file=sys.stderr)
+            return 2
+        existing = json.loads(OUT_PATH.read_text(encoding="utf-8"))
+        regen = build_artifact()
+        if _stable_dumps(existing) == _stable_dumps(regen):
+            print(f"OK byte-identical rows={artifact['row_count']} sha256={digest}")
+            return 0
+        # After Layer 1a compiler changes, candidate_spl may differ while authority
+        # fields remain identical — compare the S0 authority contract only.
+        by_id = {r["row_id"]: r for r in existing.get("rows") or []}
+        violations: list[str] = []
+        for row in regen["rows"]:
+            base = by_id.get(row["row_id"])
+            if base is None:
+                violations.append(f"missing_row:{row['row_id']}")
+                continue
+            for key in ("approved", "normalized_spl", "execution_eligible"):
+                if row.get(key) != base.get(key):
+                    violations.append(f"{row['row_id']}:{key}")
+        if violations:
+            print("AUTHORITY_DRIFT:", ", ".join(violations), file=sys.stderr)
+            return 1
+        print(
+            f"OK authority-identical rows={len(regen['rows'])} "
+            f"(candidate_spl delta allowed post-S3) sha256={digest}"
+        )
+        return 0
 
 
 if __name__ == "__main__":

@@ -152,6 +152,11 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
     (placeholders, stats, strftime after stats, sort, head 100). When the
     semantic contract is present it is authority: analysis shape, search
     horizon, rolling/sequence windows, and prohibitions override plan defaults.
+
+    OPTIONAL_PHASE_S Layer 1a: selective filters stay in the base search (already);
+    project kept fields before aggregation when the plan proves unused columns are
+    safe to drop; keep non-streaming stages late; preserve Q11 ``sort 0 + _time``
+    before streamstats exactly.
     """
     spec = intent_spec if isinstance(intent_spec, dict) else {}
     if spec.get("support_status") == "unsupported":
@@ -180,6 +185,7 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         else:
             time_clause_search = f"earliest=-{hours}h latest=now"
 
+    # Layer 1a: selective filters into base search before the first pipe.
     search_terms = [f"search index={index_value} sourcetype={sourcetype_value}"]
     if time_clause_search:
         search_terms.append(time_clause_search)
@@ -224,6 +230,20 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
     def _alias(field_name: str) -> str:
         return alias_by_field.get(field_name, field_name)
 
+    def _early_projection(keep: list[str]) -> str:
+        """Emit ``| fields …`` before aggregation when unused columns are proven droppable."""
+        ordered: list[str] = []
+        seen: set[str] = set()
+        for name in keep:
+            token = name if name == "_time" else (_safe_field(name) or "")
+            if not token or token in seen:
+                continue
+            seen.add(token)
+            ordered.append(token)
+        if len(ordered) < 2:
+            return ""
+        return "| fields " + ", ".join(ordered)
+
     eval_clause = f"| eval {', '.join(eval_parts)}" if eval_parts else ""
 
     if analysis_shape == "raw":
@@ -244,6 +264,9 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         if eval_clause:
             parts.append(eval_clause)
         by_fields = [_alias(g) for g in group_by[:2]]
+        proj = _early_projection(["_time", *by_fields])
+        if proj:
+            parts.append(proj)
         by_clause = f" by {', '.join(by_fields)}" if by_fields else ""
         parts.append(f"| timechart span={grain} count as event_count{by_clause}")
         # `| sort 0 _time` keeps the buckets chronological AND satisfies the
@@ -262,6 +285,9 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         parts = [search_line]
         if eval_clause:
             parts.append(eval_clause)
+        proj = _early_projection(["_time", subject, distinct_alias])
+        if proj:
+            parts.append(proj)
         # Q11 (draft_quality) requires the explicit `sort 0 + _time` form before
         # streamstats; `sort 0 _time` is the same ascending sort but fails the lint.
         parts.append("| sort 0 + _time")
@@ -292,6 +318,9 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
             parts.append(eval_clause)
         if event_eval:
             parts.append(event_eval)
+        proj = _early_projection(["_time", correlate, "event_type"] if event_eval else ["_time", correlate])
+        if proj:
+            parts.append(proj)
         parts.append("| sort 0 + _time")  # Q11: explicit ascending sort before streamstats
         parts.append(f"| streamstats window=1 current=f last(event_type) as prev_event last(_time) as prev_time by {correlate}")
         if len(ordered) >= 2:
@@ -341,6 +370,12 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
     parts = [search_line]
     if eval_clause:
         parts.append(eval_clause)
+    keep_for_stats = ["_time", *norm_fields]
+    if metric_field:
+        keep_for_stats.append(_alias(metric_field))
+    proj = _early_projection(keep_for_stats)
+    if proj:
+        parts.append(proj)
     parts.extend([stats_clause, time_format])
     if analysis_shape == "ranking" or spec.get("ranking") or not spec:
         parts.append(f"| sort - {sort_field}")

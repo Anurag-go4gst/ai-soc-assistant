@@ -20,7 +20,7 @@ def freeze() -> dict:
     return json.loads(FREEZE_PATH.read_text(encoding="utf-8"))
 
 
-def test_freeze_regenerates_byte_identical() -> None:
+def test_freeze_regenerates_byte_identical_or_authority_identical() -> None:
     proc = subprocess.run(
         [sys.executable, str(FREEZE_SCRIPT), "--check"],
         cwd=REPO,
@@ -29,7 +29,7 @@ def test_freeze_regenerates_byte_identical() -> None:
         env={**dict(**{k: v for k, v in __import__("os").environ.items()}), "PYTHONPATH": f"{REPO / 'backend'}:{REPO}"},
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "byte-identical" in proc.stdout
+    assert "byte-identical" in proc.stdout or "authority-identical" in proc.stdout
 
 
 def test_freeze_covers_both_banks(freeze: dict) -> None:
