@@ -41,15 +41,139 @@ SPL_OPTIMIZATION_JSON_SCHEMA: dict[str, Any] = {
 }
 
 
+# H1 — few-shot contract. The 8B instruct model is prompt-sensitive and, unhardened,
+# over-claims OPTIMIZED: it swapped `NOT x=y` for `x!="y"` and stripped wildcards off
+# search terms. Examples teach abstention far better than more prose, so keep this set
+# short, high-signal, and weighted toward abstain. These examples are a *prevention*
+# contract only — authority to accept a rewrite lives in assert_rewrite_preserves.
+_FEW_SHOTS: tuple[dict[str, str], ...] = (
+    {
+        # A — negative filter: changing one negative form into another is not an
+        # optimization, and NOT vs != differ on missing/null fields.
+        "id": "A_negative_filter_abstain",
+        "spl": "search index=auth NOT status=success | stats count by user",
+        "issue": "broad negative filter",
+        "tempted": 'status!="success"',
+        "status": "NO_SAFE_OPTIMIZATION",
+        "candidate": "search index=auth NOT status=success | stats count by user",
+    },
+    {
+        # B — wildcard removal changes matching semantics.
+        "id": "B_wildcard_abstain",
+        "spl": 'search index=network host="*it*" | stats count',
+        "issue": "leading wildcard",
+        "tempted": 'host="it"',
+        "status": "NO_SAFE_OPTIMIZATION",
+        "candidate": 'search index=network host="*it*" | stats count',
+    },
+    {
+        # C — doing nothing is a successful outcome.
+        "id": "C_already_good_abstain",
+        "spl": (
+            "search index=auth sourcetype=linux_secure earliest=-1h latest=now action=failure "
+            "| stats count by src_ip | sort -count | head 100"
+        ),
+        "issue": "none material",
+        "tempted": "cosmetic reordering",
+        "status": "NO_SAFE_OPTIMIZATION",
+        "candidate": (
+            "search index=auth sourcetype=linux_secure earliest=-1h latest=now action=failure "
+            "| stats count by src_ip | sort -count | head 100"
+        ),
+    },
+    {
+        # D — never label an unchanged candidate OPTIMIZED.
+        "id": "D_identical_abstain",
+        "spl": "search index=web sourcetype=access_combined earliest=-24h latest=now status=500 | stats count by uri",
+        "issue": "proposed revision is byte-identical to the input",
+        "tempted": "returning the same SPL with status OPTIMIZED",
+        "status": "NO_SAFE_OPTIMIZATION",
+        "candidate": "search index=web sourcetype=access_combined earliest=-24h latest=now status=500 | stats count by uri",
+    },
+    {
+        # E — the safe positive: same-field OR collapses to IN with the exact values.
+        "id": "E_or_to_in_positive",
+        "spl": "search index=auth (user=alice OR user=bob OR user=carol) | stats count by user",
+        "issue": "same-field OR chain",
+        "tempted": "adding a value that was not in the input",
+        "status": "OPTIMIZED",
+        "candidate": "search index=auth user IN (alice,bob,carol) | stats count by user",
+    },
+    {
+        # F — governed time is authority, never re-derived by the model.
+        "id": "F_governed_time_abstain",
+        "spl": (
+            "search index=auth sourcetype=linux_secure earliest=-1h latest=now action=failure "
+            "| eval noise=1 | stats count by src_ip | head 100"
+        ),
+        "issue": "unused eval / projection opportunity",
+        "tempted": "relative_time(now(), '-1h') replacing earliest/latest",
+        "status": "NO_SAFE_OPTIMIZATION",
+        "candidate": (
+            "search index=auth sourcetype=linux_secure earliest=-1h latest=now action=failure "
+            "| eval noise=1 | stats count by src_ip | head 100"
+        ),
+    },
+    {
+        # G — TERM() is only for tokens whose exact minor-breaker semantics were already
+        # intended; it is never a substitute for pattern matching.
+        "id": "G_term_wildcard_abstain",
+        "spl": 'search index=proxy sourcetype=proxy_log url="*login.corp*" | stats count by src_ip',
+        "issue": "minor-breaker token / leading wildcard",
+        "tempted": 'TERM(login.corp) replacing url="*login.corp*"',
+        "status": "NO_SAFE_OPTIMIZATION",
+        "candidate": 'search index=proxy sourcetype=proxy_log url="*login.corp*" | stats count by src_ip',
+    },
+)
+
+
+def _render_few_shots() -> str:
+    lines: list[str] = ["EXAMPLES (follow these exactly):"]
+    for shot in _FEW_SHOTS:
+        payload = json.dumps(
+            {"status": shot["status"], "candidate_spl": shot["candidate"]},
+            separators=(",", ":"),
+        )
+        lines.extend(
+            [
+                "",
+                f"INPUT: {shot['spl']}",
+                f"IDENTIFIED ISSUE: {shot['issue']}",
+                f"TEMPTING BUT WRONG: {shot['tempted']}",
+                f"OUTPUT: {payload}",
+            ]
+        )
+    return "\n".join(lines)
+
+
 def _system_prompt() -> str:
-    return (
-        "You are the AI SOC bounded SPL optimization module (Layer 3). Return JSON only. "
-        "Improve ONLY the identified efficiency issues while preserving investigation meaning. "
-        "Preserve index, sourcetype, governed time scope, required filters, required output fields, "
-        "aggregation meaning, and result limit semantics. Invent no index, sourcetype, field, or lookup. "
-        "Add no evidence assumptions. Never force a rewrite of valid SPL — if no semantics-preserving "
-        "improvement exists, return status NO_SAFE_OPTIMIZATION with candidate_spl equal to the input. "
-        "Maximum one pass; no explanation outside JSON."
+    return "\n".join(
+        [
+            "You are the AI SOC bounded SPL optimization module (Layer 3). Return JSON only.",
+            "",
+            "Optimization is OPTIONAL. Return OPTIMIZED only when the revised SPL is BOTH:",
+            "  1. observably more efficient under one of the identified quality rules; AND",
+            "  2. semantics-preserving under the governed investigation contract.",
+            "If either is uncertain, return NO_SAFE_OPTIMIZATION. Abstaining is a successful outcome.",
+            "",
+            "NEVER claim OPTIMIZED when candidate_spl is identical to the input; return",
+            "NO_SAFE_OPTIMIZATION instead. NEVER rewrite for stylistic equivalence: changing",
+            "NOT x=y into x!=\"y\" (or the reverse) is NOT an optimization — the forms differ on",
+            "missing and null fields.",
+            "",
+            "NEVER remove, add, or move a wildcard. NEVER turn wildcard matching into exact-token",
+            "matching or exact matching into wildcard matching. NEVER invent or remove earliest,",
+            "latest, or relative_time(). NEVER narrow or widen the governed time range. NEVER invent",
+            "an index, sourcetype, field, lookup, value, or a positive domain for NOT / !=. NEVER",
+            "change CIDR semantics, TERM() tokenization, quoting semantics, boolean grouping,",
+            "required filters, required output fields, aggregation meaning, result limit, or",
+            "investigation intent. NEVER add evidence assumptions. Never optimize by guessing.",
+            "",
+            "If fixing the identified issue would require any of the above: NO_SAFE_OPTIMIZATION.",
+            "Maximum one pass. No explanation outside JSON.",
+            "",
+            _render_few_shots(),
+        ]
     )
 
 
@@ -72,7 +196,9 @@ def _user_prompt(
         [
             "",
             'Return JSON: {"status":"OPTIMIZED"|"NO_SAFE_OPTIMIZATION","candidate_spl":"..."}',
+            "Decide status first, then emit candidate_spl.",
             "When NO_SAFE_OPTIMIZATION, candidate_spl MUST equal the input v1 unchanged.",
+            "If you cannot prove the rewrite preserves meaning, choose NO_SAFE_OPTIMIZATION.",
         ]
     )
     return "\n".join(parts)
