@@ -20,12 +20,12 @@ J7 remains true. B1/B2/B3 are retired.
 |---|---|
 | **Worktree** | `/Users/aagarwal/Downloads/ai-soc-wt-post-p10-convergence` |
 | **Branch** | `ws/post-p10-answer-tool-convergence` |
-| **HEAD at 2.5 start** | `fc183d3a` |
+| **HEAD (shipped)** | `3ed1ec36` |
 | **Checklist** | **20 checked** / 22 unchecked (through **3.6**) |
 | **Next item** | **3.7** — Separate HIL-authorized send proof |
 | **0.2 note** | `DONE_WITH_ENVIRONMENT_UNRESOLVED_INPUTS` — two production traces unavailable; design-case diagnostic only |
-| **Product tip** | RQC persistence `09c3f97a`; pending display `67246132`; contract gate `010279f1`; J7 pins `72c74c13`; dual-gate lifecycle `f0678916`; Phase-10 lane `135748a9`; roles `fb53883d`; 3.6 governed deterministic draft is the current item commit |
-| **LLM status at 2.5** | `ENVIRONMENT_UNRESOLVED`: configured local-primary/reasoning probes red (`URLError`); Qwen intentionally wired-disabled |
+| **Shipped product commits** | RQC `09c3f97a` → pending UI `67246132` → J7 gate `010279f1` → J7 pins `72c74c13` → B4 dual gates `f0678916` → Phase-10 email lane `135748a9` → roles `fb53883d` → governed draft `3ed1ec36` |
+| **LLM status** | `ENVIRONMENT_UNRESOLVED`: configured local-primary/reasoning probes red (`URLError`); Qwen intentionally wired-disabled |
 
 Do **not** execute from the Cursor product-tip checkout alone — use this worktree.
 
