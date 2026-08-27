@@ -631,11 +631,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
   - **Depends on:** 4.2
   - **Evidence:** DONE 2026-08-27. ChatPanel left untouched (RACES freeze; HEAD already maps fields). `AnalystResponseCard` + `ChatBubble` omit empty/whitespace SPL `<pre>`/`<code>` while still showing `spl_status_detail` / reject reasons. Added bank row `CV.SPL.02` + fixture `cv_spl_02_no_spl_reason.json`; harness scores STRUCTURAL PASS. Frontend targeted → **5 passed**. Intentional baseline freeze for new row (total 9→10, SPL.02 PASS); `--check` PASS. No `spl_validator.py` change.
 
-- [ ] **4.4** — No validator weakening
+- [x] **4.4** — No validator weakening
   - **Do:** Confirm `spl_validator.py` untouched by this phase; efficiency work stays OPTIONAL_PHASE_S.
   - **Verify:** `git diff --stat` excludes `safeguards/spl_validator.py` for Phase 4 commits.
   - **Depends on:** 4.3
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. `git diff ec4c8451..32307a92 --name-only | grep spl_validator` → **NONE**. Phase 4 commits `dc3d4eb4`/`5695114f`/`32307a92` only touched histogram/docs/UI/harness. OPTIONAL_PHASE_S untouched.
 
 ### Phase 5 — Isolated mock MCP
 
@@ -860,3 +860,4 @@ _Record every premise change, redundant item, or scope shift here. The operator 
 - 2026-08-27 rev 14 — **4.1 complete.** SPL gate histogram: G-TMPL=0 material; primary sum 3/3. Next: 4.2 SKIPPED_BY_EVIDENCE then 4.3/4.4; Phase 5/6 remain eligible in parallel.
 - 2026-08-27 rev 15 — **4.2 SKIPPED_BY_EVIDENCE** (`G-TMPL = 0 material failures after 4.1`). No template flips.
 - 2026-08-27 rev 16 — **4.3 complete.** CV.SPL.02 honesty surface + intentional harness baseline advance (new STRUCTURAL row). ChatPanel untouched.
+- 2026-08-27 rev 17 — **Phase 4 closed** (4.4: `spl_validator.py` untouched across Phase 4 commits). Next: Phase 5.1.
