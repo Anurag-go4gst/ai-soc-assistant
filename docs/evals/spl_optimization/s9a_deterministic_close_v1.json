@@ -1,0 +1,27 @@
+{
+  "base_7_1_sha": "11a273653c3acb1a34f715ee417e2d94447b762d",
+  "s9a_head": "78c212df990ed42bbbfeed8a277d01974938aa66",
+  "status": "DETERMINISTIC_SPINE_ACCEPTED",
+  "llm_spine": "PENDING_LIVE_VALIDATION",
+  "evidence": {
+    "authority_freeze_check": "OK authority-identical rows=49 (candidate_spl delta allowed post-S3)",
+    "validator_diff_lines": 0,
+    "policy_diff_lines": 0,
+    "backend_pytest": "7195 passed, 45 skipped, 6 xfailed",
+    "spl_optimization_suite": "176 passed",
+    "governance_regression": "partial \u2014 full pytest green via venv; script phase10 failed on system python3 missing pytest (environment)",
+    "invariant_check": "7/7 PASS \u2014 no pipeline.py edit; no new MCP/execution paths; advisory-only S1; rewrite guard retains v1 on FAIL"
+  },
+  "layers": {
+    "1a_compiler": "docs/evals/spl_optimization/s3_compiler_before_after_v1.json",
+    "2_deterministic": "docs/evals/spl_optimization/s4_auto_fix_bank_v1.json"
+  },
+  "pending_llm_items": [
+    "S5",
+    "S6",
+    "S7",
+    "S8b",
+    "S9b"
+  ],
+  "resume_when_llm_restored": "S5"
+}

@@ -284,7 +284,7 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
     `execution_eligible` is unchanged (no gate added yet).
   - **Depends on:** S1. **Evidence:** New `app/spl/rewrite_guard.py::assert_rewrite_preserves`; `pytest app/tests/test_spl_optimization_s2_rewrite_guard.py -q` → 9 passed (index/sourcetype/time/limit/aggregation/RQC fail + OR→IN pass + freeze identity).
 
-- [ ] **S3** — Layer 1a: efficient SPL by construction in the compiler
+- [x] **S3** — Layer 1a: efficient SPL by construction in the compiler
   - **Do:** In `compile_plan_to_spl`, emit selective filters into the base search before the first pipe, project
     fields before aggregation where the plan proves them unused downstream, and keep non-streaming stages late.
     **Preserve `:295`'s `sort 0 + _time` before `streamstats` exactly** — it is Q11 correctness, not inefficiency.
@@ -293,9 +293,9 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
     PASS for every shape; SPL goldens green. `approved` unchanged; `execution_eligible` one-way. Where compiler
     output SPL changes, commit must name the shape and show before/after SPL; S0 `normalized_spl` may differ
     **only** for those deliberately updated optimized rows under the Authority-field invariant.
-  - **Depends on:** S2. **Highest value item in the plan.** **Evidence:** _(fill)_
+  - **Depends on:** S2. **Highest value item in the plan.** **Evidence:** `d8b4385a`; `pytest app/tests/test_spl_optimization_s3_compiler.py -q` → 2 passed; `docs/evals/spl_optimization/s3_compiler_before_after_v1.json`; authority `--check` OK.
 
-- [ ] **S4** — Layer 2: deterministic `AUTO_FIX_SAFE` rewrites
+- [x] **S4** — Layer 2: deterministic `AUTO_FIX_SAFE` rewrites
   - **Do:** Extend the **existing** `deterministic_spl_repair.py` (P2) / `simplify_spl_safe` (P3). Permitted only
     where equivalence is provable: same-field
     `field=A OR field=B` → `field IN (A,B)`
@@ -310,9 +310,10 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
     false-positive counts recorded; `approved` unchanged; `execution_eligible` one-way; optimized rows may
     change `normalized_spl` only under the Authority-field invariant (guard PASS + chain PASS + before/after
     recorded).
-  - **Depends on:** S2. **Evidence:** _(fill)_
+  - **Depends on:** S2. **Evidence:** `3742fbb9`; `app/spl/spl_auto_fix_safe.py`; `pytest app/tests/test_spl_optimization_s4_auto_fix.py -q` → 6 passed; `s4_auto_fix_bank_v1.json` false_positives=0.
 
 - [ ] **S5** — Layer 1b: generation-prompt guidance, free-text path only
+  - **Status:** **PENDING_LIVE_VALIDATION** — live LLM unavailable (`127.0.0.1:8081` UNAVAILABLE).
   - **Do:** Extend the existing efficiency guidance in `llm_fallback.py` (P7) with the remaining rules:
     Use the governed RQC time scope as tightly as its semantics permit — **never** independently narrow or
     expand the user's/RQC-authorized time scope for efficiency; early index/sourcetype/selective filters;
@@ -345,9 +346,10 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
     classification is `PASS` / `AUTO_FIX_SAFE` / `NO_SAFE_OPTIMIZATION`; a test proves abstain / unchanged
     v1 is accepted and does not trigger a second call. If live LLM is unavailable for this required probe →
     **ENVIRONMENT STOP**. Do not drop Layer 3. Resume from S6 when the existing LLM path is restored.
-  - **Depends on:** S1, S2, D-S1 (resolved: in scope). **Evidence:** _(fill)_
+  - **Depends on:** S1, S2, D-S1 (resolved: in scope). **Status:** **PENDING_LIVE_VALIDATION** — `/llm-live-probe` blocked; no role wired. **Evidence:** _(resume when LLM restored)_
 
 - [ ] **S7** — Full re-entry chain for v2 (sticky lineage + LLM proposals) — **PROTECTED `pipeline.py`**
+  - **Status:** **NOT ELIGIBLE UNTIL S6** — blocked on S6 live gate.
   - **Do:** **Before code:** raise D-S4 protected change packet for `backend/app/chat/pipeline.py`
     (CURRENT/PROPOSED/ROLLBACK + content SHA pin). Then:
     1. Route every accepted sticky-lineage v2 through draft-quality re-check → `assert_rewrite_preserves` →
@@ -373,7 +375,7 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
   - **Depends on:** S6, D-S4. **This is the invariant-critical item — if it cannot be proven, S6 must be
     reverted.** **Evidence:** _(fill)_
 
-- [ ] **S8a** — Deterministic provenance + analyst change summary (Layers 1a/2)
+- [x] **S8a** — Deterministic provenance + analyst change summary (Layers 1a/2)
   - **Do:** Extend `spl_provenance_trace.py` (P5) for deterministic sources: `optimization_source` in
     (`compiler` | `deterministic_rewrite`), sticky `llm_lineage` when applicable, `candidate_version`,
     `rules_triggered`, `rules_resolved`, `rewrite_guard`, `validator`. Short analyst summary (≤3 lines,
@@ -381,9 +383,10 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
     Advisory prose only on explicit optimize/review intent.
   - **Verify:** Trace fields present on compiler/rewrite paths; summary capped; advisory absent on a normal
     investigation turn. No `pipeline.py` edit in this item. No live LLM required.
-  - **Depends on:** S3, S4. **Evidence:** _(fill)_
+  - **Depends on:** S3, S4. **Evidence:** `d9d11963`; `pytest app/tests/test_spl_optimization_s8a_provenance.py -q` → 6 passed.
 
 - [ ] **S8b** — LLM-path provenance completion (Layers 1b/3)
+  - **Status:** **PENDING** — depends on S5, S7.
   - **Do:** Extend provenance for `generation_prompt` | `optimization_llm`; ensure sticky lineage from S7
     surfaces; same summary/advisory rules as S8a. If a new response field proves unavoidable, **STOP** —
     protected packet (D-S3).
@@ -391,7 +394,7 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
     advisory present only on explicit optimize ask.
   - **Depends on:** S8a, S5, S7. **Evidence:** _(fill)_
 
-- [ ] **S9a** — Deterministic acceptance close (Layers 1a/2)
+- [x] **S9a** — Deterministic acceptance close (Layers 1a/2)
   - **Do:** Full regression for the deterministic spine and the closing-report section for Layers 1a/2.
     **May complete while live LLM is down.**
   - **Verify:** `cd backend && python3 -m pytest -q` zero new failure node-IDs vs S0 attributable to S0–S4/S8a;
@@ -402,9 +405,10 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
     ```
     **expected: NO DIFF.** Authority: `approved` matches S0; `execution_eligible` one-way; `normalized_spl`
     under corrected invariant. Record S9a HEAD — Layers 1a/2 accepted.
-  - **Depends on:** S8a. **Evidence:** _(fill)_
+  - **Depends on:** S8a. **Evidence:** S9a HEAD on commit; `7195 passed` backend pytest (venv); validator/policy diff 0 lines; authority `--check` OK; `docs/evals/spl_optimization/s9a_deterministic_close_v1.json`. **State: DETERMINISTIC_SPINE_ACCEPTED.**
 
 - [ ] **S9b** — LLM acceptance close (Layers 1b/3)
+  - **Status:** **PENDING** — requires S5–S8b + live probes.
   - **Do:** Remaining regression after S5–S8b; complete closing report (Layer 1b/3 + full distribution).
   - **Verify:** Same gates as S9a plus live-probe evidence from S5/S6; per-path S1 distribution cited;
     every `execution_eligible` true→false flip from S7 enumerated; `pipeline.py` packet + RACES baseline
