@@ -8,21 +8,23 @@
 |---|---|---|
 | Deterministic (S0–S9a) | **ACCEPTED** | `dd71393f` |
 | LLM (S5–S9b) | **IMPLEMENTED_BUT_NOT_PRODUCTION_ACCEPTED** | live `s5_s6_live_probe_results_v1.json`; unit 11 passed |
-| Layer 3 hardening (H0–H6) | **OPEN** | six-case live eval found unsafe accepted rewrites |
+| Layer 3 hardening (H0–H6) | **CLOSED — ACCEPTED** | `a934b236`; H4 verdict PASS, H5 safety+capability PASS |
 
 **Worktree:** `../ai-soc-wt-spl-optimization` · **Branch:** `ws/spl-optimization` · **Base:** `11a27365`
 
-**`LAYER3_STATUS` = `IMPLEMENTED_BUT_NOT_PRODUCTION_ACCEPTED`.**
-**`AI_SOC_SPL_OPTIMIZATION_LLM_ENABLED` = `false`** and stays false through development, evaluation and
-final governance. Do not enable it in VPS during this loop.
+**`LAYER3_STATUS` = `HARDENED — ACCEPTED`.** **`OPTIONAL_PHASE_S_ACCEPTED`** at `a934b236`.
+**`AI_SOC_SPL_OPTIMIZATION_LLM_ENABLED` = `false`** — never enabled anywhere during this loop.
+**`LAYER3_ENABLEMENT_ELIGIBLE = YES`** is eligibility, not activation: turning it on happens after
+PR/merge/promote → exact-SHA VPS sync → deployment verification, in a separately governed step.
 
-**Reason:** live six-case evaluation found the model over-claiming `OPTIMIZED`, a `NOT`→`!=` false
-optimization, and a **wildcard semantic rewrite that escaped the guard**; invention was correctly caught.
-Prompt = prevention. Deterministic guard = authority. The model never decides whether its own rewrite is safe.
+**Outcome:** every original defect is closed and capability is preserved —
+H4 six-case **PASS** (0 unsafe), H5 bank **16 cases, 0 unsafe, 4/4 positives safely optimized**.
+Prompt budget **exhausted (2 of 2)**. Prompt = prevention; the deterministic guard = authority.
 
-**Next:** **LAYER3_HARDENING** — H0 → H1 → H2 → H3 → H4 → H5 → H6, then merge gates.
+**Next:** merge gates — PR for `ws/spl-optimization`. Nothing pushed, merged or deployed.
 
-Checked off: S0–S4 · S5 · S6 · S7 (partial — RACES prepared, uncommitted) · S8a · S8b · S9a · S9b (code+probes)
+Checked off: S0–S4 · S5 · S6 · S7 (**RACES advance committed `a934b236`**) · S8a · S8b · S9a · S9b ·
+**H0–H6**. Plan audit: **19 checked, 0 unchecked, 0 gaps**.
 
 ## Start / resume
 
@@ -50,7 +52,7 @@ open PR for ws/spl-optimization
 2. Pick first unchecked checklist item in dependency order:
    - Deterministic spine: `S0 → S1 → S2 → {S3 ‖ S4} → S8a → S9a` **(DONE)**
    - LLM spine: `S5 → S6 → S7 → S8b → S9b` **(DONE code/probes; S7 RACES prepared)**
-   - **Layer 3 hardening: `H0 → H1 → H2 → H3 → H4 → H5 → H6` (current)**
+   - Layer 3 hardening: `H0 → H1 → H2 → H3 → H4 → H5 → H6` **(DONE 7/7)**
 3. Implement **Do** only for that item.
 4. Run **Verify** exactly as written.
 5. Check off `- [x]` and fill **Evidence** (command output or observation).
