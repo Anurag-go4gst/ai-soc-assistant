@@ -645,11 +645,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
   - **Depends on:** 0.4 (parallel stream; Phase 3 preferred before claiming email+mock interactions, but 5.1 itself only needs baseline)
   - **Evidence:** DONE 2026-08-27. Added `env/profiles/coe-mock.env.example` (existing keys only: MCP_MODE=mock, global+mock execution true, SPLUNK_MCP_ENABLED=false, empty URL/token). Manifest entry `test_only: true`; `env/README.md` posture note; `EnvProfile.test_only` surfaced. Default `coe` still `MCP_GLOBAL_EXECUTION_ENABLED=false`; compose default `${AI_SOC_ENV_PROFILE:-coe}` does not reference coe-mock. `pytest app/tests/test_coe_mock_profile.py app/tests/test_env_profiles.py app/tests/test_mac_staging_profile.py -q` → **8 passed**.
 
-- [ ] **5.2** — Deterministic named capability selection
+- [x] **5.2** — Deterministic named capability selection
   - **Do:** Activate existing capability selection behind Resource Planner hub — do not build a second selector.
   - **Verify:** Under mock profile, `CV.MULTI.01C` / INV row reports named tool; NOMCP row does not execute.
   - **Depends on:** 5.1
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Test-only pins in `test_post_p10_mock_mcp_5_2.py`: under coe-mock env keys, `select_mcp_tool(..., mcp_capability=EVENT_SEARCH)` → `splunk_run_query` selected (no second selector); `CV.NOMCP.01` with MCP_MODE=mock but global execution false → connector never called / `mcp_global_execution_disabled`; mock profile remains test-only non-default. `pytest app/tests/test_post_p10_mock_mcp_5_2.py -q` → **2 passed**.
 
 - [ ] **5.3** — Validated normalized SPL before mock call
   - **Do:** Prove gate still requires approved non-null `normalized_spl`.
