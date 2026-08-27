@@ -152,6 +152,58 @@ def test_n10_tokenization_and_operator_swaps_fail_the_guard() -> None:
     )
 
 
+def test_n11_rewrite_may_not_introduce_a_correctness_hard_fail() -> None:
+    """Found live in the H5 bank: a clean-looking Q18 projection that deleted Q11's sort.
+
+    `sort 0 + _time` before `streamstats` is a time-ordering correctness invariant, not
+    an efficiency preference. Trading it for an early projection is a regression.
+    """
+    v1 = (
+        'search index=pgcil_soc sourcetype="pgcil:auth" earliest=-24h latest=now action="failure" '
+        "| sort 0 + _time | streamstats time_window=5m count by user | where count > 10 "
+        "| stats max(count) as burst by user | head 100"
+    )
+    v2 = (
+        'search index=pgcil_soc sourcetype="pgcil:auth" earliest=-24h latest=now action="failure" '
+        "| fields _time, user | streamstats time_window=5m count by user | where count > 10 "
+        "| stats max(count) as burst by user | head 100"
+    )
+    result = _guard(v1, v2)
+    assert result["verdict"] == "FAIL"
+    assert any(v.startswith("quality_hard_fail_regression:") for v in result["violations"])
+
+
+def test_n12_projection_may_not_starve_a_downstream_reference() -> None:
+    """Found live in the H4 replay: `| fields user` drops _time, then `| sort -_time`."""
+    v1 = (
+        "search index=a sourcetype=b earliest=-24h latest=now action=failure "
+        "| sort -_time | stats count by user | head 100"
+    )
+    v2 = (
+        "search index=a sourcetype=b earliest=-24h latest=now action=failure "
+        "| fields user | stats count by user | sort -_time | head 100"
+    )
+    result = _guard(v1, v2)
+    assert result["verdict"] == "FAIL"
+    assert any(v.startswith("projection_starves_downstream:") for v in result["violations"])
+    assert "_time" in " ".join(result["violations"])
+
+
+def test_projection_that_keeps_every_referenced_field_still_passes() -> None:
+    """The starvation check must not veto a correct early projection."""
+    v1 = (
+        "search index=a sourcetype=b earliest=-24h latest=now "
+        "| eval spare=1 | stats count as queries by src_ip query "
+        "| table src_ip query queries | head 100"
+    )
+    v2 = (
+        "search index=a sourcetype=b earliest=-24h latest=now "
+        "| fields src_ip query | stats count as queries by src_ip query "
+        "| table src_ip query queries | head 100"
+    )
+    assert _guard(v1, v2)["verdict"] == "PASS"
+
+
 # --- positives -----------------------------------------------------------------------
 
 

@@ -324,6 +324,82 @@ def _match_semantics_violations(v1: str, v2: str) -> list[str]:
     return violations
 
 
+def _hard_fail_regressions(v1: str, v2: str) -> list[str]:
+    """Rule ids that v2 fails at `hard_fail` and v1 did not.
+
+    Composes the shipped draft-quality checker instead of restating its rules. This is
+    what stops a rewrite from trading an efficiency advisory for a correctness bug: the
+    H5 bank caught the model deleting `sort 0 + _time` ahead of `streamstats` -- a clean
+    Q18 projection on the surface, a Q11 time-ordering violation underneath. Any
+    hard_fail rule -- Q11, U03 and the rest -- is covered by this one check.
+
+    Imported lazily: draft_quality imports nothing from this module today, and a
+    top-level import would create a cycle the moment that changes.
+    """
+    from app.spl.draft_quality import evaluate_draft_quality
+
+    before = {f.rule_id for f in evaluate_draft_quality(v1 or "").findings if f.severity == "hard_fail"}
+    after = {f.rule_id for f in evaluate_draft_quality(v2 or "").findings if f.severity == "hard_fail"}
+    return sorted(after - before)
+
+
+_CREATED_FIELD_RE = re.compile(
+    r"\beval\s+([A-Za-z_][\w.]*)\s*=|\bas\s+([A-Za-z_][\w.]*)",
+    re.IGNORECASE,
+)
+#: Places a field name is referenced unambiguously enough to demand it still exists.
+_REFERENCED_FIELD_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bby\s+([^|]+)", re.IGNORECASE),
+    re.compile(r"^\s*sort\s+([^|]+)", re.IGNORECASE),
+    re.compile(r"^\s*table\s+([^|]+)", re.IGNORECASE),
+    re.compile(r"^\s*dedup\s+([^|]+)", re.IGNORECASE),
+)
+_BARE_FIELD_RE = re.compile(r"_?[A-Za-z][\w.]*")
+_REFERENCE_NOISE = {"as", "by", "count", "limit", "desc", "asc"}
+
+
+def _projection_starvation(spl: str) -> list[str]:
+    """Fields a `| fields` projection removes while a later stage still references them.
+
+    The H4 replay caught the model rewriting `... | sort -_time | stats count by user`
+    into `... | fields user | stats count by user | sort -_time`: the projection drops
+    `_time`, and the trailing sort then references a field that no longer exists. The
+    output-column check could not see it, because nothing was removed from `table` --
+    the break is between a projection and a *downstream reference*.
+
+    Deliberately narrow: only `by`, `sort`, `table` and `dedup` operands are inspected,
+    and names a later stage creates itself (`eval x=`, `... as x`) are exempt.
+    """
+    stages = _split_stages(spl or "")
+    starved: list[str] = []
+
+    for index, stage in enumerate(stages):
+        keep = _FIELDS_KEEP_RE.match("| " + stage)
+        if not keep:
+            continue
+        projected = {
+            token.strip().strip("\"'").lower()
+            for token in keep.group(1).replace(",", " ").split()
+            if token.strip()
+        }
+        created: set[str] = set()
+        for downstream in stages[index + 1 :]:
+            for name in _CREATED_FIELD_RE.finditer(downstream):
+                created.add((name.group(1) or name.group(2) or "").lower())
+            for pattern in _REFERENCED_FIELD_RES:
+                for ref in pattern.finditer(downstream):
+                    for raw in ref.group(1).replace(",", " ").split():
+                        token = raw.strip().lstrip("+-").strip("\"'").lower()
+                        if not token or token in _REFERENCE_NOISE or token.isdigit():
+                            continue
+                        if not _BARE_FIELD_RE.fullmatch(token):
+                            continue
+                        if token in projected or token in created:
+                            continue
+                        starved.append(token)
+    return sorted(set(starved))
+
+
 def _serialize_match_semantics(spl: str) -> dict[str, Any]:
     """JSON-safe view of the signature for traces (frozensets are not serializable)."""
     signature = _match_semantics(spl)
@@ -349,6 +425,10 @@ def assert_rewrite_preserves(
         NOT vs != as distinct forms, quoting, TERM()/cidrmatch tokenization, field-value
         pairs, boolean grouping and AND/OR membership) with `field IN (a,b,c)`
         canonicalised to its equivalent same-field OR set
+      - draft-quality hard_fail regression (v2 may not introduce a correctness failure
+        such as Q11 sort-before-streamstats or U03 that v1 did not have)
+      - projection starvation (an early `fields` projection may not drop a field a later
+        `by` / `sort` / `table` / `dedup` still references)
       - evaluate_rqc_constraint_preservation (governed RQC slots must not drop)
       - validate_semantic_fidelity when an intent_spec is supplied (v2 must not add losses)
     """
@@ -385,6 +465,18 @@ def assert_rewrite_preserves(
     # H2 — base-search match semantics. Wildcards, NOT vs !=, comparison operators,
     # quoting, TERM()/cidrmatch tokenization, field-value pairs and boolean grouping.
     violations.extend(_match_semantics_violations(v1 or "", v2 or ""))
+
+    # H2 — a rewrite may not introduce a correctness hard_fail that v1 did not have.
+    regressions = _hard_fail_regressions(v1 or "", v2 or "")
+    if regressions:
+        violations.append("quality_hard_fail_regression:" + ",".join(regressions))
+
+    # H2 — an early projection may not starve a field a later stage still references.
+    new_starvation = sorted(
+        set(_projection_starvation(v2 or "")) - set(_projection_starvation(v1 or ""))
+    )
+    if new_starvation:
+        violations.append("projection_starves_downstream:" + ",".join(new_starvation))
 
     rqc1 = evaluate_rqc_constraint_preservation(v1, resolved_query_contract=rqc)
     rqc2 = evaluate_rqc_constraint_preservation(v2, resolved_query_contract=rqc)
