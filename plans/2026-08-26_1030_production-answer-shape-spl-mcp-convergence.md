@@ -651,11 +651,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
   - **Depends on:** 5.1
   - **Evidence:** DONE 2026-08-27. Test-only pins in `test_post_p10_mock_mcp_5_2.py`: under coe-mock env keys, `select_mcp_tool(..., mcp_capability=EVENT_SEARCH)` → `splunk_run_query` selected (no second selector); `CV.NOMCP.01` with MCP_MODE=mock but global execution false → connector never called / `mcp_global_execution_disabled`; mock profile remains test-only non-default. `pytest app/tests/test_post_p10_mock_mcp_5_2.py -q` → **2 passed**.
 
-- [ ] **5.3** — Validated normalized SPL before mock call
+- [x] **5.3** — Validated normalized SPL before mock call
   - **Do:** Prove gate still requires approved non-null `normalized_spl`.
   - **Verify:** Existing MCP gate tests + harness.
   - **Depends on:** 5.2
-  - **Evidence:** _(fill)_
+  - **Evidence:** SKIPPED_BY_EVIDENCE 2026-08-27: no product gap — existing gate already requires approved non-null `normalized_spl` before mock call. Re-ran `pytest app/tests/test_mcp_execution_gate.py app/tests/test_mcp_execution_contract_e2e.py app/tests/test_splunk_call_authorization.py app/tests/test_hil_mock_execution_hardening.py -q` → **55 passed** (includes `test_mock_execution_uses_only_normalized_spl` + `test_validation_failure_creates_human_review`). Zero code change.
 
 - [ ] **5.4** — Exact-call authorization (envelope-bound)
   - **Do:** Keep AUTH0 / canonical arguments hash path; no bypass for mock. Every material mock MCP call must have a **NEW** exact-call authorization bound to at least: `approved envelope_version`, exact tool/server, normalized arguments, `normalized_spl` where applicable, RBAC/policy context. Changing `envelope_version` invalidates the prior grant. Mock follows the same authorization architecture as eventual live MCP.

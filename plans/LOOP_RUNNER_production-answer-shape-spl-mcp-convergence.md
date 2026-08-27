@@ -20,9 +20,9 @@ J7 remains true. B1/B2/B3 are retired.
 |---|---|
 | **Worktree** | `/Users/aagarwal/Downloads/ai-soc-wt-post-p10-convergence` |
 | **Branch** | `ws/post-p10-answer-tool-convergence` |
-| **HEAD (shipped)** | `415f60cd` (5.1); 5.2 pending this commit |
-| **Checklist** | Phase 4 closed @ `cb0405f8`; Phase 5: **5.1 done**, **5.2** next |
-| **Next item** | **5.3** — Validated normalized SPL before mock call |
+| **HEAD (shipped)** | `7349d15a` (5.2); 5.3 SKIPPED_BY_EVIDENCE this commit |
+| **Checklist** | Phase 5: **5.1–5.2 done**, **5.3 SKIPPED_BY_EVIDENCE**, next **5.4** |
+| **Next item** | **5.4** — Exact-call authorization (envelope-bound) |
 | **0.2 note** | `DONE_WITH_ENVIRONMENT_UNRESOLVED_INPUTS` — two production traces unavailable; design-case diagnostic only |
 | **Shipped product commits** | RQC → … → Phase 4 close `cb0405f8` → Phase 5.1 coe-mock profile |
 | **LLM status** | `ENVIRONMENT_UNRESOLVED`: configured local-primary/reasoning probes red (`URLError`); Qwen intentionally wired-disabled |
