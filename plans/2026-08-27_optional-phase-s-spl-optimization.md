@@ -78,7 +78,8 @@ Never implement inside the convergence worktree. If 7.1 is not accepted: **STOP*
 | S6 | **DONE** | `spl_optimization_llm.py`; live OPTIMIZED 349ms; 5 unit tests |
 | S7 | **PARTIAL** | packet + `resolve_producer_lineage` + chain wired; **RACES baseline deferred to merge** |
 | S8b | **DONE** | `build_llm_path_optimization_trace`; 1 unit test |
-| S9b | **DONE (code/probes)** | `s9b_llm_close_v1.json`; 11 LLM-spine unit tests; **full governance deferred to merge** |
+| S9b | **DONE (code/probes)** | `25c04a56`; `s9b_llm_close_v1.json`; 11 LLM-spine unit tests; **full governance deferred to merge** |
+| Knowledge UI | **DONE** | `6a6d887d`; registry panel + preference toggles |
 
 ### Still pending (merge / ops — not checklist code)
 
@@ -430,7 +431,7 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
 ```text
 BASE 7.1 SHA:                 11a273653c3acb1a34f715ee417e2d94447b762d
 S9a HEAD:                     dd71393f2fe2d89b7d25258b3da3bb4e0d4ceecb
-FINAL HEAD:                   (this commit — LLM spine + Knowledge registry)
+FINAL HEAD:                   6a6d887d (Knowledge UI) / 25c04a56 (LLM spine)
 LAYER 1a COMPILER:            early | fields projection; s3_compiler_before_after_v1.json [S9a DONE]
 LAYER 1b PROMPT:              DONE — s5_s6_live_probe baseline 1/4 → with efficiency 2/4 [S9b]
 LAYER 2 DETERMINISTIC:        OR→IN AUTO_FIX_SAFE; guard PASS; false_positives=0 [S9a DONE]
