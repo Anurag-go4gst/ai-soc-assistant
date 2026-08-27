@@ -104,9 +104,34 @@ def evaluate_mcp_execution(
     hook_idempotency: HookIdempotencyContext | None = None,
     mcp_capability: str | None = None,
     approved_investigation_envelope: dict[str, Any] | None = None,
+    require_approved_investigation_envelope: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     telemetry = get_telemetry_connector()
     envelope_version = _envelope_version_from(approved_investigation_envelope)
+    if require_approved_investigation_envelope and envelope_version is None:
+        selection = {
+            "execution_intent": execution_intent,
+            "selected_mcp_server": None,
+            "selected_mcp_tool": None,
+            "tool_selection_status": "blocked_by_investigation_envelope",
+            "tool_selection_reason": "investigation_envelope_required",
+        }
+        review = _review(
+            "investigation_envelope_review",
+            "investigation_envelope_required",
+            "soc_analyst",
+            ["approve_investigation_plan", "reject_execution"],
+        )
+        execution = _blocked_execution(selection, "requires_human_review", "investigation_envelope_required")
+        execution["mode"] = "mock" if str(getattr(settings, "mcp_mode", "") or "").lower() == "mock" else "registry"
+        execution["execution"] = "blocked_pre_envelope"
+        execution["envelope_version"] = None
+        telemetry.record_mcp_execution(
+            trace_id,
+            event_type="mcp_execution_blocked",
+            reason="investigation_envelope_required",
+        )
+        return execution, review
     precondition_block_reason = _precondition_block_reason(precondition_evaluation)
     if precondition_block_reason:
         selection = {
@@ -453,6 +478,9 @@ def evaluate_mcp_execution(
             "evidence_source": "live" if live_run else "mock",
             "execution_status_label": "executed" if live_run else None,
             "call_grant_consumed": True,
+            "mode": "registry" if live_run else "mock",
+            "execution": "live" if live_run else "simulated",
+            "envelope_version": envelope_version,
         }
         telemetry.record_mcp_execution(
             trace_id,

@@ -663,11 +663,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
   - **Depends on:** 5.3
   - **Evidence:** DONE 2026-08-27. Packet: `docs/evals/answer_shape/mcp_execution_gate_5_4_envelope_auth_packet.md`. AUTH0 `envelope_version` in fingerprint; gate threads `approved_investigation_envelope`. Stale v1→v2 confirm → `exact_call_grant_invalidated`, no connector call. RACES pin advanced for `mcp_execution_gate.py` SHA-256 `b12b0a05…`. Tests: `test_post_p10_mock_mcp_5_4_envelope_auth.py` + AUTH0 suite → **10+10 passed**; RACES → **8 passed**.
 
-- [ ] **5.5** — Named mock invocation only after ApprovedInvestigationEnvelope
+- [x] **5.5** — Named mock invocation only after ApprovedInvestigationEnvelope
   - **Do:** Before investigation Approve (UI) → wire `run` → immutable ApprovedInvestigationEnvelope: **mock MCP invocation = NO**. After envelope_version=N: named mock invocation allowed only under 5.4 grant. Trace shows server/tool/mode=mock/execution=simulated + envelope_version.
   - **Verify:** `CV.MULTI.01C` pins; negative test pre-approval invocation absent.
   - **Depends on:** 5.4
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Packet: `docs/evals/answer_shape/mcp_execution_gate_5_5_envelope_required_packet.md`. Gate `require_approved_investigation_envelope` + pipeline investigation path wiring. Pre-envelope → `investigation_envelope_required` (connector never called). RACES pins advanced for gate+pipeline. Tests → **5 passed** (5.4+5.5); hil/gate smoke → **27 passed**.
 
 - [ ] **5.6** — Simulated-result labelling
   - **Do:** UI/trace never present mock rows as live Splunk evidence.

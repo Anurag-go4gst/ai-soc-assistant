@@ -3182,6 +3182,13 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
     mcp_allowed = _mcp_allowed(state)
     if isinstance(candidate_spl, dict) and candidate_spl.get("detection_family") == "user_bound_spl_authoring":
         mcp_allowed = False
+    approved_envelope = (
+        state.get("approved_investigation_envelope")
+        if isinstance(state.get("approved_investigation_envelope"), dict)
+        else None
+    )
+    # Investigation HIL path: mock/live material MCP requires ApprovedInvestigationEnvelope.
+    require_envelope = bool(state.get("investigation_approval")) or bool(approved_envelope)
     execution, human_review = _execution_stage(
         trace_id=state["trace_id"],
         selected_skill=_effective_routing_skill(state),
@@ -3205,6 +3212,8 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         if isinstance(state.get("data_silence_advisory"), dict)
         else None,
         hook_idempotency=resolve_hook_idempotency_context(state),
+        approved_investigation_envelope=approved_envelope,
+        require_approved_investigation_envelope=require_envelope,
     )
     # O5c Step 2: the broaden confirm turn executed the approved broadened
     # search. Attach the two-call cross-turn envelope (empty primary + broadened
@@ -10038,6 +10047,8 @@ def _execution_stage(
     execution_intent: str = "spl_search",
     hook_idempotency: HookIdempotencyContext | None = None,
     mcp_capability: str | None = None,
+    approved_investigation_envelope: dict[str, Any] | None = None,
+    require_approved_investigation_envelope: bool = False,
 ) -> tuple[dict, dict]:
     if spl_validation is None:
         return (
@@ -10095,6 +10106,8 @@ def _execution_stage(
         execution_intent=execution_intent,
         hook_idempotency=hook_idempotency,
         mcp_capability=mcp_capability,
+        approved_investigation_envelope=approved_investigation_envelope,
+        require_approved_investigation_envelope=require_approved_investigation_envelope,
     )
 
 
