@@ -100,6 +100,23 @@ _FEW_SHOTS: tuple[dict[str, str], ...] = (
         "candidate": "search index=auth user IN (alice,bob,carol) | stats count by user",
     },
     {
+        # E2 — the other safe positive. Prompt revision 1 was 6:1 abstain-weighted and
+        # the model learned "always abstain" (0 of 4 genuine positives taken in the H5
+        # bank). This example shows that editing NON-filtering stages is allowed.
+        "id": "E2_early_projection_positive",
+        "spl": (
+            "search index=auth earliest=-1h latest=now action=failure "
+            "| eval unused=1 | stats count by src_ip | head 100"
+        ),
+        "issue": "unused eval; no fields projection before the first aggregation",
+        "tempted": "also 'tidying' the base search while you are in there",
+        "status": "OPTIMIZED",
+        "candidate": (
+            "search index=auth earliest=-1h latest=now action=failure "
+            "| fields src_ip | stats count by src_ip | head 100"
+        ),
+    },
+    {
         # F — governed time is authority, never re-derived by the model.
         "id": "F_governed_time_abstain",
         "spl": (
@@ -170,11 +187,47 @@ def _system_prompt() -> str:
             "investigation intent. NEVER add evidence assumptions. Never optimize by guessing.",
             "",
             "If fixing the identified issue would require any of the above: NO_SAFE_OPTIMIZATION.",
+            "",
+            "Two changes ARE safe, and you SHOULD return OPTIMIZED for them, because",
+            "neither touches which events match:",
+            "  1. Collapse a same-field OR chain into field IN (...) using ONLY the values",
+            "     already present. Add no value; remove no value.",
+            "  2. Drop an eval whose result no later stage uses, and/or add a `fields`",
+            "     projection before the first aggregation -- keeping every column that a",
+            "     later stats, table or sort still needs.",
+            "Abstaining is correct when you are uncertain. It is NOT correct when the",
+            "identified issue is one of these two and the search terms are left alone.",
+            "",
             "Maximum one pass. No explanation outside JSON.",
             "",
             _render_few_shots(),
         ]
     )
+
+
+#: Rule ids reach the prompt as opaque strings like "SOC-STD-SPL-001-Q18", which tell an
+#: 8B model nothing. Translating them is prevention, not authority: the deterministic
+#: lint still decides what fired, and the guard still decides what is accepted.
+_RULE_GUIDANCE: dict[str, str] = {
+    "Q03": "broad NOT / != in an early stage — usually NOT fixable safely; abstain unless a positive value set is already given",
+    "Q04": "same-field OR chain — safe to collapse into IN() with the exact values present",
+    "Q06": "multi-vendor field aliases could use coalesce() — do not invent an alias",
+    "Q08": "base search should name index and sourcetype — never invent them",
+    "Q09": "static filters could sit in the base search — only move filters that already exist",
+    "Q15": "minor-breaker token might suit TERM() — only if exact-token matching was already intended",
+    "Q16": "leading wildcard is expensive — but removing it changes matching; abstain",
+    "Q17": "a non-streaming command runs earlier than necessary — only reorder when equivalence is provable",
+    "Q18": "wide pipeline with no `fields` projection before the first aggregation — safe to project early, keeping every column later stages need",
+}
+
+
+def _describe_rules(advisory_rules: list[str]) -> str:
+    described: list[str] = []
+    for rule in advisory_rules:
+        short = rule.rsplit("-", 1)[-1]
+        guidance = _RULE_GUIDANCE.get(short)
+        described.append(f"{rule} ({guidance})" if guidance else rule)
+    return "; ".join(described) if described else "unspecified efficiency gap"
 
 
 def _user_prompt(
@@ -183,7 +236,7 @@ def _user_prompt(
     advisory_rules: list[str],
     user_query: str | None = None,
 ) -> str:
-    rules = ", ".join(advisory_rules) if advisory_rules else "unspecified efficiency gap"
+    rules = _describe_rules(advisory_rules)
     parts = [
         "Input candidate_spl (v1):",
         candidate_spl,
