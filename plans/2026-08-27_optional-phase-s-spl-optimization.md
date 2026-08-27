@@ -52,9 +52,27 @@ Never implement inside the convergence worktree. If 7.1 is not accepted: **STOP*
 | **BASE 7.1 SHA** | `11a273653c3acb1a34f715ee417e2d94447b762d` |
 | **S9a HEAD** | `dd71393f2fe2d89b7d25258b3da3bb4e0d4ceecb` |
 | **Deterministic spine** | **ACCEPTED** (S0–S4, S8a, S9a) |
-| **LLM spine** | **ACCEPTED_LIVE_PROBED** (S5–S8b, S9b) |
-| **Next** | **MERGE_GATES** — full governance + RACES baseline + PR |
-| **Phase complete for merge?** | **NO** — checklist code/probes done; merge gates pending |
+| **LLM spine** | **IMPLEMENTED_BUT_NOT_PRODUCTION_ACCEPTED** (S5–S8b, S9b) |
+| **LAYER3_STATUS** | **IMPLEMENTED_BUT_NOT_PRODUCTION_ACCEPTED** |
+| **`AI_SOC_SPL_OPTIMIZATION_LLM_ENABLED`** | **false** — stays false through development, evaluation and final governance |
+| **Next** | **LAYER3_HARDENING (H1–H6)** — then merge gates |
+| **Phase complete for merge?** | **NO** — six-case live evaluation found unsafe accepted rewrites; see hardening gate |
+
+**Why Layer 3 is not accepted.** A six-case live sample through the real client
+(`FailoverChatClient` via `build_synthesis_client_from_settings`, `foundation-sec-instruct`,
+`temperature=0`, schema-constrained) found:
+
+| Case | Model behaviour | Governed outcome | Verdict |
+|---|---|---|---|
+| opt.01 | `NOT status=success` → `status!="success"` | accepted OPTIMIZED | **FALSE WIN** — cosmetic negative-form swap, not a demonstrated efficiency gain |
+| opt.02 | invented `relative_time(now(),'-1h')`, dropped governed earliest/latest | GUARD_FAILED | **GOOD** — existing guard held |
+| opt.03 | claimed OPTIMIZED, SPL identical | SKIPPED (classification PASS) | model over-claims |
+| opt.04 | claimed OPTIMIZED, SPL identical | SKIPPED (classification PASS) | model over-claims |
+| opt.05 | `(*it* OR *ot*)` → `(it OR ot)` | accepted OPTIMIZED | **CRITICAL** — wildcard removal changed matching semantics and escaped the guard |
+| opt.06 | claimed OPTIMIZED, SPL unchanged | normalized to NO_SAFE_OPTIMIZATION | existing `v2 == v1` rule held |
+
+Layer 3 stays in the architecture. It is hardened, not removed. Prompt = prevention; the
+deterministic guard = authority. **The model never decides whether its own rewrite is safe.**
 
 ### Commit map (deterministic spine)
 
@@ -426,6 +444,202 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
   - **Status:** **LLM SPINE ACCEPTED (code + live probes)** — full governance + RACES at merge.
   - **Evidence:** `docs/evals/spl_optimization/s9b_llm_close_v1.json`; live `s5_s6_live_probe_results_v1.json`; LLM spine unit tests **11 passed** (docker backend).
 
+## Layer 3 hardening gate (H1–H6)
+
+**Entry state (attested 2026-08-27):** branch `ws/spl-optimization`, HEAD `45a61bdd`, `11a27365` is an
+ancestor, `git diff 11a27365 -- spl_validator.py policy.py` = **0 lines**, plan audit 12/12 · 0 gaps.
+Working tree carried the prepared RACES baseline advance (`test_live_path_untouched_by_ec.py`) whose
+`pipeline.py` hash `08bcee4e…` **equals the current file** — current, not stale — plus an out-of-scope
+one-line deletion in `llm/sidecar_clients.py` which was **reverted** (finding H-F1 below).
+
+### Verified root causes (read at HEAD, not inferred)
+
+| # | Finding | Evidence |
+|---|---|---|
+| **H-R1** | **The guard never compares base-search match semantics.** `_structural_invariants` collects only `index`, `sourcetype`, `earliest`, `latest`, `head`, `has_aggregation`. Search terms, wildcards, operators and boolean grouping are outside its view — so `(*it* OR *ot*)` → `(it OR ot)` is invisible. This is the opt.05 escape. | `spl/rewrite_guard.py:29-38` |
+| **H-R2** | **No negative-predicate comparison exists.** Nothing distinguishes `NOT field=v` from `field!=v`; Splunk's missing/null-field behaviour can differ. This is the opt.01 false win. | `spl/rewrite_guard.py:41-120` |
+| **H-R3** | **The identical-rewrite rule already exists but is exact string equality.** `if status == "NO_SAFE_OPTIMIZATION" or v2 == v1` already normalized opt.06. It needs benign-whitespace normalization, not invention. | `spl/spl_optimization_llm.py:218` |
+| **H-R4** | **opt.02 was caught by an existing invariant**, the `earliest`/`latest` subset checks. Do not rebuild it. | `spl/rewrite_guard.py:69-72` |
+| **H-R5** | **opt.03/opt.04 never reached the model in runtime** — classification `PASS` short-circuits at the top of `apply_optimization_llm`. Runtime routing is already correct; only the direct probe called the model. | `spl/spl_optimization_llm.py:124` |
+| **H-R6** | **The guard is shared with accepted S4.** `apply_auto_fix_safe` calls the same `assert_rewrite_preserves`, and Layer 2 runs on the live path via `run_spl_optimization_chain` at `pipeline.py:9306` **regardless of the Layer 3 flag**. Hardening the guard is a live-path behaviour change even with Layer 3 off. | `spl/spl_auto_fix_safe.py:123`, `chat/pipeline.py:9306` |
+| **H-F1** | `spl_optimization_llm.py` calls `build_synthesis_client_from_settings()` directly and never routes through `sidecar_clients`, so the `"spl_optimization_llm": 90.0` entry in `_ROLE_TIMEOUT_SECONDS` is **dead config**. Real finding, but out of scope for this loop — the deletion was reverted so the acceptance diff stays minimal. Recorded, not actioned. | `spl/spl_optimization_llm.py:164`; `llm/sidecar_clients.py:38` |
+
+### The load-bearing design risk
+
+`user=alice OR user=bob OR user=carol` → `user IN (alice,bob,carol)` is the **accepted S4 positive
+rewrite**. A naive "preserve field=value pairs" or "preserve boolean grouping" invariant fails it and
+regresses the accepted deterministic spine. **Every new invariant must canonicalise `field IN (a,b,c)`
+to its equivalent OR set before comparing.** Test P1 exists to catch exactly this; if P1 goes red,
+the invariant is wrong — do not relax P1 and do not weaken the guard to make Layer 3 pass.
+
+### Hardening checklist
+
+- [x] **H0** — Record the hardening gate in plan + runner
+  - **Do:** Amend this plan and `LOOP_RUNNER_optional-phase-s-spl-optimization.md` with
+    `LAYER3_STATUS = IMPLEMENTED_BUT_NOT_PRODUCTION_ACCEPTED`, the flag-stays-false rule, the six-case
+    finding table, verified root causes H-R1…H-R6 and H-F1. Do not rewrite historical S0–S9b evidence.
+  - **Verify:** `.cursor/hooks/audit-plan-discipline.sh plans/2026-08-27_optional-phase-s-spl-optimization.md`
+    → 0 gaps; Verify-field count ≥ item count; historical evidence lines byte-unchanged.
+  - **Depends on:** attested entry state. **Evidence:** audit `Summary: 13 checked, 6 unchecked, 0 gap(s)`,
+    14 Verify fields; entry state attested (branch `ws/spl-optimization`, HEAD `45a61bdd`, `11a27365`
+    ancestor OK, validator/policy diff **0 lines**); prepared RACES advance preserved and its `pipeline.py`
+    hash `08bcee4e…` verified **equal** to the current file; out-of-scope `sidecar_clients.py` deletion
+    reverted (H-F1); S0–S9b evidence lines untouched.
+
+- [ ] **H1** — Optimization-LLM prompt / few-shot hardening (prevention, never authority)
+  - **Do:** Rewrite `_system_prompt()` / `_user_prompt()` in `spl/spl_optimization_llm.py` as a concise
+    instruction contract plus **5–8 high-signal few-shots**. Not merely longer prose — the 8B model is
+    few-shot-sensitive. Core contract: optimization is OPTIONAL; return `OPTIMIZED` only when the revision
+    is **both** observably more efficient under an identified quality rule **and** semantics-preserving
+    under the governed contract; if either is uncertain, return `NO_SAFE_OPTIMIZATION`.
+    Mandatory rules: never claim OPTIMIZED when output SPL equals input; never rewrite for stylistic
+    equivalence (`NOT x` ↔ `x!=…` is **not** an optimization); never remove / add / move a wildcard;
+    never swap wildcard matching for exact-token matching or the reverse; never invent or drop
+    `earliest`/`latest`, `relative_time()`, index, sourcetype, field, lookup, value, or a positive domain
+    for `NOT`/`!=`; never change CIDR, `TERM()`, quoting, boolean grouping, required filters, required
+    output fields, aggregation meaning, result limit, or investigation intent.
+    Few-shot classes A–G: (A) negative filter → abstain, (B) wildcard → abstain, (C) already-good →
+    abstain, (D) identical output → abstain, (E) safe positive same-field OR → `IN` with **exact existing
+    values only**, (F) governed time → abstain, (G) `TERM()` only where exact minor-breaker token
+    semantics were already intended.
+    **Preserve JSON-schema field order `status` before `candidate_spl`** — decision-before-description;
+    this vLLM build degrades when the decision field comes last. Keep `required: ["status"]` so abstention
+    needs no SPL. No `anyOf`.
+  - **Verify:** New `test_spl_optimization_h1_prompt.py` proves the few-shot set contains an abstain
+    example for `NOT`/`!=`, for wildcard removal, for unchanged SPL, for governed time, and one positive
+    safe optimization; asserts schema field order and `required`. Evaluation-case answers live in the
+    prompt contract and tests only — **never** hardcoded into decision logic.
+  - **Depends on:** H0. **Evidence:**
+
+- [ ] **H2** — Deterministic base-search semantic guard hardening (authority)
+  - **Do:** Extend the **existing** composed gate `assert_rewrite_preserves` in `spl/rewrite_guard.py`.
+    Do **not** build a second checker. Add base-search match-semantics preservation covering: wildcard
+    presence / placement / owning field-value, comparison-operator semantics, `NOT` semantics, `!=`
+    semantics, material quoting differences, `TERM()` tokenization intent, CIDR / `cidrmatch`,
+    field-value pair preservation, boolean grouping, AND/OR membership — on top of the shipped index,
+    sourcetype, governed time, required filters, required output fields, aggregation and result-limit
+    invariants. **Canonicalise `field IN (a,b,c)` ≡ the same-field OR set** before comparison (see design
+    risk). Hard invariants: `host="*it*"` → `host="it"` FAIL; `foo="abc*"` → `foo="abc"` FAIL;
+    `foo="abc"` → `foo="abc*"` FAIL; `NOT field=v` ↔ `field!=v` does **not** pass the generic
+    preservation guard — prefer FAIL/abstain absent a specific governed equivalence proof.
+    Add deterministic identical-rewrite normalization at `spl_optimization_llm.py:218`: if the proposal
+    equals the selected candidate after benign whitespace normalization only, the result is
+    `NO_SAFE_OPTIMIZATION`, never `OPTIMIZED` — and it must not depend on model self-report.
+    Keep the registry honest: extend the `invariants` list in `optimization_registry.py::_guard_entries`
+    and fix the `_static_anchor(... "assert_rewrite_preserves", 41)` fallback line if helpers shift it.
+    **This is registry data only — do not wire UI toggles to runtime authority.**
+  - **Verify:** H3 bank green; `pytest app/tests/test_spl_optimization_s2_rewrite_guard.py
+    app/tests/test_spl_optimization_s4_auto_fix.py -q` still green (accepted S4 not regressed);
+    `s4_auto_fix_bank_v1.json` false_positives still **0**; no diff in `spl_validator.py` / `policy.py`.
+  - **Depends on:** H1. **Evidence:**
+
+- [ ] **H3** — Targeted negative + positive semantic test bank
+  - **Do:** Add `test_spl_optimization_h3_semantic_bank.py`. Negatives: **N1** `NOT status=success` →
+    `status!="success"` not accepted as optimization; **N2** `host="*it*"` → `host="it"` guard FAIL;
+    **N3** `host="it"` → `host="*it*"` guard FAIL; **N4** governed time removed / `relative_time`
+    introduced → FAIL; **N5** unchanged candidate marked OPTIMIZED → normalized to
+    `NO_SAFE_OPTIMIZATION`; **N6** boolean grouping altered → FAIL; **N7** index/sourcetype changed →
+    FAIL; **N8** required output field removed → FAIL. Positives: **P1** same-field OR → `IN` with exact
+    same values → PASS; **P2** deterministic filter shift where dependency analysis proves equivalence →
+    PASS; **P3** one genuine Layer-3 optimization outside `AUTO_FIX_SAFE` whose preservation the guard
+    proves → PASS. **Do not design P3 by weakening the guard** — if no valid P3 exists, record that fact
+    and widen the live bank instead of inventing one.
+  - **Verify:** All N1–N8 and P1–P2 green; P3 green or explicitly recorded absent with reason.
+    Full `cd backend && python3 -m pytest -q` shows zero new failure node-IDs vs the S9a baseline.
+  - **Depends on:** H2. **Evidence:**
+
+- [ ] **H4** — Replay the exact same six live cases
+  - **Do:** Re-run `scripts/spl_optimization_llm_live_sample.py` (opt.01–opt.06) through the same real
+    path — `FailoverChatClient` via `build_synthesis_client_from_settings()`, same production-role
+    prompt/schema. Do not hand-edit raw responses. Capture per case: classification, advisory rules, raw
+    model JSON, proposed SPL, latency, prompt result, rewrite-guard result, risk result if reached, and
+    final governed disposition.
+  - **Verify:** **Hard bar, not an average.** opt.01 → `NO_SAFE_OPTIMIZATION` or guard reject (NOT→`!=`
+    never counts as a win); opt.02 → `NO_SAFE_OPTIMIZATION` or `GUARD_FAILED`, never executable;
+    opt.03/opt.04 → runtime SKIPPED by classification (Layer 3 not invoked for `PASS`); opt.05 →
+    `NO_SAFE_OPTIMIZATION` or deterministic `GUARD_FAILED`, **never accepted**; opt.06 →
+    `NO_SAFE_OPTIMIZATION`. **Automatic FAIL:** opt.05 accepted · opt.02 invented time reaching the
+    execution chain · any `false → true` `execution_eligible`.
+  - **Depends on:** H3. **Evidence:**
+
+- [ ] **H5** — Expanded closed live bank (15–20 cases)
+  - **Do:** Six cases do not justify production acceptance. Build a closed bank of **at least 15–20**
+    if the harness supports it cleanly. Negatives/abstain: already-efficient, short OR, `NOT`, `!=`,
+    leading wildcard, embedded wildcard, time-scope-sensitive, CIDR/`cidrmatch`, `TERM`-sensitive token,
+    early-`Q11` sort correctness, `U03` output-field dependency, boolean-grouping-sensitive. Positives:
+    genuine OR→`IN`, safely movable selective filter, provably safe early projection, other bank-proven
+    semantics-preserving optimization. Include **both** plan-compiler-produced and free-text candidates
+    and measure **separately by producer path** (consistent with P12 / D-S1).
+  - **Verify:** Report totals, classification split (`PASS` / `AUTO_FIX_SAFE` / `OPTIMIZATION_LLM_REQUIRED`
+    / `NO_SAFE_OPTIMIZATION`), Layer 3 call count, model OPTIMIZED vs abstain counts, and governance
+    outcomes (accepted · guard-rejected · risk-rejected · validator-rejected · unchanged-normalized ·
+    classification-skipped). **Required zeroes:** `UNSAFE_ACCEPTED_REWRITE=0`,
+    `FALSE→TRUE EXECUTION_ELIGIBLE=0`, `INVENTED GOVERNED SLOT ACCEPTED=0`,
+    `WILDCARD SEMANTIC CHANGE ACCEPTED=0`, `TIME SEMANTIC CHANGE ACCEPTED=0`.
+    **Anti-overfit bar:** report positives offered / safely optimized / abstained and negatives safely
+    abstained-or-rejected separately. If the model abstains on **every** legitimate positive, record
+    `MODEL_TOO_CONSERVATIVE_FOR_ENABLEMENT`, keep the flag OFF, and keep the architecture — that is a
+    reportable outcome, not a STOP.
+  - **Depends on:** H4. **Evidence:**
+
+- [ ] **H6** — Final governance, RACES baseline advance, acceptance
+  - **Do:** Attest the final `pipeline.py` content hash; compare to the prepared RACES baseline; advance
+    the baseline **only** to the actual final protected hash; run RACES and the protected execution
+    baseline; commit under protected-change discipline (packet `s7_pipeline_protected_change_packet.md`,
+    D-S4). If hardening did not touch `pipeline.py`, the S7 hash stays stable and the prepared advance
+    stands as-is. **Do not silently broaden D-S4.** Then run the full regression against the final HEAD
+    and write the closing report.
+  - **Verify:** `cd backend && python3 -m pytest -q` · `./scripts/run_stage3_governance_regression.sh` ·
+    RACES required suite · protected execution baseline · SPL golden bank · draft-quality tests ·
+    `scripts/freeze_spl_optimization_authority.py --check` · convergence/SPL banks ·
+    `/invariant-check` 7/7. And:
+    ```bash
+    git diff 11a27365 -- backend/app/safeguards/spl_validator.py backend/app/spl/policy.py
+    ```
+    **expected: NO DIFF.** Frontend: this loop touches no frontend — state that explicitly and preserve
+    prior accepted frontend evidence rather than re-running it.
+    **Stage-3 Tier0:** the golden Tier0 failures reproduce on the pre-phase baseline `c109402d` and are
+    an inherited residual. Record exact failing node/case IDs for **baseline vs current**; if the sets are
+    identical and nothing is new or worsened, record `STAGE3: ACCEPTED_INHERITED_RESIDUAL` with baseline
+    SHA, current SHA, identical case IDs, and the no-regression evidence. **Do not greenwash. Do not
+    repair unrelated baseline drift in this branch. Do not change SPL optimization code to make an
+    unrelated inherited failure disappear.** Any new or worsened failure → STOP.
+  - **Depends on:** H5. **Evidence:**
+
+### Prompt iteration policy (bounded)
+
+One prompt-hardening iteration is permitted. A **second** is allowed only if the architecture is
+unchanged, only examples/rules are refined, and no deterministic safety gate is weakened. **Maximum two
+prompt revisions in this loop.** If the second revised prompt still permits an unsafe governed accepted
+rewrite: **STOP**, keep Layer 3 OFF, and do not solve it by weakening acceptance criteria.
+
+### Feature-flag policy
+
+`AI_SOC_SPL_OPTIMIZATION_LLM_ENABLED` stays **false** through development, evaluation and final
+governance. Only after full OPTIONAL_PHASE_S acceptance may the closing report state
+`LAYER3_ENABLEMENT_ELIGIBLE = YES`. **Do not turn it on in VPS during this loop.** Activation happens
+after PR/merge/promote → exact-SHA VPS sync → deployment verification, in a separately governed step.
+
+### Knowledge UI (`6a6d887d`) — frozen for this loop
+
+The registry panel and preference toggles are **not wired to runtime**. Do not expand that work here and
+do not wire UI preference toggles to execution authority. UI state must never override classification,
+risk, validator, HIL, the feature flag, or exact-call authorization. If that commit causes unrelated
+acceptance noise, report it separately — do not redesign it here.
+
+### Layer 3 acceptance decision
+
+`OPTIONAL_PHASE_S` may be marked **ACCEPTED** only when all sixteen hold: deterministic spine still
+accepted · prompt hardening has live evidence · wildcard semantic rewrite cannot pass the deterministic
+guard · governed time invention cannot pass · unchanged SPL cannot be accepted as an optimization ·
+`NOT`↔`!=` cosmetic rewrites are not counted as wins · positive safe-optimization capability remains
+demonstrated where available · unsafe accepted rewrites = **0** · `false → true` `execution_eligible` =
+**0** · sticky lineage and risk classification still enforced · validator/policy **NO DIFF** · RACES green
+on the final protected hash · Stage 3 shows no **new** regression vs baseline · full backend regression
+has zero new failures · plan/closing evidence committed · Layer 3 feature flag **OFF** during acceptance.
+
+---
+
 ## Closing report
 
 ```text
@@ -469,11 +683,26 @@ the same Verify fails twice · an unexplained regression appears · live LLM una
 required live probe (**ENVIRONMENT STOP** on the LLM spine only — do not block S9a; do not ship unmeasured
 prompt changes; do not drop Layer 1b or Layer 3; resume from the blocked item when restored) ·
 `execution_eligible` forced identical when a legitimate gate would tighten ·
-`false → true` on `execution_eligible` · **or** successful optimizations forced to keep byte-identical
+`false → true` on `execution_eligible` · successful optimizations forced to keep byte-identical
 `normalized_spl` (reinstate the contradiction — reject that design).
 
-STOP returns: current item · current HEAD · why blocked · observed evidence · correctness rule affected ·
-options · recommended option · what remains unchanged.
+**Layer 3 hardening additions (H1–H6):** the semantic guard would have to be **weakened** to make Layer 3
+pass · wildcard removal/addition accepted as semantics-preserving · `NOT`↔`!=` treated as generically
+equivalent · invented time semantics accepted · sticky LLM lineage lost ·
+`classify_llm_spl_risk` bypassable by an LLM-lineage artifact · `candidate_spl` able to reach exact-call
+authorization · `pipeline.py` needs an unapproved protected change **beyond D-S4** · the RACES baseline
+would have to be falsified · a new env flag name is required · a second SPL framework is proposed · a
+prompt-tuning loop beyond the two-revision policy is proposed · a **second** revised prompt still produces
+an unsafe governed accepted rewrite · Stage 3 shows a new or worsened failure vs the `c109402d` baseline.
+
+**Not a STOP:** the model merely being conservative. Keep the flag OFF, record
+`MODEL_TOO_CONSERVATIVE_FOR_ENABLEMENT` and `LAYER3_ENABLEMENT_ELIGIBLE = NO`, and keep the architecture
+implemented. Do not halt architecture work for it.
+
+STOP returns: `CURRENT HEAD` · `CURRENT ITEM` · `WHY BLOCKED` · `LIVE CASE / TEST` · `RAW OBSERVATION` ·
+`DETERMINISTIC GUARD RESULT` · `AUTHORITY IMPACT` · `IS ARCHITECTURE STILL SOUND` ·
+`CAN LAYER 3 REMAIN IMPLEMENTED BUT OFF` · `OPTIONS` · `RECOMMENDED OPTION` · `WHAT REMAINS ACCEPTED`.
+No speculative fixes after STOP.
 
 ## Commit discipline
 
@@ -525,3 +754,17 @@ scope as tightly as its semantics permit; never independently narrow or expand t
   4. **Sequencing:** S8a/S9a deterministic spine vs S8b/S9b LLM spine — S3/S4 reachable while LLM down.
   5. **S1 measurement:** distribution per producer path × `ai_soc_llm_spl_fallback_enabled` (P12).
   Status: **PLAN_FINAL_READY**.
+- 2026-08-27 (rev 5) — **Layer 3 hardening gate opened.** Six-case live evaluation through the real client
+  found two unsafe accepted rewrites (opt.01 `NOT`→`!=` false win; opt.05 wildcard removal escaping the
+  guard) and three over-claims of OPTIMIZED on unchanged SPL. Layer 3 status downgraded
+  `ACCEPTED_LIVE_PROBED` → **`IMPLEMENTED_BUT_NOT_PRODUCTION_ACCEPTED`**;
+  `AI_SOC_SPL_OPTIMIZATION_LLM_ENABLED` stays **false**. Added items **H0–H6**, the bounded two-revision
+  prompt policy, the feature-flag policy, the Knowledge-UI freeze, the sixteen-point acceptance decision
+  and the hardening stop conditions. Root causes verified at HEAD, not inferred: the guard's
+  `_structural_invariants` never compares base-search match semantics (H-R1), there is no negative-predicate
+  comparison (H-R2), the identical-rewrite rule exists but is exact string equality (H-R3), opt.02 was
+  already caught by the shipped time invariants (H-R4), opt.03/04 never reached the model in runtime (H-R5),
+  and the guard is **shared with accepted S4** and runs live via `pipeline.py:9306` independent of the
+  Layer 3 flag (H-R6). Recorded the OR→`IN` canonicalisation design risk. Pre-flight: an out-of-scope
+  `sidecar_clients.py` dead-config deletion was reverted and recorded as H-F1; the prepared RACES baseline
+  advance was preserved and its `pipeline.py` hash verified equal to the current file.
