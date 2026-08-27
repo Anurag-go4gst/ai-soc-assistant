@@ -584,6 +584,39 @@ def _detection_family_prompt() -> str:
 APPROVED_CIM_DATAMODELS = ("Authentication", "Network_Traffic", "Network_Resolution")
 
 
+def _spl_efficiency_guidance_block() -> str:
+    """Layer 1b — SPL efficiency guidance for the free-text advisory path (OPTIONAL_PHASE_S S5).
+
+    Advisory to the model only; correctness and governed RQC time scope always win."""
+    return (
+        "Efficiency guidance (never sacrifice correctness for speed):\n"
+        "- Use the governed RQC / request time scope exactly — never independently narrow or widen it.\n"
+        "- Put index, sourcetype, and selective static filters in the base search before the first pipe.\n"
+        "- Prefer positive field=value filters over broad NOT / != when the desired values are known.\n"
+        "- Avoid large same-field OR chains; use field IN (a,b,c) when values are on the same field.\n"
+        "- Use TERM() only for genuine minor-breaker tokens (contains . or _) not already wrapped.\n"
+        "- Do not use leading wildcards in search terms.\n"
+        "- Filter before expensive eval/stats; project unused columns early with | fields when safe.\n"
+        "- Keep sort/stats/streamstats as late as correctness allows (except sort 0 + _time before streamstats).\n"
+    )
+
+
+# Probe-only toggle: live before/after probes may disable this block without editing prompts.py.
+_SPL_EFFICIENCY_PROMPT_ENABLED = True
+
+
+def set_spl_efficiency_prompt_enabled(enabled: bool) -> None:
+    """Allow /llm-live-probe to compare with vs without Layer 1b guidance."""
+    global _SPL_EFFICIENCY_PROMPT_ENABLED
+    _SPL_EFFICIENCY_PROMPT_ENABLED = bool(enabled)
+
+
+def _maybe_spl_efficiency_block() -> str:
+    if not _SPL_EFFICIENCY_PROMPT_ENABLED:
+        return ""
+    return f"\n{_spl_efficiency_guidance_block()}\n"
+
+
 def _correctness_engineering_block() -> str:
     """B12 — U01/U02 + a compact correctness hint, NOT the full SOC-STD-SPL-001
     C–I list or the full detection-family catalog. Avoids reproducing draft-family
@@ -597,6 +630,7 @@ def _correctness_engineering_block() -> str:
         "earliest/latest timestamps with strftime AFTER stats (never strftime(_time) before stats).\n"
         "- Use placeholders for unknown index/sourcetype (index=<...>, sourcetype=<...>) and list them "
         "in assumptions and required_fields. No false claims of execution/approval/governance.\n"
+        f"{_maybe_spl_efficiency_block()}"
     )
 
 
@@ -873,6 +907,7 @@ def _system_prompt(correctness_mode: bool = False, context: dict[str, Any] | Non
         "and no <think> tags.\n"
         f"{_soc_std_spl_001_prompt_rules()}"
         f"{family_block}"
+        f"{_maybe_spl_efficiency_block()}"
         "Decide whether the request is sufficiently specified. Return clarification questions when "
         "index/sourcetype cannot be safely placeholdered, the required log source is unclear, fields "
         "required for logic are missing, threshold/time window is unclear, asset zone definitions are "

@@ -375,3 +375,29 @@ def build_optimization_analyst_summary(
 def should_surface_optimization_advisory(*, explicit_optimize_intent: bool) -> bool:
     """Advisory prose only when the analyst explicitly asked to optimize or review SPL."""
     return bool(explicit_optimize_intent)
+
+
+def build_llm_path_optimization_trace(
+    *,
+    optimization_source: OptimizationSource,
+    candidate_version: str,
+    producer_lineage: str | None = None,
+    generation_prompt_efficiency: bool = False,
+    optimization_llm: dict[str, Any] | None = None,
+    rules_triggered: list[str] | None = None,
+    rules_resolved: list[str] | None = None,
+    llm_lineage: bool = True,
+) -> dict[str, Any]:
+    """Trace block for Layer 1b/3 LLM-path optimization (read-model only)."""
+    trace = build_deterministic_optimization_trace(
+        optimization_source=optimization_source,
+        candidate_version=candidate_version,
+        rules_triggered=rules_triggered,
+        rules_resolved=rules_resolved,
+        llm_lineage=llm_lineage,
+        producer_lineage=producer_lineage,
+    )
+    trace["generation_prompt_efficiency"] = bool(generation_prompt_efficiency)
+    if isinstance(optimization_llm, dict):
+        trace["optimization_llm"] = optimization_llm
+    return trace

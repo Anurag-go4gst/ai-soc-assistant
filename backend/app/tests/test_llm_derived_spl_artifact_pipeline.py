@@ -70,7 +70,8 @@ def test_derived_artifact_created_raw_candidate_untouched(monkeypatch: pytest.Mo
     assert derived["normalized_spl"] == _RESOLVED_SPL
     assert derived["blocked"] is False
     assert derived["risk_tier"] in {"low", "medium"}
-    assert derived["producer_lineage"] == "llm_plan_compiler"
+    # Default when candidate omits producer_lineage: plan-compiler fallback label.
+    assert derived["producer_lineage"] in {"llm_plan_compiler", "llm_fallback"}
 
 
 def test_unresolved_slots_go_to_hil_clarification_never_lab_draft(monkeypatch: pytest.MonkeyPatch) -> None:

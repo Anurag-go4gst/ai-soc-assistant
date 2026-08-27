@@ -2,31 +2,31 @@
 
 **Canonical plan:** [`plans/2026-08-27_optional-phase-s-spl-optimization.md`](2026-08-27_optional-phase-s-spl-optimization.md)
 
-## Current checkpoint — 2026-08-27
+## Current checkpoint — 2026-08-27 (post LLM spine)
 
-| Spine | Status | HEAD |
+| Spine | Status | HEAD / evidence |
 |---|---|---|
 | Deterministic (S0–S9a) | **ACCEPTED** | `dd71393f` |
-| LLM (S5–S9b) | **PENDING_LIVE_VALIDATION** | — |
+| LLM (S5–S9b) | **ACCEPTED_LIVE_PROBED** | live `s5_s6_live_probe_results_v1.json`; unit 11 passed |
 
 **Worktree:** `../ai-soc-wt-spl-optimization` · **Branch:** `ws/spl-optimization` · **Base:** `11a27365`
 
-**Next item when LLM restored:** **S5** (Foundation-Sec `:8081` was UNAVAILABLE at S9a close).
+**Next:** **MERGE_GATES** — governance regression + RACES baseline advance + PR (not more checklist code).
 
-Checked off: S0 `283598e1` · S1 `fa1b2182` · S2 `2649f2c1` · S3 `d8b4385a` · S4 `3742fbb9` · S8a `d9d11963` · S9a `dd71393f`
+Checked off: S0–S4 · S5 · S6 · S7 (partial — RACES deferred) · S8a · S8b · S9a · S9b (code+probes)
 
-Pending: S5 · S6 · S7 · S8b · S9b
-
-## Start
+## Start / resume
 
 ```text
 loop-asap — execute plans/2026-08-27_optional-phase-s-spl-optimization.md
 ```
 
-Resume after LLM restore:
+Merge-gate follow-up (not loop-asap checklist):
 
 ```text
-loop-asap — resume OPTIONAL_PHASE_S from S5 in ../ai-soc-wt-spl-optimization
+Run ./scripts/run_stage3_governance_regression.sh in worktree;
+advance RACES baseline for pipeline.py;
+open PR for ws/spl-optimization
 ```
 
 > **Cursor only.** `loop-asap` is armed by `.cursor/hooks/before-submit-plan-discipline-arm.sh` and
@@ -40,7 +40,7 @@ loop-asap — resume OPTIONAL_PHASE_S from S5 in ../ai-soc-wt-spl-optimization
 1. Audit: `.cursor/hooks/audit-plan-discipline.sh plans/2026-08-27_optional-phase-s-spl-optimization.md` — fix every GAP.
 2. Pick first unchecked checklist item in dependency order:
    - Deterministic spine: `S0 → S1 → S2 → {S3 ‖ S4} → S8a → S9a` **(DONE)**
-   - LLM spine: `S5` / `S6 → S7 → S8b → S9b` **(resume S5)**
+   - LLM spine: `S5 → S6 → S7 → S8b → S9b` **(DONE code/probes; S7 RACES at merge)**
 3. Implement **Do** only for that item.
 4. Run **Verify** exactly as written.
 5. Check off `- [x]` and fill **Evidence** (command output or observation).

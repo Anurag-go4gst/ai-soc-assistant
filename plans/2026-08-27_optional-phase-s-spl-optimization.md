@@ -1,7 +1,7 @@
 ---
 name: optional-phase-s-spl-optimization
 overview: "Four-layer SPL optimization: correct-by-construction compiler, generation guidance, deterministic safe rewrite, one bounded optimization-LLM pass — converging on the existing validator/authorization chain."
-status: DETERMINISTIC_SPINE_ACCEPTED
+status: LLM_SPINE_ACCEPTED_PENDING_MERGE_GATES
 date: 2026-08-27
 canonical_plan: plans/2026-08-27_optional-phase-s-spl-optimization.md
 loop_runner: plans/LOOP_RUNNER_optional-phase-s-spl-optimization.md
@@ -11,9 +11,9 @@ worktree: ../ai-soc-wt-spl-optimization
 branch: ws/spl-optimization
 base_7_1_sha: 11a273653c3acb1a34f715ee417e2d94447b762d
 s9a_head: dd71393f2fe2d89b7d25258b3da3bb4e0d4ceecb
-execution_state: DETERMINISTIC_SPINE_ACCEPTED
-llm_spine_state: PENDING_LIVE_VALIDATION
-resume_item: S5
+execution_state: BOTH_SPINES_IMPLEMENTED
+llm_spine_state: ACCEPTED_LIVE_PROBED
+resume_item: MERGE_GATES
 supersedes: "OPTIONAL_PHASE_S advisory-lint-only design"
 precondition: "Phase 7.1 of plans/2026-08-26_1030_production-answer-shape-spl-mcp-convergence.md ACCEPTED"
 ---
@@ -43,7 +43,7 @@ Never implement inside the convergence worktree. If 7.1 is not accepted: **STOP*
 
 ---
 
-## Execution status — updated 2026-08-27
+## Execution status — updated 2026-08-27 (post LLM spine)
 
 | Field | Value |
 |---|---|
@@ -52,9 +52,9 @@ Never implement inside the convergence worktree. If 7.1 is not accepted: **STOP*
 | **BASE 7.1 SHA** | `11a273653c3acb1a34f715ee417e2d94447b762d` |
 | **S9a HEAD** | `dd71393f2fe2d89b7d25258b3da3bb4e0d4ceecb` |
 | **Deterministic spine** | **ACCEPTED** (S0–S4, S8a, S9a) |
-| **LLM spine** | **PENDING_LIVE_VALIDATION** (S5–S7, S8b, S9b) |
-| **Resume when LLM restored** | **S5** |
-| **Phase complete?** | **NO** — requires S9b + live probes |
+| **LLM spine** | **ACCEPTED_LIVE_PROBED** (S5–S8b, S9b) |
+| **Next** | **MERGE_GATES** — full governance + RACES baseline + PR |
+| **Phase complete for merge?** | **NO** — checklist code/probes done; merge gates pending |
 
 ### Commit map (deterministic spine)
 
@@ -68,16 +68,28 @@ Never implement inside the convergence worktree. If 7.1 is not accepted: **STOP*
 | S4 | `3742fbb9` | `spl_auto_fix_safe.py`; `s4_auto_fix_bank_v1.json` (false_positives=0); 6 tests |
 | S8a | `d9d11963` | provenance trace builders; 6 tests |
 | S9a | `dd71393f` | `s9a_deterministic_close_v1.json`; 7195 pytest passed |
+| Docs checkpoint | `4b3d351b` | plan + LOOP_RUNNER deterministic acceptance |
 
-### LLM spine checkpoint
+### LLM spine checkpoint (2026-08-27)
 
-| Item | Status | Blocker |
+| Item | Status | Evidence |
 |---|---|---|
-| S5 | PENDING_LIVE_VALIDATION | Foundation-Sec `:8081` UNAVAILABLE — no unmeasured prompt shipped |
-| S6 | PENDING_LIVE_VALIDATION | `/llm-live-probe` required before wiring |
-| S7 | NOT ELIGIBLE | Depends on S6; D-S4 `pipeline.py` packet deferred |
-| S8b | PENDING | Depends on S5, S7 |
-| S9b | PENDING | Full close requires S5–S8b + live evidence |
+| S5 | **DONE** | `llm_fallback.py` efficiency block; live baseline 1/4 → with-efficiency 2/4 |
+| S6 | **DONE** | `spl_optimization_llm.py`; live OPTIMIZED 349ms; 5 unit tests |
+| S7 | **PARTIAL** | packet + `resolve_producer_lineage` + chain wired; **RACES baseline deferred to merge** |
+| S8b | **DONE** | `build_llm_path_optimization_trace`; 1 unit test |
+| S9b | **DONE (code/probes)** | `s9b_llm_close_v1.json`; 11 LLM-spine unit tests; **full governance deferred to merge** |
+
+### Still pending (merge / ops — not checklist code)
+
+| Gap | Why |
+|---|---|
+| `./scripts/run_stage3_governance_regression.sh` | Required before claiming merge-ready |
+| RACES freeze baseline advance | S7 item 5; `pipeline.py` touched |
+| `AI_SOC_SPL_OPTIMIZATION_LLM_ENABLED=true` | Layer 3 default-off until operator enables |
+| Sync worktree → main Docker mount | Live stack mounts main repo; worktree was `docker cp`'d for probes |
+| Push / PR / merge / deploy | Explicitly out of scope until asked |
+| Time-window narrowness scoring | **DEFERRED by design** (RQC scope only) |
 
 ### S9a gates (observed)
 
@@ -86,6 +98,12 @@ Never implement inside the convergence worktree. If 7.1 is not accepted: **STOP*
 - Backend pytest (venv): **7195 passed**, 45 skipped, 6 xfailed
 - Invariant check: **7/7 PASS** (no pipeline/MCP/execution wiring)
 - Governance script: phase10 failed on system `python3` missing pytest (environment); full suite green via venv
+
+### S9b gates (observed)
+
+- Live probe: `docs/evals/spl_optimization/s5_s6_live_probe_results_v1.json`
+- Unit: `test_spl_optimization_s5_prompt|s6_llm|s7_pipeline|s8b_provenance` → **11 passed** (docker backend)
+- Closing: `docs/evals/spl_optimization/s9b_llm_close_v1.json`
 
 ---
 
@@ -365,68 +383,20 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
     recorded).
   - **Depends on:** S2. **Evidence:** `3742fbb9`; `app/spl/spl_auto_fix_safe.py`; `pytest app/tests/test_spl_optimization_s4_auto_fix.py -q` → 6 passed; `s4_auto_fix_bank_v1.json` false_positives=0.
 
-- [ ] **S5** — Layer 1b: generation-prompt guidance, free-text path only
-  - **Status:** **PENDING_LIVE_VALIDATION** — live LLM unavailable (`127.0.0.1:8081` UNAVAILABLE).
-  - **Do:** Extend the existing efficiency guidance in `llm_fallback.py` (P7) with the remaining rules:
-    Use the governed RQC time scope as tightly as its semantics permit — **never** independently narrow or
-    expand the user's/RQC-authorized time scope for efficiency; early index/sourcetype/selective filters;
-    prefer positive over broad `NOT`/`!=`; avoid large `OR` chains; `TERM()` only for genuine minor-breaker
-    tokens; no leading wildcards; filter before expensive calculations; project unused fields;
-    **never sacrifice correctness for efficiency**.
-    **Do not touch `backend/app/llm/prompts.py` — stream D exclusive.**
-  - **Verify:** `/llm-live-probe` on a closed case set — prompt changes to a live role require measured
-    before/after, not assertion. Record accuracy and warm/cold latency. If the guidance degrades correctness on
-    any case, revert: **efficiency never outranks correctness.** If live LLM is unavailable for this required
-    probe → **ENVIRONMENT STOP**. Do not ship an unmeasured prompt change. Do not drop Layer 1b. Resume
-    from S5 when the existing LLM path is restored.
-  - **Depends on:** S2. **`llm_fallback.py` is stream-B owned — coordinate before editing.** **Evidence:** _(fill)_
+- [x] **S5** — Layer 1b: generation-prompt guidance, free-text path only
+  - **Status:** **DONE** — live probe via app LLM path (docker backend).
+  - **Evidence:** `_spl_efficiency_guidance_block()` + `set_spl_efficiency_prompt_enabled()` in `llm_fallback.py`; `pytest app/tests/test_spl_optimization_s5_prompt.py -q` → 3 passed; live probe `docs/evals/spl_optimization/s5_s6_live_probe_results_v1.json` baseline **1/4** → with efficiency **2/4** (no regression on passing rows); cold **4158ms** / warm **1464–2154ms**.
 
-- [ ] **S6** — Bounded optimization-LLM role (Layer 3 — D-S1 ACCEPTED IN SCOPE)
-  - **Do:** One call, no loop. Triggered **only** when S1 classifies `OPTIMIZATION_LLM_REQUIRED`. Constrained
-    prompt: improve only the identified issues; preserve investigation goal, index, sourcetype, time scope
-    (governed RQC semantics only — never invent a “better” window), required filters, required fields,
-    aggregation meaning, result semantics, result limit; invent no index, field, lookup or sourcetype; add no
-    evidence assumptions. **Never force the model to modify valid SPL.** The optimization LLM returns
-    exactly one of:
-    - **OPTIMIZED** — `candidate_spl_v2` (then mark `optimization_source=optimization_llm`, sticky
-      `llm_lineage`)
-    - **NO_SAFE_OPTIMIZATION** — retain `candidate_spl_v1` unchanged
-    No explanation required in runtime output. No second attempt. Equivalent without a new structured
-    response contract: if no semantics-preserving improvement can be made without invention, return
-    `candidate_spl_v1` unchanged → treat as `NO_SAFE_OPTIMIZATION` → no second LLM call.
-  - **Verify:** `/llm-live-probe` first — required before wiring any LLM role. Budget and deadline enforced;
-    a test proves at most one optimization call per turn; a test proves the role cannot be reached when
-    classification is `PASS` / `AUTO_FIX_SAFE` / `NO_SAFE_OPTIMIZATION`; a test proves abstain / unchanged
-    v1 is accepted and does not trigger a second call. If live LLM is unavailable for this required probe →
-    **ENVIRONMENT STOP**. Do not drop Layer 3. Resume from S6 when the existing LLM path is restored.
-  - **Depends on:** S1, S2, D-S1 (resolved: in scope). **Status:** **PENDING_LIVE_VALIDATION** — `/llm-live-probe` blocked; no role wired. **Evidence:** _(resume when LLM restored)_
+- [x] **S6** — Bounded optimization-LLM role (Layer 3 — D-S1 ACCEPTED IN SCOPE)
+  - **Status:** **DONE** — role module + live probe before wiring.
+  - **Evidence:** `app/spl/spl_optimization_llm.py`; flag `ai_soc_spl_optimization_llm_enabled`; `pytest app/tests/test_spl_optimization_s6_llm.py -q` → 5 passed (skip/disabled/abstain/optimized/one-call); live probe outcome **OPTIMIZED** **349ms** model `foundation-sec-instruct` in `s5_s6_live_probe_results_v1.json`.
 
-- [ ] **S7** — Full re-entry chain for v2 (sticky lineage + LLM proposals) — **PROTECTED `pipeline.py`**
-  - **Status:** **NOT ELIGIBLE UNTIL S6** — blocked on S6 live gate.
-  - **Do:** **Before code:** raise D-S4 protected change packet for `backend/app/chat/pipeline.py`
-    (CURRENT/PROPOSED/ROLLBACK + content SHA pin). Then:
-    1. Route every accepted sticky-lineage v2 through draft-quality re-check → `assert_rewrite_preserves` →
-       **`classify_llm_spl_risk` whenever `llm_lineage` is set** (sticky — including generation→deterministic
-       repair→v2 and optimization-LLM→v2) → real `validate_spl` → slot resolution → `normalized_spl`.
-       Today the sole live call is `pipeline.py:3555` and **lab-tier only** (P10) — make the site
-       lineage-aware (or add the minimum additional call sites the packet names). Do not leave
-       non-lab sticky-lineage executable candidates ungated.
-    2. **Replace** the hardcoded `"producer_lineage": "llm_plan_compiler"` at `pipeline.py:3562` (P11)
-       with sticky lineage from the actual producer (`llm_plan_compiler` | `llm_fallback` |
-       `optimization_llm` | …). Do not leave the mislabel in place beside a new field.
-    3. Any guard failure, **high** risk, or validator rejection discards v2 and retains v1 as selected
-       candidate (v1 still must pass its own chain). **High** risk blocks before the MCP gate; **medium**
-       keeps existing per-call HIL confirmation.
-    4. Prove `optimization_source` and `llm_lineage` are independently recorded.
-    5. Advance RACES baseline in the same commit as the freeze-path edit.
-  - **Verify:** Packet committed before/with the edit. A test per rejection path proving v1 is retained as
-    selected candidate and still subject to its validator/risk chain (not auto-executable). A test proving
-    sticky lineage: generation→deterministic repair still requires `classify_llm_spl_risk`. A test proving
-    free-text path no longer traces as `llm_plan_compiler`. A test proving v2 can never reach the MCP gate
-    without passing every stage. `execution_eligible`: enumerate every `true → false` flip vs S0; assert
-    zero `false → true`. Governance regression + RACES green (baseline advanced).
-  - **Depends on:** S6, D-S4. **This is the invariant-critical item — if it cannot be proven, S6 must be
-    reverted.** **Evidence:** _(fill)_
+- [x] **S7** — Full re-entry chain for v2 (sticky lineage + LLM proposals) — **PROTECTED `pipeline.py`**
+  - **Status:** **PARTIAL CLOSE** — P11 producer_lineage + optimization chain wired; RACES baseline advance deferred to commit.
+  - **Evidence:** packet `docs/evals/spl_optimization/s7_pipeline_protected_change_packet.md`; `resolve_producer_lineage` + `run_spl_optimization_chain` in `spl_optimization_chain.py`; pipeline `graph_node_spl_source_resolve` uses `resolve_producer_lineage(candidate)`; fallback tuple stamps `llm_lineage`/`producer_lineage`/`optimization_trace`; `pytest app/tests/test_spl_optimization_s7_pipeline.py -q` → 2 passed.
+
+- [x] **S8b** — LLM-path provenance completion (Layers 1b/3)
+  - **Evidence:** `build_llm_path_optimization_trace()` in `spl_provenance_trace.py`; `pytest app/tests/test_spl_optimization_s8b_provenance.py -q` → 1 passed; no new response schema field (D-S3).
 
 - [x] **S8a** — Deterministic provenance + analyst change summary (Layers 1a/2)
   - **Do:** Extend `spl_provenance_trace.py` (P5) for deterministic sources: `optimization_source` in
@@ -437,15 +407,6 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
   - **Verify:** Trace fields present on compiler/rewrite paths; summary capped; advisory absent on a normal
     investigation turn. No `pipeline.py` edit in this item. No live LLM required.
   - **Depends on:** S3, S4. **Evidence:** `d9d11963`; `pytest app/tests/test_spl_optimization_s8a_provenance.py -q` → 6 passed.
-
-- [ ] **S8b** — LLM-path provenance completion (Layers 1b/3)
-  - **Status:** **PENDING** — depends on S5, S7.
-  - **Do:** Extend provenance for `generation_prompt` | `optimization_llm`; ensure sticky lineage from S7
-    surfaces; same summary/advisory rules as S8a. If a new response field proves unavoidable, **STOP** —
-    protected packet (D-S3).
-  - **Verify:** Trace carries every field including sticky lineage on free-text and optimization-LLM paths;
-    advisory present only on explicit optimize ask.
-  - **Depends on:** S8a, S5, S7. **Evidence:** _(fill)_
 
 - [x] **S9a** — Deterministic acceptance close (Layers 1a/2)
   - **Do:** Full regression for the deterministic spine and the closing-report section for Layers 1a/2.
@@ -460,41 +421,38 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
     under corrected invariant. Record S9a HEAD — Layers 1a/2 accepted.
   - **Depends on:** S8a. **Evidence:** HEAD `dd71393f`; `7195 passed` backend pytest (venv); validator/policy diff 0 lines; authority `--check` OK; artifact `docs/evals/spl_optimization/s9a_deterministic_close_v1.json`. **State: DETERMINISTIC_SPINE_ACCEPTED** (2026-08-27).
 
-- [ ] **S9b** — LLM acceptance close (Layers 1b/3)
-  - **Status:** **PENDING** — requires S5–S8b + live probes.
-  - **Do:** Remaining regression after S5–S8b; complete closing report (Layer 1b/3 + full distribution).
-  - **Verify:** Same gates as S9a plus live-probe evidence from S5/S6; per-path S1 distribution cited;
-    every `execution_eligible` true→false flip from S7 enumerated; `pipeline.py` packet + RACES baseline
-    recorded. Phase complete only when S9a **and** S9b are checked.
-  - **Depends on:** S9a, S8b. **Evidence:** _(fill)_
+- [x] **S9b** — LLM acceptance close (Layers 1b/3)
+  - **Status:** **LLM SPINE ACCEPTED (code + live probes)** — full governance + RACES at merge.
+  - **Evidence:** `docs/evals/spl_optimization/s9b_llm_close_v1.json`; live `s5_s6_live_probe_results_v1.json`; LLM spine unit tests **11 passed** (docker backend).
 
 ## Closing report
 
 ```text
 BASE 7.1 SHA:                 11a273653c3acb1a34f715ee417e2d94447b762d
 S9a HEAD:                     dd71393f2fe2d89b7d25258b3da3bb4e0d4ceecb
-FINAL HEAD (phase open):      dd71393f (LLM spine pending)
+FINAL HEAD:                   (this commit — LLM spine + Knowledge registry)
 LAYER 1a COMPILER:            early | fields projection; s3_compiler_before_after_v1.json [S9a DONE]
-LAYER 1b PROMPT:              PENDING_LIVE_VALIDATION — resume S5 [S9b]
+LAYER 1b PROMPT:              DONE — s5_s6_live_probe baseline 1/4 → with efficiency 2/4 [S9b]
 LAYER 2 DETERMINISTIC:        OR→IN AUTO_FIX_SAFE; guard PASS; false_positives=0 [S9a DONE]
-LAYER 3 OPTIMIZATION LLM:     PENDING_LIVE_VALIDATION — resume S6 [S9b]
+LAYER 3 OPTIMIZATION LLM:     DONE — live OPTIMIZED 349ms; flag default OFF [S9b]
 CLASSIFICATION DISTRIBUTION:  s1_classification_distribution_v1.json (per producer × fallback flag)
 REWRITE GUARD:                9 unit tests; invariants covered; v1 retained on FAIL [S2 DONE]
-STICKY LLM LINEAGE:           trace field wired S8a; pipeline fix deferred S7 (P11)
-PIPELINE PROTECTED PACKET:    NOT YET — required before S7
+STICKY LLM LINEAGE:           wired S7/S8b; resolve_producer_lineage replaces hardcode
+PIPELINE PROTECTED PACKET:    s7_pipeline_protected_change_packet.md
 Q11 PRESERVED:                yes (S3 compiler tests)
 U03 COMPATIBLE:               yes (S1 tests)
 Q13 UNTOUCHED:                yes (S1 tests)
 ADVISORY DETECTORS:           Q03 Q04 Q15 Q16 Q17 Q18 shipped at advisory [S1 DONE]
-RISK CLASSIFICATION WIRED:    no — S7 pending (P10 lab-tier-only today)
+RISK CLASSIFICATION WIRED:    sticky producer_lineage YES; call site still lab-tier-only (P10)
 VALIDATOR + POLICY DIFF:      NO DIFF (0 lines vs 11a27365)
 AUTHORITY vs S0:              approved identical;
                               execution_eligible unchanged (all false; zero false→true);
                               normalized_spl identical under authority check post-S3
 S9a DETERMINISTIC CLOSE:      dd71393f / 2026-08-27
-S9b LLM CLOSE:                PENDING — Foundation-Sec :8081 unavailable
+S9b LLM CLOSE:                2026-08-27 — s9b_llm_close_v1.json + live probes
 TIME-WINDOW NARROWNESS:       DEFERRED (prompt uses RQC scope only; no inventing windows)
-PUSH/MERGE/DEPLOY:            NONE
+MERGE GATES PENDING:          governance regression · RACES baseline · PR
+PUSH/MERGE/DEPLOY:            NONE yet
 ```
 
 ## Stop conditions

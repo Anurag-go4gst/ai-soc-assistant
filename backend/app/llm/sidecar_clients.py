@@ -35,6 +35,7 @@ _ROLE_TIMEOUT_SECONDS: dict[str, float] = {
     MISSING_EVIDENCE_ROLE: 120.0,
     "route_plan_candidate_generator": 120.0,
     "spl_advisory_generator": 120.0,
+    "spl_optimization_llm": 90.0,
     "mitre_candidate_mapper": 120.0,
     "mitre_reasoner": 120.0,
     "evidence_observer": 120.0,

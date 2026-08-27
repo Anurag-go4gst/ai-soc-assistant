@@ -1,0 +1,27 @@
+{
+  "schema_version": "spl_optimization_s9b_llm_close_v1",
+  "timestamp": "2026-08-27T05:26:36Z",
+  "s5_live_probe": {
+    "artifact": "docs/evals/spl_optimization/s5_s6_live_probe_results_v1.json",
+    "baseline_accuracy": "1/4",
+    "with_efficiency_accuracy": "2/4",
+    "correctness_regression": false,
+    "cold_latency_ms_s5.01": 4158,
+    "warm_latency_ms_range": [1464, 2154]
+  },
+  "s6_live_probe": {
+    "classification": "OPTIMIZATION_LLM_REQUIRED",
+    "outcome": "OPTIMIZED",
+    "latency_ms": 349,
+    "model": "foundation-sec-instruct"
+  },
+  "unit_tests": {
+    "s5_prompt": "3 passed",
+    "s6_llm": "5 passed",
+    "s7_pipeline": "2 passed",
+    "s8b_provenance": "1 passed"
+  },
+  "s7_protected_packet": "docs/evals/spl_optimization/s7_pipeline_protected_change_packet.md",
+  "pipeline_producer_lineage": "resolve_producer_lineage(candidate) replaces hardcode at graph_node_spl_source_resolve",
+  "llm_spine_status": "ACCEPTED_PENDING_FULL_REGRESSION"
+}

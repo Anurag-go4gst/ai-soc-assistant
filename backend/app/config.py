@@ -295,6 +295,8 @@ class Settings(BaseSettings):
     ai_soc_llm_spl_advisory_provider: str = ""
     ai_soc_llm_spl_advisory_model: str = ""
     ai_soc_llm_spl_fallback_enabled: bool = False
+    # OPTIONAL_PHASE_S Layer 3 — bounded optimization LLM (default off; one call max).
+    ai_soc_spl_optimization_llm_enabled: bool = False
     # PR #58 — bounded SPL draft for explicit universal/template-free utility authoring
     # only (not global SPL failover). Scoped hop; deterministic skeleton fallback.
     ai_soc_llm_utility_spl_draft_enabled: bool = True

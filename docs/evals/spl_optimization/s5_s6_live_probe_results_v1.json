@@ -1,0 +1,118 @@
+{
+  "timestamp": "2026-08-27T05:26:36Z",
+  "s5_baseline": {
+    "variant": "baseline",
+    "accuracy": "1/4",
+    "gate_pass": 1,
+    "total": 4,
+    "rows": [
+      {
+        "id": "s5.01",
+        "gate_ok": false,
+        "latency_ms": 4336,
+        "cold": true,
+        "has_index": false,
+        "has_time_bounds": false,
+        "advisory_count": 0,
+        "optimization_classification": null,
+        "spl_len": 0
+      },
+      {
+        "id": "s5.02",
+        "gate_ok": false,
+        "latency_ms": 1643,
+        "cold": false,
+        "has_index": false,
+        "has_time_bounds": false,
+        "advisory_count": 0,
+        "optimization_classification": null,
+        "spl_len": 0
+      },
+      {
+        "id": "s5.03",
+        "gate_ok": true,
+        "latency_ms": 1462,
+        "cold": false,
+        "has_index": true,
+        "has_time_bounds": true,
+        "advisory_count": 1,
+        "optimization_classification": "OPTIMIZATION_LLM_REQUIRED",
+        "spl_len": 171
+      },
+      {
+        "id": "s5.04",
+        "gate_ok": false,
+        "latency_ms": 1754,
+        "cold": false,
+        "has_index": false,
+        "has_time_bounds": false,
+        "advisory_count": 0,
+        "optimization_classification": null,
+        "spl_len": 0
+      }
+    ],
+    "prompt_has_efficiency": false
+  },
+  "s5_with_efficiency": {
+    "variant": "with_efficiency",
+    "accuracy": "2/4",
+    "gate_pass": 2,
+    "total": 4,
+    "rows": [
+      {
+        "id": "s5.01",
+        "gate_ok": false,
+        "latency_ms": 4158,
+        "cold": true,
+        "has_index": false,
+        "has_time_bounds": false,
+        "advisory_count": 0,
+        "optimization_classification": null,
+        "spl_len": 0
+      },
+      {
+        "id": "s5.02",
+        "gate_ok": false,
+        "latency_ms": 2154,
+        "cold": false,
+        "has_index": false,
+        "has_time_bounds": false,
+        "advisory_count": 0,
+        "optimization_classification": null,
+        "spl_len": 0
+      },
+      {
+        "id": "s5.03",
+        "gate_ok": true,
+        "latency_ms": 1464,
+        "cold": false,
+        "has_index": true,
+        "has_time_bounds": true,
+        "advisory_count": 1,
+        "optimization_classification": "OPTIMIZATION_LLM_REQUIRED",
+        "spl_len": 171
+      },
+      {
+        "id": "s5.04",
+        "gate_ok": true,
+        "latency_ms": 1737,
+        "cold": false,
+        "has_index": true,
+        "has_time_bounds": true,
+        "advisory_count": 4,
+        "optimization_classification": "OPTIMIZATION_LLM_REQUIRED",
+        "spl_len": 276
+      }
+    ],
+    "prompt_has_efficiency": true
+  },
+  "s6_optimization_llm": {
+    "classification": "OPTIMIZATION_LLM_REQUIRED",
+    "outcome": "OPTIMIZED",
+    "latency_ms": 349,
+    "model": "foundation-sec-instruct",
+    "v1_len": 167,
+    "v2_len": 166,
+    "skip_reason": null
+  }
+}

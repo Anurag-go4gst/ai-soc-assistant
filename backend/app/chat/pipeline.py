@@ -96,6 +96,7 @@ from app.spl.draft_preview import (
 from app.llm.clients.local_chat_client import LocalChatError
 from app.spl.llm_fallback import generate_llm_spl_fallback
 from app.spl.llm_lineage_vigilance import classify_llm_spl_risk
+from app.spl.spl_optimization_chain import resolve_producer_lineage
 from app.spl.llm_plan_compiler import generate_llm_spl_via_plan
 from app.spl.review_only_spl_postprocessor import finalize_review_only_spl
 from app.spl.spl_relevance_check import check_spl_relevance
@@ -3569,7 +3570,7 @@ def graph_node_spl_source_resolve(state: ChatPipelineState) -> ChatPipelineState
             )
             updated["llm_derived_spl_artifact"] = {
                 "normalized_spl": resolve_result.validation.get("normalized_spl") if not vigilance.blocked else None,
-                "producer_lineage": "llm_plan_compiler",
+                "producer_lineage": resolve_producer_lineage(candidate),
                 "source_resolve_tiers": resolve_result.tiers_used,
                 **vigilance.to_trace_dict(),
             }
@@ -9300,6 +9301,21 @@ def _candidate_from_llm_fallback_tuple(
         )
         final_candidate_spl = pp.normalized_spl
         postprocessor_trace_llm = pp.trace
+    from app.spl.spl_optimization_chain import run_spl_optimization_chain
+
+    _opt_chain = run_spl_optimization_chain(
+        final_candidate_spl,
+        llm_lineage=True,
+        user_query=user_query,
+        rqc=(
+            resolved_query_contract
+            if isinstance(resolved_query_contract, dict)
+            else None
+        ),
+    )
+    final_candidate_spl = _opt_chain.candidate_spl
+    _optimization_trace = _opt_chain.optimization_trace
+    _producer_lineage = "llm_plan_compiler" if plan_compiler_used else "llm_fallback"
     llm_lab_labels = {
         "governed": False,
         "catalog_approved": False,
@@ -9347,6 +9363,9 @@ def _candidate_from_llm_fallback_tuple(
         "quality_standard": result.quality_standard,
         "quality_status": result.quality_status,
         "quality_findings": list(result.quality_findings),
+        "llm_lineage": True,
+        "producer_lineage": _producer_lineage,
+        "optimization_trace": _optimization_trace,
         **llm_lab_labels,
     }
     validation_payload = {
