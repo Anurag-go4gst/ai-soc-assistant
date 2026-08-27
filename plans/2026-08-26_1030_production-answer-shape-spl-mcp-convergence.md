@@ -741,11 +741,11 @@ Starts after Phase **3** closes (objective persistence + state contract + B4 + e
 
 ### Phase 7 — Final regression / acceptance
 
-- [ ] **7.1** — Full acceptance matrix
+- [x] **7.1** — Full acceptance matrix
   - **Do:** Run and record: backend full; frontend test + build; Stage 3 governance; RACES; P8 frozen bank; 105 goldens; clean-answer/parity as applicable; planner; T4; SPL; S4; J6; J7; curated RAG; production `/chat` isolation; EC isolation; convergence bank `--check`; browser QA against **attested** runtime ports from `.env`.
   - **Verify:** All gates green or explicitly operator-adjudicated by named residual; zero unexplained new failure node-IDs vs 0.4; closing report A–P criteria below. Phase 4 is complete **or** SKIPPED_BY_EVIDENCE; Phase 5 complete; Phase 6 complete.
   - **Depends on:** 4.4 (or 4.1 SKIPPED_BY_EVIDENCE closing Phase 4), 5.7, 6.9
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Report: `docs/evals/answer_shape/phase7_acceptance_matrix_v1.md`. Verdict **ACCEPTED**. Backend **7154 passed** (mock-label assert aligned `3f65f758`); frontend **126** + build PASS; RACES **8**; protected **15/15**; harness **6/6**; convergence `--check` PASS; parity **120 exact**; clean-answer **120**; Cisco **50/0/0**; dispatch **5/5**; template audit **19/19**; 105 shadow `overall_pass=True`; J7/S4/email/mock targeted **49**. Golden Tier0×2 = `accepted_inherited_residual` (P9/P10). Browser QA / live LLM / two traces = `ENVIRONMENT_UNRESOLVED`. A–P all PASS or named. DEFERRED_*/OPTIONAL_PHASE_S untouched. No push/merge/deploy. **STOP — SPL optimization is follow-on.**
 
 ---
 
@@ -861,3 +861,4 @@ _Record every premise change, redundant item, or scope shift here. The operator 
 - 2026-08-27 rev 15 — **4.2 SKIPPED_BY_EVIDENCE** (`G-TMPL = 0 material failures after 4.1`). No template flips.
 - 2026-08-27 rev 16 — **4.3 complete.** CV.SPL.02 honesty surface + intentional harness baseline advance (new STRUCTURAL row). ChatPanel untouched.
 - 2026-08-27 rev 17 — **Phase 4 closed** (4.4: `spl_validator.py` untouched across Phase 4 commits). Next: Phase 5.1.
+- 2026-08-27 rev 18 — **Phases 5–6 closed; 7.1 ACCEPTED.** Envelope-bound mock MCP + answer/UI shape scorecard complete. Acceptance matrix `docs/evals/answer_shape/phase7_acceptance_matrix_v1.md`. Named residuals only (Tier0×2 inherited, MULTI PRODUCT_GAP, env unresolved). **Plan complete — stop.** SPL optimization / OPTIONAL_PHASE_S is a separate follow-on.

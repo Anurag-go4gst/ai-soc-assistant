@@ -20,12 +20,13 @@ J7 remains true. B1/B2/B3 are retired.
 |---|---|
 | **Worktree** | `/Users/aagarwal/Downloads/ai-soc-wt-post-p10-convergence` |
 | **Branch** | `ws/post-p10-answer-tool-convergence` |
-| **HEAD (shipped)** | `7349d15a` (5.2); 5.3 SKIPPED_BY_EVIDENCE this commit |
-| **Checklist** | Phase 5: **5.1–5.2 done**, **5.3 SKIPPED_BY_EVIDENCE**, next **5.4** |
-| **Next item** | **5.4** — Exact-call authorization (envelope-bound) |
+| **HEAD (shipped)** | stamp on 7.1 commit |
+| **Checklist** | **42/42** — Phases 0–7 complete; **7.1 ACCEPTED** |
+| **Next item** | **STOP** — plan complete. SPL optimization / OPTIONAL_PHASE_S is a **follow-on** (not this plan). |
 | **0.2 note** | `DONE_WITH_ENVIRONMENT_UNRESOLVED_INPUTS` — two production traces unavailable; design-case diagnostic only |
-| **Shipped product commits** | RQC → … → Phase 4 close `cb0405f8` → Phase 5.1 coe-mock profile |
+| **Shipped product commits** | RQC → Phase 10 dual gates → Phase 4 SPL → Phase 5 mock envelope → Phase 6 shape → 7.1 acceptance |
 | **LLM status** | `ENVIRONMENT_UNRESOLVED`: configured local-primary/reasoning probes red (`URLError`); Qwen intentionally wired-disabled |
+| **Acceptance** | `docs/evals/answer_shape/phase7_acceptance_matrix_v1.md` — ACCEPTED; Tier0×2 named inherited residuals |
 
 Do **not** execute from the Cursor product-tip checkout alone — use this worktree.
 
