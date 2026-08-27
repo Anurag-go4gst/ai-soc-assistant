@@ -1,7 +1,7 @@
 # Phase 6 shape scorecard (item 6.9)
 
 **Worktree:** `ws/post-p10-answer-tool-convergence`  
-**HEAD at score:** _(filled at commit)_  
+**HEAD at score:** `fedfbdee`  
 **Compared to:** `docs/evals/answer_shape/convergence_expectation_baseline_v1.json` (post-4.3 freeze, bank total 10)
 
 ## Method
