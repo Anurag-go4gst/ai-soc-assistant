@@ -605,11 +605,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
   - **Depends on:** 3.5
   - **Evidence:** DONE 2026-08-27. Protected/governance packet: `docs/evals/answer_shape/email_draft_3_6_protected_change_packet.md`. Added typed additive `GovernedEmailDraft` output on the Phase-10 `/chat` path and an analyst-visible draft-only card. Production occurs only for Final-RQC `email_draft=ELIGIBLE` plus completed+suspicious InvestigationOutcome with accepted findings and evidence refs. The deterministic draft consumes only those governed fields, severity, and allowlisted role ids; it has no address field and pins `recipient_resolution_required=true`, `llm_attempted=false`, `llm_status=not_attempted_no_governed_email_role`, `send_authorized=false`, and `sent=false`. No new LLM role/provider/model/prompt was added, no unreachable live provider was called or claimed successful, and no demo email module was reused. Unmet predicate or missing governed findings/evidence yields no draft. Protected `pipeline.py`/`schemas/responses.py` changes are content-pinned by exact SHA-256 in the RACES freeze test, so any later byte drift fails. Broad RACES/wire/P10/P11/P13/RQC/session suite → **130 passed** (one existing Starlette deprecation warning); frontend draft/pending-state tests → **2 passed**; production frontend build PASS (existing bundle-size advisory only); convergence `--check` byte-identical PASS; invariant check PASS.
 
-- [ ] **3.7** — Separate HIL-authorized send proof
+- [x] **3.7** — Separate HIL-authorized send proof
   - **Do:** Prove send cannot fire from draft or proposal alone; requires separate HIL/authorization path.
   - **Verify:** Explicit negative test + harness `email_send_eligible=false` until approved; `CV.MULTI.01A` send ABSENT.
   - **Depends on:** 3.6
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Governance note: `docs/evals/answer_shape/email_send_hil_3_7_contract_packet.md`. Added fail-closed `email_send_eligible()` on the Phase-10 seam (Final-RQC has no `email_send` kind; draft/PENDING/ELIGIBLE/remediation Approve/LLM-shaped payload/missing recipients all → False). No connector/executor introduced. Negative suite `test_email_send_hil_3_7.py` → **8 passed**; with lane/lifecycle/J7 → **21 passed**; P10 planning slice → **28 passed**. Harness ABSENT/HIL pin tightened without baseline drift → `--check` byte-identical PASS. No protected freeze-path edits. Invariant check PASS (no LLM→MCP, no SPL, no EC, no new flags, no TypedDict channel).
 
 ### Phase 4 — SPL diagnosis / targeted coverage
 
@@ -856,3 +856,4 @@ _Record every premise change, redundant item, or scope shift here. The operator 
 - 2026-08-26 rev 10 — **2.4 complete** (`2496e3dc`). Findings/conclusion/limitations contract pinned for MULTI.01A/B; next item 2.5. Cursor plan/LOOP_RUNNER re-synced.
 - 2026-08-26 rev 11 — **2.5 complete.** Pending Final-RQC conditional actions now reach the production UI through the safe resolved-query projection without remediation/send CTA inflation. Live LLM remains environment-unresolved (configured endpoints red/`URLError`); no provider/model changes.
 - 2026-08-27 rev 12 — **Ship audit / Cursor resync.** Verified worktree HEAD `3ed1ec36` has checklist **20/42** through **3.6** (2.5–3.6 product commits present with Evidence). Next: **3.7**. Phases 4–7 still open. Mirrored plan + LOOP_RUNNER into Cursor IDE checkout.
+- 2026-08-27 rev 13 — **3.7 complete.** Fail-closed `email_send_eligible` + negative HIL proofs; EMAIL DRAFT ≠ EMAIL SEND; remediation Approve does not unlock Phase-10 draft send; harness ABSENT pin active without baseline rewrite. Next: Phase 4.1 (parallelizable with 5.x / 6.x).

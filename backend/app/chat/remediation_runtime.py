@@ -281,6 +281,46 @@ def _requested_action(state: dict[str, Any], action_kind: str) -> dict[str, Any]
     return None
 
 
+def email_send_eligible(state: dict[str, Any]) -> bool:
+    """Fail-closed Phase-10 send gate. EMAIL DRAFT != EMAIL SEND.
+
+    Returns True only when a distinct ``email_send`` action is ``APPROVED`` under
+    explicit send HIL, recipients are resolved to concrete addresses (not role ids
+    alone), and a governed connector is available. None of those are satisfied on
+    the current Final-RQC / ``GovernedEmailDraft`` path:
+
+    * Final RQC models ``email_draft`` only (no ``email_send`` kind).
+    * Draft / PENDING_CONDITION / ELIGIBLE / remediation-plan Approve never grant send.
+    * LLM draft text never advances lifecycle or authorizes send.
+    * Missing recipient resolution or unavailable connector → False (no invented addresses).
+
+    Remediation capability ``email_send`` after remediation Approve is a separate P11
+    lane and does not flip this Phase-10 communication send flag.
+    """
+    send = _requested_action(state, "email_send")
+    if send is None:
+        return False
+    if str(send.get("lifecycle_state") or "") != "APPROVED":
+        return False
+    if send.get("send_hil_approved") is not True:
+        return False
+    resolved = send.get("resolved_recipients")
+    if not isinstance(resolved, list) or not resolved:
+        return False
+    if any(not str(addr).strip() or "@" not in str(addr) for addr in resolved):
+        return False
+    draft = _as_dict(state.get("email_draft"))
+    if draft.get("send_authorized") is not True:
+        return False
+    if draft.get("sent") is True:
+        return False
+    # Phase-10 has no send executor; even a fully marked package stays ineligible
+    # until a governed connector path is deliberately authorized (not this item).
+    if send.get("connector_available") is not True:
+        return False
+    return False
+
+
 def build_governed_email_draft(state: dict[str, Any]) -> GovernedEmailDraft | None:
     """Build draft prose only from an eligible Final-RQC action and governed outcome.
 

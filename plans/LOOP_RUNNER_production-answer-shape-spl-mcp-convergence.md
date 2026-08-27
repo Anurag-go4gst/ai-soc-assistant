@@ -20,11 +20,11 @@ J7 remains true. B1/B2/B3 are retired.
 |---|---|
 | **Worktree** | `/Users/aagarwal/Downloads/ai-soc-wt-post-p10-convergence` |
 | **Branch** | `ws/post-p10-answer-tool-convergence` |
-| **HEAD (shipped)** | `3ed1ec36` |
-| **Checklist** | **20 checked** / 22 unchecked (through **3.6**) |
-| **Next item** | **3.7** — Separate HIL-authorized send proof |
+| **HEAD (shipped)** | _(updated after 3.7 commit)_ |
+| **Checklist** | **21 checked** / 21 unchecked (through **3.7**) |
+| **Next item** | **4.1** — SPL gate histogram / root cause (parallelizable with 5.1 / 6.x) |
 | **0.2 note** | `DONE_WITH_ENVIRONMENT_UNRESOLVED_INPUTS` — two production traces unavailable; design-case diagnostic only |
-| **Shipped product commits** | RQC `09c3f97a` → pending UI `67246132` → J7 gate `010279f1` → J7 pins `72c74c13` → B4 dual gates `f0678916` → Phase-10 email lane `135748a9` → roles `fb53883d` → governed draft `3ed1ec36` |
+| **Shipped product commits** | RQC `09c3f97a` → … → governed draft `3ed1ec36` → email send HIL proof (3.7, this commit) |
 | **LLM status** | `ENVIRONMENT_UNRESOLVED`: configured local-primary/reasoning probes red (`URLError`); Qwen intentionally wired-disabled |
 
 Do **not** execute from the Cursor product-tip checkout alone — use this worktree.

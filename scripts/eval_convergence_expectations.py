@@ -186,9 +186,20 @@ def _score_multi_from_design_case(row: dict[str, Any]) -> dict[str, Any]:
     if pins.get("remediation_plan") == "ABSENT":
         if capture.get("has_proposed_actions") or capture.get("has_remediation_planning_trace"):
             gaps.append("remediation_plan_should_be_ABSENT")
-    if pins.get("email_send") == "ABSENT":
-        # no send field observed
-        pass
+    if pins.get("email_send") in {"ABSENT", "HIL_REQUIRED_OR_ABSENT"}:
+        # 3.7 — send must not appear without separate HIL; draft alone is not send.
+        draft = capture.get("email_draft") if isinstance(capture.get("email_draft"), dict) else {}
+        send_claimed = bool(
+            capture.get("email_send_eligible") is True
+            or capture.get("email_sent") is True
+            or capture.get("email_send_executed") is True
+            or draft.get("sent") is True
+            or draft.get("send_authorized") is True
+        )
+        if send_claimed:
+            gaps.append("email_send_should_be_ABSENT_or_HIL_gated")
+        # Observed eligibility stays false on the design-case capture (no send HIL).
+        # Do not invent a new observed key here — baseline stays byte-stable when clean.
     if pins.get("conditional_remediation_intent") == "PENDING_CONDITION":
         # intents not preserved on capture → gap
         gaps.append("conditional_remediation_intent_not_preserved")
