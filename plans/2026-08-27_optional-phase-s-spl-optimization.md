@@ -274,7 +274,7 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
     bank coverage / value**, not a gate to delete Layer 3.
   - **Depends on:** S0. **Evidence:** `pytest app/tests/test_spl_optimization_s1_efficiency.py app/tests/test_spl_draft_quality.py -q` → 125 passed; distribution `docs/evals/spl_optimization/s1_classification_distribution_v1.json` (template OPTIMIZATION_LLM_REQUIRED=29/PASS=6; plan_compiler OPTIMIZATION_LLM_REQUIRED=3/PASS=1; AUTO_FIX_SAFE via Q04 unit test; Q13 untouched). Freeze `--check` still byte-identical.
 
-- [ ] **S2** — Wire the rewrite guard as a reusable V1→V2 gate
+- [x] **S2** — Wire the rewrite guard as a reusable V1→V2 gate
   - **Do:** Compose the **existing** `validate_semantic_fidelity` (P4) and `evaluate_rqc_constraint_preservation`
     into one `assert_rewrite_preserves(v1, v2, rqc)` helper returning PASS/FAIL plus the violated invariant.
     Invariants: index, sourcetype, time scope, governed filters, required output fields, aggregation meaning,
@@ -282,7 +282,7 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
   - **Verify:** Unit tests per invariant, each direction. A FAIL must cause the caller to retain v1 as selected
     candidate. No caller wired yet, so S0 `approved` / `normalized_spl` remain identical and
     `execution_eligible` is unchanged (no gate added yet).
-  - **Depends on:** S1. **Evidence:** _(fill)_
+  - **Depends on:** S1. **Evidence:** New `app/spl/rewrite_guard.py::assert_rewrite_preserves`; `pytest app/tests/test_spl_optimization_s2_rewrite_guard.py -q` → 9 passed (index/sourcetype/time/limit/aggregation/RQC fail + OR→IN pass + freeze identity).
 
 - [ ] **S3** — Layer 1a: efficient SPL by construction in the compiler
   - **Do:** In `compile_plan_to_spl`, emit selective filters into the base search before the first pipe, project
