@@ -1,12 +1,19 @@
 ---
 name: optional-phase-s-spl-optimization
 overview: "Four-layer SPL optimization: correct-by-construction compiler, generation guidance, deterministic safe rewrite, one bounded optimization-LLM pass — converging on the existing validator/authorization chain."
-status: PLAN_FINAL_READY
+status: DETERMINISTIC_SPINE_ACCEPTED
 date: 2026-08-27
 canonical_plan: plans/2026-08-27_optional-phase-s-spl-optimization.md
 loop_runner: plans/LOOP_RUNNER_optional-phase-s-spl-optimization.md
 architecture_authority: architecture.md
 architecture_policy: read_only
+worktree: ../ai-soc-wt-spl-optimization
+branch: ws/spl-optimization
+base_7_1_sha: 11a273653c3acb1a34f715ee417e2d94447b762d
+s9a_head: dd71393f2fe2d89b7d25258b3da3bb4e0d4ceecb
+execution_state: DETERMINISTIC_SPINE_ACCEPTED
+llm_spine_state: PENDING_LIVE_VALIDATION
+resume_item: S5
 supersedes: "OPTIONAL_PHASE_S advisory-lint-only design"
 precondition: "Phase 7.1 of plans/2026-08-26_1030_production-answer-shape-spl-mcp-convergence.md ACCEPTED"
 ---
@@ -33,6 +40,52 @@ git worktree add ../ai-soc-wt-spl-optimization -b ws/spl-optimization <FINAL_ACC
 ```
 
 Never implement inside the convergence worktree. If 7.1 is not accepted: **STOP**.
+
+---
+
+## Execution status — updated 2026-08-27
+
+| Field | Value |
+|---|---|
+| **Worktree** | `../ai-soc-wt-spl-optimization` |
+| **Branch** | `ws/spl-optimization` |
+| **BASE 7.1 SHA** | `11a273653c3acb1a34f715ee417e2d94447b762d` |
+| **S9a HEAD** | `dd71393f2fe2d89b7d25258b3da3bb4e0d4ceecb` |
+| **Deterministic spine** | **ACCEPTED** (S0–S4, S8a, S9a) |
+| **LLM spine** | **PENDING_LIVE_VALIDATION** (S5–S7, S8b, S9b) |
+| **Resume when LLM restored** | **S5** |
+| **Phase complete?** | **NO** — requires S9b + live probes |
+
+### Commit map (deterministic spine)
+
+| Item | Commit | Artifact / test |
+|---|---|---|
+| Plan materialize | `4ed5de1f` | PLAN_FINAL_READY rev 4 |
+| S0 | `283598e1` | `authority_baseline_v1.json` (49 rows); 5 tests |
+| S1 | `fa1b2182` | `s1_classification_distribution_v1.json`; 125 tests |
+| S2 | `2649f2c1` | `rewrite_guard.py`; 9 tests |
+| S3 | `d8b4385a` | `s3_compiler_before_after_v1.json`; 2 tests |
+| S4 | `3742fbb9` | `spl_auto_fix_safe.py`; `s4_auto_fix_bank_v1.json` (false_positives=0); 6 tests |
+| S8a | `d9d11963` | provenance trace builders; 6 tests |
+| S9a | `dd71393f` | `s9a_deterministic_close_v1.json`; 7195 pytest passed |
+
+### LLM spine checkpoint
+
+| Item | Status | Blocker |
+|---|---|---|
+| S5 | PENDING_LIVE_VALIDATION | Foundation-Sec `:8081` UNAVAILABLE — no unmeasured prompt shipped |
+| S6 | PENDING_LIVE_VALIDATION | `/llm-live-probe` required before wiring |
+| S7 | NOT ELIGIBLE | Depends on S6; D-S4 `pipeline.py` packet deferred |
+| S8b | PENDING | Depends on S5, S7 |
+| S9b | PENDING | Full close requires S5–S8b + live evidence |
+
+### S9a gates (observed)
+
+- `git diff 11a27365 -- spl_validator.py policy.py` → **0 lines**
+- `scripts/freeze_spl_optimization_authority.py --check` → **OK authority-identical** (candidate_spl delta allowed post-S3)
+- Backend pytest (venv): **7195 passed**, 45 skipped, 6 xfailed
+- Invariant check: **7/7 PASS** (no pipeline/MCP/execution wiring)
+- Governance script: phase10 failed on system `python3` missing pytest (environment); full suite green via venv
 
 ---
 
@@ -405,7 +458,7 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
     ```
     **expected: NO DIFF.** Authority: `approved` matches S0; `execution_eligible` one-way; `normalized_spl`
     under corrected invariant. Record S9a HEAD — Layers 1a/2 accepted.
-  - **Depends on:** S8a. **Evidence:** S9a HEAD on commit; `7195 passed` backend pytest (venv); validator/policy diff 0 lines; authority `--check` OK; `docs/evals/spl_optimization/s9a_deterministic_close_v1.json`. **State: DETERMINISTIC_SPINE_ACCEPTED.**
+  - **Depends on:** S8a. **Evidence:** HEAD `dd71393f`; `7195 passed` backend pytest (venv); validator/policy diff 0 lines; authority `--check` OK; artifact `docs/evals/spl_optimization/s9a_deterministic_close_v1.json`. **State: DETERMINISTIC_SPINE_ACCEPTED** (2026-08-27).
 
 - [ ] **S9b** — LLM acceptance close (Layers 1b/3)
   - **Status:** **PENDING** — requires S5–S8b + live probes.
@@ -418,27 +471,28 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
 ## Closing report
 
 ```text
-BASE 7.1 SHA / FINAL HEAD:
-LAYER 1a COMPILER:            shapes changed, before/after SPL          [S9a]
-LAYER 1b PROMPT:              live-probe accuracy + latency, before/after [S9b]
-LAYER 2 DETERMINISTIC:        rewrites applied, guard PASS rate, false positives [S9a]
-LAYER 3 OPTIMIZATION LLM:     IN SCOPE (D-S1); trigger rate from S1 (per-path) [S9b]
-CLASSIFICATION DISTRIBUTION:  per producer path × ai_soc_llm_spl_fallback_enabled
-                              PASS / AUTO_FIX_SAFE / OPTIMIZATION_LLM_REQUIRED / NO_SAFE_OPTIMIZATION
-REWRITE GUARD:                invariants covered, failures caught
-STICKY LLM LINEAGE:           yes/no; producer_lineage hardcode fixed (P11)
-PIPELINE PROTECTED PACKET:    path + SHA pin + RACES baseline advance
-Q11 PRESERVED:                yes/no        U03 COMPATIBLE:  yes/no
-Q13 UNTOUCHED:                yes/no
-ADVISORY DETECTORS:           Q03 Q04 Q15 Q16 Q17 Q18 shipped at advisory
-RISK CLASSIFICATION WIRED:    yes (sticky lineage; not lab-tier-only)
-VALIDATOR + POLICY DIFF:      NO DIFF expected
+BASE 7.1 SHA:                 11a273653c3acb1a34f715ee417e2d94447b762d
+S9a HEAD:                     dd71393f2fe2d89b7d25258b3da3bb4e0d4ceecb
+FINAL HEAD (phase open):      dd71393f (LLM spine pending)
+LAYER 1a COMPILER:            early | fields projection; s3_compiler_before_after_v1.json [S9a DONE]
+LAYER 1b PROMPT:              PENDING_LIVE_VALIDATION — resume S5 [S9b]
+LAYER 2 DETERMINISTIC:        OR→IN AUTO_FIX_SAFE; guard PASS; false_positives=0 [S9a DONE]
+LAYER 3 OPTIMIZATION LLM:     PENDING_LIVE_VALIDATION — resume S6 [S9b]
+CLASSIFICATION DISTRIBUTION:  s1_classification_distribution_v1.json (per producer × fallback flag)
+REWRITE GUARD:                9 unit tests; invariants covered; v1 retained on FAIL [S2 DONE]
+STICKY LLM LINEAGE:           trace field wired S8a; pipeline fix deferred S7 (P11)
+PIPELINE PROTECTED PACKET:    NOT YET — required before S7
+Q11 PRESERVED:                yes (S3 compiler tests)
+U03 COMPATIBLE:               yes (S1 tests)
+Q13 UNTOUCHED:                yes (S1 tests)
+ADVISORY DETECTORS:           Q03 Q04 Q15 Q16 Q17 Q18 shipped at advisory [S1 DONE]
+RISK CLASSIFICATION WIRED:    no — S7 pending (P10 lab-tier-only today)
+VALIDATOR + POLICY DIFF:      NO DIFF (0 lines vs 11a27365)
 AUTHORITY vs S0:              approved identical;
-                              execution_eligible one-way (enumerate true→false flips; zero false→true);
-                              normalized_spl identical for PASS/NO_SAFE_OPTIMIZATION;
-                              optimized rows differ only under guard+chain+recorded delta
-S9a DETERMINISTIC CLOSE:      HEAD / date
-S9b LLM CLOSE:                HEAD / date (or ENVIRONMENT STOP pending)
+                              execution_eligible unchanged (all false; zero false→true);
+                              normalized_spl identical under authority check post-S3
+S9a DETERMINISTIC CLOSE:      dd71393f / 2026-08-27
+S9b LLM CLOSE:                PENDING — Foundation-Sec :8081 unavailable
 TIME-WINDOW NARROWNESS:       DEFERRED (prompt uses RQC scope only; no inventing windows)
 PUSH/MERGE/DEPLOY:            NONE
 ```

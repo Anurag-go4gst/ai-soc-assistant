@@ -2,10 +2,31 @@
 
 **Canonical plan:** [`plans/2026-08-27_optional-phase-s-spl-optimization.md`](2026-08-27_optional-phase-s-spl-optimization.md)
 
+## Current checkpoint — 2026-08-27
+
+| Spine | Status | HEAD |
+|---|---|---|
+| Deterministic (S0–S9a) | **ACCEPTED** | `dd71393f` |
+| LLM (S5–S9b) | **PENDING_LIVE_VALIDATION** | — |
+
+**Worktree:** `../ai-soc-wt-spl-optimization` · **Branch:** `ws/spl-optimization` · **Base:** `11a27365`
+
+**Next item when LLM restored:** **S5** (Foundation-Sec `:8081` was UNAVAILABLE at S9a close).
+
+Checked off: S0 `283598e1` · S1 `fa1b2182` · S2 `2649f2c1` · S3 `d8b4385a` · S4 `3742fbb9` · S8a `d9d11963` · S9a `dd71393f`
+
+Pending: S5 · S6 · S7 · S8b · S9b
+
 ## Start
 
 ```text
 loop-asap — execute plans/2026-08-27_optional-phase-s-spl-optimization.md
+```
+
+Resume after LLM restore:
+
+```text
+loop-asap — resume OPTIONAL_PHASE_S from S5 in ../ai-soc-wt-spl-optimization
 ```
 
 > **Cursor only.** `loop-asap` is armed by `.cursor/hooks/before-submit-plan-discipline-arm.sh` and
@@ -18,8 +39,8 @@ loop-asap — execute plans/2026-08-27_optional-phase-s-spl-optimization.md
 
 1. Audit: `.cursor/hooks/audit-plan-discipline.sh plans/2026-08-27_optional-phase-s-spl-optimization.md` — fix every GAP.
 2. Pick first unchecked checklist item in dependency order:
-   - Deterministic spine: `S0 → S1 → S2 → {S3 ‖ S4} → S8a → S9a`
-   - LLM spine: `S5` / `S6 → S7 → S8b → S9b` (S8b also needs S8a; S9b needs S9a)
+   - Deterministic spine: `S0 → S1 → S2 → {S3 ‖ S4} → S8a → S9a` **(DONE)**
+   - LLM spine: `S5` / `S6 → S7 → S8b → S9b` **(resume S5)**
 3. Implement **Do** only for that item.
 4. Run **Verify** exactly as written.
 5. Check off `- [x]` and fill **Evidence** (command output or observation).
@@ -50,3 +71,4 @@ loop-asap — execute plans/2026-08-27_optional-phase-s-spl-optimization.md
   completion report must name that contract (optimized SPL before/after; `execution_eligible` true→false flips).
 - S6 may abstain (unchanged v1 → `NO_SAFE_OPTIMIZATION`); never force a rewrite of valid SPL.
 - S1 distribution must be reported per producer path × `ai_soc_llm_spl_fallback_enabled`.
+- **Update the canonical plan checklist and Execution status section on every item check-off.**
