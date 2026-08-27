@@ -20,7 +20,7 @@ J7 remains true. B1/B2/B3 are retired.
 |---|---|
 | **Worktree** | `/Users/aagarwal/Downloads/ai-soc-wt-post-p10-convergence` |
 | **Branch** | `ws/post-p10-answer-tool-convergence` |
-| **HEAD (shipped)** | stamp on 7.1 commit |
+| **HEAD (shipped)** | `bdcdfcc6` |
 | **Checklist** | **42/42** — Phases 0–7 complete; **7.1 ACCEPTED** |
 | **Next item** | **STOP** — plan complete. SPL optimization / OPTIONAL_PHASE_S is a **follow-on** (not this plan). |
 | **0.2 note** | `DONE_WITH_ENVIRONMENT_UNRESOLVED_INPUTS` — two production traces unavailable; design-case diagnostic only |
