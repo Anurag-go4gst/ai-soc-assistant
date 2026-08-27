@@ -613,11 +613,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
 
 ### Phase 4 — SPL diagnosis / targeted coverage
 
-- [ ] **4.1** — Gate histogram / root cause
+- [x] **4.1** — Gate histogram / root cause
   - **Do:** From 0.3 + bank, count gates using PRIMARY seams (contributing seams noted separately). **Do not** assume template enablement is the fix.
   - **Verify:** `docs/evals/answer_shape/spl_gate_histogram_v1.md` primary counts sum to bank/trace size; explicit target line; or **SKIPPED_BY_EVIDENCE** if SPL is not material to objective/shape failures.
   - **Depends on:** 0.4 (parallel with Phases 1–3 / 5 / 6 once 0.4 done; must complete or skip-by-evidence before 7.1)
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Wrote `docs/evals/answer_shape/spl_gate_histogram_v1.md`. PRIMARY checksum: ENVIRONMENT_UNRESOLVED×2 + OBJECTIVE_PERSISTENCE×1 = **3/3** traces (= bank TRACE rows). `G-TMPL_COUNT=0`, `G-TMPL_MATERIAL=false`. Explicit target: `TARGET: none (no template enablement); 4.2 = SKIPPED_BY_EVIDENCE`. CV.SPL.01 has no PRIMARY (honest-posture MEASURE_ON_LIVE only). MULTI gaps are objective/eligibility/mock — not G-TMPL.
 
 - [ ] **4.2** — Targeted template / binding work only if G-TMPL is material
   - **Do:** Enable only individually justified `enabled:false` active templates (one commit each); bind null use cases only if measurement shows correctness. If 4.1 shows G-TMPL is not material, mark this item **SKIPPED_BY_EVIDENCE** with reason (e.g. `G-TMPL = 0 material failures after 4.1`) — do **not** implement unnecessary template flips and do **not** falsely mark DONE.
@@ -857,3 +857,4 @@ _Record every premise change, redundant item, or scope shift here. The operator 
 - 2026-08-26 rev 11 — **2.5 complete.** Pending Final-RQC conditional actions now reach the production UI through the safe resolved-query projection without remediation/send CTA inflation. Live LLM remains environment-unresolved (configured endpoints red/`URLError`); no provider/model changes.
 - 2026-08-27 rev 12 — **Ship audit / Cursor resync.** Verified worktree HEAD `3ed1ec36` has checklist **20/42** through **3.6** (2.5–3.6 product commits present with Evidence). Next: **3.7**. Phases 4–7 still open. Mirrored plan + LOOP_RUNNER into Cursor IDE checkout.
 - 2026-08-27 rev 13 — **3.7 complete.** Fail-closed `email_send_eligible` + negative HIL proofs; EMAIL DRAFT ≠ EMAIL SEND; remediation Approve does not unlock Phase-10 draft send; harness ABSENT pin active without baseline rewrite. Next: Phase 4.1 (parallelizable with 5.x / 6.x).
+- 2026-08-27 rev 14 — **4.1 complete.** SPL gate histogram: G-TMPL=0 material; primary sum 3/3. Next: 4.2 SKIPPED_BY_EVIDENCE then 4.3/4.4; Phase 5/6 remain eligible in parallel.
