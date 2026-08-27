@@ -1,8 +1,13 @@
 ---
 name: production-answer-shape-spl-mcp-convergence
 overview: "Post-P10: converge production /chat on EC answer shape via governed multi-goal objective persistence, conditional remediation/email, and isolated mock-MCP proof — without weakening J7 or enabling live MCP."
-status: draft
+status: done
 date: 2026-08-26
+closed: 2026-08-27
+checklist: 42/42
+acceptance: ACCEPTED
+accepted_sha: 11a273653c3acb1a34f715ee417e2d94447b762d
+acceptance_report: docs/evals/answer_shape/phase7_acceptance_matrix_v1.md
 canonical_plan: plans/2026-08-26_1030_production-answer-shape-spl-mcp-convergence.md
 loop_runner: plans/LOOP_RUNNER_production-answer-shape-spl-mcp-convergence.md
 architecture_authority: architecture.md
@@ -11,6 +16,7 @@ live_mcp: default_off_until_P11
 verified_release_baseline_sha: 6b63df610ff4a0994a593537ab46c71464afe570
 last_product_change_sha: c109402d69956df455a780fd49a191fa173ab7ac
 product_decision_b4: PRESERVE_CONDITIONAL_INTENT_WITHOUT_WEAKENING_EVIDENCE_AUTHORITY
+follow_on: plans/2026-08-27_optional-phase-s-spl-optimization.md
 ---
 
 # POST-P10 PRODUCTION ANSWER & TOOL-ORCHESTRATION CONVERGENCE
