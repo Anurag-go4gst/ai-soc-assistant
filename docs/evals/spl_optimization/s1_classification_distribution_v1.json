@@ -1,0 +1,73 @@
+{
+  "artifact_id": "s1_classification_distribution_v1",
+  "base_sha": "11a273653c3acb1a34f715ee417e2d94447b762d",
+  "convergence_spl_rows": [
+    {
+      "approved": false,
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "row_id": "CV.SPL.01"
+    },
+    {
+      "approved": false,
+      "execution_eligible": false,
+      "normalized_spl": null,
+      "row_id": "CV.SPL.02"
+    }
+  ],
+  "distributions": {
+    "ai_soc_llm_spl_fallback_enabled=False": {
+      "by_producer_path": {
+        "plan_compiler": {
+          "OPTIMIZATION_LLM_REQUIRED": 3,
+          "PASS": 1
+        },
+        "template": {
+          "OPTIMIZATION_LLM_REQUIRED": 29,
+          "PASS": 6
+        }
+      },
+      "efficiency_advisory_hits": {
+        "plan_compiler": {
+          "Q15": 1,
+          "Q18": 3
+        },
+        "template": {
+          "Q03": 4,
+          "Q04": 1,
+          "Q15": 9,
+          "Q16": 4,
+          "Q17": 11,
+          "Q18": 11
+        }
+      }
+    },
+    "ai_soc_llm_spl_fallback_enabled=True": {
+      "by_producer_path": {
+        "plan_compiler": {
+          "OPTIMIZATION_LLM_REQUIRED": 3,
+          "PASS": 1
+        },
+        "template": {
+          "OPTIMIZATION_LLM_REQUIRED": 29,
+          "PASS": 6
+        }
+      },
+      "efficiency_advisory_hits": {
+        "plan_compiler": {
+          "Q15": 1,
+          "Q18": 3
+        },
+        "template": {
+          "Q03": 4,
+          "Q04": 1,
+          "Q15": 9,
+          "Q16": 4,
+          "Q17": 11,
+          "Q18": 11
+        }
+      }
+    }
+  },
+  "note": "Distribution is evidence for Layer-3 trigger frequency / bank coverage \u2014 not a gate to delete Layer 3. Split by producer_path and ai_soc_llm_spl_fallback_enabled (P12)."
+}

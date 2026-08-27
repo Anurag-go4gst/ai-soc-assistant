@@ -144,6 +144,37 @@ _PROHIBITED_CLAIMS = re.compile(
     re.IGNORECASE,
 )
 
+# OPTIONAL_PHASE_S S1 — advisory efficiency detectors (never hard_fail / warning).
+_BASE_NOT_NE = re.compile(
+    r"(?:(?<![\w])NOT(?![\w])\s+)|(?:!=)",
+    re.IGNORECASE,
+)
+_SAME_FIELD_OR = re.compile(
+    r"\b([A-Za-z_][\w.]*)\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s|()]+)"
+    r"(?:\s+OR\s+\1\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s|()]+))+",
+    re.IGNORECASE,
+)
+_OR_TOKEN = re.compile(r"\bOR\b", re.IGNORECASE)
+_TERM_WRAP = re.compile(r"\bTERM\s*\(", re.IGNORECASE)
+_MINOR_BREAKER_TOKEN = re.compile(
+    r"(?<![\w.])(?![A-Za-z_][\w.]*\s*=)([A-Za-z0-9][\w]*[._][\w.]+)(?![\w])",
+)
+_LEADING_WILDCARD_TERM = re.compile(
+    r"(?<![\w=])\*(?!\s)[A-Za-z0-9_]{1,24}\b",
+)
+_NON_STREAMING_CMD = re.compile(r"^\s*(?:sort|stats)\b", re.IGNORECASE)
+_FIELDS_KEEP = re.compile(r"^\s*fields\s+(?!-)", re.IGNORECASE)
+
+OptimizationClass = Literal[
+    "PASS",
+    "AUTO_FIX_SAFE",
+    "OPTIMIZATION_LLM_REQUIRED",
+    "NO_SAFE_OPTIMIZATION",
+]
+
+# Same-field OR chain length at/above this → Q04 advisory (tune vs bank; start ~10).
+_Q04_OR_CHAIN_THRESHOLD = 10
+
 
 @dataclass(frozen=True)
 class QualityFinding:
@@ -160,6 +191,7 @@ class DraftQualityReport:
     warning_count: int = 0
     advisory_count: int = 0
     findings: list[QualityFinding] = field(default_factory=list)
+    optimization_classification: OptimizationClass = "PASS"
 
     def add(self, rule_id: str, severity: Severity, message: str) -> None:
         self.findings.append(QualityFinding(rule_id=rule_id, severity=severity, message=message))
@@ -177,6 +209,7 @@ class DraftQualityReport:
             self.quality_status = "warning"
         else:
             self.quality_status = "passed"
+        self.optimization_classification = classify_optimization(self)
         return self
 
     def to_dict(self) -> dict[str, Any]:
@@ -186,6 +219,7 @@ class DraftQualityReport:
             "hard_fail_count": self.hard_fail_count,
             "warning_count": self.warning_count,
             "advisory_count": self.advisory_count,
+            "optimization_classification": self.optimization_classification,
             "findings": [
                 {"rule_id": item.rule_id, "severity": item.severity, "message": item.message}
                 for item in self.findings
@@ -348,6 +382,150 @@ def _check_stats_inclusion(report: DraftQualityReport, stages: list[str]) -> Non
             severity,
             f"Final table references `{column}` not preserved through stats/streamstats.",
         )
+
+
+def _base_search_text(stages: list[str]) -> str:
+    if stages and _SEARCH_BASE.search(stages[0]):
+        return stages[0]
+    return stages[0] if stages else ""
+
+
+def _count_same_field_or_values(match: re.Match[str]) -> int:
+    fragment = match.group(0)
+    # field=value appears once per OR arm; count '=' occurrences in the matched fragment.
+    return fragment.count("=")
+
+
+def _check_efficiency_advisories(report: DraftQualityReport, stages: list[str], spl: str) -> None:
+    """OPTIONAL_PHASE_S S1 — advisory-only efficiency gaps. Never promote severity."""
+    base = _base_search_text(stages)
+
+    # Q03 — broad NOT / != in base search / early stages
+    early = " | ".join(stages[:3]) if stages else spl
+    if _BASE_NOT_NE.search(early):
+        report.add(
+            "SOC-STD-SPL-001-Q03",
+            "advisory",
+            "Prefer positive value matches over broad NOT / != in early search stages "
+            "(https://docs.splunk.com/Documentation/SplunkCloud/latest/Search/Writebettersearches).",
+        )
+
+    # Q04 — excessive same-context OR chain (same field)
+    for match in _SAME_FIELD_OR.finditer(base or spl):
+        if _count_same_field_or_values(match) >= _Q04_OR_CHAIN_THRESHOLD:
+            report.add(
+                "SOC-STD-SPL-001-Q04",
+                "advisory",
+                f"Excessive same-field OR chain (≥{_Q04_OR_CHAIN_THRESHOLD}); prefer IN() or a lookup.",
+            )
+            break
+
+    # Q15 — TERM() candidate for minor-breaker tokens in base search
+    if base and not _TERM_WRAP.search(base):
+        for token_match in _MINOR_BREAKER_TOKEN.finditer(base):
+            token = token_match.group(1)
+            if "index" in token.lower() or "sourcetype" in token.lower():
+                continue
+            if "=" in token_match.group(0):
+                continue
+            # Skip field=value left-hand sides already handled elsewhere.
+            report.add(
+                "SOC-STD-SPL-001-Q15",
+                "advisory",
+                f"Minor-breaker token {token!r} may benefit from TERM() wrapping.",
+            )
+            break
+
+    # Q16 — generic leading wildcard in search terms (not index=*) — do not touch Q13
+    if _LEADING_WILDCARD_TERM.search(base or spl):
+        report.add(
+            "SOC-STD-SPL-001-Q16",
+            "advisory",
+            "Leading wildcard in a search term is expensive; prefer trailing wildcards or exact tokens.",
+        )
+
+    # Q17 — non-streaming commands earlier than necessary; carve out Q11 sort-before-streamstats
+    stream_index = next(
+        (index for index, stage in enumerate(stages) if _STREAMSTATS.search(stage)),
+        None,
+    )
+    for index, stage in enumerate(stages):
+        if not _NON_STREAMING_CMD.search(stage):
+            continue
+        # Q11 carve-out: required `sort 0 + _time` immediately before streamstats
+        if (
+            stream_index is not None
+            and index < stream_index
+            and _SORT_BEFORE_STREAMSTATS.search(stage)
+        ):
+            continue
+        later = [
+            j
+            for j in range(index + 1, len(stages))
+            if _AGG_COMMAND.search(stages[j]) or _NON_STREAMING_CMD.search(stages[j])
+        ]
+        if not later:
+            continue
+        intervening = stages[index + 1 : later[0]]
+        if any(s.lower().startswith(("search ", "where ")) for s in intervening):
+            report.add(
+                "SOC-STD-SPL-001-Q17",
+                "advisory",
+                "Non-streaming command (sort/stats) appears earlier than necessary; "
+                "keep filtering before aggregation when equivalence holds.",
+            )
+            break
+
+    # Q18 — early projection opportunity (wide pipeline, no fields before first aggregation)
+    # Compatible with U03: do not advise dropping fields that a later table requires.
+    agg_index = _first_agg_index(stages)
+    if agg_index is not None and agg_index >= 2:
+        has_fields_before_agg = any(_FIELDS_KEEP.search(stage) for stage in stages[:agg_index])
+        if not has_fields_before_agg:
+            # If U03-critical table columns are present, still allow advisory — projection
+            # should keep those columns; message states keep required outputs.
+            report.add(
+                "SOC-STD-SPL-001-Q18",
+                "advisory",
+                "Wide pipeline with no `fields` projection before first aggregation; "
+                "project unused columns early while preserving U03-required outputs.",
+            )
+
+
+def classify_optimization(report: DraftQualityReport) -> OptimizationClass:
+    """Map advisory efficiency findings to Layer-2/3 routing metadata (no authority change)."""
+    if not report.findings and not report.advisory_count:
+        return "PASS"
+
+    advisory_ids = {
+        item.rule_id
+        for item in report.findings
+        if item.severity == "advisory"
+        and item.rule_id.startswith("SOC-STD-SPL-001-Q")
+        and item.rule_id.split("-")[-1] in {"Q03", "Q04", "Q15", "Q16", "Q17", "Q18"}
+    }
+    if not advisory_ids:
+        return "PASS"
+
+    # AUTO_FIX_SAFE only when the sole efficiency signal is Q04 (same-field OR → IN).
+    if advisory_ids == {"SOC-STD-SPL-001-Q04"}:
+        return "AUTO_FIX_SAFE"
+
+    llm_ids = {
+        "SOC-STD-SPL-001-Q03",
+        "SOC-STD-SPL-001-Q15",
+        "SOC-STD-SPL-001-Q16",
+        "SOC-STD-SPL-001-Q17",
+        "SOC-STD-SPL-001-Q18",
+    }
+    if advisory_ids & llm_ids:
+        return "OPTIMIZATION_LLM_REQUIRED"
+
+    # Q04 mixed with non-efficiency advisories still routes to safe rewrite.
+    if "SOC-STD-SPL-001-Q04" in advisory_ids:
+        return "AUTO_FIX_SAFE"
+
+    return "NO_SAFE_OPTIMIZATION"
 
 
 def evaluate_draft_quality(
@@ -513,6 +691,9 @@ def evaluate_draft_quality(
             "hard_fail",
             "Firewall draft must use strict session_state_norm IN() values only, not fuzzy like() matching.",
         )
+
+    # OPTIONAL_PHASE_S S1 — advisory efficiency detectors (after hard rules; never raise severity).
+    _check_efficiency_advisories(report, stages, spl)
 
     return report.finalize()
 

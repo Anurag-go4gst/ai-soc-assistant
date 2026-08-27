@@ -236,7 +236,7 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
 
 ## Checklist
 
-- [ ] **S0** — Freeze the authority baseline
+- [x] **S0** — Freeze the authority baseline
   - **Do:** Capture, at the accepted 7.1 SHA, a frozen artifact recording `approved`, `normalized_spl`,
     `execution_eligible` for the SPL golden bank and the convergence bank. Commit it. This is the comparator for
     every later item — a single test run cannot observe "before" and "after" itself.
@@ -247,9 +247,9 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
   - **Verify:** Artifact committed and regenerating it at the same SHA is byte-identical. A test asserts
     `approved` equals the freeze for every row; `execution_eligible` never rises above the freeze
     (`false → true` fails the test); `normalized_spl` is stored and compared under the corrected invariant.
-  - **Depends on:** none. **Evidence:** _(fill)_
+  - **Depends on:** none. **Evidence:** BASE=11a27365; freeze `docs/evals/spl_optimization/authority_baseline_v1.json` rows=49 (spl_golden=39, convergence=10) sha256=d599770f…; `--check` byte-identical; `pytest app/tests/test_spl_optimization_authority_freeze.py -q` → 5 passed; commit `283598e1`.
 
-- [ ] **S1** — Detect + classify every draft; change no execution authority
+- [x] **S1** — Detect + classify every draft; change no execution authority
   - **Do:** Keep `draft_quality.py` as the **single** deterministic quality surface.
     1. Add advisory-only draft_quality detectors for the genuine efficiency gaps (NEW rules = **advisory only**):
        - **Q03** — avoid broad `NOT` / `!=` (base-search / early stages)
@@ -272,7 +272,7 @@ S6/S7 remain **in scope** (D-S1). Resume blocked LLM items when the existing LLM
     (P12) — never publish only a pooled total. S0 `approved` identical; `execution_eligible` one-way;
     `normalized_spl` identical (S1 changes no SPL). Distribution is **evidence for trigger frequency /
     bank coverage / value**, not a gate to delete Layer 3.
-  - **Depends on:** S0. **Evidence:** _(fill)_
+  - **Depends on:** S0. **Evidence:** `pytest app/tests/test_spl_optimization_s1_efficiency.py app/tests/test_spl_draft_quality.py -q` → 125 passed; distribution `docs/evals/spl_optimization/s1_classification_distribution_v1.json` (template OPTIMIZATION_LLM_REQUIRED=29/PASS=6; plan_compiler OPTIMIZATION_LLM_REQUIRED=3/PASS=1; AUTO_FIX_SAFE via Q04 unit test; Q13 untouched). Freeze `--check` still byte-identical.
 
 - [ ] **S2** — Wire the rewrite guard as a reusable V1→V2 gate
   - **Do:** Compose the **existing** `validate_semantic_fidelity` (P4) and `evaluate_rqc_constraint_preservation`
