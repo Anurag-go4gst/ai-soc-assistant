@@ -20,11 +20,11 @@ J7 remains true. B1/B2/B3 are retired.
 |---|---|
 | **Worktree** | `/Users/aagarwal/Downloads/ai-soc-wt-post-p10-convergence` |
 | **Branch** | `ws/post-p10-answer-tool-convergence` |
-| **HEAD (shipped)** | `dc3d4eb4` |
-| **Checklist** | **23 checked** / 19 unchecked (through **4.2 SKIPPED_BY_EVIDENCE**) |
-| **Next item** | **4.3** — Honest no-SPL reason (then 4.4; Phase 5.1 eligible) |
+| **HEAD (shipped)** | _(updated after 5.1 commit)_ |
+| **Checklist** | **Phase 4 closed** @ `cb0405f8`; Phase 5 in progress (**5.1** next→done in this stream) |
+| **Next item** | **5.2** — Deterministic named capability selection (after 5.1 commit) |
 | **0.2 note** | `DONE_WITH_ENVIRONMENT_UNRESOLVED_INPUTS` — two production traces unavailable; design-case diagnostic only |
-| **Shipped product commits** | RQC `09c3f97a` → … → governed draft `3ed1ec36` → email send HIL proof (3.7, this commit) |
+| **Shipped product commits** | RQC → … → Phase 4 close `cb0405f8` → Phase 5.1 coe-mock profile |
 | **LLM status** | `ENVIRONMENT_UNRESOLVED`: configured local-primary/reasoning probes red (`URLError`); Qwen intentionally wired-disabled |
 
 Do **not** execute from the Cursor product-tip checkout alone — use this worktree.

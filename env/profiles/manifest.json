@@ -28,6 +28,14 @@
       "description": "Mac Docker staging: app runs locally on Mac, LLM inference points to COE vLLM at 10.52.1.13:8004 (instruct) / 10.52.1.13:8003 (reasoning), mock MCP execution, SPL fallback disabled, used before COE deployment.",
       "example_file": "mac-staging.env.example",
       "recommended_for": ["mac", "staging", "coe-vllm-validation"]
+    },
+    {
+      "id": "coe-mock",
+      "label": "COE Mock MCP (TEST-ONLY)",
+      "description": "Isolated test-only mock MCP profile for Phase 5 orchestration proofs. Existing flags only (MCP_MODE=mock + mock execution on + Splunk live off). Never the compose/COE default. Mock results are simulated and cannot grant write/remediation/live_mcp_proven. P11 remains NOT STARTED.",
+      "example_file": "coe-mock.env.example",
+      "recommended_for": ["test", "mock-mcp", "phase5"],
+      "test_only": true
     }
   ]
 }

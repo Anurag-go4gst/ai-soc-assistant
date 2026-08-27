@@ -639,11 +639,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
 
 ### Phase 5 — Isolated mock MCP
 
-- [ ] **5.1** — Isolated mock profile (existing flags only)
+- [x] **5.1** — Isolated mock profile (existing flags only)
   - **Do:** Add non-default profile example per Mock MCP section; default COE unchanged; document posture exception. Confirm no production deployment manifest/default profile selects the mock profile.
   - **Verify:** Profile file exists; default profile still has global execution false; no secrets; grep/attest that default compose/COE profile does not reference mock profile.
   - **Depends on:** 0.4 (parallel stream; Phase 3 preferred before claiming email+mock interactions, but 5.1 itself only needs baseline)
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Added `env/profiles/coe-mock.env.example` (existing keys only: MCP_MODE=mock, global+mock execution true, SPLUNK_MCP_ENABLED=false, empty URL/token). Manifest entry `test_only: true`; `env/README.md` posture note; `EnvProfile.test_only` surfaced. Default `coe` still `MCP_GLOBAL_EXECUTION_ENABLED=false`; compose default `${AI_SOC_ENV_PROFILE:-coe}` does not reference coe-mock. `pytest app/tests/test_coe_mock_profile.py app/tests/test_env_profiles.py app/tests/test_mac_staging_profile.py -q` → **8 passed**.
 
 - [ ] **5.2** — Deterministic named capability selection
   - **Do:** Activate existing capability selection behind Resource Planner hub — do not build a second selector.

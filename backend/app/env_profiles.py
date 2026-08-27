@@ -70,6 +70,7 @@ class EnvProfile:
     example_file: str
     recommended_for: tuple[str, ...] = ()
     example_exists: bool = False
+    test_only: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -79,6 +80,7 @@ class EnvProfile:
             "example_file": self.example_file,
             "recommended_for": list(self.recommended_for),
             "example_exists": self.example_exists,
+            "test_only": self.test_only,
         }
 
 
@@ -108,6 +110,7 @@ def list_profiles() -> list[EnvProfile]:
                 example_file=example_file,
                 recommended_for=tuple(str(x) for x in (raw.get("recommended_for") or [])),
                 example_exists=example_path.is_file(),
+                test_only=bool(raw.get("test_only")),
             )
         )
     return items

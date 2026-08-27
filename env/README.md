@@ -40,6 +40,21 @@ docker compose up -d --force-recreate backend
 `AI_SOC_ENV_PROFILE` is read from the repo-root `.env` for Compose variable substitution.
 Default profile if unset: **coe**.
 
+## COE Mock profile (test-only)
+
+`coe-mock` (`env/profiles/coe-mock.env.example`) is a **non-default, test-only** profile for
+isolated mock-MCP orchestration proofs (post-P10 Phase 5). It uses existing flag names only:
+
+- `MCP_MODE=mock`
+- `MCP_GLOBAL_EXECUTION_ENABLED=true`
+- `MCP_SERVER_MOCK_EXECUTION_ENABLED=true`
+- `SPLUNK_MCP_ENABLED=false` with empty URL/token
+
+It is registered in `manifest.json` with `"test_only": true`. Compose and default COE stay on
+`coe` with `MCP_GLOBAL_EXECUTION_ENABLED=false`. Do **not** select `coe-mock` as a production or
+COE deployment profile. Mock results are simulated only — not live SourceEvidence, and they cannot
+grant write/remediation/`live_mcp_proven`. P11 remains NOT STARTED.
+
 ## Switch profile
 
 **CLI**
