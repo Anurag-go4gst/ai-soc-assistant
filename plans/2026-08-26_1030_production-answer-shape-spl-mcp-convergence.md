@@ -685,11 +685,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
 
 Starts after Phase **3** closes (objective persistence + state contract + B4 + email draft). Does **not** wait for Phase 4 or Phase 5 completion, except mock-specific labelling that names a Phase 5 dependency.
 
-- [ ] **6.1** — Orientation
+- [x] **6.1** — Orientation
   - **Do:** Ensure state A/B show orientation consistent with governed plan — no EC fixture copy. State B may show progress telemetry but must not treat it as EvidenceState.
   - **Verify:** Bank + component tests; progress-vs-evidence distinction pinned where UI shows both.
   - **Depends on:** 3.7
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Re-Verify: `ChatBubble.progress.test.tsx` + `InvestigationOutcomeCard.test.tsx` → **10 passed** (no Experience Center copy on live; operational progress distinct from findings). States A–E contract already in `answer_state_contract_v1.md` (2.1). ChatPanel untouched.
 
 - [ ] **6.2** — Plan presentation
   - **Do:** Canonical plan surface only (2.2 decision).
