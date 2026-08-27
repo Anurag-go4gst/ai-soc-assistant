@@ -657,11 +657,11 @@ Current RQC does **not** structurally preserve `requested_actions` / conditional
   - **Depends on:** 5.2
   - **Evidence:** SKIPPED_BY_EVIDENCE 2026-08-27: no product gap — existing gate already requires approved non-null `normalized_spl` before mock call. Re-ran `pytest app/tests/test_mcp_execution_gate.py app/tests/test_mcp_execution_contract_e2e.py app/tests/test_splunk_call_authorization.py app/tests/test_hil_mock_execution_hardening.py -q` → **55 passed** (includes `test_mock_execution_uses_only_normalized_spl` + `test_validation_failure_creates_human_review`). Zero code change.
 
-- [ ] **5.4** — Exact-call authorization (envelope-bound)
+- [x] **5.4** — Exact-call authorization (envelope-bound)
   - **Do:** Keep AUTH0 / canonical arguments hash path; no bypass for mock. Every material mock MCP call must have a **NEW** exact-call authorization bound to at least: `approved envelope_version`, exact tool/server, normalized arguments, `normalized_spl` where applicable, RBAC/policy context. Changing `envelope_version` invalidates the prior grant. Mock follows the same authorization architecture as eventual live MCP.
   - **Verify:** Exact-call authorization tests green under mock profile; negative test that pre-approval / stale envelope_version grants fail closed.
   - **Depends on:** 5.3
-  - **Evidence:** _(fill)_
+  - **Evidence:** DONE 2026-08-27. Packet: `docs/evals/answer_shape/mcp_execution_gate_5_4_envelope_auth_packet.md`. AUTH0 `envelope_version` in fingerprint; gate threads `approved_investigation_envelope`. Stale v1→v2 confirm → `exact_call_grant_invalidated`, no connector call. RACES pin advanced for `mcp_execution_gate.py` SHA-256 `b12b0a05…`. Tests: `test_post_p10_mock_mcp_5_4_envelope_auth.py` + AUTH0 suite → **10+10 passed**; RACES → **8 passed**.
 
 - [ ] **5.5** — Named mock invocation only after ApprovedInvestigationEnvelope
   - **Do:** Before investigation Approve (UI) → wire `run` → immutable ApprovedInvestigationEnvelope: **mock MCP invocation = NO**. After envelope_version=N: named mock invocation allowed only under 5.4 grant. Trace shows server/tool/mode=mock/execution=simulated + envelope_version.

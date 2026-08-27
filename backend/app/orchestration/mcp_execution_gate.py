@@ -44,6 +44,18 @@ RESULT_PREVIEW_CAP = 5
 READ_ONLY_EXECUTION_INTENTS = {"metadata_discovery", "identity_lookup"}
 
 
+def _envelope_version_from(approved_investigation_envelope: dict[str, Any] | None) -> int | None:
+    """Return approved envelope_version (>=1) or None when absent/invalid."""
+    if not isinstance(approved_investigation_envelope, dict):
+        return None
+    raw = approved_investigation_envelope.get("envelope_version")
+    try:
+        version = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return version if version >= 1 else None
+
+
 def _hil_required_for_read_only(execution_intent: str) -> bool:
     """Deterministic risk policy for the interactive HIL step on read-only
     MCP tools. AUTH0 (exact-call authorization) is mandatory for every
@@ -91,8 +103,10 @@ def evaluate_mcp_execution(
     data_silence_advisory: dict[str, Any] | None = None,
     hook_idempotency: HookIdempotencyContext | None = None,
     mcp_capability: str | None = None,
+    approved_investigation_envelope: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     telemetry = get_telemetry_connector()
+    envelope_version = _envelope_version_from(approved_investigation_envelope)
     precondition_block_reason = _precondition_block_reason(precondition_evaluation)
     if precondition_block_reason:
         selection = {
@@ -190,6 +204,7 @@ def evaluate_mcp_execution(
             rbac_role=session_role_for_mcp_gate(rbac_role),
             execution_review_action=execution_review_action,
             pending_execution=pending_execution,
+            envelope_version=envelope_version,
         )
 
     if execution_intent == "saved_search_execution":
@@ -220,6 +235,7 @@ def evaluate_mcp_execution(
             rbac_role=session_role_for_mcp_gate(rbac_role),
             telemetry=telemetry,
             registry=registry,
+            envelope_version=envelope_version,
         )
 
     catalogue_eligible, catalogue_reason = catalogue_auto_execute_eligible(
@@ -270,6 +286,7 @@ def evaluate_mcp_execution(
         hil_required=require_confirmation,
         execution_intent=execution_intent,
         tool_arguments=planned_tool_arguments,
+        envelope_version=envelope_version,
     )
     action = (execution_review_action or "").strip().lower()
     if pending_execution and action != "update_spl" and not grants_match(pending_execution, current_grant):
@@ -628,6 +645,7 @@ def _execute_read_only_mcp_tool(
     rbac_role: str | None,
     execution_review_action: str | None,
     pending_execution: dict[str, Any] | None,
+    envelope_version: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     selected_tool = str(selection["selected_mcp_tool"])
     tool_arguments = _read_only_tool_arguments(selected_tool, trace_id=trace_id)
@@ -641,6 +659,7 @@ def _execute_read_only_mcp_tool(
         hil_required=hil_required,
         execution_intent=execution_intent,
         read_write_mode="read",
+        envelope_version=envelope_version,
     )
     action = (execution_review_action or "").strip().lower()
     if hil_required:
@@ -752,6 +771,7 @@ def _execute_saved_search_with_hil(
     rbac_role: str | None,
     telemetry: Any,
     registry: Any,
+    envelope_version: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     saved_name, saved_app = _saved_search_binding(
         spl_validation=spl_validation,
@@ -791,6 +811,7 @@ def _execute_saved_search_with_hil(
         hil_required=True,
         execution_intent="saved_search_execution",
         read_write_mode="read",
+        envelope_version=envelope_version,
     )
 
     if (execution_review_action or "").strip().lower() != "confirm":

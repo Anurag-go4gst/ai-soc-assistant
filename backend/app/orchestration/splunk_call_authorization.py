@@ -42,6 +42,7 @@ def build_splunk_call_grant(
     now: float | None = None,
     ttl_seconds: int = GRANT_TTL_SECONDS,
     tool_arguments: dict[str, Any] | None = None,
+    envelope_version: int | None = None,
 ) -> dict[str, Any]:
     spl = str(normalized_spl or "")
     # Canonical execution material for non-SPL calls (saved search, read-only
@@ -51,6 +52,16 @@ def build_splunk_call_grant(
     canonical_args = json.dumps(tool_arguments, sort_keys=True, default=str) if tool_arguments else ""
     canonical_arguments_hash = hashlib.sha256(canonical_args.encode("utf-8")).hexdigest() if canonical_args else ""
     issued = float(now if now is not None else time.time())
+    bound_envelope: int | None
+    if envelope_version is None:
+        bound_envelope = None
+    else:
+        try:
+            bound_envelope = int(envelope_version)
+        except (TypeError, ValueError):
+            bound_envelope = None
+        if bound_envelope is not None and bound_envelope < 1:
+            bound_envelope = None
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "trace_id": str(trace_id or ""),
@@ -75,6 +86,7 @@ def build_splunk_call_grant(
             if mcp_endpoint is not None
             else normalize_mcp_endpoint_url(settings.splunk_mcp_base_url)
         ),
+        "envelope_version": bound_envelope,
         "one_run": True,
         "issued_at": issued,
         "expires_at": issued + int(ttl_seconds),
@@ -99,6 +111,7 @@ def build_splunk_call_grant(
             "1" if payload["hil_required"] else "0",
             payload["rbac_role"],
             payload["mcp_endpoint"],
+            str(payload["envelope_version"] if payload["envelope_version"] is not None else ""),
         ]
     )
     payload["fingerprint"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
@@ -116,6 +129,7 @@ def call_grant_from_validation(
     execution_intent: str = "spl_search",
     now: float | None = None,
     tool_arguments: dict[str, Any] | None = None,
+    envelope_version: int | None = None,
 ) -> dict[str, Any]:
     """Exact-call AUTH0 grant for approved SPL searches.
 
@@ -142,6 +156,7 @@ def call_grant_from_validation(
         rbac_role=rbac_role,
         mcp_endpoint=normalize_mcp_endpoint_url(settings.splunk_mcp_base_url),
         now=now,
+        envelope_version=envelope_version,
     )
 
 
@@ -156,6 +171,7 @@ def call_grant_from_tool_call(
     execution_intent: str,
     read_write_mode: str = "read",
     now: float | None = None,
+    envelope_version: int | None = None,
 ) -> dict[str, Any]:
     """Exact-call AUTH0 grant for non-SPL MCP tool calls (saved search,
     read-only metadata/identity tools).
@@ -181,6 +197,7 @@ def call_grant_from_tool_call(
         rbac_role=rbac_role,
         mcp_endpoint=normalize_mcp_endpoint_url(settings.splunk_mcp_base_url),
         now=now,
+        envelope_version=envelope_version,
     )
 
 

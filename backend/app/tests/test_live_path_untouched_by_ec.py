@@ -172,6 +172,8 @@ RACES_BASELINE_SHA = "27970ea4d10f0e894c8adb4214e18cd46e24b28e"
 RACES_APPROVED_PROTECTED_BLOB_SHA256 = {
     "backend/app/chat/pipeline.py": "4e443938e4c92dafb24443ad6ef7d39413140af3d54018bef4f9b0b3c9747e25",
     "backend/app/schemas/responses.py": "e8dfaa87e0b1db1c0c6ceccb74fa66f95a7604c90cbd531eb6c52a30ff3a8d7c",
+    # Post-P10 5.4: envelope_version threaded into AUTH0 grant mint paths (additive).
+    "backend/app/orchestration/mcp_execution_gate.py": "b12b0a054a43f3476ffab308329475b7a18c979fb786cce2196ba3fbfb6c2fad",
 }
 
 
