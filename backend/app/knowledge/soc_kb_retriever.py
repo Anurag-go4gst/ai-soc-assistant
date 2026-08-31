@@ -457,58 +457,6 @@ def _score_entry(
         reasons.append("wrong_environment_exclusion")
 
     weighted = min(1.0, score * float(entry.get("confidence_weight") or 1.0))
-    # ATLAS case-study narratives: do not promote on generic excerpt keywords
-    # alone (e.g. "compromised"/"investigate") — require topical/structural match.
-    # Uses existing metadata + score reasons; no per-title denylist.
-    meta = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
-    if str(meta.get("source") or "") == "mitre_atlas" and str(meta.get("entity") or "") == "casestudy":
-        structural = {
-            "title_match",
-            "section_title_match",
-            "retrieval_hints_match",
-            "synonyms_match",
-            "positive_examples_match",
-            "tags_match",
-            "mitre_refs_match",
-            "retrieval_hint_phrase_match",
-            "exact_query_substring",
-        }
-        atlas_topic = any(
-            marker in normalized_query
-            for marker in (
-                "atlas",
-                "aml.",
-                "aml cs",
-                "llm",
-                "openai",
-                "prompt injection",
-                "adversarial ml",
-                "machine learning",
-                "ai security",
-                "generative ai",
-            )
-        )
-        if not (set(reasons) & structural) and not atlas_topic:
-            return (
-                0.0,
-                sorted(set(reasons + ["atlas_casestudy_requires_topical_match"])),
-                {
-                    **{
-                        "deterministic_schema_search": round(max(field_score, 0.0), 3),
-                        "keyword_search": round(
-                            len(query_terms.intersection(_terms_from_items(entry.get("source_excerpt"))))
-                            / max(len(query_terms), 1),
-                            3,
-                        ),
-                        "negative_example_penalty": 0.0,
-                        "wrong_allowed_use_penalty": allowed_use_penalty,
-                        "wrong_skill_penalty": skill_penalty,
-                        "wrong_environment_penalty": environment_penalty,
-                        "final_candidate_selection": 0.0,
-                        "atlas_casestudy_topical_gate": -1.0,
-                    }
-                },
-            )
     stage_scores = {
         "deterministic_schema_search": round(max(field_score, 0.0), 3),
         "keyword_search": round(len(query_terms.intersection(_terms_from_items(entry.get("source_excerpt")))) / max(len(query_terms), 1), 3),
