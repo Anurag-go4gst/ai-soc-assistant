@@ -6,7 +6,9 @@ import pytest
 
 from app.config import settings
 from app.chat.pipeline import _candidate_from_lab_draft
+from app.spl.llm_plan_compiler import compile_intent_spec_to_spl
 from app.spl.review_only_spl_postprocessor import finalize_review_only_spl, normalize_review_only_spl
+from app.spl.spl_intent_spec import _combined_horizon_token, build_spl_intent_spec
 from app.splunk.capabilities import build_splunk_capability_profile
 
 _CLEAN_SKELETON = """
@@ -107,6 +109,36 @@ def test_finalize_fills_user_explicit_index_from_query_alone():
     assert "sourcetype=cisco:firepower" in out.normalized_spl
     assert out.trace["index_resolution_source"] == "user_explicit"
     assert "earliest=-30d" in out.normalized_spl
+
+
+def test_second_pass_finalize_does_not_shrink_first_seen_baseline_envelope():
+    """Live /chat runs finalize again without spec; observation-only query
+    tokens must not make preceding baseline data unreachable."""
+    query = (
+        "Write an SPL query to find successful Windows logons (EventCode=4624) by "
+        "accounts matching admin-* or svc-* during the last 7 days. Compare them with "
+        "a separate preceding 30-day history for the same account and flag destination "
+        "hosts that the account had not previously accessed. Group results into "
+        "one-hour windows and return the user, new host, source IP, and distinct count "
+        "of new hosts. Do not execute the query."
+    )
+    spec = build_spl_intent_spec(query)
+    compiled = compile_intent_spec_to_spl(spec)
+    combined = _combined_horizon_token(
+        str(spec.get("observation_window") or ""),
+        str(spec.get("baseline_window") or ""),
+    )
+    assert combined
+    assert f"earliest=-{combined}" in compiled.replace(" ", "")
+    out = finalize_review_only_spl(
+        compiled,
+        query=query,
+        family="lab_draft",
+        llm_generated=False,
+    )
+    compact = out.normalized_spl.lower().replace(" ", "")
+    assert f"earliest=-{combined.lower()}" in compact
+    assert out.trace.get("lookback_rewrite_skipped") == "baseline_retrieval_envelope_preserved"
 
 
 def test_coe_environment_index_wins_over_placeholder():

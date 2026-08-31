@@ -403,6 +403,16 @@ def _duration_seconds(token: str | None) -> int | None:
     return amount * {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
 
 
+def _horizon_lookback_seconds(horizon: str | None) -> int | None:
+    text = str(horizon or "").strip()
+    if not text:
+        return None
+    match = re.search(r"earliest\s*=\s*-?(\d+)([smhd])", text, re.I)
+    if match:
+        return _duration_seconds(f"{match.group(1)}{match.group(2).lower()}")
+    return _duration_seconds(text.lstrip("-"))
+
+
 def _combined_horizon_token(observation: str | None, baseline: str | None) -> str | None:
     obs_sec = _duration_seconds(observation)
     base_sec = _duration_seconds(baseline)
@@ -856,16 +866,23 @@ def build_spl_intent_spec(
     else:
         search_horizon = None
 
-    # First-seen dual windows: keep both periods; combined horizon is the search span only.
-    if _is_first_seen(query) and observation_window:
-        combined = _combined_horizon_token(observation_window, baseline_window)
-        if combined and not rqc_time:
-            search_horizon = f"earliest=-{combined} latest=now"
-            provenance["search_horizon"] = "first_seen_combined"
-
     # Locked RQC time must not be overwritten by a competing query window.
     if rqc_time and query_time_window and rqc_time != query_time_window:
         search_horizon = rqc_time
+
+    # First-seen dual windows last. An observation-only RQC/query token is the
+    # observation period, not the retrieval envelope; baseline data must remain
+    # reachable. A wider locked RQC horizon is preserved.
+    if _is_first_seen(query) and observation_window:
+        combined = _combined_horizon_token(observation_window, baseline_window)
+        if combined:
+            combined_sec = _duration_seconds(combined)
+            existing_sec = _horizon_lookback_seconds(search_horizon)
+            if combined_sec is not None and (
+                existing_sec is None or existing_sec < combined_sec
+            ):
+                search_horizon = f"earliest=-{combined} latest=now"
+                provenance["search_horizon"] = "first_seen_combined"
 
     analysis_shape = _analysis_shape(
         query,

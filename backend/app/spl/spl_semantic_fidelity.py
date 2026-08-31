@@ -33,6 +33,9 @@ _EVENT_SET_TOKENS = {
 }
 
 
+_TOKEN_SECONDS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+
+
 def _window_token(spec_window: str | None) -> str | None:
     if not spec_window:
         return None
@@ -41,6 +44,32 @@ def _window_token(spec_window: str | None) -> str | None:
         return match.group(1).lstrip("-")
     match = _EARLIEST_RE.search(spec_window.replace(" ", ""))
     return match.group(1).lstrip("-") if match else None
+
+
+def _token_seconds(token: str | None) -> int | None:
+    match = re.fullmatch(r"(\d+)([smhdw])", str(token or "").strip().lower())
+    if not match:
+        return None
+    return int(match.group(1)) * _TOKEN_SECONDS[match.group(2)]
+
+
+def _spl_search_lookback_seconds(spl: str) -> int | None:
+    match = _EARLIEST_RE.search(str(spl or ""))
+    if not match:
+        return None
+    return _token_seconds(match.group(1).lstrip("-"))
+
+
+def _baseline_retrieval_reachable(spec: dict[str, Any], spl: str) -> bool:
+    observation = str(spec.get("observation_window") or "").strip()
+    baseline = str(spec.get("baseline_window") or "").strip()
+    obs_sec = _token_seconds(observation)
+    base_sec = _token_seconds(baseline)
+    if obs_sec is None or base_sec is None:
+        return True
+    required = obs_sec + base_sec
+    got = _spl_search_lookback_seconds(spl)
+    return got is not None and got >= required
 
 
 def _quoted_string_contains_newline(text: str, quote: str) -> bool:
@@ -332,12 +361,25 @@ def validate_semantic_fidelity(
     if baseline:
         compact = lowered.replace(" ", "")
         has_period = "baseline" in lowered or "period=" in lowered
-        if f"-{baseline}" in compact or has_period:
+        reachable = _baseline_retrieval_reachable(spec, text)
+        if (f"-{baseline}" in compact or has_period) and reachable:
             preserved.append("baseline_window")
+        elif not reachable:
+            losses.append("baseline_data_unreachable")
+            repair_feedback.append(
+                "semantic_loss:baseline_data_unreachable:"
+                "search_envelope_must_cover_observation_plus_baseline"
+            )
         else:
             losses.append("baseline_window_missing")
             repair_feedback.append(f"semantic_loss:baseline_window_missing:{baseline}")
-        if observation and f"-{observation}" in compact and f"-{baseline}" not in compact and not has_period:
+        if (
+            observation
+            and f"-{observation}" in compact
+            and f"-{baseline}" not in compact
+            and not has_period
+            and reachable
+        ):
             losses.append("baseline_window_missing")
 
     first_seen_rel = any(

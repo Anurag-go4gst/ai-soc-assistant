@@ -34,6 +34,19 @@ _PLACEHOLDER_INDEX = "<your_index>"
 _WIDE_EARLIEST_RE = re.compile(
     r"earliest\s*=\s*-?(\d+)\s*(d|w|mon|y)\b", re.IGNORECASE
 )
+_LOOKBACK_SECONDS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+
+
+def _lookback_seconds(text: str | None) -> int | None:
+    match = re.search(r"earliest\s*=\s*-?(\d+)([smhdw])", str(text or ""), re.I)
+    if not match:
+        return None
+    return int(match.group(1)) * _LOOKBACK_SECONDS[match.group(2).lower()]
+
+
+def _baseline_period_present(spl: str) -> bool:
+    lowered = spl.lower()
+    return "period=" in lowered and "baseline" in lowered
 _INDEX_TOKEN_RE = re.compile(r"index\s*=\s*([^\s|]+)", re.IGNORECASE)
 _EARLIEST_TOKEN_RE = re.compile(r"earliest\s*=\s*[^\s|]+", re.IGNORECASE)
 _LATEST_TOKEN_RE = re.compile(r"latest\s*=\s*[^\s|]+", re.IGNORECASE)
@@ -473,19 +486,33 @@ def normalize_review_only_spl(
             elif part.lower().startswith("latest="):
                 latest_token = part
         if earliest_token:
-            if earliest_match:
-                spl = _EARLIEST_TOKEN_RE.sub(earliest_token, spl, count=1)
+            existing_sec = _lookback_seconds(spl)
+            requested_sec = _lookback_seconds(earliest_token) or _lookback_seconds(
+                explicit_bounds
+            )
+            # A second finalize (live /chat) fills observation-only bounds from
+            # "last Nd days" and must not collapse a reachable baseline envelope.
+            if (
+                _baseline_period_present(spl)
+                and existing_sec is not None
+                and requested_sec is not None
+                and existing_sec > requested_sec
+            ):
+                trace["lookback_rewrite_skipped"] = "baseline_retrieval_envelope_preserved"
             else:
-                spl = _INDEX_TOKEN_RE.sub(
-                    f"index={resolved_index} {earliest_token} {latest_token}",
-                    spl,
-                    count=1,
-                )
-            if latest_token and not _LATEST_TOKEN_RE.search(spl):
-                spl = spl.replace(earliest_token, f"{earliest_token} {latest_token}", 1)
-            trace["lookback_rewrite_applied"] = True
-            trace["lookback_rewrite_reason"] = "user_explicit_time_window_enforced"
-            final_earliest = earliest_token
+                if earliest_match:
+                    spl = _EARLIEST_TOKEN_RE.sub(earliest_token, spl, count=1)
+                else:
+                    spl = _INDEX_TOKEN_RE.sub(
+                        f"index={resolved_index} {earliest_token} {latest_token}",
+                        spl,
+                        count=1,
+                    )
+                if latest_token and not _LATEST_TOKEN_RE.search(spl):
+                    spl = spl.replace(earliest_token, f"{earliest_token} {latest_token}", 1)
+                trace["lookback_rewrite_applied"] = True
+                trace["lookback_rewrite_reason"] = "user_explicit_time_window_enforced"
+                final_earliest = earliest_token
 
     trace["final_earliest"] = final_earliest
     if resolved_index == "*":

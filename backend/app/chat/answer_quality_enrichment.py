@@ -121,6 +121,9 @@ def apply_answer_quality_enrichment(
     answer_contract: Any | None = None,
 ) -> tuple[str, AnalystResponseEnvelope | None]:
     """Enrich the final visible answer and sync analyst card fields for eval parity."""
+    if analyst_response is not None and str(analyst_response.response_profile or "") == "spl_only":
+        return message, _scrub_analyst_response(analyst_response)
+
     analyst_visible_text = _analyst_visible_text(analyst_response, message)
     enriched, guidance_blocks = enrich_answer_message(
         message,

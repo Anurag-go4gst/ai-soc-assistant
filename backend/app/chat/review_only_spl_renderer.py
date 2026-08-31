@@ -347,10 +347,20 @@ def _is_concise_spl_utility(
 ) -> bool:
     dp = draft_preview if isinstance(draft_preview, dict) else {}
     cs = candidate_spl if isinstance(candidate_spl, dict) else {}
-    return _is_universal_spl_utility(draft_preview, candidate_spl) or (
+    if _is_universal_spl_utility(draft_preview, candidate_spl):
+        return True
+    if (
         dp.get("detection_family") == _USER_BOUND_UTILITY_FAMILY
         or cs.get("detection_family") == _USER_BOUND_UTILITY_FAMILY
-    )
+    ):
+        return True
+    # Explicit utility-authoring candidates carry this trace; catalog T1
+    # lab drafts do not, so they keep the T1 review card.
+    return bool(cs.get("utility_spl_draft_trace")) and str(cs.get("generation_mode") or "") in {
+        "deterministic_compiler_draft",
+        "utility_llm_spl_draft",
+        "utility_llm_spl_repair",
+    }
 
 
 def _universal_utility_index_and_usage_lines(
@@ -580,13 +590,20 @@ def apply_review_only_spl_render(
                 "response_profile": "spl_only",
                 "investigation_steps": [],
                 "recommended_actions": [],
+                "initial_assessment": [],
                 "direct_answer_summary": SPL_AUTHORING_ABSTENTION_MESSAGE,
                 "spl_code": None,
                 "draft_spl_code": None,
                 "spl_draft_preview": None,
+                "spl_status_detail": None,
             }
             return analyst_response.model_copy(update=updates), composed
-        return analyst_response, message
+        if (
+            analyst_response is None
+            or not _is_concise_spl_utility(draft_preview, candidate_spl)
+            or not str((candidate_spl or {}).get("candidate_spl") or "").strip()
+        ):
+            return analyst_response, message
 
     if isinstance(candidate_spl, dict) and candidate_spl.get("spl_authoring_unavailable"):
         composed = SPL_AUTHORING_ABSTENTION_MESSAGE
@@ -602,6 +619,7 @@ def apply_review_only_spl_render(
             "direct_answer_summary": SPL_AUTHORING_ABSTENTION_MESSAGE,
             "one_sentence_finding": None,
             "analyst_checklist": [],
+            "initial_assessment": [],
             "spl_code": None,
             "draft_spl_code": None,
             "spl_draft_preview": None,
@@ -674,6 +692,7 @@ def apply_review_only_spl_render(
             "direct_answer_summary": card_summary,
             "one_sentence_finding": None,
             "analyst_checklist": [],
+            "initial_assessment": [],
             "spl_code": None,
             "draft_spl_code": utility_spl or None,
             "spl_draft_preview": None,

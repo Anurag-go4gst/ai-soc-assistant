@@ -19,7 +19,11 @@ from app.spl.llm_fallback import (
     generate_llm_spl_fallback,
 )
 from app.spl.llm_plan_compiler import compile_intent_spec_to_spl
-from app.spl.spl_intent_spec import build_spl_intent_spec
+from app.spl.spl_intent_spec import (
+    _combined_horizon_token,
+    _duration_seconds,
+    build_spl_intent_spec,
+)
 from app.spl.spl_semantic_fidelity import validate_semantic_fidelity
 from app.spl.utility_spl_authoring import candidate_from_universal_utility_authoring
 
@@ -114,6 +118,7 @@ def _run(
     query: str,
     *,
     provider,
+    resolved_query_contract: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     result = candidate_from_universal_utility_authoring(
         trace_id="authoring-fidelity",
@@ -123,9 +128,33 @@ def _run(
         profile=_profile(),
         spl_governance=None,
         llm_raw_output_provider=provider,
+        resolved_query_contract=resolved_query_contract,
     )
     assert result is not None
     return result
+
+
+def _p1_rqc_observation_only() -> dict[str, Any]:
+    """UI `/chat` path: T4/RQC often locks the observation window, not the dual envelope."""
+    return {
+        "time_scope": "last 7 days",
+        "locked_fields": {"time_scope": "last 7 days"},
+    }
+
+
+def _assert_retrieval_covers_observation_and_baseline(spec: dict[str, Any], spl: str) -> None:
+    observation = str(spec.get("observation_window") or "").strip()
+    baseline = str(spec.get("baseline_window") or "").strip()
+    required = _combined_horizon_token(observation, baseline)
+    assert required, (observation, baseline)
+    required_sec = (_duration_seconds(observation) or 0) + (_duration_seconds(baseline) or 0)
+    assert required_sec > 0
+    compact = spl.lower().replace(" ", "")
+    assert f"earliest=-{required.lower()}" in compact, spl
+    fidelity = validate_semantic_fidelity(spec, spl)
+    assert fidelity.get("passed") is True, fidelity
+    losses = {str(item) for item in (fidelity.get("losses") or [])}
+    assert "baseline_data_unreachable" not in losses
 
 
 def _faithful_p1_spl() -> str:
@@ -437,3 +466,170 @@ def test_no_detectionspec_module_added() -> None:
 
     assert not hasattr(spec_mod, "DetectionSpec")
     assert spec_mod.SPL_SEMANTIC_CONTRACT_VERSION == "spl_semantic_v2"
+
+
+# ---------------------------------------------------------------------------
+# Live UI correction — observation-only RQC must not make baseline unreachable
+# ---------------------------------------------------------------------------
+
+
+def test_rqc_observation_window_does_not_collapse_baseline_envelope() -> None:
+    spec = build_spl_intent_spec(
+        P1_AUTH_BASELINE,
+        resolved_query_contract=_p1_rqc_observation_only(),
+    )
+    observation = str(spec.get("observation_window") or "").strip()
+    baseline = str(spec.get("baseline_window") or "").strip()
+    combined = _combined_horizon_token(observation, baseline)
+    assert combined
+    horizon = str(spec.get("search_horizon") or "").replace(" ", "").lower()
+    assert f"earliest=-{combined.lower()}" in horizon
+    compiled = compile_intent_spec_to_spl(spec)
+    _assert_retrieval_covers_observation_and_baseline(spec, compiled)
+
+
+def _shrink_envelope_to_observation_only(spec: dict[str, Any], spl: str) -> str:
+    observation = str(spec.get("observation_window") or "").strip()
+    baseline = str(spec.get("baseline_window") or "").strip()
+    combined = _combined_horizon_token(observation, baseline)
+    assert combined and observation
+    shrunk = spl.replace(f"earliest=-{combined}", f"earliest=-{observation}")
+    compact = shrunk.lower().replace(" ", "")
+    assert f"earliest=-{observation.lower()}" in compact
+    assert f"earliest=-{combined.lower()}" not in compact
+    return shrunk
+
+
+def test_baseline_syntax_without_reachable_envelope_fails_fidelity() -> None:
+    spec = build_spl_intent_spec(P1_AUTH_BASELINE)
+    compiled = compile_intent_spec_to_spl(spec)
+    unreachable = _shrink_envelope_to_observation_only(spec, compiled)
+    assert "baseline" in unreachable.lower()
+    fidelity = validate_semantic_fidelity(spec, unreachable)
+    assert fidelity.get("passed") is False, fidelity
+    losses = {str(item) for item in (fidelity.get("losses") or [])}
+    assert "baseline_data_unreachable" in losses
+
+
+def test_p4_derived_lookback_is_observation_plus_baseline_not_a_constant() -> None:
+    spec = build_spl_intent_spec(P4_FIRST_SEEN_DOMAIN)
+    observation = str(spec.get("observation_window") or "").strip()
+    baseline = str(spec.get("baseline_window") or "").strip()
+    combined = _combined_horizon_token(observation, baseline)
+    assert combined
+    assert combined != "37d"
+    compiled = compile_intent_spec_to_spl(spec)
+    _assert_retrieval_covers_observation_and_baseline(spec, compiled)
+
+
+def test_ui_path_rqc_plus_unfaithful_llm_envelope_is_corrected_or_abstains(
+    spl_flags: None,
+) -> None:
+    spec_no_rqc = build_spl_intent_spec(P1_AUTH_BASELINE)
+    unreachable = _shrink_envelope_to_observation_only(
+        spec_no_rqc,
+        compile_intent_spec_to_spl(spec_no_rqc),
+    )
+    candidate, validation = _run(
+        P1_AUTH_BASELINE,
+        provider=lambda: _llm_payload(unreachable),
+        resolved_query_contract=_p1_rqc_observation_only(),
+    )
+    _assert_no_execution(candidate, validation)
+    spl = str(candidate.get("candidate_spl") or "")
+    if candidate.get("spl_authoring_unavailable"):
+        assert not spl.strip()
+        return
+    spec = build_spl_intent_spec(
+        P1_AUTH_BASELINE,
+        resolved_query_contract=_p1_rqc_observation_only(),
+    )
+    _assert_retrieval_covers_observation_and_baseline(spec, spl)
+
+
+def test_utility_authoring_renderer_omits_investigation_and_template_unavailable() -> None:
+    from app.schemas.responses import AnalystResponseEnvelope
+
+    spec = build_spl_intent_spec(P1_AUTH_BASELINE)
+    spl = compile_intent_spec_to_spl(spec)
+    candidate = {
+        "candidate_spl": spl,
+        "detection_family": "lab_draft",
+        "generation_mode": "deterministic_compiler_draft",
+        "utility_spl_draft_trace": {"final_raw_spl_source": "deterministic_compiler"},
+        "execution_eligible": False,
+        "spl_authoring_unavailable": False,
+    }
+    analyst = AnalystResponseEnvelope(
+        finding_title="Initial investigation",
+        initial_assessment=["Suspicious Windows logons observed."],
+        investigation_steps=["Collect host evidence", "Review authentication logs"],
+        analyst_checklist=["Validate the source profile"],
+        recommended_actions=["Escalate if confirmed"],
+        spl_status_detail={
+            "template_status": "unavailable",
+            "generation_status": "draft_preview",
+            "reason_display": "Review-only draft preview",
+        },
+        draft_spl_code=spl,
+    )
+    run_contract = SimpleNamespace(
+        routing=SimpleNamespace(canonical_skill="spl_generation"),
+        spl_candidate_renderable=True,
+        execution_status="not_started",
+        spl_status="review_required",
+    )
+    updated, _text = apply_review_only_spl_render(
+        run_contract=run_contract,
+        analyst_response=analyst,
+        message=spl,
+        draft_preview={"detection_family": "lab_draft", "draft_spl": spl},
+        candidate_spl=candidate,
+    )
+    assert updated.response_profile == "spl_only"
+    assert updated.initial_assessment == []
+    assert updated.investigation_steps == []
+    assert updated.analyst_checklist == []
+    assert updated.spl_status_detail is None
+    detail = updated.spl_status_detail
+    assert not (
+        isinstance(detail, dict) and str(detail.get("template_status") or "") == "unavailable"
+    )
+
+
+def test_compiler_draft_renderer_is_concise_even_without_spl_generation_skill() -> None:
+    from app.schemas.responses import AnalystResponseEnvelope
+
+    spec = build_spl_intent_spec(P1_AUTH_BASELINE)
+    spl = compile_intent_spec_to_spl(spec)
+    candidate = {
+        "candidate_spl": spl,
+        "detection_family": "lab_draft",
+        "generation_mode": "deterministic_compiler_draft",
+        "utility_spl_draft_trace": {"final_raw_spl_source": "deterministic_compiler"},
+        "execution_eligible": False,
+    }
+    analyst = AnalystResponseEnvelope(
+        finding_title="Windows security logon review",
+        initial_assessment=["Suspicious Windows logons observed."],
+        investigation_steps=["Validate scope and time window."],
+        analyst_checklist=["Auth/VPN logs"],
+        spl_status_detail={"template_status": "unavailable", "generation_status": "draft_preview"},
+        draft_spl_code=spl,
+    )
+    run_contract = SimpleNamespace(
+        routing=SimpleNamespace(canonical_skill="guided_investigation"),
+        spl_candidate_renderable=False,
+        execution_status="not_started",
+    )
+    updated, _text = apply_review_only_spl_render(
+        run_contract=run_contract,
+        analyst_response=analyst,
+        message=spl,
+        draft_preview={"detection_family": "lab_draft", "draft_spl": spl},
+        candidate_spl=candidate,
+    )
+    assert updated.response_profile == "spl_only"
+    assert updated.initial_assessment == []
+    assert updated.investigation_steps == []
+    assert updated.spl_status_detail is None
