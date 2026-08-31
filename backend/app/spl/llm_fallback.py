@@ -818,20 +818,224 @@ SPL_ADVISORY_JSON_SCHEMA: dict[str, Any] = {
         "governed": {"type": "boolean"},
         "catalog_approved": {"type": "boolean"},
     },
+    # `required` is the model's COMPLETION BURDEN, not the safety contract.
+    # execution_eligible / governed / catalog_approved stay declared as optional
+    # properties for wire compatibility, but are deliberately NOT required: the
+    # adapter forces execution_eligible=false regardless of what the model emits,
+    # so making the model spend completion tokens asserting them bought nothing and
+    # lengthened every response on a path that was already truncating.
     "required": [
         "status",
         "candidate_spl",
         "index",
         "sourcetype",
-        "result_cap",
         "unresolved_slots",
         "assumptions",
         "required_fields",
-        "execution_eligible",
-        "governed",
-        "catalog_approved",
     ],
 }
+
+
+# ---------------------------------------------------------------------------
+# Utility-authoring few-shots (prompt assets, shape-keyed).
+#
+# These extend the single pre-existing inline weekend example rather than
+# starting a second store; ``fewshot:spl_authoring_v1`` in
+# ``app.llm.policy.examples`` is the governance registry entry for them.
+# Selection reuses the deterministic ``analysis_shape`` from
+# ``build_spl_intent_spec`` — the same key the shape rules already use — so
+# exactly ONE example is rendered per call.
+#
+# Bodies are held as real dicts and rendered with ``json.dumps`` at prompt
+# build time. That is deliberate: hand-written escapes drift, and the measured
+# P3 failure was precisely an UNESCAPED double quote inside candidate_spl
+# (``coalesce(..., "unknown")``), which under json_schema constrained decoding
+# stalled the sampler into a 900+ character whitespace loop until max_tokens.
+# Rendering through json.dumps means every example the model sees demonstrates
+# correct \\" escaping.
+# ---------------------------------------------------------------------------
+
+_AUTHORING_FEW_SHOTS: dict[str, dict[str, Any]] = {
+    # FS1 — basic filter + actor pattern. Also the fallback for unkeyed shapes.
+    "raw": {
+        "example_id": "fs.spl.authoring.basic_filter_actor",
+        "request": "Show successful logons for accounts matching svc-* in the last 24 hours; return user, host, and source IP.",
+        "note": (
+            "Static field filters belong in the base search. Actor wildcards use "
+            "field=value* in the search command; LIKE is an eval/where function and "
+            "takes % wildcards, never *."
+        ),
+        "payload": {
+            "status": "candidate_generated",
+            "candidate_spl": (
+                'search index=<index> sourcetype=<sourcetype> earliest=-24h latest=now '
+                'EventCode=4624 user=svc-*\n'
+                '| eval user_norm=lower(coalesce(user, "unknown"))\n'
+                '| stats count as event_count by user_norm, host, src_ip'
+            ),
+            "index": "<index>",
+            "sourcetype": "<sourcetype>",
+            "result_cap": None,
+            "unresolved_slots": ["index", "sourcetype"],
+            "assumptions": ["<index>/<sourcetype> are review-only placeholders"],
+            "required_fields": ["user", "host", "src_ip"],
+        },
+    },
+    # FS2 — first-seen: observation window vs preceding baseline for the SAME subject.
+    "first_seen": {
+        "example_id": "fs.spl.authoring.first_seen_preceding_baseline",
+        "request": (
+            "Find destination ports contacted by a host in the last 1 day that the same host "
+            "had not contacted during the preceding 7 days; return host, port, first seen."
+        ),
+        "note": (
+            "Retrieve ONE span covering observation + baseline (here -8d), then split them "
+            "with an eval flag on _time. Compare per the same subject and keep only objects "
+            "whose baseline occurrences are zero. Never collapse the two windows into one "
+            "undivided search, and never add head to a first-seen result."
+        ),
+        "payload": {
+            "status": "candidate_generated",
+            "candidate_spl": (
+                'search index=<index> sourcetype=<sourcetype> earliest=-8d latest=now\n'
+                '| eval host_norm=lower(coalesce(host, "unknown"))\n'
+                '| eval window=if(_time>=relative_time(now(),"-1d"),"observation","baseline")\n'
+                '| stats count(eval(window="observation")) as observed_count, '
+                'count(eval(window="baseline")) as baseline_count, '
+                'min(eval(if(window="observation",_time,null()))) as first_seen '
+                'by host_norm, dest_port\n'
+                '| where observed_count>0 AND baseline_count=0\n'
+                '| eval first_seen=strftime(first_seen,"%Y-%m-%d %H:%M:%S")\n'
+                '| table host_norm, dest_port, first_seen'
+            ),
+            "index": "<index>",
+            "sourcetype": "<sourcetype>",
+            "result_cap": None,
+            "unresolved_slots": ["index", "sourcetype"],
+            "assumptions": ["Observation 1d and baseline 7d share one -8d retrieval span"],
+            "required_fields": ["host", "dest_port", "_time"],
+        },
+    },
+    # FS3 — sequence: the two event kinds are alternatives (union), never an AND.
+    "sequence": {
+        "example_id": "fs.spl.authoring.event_sequence",
+        "request": (
+            "Find accounts with more than 5 lockouts in 10 minutes followed by a password "
+            "reset within the next 30 minutes; return user, lockout count, reset time."
+        ),
+        "note": (
+            "Retrieve BOTH event kinds as a union in the base search — naming them as "
+            "separate conditions ANDs them and matches nothing. Correlate only on the entity "
+            "the request shares (here user). Order by time, then bound the gap."
+        ),
+        "payload": {
+            "status": "candidate_generated",
+            "candidate_spl": (
+                'search index=<index> sourcetype=<sourcetype> earliest=-24h latest=now '
+                '(EventCode=4740 OR EventCode=4724)\n'
+                '| eval user_norm=lower(coalesce(user, "unknown"))\n'
+                '| sort 0 user_norm, _time\n'
+                '| streamstats time_window=10m count(eval(EventCode=4740)) as lockout_count by user_norm\n'
+                '| eval reset_time=if(EventCode=4724,_time,null())\n'
+                '| stats max(lockout_count) as lockout_count, min(reset_time) as reset_time, '
+                'min(_time) as first_lockout_time by user_norm\n'
+                '| where lockout_count>5 AND isnotnull(reset_time) '
+                'AND reset_time>first_lockout_time AND reset_time<=first_lockout_time+1800\n'
+                '| eval reset_time=strftime(reset_time,"%Y-%m-%d %H:%M:%S")\n'
+                '| table user_norm, lockout_count, reset_time'
+            ),
+            "index": "<index>",
+            "sourcetype": "<sourcetype>",
+            "result_cap": None,
+            "unresolved_slots": ["index", "sourcetype"],
+            "assumptions": ["Both event kinds share one auth sourcetype"],
+            "required_fields": ["user", "EventCode", "_time"],
+        },
+    },
+    # FS4 — parent/child process relationship.
+    "parent_child": {
+        "example_id": "fs.spl.authoring.parent_child",
+        "request": (
+            "Find cmd.exe launched by outlook.exe in the last 12 hours; group by host and "
+            "user and return command line, first seen, last seen, and event count."
+        ),
+        "note": (
+            "Both the child and the parent constraint belong in the base search so the "
+            "relationship is preserved. Aggregate with stats when the request asks for "
+            "counts or first/last seen — that is not a raw-events request."
+        ),
+        "payload": {
+            "status": "candidate_generated",
+            "candidate_spl": (
+                'search index=<index> sourcetype=<sourcetype> earliest=-12h latest=now '
+                'process_name=cmd.exe parent_process_name=outlook.exe\n'
+                '| eval user_norm=lower(coalesce(user, "unknown")), '
+                'host_norm=lower(coalesce(host, "unknown"))\n'
+                '| stats min(_time) as first_seen, max(_time) as last_seen, '
+                'count as event_count, values(process_command_line) as command_line '
+                'by host_norm, user_norm, parent_process_name, process_name\n'
+                '| eval first_seen=strftime(first_seen,"%Y-%m-%d %H:%M:%S"), '
+                'last_seen=strftime(last_seen,"%Y-%m-%d %H:%M:%S")\n'
+                '| table host_norm, user_norm, parent_process_name, process_name, command_line, '
+                'first_seen, last_seen, event_count'
+            ),
+            "index": "<index>",
+            "sourcetype": "<sourcetype>",
+            "result_cap": None,
+            "unresolved_slots": ["index", "sourcetype"],
+            "assumptions": ["process_name/parent_process_name carry the process relationship"],
+            "required_fields": ["host", "user", "process_name", "parent_process_name"],
+        },
+    },
+    # FS5 — genuinely underspecified: ask, do not guess.
+    "__clarification__": {
+        "example_id": "fs.spl.authoring.clarification",
+        "request": "Find the bad traffic on the usual box.",
+        "note": (
+            "When neither the detection condition nor the source can be resolved from the "
+            "request, return needs_clarification with an EMPTY candidate_spl. Never invent "
+            "a plausible-looking query to fill the gap."
+        ),
+        "payload": {
+            "status": "needs_clarification",
+            "candidate_spl": "",
+            "index": "",
+            "sourcetype": "",
+            "result_cap": None,
+            "unresolved_slots": ["index", "sourcetype"],
+            "assumptions": ["No detection condition could be resolved from the request"],
+            "required_fields": ["_time"],
+            "clarifying_questions": [
+                "Which host or asset should be searched?",
+                "What behaviour counts as bad traffic here?",
+            ],
+        },
+    },
+}
+
+#: Shapes that have no dedicated asset fall back to FS1.
+_AUTHORING_FEW_SHOT_FALLBACK = "raw"
+
+
+def _authoring_few_shot_block(spec: dict[str, Any]) -> str:
+    """Render exactly ONE shape-relevant authoring example, or '' when unmapped."""
+    shape = str((spec or {}).get("analysis_shape") or "").strip().lower()
+    shot = _AUTHORING_FEW_SHOTS.get(shape) or _AUTHORING_FEW_SHOTS.get(
+        _AUTHORING_FEW_SHOT_FALLBACK
+    )
+    if not shot:
+        return ""
+    body = json.dumps(shot["payload"], separators=(",", ":"), sort_keys=True)
+    # The rule precedes the JSON deliberately: a rule placed after the example
+    # reads as a footnote and the example gets copied instead of applied.
+    return (
+        f"\nWorked example for this SHAPE of request ({shot['example_id']}). "
+        "Copy its STRUCTURE only — every index, field, value and window below must come "
+        "from the actual request above, never from this example.\n"
+        f"Rule for this shape: {shot['note']}\n"
+        f"Example request: {shot['request']}\n"
+        f"Example response: {body}\n"
+    )
 
 
 def _utility_authoring_system_append(*, context: dict[str, Any] | None = None) -> str:
@@ -850,7 +1054,26 @@ def _utility_authoring_system_append(*, context: dict[str, Any] | None = None) -
         "- No inline // comments; no execution or findings claims.\n"
         "- Use %w (0=Sunday, 6=Saturday) for weekend filter logic; %A is display-only.\n"
     )
-    if shape in {"trend", "rolling", "sequence", "first_seen"}:
+    # candidate_spl is transported as a JSON string. The measured P3 failure was an
+    # unescaped inner double quote (coalesce(..., "unknown")): under json_schema
+    # constrained decoding the sampler could not legally emit it and stalled into a
+    # 900+ character whitespace run until max_tokens. State the rule explicitly and
+    # let the rendered example demonstrate it.
+    # Order matters: the worked example first, then the two hard transport rules
+    # LAST so they are the most recent thing the model reads before generating.
+    # Both were derived from measured stalls, not style preference.
+    prefix += _authoring_few_shot_block(spec)
+    prefix += (
+        "\nTwo hard rules, applied after everything above:\n"
+        '1. candidate_spl is a JSON string value. Escape every double quote inside it '
+        'as \\" and every newline as \\n. A raw " inside candidate_spl is invalid and '
+        "cannot be recovered.\n"
+        "2. Keep every coalesce() to at most TWO source fields plus the quoted default, "
+        'e.g. user_norm=lower(coalesce(user, Account_Name, \\"unknown\\")). The contract\'s '
+        "normalization_aliases are still required — an unbounded alias list is not, and is "
+        "the most common cause of an unfinished query.\n"
+    )
+    if shape in {"trend", "rolling", "sequence", "first_seen", "parent_child"}:
         return prefix
     return (
         prefix
@@ -879,8 +1102,21 @@ def _shape_authoring_rules(spec: dict[str, Any]) -> str:
         "- Follow the immutable semantic contract. Do not reinterpret the analyst request.\n",
         "- Do not inject MITRE, remediation, routing, MCP execution, or unrelated alert templates.\n",
     ]
-    if shape == "raw" or "mandatory_aggregation" in prohibitions:
+    grouped_by = [str(x) for x in (spec.get("grouped_by") or []) if str(x).strip()]
+    required_outputs = [str(x) for x in (spec.get("required_outputs") or []) if str(x).strip()]
+    wants_aggregate = bool(grouped_by) or any(
+        token in " ".join(required_outputs).lower()
+        for token in ("count", "first seen", "last seen", "first_seen", "last_seen")
+    )
+    if (shape == "raw" or "mandatory_aggregation" in prohibitions) and not wants_aggregate:
         lines.append("- Do not force stats/tstats aggregation; raw events were requested.\n")
+    elif shape == "raw" and wants_aggregate:
+        # A 'raw' shape that names group-by keys or first/last-seen/count outputs is an
+        # aggregate request; telling the model not to aggregate contradicts the contract.
+        lines.append(
+            "- The request names grouping keys or aggregate outputs: use stats with those "
+            "keys and return the requested aggregates.\n"
+        )
     elif shape == "trend":
         lines.append("- Use timechart (or bin+_time+stats) with the declared temporal_grain. Do not emit a ranked top-N alert query.\n")
     elif shape == "rolling":
