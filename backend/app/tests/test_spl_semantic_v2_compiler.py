@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import re
 
-from app.spl.llm_plan_compiler import compile_intent_spec_to_spl, compile_plan_to_spl
+from app.spl.llm_plan_compiler import (
+    compile_intent_spec_to_spl,
+    compile_plan_to_spl,
+    event_set_fragment,
+    render_field_eq,
+)
 from app.spl.review_only_spl_postprocessor import normalize_review_only_spl
 from app.spl.spl_intent_spec import build_spl_intent_spec
 
@@ -129,3 +134,105 @@ def test_normalization_alias_is_consumed() -> None:
     spl = compile_intent_spec_to_spl(spec)
     assert "user_norm=" in spl
     assert "dc(user_norm)" in spl
+
+
+def test_search_vs_eval_literal_quoting_is_generic() -> None:
+    assert render_field_eq("action", "failure", context="search") == "action=failure"
+    assert render_field_eq("action", "failure", context="eval") == 'action="failure"'
+    assert render_field_eq("action", "denied", context="eval") == 'action="denied"'
+    assert render_field_eq("action", "allowed", context="eval") == 'action="allowed"'
+    assert render_field_eq("EventCode", "4625", context="search") == "EventCode=4625"
+    assert render_field_eq("EventCode", "4625", context="eval") == "EventCode=4625"
+
+    search = event_set_fragment("failed_login", context="search")
+    eval_pred = event_set_fragment("failed_login", context="eval")
+    assert "action=failure" in search
+    assert 'action="failure"' in eval_pred
+    assert "EventCode=4625" in search
+    assert "EventCode=4625" in eval_pred
+    assert 'EventCode="4625"' not in eval_pred
+
+    denied = event_set_fragment("denied_traffic", context="eval")
+    assert 'action="denied"' in denied
+    assert 'action="blocked"' in denied
+    assert "action=denied OR" not in denied
+
+
+def test_sequence_case_quotes_strings_search_stays_unquoted() -> None:
+    spec = build_spl_intent_spec(
+        "password change followed by successful login within 5 minutes"
+    )
+    spl = compile_intent_spec_to_spl(spec)
+    base = spl.split("|", 1)[0]
+    assert "action=success" in base or "action=password_change" in base
+    assert 'action="success"' not in base
+    assert "EventCode=4624" in spl
+    assert 'EventCode="4624"' not in spl
+    case_m = re.search(r"eval event_type=case\((.*)\)", spl)
+    assert case_m, spl
+    case_expr = case_m.group(1)
+    assert 'action="success"' in case_expr or 'action="password_change"' in case_expr
+    assert re.search(r'\baction=(?:success|password_change)\b', case_expr) is None
+    assert "EventCode=4723" in case_expr
+    assert 'EventCode="4723"' not in case_expr
+    issues = _eval_where_unquoted_string_literals(spl)
+    assert issues == [], issues
+
+
+_EVAL_CALL_NAMES = frozenset(
+    {
+        "lower",
+        "coalesce",
+        "case",
+        "if",
+        "strftime",
+        "like",
+        "isnull",
+        "isnotnull",
+        "mvfind",
+        "relative_time",
+        "now",
+        "null",
+        "true",
+        "tonumber",
+        "tostring",
+        "replace",
+        "match",
+        "typeof",
+        "round",
+        "len",
+        "substr",
+        "split",
+        "mvjoin",
+        "cidrmatch",
+        "count",
+        "max",
+        "min",
+        "latest",
+        "earliest",
+        "values",
+        "dc",
+    }
+)
+_UNQUOTED_EQ_RE = re.compile(
+    r"\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([A-Za-z_][A-Za-z0-9_]*)\b"
+)
+
+
+def _eval_where_unquoted_string_literals(spl: str) -> list[str]:
+    """Flag eval/where ``field=bareword`` string comparisons that must be quoted."""
+    issues: list[str] = []
+    for raw in spl.split("|")[1:]:
+        body = raw.strip()
+        cmd = body.split(None, 1)[0].lower() if body else ""
+        if cmd not in {"eval", "where"}:
+            continue
+        for match in _UNQUOTED_EQ_RE.finditer(body):
+            rhs = match.group(2)
+            rest = body[match.end() :].lstrip()
+            if rest.startswith("("):
+                continue
+            if rhs.lower() in _EVAL_CALL_NAMES:
+                continue
+            issues.append(f"{cmd}:{match.group(0)}")
+    return issues

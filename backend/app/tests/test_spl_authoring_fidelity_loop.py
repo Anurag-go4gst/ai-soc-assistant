@@ -831,3 +831,90 @@ def test_unavailable_card_clears_investigation_sections() -> None:
     assert updated.analyst_checklist == []
     assert updated.initial_assessment == []
     assert updated.response_profile == "spl_only"
+
+
+_EVAL_CALL_NAMES = frozenset(
+    {
+        "lower",
+        "coalesce",
+        "case",
+        "if",
+        "strftime",
+        "like",
+        "isnull",
+        "isnotnull",
+        "mvfind",
+        "relative_time",
+        "now",
+        "null",
+        "true",
+        "tonumber",
+        "tostring",
+        "replace",
+        "match",
+        "count",
+        "max",
+        "min",
+        "latest",
+        "earliest",
+        "values",
+        "dc",
+    }
+)
+_UNQUOTED_EQ_RE = re.compile(
+    r"\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([A-Za-z_][A-Za-z0-9_]*)\b"
+)
+
+
+def _eval_where_unquoted_string_literals(spl: str) -> list[str]:
+    issues: list[str] = []
+    for raw in spl.split("|")[1:]:
+        body = raw.strip()
+        cmd = body.split(None, 1)[0].lower() if body else ""
+        if cmd not in {"eval", "where"}:
+            continue
+        for match in _UNQUOTED_EQ_RE.finditer(body):
+            rhs = match.group(2)
+            rest = body[match.end() :].lstrip()
+            if rest.startswith("("):
+                continue
+            if rhs.lower() in _EVAL_CALL_NAMES:
+                continue
+            issues.append(f"{cmd}:{match.group(0)}")
+    return issues
+
+
+def test_p1_p4_eval_where_string_literals_are_quoted(spl_flags: None) -> None:
+    queries = {
+        "P1": P1_AUTH_BASELINE,
+        "P2": P2_FAILED_THEN_SUCCESS,
+        "P3": P3_PARENT_CHILD,
+        "P4": P4_FIRST_SEEN_DOMAIN,
+    }
+    for pid, query in queries.items():
+        spec = build_spl_intent_spec(query)
+        spl = compile_intent_spec_to_spl(spec)
+        assert spl.strip(), pid
+        issues = _eval_where_unquoted_string_literals(spl)
+        assert issues == [], (pid, issues, spl)
+        if pid == "P2":
+            base = spl.split("|", 1)[0]
+            assert "action=failure" in base or "EventCode=4625" in base
+            assert 'action="failure"' not in base
+            case_m = re.search(r"eval event_type=case\((.*)\)", spl)
+            assert case_m, spl
+            assert 'action="failure"' in case_m.group(1)
+            assert "EventCode=4625" in case_m.group(1)
+            assert 'EventCode="4625"' not in case_m.group(1)
+
+
+def test_p2_lookback_uses_governed_spl_default_not_compiler_constant(
+    spl_flags: None,
+) -> None:
+    spec = build_spl_intent_spec(P2_FAILED_THEN_SUCCESS)
+    assert spec.get("search_horizon") in {None, ""}
+    spl = compile_intent_spec_to_spl(spec)
+    default = str(settings.spl_default_earliest)
+    assert f"earliest={default}" in spl
+    assert "time_window=15m" in spl
+    assert "<=600" in spl.replace(" ", "") or "10m" in spl.replace(" ", "")

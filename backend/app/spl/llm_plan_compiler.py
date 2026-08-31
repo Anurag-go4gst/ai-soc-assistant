@@ -110,14 +110,71 @@ def _is_predicate_match(value: str) -> bool:
     return bool(value) and value.strip().lower() not in _NON_PREDICATE_MATCHES
 
 
-_EVENT_SET_FILTERS: dict[str, str] = {
-    "failed_login": "(action=failure OR action=failed OR EventCode=4625)",
-    "successful_login": "(action=success OR EventCode=4624)",
-    "password_change": "(EventCode=4723 OR EventCode=4724 OR action=password_change)",
-    "account_lockout": "(EventCode=4740)",
-    "privilege_change": "(EventCode=4728 OR EventCode=4732 OR EventCode=4756)",
-    "denied_traffic": "(action=denied OR action=blocked OR action=drop)",
+# Event-class atoms: (field, value). Value kind is inferred (numeric vs string).
+# SEARCH context may emit unquoted Splunk tokens (`action=failure`).
+# EVAL / WHERE / CASE context must quote string literals (`action="failure"`)
+# and must leave numeric EventCode comparisons unquoted. No field/value
+# hardcodes — denied/allowed/password_change follow the same rule.
+_EVENT_SET_ATOMS: dict[str, tuple[tuple[str, str], ...]] = {
+    "failed_login": (("action", "failure"), ("action", "failed"), ("EventCode", "4625")),
+    "successful_login": (("action", "success"), ("EventCode", "4624")),
+    "password_change": (("EventCode", "4723"), ("EventCode", "4724"), ("action", "password_change")),
+    "account_lockout": (("EventCode", "4740"),),
+    "privilege_change": (("EventCode", "4728"), ("EventCode", "4732"), ("EventCode", "4756")),
+    "denied_traffic": (("action", "denied"), ("action", "blocked"), ("action", "drop")),
 }
+
+_NUMERIC_LITERAL_RE = re.compile(r"^-?\d+(?:\.\d+)?$")
+
+
+def _is_numeric_literal(value: str) -> bool:
+    return bool(_NUMERIC_LITERAL_RE.fullmatch(str(value or "").strip()))
+
+
+def render_field_eq(field: str, value: str, *, context: str) -> str:
+    """Render ``field=value`` for search vs eval/where/case expression context."""
+    safe_field = _safe_field(field) or ""
+    raw = str(value or "").strip()
+    if not safe_field or not raw:
+        return ""
+    if _is_numeric_literal(raw):
+        return f"{safe_field}={raw}"
+    if context == "search":
+        return f"{safe_field}={_safe_value(raw)}"
+    quoted = _safe_value(raw).replace('"', '\\"')
+    return f'{safe_field}="{quoted}"'
+
+
+def event_set_fragment(name: str, *, context: str) -> str:
+    atoms = _EVENT_SET_ATOMS.get(str(name))
+    if not atoms:
+        return ""
+    parts = [render_field_eq(field, value, context=context) for field, value in atoms]
+    parts = [part for part in parts if part]
+    if not parts:
+        return ""
+    return "(" + " OR ".join(parts) + ")"
+
+
+# Search-context fragments. Prefer ``event_set_fragment(..., context=...)``.
+_EVENT_SET_FILTERS: dict[str, str] = {
+    name: event_set_fragment(name, context="search") for name in _EVENT_SET_ATOMS
+}
+
+
+def _governed_default_time_clause() -> str:
+    """Retrieval envelope when the semantic contract has no user/RQC horizon.
+
+    Origin: ``settings.spl_default_earliest`` / ``spl_default_latest``
+    (``SPL_DEFAULT_EARLIEST``, SPL validation policy). Not a compiler-local 24h.
+    """
+    earliest = str(settings.spl_default_earliest or "-24h").strip() or "-24h"
+    latest = str(settings.spl_default_latest or "now").strip() or "now"
+    if not earliest.lower().startswith("earliest="):
+        earliest = f"earliest={earliest}"
+    if not latest.lower().startswith("latest="):
+        latest = f"latest={latest}"
+    return f"{earliest} {latest}"
 
 
 def compile_intent_spec_to_spl(spec: dict[str, Any]) -> str:
@@ -174,16 +231,21 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
     prohibitions = {str(item) for item in (spec.get("prohibitions") or [])}
     if search_horizon and "earliest=" in search_horizon.lower():
         time_clause_search = search_horizon
+    elif spec:
+        # Semantic contract present: never invent a compiler-local 24h.
+        # User/RQC horizon already handled above. Empty horizon uses the
+        # governed SPL policy default, unless overwrite of that default is banned.
+        if "implicit_default_24h_overwrite" in prohibitions:
+            time_clause_search = ""
+        else:
+            time_clause_search = _governed_default_time_clause()
     else:
         try:
             hours = int(plan.get("time_window_hours") or 24)
         except (TypeError, ValueError):
             hours = 24
         hours = max(1, min(hours, 168))
-        if "implicit_default_24h_overwrite" in prohibitions and not search_horizon:
-            time_clause_search = ""
-        else:
-            time_clause_search = f"earliest=-{hours}h latest=now"
+        time_clause_search = f"earliest=-{hours}h latest=now"
 
     # Layer 1a: selective filters into base search before the first pipe.
     search_terms = [f"search index={index_value} sourcetype={sourcetype_value}"]
@@ -198,7 +260,7 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
             search_terms.append(f'{field}="{match}"')
     event_fragments: list[str] = []
     for event_name in spec.get("required_event_sets") or []:
-        fragment = _EVENT_SET_FILTERS.get(str(event_name))
+        fragment = event_set_fragment(str(event_name), context="search")
         if fragment:
             event_fragments.append(fragment)
     if len(event_fragments) >= 2:
@@ -349,7 +411,7 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         correlate = _alias((roles.get("correlate_by") or roles.get("subject") or group_by or ["user"])[0])
         case_arms: list[str] = []
         for name in ordered:
-            fragment = _EVENT_SET_FILTERS.get(name)
+            fragment = event_set_fragment(name, context="eval")
             if not fragment:
                 continue
             cond = fragment.strip()
