@@ -33,6 +33,17 @@ _EVENT_SET_TOKENS = {
 }
 
 
+_EVAL_ONLY_CALL_RE = re.compile(
+    r"\b(?:like|match|case|coalesce|mvfind|mvfilter|mvcount|relative_time|"
+    r"strftime|isnull|isnotnull|cidrmatch|typeof|tonumber|tostring|if)\s*\(",
+    re.I,
+)
+_MVFIND_RE = re.compile(r"\bmvfind\s*\(", re.I)
+_EXACT_MV_MEMBERSHIP_RE = re.compile(
+    r"mvfilter\s*\(\s*[A-Za-z_][A-Za-z0-9_]*\s*==\s*[A-Za-z_][A-Za-z0-9_]*\s*\)",
+    re.I,
+)
+_AS_NEW_HOST_RE = re.compile(r"\bas\s+new_host\b", re.I)
 _TOKEN_SECONDS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
 
 
@@ -134,6 +145,13 @@ def validate_semantic_fidelity(
     if structural:
         losses.append("malformed_structure")
         repair_feedback.extend(f"structural:{item}" for item in structural)
+
+    search_command = text.split("|", 1)[0]
+    if _EVAL_ONLY_CALL_RE.search(search_command):
+        losses.append("eval_function_in_search_command")
+        repair_feedback.append("semantic_loss:eval_function_in_search_command")
+    else:
+        preserved.append("search_command_predicates_only")
 
     filters = spec.get("filters") or []
     if "denied_traffic" in filters:
@@ -256,6 +274,11 @@ def validate_semantic_fidelity(
         expected = {str(item).lower() for item in spec["distinct_by"]}
         expected_norm = {f"{item}_norm" for item in expected}
         if dc_fields & (expected | expected_norm):
+            preserved.append("distinct_count")
+        elif shape == "first_seen" and (
+            _EXACT_MV_MEMBERSHIP_RE.search(text) or "new_object" in lowered
+        ):
+            # First-seen distinctness is exact baseline exclusion, not a dc() column.
             preserved.append("distinct_count")
         else:
             losses.append("distinct_count_missing")
@@ -424,12 +447,32 @@ def validate_semantic_fidelity(
         for item in (spec.get("relationships") or [])
     )
     if shape == "first_seen" or first_seen_rel:
-        exclusion_tokens = ("mvfind", "baseline", "isnull", "new_host", "first_seen", "absent")
+        exclusion_tokens = (
+            "mvfilter",
+            "mvfind",
+            "baseline",
+            "isnull",
+            "new_host",
+            "new_object",
+            "first_seen",
+            "absent",
+        )
         if any(token in lowered for token in exclusion_tokens):
             preserved.append("first_seen_relation")
         else:
             losses.append("first_seen_relation_missing")
             repair_feedback.append("semantic_loss:first_seen_relation_missing")
+        if _MVFIND_RE.search(text) or (
+            "mvfind" in lowered and not _EXACT_MV_MEMBERSHIP_RE.search(text)
+        ):
+            losses.append("regex_membership")
+            losses.append("exact_membership_missing")
+            repair_feedback.append("semantic_loss:exact_membership_required_not_regex")
+        elif _EXACT_MV_MEMBERSHIP_RE.search(text):
+            preserved.append("exact_membership")
+        else:
+            losses.append("exact_membership_missing")
+            repair_feedback.append("semantic_loss:exact_membership_missing")
         subject = ""
         if isinstance(roles, dict) and roles.get("subject"):
             subject = str(roles["subject"][0])
@@ -438,6 +481,19 @@ def validate_semantic_fidelity(
         ):
             losses.append("same_account_comparison_missing")
             repair_feedback.append("semantic_loss:same_account_comparison_missing")
+        object_entities = {
+            str(item).lower()
+            for item in ((roles.get("target") or []) if isinstance(roles, dict) else [])
+        }
+        required_out = {str(item).lower() for item in (spec.get("required_outputs") or [])}
+        if ("domain" in object_entities or "domain" in required_out) and _AS_NEW_HOST_RE.search(
+            text
+        ):
+            losses.append("output_entity_mismatch")
+            repair_feedback.append("semantic_loss:output_entity_mismatch")
+        elif "domain" in required_out and not re.search(r"\bas\s+domain\b", lowered):
+            losses.append("output_entity_mismatch")
+            repair_feedback.append("semantic_loss:output_entity_mismatch")
 
     output_aliases = {
         "user": ("user", "account", "user_norm"),

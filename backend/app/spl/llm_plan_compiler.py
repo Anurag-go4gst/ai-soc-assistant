@@ -83,6 +83,12 @@ _DOMAIN_PLACEHOLDERS: dict[str, tuple[str, str]] = {
 }
 
 _FIELD_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+# Eval-only functions are valid in eval/where/case, never in the search command.
+_EVAL_ONLY_CALL_RE = re.compile(
+    r"\b(?:like|match|case|coalesce|mvfind|mvfilter|mvcount|relative_time|"
+    r"strftime|isnull|isnotnull|cidrmatch|typeof|tonumber|tostring|if)\s*\(",
+    re.I,
+)
 
 
 def _safe_field(value: Any) -> str | None:
@@ -160,6 +166,31 @@ def event_set_fragment(name: str, *, context: str) -> str:
 _EVENT_SET_FILTERS: dict[str, str] = {
     name: event_set_fragment(name, context="search") for name in _EVENT_SET_ATOMS
 }
+
+
+def exact_multivalue_contains(mv_field: str, scalar_field: str) -> str:
+    """Eval predicate for exact MV membership.
+
+    Splunk ``mvfind(mv, x)`` treats ``x`` as regex, so host/domain values with
+    ``.`` ``+`` ``[]`` false-match. ``mvfilter(mv == scalar)`` uses eval ``==``,
+    which is exact string equality.
+    """
+    mv = _safe_field(mv_field) or ""
+    scalar = _safe_field(scalar_field) or ""
+    if not mv or not scalar:
+        return ""
+    return f"mvcount(mvfilter({mv} == {scalar}))>0"
+
+
+def _first_seen_object_output_name(object_entity: str, required_outputs: list[str]) -> str:
+    """Name the first-seen object column from entity semantics, not host defaults."""
+    entity = str(object_entity or "").strip().lower()
+    outputs = {str(item).lower() for item in required_outputs}
+    if entity == "host":
+        return "new_host"
+    if entity in outputs:
+        return entity
+    return entity or "new_object"
 
 
 def _governed_default_time_clause() -> str:
@@ -279,6 +310,7 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
     process = spec.get("process_constraints") if isinstance(spec.get("process_constraints"), dict) else {}
     child_names = [str(item) for item in (process.get("child") or []) if str(item).strip()]
     parent_names = [str(item) for item in (process.get("parent") or []) if str(item).strip()]
+    process_eval_predicates: list[str] = []
     if child_names:
         child_terms: list[str] = []
         for name in child_names:
@@ -287,7 +319,7 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
                 child_terms.append(f'like(Image, "%{safe}")')
                 child_terms.append(f'like(New_Process_Name, "%{safe}")')
         if child_terms:
-            search_terms.append("(" + " OR ".join(child_terms) + ")")
+            process_eval_predicates.append("(" + " OR ".join(child_terms) + ")")
     if parent_names:
         parent_terms: list[str] = []
         for name in parent_names:
@@ -296,7 +328,8 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
                 parent_terms.append(f'like(ParentImage, "%{safe}")')
                 parent_terms.append(f'like(Parent_Process_Name, "%{safe}")')
         if parent_terms:
-            search_terms.append("(" + " OR ".join(parent_terms) + ")")
+            process_eval_predicates.append("(" + " OR ".join(parent_terms) + ")")
+    search_terms = [term for term in search_terms if not _EVAL_ONLY_CALL_RE.search(term)]
     search_line = " ".join(search_terms)
 
     analysis_shape = str(spec.get("analysis_shape") or "")
@@ -351,6 +384,7 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
             alias_by_field=dict(alias_by_field),
             group_by=group_by,
             _alias=_alias,
+            process_eval_predicates=process_eval_predicates,
         )
 
     if analysis_shape == "raw":
@@ -607,14 +641,16 @@ def _compile_first_seen(
     parts.append("| sort 0 + _time")
     parts.append(f"| streamstats values(baseline_object) as baseline_objects by {subject}")
     parts.append('| where period="observation"')
-    parts.append(
-        f'| eval new_object=if(isnull(mvfind(baseline_objects, {obj})), {obj}, null())'
-    )
+    membership = exact_multivalue_contains("baseline_objects", obj)
+    if membership:
+        parts.append(f"| eval new_object=if({membership}, null(), {obj})")
+    else:
+        parts.append(f"| eval new_object={obj}")
     parts.append("| where isnotnull(new_object)")
-    stats_bits = [
-        f"dc({obj}) as distinct_new_host_count",
-        f"values({obj}) as new_host",
-    ]
+    object_output = _safe_field(_first_seen_object_output_name(object_raw, required_outputs)) or "new_object"
+    stats_bits = [f"values({obj}) as {object_output}"]
+    if "distinct_new_host_count" in required_outputs:
+        stats_bits.append(f"dc({obj}) as distinct_new_host_count")
     if "src_ip" in required_outputs:
         stats_bits.append(f"values({alias_by_field.get('src_ip', 'src_ip')}) as src_ip")
     if "connection_count" in required_outputs:
@@ -690,6 +726,7 @@ def _compile_process_parent_child(
     alias_by_field: dict[str, str],
     group_by: list[str],
     _alias: Callable[[str], str],
+    process_eval_predicates: list[str] | None = None,
 ) -> str:
     extras = list(eval_parts)
     outputs = {str(item) for item in (spec.get("required_outputs") or [])}
@@ -730,6 +767,9 @@ def _compile_process_parent_child(
         "values(command_line) as command_line",
     ]
     parts = [search_line, f"| eval {', '.join(extras)}"]
+    predicates = [str(item).strip() for item in (process_eval_predicates or []) if str(item).strip()]
+    if predicates:
+        parts.append("| where " + " AND ".join(predicates))
     parts.append(f"| stats {' '.join(stats_bits)} by {', '.join(by_fields)}")
     parts.append(
         '| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S"), '

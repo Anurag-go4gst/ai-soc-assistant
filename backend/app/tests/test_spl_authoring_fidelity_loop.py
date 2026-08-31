@@ -918,3 +918,106 @@ def test_p2_lookback_uses_governed_spl_default_not_compiler_constant(
     assert f"earliest={default}" in spl
     assert "time_window=15m" in spl
     assert "<=600" in spl.replace(" ", "") or "10m" in spl.replace(" ", "")
+
+
+_REGEX_MEMBERSHIP_VALUES = (
+    "web01.example.com",
+    "srv+01.example.com",
+    "foo[1].example.com",
+)
+
+
+def test_mvfind_regex_membership_fails_exact_membership_fidelity() -> None:
+    spec = build_spl_intent_spec(P1_AUTH_BASELINE)
+    for value in _REGEX_MEMBERSHIP_VALUES:
+        bad = (
+            "search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-37d latest=now "
+            "EventCode=4624 "
+            '| eval period=if(_time>=relative_time(now(), "-7d"), "observation", "baseline") '
+            f'| eval new_object=if(isnull(mvfind(baseline_objects, "{value}")), host_norm, null()) '
+            "| stats values(host_norm) as new_host by user_norm"
+        )
+        fidelity = validate_semantic_fidelity(spec, bad)
+        assert fidelity.get("passed") is False, value
+        losses = " ".join(str(item) for item in (fidelity.get("losses") or []))
+        assert "exact_membership_missing" in losses or "regex_membership" in losses, (
+            value,
+            fidelity.get("losses"),
+        )
+
+
+def test_domain_dot_is_not_regex_membership() -> None:
+    needle = "web01.example.com"
+    false_positive = "web01XexampleYcom"
+    assert re.search(needle, false_positive)
+    assert needle != false_positive
+    spec = build_spl_intent_spec(P4_FIRST_SEEN_DOMAIN)
+    spl = compile_intent_spec_to_spl(spec)
+    assert "mvfind" not in spl.lower()
+    assert re.search(r"mvfilter\s*\(\s*baseline_objects\s*==", spl, re.I)
+    fidelity = validate_semantic_fidelity(spec, spl)
+    assert fidelity.get("passed") is True, fidelity
+
+
+def test_eval_like_in_search_command_fails_fidelity() -> None:
+    spec = build_spl_intent_spec(P3_PARENT_CHILD)
+    bad = (
+        "search index=<endpoint_index> sourcetype=<endpoint_sourcetype> earliest=-24h latest=now "
+        '(like(Image, "%powershell.exe") OR like(New_Process_Name, "%powershell.exe")) '
+        '(like(ParentImage, "%winword.exe") OR like(ParentImage, "%excel.exe")) '
+        "| stats count as event_count by host_norm, user_norm"
+    )
+    fidelity = validate_semantic_fidelity(spec, bad)
+    assert fidelity.get("passed") is False
+    losses = " ".join(str(item) for item in (fidelity.get("losses") or []))
+    assert "eval_function_in_search_command" in losses
+    compiled = compile_intent_spec_to_spl(spec)
+    base = compiled.split("|", 1)[0]
+    assert "like(" not in base.lower()
+    assert "like(" in compiled.lower()
+    assert "| where" in compiled.lower()
+    assert "parent" in compiled.lower() and "powershell" in compiled.lower()
+    assert "event_count" in compiled
+    assert validate_semantic_fidelity(spec, compiled).get("passed") is True
+
+
+def test_p4_destination_domain_is_not_aliased_as_new_host() -> None:
+    spec = build_spl_intent_spec(P4_FIRST_SEEN_DOMAIN)
+    bad = (
+        "search index=<index> sourcetype=<sourcetype> earliest=-15d latest=now "
+        '| eval period=if(_time>=relative_time(now(), "-24h"), "observation", "baseline") '
+        "| eval new_object=if(mvcount(mvfilter(baseline_objects == domain_norm))>0, null(), domain_norm) "
+        "| stats dc(domain_norm) as distinct_new_host_count values(domain_norm) as new_host "
+        "count as connection_count by host_norm"
+    )
+    fidelity = validate_semantic_fidelity(spec, bad)
+    assert fidelity.get("passed") is False
+    losses = " ".join(str(item) for item in (fidelity.get("losses") or []))
+    assert "output_entity_mismatch" in losses
+    compiled = compile_intent_spec_to_spl(spec)
+    assert re.search(r"\bas\s+new_host\b", compiled) is None
+    assert re.search(r"\bas\s+domain\b", compiled)
+    assert "connection_count" in compiled
+    assert "first_seen" in compiled
+    assert validate_semantic_fidelity(spec, compiled).get("passed") is True
+
+
+def test_p2_sequence_semantics_remain_green() -> None:
+    spec = build_spl_intent_spec(P2_FAILED_THEN_SUCCESS)
+    spl = compile_intent_spec_to_spl(spec)
+    base = spl.split("|", 1)[0]
+    assert re.search(r"\)\s+\(", base) is None
+    assert " or " in base.lower()
+    case_m = re.search(r"eval event_type=case\((.*)\)", spl)
+    assert case_m
+    assert 'action="failure"' in case_m.group(1)
+    assert "EventCode=4625" in case_m.group(1)
+    assert "time_window=15m" in spl
+    assert "failure_count>20" in spl.replace(" ", "")
+    by_clause = re.search(r"\|\s*streamstats[^|]*\bby\s+([^|]+)", spl, re.I)
+    assert by_clause
+    assert "src_ip" in by_clause.group(1).lower()
+    assert "user" in by_clause.group(1).lower()
+    assert not re.search(r"\bhost(?:_norm)?\b", by_clause.group(1))
+    fidelity = validate_semantic_fidelity(spec, spl)
+    assert fidelity.get("passed") is True, fidelity
