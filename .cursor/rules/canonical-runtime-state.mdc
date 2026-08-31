@@ -1,0 +1,20 @@
+---
+description: Canonical Mac/GitHub/VPS runtime SHA and local stack — always use for diagnosis
+alwaysApply: true
+---
+
+# Canonical repo / runtime state
+
+**Authoritative doc:** [`docs/operations/canonical_runtime_state.md`](docs/operations/canonical_runtime_state.md)
+
+- Production source: `master` @ `9e1b13694b4047560f8ddd77a77282147b46c3fb`
+- Mac repo / Docker stack: `/Users/aagarwal/Downloads/ai-soc-assistant-t4-architecture-20260821`
+- Local: frontend `http://127.0.0.1:3013/chat`, backend `http://127.0.0.1:8012`
+- Mac = GitHub = VPS at that SHA. Worktree reconciliation COMPLETE (1 canonical worktree; stashes = 0).
+- Reproduce defects on `master` @ `9e1b1369` via `:3013`/`:8012` first.
+- Do not use old worktree SHAs or stale feature branches as product authority.
+- Do not create another worktree unless a new bounded workstream requires one.
+- `AI_SOC_SPL_OPTIMIZATION_LLM_ENABLED=true`; accepted production flags ON.
+- Pre-P11: live Splunk MCP OFF (`MCP_GLOBAL_EXECUTION_ENABLED=false`, mock execution false, `MCP_MODE=mock`).
+- Do not reintroduce stale `sidecar_clients.py` SPL optimization timeout changes.
+- `architecture.md` remains READ ONLY.
