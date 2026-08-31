@@ -16,6 +16,7 @@ from app.spl.llm_fallback import (
     SPL_ADVISORY_ROLE,
     generate_llm_spl_fallback,
 )
+from app.spl.llm_plan_compiler import compile_intent_spec_to_spl
 from app.spl.review_only_spl_postprocessor import finalize_review_only_spl
 from app.spl.source_profile_catalog import list_source_profile_slot_definitions
 from app.spl.source_profile_bindings import (
@@ -174,6 +175,29 @@ _REPAIRABLE_VALIDATOR_REASONS = frozenset({
     "blocked_command",
 })
 MAX_SPL_LLM_REPAIRS = 1
+_HARD_AUTHORING_FAILURE_STAGES = frozenset(
+    {
+        "json_parse",
+        "schema_validation",
+        "content_validation",
+        "draft_quality",
+        "semantic_validation",
+    }
+)
+
+
+def _copy_authoring_diagnostics(trace: dict[str, Any], result: Any | None) -> None:
+    if result is None:
+        return
+    for attr in (
+        "authoring_failure_stage",
+        "authoring_failure_code",
+        "authoring_failure_field",
+        "finish_reason",
+    ):
+        value = getattr(result, attr, None)
+        if value:
+            trace[attr] = value
 
 
 def _is_generic_lab_skeleton(spl: str) -> bool:
@@ -328,6 +352,7 @@ def attempt_bounded_utility_spl_llm_draft(
         )
         trace["llm_spl_draft_latency_ms"] = int((time.monotonic() - started) * 1000)
         if result is None or result.clarification_required or not result.candidate_spl.strip():
+            _copy_authoring_diagnostics(trace, result)
             trace["llm_spl_draft_dropped_reason"] = (
                 result.clarification_reason if result else "llm_spl_fallback_unavailable"
             )
@@ -354,12 +379,13 @@ def attempt_bounded_utility_spl_llm_draft(
     if result is not None:
         trace["llm_spl_draft_provider_label"] = result.model or result.provider
     if result is None or result.clarification_required or not result.candidate_spl.strip():
+        _copy_authoring_diagnostics(trace, result)
         trace["llm_spl_draft_dropped_reason"] = (
             result.clarification_reason if result else "llm_spl_fallback_unavailable"
         )
         trace["llm_spl_draft_skipped_reason"] = trace["llm_spl_draft_dropped_reason"]
         if result and result.adapter_errors:
-            trace["llm_spl_draft_adapter_errors"] = list(result.adapter_errors)
+            trace["llm_spl_draft_adapter_errors"] = list(result.adapter_errors)[:8]
         return None, trace
 
     trace["llm_spl_draft_completed"] = True
@@ -589,29 +615,90 @@ def candidate_from_universal_utility_authoring(
                     validator_result = repaired_validation
                     fidelity_result = repaired_fidelity
     else:
-        spl_draft_trace["deterministic_skeleton_used"] = True
-        final_spl = _apply_candidate(skeleton_spl, llm_generated=False)
-        validator_result = _validate_review_only_candidate(final_spl)
-        fidelity_result = validate_semantic_fidelity(intent_spec, final_spl)
-        spl_draft_trace["semantic_fidelity_initial"] = fidelity_result
+        stage = str(spl_draft_trace.get("authoring_failure_stage") or "")
+        if stage in _HARD_AUTHORING_FAILURE_STAGES:
+            spl_draft_trace["deterministic_skeleton_used"] = False
+            final_raw_spl_source = "abstention"
+            final_spl = ""
+            validator_result = _validate_review_only_candidate("")
+            fidelity_result = {
+                "passed": False,
+                "preserved": [],
+                "losses": ["authoring_validation_failed"],
+                "repair_feedback": [],
+                "structural_errors": [],
+            }
+            spl_draft_trace["semantic_fidelity_initial"] = fidelity_result
+        else:
+            skeleton_applied = _apply_candidate(skeleton_spl, llm_generated=False)
+            skeleton_validation = _validate_review_only_candidate(skeleton_applied)
+            raw_fidelity = validate_semantic_fidelity(intent_spec, skeleton_spl)
+            skeleton_fidelity = validate_semantic_fidelity(intent_spec, skeleton_applied)
+            spl_draft_trace["semantic_fidelity_initial"] = skeleton_fidelity
+            skeleton_admissible = (
+                not _is_generic_lab_skeleton(skeleton_spl)
+                and not _is_generic_lab_skeleton(skeleton_applied)
+                and bool(raw_fidelity.get("passed") or skeleton_fidelity.get("passed"))
+            )
+            if skeleton_admissible:
+                spl_draft_trace["deterministic_skeleton_used"] = True
+                final_raw_spl_source = "deterministic_skeleton"
+                final_spl = skeleton_applied
+                validator_result = skeleton_validation
+                fidelity_result = (
+                    skeleton_fidelity if skeleton_fidelity.get("passed") else raw_fidelity
+                )
+            else:
+                compiled = compile_intent_spec_to_spl(intent_spec)
+                if compiled.strip():
+                    compiled_applied = _apply_candidate(compiled, llm_generated=False)
+                    compiled_validation = _validate_review_only_candidate(compiled_applied)
+                    compiled_fidelity = validate_semantic_fidelity(intent_spec, compiled_applied)
+                    spl_draft_trace["semantic_fidelity_compiler"] = compiled_fidelity
+                    if compiled_fidelity.get("passed"):
+                        spl_draft_trace["deterministic_skeleton_used"] = False
+                        spl_draft_trace["deterministic_compiler_used"] = True
+                        final_raw_spl_source = "deterministic_compiler"
+                        final_spl = compiled_applied
+                        validator_result = compiled_validation
+                        fidelity_result = compiled_fidelity
+                    else:
+                        spl_draft_trace["deterministic_skeleton_used"] = False
+                        final_raw_spl_source = "abstention"
+                        final_spl = ""
+                        validator_result = compiled_validation
+                        fidelity_result = compiled_fidelity
+                else:
+                    spl_draft_trace["deterministic_skeleton_used"] = False
+                    final_raw_spl_source = "abstention"
+                    final_spl = ""
+                    validator_result = skeleton_validation
+                    fidelity_result = skeleton_fidelity
 
     unavailable = False
     unavailable_reason: str | None = None
     semantic_fidelity_unresolved = False
-    if final_raw_spl_source == "deterministic_skeleton" and _is_generic_lab_skeleton(final_spl):
+    if final_raw_spl_source == "abstention" or (
+        final_raw_spl_source == "deterministic_skeleton" and _is_generic_lab_skeleton(final_spl)
+    ):
         unavailable = True
-        unavailable_reason = spl_draft_trace.get("llm_spl_draft_dropped_reason") or "llm_unavailable"
+        unavailable_reason = (
+            spl_draft_trace.get("authoring_failure_code")
+            or spl_draft_trace.get("llm_spl_draft_dropped_reason")
+            or "authoring_validation_failed"
+        )
+        final_spl = ""
+        if fidelity_result is not None and not fidelity_result.get("passed"):
+            semantic_fidelity_unresolved = True
+            spl_draft_trace["semantic_fidelity_unresolved"] = True
+            spl_draft_trace["lost_semantics"] = list(fidelity_result.get("losses") or [])
     elif fidelity_result is not None and not fidelity_result.get("passed"):
-        # Do not present an unfaithful draft as if it satisfied the analyst.
-        # Keep text for analyst review unless a bounded repair was attempted and
-        # still failed — then clear the candidate so it cannot look satisfied.
         semantic_fidelity_unresolved = True
         spl_draft_trace["semantic_fidelity_unresolved"] = True
         spl_draft_trace["lost_semantics"] = list(fidelity_result.get("losses") or [])
-        if spl_draft_trace.get("bounded_repair_attempted") and not fidelity_result.get("passed"):
-            unavailable = True
-            unavailable_reason = "semantic_fidelity_unresolved"
-            final_spl = ""
+        unavailable = True
+        unavailable_reason = "semantic_fidelity_unresolved"
+        final_spl = ""
 
 
     postprocessor_trace.setdefault("final_spl_authority", "deterministic_postprocessor")
@@ -644,6 +731,9 @@ def candidate_from_universal_utility_authoring(
     elif final_raw_spl_source == "llm_draft":
         generation_mode = "utility_llm_spl_draft"
         provider = "utility_llm_spl_draft"
+    elif final_raw_spl_source == "deterministic_compiler":
+        generation_mode = "deterministic_compiler_draft"
+        provider = "deterministic_compiler_draft"
     else:
         generation_mode = "deterministic_lab_draft"
         provider = "deterministic_lab_draft"
@@ -724,6 +814,8 @@ def candidate_from_universal_utility_authoring(
             if final_raw_spl_source == "llm_draft"
             else "explicit_spl_authoring_utility_llm_repair"
             if final_raw_spl_source == "llm_repair"
+            else "explicit_spl_authoring_deterministic_compiler"
+            if final_raw_spl_source == "deterministic_compiler"
             else "explicit_spl_authoring_deterministic_skeleton"
         ),
         "deterministic_fallback_reason": (

@@ -24,6 +24,7 @@ SUPPORTED_ANALYSIS_SHAPES: tuple[str, ...] = (
     "trend",
     "rolling",
     "sequence",
+    "first_seen",
 )
 UNSUPPORTED_ANALYSIS_SHAPES: tuple[str, ...] = ("comparison",)
 
@@ -86,6 +87,10 @@ _THRESHOLD_RE = re.compile(
     r"\b(?:at\s+least|more\s+than|greater\s+than|over|threshold(?:\s+of)?|at\s+least)\s+(\d+)\b",
     re.I,
 )
+_GROUPED_BY_RE = re.compile(
+    r"\bgrouped\s+by\s+(.+?)(?:,\s*returning|\breturning\b|\.|$)",
+    re.I,
+)
 _DURATION_UNIT = {
     "s": "s",
     "sec": "s",
@@ -138,7 +143,49 @@ _ENTITY_ALIAS = {
     "destinations": "dest_ip",
     "target": "dest_ip",
     "targets": "dest_ip",
+    "domain": "domain",
+    "domains": "domain",
 }
+
+_ACTOR_WILDCARD_RE = re.compile(r"\b([A-Za-z][A-Za-z0-9._-]{0,32}\*)")
+_OBSERVATION_WINDOW_RE = re.compile(
+    r"\b(?:last|past|during the last)\s+(\d+)\s*-?\s*(seconds?|sec|minutes?|mins?|min|hours?|hrs?|hr|days?|[smhd])\b",
+    re.I,
+)
+_PRECEDING_WINDOW_RE = re.compile(
+    r"\b(?:preceding|previous|prior|baseline)\s+(\d+)\s*-?\s*(seconds?|sec|minutes?|mins?|min|hours?|hrs?|hr|days?|[smhd])\b"
+    r"|\b(\d+)\s*-?\s*(days?|hours?)\s+(?:history|baseline)\b",
+    re.I,
+)
+_FIRST_SEEN_RE = re.compile(
+    r"\b(?:not\s+(?:previously\s+)?(?:accessed|seen|contacted)|had\s+not\s+previously|"
+    r"not\s+seen(?:\s+for)?|new\s+host|first[\s-]?seen|unseen)\b",
+    re.I,
+)
+_ONE_HOUR_WINDOWS_RE = re.compile(r"\b(?:one|1)\s*-?\s*hour(?:s)?\s+windows?\b", re.I)
+_PROCESS_EXE_RE = re.compile(r"\b([A-Za-z0-9_.-]+\.exe)\b", re.I)
+_LAUNCHED_BY_RE = re.compile(
+    r"\b([A-Za-z0-9_.-]+\.exe)\s+launched\s+by\s+(.+?)(?:,\s+grouped|\.\s|$)",
+    re.I,
+)
+_CUSTOM_FIELD_RE = re.compile(r"\b([A-Z][A-Z0-9_]{5,})\b")
+_CUSTOM_FIELD_EXCLUDE = frozenset({
+    "EVENTCODE",
+    "WINDOWS",
+    "SPLUNK",
+    "EVENTID",
+    "COMMAND",
+    "ACCOUNT",
+    "SOURCE",
+    "DESTINATION",
+})
+_DEST_DOMAIN_RE = re.compile(r"\bdest(?:ination)?\s+domains?\b", re.I)
+_DEST_HOST_RE = re.compile(r"\b(?:new\s+host|dest(?:ination)?\s+hosts?)\b", re.I)
+_SAME_ACCOUNT_RE = re.compile(r"\bsame\s+account|\baccounts?\s+matching|\bby\s+accounts?\b", re.I)
+_SAME_HOST_RE = re.compile(r"\bsame\s+host\b", re.I)
+
+_HOST_NORM_ALIASES = ("dest_host", "dest", "dvc", "host", "ComputerName", "dest_nt_host")
+_DOMAIN_NORM_ALIASES = ("query", "query_name", "domain", "dns_query", "url_domain")
 
 _USER_NORM_ALIASES = ("user", "username", "src_user", "Account_Name", "TargetUserName")
 _SRC_IP_NORM_ALIASES = ("src_ip", "src", "source", "source_ip", "Source_Network_Address")
@@ -255,6 +302,8 @@ def _rolling_window(query: str) -> str | None:
 
 
 def _temporal_grain(query: str) -> str | None:
+    if _ONE_HOUR_WINDOWS_RE.search(query or ""):
+        return "1h"
     match = _GRAIN_RE.search(query or "")
     if not match:
         return None
@@ -309,6 +358,137 @@ def _is_comparison(query: str) -> bool:
     return bool(_COMPARISON_RE.search(query or ""))
 
 
+def _is_first_seen(query: str) -> bool:
+    if not _FIRST_SEEN_RE.search(query or ""):
+        return False
+    if _PRECEDING_WINDOW_RE.search(query or "") or re.search(r"\bbaseline\b|\bpreceding\b", query or "", re.I):
+        return True
+    return bool(re.search(r"\bnot\s+seen\b|\bpreviously\s+accessed\b|\bnew\s+host\b", query or "", re.I))
+
+
+def _actor_patterns(query: str) -> list[str]:
+    found: list[str] = []
+    for match in _ACTOR_WILDCARD_RE.finditer(query or ""):
+        token = match.group(1)
+        if token not in found:
+            found.append(token)
+    return found
+
+
+def _observation_and_baseline_windows(query: str, tokens: Any) -> tuple[str | None, str | None]:
+    observation: str | None = None
+    baseline: str | None = None
+    obs_match = _OBSERVATION_WINDOW_RE.search(query or "")
+    if obs_match:
+        observation = _duration_token(obs_match.group(1), obs_match.group(2))
+    base_match = _PRECEDING_WINDOW_RE.search(query or "")
+    if base_match:
+        amount = base_match.group(1) or base_match.group(3)
+        unit = base_match.group(2) or base_match.group(4)
+        baseline = _duration_token(amount, unit)
+    windows = list(getattr(tokens, "relative_windows", None) or [])
+    if observation is None and windows:
+        observation = windows[0]
+    if baseline is None and len(windows) > 1:
+        baseline = windows[1]
+    return observation, baseline
+
+
+def _duration_seconds(token: str | None) -> int | None:
+    match = re.fullmatch(r"(\d+)([smhd])", str(token or "").strip().lower())
+    if not match:
+        return None
+    amount = int(match.group(1))
+    unit = match.group(2)
+    return amount * {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
+
+
+def _combined_horizon_token(observation: str | None, baseline: str | None) -> str | None:
+    obs_sec = _duration_seconds(observation)
+    base_sec = _duration_seconds(baseline)
+    if obs_sec is None:
+        return None
+    total = obs_sec + (base_sec or 0)
+    if total <= 0:
+        return None
+    if total % 86400 == 0:
+        return f"{total // 86400}d"
+    if total % 3600 == 0:
+        return f"{total // 3600}h"
+    if total % 60 == 0:
+        return f"{total // 60}m"
+    return f"{total}s"
+
+
+def _grouped_by_fields(query: str) -> list[str]:
+    match = _GROUPED_BY_RE.search(query or "")
+    if not match:
+        return []
+    chunk = match.group(1).lower()
+    fields: list[str] = []
+    if re.search(r"\bhosts?\b", chunk):
+        fields.append("host")
+    if re.search(r"\busers?\b|\baccounts?\b", chunk):
+        fields.append("user")
+    if re.search(r"\bsource\s+ips?\b|\bsrc[_\s]?ips?\b", chunk):
+        fields.append("src_ip")
+    if re.search(r"\bdest(?:ination)?\s+ips?\b|\bdst[_\s]?ips?\b", chunk):
+        fields.append("dest_ip")
+    return fields
+
+
+def _process_constraints(query: str) -> dict[str, list[str]]:
+    launched = _LAUNCHED_BY_RE.search(query or "")
+    if not launched:
+        return {}
+    child = launched.group(1)
+    parents = _PROCESS_EXE_RE.findall(launched.group(2) or "")
+    out: dict[str, list[str]] = {}
+    if child:
+        out["child"] = [child]
+    if parents:
+        out["parent"] = list(dict.fromkeys(parents))
+    return out
+
+
+def _unresolved_required_fields(query: str) -> list[str]:
+    found: list[str] = []
+    for match in _CUSTOM_FIELD_RE.finditer(query or ""):
+        token = match.group(1)
+        if token in _CUSTOM_FIELD_EXCLUDE:
+            continue
+        if token not in found:
+            found.append(token)
+    return found
+
+
+def _required_outputs(query: str) -> list[str]:
+    lowered = query or ""
+    if not re.search(r"\breturn(?:ing)?\b|\boutput", lowered, re.I):
+        return []
+    outputs: list[str] = []
+    if re.search(r"\bfirst\s*/\s*last\s+seen\b", lowered, re.I):
+        outputs.extend(["first_seen", "last_seen"])
+    markers = (
+        (re.compile(r"\b(?:user|account)s?\b", re.I), "user"),
+        (re.compile(r"\b(?:new\s+host|dest(?:ination)?\s+hosts?|hosts?)\b", re.I), "host"),
+        (re.compile(r"\bsource\s+ip|\bsrc[_\s]?ip\b", re.I), "src_ip"),
+        (re.compile(r"\bdistinct\s+(?:count|new-?hosts?)\b", re.I), "distinct_new_host_count"),
+        (re.compile(r"\bdest(?:ination)?\s+domains?\b", re.I), "domain"),
+        (re.compile(r"\bfirst[\s-]?seen\b", re.I), "first_seen"),
+        (re.compile(r"\blast[\s-]?seen\b", re.I), "last_seen"),
+        (re.compile(r"\bcommand\s+line\b", re.I), "command_line"),
+        (re.compile(r"\bparent\s+process\b", re.I), "parent_process"),
+        (re.compile(r"\bchild\s+process\b", re.I), "child_process"),
+        (re.compile(r"\bfailure\s+counts?\b", re.I), "failure_count"),
+        (re.compile(r"\bsuccess\s+times?\b", re.I), "success_time"),
+    )
+    for pattern, name in markers:
+        if pattern.search(lowered) and name not in outputs:
+            outputs.append(name)
+    return outputs
+
+
 def _analysis_shape(
     query: str,
     *,
@@ -319,6 +499,8 @@ def _analysis_shape(
     aggregations: list[str],
     filters: list[str],
 ) -> str:
+    if _is_first_seen(query):
+        return "first_seen"
     if _is_comparison(query):
         return "comparison"
     if sequence_events or "sequence_detection" in (tokens.operation_hints or []):
@@ -344,6 +526,7 @@ def _output_shape_for(analysis_shape: str) -> str:
         "trend": "time_series",
         "rolling": "windowed_table",
         "sequence": "sequence_matches",
+        "first_seen": "first_seen_table",
         "comparison": "comparison_table",
     }.get(analysis_shape, "events")
 
@@ -399,6 +582,17 @@ def _relationships(roles: _EntityRoles, analysis_shape: str) -> list[dict[str, s
                 "measure": "sequence_match",
             }
         )
+    if analysis_shape == "first_seen":
+        subject = roles.subject[0] if roles.subject else (roles.correlate_by[0] if roles.correlate_by else "user")
+        obj = roles.target[0] if roles.target else (roles.distinct_by[0] if roles.distinct_by else "host")
+        rels.append(
+            {
+                "type": "first_seen",
+                "subject": subject,
+                "object": obj,
+                "measure": "absent_from_baseline",
+            }
+        )
     return rels
 
 
@@ -452,6 +646,24 @@ def _normalization_for(roles: _EntityRoles) -> tuple[list[dict[str, Any]], list[
             }
         )
         consumers.extend(["filter", "grouping"])
+    if "host" in needed:
+        requirements.append(
+            {
+                "alias": "host_norm",
+                "expression": "lower(coalesce(dest_host, dest, dvc, host, ComputerName, \"unknown\"))",
+                "source_fields": list(_HOST_NORM_ALIASES),
+            }
+        )
+        consumers.extend(["filter", "grouping", "distinct", "correlation"])
+    if "domain" in needed:
+        requirements.append(
+            {
+                "alias": "domain_norm",
+                "expression": "lower(coalesce(query, query_name, domain, dns_query, url_domain, \"unknown\"))",
+                "source_fields": list(_DOMAIN_NORM_ALIASES),
+            }
+        )
+        consumers.extend(["filter", "grouping", "distinct", "correlation"])
     # Unique preserve order
     seen: set[str] = set()
     unique_consumers: list[str] = []
@@ -495,6 +707,11 @@ def _prohibitions(
         bans.append("unexpected_threshold_invention")
     if analysis_shape != "ranking":
         bans.append("alert_template_bias")
+    if analysis_shape == "first_seen":
+        bans.append("baseline_window_loss")
+        bans.append("observation_window_collapse")
+        bans.append("same_subject_comparison_loss")
+        bans.append("actor_pattern_loss")
     bans.append("normalized_field_unused")
     bans.append("placeholder_despite_governed_mapping")
     bans.append("generic_coalesce_ignoring_source_profile")
@@ -613,6 +830,13 @@ def build_spl_intent_spec(
     event_sets = _required_event_sets(query)
     sequence_events = _ordered_sequence(query, event_sets)
     sequence_gap = _sequence_gap(query) if sequence_events or "sequence_detection" in (tokens.operation_hints or []) else None
+    observation_window, baseline_window = _observation_and_baseline_windows(query, tokens)
+    actor_patterns = _actor_patterns(query)
+    process_constraints = _process_constraints(query)
+    unresolved_required_fields = _unresolved_required_fields(query)
+    required_outputs = _required_outputs(query)
+    for field_name in _grouped_by_fields(query):
+        _append_unique(group_by, field_name)
 
     rqc_time = _parse_time_scope_to_window(
         str(locked.get("time_scope") or rqc.get("time_scope") or "").strip() or None
@@ -631,6 +855,13 @@ def build_spl_intent_spec(
         provenance["search_horizon"] = "query_token"
     else:
         search_horizon = None
+
+    # First-seen dual windows: keep both periods; combined horizon is the search span only.
+    if _is_first_seen(query) and observation_window:
+        combined = _combined_horizon_token(observation_window, baseline_window)
+        if combined and not rqc_time:
+            search_horizon = f"earliest=-{combined} latest=now"
+            provenance["search_horizon"] = "first_seen_combined"
 
     # Locked RQC time must not be overwritten by a competing query window.
     if rqc_time and query_time_window and rqc_time != query_time_window:
@@ -665,6 +896,37 @@ def build_spl_intent_spec(
         analytical_window = None
 
     roles = _entity_roles(query, tokens=tokens, group_by=group_by)
+    if analysis_shape == "first_seen":
+        # Same-account / same-host is the comparison subject; do not let a
+        # requested output (e.g. source IP) become subject[0].
+        same_account = bool(_SAME_ACCOUNT_RE.search(query) or actor_patterns)
+        same_host = bool(_SAME_HOST_RE.search(query))
+        roles.subject = []
+        roles.correlate_by = []
+        if same_host and not same_account:
+            _append_unique(roles.subject, "host")
+            _append_unique(roles.correlate_by, "host")
+            _append_unique(roles.group_by, "host")
+        else:
+            _append_unique(roles.subject, "user")
+            _append_unique(roles.correlate_by, "user")
+            _append_unique(roles.group_by, "user")
+        if _DEST_DOMAIN_RE.search(query):
+            roles.target = []
+            roles.distinct_by = []
+            _append_unique(roles.target, "domain")
+            _append_unique(roles.distinct_by, "domain")
+        elif _DEST_HOST_RE.search(query):
+            roles.target = []
+            roles.distinct_by = []
+            _append_unique(roles.target, "host")
+            _append_unique(roles.distinct_by, "host")
+        if not roles.target:
+            _append_unique(roles.target, "host")
+        if not roles.distinct_by:
+            _append_unique(roles.distinct_by, roles.target[0] if roles.target else "host")
+    for extra in roles.group_by:
+        _append_unique(group_by, extra)
     if roles.distinct_by:
         for entity in roles.distinct_by:
             _append_unique(group_by, roles.subject[0] if roles.subject else entity)
@@ -677,9 +939,31 @@ def build_spl_intent_spec(
     )
     if roles.distinct_by and "dc" not in aggregations and "distinct_count" not in aggregations:
         aggregations.append("distinct_count")
+    if "src_ip" in required_outputs:
+        _append_unique(roles.group_by, "src_ip")
+        _append_unique(group_by, "src_ip")
+    if "host" in required_outputs:
+        _append_unique(roles.group_by, "host")
+        _append_unique(group_by, "host")
+    if "user" in required_outputs:
+        _append_unique(roles.group_by, "user")
+        _append_unique(group_by, "user")
+    for field_name in _grouped_by_fields(query):
+        _append_unique(roles.group_by, field_name)
+        _append_unique(group_by, field_name)
 
     norm_requirements, norm_consumers = _normalization_for(roles)
     explicit_threshold = bool(bindings.explicit_thresholds) or bool(_THRESHOLD_RE.search(query))
+    explicit_threshold_value: int | None = None
+    explicit_threshold_comparison: str | None = None
+    raw_threshold = bindings.explicit_thresholds.get("threshold")
+    if raw_threshold not in (None, ""):
+        try:
+            explicit_threshold_value = int(str(raw_threshold))
+        except (TypeError, ValueError):
+            explicit_threshold_value = None
+        comparison = str(bindings.explicit_thresholds.get("comparison") or "").strip()
+        explicit_threshold_comparison = comparison or None
     prohibitions = _prohibitions(
         analysis_shape=analysis_shape,
         result_limit=result_limit,
@@ -746,10 +1030,14 @@ def build_spl_intent_spec(
     if rqc.get("normalized_goal"):
         provenance["objective"] = "rqc"
 
+    event_domain = _event_domain(query, tokens)
+    if process_constraints and not event_domain:
+        event_domain = "endpoint"
+
     spec: dict[str, Any] = {
         "contract_version": SPL_SEMANTIC_CONTRACT_VERSION,
         "objective": objective,
-        "event_domain": _event_domain(query, tokens),
+        "event_domain": event_domain,
         "filters": filters,
         "group_by": group_by,
         "aggregations": aggregations,
@@ -788,6 +1076,14 @@ def build_spl_intent_spec(
         "relative_windows": list(tokens.relative_windows),
         "rqc_locked_fields": locked,
         "explicit_threshold_present": explicit_threshold,
+        "explicit_threshold_value": explicit_threshold_value,
+        "explicit_threshold_comparison": explicit_threshold_comparison,
+        "actor_patterns": actor_patterns,
+        "observation_window": observation_window,
+        "baseline_window": baseline_window,
+        "process_constraints": process_constraints,
+        "unresolved_required_fields": unresolved_required_fields,
+        "required_outputs": required_outputs,
     }
     return spec
 
@@ -863,8 +1159,31 @@ def spl_intent_spec_for_prompt(spec: dict[str, Any]) -> str:
     source = spec.get("source_constraints") or {}
     if source:
         lines.append("- source_constraints: " + ", ".join(f"{k}={v}" for k, v in source.items()))
-    if spec.get("execution_posture"):
-        lines.append(f"- execution_posture: {spec['execution_posture']}")
+    if spec.get("actor_patterns"):
+        lines.append(f"- actor_patterns: {', '.join(str(v) for v in spec['actor_patterns'])}")
+    if spec.get("observation_window"):
+        lines.append(f"- observation_window: {spec['observation_window']}")
+    if spec.get("baseline_window"):
+        lines.append(f"- baseline_window: {spec['baseline_window']}")
+    if spec.get("required_outputs"):
+        lines.append(f"- required_outputs: {', '.join(str(v) for v in spec['required_outputs'])}")
+    process = spec.get("process_constraints") if isinstance(spec.get("process_constraints"), dict) else {}
+    if process:
+        lines.append(
+            "- process_constraints: "
+            + ", ".join(f"{k}={','.join(v)}" for k, v in process.items() if v)
+        )
+    if spec.get("unresolved_required_fields"):
+        lines.append(
+            "- unresolved_required_fields: "
+            + ", ".join(str(v) for v in spec["unresolved_required_fields"])
+            + " (do not invent a mapping; abstain or list as assumption)"
+        )
+    if spec.get("explicit_threshold_present") and spec.get("explicit_threshold_value") is not None:
+        lines.append(
+            f"- explicit_threshold: {spec.get('explicit_threshold_comparison') or 'greater_than'} "
+            f"{spec['explicit_threshold_value']}"
+        )
     lines.append("")
     lines.append("Do not invent thresholds, indexes, sourcetypes, or time windows that are not in this contract.")
     lines.append("Do not apply unrelated MITRE, remediation, routing, MCP, or alert-template instructions.")

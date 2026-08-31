@@ -311,6 +311,103 @@ def validate_semantic_fidelity(
         else:
             preserved.append(f"normalized:{alias}")
 
+    if spec.get("actor_patterns"):
+        for pattern in spec["actor_patterns"]:
+            token = str(pattern).rstrip("*").lower()
+            if token and token not in lowered:
+                losses.append("actor_pattern_missing")
+                repair_feedback.append(f"semantic_loss:actor_pattern_missing:{pattern}")
+            else:
+                preserved.append(f"actor:{pattern}")
+
+    observation = str(spec.get("observation_window") or "").strip()
+    baseline = str(spec.get("baseline_window") or "").strip()
+    if observation:
+        obs_compact = lowered.replace(" ", "")
+        if f"-{observation}" in obs_compact or f'relative_time(now(),"-{observation}")' in obs_compact:
+            preserved.append("observation_window")
+        else:
+            losses.append("observation_window_missing")
+            repair_feedback.append(f"semantic_loss:observation_window_missing:{observation}")
+    if baseline:
+        compact = lowered.replace(" ", "")
+        has_period = "baseline" in lowered or "period=" in lowered
+        if f"-{baseline}" in compact or has_period:
+            preserved.append("baseline_window")
+        else:
+            losses.append("baseline_window_missing")
+            repair_feedback.append(f"semantic_loss:baseline_window_missing:{baseline}")
+        if observation and f"-{observation}" in compact and f"-{baseline}" not in compact and not has_period:
+            losses.append("baseline_window_missing")
+
+    first_seen_rel = any(
+        isinstance(item, dict) and item.get("type") == "first_seen"
+        for item in (spec.get("relationships") or [])
+    )
+    if shape == "first_seen" or first_seen_rel:
+        exclusion_tokens = ("mvfind", "baseline", "isnull", "new_host", "first_seen", "absent")
+        if any(token in lowered for token in exclusion_tokens):
+            preserved.append("first_seen_relation")
+        else:
+            losses.append("first_seen_relation_missing")
+            repair_feedback.append("semantic_loss:first_seen_relation_missing")
+        subject = ""
+        if isinstance(roles, dict) and roles.get("subject"):
+            subject = str(roles["subject"][0])
+        if subject == "user" and not any(
+            token in lowered for token in ("by user", "by user_norm", "by account")
+        ):
+            losses.append("same_account_comparison_missing")
+            repair_feedback.append("semantic_loss:same_account_comparison_missing")
+
+    output_aliases = {
+        "user": ("user", "account", "user_norm"),
+        "host": ("host", "dest", "new_host", "dest_host", "host_norm"),
+        "src_ip": ("src_ip", "source_ip", "src", "src_ip_norm"),
+        "distinct_new_host_count": ("dc(", "distinct_new", "distinct_count"),
+        "domain": ("domain", "query", "domain_norm"),
+        "first_seen": ("first_seen", "earliest(_time)"),
+        "last_seen": ("last_seen", "latest(_time)"),
+        "command_line": ("command_line", "commandline", "process_command_line"),
+        "parent_process": ("parent", "parentimage", "parent_process"),
+        "child_process": ("powershell", "image", "child", "new_process_name"),
+        "failure_count": ("failure_count",),
+        "success_time": ("success_time", "last_match"),
+    }
+    for output_name in spec.get("required_outputs") or []:
+        aliases = output_aliases.get(str(output_name), (str(output_name),))
+        if any(alias.lower() in lowered for alias in aliases):
+            preserved.append(f"output:{output_name}")
+        else:
+            losses.append(f"output_missing:{output_name}")
+            repair_feedback.append(f"semantic_loss:output_missing:{output_name}")
+
+    if spec.get("explicit_threshold_present") and spec.get("explicit_threshold_value") is not None:
+        token = str(spec["explicit_threshold_value"])
+        if token not in lowered.replace(" ", ""):
+            losses.append("threshold_missing")
+            repair_feedback.append(f"semantic_loss:threshold_missing:{token}")
+        else:
+            preserved.append(f"threshold:{token}")
+
+    for field_name in spec.get("unresolved_required_fields") or []:
+        token = str(field_name)
+        if token.lower() not in lowered:
+            losses.append("unresolved_field_mapping")
+            repair_feedback.append(f"semantic_loss:unresolved_field_mapping:{token}")
+
+    if spec.get("process_constraints") and isinstance(spec.get("process_constraints"), dict):
+        child = spec["process_constraints"].get("child") or []
+        parent = spec["process_constraints"].get("parent") or []
+        for item in child:
+            if str(item).lower().replace(".exe", "") not in lowered:
+                losses.append("process_child_missing")
+                repair_feedback.append(f"semantic_loss:process_child_missing:{item}")
+        for item in parent:
+            if str(item).lower().replace(".exe", "") not in lowered:
+                losses.append("process_parent_missing")
+                repair_feedback.append(f"semantic_loss:process_parent_missing:{item}")
+
     if spec.get("support_status") == "unsupported":
         losses.append(str(spec.get("degrade_reason") or "unsupported_analysis_shape"))
         repair_feedback.append("semantic_loss:unsupported_shape_fail_closed")

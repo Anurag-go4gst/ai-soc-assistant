@@ -25,6 +25,17 @@ CLARIFICATION_VALIDATION_FAILED = "llm_spl_fallback_validation_failed"
 CLARIFICATION_QUALITY_FAILED = "llm_spl_fallback_quality_failed"
 CLARIFICATION_UNSUPPORTED_SOURCE = "llm_spl_fallback_unsupported_source"
 
+AUTHORING_FAILURE_STAGES = (
+    "provider",
+    "json_parse",
+    "schema_validation",
+    "content_validation",
+    "semantic_validation",
+    "draft_quality",
+    "unknown",
+)
+_SANITIZED_ADAPTER_FIELD_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]{0,80}$")
+
 
 @dataclass(frozen=True)
 class LlmSplFallbackResult:
@@ -57,6 +68,10 @@ class LlmSplFallbackResult:
     # compiler path only). Advisory, not authority; persisted by the workflow node
     # so downstream source-resolve/MITRE/narration prefer it over re-parsing.
     detection_plan: dict[str, Any] | None = None
+    authoring_failure_stage: str | None = None
+    authoring_failure_code: str | None = None
+    authoring_failure_field: str | None = None
+    finish_reason: str | None = None
 
 
 def generate_llm_spl_fallback(
@@ -76,19 +91,32 @@ def generate_llm_spl_fallback(
     deterministic validation and SOC-STD-SPL-001 quality lint before exposure.
     """
     if not utility_authoring and not settings.ai_soc_llm_spl_fallback_enabled:
-        return _clarification(CLARIFICATION_LLM_DISABLED)
+        return _clarification(
+            CLARIFICATION_LLM_DISABLED,
+            authoring_failure_stage="provider",
+            authoring_failure_code=CLARIFICATION_LLM_DISABLED,
+        )
     if settings.ai_soc_llm_mode.strip().lower() == "disabled" or not settings.ai_soc_llm_enabled:
-        return _clarification(CLARIFICATION_LLM_DISABLED)
+        return _clarification(
+            CLARIFICATION_LLM_DISABLED,
+            authoring_failure_stage="provider",
+            authoring_failure_code=CLARIFICATION_LLM_DISABLED,
+        )
 
     raw_output: str | None = None
     model: str | None = None
     latency_ms: int | None = None
+    finish_reason: str | None = None
     if llm_raw_output_provider is not None:
         raw_output = llm_raw_output_provider()
     else:
         active_client = client or build_synthesis_client_from_settings()
         if active_client is None:
-            return _clarification(CLARIFICATION_NO_CLIENT)
+            return _clarification(
+                CLARIFICATION_NO_CLIENT,
+                authoring_failure_stage="provider",
+                authoring_failure_code=CLARIFICATION_NO_CLIENT,
+            )
         system_prompt, user_prompt = spl_advisory_prompts(
             user_query,
             utility_authoring=utility_authoring,
@@ -127,38 +155,64 @@ def generate_llm_spl_fallback(
                         temperature=0.0,
                     )
                 except LocalChatError:
-                    return _clarification(CLARIFICATION_NO_CLIENT)
+                    return _clarification(
+                        CLARIFICATION_NO_CLIENT,
+                        authoring_failure_stage="provider",
+                        authoring_failure_code="provider_http_error",
+                    )
             else:
-                return _clarification(CLARIFICATION_NO_CLIENT)
+                return _clarification(
+                    CLARIFICATION_NO_CLIENT,
+                    authoring_failure_stage="provider",
+                    authoring_failure_code="provider_http_error",
+                )
         except LocalChatError:
-            return _clarification(CLARIFICATION_NO_CLIENT)
+            return _clarification(
+                CLARIFICATION_NO_CLIENT,
+                authoring_failure_stage="provider",
+                authoring_failure_code="provider_http_error",
+            )
         if completion.finish_reason == "length":
             return _clarification(
                 CLARIFICATION_INVALID_SCHEMA,
                 adapter_errors=["llm_finish_reason=length"],
                 model=completion.model,
                 latency_ms=completion.latency_ms,
+                authoring_failure_stage="provider",
+                authoring_failure_code="finish_reason_length",
+                finish_reason="length",
             )
         raw_output = completion.text
         model = completion.model
         latency_ms = completion.latency_ms
+        finish_reason = completion.finish_reason
 
     strict_payload, strict_errors = _strict_json_payload(raw_output or "")
     if strict_payload is None:
+        parse_code = "empty_llm_output" if "empty_llm_output" in (strict_errors or []) else "json_parse_failed"
         return _clarification(
             CLARIFICATION_INVALID_SCHEMA,
             adapter_errors=strict_errors,
             model=model,
             latency_ms=latency_ms,
+            authoring_failure_stage="json_parse",
+            authoring_failure_code=parse_code,
+            finish_reason=finish_reason,
         )
 
     adapted = adapt_llm_output(role=SPL_ADVISORY_ROLE, raw_output=json.dumps(strict_payload))
     if not adapted.accepted or not adapted.normalized_payload:
+        field, code = _sanitized_adapter_failure(list(adapted.errors))
+        stage = "schema_validation" if not adapted.schema_valid or not adapted.parsed_ok else "content_validation"
         return _clarification(
             CLARIFICATION_INVALID_SCHEMA,
-            adapter_errors=list(adapted.errors),
+            adapter_errors=_bounded_adapter_errors(list(adapted.errors)),
             model=model,
             latency_ms=latency_ms,
+            authoring_failure_stage=stage,
+            authoring_failure_code=code,
+            authoring_failure_field=field,
+            finish_reason=finish_reason,
         )
 
     payload = adapted.normalized_payload
@@ -166,9 +220,13 @@ def generate_llm_spl_fallback(
     if status not in {"candidate_generated", "needs_clarification", "blocked"}:
         return _clarification(
             CLARIFICATION_INVALID_SCHEMA,
-            adapter_errors=[f"invalid status: {status}"],
+            adapter_errors=["invalid_status"],
             model=model,
             latency_ms=latency_ms,
+            authoring_failure_stage="content_validation",
+            authoring_failure_code="invalid_status",
+            authoring_failure_field="status",
+            finish_reason=finish_reason,
         )
     confidence_score = _confidence_score(payload.get("confidence_score"))
     confidence_label = str(payload.get("confidence_label") or "low").lower()
@@ -204,6 +262,10 @@ def generate_llm_spl_fallback(
             latency_ms=latency_ms,
             clarification_required=True,
             clarification_reason=CLARIFICATION_INVALID_SCHEMA,
+            authoring_failure_stage="content_validation",
+            authoring_failure_code="status_blocked",
+            authoring_failure_field="status",
+            finish_reason=finish_reason,
         )
 
     if not candidate_spl and status != "needs_clarification":
@@ -211,14 +273,24 @@ def generate_llm_spl_fallback(
             CLARIFICATION_INVALID_SCHEMA,
             model=model,
             latency_ms=latency_ms,
+            adapter_errors=["empty_candidate_spl"],
+            authoring_failure_stage="content_validation",
+            authoring_failure_code="empty_candidate_spl",
+            authoring_failure_field="candidate_spl",
+            finish_reason=finish_reason,
         )
 
     if not assumptions or not required_fields:
+        field = "assumptions" if not assumptions else "required_fields"
         return _clarification(
             CLARIFICATION_INVALID_SCHEMA,
             model=model,
             latency_ms=latency_ms,
-            adapter_errors=["assumptions and required_fields must be non-empty arrays"],
+            adapter_errors=["missing_required_non_empty_arrays"],
+            authoring_failure_stage="content_validation",
+            authoring_failure_code="missing_required",
+            authoring_failure_field=field,
+            finish_reason=finish_reason,
         )
 
     if status == "needs_clarification" and not candidate_spl:
@@ -241,6 +313,9 @@ def generate_llm_spl_fallback(
             latency_ms=latency_ms,
             clarification_required=True,
             clarification_reason="llm_spl_fallback_needs_clarification",
+            authoring_failure_stage="content_validation",
+            authoring_failure_code="needs_clarification",
+            finish_reason=finish_reason,
         )
 
     quality = evaluate_draft_quality(
@@ -276,6 +351,9 @@ def generate_llm_spl_fallback(
             quality_status=quality_payload["quality_status"],
             quality_findings=quality_findings,
             hard_fail_count=quality.hard_fail_count,
+            authoring_failure_stage="draft_quality",
+            authoring_failure_code=CLARIFICATION_QUALITY_FAILED,
+            finish_reason=finish_reason,
         )
 
     approved = bool(validation.get("approved"))
@@ -375,6 +453,9 @@ def generate_llm_spl_fallback(
             quality_status=quality_payload["quality_status"],
             quality_findings=quality_findings,
             hard_fail_count=quality.hard_fail_count,
+            authoring_failure_stage="content_validation",
+            authoring_failure_code=CLARIFICATION_VALIDATION_FAILED,
+            finish_reason=finish_reason,
         )
 
     return LlmSplFallbackResult(
@@ -423,8 +504,16 @@ def _clarification(
     adapter_errors: list[str] | None = None,
     model: str | None = None,
     latency_ms: int | None = None,
+    authoring_failure_stage: str | None = None,
+    authoring_failure_code: str | None = None,
+    authoring_failure_field: str | None = None,
+    finish_reason: str | None = None,
 ) -> LlmSplFallbackResult:
     validation = validate_spl("")
+    stage = authoring_failure_stage or _infer_authoring_stage(reason, adapter_errors or [])
+    code = authoring_failure_code or reason
+    if stage not in AUTHORING_FAILURE_STAGES:
+        stage = "unknown"
     return LlmSplFallbackResult(
         candidate_spl="",
         approved=False,
@@ -436,8 +525,70 @@ def _clarification(
         latency_ms=latency_ms,
         clarification_required=True,
         clarification_reason=reason,
-        adapter_errors=list(adapter_errors or []),
+        adapter_errors=_bounded_adapter_errors(list(adapter_errors or [])),
+        authoring_failure_stage=stage,
+        authoring_failure_code=code,
+        authoring_failure_field=_bounded_field_name(authoring_failure_field),
+        finish_reason=finish_reason,
     )
+
+
+def _bounded_field_name(value: str | None) -> str | None:
+    token = str(value or "").strip()
+    if not token or not _SANITIZED_ADAPTER_FIELD_RE.match(token):
+        return None
+    return token[:80]
+
+
+def _bounded_adapter_errors(errors: list[str]) -> list[str]:
+    bounded: list[str] = []
+    for raw in errors:
+        text = str(raw or "").strip()
+        if not text:
+            continue
+        if text.startswith("strict_json_parse_failed"):
+            bounded.append("strict_json_parse_failed")
+            continue
+        if text in {"empty_llm_output", "strict_json_object_required", "empty_candidate_spl", "missing_required_non_empty_arrays", "invalid_status", "llm_finish_reason=length"}:
+            bounded.append(text)
+            continue
+        location = text.split(":", 1)[0].strip()
+        if _SANITIZED_ADAPTER_FIELD_RE.match(location):
+            bounded.append(f"schema_field:{location}"[:80])
+            continue
+        bounded.append("adapter_validation_failed")
+        if len(bounded) >= 8:
+            break
+    return bounded[:8]
+
+
+def _sanitized_adapter_failure(errors: list[str]) -> tuple[str | None, str]:
+    bounded = _bounded_adapter_errors(errors)
+    if not bounded:
+        return None, "adapter_schema_invalid"
+    first = bounded[0]
+    if first.startswith("schema_field:"):
+        return first.split(":", 1)[1], "missing_required"
+    if first == "empty_llm_output":
+        return None, "empty_llm_output"
+    return None, first[:80]
+
+
+def _infer_authoring_stage(reason: str, adapter_errors: list[str]) -> str:
+    joined = " ".join(adapter_errors)
+    if reason in {CLARIFICATION_LLM_DISABLED, CLARIFICATION_NO_CLIENT}:
+        return "provider"
+    if "strict_json_parse_failed" in joined or "empty_llm_output" in joined:
+        return "json_parse"
+    if reason == CLARIFICATION_QUALITY_FAILED:
+        return "draft_quality"
+    if reason == CLARIFICATION_VALIDATION_FAILED:
+        return "content_validation"
+    if "schema_field:" in joined or (adapter_errors and reason == CLARIFICATION_INVALID_SCHEMA):
+        return "schema_validation"
+    if reason == CLARIFICATION_INVALID_SCHEMA:
+        return "content_validation"
+    return "unknown"
 
 
 def _strip_code_fences(text: str) -> str:
@@ -641,7 +792,10 @@ def _correctness_engineering_block() -> str:
 SPL_ADVISORY_JSON_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "status": {"type": "string"},
+        "status": {
+            "type": "string",
+            "enum": ["candidate_generated", "needs_clarification", "blocked"],
+        },
         "confidence_score": {"type": "number"},
         "confidence_label": {"type": "string"},
         "detection_family": {"type": "string"},
@@ -651,10 +805,10 @@ SPL_ADVISORY_JSON_SCHEMA: dict[str, Any] = {
         "earliest": {"type": "string"},
         "latest": {"type": "string"},
         "time_window_hours": {"type": "integer"},
-        "result_cap": {"type": "integer"},
+        "result_cap": {"type": ["integer", "null"]},
         "unresolved_slots": {"type": "array", "items": {"type": "string"}},
-        "assumptions": {"type": "array", "items": {"type": "string"}},
-        "required_fields": {"type": "array", "items": {"type": "string"}},
+        "assumptions": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "required_fields": {"type": "array", "items": {"type": "string"}, "minItems": 1},
         "missing_details": {"type": "array", "items": {"type": "string"}},
         "clarifying_questions": {"type": "array", "items": {"type": "string"}},
         "validation_notes": {"type": "array", "items": {"type": "string"}},
@@ -671,6 +825,8 @@ SPL_ADVISORY_JSON_SCHEMA: dict[str, Any] = {
         "sourcetype",
         "result_cap",
         "unresolved_slots",
+        "assumptions",
+        "required_fields",
         "execution_eligible",
         "governed",
         "catalog_approved",
@@ -694,7 +850,7 @@ def _utility_authoring_system_append(*, context: dict[str, Any] | None = None) -
         "- No inline // comments; no execution or findings claims.\n"
         "- Use %w (0=Sunday, 6=Saturday) for weekend filter logic; %A is display-only.\n"
     )
-    if shape in {"trend", "rolling", "sequence"}:
+    if shape in {"trend", "rolling", "sequence", "first_seen"}:
         return prefix
     return (
         prefix
@@ -731,6 +887,12 @@ def _shape_authoring_rules(spec: dict[str, Any]) -> str:
         lines.append("- Preserve the rolling analytical window with streamstats time_window= and the distinct relationship. Sort 0 _time before streamstats.\n")
     elif shape == "sequence":
         lines.append("- Preserve ordered event sets and sequence_max_gap. Do not collapse into a single EventCode alert template.\n")
+    elif shape == "first_seen":
+        lines.append(
+            "- Preserve a separate observation window and a preceding baseline window. "
+            "Compare per the same subject (account or host). Flag objects absent from that subject's baseline. "
+            "Do not collapse both windows into one undivided search, and do not drop actor patterns.\n"
+        )
     elif shape == "ranking":
         lines.append("- When the analyst asks for top/ranked results, include stats aggregation, sort descending, then head only if a result_limit was requested.\n")
     else:

@@ -43,6 +43,27 @@ def test_sequence_compile_preserves_order_and_gap() -> None:
     assert "head 100" not in spl
 
 
+def test_sequence_threshold_and_process_parent_child_compile() -> None:
+    failed = build_spl_intent_spec(
+        "Write review-only SPL to identify accounts with more than 20 failed logins "
+        "within 15 minutes followed by a successful login from the same source IP. "
+        "Return user, source IP, destination host, failure count and success time. "
+        "Do not execute."
+    )
+    failed_spl = compile_intent_spec_to_spl(failed)
+    assert "failure_count>20" in failed_spl.replace(" ", "")
+    assert "time_window=15m" in failed_spl
+    process = build_spl_intent_spec(
+        "Write review-only SPL to find powershell.exe launched by winword.exe or "
+        "excel.exe, grouped by host and user, returning parent process, child process, "
+        "command line and first/last seen. Do not execute."
+    )
+    process_spl = compile_intent_spec_to_spl(process)
+    assert "powershell.exe" in process_spl.lower()
+    assert "command_line" in process_spl
+    assert "parent_process" in process_spl
+
+
 def test_comparison_compile_fails_closed() -> None:
     spec = build_spl_intent_spec("is this the same campaign as last month")
     assert compile_intent_spec_to_spl(spec) == ""

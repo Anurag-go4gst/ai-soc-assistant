@@ -315,6 +315,10 @@ def _spl_artifact_handoff_trace_lines(handoff: dict[str, Any] | None) -> list[st
             lines.append(f"- {key}: {value}")
     return lines
 
+SPL_AUTHORING_ABSTENTION_MESSAGE = (
+    "Draft not produced because the generated SPL did not pass authoring "
+    "validation. No query was executed."
+)
 _UNIVERSAL_UTILITY_TITLE = "Review-only universal SPL draft. This was not executed."
 _UNIVERSAL_UTILITY_FAMILY = "universal_timestamp_spl"
 _USER_BOUND_UTILITY_FAMILY = "user_bound_spl_authoring"
@@ -438,6 +442,8 @@ def render_review_only_spl_answer(
     optional "How this answer was produced" line. The renderer never emits live-result
     language, severity priority prefixes, or a competing title/review-type banner.
     """
+    if isinstance(candidate_spl, dict) and candidate_spl.get("spl_authoring_unavailable"):
+        return SPL_AUTHORING_ABSTENTION_MESSAGE
     if _is_universal_spl_utility(draft_preview, candidate_spl):
         return render_universal_spl_utility_answer(
             analyst_response=analyst_response,
@@ -562,7 +568,57 @@ def apply_review_only_spl_render(
           - ``direct_answer_summary`` carries only the status/scope/notice header.
     """
     if not is_review_only_spl_answer(run_contract) or analyst_response is None:
+        if (
+            analyst_response is not None
+            and isinstance(candidate_spl, dict)
+            and candidate_spl.get("spl_authoring_unavailable")
+        ):
+            composed = SPL_AUTHORING_ABSTENTION_MESSAGE
+            updates = {
+                "finding_title": "Review-only SPL draft. This was not executed.",
+                "scenario_label": None,
+                "response_profile": "spl_only",
+                "investigation_steps": [],
+                "recommended_actions": [],
+                "direct_answer_summary": SPL_AUTHORING_ABSTENTION_MESSAGE,
+                "spl_code": None,
+                "draft_spl_code": None,
+                "spl_draft_preview": None,
+            }
+            return analyst_response.model_copy(update=updates), composed
         return analyst_response, message
+
+    if isinstance(candidate_spl, dict) and candidate_spl.get("spl_authoring_unavailable"):
+        composed = SPL_AUTHORING_ABSTENTION_MESSAGE
+        updates = {
+            "finding_title": "Review-only SPL draft. This was not executed.",
+            "scenario_label": None,
+            "response_profile": "spl_only",
+            "investigation_steps": [],
+            "recommended_actions": [],
+            "severity_label": None,
+            "severity_rationale": None,
+            "severity_safety_note": None,
+            "direct_answer_summary": SPL_AUTHORING_ABSTENTION_MESSAGE,
+            "one_sentence_finding": None,
+            "analyst_checklist": [],
+            "spl_code": None,
+            "draft_spl_code": None,
+            "spl_draft_preview": None,
+            "spl_status_detail": None,
+            "spl_status": "review_required",
+            "render_sections": {
+                "spl_artifact": False,
+                "draft_spl_preview": False,
+                "live_results": False,
+                "mitre_mapping": False,
+                "not_claimed": False,
+                "policy_citation": False,
+                "investigation_guidance": False,
+                "limitations": False,
+            },
+        }
+        return analyst_response.model_copy(update=updates), composed
 
     # Scope to lab-only draft answers. A governed, validated SPL draft (no lab preview,
     # spl_code present) is also review-only/not-executed but keeps its "Governed SPL

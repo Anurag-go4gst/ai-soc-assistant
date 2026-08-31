@@ -392,8 +392,7 @@ def normalize_review_only_spl(
     horizon = str(spec.get("search_horizon") or spec.get("time_window") or "").strip()
     if horizon:
         ctx["user_explicit_time_window"] = True
-        if not ctx.get("user_explicit_time_bounds"):
-            ctx["user_explicit_time_bounds"] = horizon
+        ctx["user_explicit_time_bounds"] = horizon
     spl = (raw_spl or "").strip()
     trace: dict[str, Any] = {
         "deterministic_postprocessor_applied": False,

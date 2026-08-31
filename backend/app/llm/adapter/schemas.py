@@ -122,11 +122,11 @@ class AnalystResponseDraft(AdapterPayload):
 
 
 class SplAdvisoryCandidate(AdapterPayload):
-    status: str = "candidate_generated"
+    status: Literal["candidate_generated", "needs_clarification", "blocked"] = "candidate_generated"
     confidence_score: float = 0.0
     confidence_label: str = "low"
     detection_family: str = ""
-    candidate_spl: str
+    candidate_spl: str = ""
     index: str | None = None
     sourcetype: str | None = None
     earliest: str | None = None

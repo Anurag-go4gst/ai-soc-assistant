@@ -200,6 +200,27 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         fragment = _EVENT_SET_FILTERS.get(str(event_name))
         if fragment:
             search_terms.append(fragment)
+    process = spec.get("process_constraints") if isinstance(spec.get("process_constraints"), dict) else {}
+    child_names = [str(item) for item in (process.get("child") or []) if str(item).strip()]
+    parent_names = [str(item) for item in (process.get("parent") or []) if str(item).strip()]
+    if child_names:
+        child_terms: list[str] = []
+        for name in child_names:
+            safe = _safe_value(name)
+            if safe:
+                child_terms.append(f'like(Image, "%{safe}")')
+                child_terms.append(f'like(New_Process_Name, "%{safe}")')
+        if child_terms:
+            search_terms.append("(" + " OR ".join(child_terms) + ")")
+    if parent_names:
+        parent_terms: list[str] = []
+        for name in parent_names:
+            safe = _safe_value(name)
+            if safe:
+                parent_terms.append(f'like(ParentImage, "%{safe}")')
+                parent_terms.append(f'like(Parent_Process_Name, "%{safe}")')
+        if parent_terms:
+            search_terms.append("(" + " OR ".join(parent_terms) + ")")
     search_line = " ".join(search_terms)
 
     analysis_shape = str(spec.get("analysis_shape") or "")
@@ -245,6 +266,16 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         return "| fields " + ", ".join(ordered)
 
     eval_clause = f"| eval {', '.join(eval_parts)}" if eval_parts else ""
+
+    if child_names or parent_names:
+        return _compile_process_parent_child(
+            spec=spec,
+            search_line=search_line,
+            eval_parts=eval_parts,
+            alias_by_field=dict(alias_by_field),
+            group_by=group_by,
+            _alias=_alias,
+        )
 
     if analysis_shape == "raw":
         fields = spec.get("field_requirements") or ["_time", "src_ip", "user", "action"]
@@ -318,33 +349,72 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
             parts.append(eval_clause)
         if event_eval:
             parts.append(event_eval)
-        proj = _early_projection(["_time", correlate, "event_type"] if event_eval else ["_time", correlate])
+        by_fields = _sequence_by_fields(
+            spec=spec,
+            correlate=correlate,
+            group_by=group_by,
+            alias_by_field=alias_by_field,
+            _alias=_alias,
+        )
+        keep = ["_time", *by_fields]
+        if event_eval:
+            keep.append("event_type")
+        proj = _early_projection(keep)
         if proj:
             parts.append(proj)
         parts.append("| sort 0 + _time")  # Q11: explicit ascending sort before streamstats
-        parts.append(f"| streamstats window=1 current=f last(event_type) as prev_event last(_time) as prev_time by {correlate}")
-        if len(ordered) >= 2:
+        threshold_n = _explicit_threshold_int(spec)
+        if threshold_n is not None and len(ordered) >= 2:
+            first_event = ordered[0]
+            second_event = ordered[1]
+            op = _threshold_compare_op(spec)
+            parts.append(
+                f"| streamstats time_window={gap} "
+                f'count(eval(event_type="{first_event}")) as failure_count by {correlate}'
+            )
+            parts.append(f'| where event_type="{second_event}" AND failure_count{op}{threshold_n}')
+        elif len(ordered) >= 2:
+            parts.append(
+                f"| streamstats window=1 current=f last(event_type) as prev_event last(_time) as prev_time by {correlate}"
+            )
             parts.append(
                 f'| where prev_event="{ordered[0]}" AND event_type="{ordered[1]}" '
                 f"AND (_time-prev_time)<={_gap_seconds(gap)}"
             )
         else:
             parts.append(f"| transaction {correlate} maxspan={gap}")
-        # The ordered A->B match is already decided above; this summarises the
-        # matched pairs per correlation entity. It is required because the SPL
-        # validator rejects a query with no stats/timechart stage
-        # (`missing_aggregation`) — it does not collapse the sequence semantics.
+        extra_aggs: list[str] = []
+        outputs = {str(item) for item in (spec.get("required_outputs") or [])}
+        if threshold_n is not None or "failure_count" in outputs:
+            extra_aggs.append("max(failure_count) as failure_count")
+        if "success_time" in outputs:
+            extra_aggs.append("latest(_time) as success_time_epoch")
+        extra = (" " + " ".join(extra_aggs)) if extra_aggs else ""
         parts.append(
-            f"| stats count as sequence_matches earliest(_time) as first_match_epoch "
-            f"latest(_time) as last_match_epoch by {correlate}"
+            f"| stats count as sequence_matches{extra} earliest(_time) as first_match_epoch "
+            f"latest(_time) as last_match_epoch by {', '.join(by_fields)}"
         )
-        # U02: earliest(_time)/latest(_time) require a readable strftime() after stats.
-        parts.append(
+        time_eval = (
             '| eval first_match=strftime(first_match_epoch, "%Y-%m-%d %H:%M:%S"), '
-            'last_match=strftime(last_match_epoch, "%Y-%m-%d %H:%M:%S") '
-            "| fields - first_match_epoch last_match_epoch"
+            'last_match=strftime(last_match_epoch, "%Y-%m-%d %H:%M:%S")'
         )
+        drop = ["first_match_epoch", "last_match_epoch"]
+        if "success_time" in outputs:
+            time_eval += ', success_time=strftime(success_time_epoch, "%Y-%m-%d %H:%M:%S")'
+            drop.append("success_time_epoch")
+        parts.append(time_eval + " | fields - " + " ".join(drop))
         return re.sub(r"\s+", " ", " ".join(parts)).strip()
+
+    if analysis_shape == "first_seen":
+        return _compile_first_seen(
+            spec=spec,
+            search_line=search_line,
+            eval_parts=eval_parts,
+            alias_by_field=alias_by_field,
+            roles=roles,
+            group_by=group_by,
+            _alias=_alias,
+        )
 
     metric = str(plan.get("metric") or "count")
     metric_field = _safe_field(plan.get("metric_field") or (spec.get("distinct_by") or [None])[0])
@@ -388,6 +458,191 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         parts.append(f"| head {int(spec['result_limit'])}")
     spl = " ".join(parts)
     return re.sub(r"\s+", " ", spl).strip()
+
+
+def _compile_first_seen(
+    *,
+    spec: dict[str, Any],
+    search_line: str,
+    eval_parts: list[str],
+    alias_by_field: dict[str, str],
+    roles: dict[str, Any],
+    group_by: list[str],
+    _alias: Callable[[str], str],
+) -> str:
+    """Compile observation-vs-baseline first-seen SPL without sample-query literals."""
+    observation = str(spec.get("observation_window") or "").strip()
+    subject_raw = str((roles.get("subject") or group_by or ["user"])[0])
+    object_raw = str((roles.get("target") or roles.get("distinct_by") or ["host"])[0])
+    subject = _alias(subject_raw)
+    obj = _alias(object_raw)
+    grain = str(spec.get("temporal_grain") or "").strip()
+    extras = list(eval_parts)
+    required_outputs = [str(item) for item in (spec.get("required_outputs") or [])]
+    if "src_ip" in required_outputs and "src_ip" not in alias_by_field:
+        extras.append(
+            'src_ip_norm=coalesce(src_ip, src, source, source_ip, Source_Network_Address, "unknown")'
+        )
+        alias_by_field["src_ip"] = "src_ip_norm"
+    extra_clause = f"| eval {', '.join(extras)}" if extras else ""
+    parts = [search_line]
+    if extra_clause:
+        parts.append(extra_clause)
+    actor_clauses: list[str] = []
+    for pattern in spec.get("actor_patterns") or []:
+        token = str(pattern).strip()
+        if not token:
+            continue
+        if token.endswith("*"):
+            prefix = _safe_value(token[:-1])
+            if prefix:
+                actor_clauses.append(f'like({subject}, "{prefix}%")')
+        else:
+            safe = _safe_value(token)
+            if safe:
+                actor_clauses.append(f'{subject}="{safe}"')
+    if actor_clauses:
+        parts.append("| where " + " OR ".join(actor_clauses))
+    obs = observation or "24h"
+    parts.append(
+        f'| eval period=if(_time>=relative_time(now(), "-{obs}"), "observation", "baseline")'
+    )
+    parts.append(f'| eval baseline_object=if(period="baseline", {obj}, null())')
+    parts.append("| sort 0 + _time")
+    parts.append(f"| streamstats values(baseline_object) as baseline_objects by {subject}")
+    parts.append('| where period="observation"')
+    parts.append(
+        f'| eval new_object=if(isnull(mvfind(baseline_objects, {obj})), {obj}, null())'
+    )
+    parts.append("| where isnotnull(new_object)")
+    stats_bits = [
+        f"dc({obj}) as distinct_new_host_count",
+        f"values({obj}) as new_host",
+    ]
+    if "src_ip" in required_outputs:
+        stats_bits.append(f"values({alias_by_field.get('src_ip', 'src_ip')}) as src_ip")
+    if "first_seen" in required_outputs or not grain:
+        stats_bits.append("earliest(_time) as first_seen_epoch")
+    if grain:
+        parts.append(f"| bin _time span={grain}")
+        by_clause = f"{subject}, _time"
+    else:
+        by_clause = f"{subject}, {obj}"
+    parts.append(f"| stats {' '.join(stats_bits)} by {by_clause}")
+    if any("first_seen_epoch" in item for item in stats_bits):
+        parts.append(
+            '| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S") '
+            "| fields - first_seen_epoch"
+        )
+    return re.sub(r"\s+", " ", " ".join(parts)).strip()
+
+
+def _explicit_threshold_int(spec: dict[str, Any]) -> int | None:
+    if not spec.get("explicit_threshold_present"):
+        return None
+    raw = spec.get("explicit_threshold_value")
+    if raw in (None, ""):
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _threshold_compare_op(spec: dict[str, Any]) -> str:
+    comparison = str(spec.get("explicit_threshold_comparison") or "greater_than").strip().lower()
+    if comparison in {"at_least", "greater_than_or_equal", "gte", ">="}:
+        return ">="
+    if comparison in {"less_than", "lt", "<"}:
+        return "<"
+    if comparison in {"less_than_or_equal", "lte", "<="}:
+        return "<="
+    return ">"
+
+
+def _sequence_by_fields(
+    *,
+    spec: dict[str, Any],
+    correlate: str,
+    group_by: list[str],
+    alias_by_field: dict[str, str],
+    _alias: Callable[[str], str],
+) -> list[str]:
+    ordered: list[str] = []
+    seen: set[str] = set()
+
+    def _add(name: str) -> None:
+        token = str(name or "").strip()
+        if token and token not in seen:
+            seen.add(token)
+            ordered.append(token)
+
+    _add(correlate)
+    for group in group_by:
+        _add(_alias(group))
+    output_map = {"user": "user", "host": "host", "src_ip": "src_ip", "domain": "domain"}
+    for output_name, field_name in output_map.items():
+        if output_name in (spec.get("required_outputs") or []):
+            _add(_alias(field_name))
+    for alias in alias_by_field.values():
+        _add(str(alias))
+    return ordered or [correlate]
+
+
+def _compile_process_parent_child(
+    *,
+    spec: dict[str, Any],
+    search_line: str,
+    eval_parts: list[str],
+    alias_by_field: dict[str, str],
+    group_by: list[str],
+    _alias: Callable[[str], str],
+) -> str:
+    extras = list(eval_parts)
+    outputs = {str(item) for item in (spec.get("required_outputs") or [])}
+    if "host" in outputs or "host" in group_by:
+        if "host_norm" not in alias_by_field.values():
+            extras.append(
+                'host_norm=lower(coalesce(dest_host, dest, dvc, host, ComputerName, "unknown"))'
+            )
+            alias_by_field["host"] = "host_norm"
+    extras.append('parent_process=coalesce(ParentImage, Parent_Process_Name, "unknown")')
+    extras.append('child_process=coalesce(Image, New_Process_Name, process, "unknown")')
+    extras.append('command_line=coalesce(CommandLine, process, "unknown")')
+    names = list(group_by) if group_by else ["host", "user"]
+    if "host" in outputs and "host" not in names:
+        names.append("host")
+    if "user" in outputs and "user" not in names:
+        names.append("user")
+    by_fields: list[str] = []
+    seen: set[str] = set()
+    for group in names:
+        aliased = alias_by_field.get(group) or _alias(group)
+        if aliased and aliased not in seen:
+            seen.add(aliased)
+            by_fields.append(aliased)
+    for alias in alias_by_field.values():
+        token = str(alias)
+        if token and token not in seen:
+            seen.add(token)
+            by_fields.append(token)
+    if not by_fields:
+        by_fields = ["host_norm", "user_norm"]
+    stats_bits = [
+        "earliest(_time) as first_seen_epoch",
+        "latest(_time) as last_seen_epoch",
+        "values(parent_process) as parent_process",
+        "values(child_process) as child_process",
+        "values(command_line) as command_line",
+    ]
+    parts = [search_line, f"| eval {', '.join(extras)}"]
+    parts.append(f"| stats {' '.join(stats_bits)} by {', '.join(by_fields)}")
+    parts.append(
+        '| eval first_seen=strftime(first_seen_epoch, "%Y-%m-%d %H:%M:%S"), '
+        'last_seen=strftime(last_seen_epoch, "%Y-%m-%d %H:%M:%S") '
+        "| fields - first_seen_epoch last_seen_epoch"
+    )
+    return re.sub(r"\s+", " ", " ".join(parts)).strip()
 
 
 def _gap_seconds(token: str) -> int:
