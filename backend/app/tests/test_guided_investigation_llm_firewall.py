@@ -163,8 +163,10 @@ def test_firewall_guided_llm_timeout_degraded(monkeypatch: pytest.MonkeyPatch) -
     text = str(payload.get("message") or "") + str(
         (payload.get("analyst_response") or {}).get("direct_answer_summary") or ""
     )
-    assert "Guided investigation requires the local LLM planner" in text
-    assert "No live telemetry was queried" in text
+    assert "The guided planning step timed out before completion" in text
+    assert "No telemetry was queried" in text
+    assert "AI_SOC_GUIDED_LLM_TIMEOUT_SECONDS" not in text
+    assert "url_error:timeout" not in text
     rc = payload.get("run_contract") or {}
     assert rc.get("mcp_allowed") is False
     assert rc.get("execution_authorized") is False

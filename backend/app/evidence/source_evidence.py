@@ -83,6 +83,7 @@ def build_source_evidence(
         soc_kb_retrieval is not None
         and soc_kb_retrieval.get("retrieval_status") != "disabled"
         and not soc_kb_retrieval.get("rag_skipped_for_spl_utility_authoring")
+        and not soc_kb_retrieval.get("rag_skipped_awaiting_investigation_approval")
     ):
         kb_item = soc_kb_source_evidence(trace_id, query, soc_kb_retrieval)
         kb_item.setdefault("plan_step_ref", "rag")

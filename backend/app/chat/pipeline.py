@@ -317,9 +317,14 @@ from app.chat.guided_hybrid_refinement import (
 from app.planner.resource_plan_execution import build_execution_contract
 from app.chat.guided_hybrid_dispatch import uses_guided_hybrid_dispatch_from_state
 from app.chat.guided_hybrid_collection import collect_guided_hybrid_evidence
+from app.chat.awaiting_investigation_plan_gate import (
+    is_awaiting_investigation_approval,
+    skipped_soc_kb_awaiting_approval_payload,
+)
 from app.chat.guided_investigation_synthesizer import (
     build_guided_llm_degraded_message,
     build_guided_llm_trace,
+    guided_llm_required_for_path,
     resolve_guided_composer_timeout,
 )
 from app.chat.guided_step_sanitizer import filter_analyst_facing_steps
@@ -3391,6 +3396,11 @@ def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
     query_text = state.get("effective_query") or request.message
     query_understanding = state.get("query_understanding")
     utility_signals = extract_query_signals(query_text, query_understanding)
+    if is_awaiting_investigation_approval(state):
+        return advance_dispatch_cursor(
+            {**state, "soc_kb_retrieval": skipped_soc_kb_awaiting_approval_payload()},
+            PipelineStage.rag_early,
+        )
     if is_universal_utility_spl_authoring(query_text, utility_signals) or _is_deterministic_spl_utility_authoring(
         query_text,
         query_understanding=query_understanding,
@@ -3824,6 +3834,15 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     close_dispatch_and_retrieval_phase()
     emit_stage("mapping_mitre")
     state = _ensure_context_finalize_state(state)
+    # HIL boundary: awaiting investigation-plan approval must not run material
+    # investigation packaging (RAG collection, InvestigationOutcome, live lab
+    # narration). Justify pipeline touch: this is the sole packaging path for
+    # both imperative and ResourcePlanner-graph finalize.
+    _awaiting_investigation_hil = is_awaiting_investigation_approval(state)
+    # Always overwrite — rag_early may already have material retrieval from
+    # before the HIL stop. Pre-approval packaging must not consume it.
+    if _awaiting_investigation_hil:
+        state = {**state, "soc_kb_retrieval": skipped_soc_kb_awaiting_approval_payload()}
     request = state["request"]
     routed = state["routed"]
     trace_id = state["trace_id"]
@@ -3859,6 +3878,14 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         if isinstance(state.get("reference_resolution"), dict)
         else None,
     )
+    if _awaiting_investigation_hil:
+        # Material evidence packaging is post-approval only.
+        source_evidence = []
+        structured_context = {
+            **(structured_context if isinstance(structured_context, dict) else {}),
+            "structured_facts": [],
+            "source_evidence_ids": [],
+        }
     if not isinstance(state.get("soc_kb_retrieval"), dict):
         utility_signals = extract_query_signals(state.get("effective_query") or request.message)
         if is_universal_utility_spl_authoring(state.get("effective_query") or request.message, utility_signals):
@@ -4127,6 +4154,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         evidence_plan=state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else None,
         context_sufficiency=context_sufficiency if isinstance(context_sufficiency, dict) else None,
     )
+    if _awaiting_investigation_hil:
+        # Pre-approval: InvestigationOutcome is post-evidence packaging — absent.
+        _io_applicable = False
     if _io_applicable:
         investigation_outcome = derive_investigation_outcome(
             trace_id=trace_id,
@@ -4159,6 +4189,23 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     emit_stage("generating_answer")
     close_post_planning_pipeline_phase()
     _skip_registry_warnings, _skip_catalog_row = _composer_skip_registry_context(state)
+    # Guided planner owns the narration hop when required; do not let synthesis
+    # lab consume it first (that produced synthesis_lab_already_narrated and a
+    # false "planner unavailable" degrade). Also skip live narration while the
+    # investigation plan is awaiting approval.
+    _planning_decision_early = (
+        state.get("planning_decision") if isinstance(state.get("planning_decision"), dict) else {}
+    )
+    _path_type_early = _planning_decision_early.get("path_type")
+    if is_guided_investigation_route(
+        routed_skill=_effective_routing_skill(state),
+        path_type=_path_type_early if isinstance(_path_type_early, str) else None,
+    ):
+        _path_type_early = "guided_investigation"
+    _guided_owns_narration = guided_llm_required_for_path(
+        _path_type_early if isinstance(_path_type_early, str) else None
+    )
+    _allow_lab_live_narration = not _awaiting_investigation_hil and not _guided_owns_narration
     synthesis_lab = run_governed_synthesis_lab(
         structured_context=structured_context,
         source_evidence=source_evidence,
@@ -4190,6 +4237,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             if isinstance(state.get("resolved_query_contract"), dict)
             else None,
         },
+        allow_live_narration=_allow_lab_live_narration,
     )
     synthesis_status = synthesis_lab.status
     context_sufficiency = apply_synthesis_allowed_to_sufficiency(
@@ -5679,33 +5727,35 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
                 }
             )
     if path_type == "guided_investigation" and composer_trace.get("guided_llm_degraded_fallback"):
-        evidence_plan_payload = (
-            state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
-        )
-        checklist = list(evidence_plan_payload.get("checklist") or [])
-        degraded_message = build_guided_llm_degraded_message(
-            checklist=checklist,
-            failure_reason=composer_trace.get("guided_llm_failure_reason"),
-        )
-        message = degraded_message
-        if analyst_response is not None:
-            filtered_steps = filter_analyst_facing_steps(
-                list(analyst_response.investigation_steps or checklist)
+        # Never overwrite the investigation-plan HIL message with a guided degrade.
+        if not is_awaiting_investigation_approval(state):
+            evidence_plan_payload = (
+                state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
             )
-            analyst_response = analyst_response.model_copy(
-                update={
-                    "direct_answer_summary": degraded_message[:2000],
-                    "one_sentence_finding": degraded_message[:500],
-                    "investigation_steps": filtered_steps,
-                    "recommended_actions": filtered_steps[:8],
-                    "analyst_checklist": filtered_steps[:8],
-                    "severity_label": None,
-                    "review_notice": (
-                        "Guided LLM planner unavailable — deterministic checklist only; "
-                        "no live telemetry was queried."
-                    ),
-                }
+            checklist = list(evidence_plan_payload.get("checklist") or [])
+            degraded_message = build_guided_llm_degraded_message(
+                checklist=checklist,
+                failure_reason=composer_trace.get("guided_llm_failure_reason"),
             )
+            message = degraded_message
+            if analyst_response is not None:
+                filtered_steps = filter_analyst_facing_steps(
+                    list(analyst_response.investigation_steps or checklist)
+                )
+                analyst_response = analyst_response.model_copy(
+                    update={
+                        "direct_answer_summary": degraded_message[:2000],
+                        "one_sentence_finding": degraded_message[:500],
+                        "investigation_steps": filtered_steps,
+                        "recommended_actions": filtered_steps[:8],
+                        "analyst_checklist": filtered_steps[:8],
+                        "severity_label": None,
+                        "review_notice": (
+                            "Guided planning could not complete — deterministic checklist only; "
+                            "no live telemetry was queried."
+                        ),
+                    }
+                )
     from app.chat.coe_checklist_repair import repair_duplicate_soc_review_checklist
 
     analyst_response, message = repair_duplicate_soc_review_checklist(
@@ -5758,6 +5808,19 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     )
     if investigation_approval and investigation_approval.get("safe_message"):
         message = str(investigation_approval["safe_message"])
+    # Pre-approval packaging contract: plan + Approve/Edit/Cancel only.
+    _awaiting_pack = is_awaiting_investigation_approval(state)
+    if _awaiting_pack:
+        analyst_response = None
+        analyst_summary_from_lab = None
+        proposed_actions = None
+        source_evidence = []
+        state = {
+            **state,
+            "investigation_outcome": None,
+            "email_draft": None,
+            "remediation_execution": None,
+        }
     response = PlaceholderResponse(
         trace_id=trace_id,
         user_query=request.message,

@@ -72,6 +72,7 @@ def run_governed_synthesis_lab(
     evidence_state: dict[str, Any] | None = None,
     evidence_sufficiency: dict[str, Any] | None = None,
     route_plan_summary: dict[str, Any] | None = None,
+    allow_live_narration: bool = True,
 ) -> SynthesisLabResult:
     if not settings.ai_soc_llm_final_synthesis_enabled:
         return SynthesisLabResult(
@@ -157,7 +158,13 @@ def run_governed_synthesis_lab(
     # Live narration: the model rewrites ONLY the analyst-summary prose from the
     # governed package; all structured facts stay deterministic. Any failure
     # keeps the deterministic summary, so a live model never breaks the answer.
-    if settings.ai_soc_llm_live_synthesis_enabled and mode in _LAB_READY_MODES:
+    # Callers may set allow_live_narration=False when another hop owns the turn
+    # (guided planner) or when the turn must stop at investigation-plan HIL.
+    if (
+        allow_live_narration
+        and settings.ai_soc_llm_live_synthesis_enabled
+        and mode in _LAB_READY_MODES
+    ):
         skip_narration, skip_reason = should_skip_sidecar(
             match_path=match_path,
             promotion_lifecycle_summary=promotion_lifecycle_summary,

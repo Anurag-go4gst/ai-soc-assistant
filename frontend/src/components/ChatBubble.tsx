@@ -78,6 +78,15 @@ interface ChatBubbleProps {
   onCoordinationSkip?: (progressId: string) => void;
 }
 
+const _AWAITING_APPROVAL = new Set(['awaiting_approval', 'edited_awaiting_approval']);
+
+/** Defence-in-depth: hide post-execution cards while plan HIL is awaiting approval. */
+function isAwaitingInvestigationApproval(trace: PlaceholderResponse | null | undefined): boolean {
+  const status = String(trace?.investigation_approval?.status || '').trim();
+  if (_AWAITING_APPROVAL.has(status)) return true;
+  return String(trace?.planning_outcome?.status || '').trim() === 'awaiting_investigation_plan';
+}
+
 export function ChatBubble({ message, investigationBusy = false, onExecutionReview, onInvestigationReview, onRemediationReview, onRetryFinalSynthesis, onCoordinationConfirm, onCoordinationSkip }: ChatBubbleProps) {
   const isUser = message.role === 'user';
   const showProgress = !isUser && message.displayStage === 'progress' && message.investigationProgress;
@@ -174,7 +183,9 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
             onReview={onInvestigationReview}
           />
         ) : null}
-        {showFullAnswer && message.trace?.analyst_response ? (
+        {showFullAnswer &&
+        message.trace?.analyst_response &&
+        !isAwaitingInvestigationApproval(message.trace) ? (
           <div className="w-full min-w-0 space-y-2">
             {message.trace.human_review?.sop_reference ? (
               <div className="max-w-[72ch] rounded-lg border border-cyan-500/25 bg-cyan-500/[0.06] px-3 py-2 text-xs text-cyan-100">
@@ -188,23 +199,29 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
             />
           </div>
         ) : null}
-        {showFullAnswer && message.trace?.execution ? (
+        {showFullAnswer && message.trace?.execution && !isAwaitingInvestigationApproval(message.trace) ? (
           <ExecutionReconciliationCard execution={message.trace.execution} />
         ) : null}
-        {showFullAnswer && message.trace?.investigation_outcome?.investigation_status ? (
+        {showFullAnswer &&
+        message.trace?.investigation_outcome?.investigation_status &&
+        !isAwaitingInvestigationApproval(message.trace) ? (
           <InvestigationOutcomeCard
             outcome={message.trace.investigation_outcome}
             progress={message.trace.investigation_progress}
             runStatus={message.trace.investigation_run_status}
           />
         ) : null}
-        {showFullAnswer && requestedConditionalActions.length ? (
+        {showFullAnswer &&
+        requestedConditionalActions.length &&
+        !isAwaitingInvestigationApproval(message.trace) ? (
           <ConditionalRequestedActionsCard actions={requestedConditionalActions} />
         ) : null}
-        {showFullAnswer && message.trace?.email_draft ? (
+        {showFullAnswer && message.trace?.email_draft && !isAwaitingInvestigationApproval(message.trace) ? (
           <GovernedEmailDraftCard draft={message.trace.email_draft} />
         ) : null}
-        {showFullAnswer && message.trace?.remediation_approval ? (
+        {showFullAnswer &&
+        message.trace?.remediation_approval &&
+        !isAwaitingInvestigationApproval(message.trace) ? (
           <RemediationPlanApprovalCard
             approval={message.trace.remediation_approval}
             busy={investigationBusy}
@@ -273,7 +290,7 @@ export function ChatBubble({ message, investigationBusy = false, onExecutionRevi
             </div>
           </details>
         ) : null}
-        {showFullAnswer && message.trace ? (
+        {showFullAnswer && message.trace && !isAwaitingInvestigationApproval(message.trace) ? (
           <details className="group rounded-lg border border-slate-800/70 bg-slate-950/40">
             <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-400 transition hover:text-cyan-200">
               <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />

@@ -290,7 +290,20 @@ def SOURCE_TYPE_CLEANUP(values: list[str]) -> list[str]:
 def _event_types(query: str) -> list[str]:
     normalized = query.lower()
     types = []
-    if "failure" in normalized or "failed login" in normalized:
+    # Preserve failed-auth semantics for phrasing like "failed SSH logins",
+    # "25 failed logins", and "authentication failures" — not only the literal
+    # "failed login" / "failure" tokens.
+    auth_failure = (
+        "failure" in normalized
+        or "failed login" in normalized
+        or "failed logins" in normalized
+        or "failed ssh" in normalized
+        or "failed authentication" in normalized
+        or "authentication failure" in normalized
+        or "authentication failures" in normalized
+        or ("failed" in normalized and any(tok in normalized for tok in ("ssh", "login", "logon", "auth")))
+    )
+    if auth_failure:
         types.append("authentication_failure")
     if "success" in normalized or "successful login" in normalized:
         types.append("authentication_success")
