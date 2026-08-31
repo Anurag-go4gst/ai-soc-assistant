@@ -292,6 +292,21 @@ def validate_semantic_fidelity(
             else:
                 losses.append("sequence_gap_missing")
                 repair_feedback.append("semantic_loss:sequence_gap_missing")
+        analytical = spec.get("analytical_window") if isinstance(spec.get("analytical_window"), dict) else {}
+        agg_window = str(analytical.get("size") or "").strip().lower()
+        if analytical.get("kind") == "sequence" and agg_window and agg_window != str(spec.get("sequence_max_gap") or "").strip().lower():
+            if agg_window in lowered.replace(" ", "") or f"time_window={agg_window}" in lowered.replace(" ", ""):
+                preserved.append("sequence_aggregation_window")
+            else:
+                losses.append("sequence_aggregation_window_missing")
+                repair_feedback.append("semantic_loss:sequence_aggregation_window_missing")
+        correlate = []
+        roles_for_seq = spec.get("entity_roles") if isinstance(spec.get("entity_roles"), dict) else {}
+        correlate.extend(str(item) for item in (roles_for_seq.get("correlate_by") or []))
+        correlate.extend(str(item) for item in (spec.get("group_by") or []))
+        if "src_ip" in correlate and not re.search(r"\bby\b[^|\n]*src_ip", lowered):
+            losses.append("same_source_correlation_missing")
+            repair_feedback.append("semantic_loss:same_source_correlation_missing")
 
     if shape == "trend":
         grain = str(spec.get("temporal_grain") or "")
@@ -414,10 +429,21 @@ def validate_semantic_fidelity(
         "parent_process": ("parent", "parentimage", "parent_process"),
         "child_process": ("powershell", "image", "child", "new_process_name"),
         "failure_count": ("failure_count",),
+        "first_failure_time": ("first_failure", "first_match", "min(first_failure"),
         "success_time": ("success_time", "last_match"),
+        "event_count": ("event_count", "count as event_count"),
+        "connection_count": ("connection_count", "count as connection_count"),
     }
     for output_name in spec.get("required_outputs") or []:
         aliases = output_aliases.get(str(output_name), (str(output_name),))
+        if str(output_name) in {"event_count", "connection_count"}:
+            has_count = bool(re.search(r"\bcount\s+as\s+\w+", lowered)) or "event_count" in lowered or "connection_count" in lowered
+            if has_count:
+                preserved.append(f"output:{output_name}")
+            else:
+                losses.append(f"output_missing:{output_name}")
+                repair_feedback.append(f"semantic_loss:output_missing:{output_name}")
+            continue
         if any(alias.lower() in lowered for alias in aliases):
             preserved.append(f"output:{output_name}")
         else:
@@ -449,6 +475,11 @@ def validate_semantic_fidelity(
             if str(item).lower().replace(".exe", "") not in lowered:
                 losses.append("process_parent_missing")
                 repair_feedback.append(f"semantic_loss:process_parent_missing:{item}")
+        if parent and child:
+            relation_tokens = ("parentimage", "parent_process", "parent_process_name")
+            if not any(token in lowered.replace(" ", "") for token in relation_tokens):
+                losses.append("parent_child_relation_missing")
+                repair_feedback.append("semantic_loss:parent_child_relation_missing")
 
     if spec.get("support_status") == "unsupported":
         losses.append(str(spec.get("degrade_reason") or "unsupported_analysis_shape"))

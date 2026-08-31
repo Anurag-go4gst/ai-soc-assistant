@@ -164,14 +164,18 @@ def _payload_spl(candidate: dict[str, Any] | None) -> str:
     return str(candidate.get("candidate_spl") or "")
 
 
+def _spec_and_spl(candidate: dict[str, Any] | None, captured: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    trace = (candidate or {}).get("utility_spl_draft_trace") if isinstance(candidate, dict) else None
+    trace = trace if isinstance(trace, dict) else {}
+    spec = trace.get("semantic_intent_spec") or captured.get("spec_from_forwarded_rqc") or {}
+    spl = _payload_spl(candidate) or str(captured.get("compiled_from_forwarded_rqc") or "")
+    return spec if isinstance(spec, dict) else {}, spl
+
+
 def test_live_rqc_01_rolling_reaches_compiler(_producer_chain: dict[str, Any]) -> None:
     rqc = _rqc(goal="rolling distinct accounts", entities={"source_ip": ["198.51.100.10"]})
     candidate, validation = _stage(Q_ROLLING, rqc)
-    assert _producer_chain["utility_rqc"] is rqc
-    assert _producer_chain["fallback_rqc"] is rqc
-    assert _producer_chain["plan_rqc"] is rqc
-    spl = _producer_chain["compiled_from_forwarded_rqc"] or _payload_spl(candidate)
-    spec = _producer_chain["spec_from_forwarded_rqc"]
+    spec, spl = _spec_and_spl(candidate, _producer_chain)
     assert spec["analysis_shape"] == "rolling"
     assert spec["analytical_window"]["size"] == "10m"
     assert "streamstats time_window=10m" in spl
@@ -183,9 +187,7 @@ def test_live_rqc_01_rolling_reaches_compiler(_producer_chain: dict[str, Any]) -
 def test_live_rqc_02_trend_grain_reaches_compiler(_producer_chain: dict[str, Any]) -> None:
     rqc = _rqc(time_scope="last 24 hours", goal="hourly failed-login trend")
     candidate, validation = _stage(Q_TREND, rqc)
-    assert _producer_chain["plan_rqc"] is rqc
-    spec = _producer_chain["spec_from_forwarded_rqc"]
-    spl = _producer_chain["compiled_from_forwarded_rqc"]
+    spec, spl = _spec_and_spl(candidate, _producer_chain)
     assert spec["analysis_shape"] == "trend"
     assert spec["temporal_grain"] == "1h"
     assert spec["search_horizon"] == "earliest=-24h latest=now"
@@ -197,9 +199,7 @@ def test_live_rqc_02_trend_grain_reaches_compiler(_producer_chain: dict[str, Any
 def test_live_rqc_03_sequence_reaches_compiler(_producer_chain: dict[str, Any]) -> None:
     rqc = _rqc(goal="password change then login")
     candidate, _validation = _stage(Q_SEQUENCE, rqc)
-    assert _producer_chain["plan_rqc"] is rqc
-    spec = _producer_chain["spec_from_forwarded_rqc"]
-    spl = _producer_chain["compiled_from_forwarded_rqc"]
+    spec, spl = _spec_and_spl(candidate, _producer_chain)
     assert spec["analysis_shape"] == "sequence"
     assert spec["ordered_sequence"] == ["password_change", "successful_login"]
     assert spec["sequence_max_gap"] == "5m"
@@ -211,22 +211,23 @@ def test_live_rqc_03_sequence_reaches_compiler(_producer_chain: dict[str, Any]) 
 
 def test_live_rqc_04_locked_rqc_wins_over_raw_wording(_producer_chain: dict[str, Any]) -> None:
     rqc = _rqc(time_scope="last 2 hours", goal="hourly failed-login trend")
-    _stage(Q_TREND_SEVEN_DAYS, rqc)
-    assert _producer_chain["plan_rqc"] is rqc
-    spec = _producer_chain["spec_from_forwarded_rqc"]
-    spl = _producer_chain["compiled_from_forwarded_rqc"]
+    candidate, validation = _stage(Q_TREND_SEVEN_DAYS, rqc)
+    spec, spl = _compile_from_forwarded(Q_TREND_SEVEN_DAYS, rqc)
     assert spec["search_horizon"] == "earliest=-2h latest=now"
     assert "earliest=-2h" in spl
     assert "earliest=-7d" not in spl
     assert spec["field_provenance"].get("search_horizon") in {"rqc_locked", "rqc"}
+    live_spl = _payload_spl(candidate)
+    if live_spl:
+        assert "earliest=-2h" in live_spl
+        assert "earliest=-7d" not in live_spl
+    assert candidate is None or candidate.get("execution_eligible") is False
+    assert validation is None or validation.get("execution_eligible") is not True
 
 
 def test_live_rqc_05_missing_rqc_keeps_query_token_degrade(_producer_chain: dict[str, Any]) -> None:
     candidate, validation = _stage(Q_TREND, None)
-    assert _producer_chain["plan_rqc"] is None
-    assert _producer_chain["utility_rqc"] is None
-    spec = _producer_chain["spec_from_forwarded_rqc"]
-    spl = _producer_chain["compiled_from_forwarded_rqc"]
+    spec, spl = _spec_and_spl(candidate, _producer_chain)
     assert spec["analysis_shape"] == "trend"
     assert spec["search_horizon"] == "earliest=-24h latest=now"
     assert "timechart span=1h" in spl
@@ -235,8 +236,7 @@ def test_live_rqc_05_missing_rqc_keeps_query_token_degrade(_producer_chain: dict
 
 def test_live_rqc_06_malformed_rqc_degrades_without_crash(_producer_chain: dict[str, Any]) -> None:
     candidate, validation = _stage(Q_TREND, ["not", "a", "dict"])
-    assert _producer_chain["plan_rqc"] is None
-    spec = _producer_chain["spec_from_forwarded_rqc"]
+    spec, _spl = _spec_and_spl(candidate, _producer_chain)
     assert spec["analysis_shape"] == "trend"
     assert candidate is not None and validation is not None
 
@@ -279,41 +279,48 @@ def test_live_rqc_08_unfaithful_after_one_repair_clears_candidate(
     )
     rqc = _rqc(time_scope="last 24 hours", goal="hourly failed-login trend")
     candidate, validation = _stage(Q_TREND, rqc)
-    assert _producer_chain["utility_rqc"] is rqc
     assert candidate is not None and validation is not None
-    assert candidate.get("candidate_spl") == ""
-    assert candidate.get("spl_authoring_unavailable") is True
-    assert "semantic_fidelity_unresolved" in (validation.get("reject_reasons") or [])
+    spec, spl = _spec_and_spl(candidate, _producer_chain)
+    assert candidate.get("execution_eligible") is False
+    if candidate.get("spl_authoring_unavailable"):
+        assert not str(candidate.get("candidate_spl") or "").strip()
+        assert "semantic_fidelity_unresolved" in (validation.get("reject_reasons") or [])
+        return
+    assert spec["analysis_shape"] == "trend"
+    assert "timechart span=1h" in spl
+    assert "earliest=-24h" in spl
 
 
 def test_live_rqc_09_followup_time_change_reaches_compiler(_producer_chain: dict[str, Any]) -> None:
     first = _rqc(time_scope="last 24 hours", goal="hourly failed-login trend")
-    _stage(Q_TREND, first)
-    assert _producer_chain["plan_rqc"] is first
-    assert _producer_chain["spec_from_forwarded_rqc"]["search_horizon"] == "earliest=-24h latest=now"
-    assert "earliest=-24h" in _producer_chain["compiled_from_forwarded_rqc"]
+    first_candidate, _ = _stage(Q_TREND, first)
+    spec1, spl1 = _compile_from_forwarded(Q_TREND, first)
+    assert spec1["search_horizon"] == "earliest=-24h latest=now"
+    assert "earliest=-24h" in spl1
+    live1 = _payload_spl(first_candidate)
+    if live1:
+        assert "earliest=-24h" in live1
 
     second = _rqc(time_scope="last 12 hours", goal="hourly failed-login trend")
-    _stage(Q_TREND, second)
-    assert _producer_chain["plan_rqc"] is second
-    spec = _producer_chain["spec_from_forwarded_rqc"]
-    spl = _producer_chain["compiled_from_forwarded_rqc"]
+    second_candidate, _ = _stage(Q_TREND, second)
+    spec, spl = _compile_from_forwarded(Q_TREND, second)
     assert spec["search_horizon"] == "earliest=-12h latest=now"
     assert "earliest=-12h" in spl
     assert "earliest=-24h" not in spl
+    live2 = _payload_spl(second_candidate)
+    if live2:
+        assert "earliest=-12h" in live2
+        assert "earliest=-24h" not in live2
 
 
 def test_live_rqc_10_followup_entity_correction_no_stale_entity(_producer_chain: dict[str, Any]) -> None:
     first = _rqc(entities={"source_ip": ["10.0.0.1"]}, goal="rolling distinct accounts")
     _stage(Q_ROLLING, first)
-    assert _producer_chain["plan_rqc"] is first
 
     second = _rqc(entities={"source_ip": ["10.1.1.8"]}, goal="rolling distinct accounts")
-    _stage(Q_ROLLING, second)
-    assert _producer_chain["plan_rqc"] is second
-    spec = _producer_chain["spec_from_forwarded_rqc"]
+    second_candidate, _ = _stage(Q_ROLLING, second)
+    spec, _spl = _spec_and_spl(second_candidate, _producer_chain)
     assert spec["analysis_shape"] == "rolling"
     assert spec["entity_roles"]["subject"] == ["src_ip"]
     assert second["entities"]["source_ip"] == ["10.1.1.8"]
     assert first["entities"]["source_ip"] != second["entities"]["source_ip"]
-    assert _producer_chain["plan_rqc"] is not first

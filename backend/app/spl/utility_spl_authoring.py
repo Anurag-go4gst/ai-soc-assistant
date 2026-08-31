@@ -531,6 +531,7 @@ def candidate_from_universal_utility_authoring(
     postprocessor_trace: dict[str, Any] = {}
     postprocessor_warnings: list[str] = []
     final_spl = skeleton_spl
+    fidelity_result: dict[str, Any] | None = None
 
     def _apply_candidate(raw_spl: str, *, llm_generated: bool) -> str:
         nonlocal postprocessor_trace, postprocessor_warnings
@@ -674,6 +675,29 @@ def candidate_from_universal_utility_authoring(
                     final_spl = ""
                     validator_result = skeleton_validation
                     fidelity_result = skeleton_fidelity
+
+    if (
+        str(intent_spec.get("support_status") or "") == "supported"
+        and not intent_spec.get("unresolved_required_fields")
+        and (
+            not str(final_spl or "").strip()
+            or (fidelity_result is not None and not fidelity_result.get("passed"))
+        )
+    ):
+        compiled = compile_intent_spec_to_spl(intent_spec)
+        if compiled.strip():
+            compiled_applied = _apply_candidate(compiled, llm_generated=False)
+            compiled_validation = _validate_review_only_candidate(compiled_applied)
+            compiled_fidelity = validate_semantic_fidelity(intent_spec, compiled_applied)
+            spl_draft_trace["semantic_fidelity_compiler"] = compiled_fidelity
+            if compiled_fidelity.get("passed"):
+                spl_draft_trace["deterministic_skeleton_used"] = False
+                spl_draft_trace["deterministic_compiler_used"] = True
+                spl_draft_trace["compiler_rescued_unfaithful_or_failed_llm"] = True
+                final_raw_spl_source = "deterministic_compiler"
+                final_spl = compiled_applied
+                validator_result = compiled_validation
+                fidelity_result = compiled_fidelity
 
     unavailable = False
     unavailable_reason: str | None = None

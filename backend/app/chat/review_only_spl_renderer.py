@@ -316,9 +316,42 @@ def _spl_artifact_handoff_trace_lines(handoff: dict[str, Any] | None) -> list[st
     return lines
 
 SPL_AUTHORING_ABSTENTION_MESSAGE = (
-    "Draft not produced because the generated SPL did not pass authoring "
-    "validation. No query was executed."
+    "Draft not produced because the generated query could not be compiled "
+    "faithfully from the requested semantics. No query was executed."
 )
+
+_LOSS_ANALYST_REASONS: tuple[tuple[str, str], ...] = (
+    ("output_missing:event_count", "the generated query omitted the requested event count"),
+    ("output_missing:connection_count", "the generated query omitted the requested connection count"),
+    ("output_missing:failure_count", "the generated query omitted the requested failed-login count"),
+    ("output_missing:first_failure_time", "the generated query omitted the requested first-failure time"),
+    ("output_missing:success_time", "the generated query omitted the requested successful-login time"),
+    ("baseline_data_unreachable", "the generated query did not include the requested preceding baseline period"),
+    ("baseline_window_missing", "the generated query did not include the requested preceding baseline period"),
+    ("same_source_correlation_missing", "the generated query did not preserve the requested same-source-IP sequence"),
+    ("sequence_ordering_missing", "the generated query did not preserve the requested event sequence"),
+    ("sequence_gap_missing", "the generated query did not preserve the requested sequence timing"),
+    ("parent_child_relation_missing", "the generated query did not preserve the requested parent-to-child process relationship"),
+    ("unresolved_field_mapping", "no approved mapping exists for a requested organization-specific field"),
+    ("unresolved_required_fields", "no approved mapping exists for a requested organization-specific field"),
+)
+
+
+def analyst_authoring_abstention_message(candidate_spl: dict[str, Any] | None = None) -> str:
+    """Analyst-facing abstention copy — useful, no internal stage codes."""
+    trace = (candidate_spl or {}).get("utility_spl_draft_trace") if isinstance(candidate_spl, dict) else None
+    trace = trace if isinstance(trace, dict) else {}
+    losses = [str(item) for item in (trace.get("lost_semantics") or [])]
+    for prefix, reason in _LOSS_ANALYST_REASONS:
+        if any(item == prefix or item.startswith(prefix) for item in losses):
+            return f"Draft not produced because {reason}. No query was executed."
+    degrade = str((trace.get("semantic_intent_spec") or {}).get("degrade_reason") or "")
+    if "unresolved" in degrade:
+        return (
+            "Draft not produced because no approved mapping exists for a requested "
+            "organization-specific field. No query was executed."
+        )
+    return SPL_AUTHORING_ABSTENTION_MESSAGE
 _UNIVERSAL_UTILITY_TITLE = "Review-only universal SPL draft. This was not executed."
 _UNIVERSAL_UTILITY_FAMILY = "universal_timestamp_spl"
 _USER_BOUND_UTILITY_FAMILY = "user_bound_spl_authoring"
@@ -435,6 +468,39 @@ def render_user_bound_spl_utility_answer(
     return "\n".join(lines).strip()
 
 
+_UTILITY_CARD_CLEARS: dict[str, Any] = {
+    "scenario_label": None,
+    "response_profile": "spl_only",
+    "investigation_steps": [],
+    "recommended_actions": [],
+    "initial_assessment": [],
+    "analyst_checklist": [],
+    "required_evidence": [],
+    "missing_evidence": [],
+    "limitations": [],
+    "mitre_mappings": [],
+    "escalation_criteria": [],
+    "closure_conditions": [],
+    "severity_label": None,
+    "severity_rationale": None,
+    "severity_safety_note": None,
+    "spl_status_detail": None,
+    "spl_status": "review_required",
+    "one_sentence_finding": None,
+    "review_notice": None,
+    "render_sections": {
+        "spl_artifact": False,
+        "draft_spl_preview": False,
+        "live_results": False,
+        "mitre_mapping": False,
+        "not_claimed": False,
+        "policy_citation": False,
+        "investigation_guidance": False,
+        "limitations": False,
+    },
+}
+
+
 def render_review_only_spl_answer(
     *,
     analyst_response: Any,
@@ -453,7 +519,7 @@ def render_review_only_spl_answer(
     language, severity priority prefixes, or a competing title/review-type banner.
     """
     if isinstance(candidate_spl, dict) and candidate_spl.get("spl_authoring_unavailable"):
-        return SPL_AUTHORING_ABSTENTION_MESSAGE
+        return analyst_authoring_abstention_message(candidate_spl)
     if _is_universal_spl_utility(draft_preview, candidate_spl):
         return render_universal_spl_utility_answer(
             analyst_response=analyst_response,
@@ -583,19 +649,14 @@ def apply_review_only_spl_render(
             and isinstance(candidate_spl, dict)
             and candidate_spl.get("spl_authoring_unavailable")
         ):
-            composed = SPL_AUTHORING_ABSTENTION_MESSAGE
+            composed = analyst_authoring_abstention_message(candidate_spl)
             updates = {
+                **_UTILITY_CARD_CLEARS,
                 "finding_title": "Review-only SPL draft. This was not executed.",
-                "scenario_label": None,
-                "response_profile": "spl_only",
-                "investigation_steps": [],
-                "recommended_actions": [],
-                "initial_assessment": [],
-                "direct_answer_summary": SPL_AUTHORING_ABSTENTION_MESSAGE,
+                "direct_answer_summary": composed,
                 "spl_code": None,
                 "draft_spl_code": None,
                 "spl_draft_preview": None,
-                "spl_status_detail": None,
             }
             return analyst_response.model_copy(update=updates), composed
         if (
@@ -606,35 +667,14 @@ def apply_review_only_spl_render(
             return analyst_response, message
 
     if isinstance(candidate_spl, dict) and candidate_spl.get("spl_authoring_unavailable"):
-        composed = SPL_AUTHORING_ABSTENTION_MESSAGE
+        composed = analyst_authoring_abstention_message(candidate_spl)
         updates = {
+            **_UTILITY_CARD_CLEARS,
             "finding_title": "Review-only SPL draft. This was not executed.",
-            "scenario_label": None,
-            "response_profile": "spl_only",
-            "investigation_steps": [],
-            "recommended_actions": [],
-            "severity_label": None,
-            "severity_rationale": None,
-            "severity_safety_note": None,
-            "direct_answer_summary": SPL_AUTHORING_ABSTENTION_MESSAGE,
-            "one_sentence_finding": None,
-            "analyst_checklist": [],
-            "initial_assessment": [],
+            "direct_answer_summary": composed,
             "spl_code": None,
             "draft_spl_code": None,
             "spl_draft_preview": None,
-            "spl_status_detail": None,
-            "spl_status": "review_required",
-            "render_sections": {
-                "spl_artifact": False,
-                "draft_spl_preview": False,
-                "live_results": False,
-                "mitre_mapping": False,
-                "not_claimed": False,
-                "policy_citation": False,
-                "investigation_guidance": False,
-                "limitations": False,
-            },
         }
         return analyst_response.model_copy(update=updates), composed
 
@@ -693,6 +733,10 @@ def apply_review_only_spl_render(
             "one_sentence_finding": None,
             "analyst_checklist": [],
             "initial_assessment": [],
+            "required_evidence": [],
+            "missing_evidence": [],
+            "limitations": [],
+            "mitre_mappings": [],
             "spl_code": None,
             "draft_spl_code": utility_spl or None,
             "spl_draft_preview": None,

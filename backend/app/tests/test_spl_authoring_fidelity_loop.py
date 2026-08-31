@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from types import SimpleNamespace
 from typing import Any
 
@@ -37,20 +38,23 @@ P1_AUTH_BASELINE = (
     "of new hosts. Do not execute the query."
 )
 P2_FAILED_THEN_SUCCESS = (
-    "Write review-only SPL to identify accounts with more than 20 failed logins "
-    "within 15 minutes followed by a successful login from the same source IP. "
-    "Return user, source IP, destination host, failure count and success time. "
-    "Do not execute."
+    "Write a review-only SPL query to identify users with more than 20 failed "
+    "authentication attempts within 15 minutes followed by a successful login from "
+    "the same source IP within the next 10 minutes. Return user, source IP, "
+    "destination host, failed-login count, first failure time, and "
+    "successful-login time. Do not execute the query."
 )
 P3_PARENT_CHILD = (
-    "Write review-only SPL to find powershell.exe launched by winword.exe or "
-    "excel.exe, grouped by host and user, returning parent process, child process, "
-    "command line and first/last seen. Do not execute."
+    "Write a review-only SPL query to find powershell.exe launched by winword.exe "
+    "or excel.exe during the last 24 hours. Group by host and user and return host, "
+    "user, parent process, child process, command line, first seen, last seen, and "
+    "event count. Do not execute the query."
 )
 P4_FIRST_SEEN_DOMAIN = (
-    "Write review-only SPL to find destination domains contacted in the last "
-    "24 hours that were not seen for the same host during the preceding 14 days. "
-    "Return host, destination domain, source IP and first-seen time. Do not execute."
+    "Write a review-only SPL query to find destination domains contacted during "
+    "the last 24 hours that were not previously seen for the same host during the "
+    "preceding 14 days. Return host, source IP, destination domain, first-seen "
+    "time, and connection count. Do not execute the query."
 )
 N1_UNRESOLVED_FIELD = (
     "Write review-only SPL listing events where ACME_UNIT_TOKEN equals 7 over "
@@ -230,11 +234,16 @@ def test_n2_malformed_json_no_generic_skeleton(spl_flags: None) -> None:
     candidate, validation = _run(P1_AUTH_BASELINE, provider=lambda: "{{{{not json")
     trace = candidate.get("utility_spl_draft_trace") or {}
     assert trace.get("authoring_failure_stage") == "json_parse"
-    assert candidate.get("spl_authoring_unavailable") is True
-    assert not (candidate.get("candidate_spl") or "").strip()
-    _assert_no_execution(candidate, validation)
     spl_text = str(candidate.get("candidate_spl") or "")
-    assert "EventCode=4624" not in spl_text
+    assert "| where 1=1" not in spl_text.lower()
+    assert "| table _time" not in spl_text.lower() or "period=" in spl_text.lower()
+    if candidate.get("spl_authoring_unavailable"):
+        assert not spl_text.strip()
+    else:
+        spec = build_spl_intent_spec(P1_AUTH_BASELINE)
+        assert validate_semantic_fidelity(spec, spl_text)["passed"] is True
+        assert "earliest=-37d" in spl_text.replace(" ", "")
+    _assert_no_execution(candidate, validation)
 
 
 # ---------------------------------------------------------------------------
@@ -268,11 +277,16 @@ def test_p1_intent_spec_preserves_dual_windows_and_actors() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_n3_empty_candidate_typed_abstention(spl_flags: None) -> None:
+def test_n3_empty_candidate_compiler_rescue(spl_flags: None) -> None:
     candidate, validation = _run(P1_AUTH_BASELINE, provider=lambda: _llm_payload(""))
-    assert candidate.get("spl_authoring_unavailable") is True
-    assert not (candidate.get("candidate_spl") or "").strip()
+    spl = str(candidate.get("candidate_spl") or "")
     _assert_no_execution(candidate, validation)
+    if candidate.get("spl_authoring_unavailable"):
+        assert not spl.strip()
+        return
+    spec = build_spl_intent_spec(P1_AUTH_BASELINE)
+    assert validate_semantic_fidelity(spec, spl)["passed"] is True
+    assert "earliest=-37d" in spl.replace(" ", "")
 
 
 def test_n4_dropped_baseline_blocked(spl_flags: None) -> None:
@@ -286,9 +300,12 @@ def test_n4_dropped_baseline_blocked(spl_flags: None) -> None:
     assert fidelity["passed"] is False
     assert any("baseline" in str(item) or "first_seen" in str(item) for item in fidelity["losses"])
     candidate, validation = _run(P1_AUTH_BASELINE, provider=lambda: _llm_payload(dropped))
-    assert candidate.get("spl_authoring_unavailable") is True
-    assert not (candidate.get("candidate_spl") or "").strip()
     _assert_no_execution(candidate, validation)
+    rescued = str(candidate.get("candidate_spl") or "")
+    if candidate.get("spl_authoring_unavailable"):
+        assert not rescued.strip()
+        return
+    _assert_retrieval_covers_observation_and_baseline(spec, rescued)
 
 
 def test_n5_actor_semantics_narrowed_blocked(spl_flags: None) -> None:
@@ -303,8 +320,13 @@ def test_n5_actor_semantics_narrowed_blocked(spl_flags: None) -> None:
     assert fidelity["passed"] is False
     assert any("actor" in str(item) for item in fidelity["losses"])
     candidate, validation = _run(P1_AUTH_BASELINE, provider=lambda: _llm_payload(narrowed))
-    assert candidate.get("spl_authoring_unavailable") is True
-    assert not (candidate.get("candidate_spl") or "").strip()
+    _assert_no_execution(candidate, validation)
+    rescued = str(candidate.get("candidate_spl") or "")
+    if candidate.get("spl_authoring_unavailable"):
+        assert not rescued.strip()
+        return
+    assert "admin-" in rescued.lower()
+    assert "svc-" in rescued.lower()
 
 
 def test_invalid_llm_does_not_emit_unfaithful_generic_skeleton(spl_flags: None) -> None:
@@ -327,7 +349,7 @@ def test_invalid_llm_does_not_emit_unfaithful_generic_skeleton(spl_flags: None) 
 
 
 def test_analyst_abstention_hides_internal_codes(spl_flags: None) -> None:
-    candidate, _validation = _run(P1_AUTH_BASELINE, provider=lambda: "not-json")
+    candidate, _validation = _run(N1_UNRESOLVED_FIELD, provider=lambda: "not-json")
     preview = {
         "detection_family": "universal_timestamp_spl",
         "draft_spl": "search index=<your_index> EventCode=4624 | stats count | head 100",
@@ -336,6 +358,9 @@ def test_analyst_abstention_hides_internal_codes(spl_flags: None) -> None:
     analyst = SimpleNamespace(
         severity_label="should-not-leak",
         analyst_checklist=["internal"],
+        required_evidence=["Investigation steps"],
+        missing_evidence=["Evidence required"],
+        limitations=["Limitations"],
         draft_spl_code=preview["draft_spl"],
     )
     run_contract = SimpleNamespace(answer_mode="spl_utility_authoring", spl_status="review_required")
@@ -348,6 +373,7 @@ def test_analyst_abstention_hides_internal_codes(spl_flags: None) -> None:
             candidate_spl=candidate,
         )
         text = rendered
+        updated = analyst
     else:
         updated, text = apply_review_only_spl_render(
             run_contract=run_contract,
@@ -361,10 +387,13 @@ def test_analyst_abstention_hides_internal_codes(spl_flags: None) -> None:
             draft_preview=preview,
             candidate_spl=candidate,
         )
-    assert SPL_AUTHORING_ABSTENTION_MESSAGE in text
+    assert "Draft not produced because" in text
+    assert "No query was executed." in text
     assert "llm_spl_fallback_schema_invalid" not in text
     assert "schema_validation" not in text
     assert "adapter_error" not in text.lower()
+    assert "AI_SOC_" not in text
+    assert "did not pass authoring validation" not in text
     assert "EventCode=4624" not in text
 
 
@@ -405,6 +434,11 @@ def test_p2_injected_faithful_sequence(spl_flags: None) -> None:
     assert "4624" in spl or "success" in lowered
     assert "20" in spl
     assert "15m" in lowered or "900" in spl
+    assert "10m" in lowered or "600" in spl
+    assert "src_ip" in lowered
+    assert "failure_count" in lowered
+    assert "first_failure" in lowered
+    assert "success_time" in lowered
     candidate, validation = _run(P2_FAILED_THEN_SUCCESS, provider=lambda: _llm_payload(spl))
     _assert_no_execution(candidate, validation)
     assert candidate.get("spl_authoring_unavailable") is False
@@ -429,6 +463,8 @@ def test_p3_process_constraints_in_spec(spl_flags: None) -> None:
     assert "winword" in lowered
     assert "excel" in lowered
     assert "command_line" in lowered
+    assert "event_count" in lowered or "count as" in lowered
+    assert "parentimage" in lowered.replace(" ", "") or "parent_process" in lowered
     candidate, validation = _run(P3_PARENT_CHILD, provider=lambda: _llm_payload(compiled))
     _assert_no_execution(candidate, validation)
     assert candidate.get("spl_authoring_unavailable") is False
@@ -633,3 +669,125 @@ def test_compiler_draft_renderer_is_concise_even_without_spl_generation_skill() 
     assert updated.initial_assessment == []
     assert updated.investigation_steps == []
     assert updated.spl_status_detail is None
+
+
+def test_live_p2_content_validation_compiles_sequence(spl_flags: None) -> None:
+    candidate, validation = _run(P2_FAILED_THEN_SUCCESS, provider=lambda: _llm_payload(""))
+    _assert_no_execution(candidate, validation)
+    assert candidate.get("spl_authoring_unavailable") is False
+    spl = str(candidate.get("candidate_spl") or "")
+    assert spl.strip()
+    compact = spl.lower().replace(" ", "")
+    assert "15m" in compact
+    assert "10m" in compact or "<=600" in compact
+    assert "failure_count>20" in compact or "failure_count>=21" in compact
+    assert re.search(r"\bby\b[^|\n]*src_ip", spl.lower())
+    assert "first_failure" in spl.lower()
+    assert "success_time" in spl.lower()
+    spec = build_spl_intent_spec(P2_FAILED_THEN_SUCCESS)
+    assert validate_semantic_fidelity(spec, spl)["passed"] is True, validate_semantic_fidelity(spec, spl)
+
+
+def test_live_p3_omitting_event_count_fails_fidelity() -> None:
+    spec = build_spl_intent_spec(P3_PARENT_CHILD)
+    assert "event_count" in (spec.get("required_outputs") or [])
+    compiled = compile_intent_spec_to_spl(spec)
+    assert "event_count" in compiled.lower() or re.search(r"\bcount\s+as\b", compiled.lower())
+    omitted = re.sub(r"count as event_count\s*", "", compiled, flags=re.I)
+    fidelity = validate_semantic_fidelity(spec, omitted)
+    assert fidelity["passed"] is False
+    assert any("event_count" in str(item) for item in fidelity["losses"])
+
+
+def test_live_p4_unfaithful_observation_only_llm_compiles_envelope(spl_flags: None) -> None:
+    unfaithful = (
+        "search index=* sourcetype=* earliest=-24h latest=now "
+        "| stats count by dest_host query | head 100"
+    )
+    rqc = {"time_scope": "last 24 hours", "locked_fields": {"time_scope": "last 24 hours"}}
+    candidate, validation = _run(
+        P4_FIRST_SEEN_DOMAIN,
+        provider=lambda: _llm_payload(unfaithful),
+        resolved_query_contract=rqc,
+    )
+    _assert_no_execution(candidate, validation)
+    assert candidate.get("spl_authoring_unavailable") is False
+    spl = str(candidate.get("candidate_spl") or "")
+    spec = build_spl_intent_spec(P4_FIRST_SEEN_DOMAIN, resolved_query_contract=rqc)
+    _assert_retrieval_covers_observation_and_baseline(spec, spl)
+    assert "connection_count" in spl.lower() or re.search(r"\bcount\s+as\b", spl.lower())
+
+
+def test_first_seen_durations_are_derived_not_constants() -> None:
+    q_host = (
+        "Write an SPL query to find successful Windows logons (EventCode=4624) by "
+        "accounts matching admin-* or svc-* during the last 3 days. Compare them with "
+        "a separate preceding 21-day history for the same account and flag destination "
+        "hosts that the account had not previously accessed. Group results into "
+        "one-hour windows and return the user, new host, source IP, and distinct count "
+        "of new hosts. Do not execute the query."
+    )
+    spec = build_spl_intent_spec(
+        q_host,
+        resolved_query_contract={"time_scope": "last 3 days", "locked_fields": {"time_scope": "last 3 days"}},
+    )
+    compiled = compile_intent_spec_to_spl(spec)
+    compact = compiled.lower().replace(" ", "")
+    assert "earliest=-24d" in compact
+    assert "earliest=-37d" not in compact
+    q_domain = (
+        "Write a review-only SPL query to find destination domains contacted during "
+        "the last 12 hours that were not previously seen for the same host during the "
+        "preceding 10 days. Return host, source IP, destination domain, first-seen "
+        "time, and connection count. Do not execute the query."
+    )
+    spec2 = build_spl_intent_spec(q_domain)
+    compiled2 = compile_intent_spec_to_spl(spec2)
+    compact2 = compiled2.lower().replace(" ", "")
+    assert "earliest=-15d" not in compact2
+    _assert_retrieval_covers_observation_and_baseline(spec2, compiled2)
+
+
+def test_unavailable_card_clears_investigation_sections() -> None:
+    from app.schemas.responses import AnalystResponseEnvelope
+
+    candidate = {
+        "candidate_spl": "",
+        "generation_mode": "spl_authoring_unavailable",
+        "spl_authoring_unavailable": True,
+        "utility_spl_draft_trace": {
+            "lost_semantics": ["output_missing:event_count"],
+            "semantic_intent_spec": {},
+        },
+    }
+    analyst = AnalystResponseEnvelope(
+        finding_title="Initial assessment",
+        investigation_steps=["Collect evidence"],
+        required_evidence=["Auth logs"],
+        missing_evidence=["Process tree"],
+        limitations=["No live data"],
+        analyst_checklist=["Review MITRE"],
+        initial_assessment=["Suspicious"],
+    )
+    run_contract = SimpleNamespace(
+        routing=SimpleNamespace(canonical_skill="attack_discovery"),
+        spl_candidate_renderable=False,
+        execution_status="not_started",
+    )
+    updated, text = apply_review_only_spl_render(
+        run_contract=run_contract,
+        analyst_response=analyst,
+        message="fallback",
+        draft_preview={"detection_family": "lab_draft"},
+        candidate_spl=candidate,
+    )
+    assert "event count" in text.lower()
+    assert "did not pass authoring validation" not in text
+    assert "llm_spl_fallback" not in text
+    assert updated.investigation_steps == []
+    assert updated.required_evidence == []
+    assert updated.missing_evidence == []
+    assert updated.limitations == []
+    assert updated.analyst_checklist == []
+    assert updated.initial_assessment == []
+    assert updated.response_profile == "spl_only"

@@ -64,7 +64,8 @@ _GRAIN_RE = re.compile(
     re.I,
 )
 _SEQUENCE_GAP_RE = re.compile(
-    r"\b(?:within|inside|in)\s+(\d+)\s*-?\s*(seconds?|sec|minutes?|mins?|min|hours?|hrs?|hr|[smhd])\b",
+    r"\b(?:within|inside|in)\s+(?:the\s+next\s+)?(\d+)\s*-?\s*"
+    r"(seconds?|sec|minutes?|mins?|min|hours?|hrs?|hr|[smhd])\b",
     re.I,
 )
 _SEQUENCE_SPLIT_RE = re.compile(
@@ -88,7 +89,7 @@ _THRESHOLD_RE = re.compile(
     re.I,
 )
 _GROUPED_BY_RE = re.compile(
-    r"\bgrouped\s+by\s+(.+?)(?:,\s*returning|\breturning\b|\.|$)",
+    r"\bgrouped?\s+by\s+(.+?)(?:,\s*returning|\band\s+return|\breturning\b|\.|$)",
     re.I,
 )
 _DURATION_UNIT = {
@@ -325,10 +326,39 @@ def _temporal_grain(query: str) -> str | None:
 
 
 def _sequence_gap(query: str) -> str | None:
-    match = _SEQUENCE_GAP_RE.search(query or "")
-    if not match:
-        return None
-    return _duration_token(match.group(1), match.group(2))
+    _agg, follow = _sequence_windows(query)
+    return follow or _agg
+
+
+def _sequence_windows(query: str) -> tuple[str | None, str | None]:
+    """Return (aggregation_window, follow_gap) from within-N durations.
+
+    A failure burst 'within 15 minutes followed by success within the next
+    10 minutes' yields two windows; a single 'within 5 minutes' yields one.
+    """
+    matches = list(_SEQUENCE_GAP_RE.finditer(query or ""))
+    if not matches:
+        return None, None
+    split = _SEQUENCE_SPLIT_RE.search(query or "")
+    pairs: list[tuple[re.Match[str], str]] = []
+    for match in matches:
+        token = _duration_token(match.group(1), match.group(2))
+        if token:
+            pairs.append((match, token))
+    if not pairs:
+        return None, None
+    if not split or len(pairs) == 1:
+        return pairs[0][1], pairs[0][1]
+    left: list[str] = []
+    right: list[str] = []
+    for match, token in pairs:
+        if match.start() < split.start():
+            left.append(token)
+        else:
+            right.append(token)
+    aggregation = left[-1] if left else (right[0] if right else pairs[0][1])
+    follow = right[0] if right else aggregation
+    return aggregation, follow
 
 
 def _required_event_sets(query: str) -> list[str]:
@@ -490,6 +520,11 @@ def _required_outputs(query: str) -> list[str]:
         (re.compile(r"\bcommand\s+line\b", re.I), "command_line"),
         (re.compile(r"\bparent\s+process\b", re.I), "parent_process"),
         (re.compile(r"\bchild\s+process\b", re.I), "child_process"),
+        (re.compile(r"\bevent\s+counts?\b", re.I), "event_count"),
+        (re.compile(r"\bconnection\s+counts?\b", re.I), "connection_count"),
+        (re.compile(r"\b(?:failed[\s-]?login|failure)\s+counts?\b", re.I), "failure_count"),
+        (re.compile(r"\bfirst\s+failure\s+times?\b", re.I), "first_failure_time"),
+        (re.compile(r"\bsuccess(?:ful)?[\s-]?login\s+times?\b", re.I), "success_time"),
         (re.compile(r"\bfailure\s+counts?\b", re.I), "failure_count"),
         (re.compile(r"\bsuccess\s+times?\b", re.I), "success_time"),
     )
@@ -839,7 +874,11 @@ def build_spl_intent_spec(
     grain = _temporal_grain(query)
     event_sets = _required_event_sets(query)
     sequence_events = _ordered_sequence(query, event_sets)
-    sequence_gap = _sequence_gap(query) if sequence_events or "sequence_detection" in (tokens.operation_hints or []) else None
+    sequence_agg_window: str | None = None
+    sequence_gap: str | None = None
+    if sequence_events or "sequence_detection" in (tokens.operation_hints or []):
+        sequence_agg_window, sequence_gap = _sequence_windows(query)
+        sequence_gap = sequence_gap or sequence_agg_window
     observation_window, baseline_window = _observation_and_baseline_windows(query, tokens)
     actor_patterns = _actor_patterns(query)
     process_constraints = _process_constraints(query)
@@ -902,11 +941,18 @@ def build_spl_intent_spec(
     else:
         support_status = "unsupported"
         degrade_reason = f"unsupported_analysis_shape:{analysis_shape}"
+    if unresolved_required_fields:
+        support_status = "unsupported"
+        degrade_reason = "unresolved_required_fields"
 
     if analysis_shape == "rolling" and rolling:
         analytical_window = _AnalyticalWindow(kind="rolling", size=rolling, provenance="query_token")
     elif analysis_shape == "sequence":
-        analytical_window = _AnalyticalWindow(kind="sequence", size=sequence_gap, provenance="query_token")
+        analytical_window = _AnalyticalWindow(
+            kind="sequence",
+            size=sequence_agg_window or sequence_gap,
+            provenance="query_token",
+        )
     elif search_horizon:
         analytical_window = _AnalyticalWindow(kind="fixed", size=None, provenance=provenance.get("search_horizon", "query_token"))
     else:

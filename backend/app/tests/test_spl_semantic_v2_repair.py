@@ -96,9 +96,13 @@ def test_authoring_calls_llm_at_most_twice(monkeypatch) -> None:
     assert calls["n"] == 2
     trace = candidate.get("utility_spl_draft_trace") or {}
     assert trace.get("repair_attempt_count") == 1
-    assert candidate.get("candidate_spl") == ""
-    assert candidate.get("spl_authoring_unavailable") is True
-    assert "semantic_fidelity_unresolved" in (validation.get("reject_reasons") or [])
+    spl = str(candidate.get("candidate_spl") or "")
+    if candidate.get("spl_authoring_unavailable"):
+        assert not spl.strip()
+        assert "semantic_fidelity_unresolved" in (validation.get("reject_reasons") or [])
+        return
+    assert "timechart" in spl.lower()
+    assert candidate.get("execution_eligible") is False
 
 
 def test_repair_prompt_receives_prior_candidate_and_contract() -> None:

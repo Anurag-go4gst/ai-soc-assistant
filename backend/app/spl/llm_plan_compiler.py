@@ -330,7 +330,7 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         return re.sub(r"\s+", " ", " ".join(parts)).strip()
 
     if analysis_shape == "sequence":
-        gap = str(spec.get("sequence_max_gap") or "5m")
+        agg_window, follow_gap = _sequence_windows_from_spec(spec)
         ordered = [str(item) for item in (spec.get("ordered_sequence") or spec.get("required_event_sets") or [])]
         correlate = _alias((roles.get("correlate_by") or roles.get("subject") or group_by or ["user"])[0])
         case_parts: list[str] = []
@@ -364,29 +364,40 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
             parts.append(proj)
         parts.append("| sort 0 + _time")  # Q11: explicit ascending sort before streamstats
         threshold_n = _explicit_threshold_int(spec)
+        streamstats_by = ", ".join(by_fields) if by_fields else correlate
         if threshold_n is not None and len(ordered) >= 2:
             first_event = ordered[0]
             second_event = ordered[1]
             op = _threshold_compare_op(spec)
             parts.append(
-                f"| streamstats time_window={gap} "
-                f'count(eval(event_type="{first_event}")) as failure_count by {correlate}'
+                f"| streamstats time_window={agg_window} "
+                f'count(eval(event_type="{first_event}")) as failure_count '
+                f'min(eval(if(event_type="{first_event}", _time, null()))) as first_failure_epoch '
+                f'latest(eval(if(event_type="{first_event}", _time, null()))) as last_failure_epoch '
+                f"by {streamstats_by}"
             )
-            parts.append(f'| where event_type="{second_event}" AND failure_count{op}{threshold_n}')
+            where = (
+                f'| where event_type="{second_event}" AND failure_count{op}{threshold_n}'
+            )
+            if follow_gap and follow_gap != agg_window:
+                where += f" AND (_time-last_failure_epoch)<={_gap_seconds(follow_gap)}"
+            parts.append(where)
         elif len(ordered) >= 2:
             parts.append(
-                f"| streamstats window=1 current=f last(event_type) as prev_event last(_time) as prev_time by {correlate}"
+                f"| streamstats window=1 current=f last(event_type) as prev_event last(_time) as prev_time by {streamstats_by}"
             )
             parts.append(
                 f'| where prev_event="{ordered[0]}" AND event_type="{ordered[1]}" '
-                f"AND (_time-prev_time)<={_gap_seconds(gap)}"
+                f"AND (_time-prev_time)<={_gap_seconds(follow_gap)}"
             )
         else:
-            parts.append(f"| transaction {correlate} maxspan={gap}")
+            parts.append(f"| transaction {streamstats_by} maxspan={agg_window}")
         extra_aggs: list[str] = []
         outputs = {str(item) for item in (spec.get("required_outputs") or [])}
         if threshold_n is not None or "failure_count" in outputs:
             extra_aggs.append("max(failure_count) as failure_count")
+        if "first_failure_time" in outputs and threshold_n is not None:
+            extra_aggs.append("min(first_failure_epoch) as first_failure_keep")
         if "success_time" in outputs:
             extra_aggs.append("latest(_time) as success_time_epoch")
         extra = (" " + " ".join(extra_aggs)) if extra_aggs else ""
@@ -399,6 +410,9 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
             'last_match=strftime(last_match_epoch, "%Y-%m-%d %H:%M:%S")'
         )
         drop = ["first_match_epoch", "last_match_epoch"]
+        if "first_failure_time" in outputs:
+            time_eval += ', first_failure=strftime(first_failure_keep, "%Y-%m-%d %H:%M:%S")'
+            drop.append("first_failure_keep")
         if "success_time" in outputs:
             time_eval += ', success_time=strftime(success_time_epoch, "%Y-%m-%d %H:%M:%S")'
             drop.append("success_time_epoch")
@@ -521,6 +535,8 @@ def _compile_first_seen(
     ]
     if "src_ip" in required_outputs:
         stats_bits.append(f"values({alias_by_field.get('src_ip', 'src_ip')}) as src_ip")
+    if "connection_count" in required_outputs:
+        stats_bits.append("count as connection_count")
     if "first_seen" in required_outputs or not grain:
         stats_bits.append("earliest(_time) as first_seen_epoch")
     if grain:
@@ -629,6 +645,7 @@ def _compile_process_parent_child(
     if not by_fields:
         by_fields = ["host_norm", "user_norm"]
     stats_bits = [
+        "count as event_count",
         "earliest(_time) as first_seen_epoch",
         "latest(_time) as last_seen_epoch",
         "values(parent_process) as parent_process",
@@ -652,6 +669,15 @@ def _gap_seconds(token: str) -> int:
     amount = int(match.group(1))
     unit = match.group(2)
     return amount * {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
+
+
+def _sequence_windows_from_spec(spec: dict[str, Any]) -> tuple[str, str]:
+    follow = str(spec.get("sequence_max_gap") or "5m").strip() or "5m"
+    window = spec.get("analytical_window") if isinstance(spec.get("analytical_window"), dict) else {}
+    aggregation = str(window.get("size") or "").strip() if window.get("kind") == "sequence" else ""
+    if not aggregation:
+        aggregation = follow
+    return aggregation, follow
 
 
 def _plan_system_prompt() -> str:
