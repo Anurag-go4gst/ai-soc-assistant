@@ -115,19 +115,24 @@ Fix every `GAP:` before implementation. Generic loop runner: [`plans/LOOP_RUNNER
 | [`.cursor/hooks/audit-plan-discipline.sh`](.cursor/hooks/audit-plan-discipline.sh) | Audit a plan for checklist/verify/stop-condition gaps |
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code entry — stack, gotchas, plan index (links here for rules) |
 | [`docs/ai/t4_semantic_prompting_playbook.md`](docs/ai/t4_semantic_prompting_playbook.md) | **Read first** before any T4 prompt/schema/few-shot/merge work — Cisco 8B semantic-prompting learnings |
+| [`docs/operations/canonical_runtime_state.md`](docs/operations/canonical_runtime_state.md) | **Canonical Mac/GitHub/VPS SHA + local `:3013`/`:8012` stack** — read before diagnosing |
 | [`plans/README.md`](plans/README.md) | Active work pointers |
 | [`plans/`](plans/) | Versioned implementation specs |
 | `.cursor/plans/` | Cursor-local plans — may be ahead of git; reconcile into `plans/` for shared truth |
 
 ## Active work (pointers)
 
-- **Plan 8 (active):** [`plans/2026-08-15_0602_canonical-architecture-authority-convergence.md`](plans/2026-08-15_0602_canonical-architecture-authority-convergence.md) — canonical authority convergence on the frozen [`architecture.md`](architecture.md). Plan 7 is **CLOSED 25/25** (merged). Index: [`plans/README.md`](plans/README.md).
-- **Intent cascade:** Done — [`plans/2026-06-17_1730_intent-node-cascade-hardening.md`](plans/2026-06-17_1730_intent-node-cascade-hardening.md). Harness: `test_cisco_intent_distribution.py`, `scripts/eval_out_of_set_intent_probe.py`.
-- **Cisco Environment KB + 50-Q catalogue:** Done as an earlier batch; loader/map exist — extend, do not recreate.
-- **T4 semantic prompting:** before any T4 prompt, schema, few-shot, or merge change, read [`docs/ai/t4_semantic_prompting_playbook.md`](docs/ai/t4_semantic_prompting_playbook.md). Do not query-patch; do not call Cisco on this VPS to iterate prompts.
+**Canonical repo / runtime state (always read first):** [`docs/operations/canonical_runtime_state.md`](docs/operations/canonical_runtime_state.md)
+
+- **Production source:** `master` @ `9e1b13694b4047560f8ddd77a77282147b46c3fb` (Mac = GitHub = VPS).
+- **Local stack:** `/Users/aagarwal/Downloads/ai-soc-assistant-t4-architecture-20260821` — frontend `http://127.0.0.1:3013/chat`, backend `http://127.0.0.1:8012`.
+- **Reproduce defects** on that SHA/stack first. Do not use old worktree SHAs or stale feature branches as product authority. Do not create another worktree unless a new bounded workstream requires one.
+- **Posture:** accepted production flags ON; `AI_SOC_SPL_OPTIMIZATION_LLM_ENABLED=true`. Pre-P11: live Splunk MCP OFF (`MCP_GLOBAL_EXECUTION_ENABLED=false`, mock execution false, `MCP_MODE=mock`).
+- **Plan index:** [`plans/README.md`](plans/README.md). Plan 8 (canonical architecture authority) is **Done**; `architecture.md` remains **READ ONLY**.
+- **T4 semantic prompting:** before any T4 prompt/schema/few-shot/merge change, read [`docs/ai/t4_semantic_prompting_playbook.md`](docs/ai/t4_semantic_prompting_playbook.md).
 - **Master roadmap:** [`plans/AI_SOC_MASTER_PLAN.md`](plans/AI_SOC_MASTER_PLAN.md).
 
-Normal execution authority is `ResourcePlan + PhaseContract` via the existing Resource Planner hub. dispatch-v2 is rollback/test-only (fenced when ResourcePlan execution is on). Production GO remains **deferred**; T4 serving **F3** is still a critical blocker; live MCP/Splunk remains **unproven**. `architecture.md` is read-only.
+Normal execution authority is `ResourcePlan + PhaseContract` via the existing Resource Planner hub. dispatch-v2 is rollback/test-only (fenced when ResourcePlan execution is on). Production GO remains **deferred**; T4 serving **F3** is still a critical blocker; live MCP/Splunk remains **unproven** (P11 not started). `architecture.md` is read-only.
 
 ## Agent skills
 

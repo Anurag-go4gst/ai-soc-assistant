@@ -83,7 +83,15 @@
       "Bash(bash .cursor/hooks/audit-plan-discipline.sh plans/2026-07-04_1730_hybrid-intent-deterministic-llm-coordination.md)",
       "Bash(PYTHONPATH=../backend:.. timeout 300 python3 -m pytest app/tests/test_*intent* app/tests/test_*routing* -q)",
       "Bash(timeout 580 ./scripts/run_stage3_governance_regression.sh)",
-      "Bash(echo \"EXIT: $?\")"
+      "Bash(echo \"EXIT: $?\")",
+      "WebFetch(domain:docs.splunk.com)",
+      "WebSearch",
+      "WebFetch(domain:help.splunk.com)",
+      "Bash(cd /Users/aagarwal/Downloads/ai-soc-assistant-t4-architecture-20260821/backend/app *)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "postgres"
+  ]
 }

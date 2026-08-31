@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code must follow `AGENTS.md` in full — especially **Agent Execution Playbook** (repo-first research, end-to-end tracing, **plan discipline**, validation gates, common mistakes, and prompt patterns). This file adds project context, stack, gotchas, and plan index; it does not override safety boundaries or operating rules in `AGENTS.md`.
 
-**Active work:** see [`plans/README.md`](plans/README.md) and the **Active work** section in `AGENTS.md`.
+**Active work / canonical runtime:** [`docs/operations/canonical_runtime_state.md`](docs/operations/canonical_runtime_state.md) (`master` @ `9e1b1369`; local `:3013`/`:8012`). Plan index: [`plans/README.md`](plans/README.md). Rules: [`AGENTS.md`](AGENTS.md).
 
 ## Plan discipline (all agents)
 

@@ -14,11 +14,21 @@ Frontmatter must include `canonical_plan: plans/<filename>.md` and a checklist w
 
 If Cursor also writes a plan under `.cursor/plans/` or `/root/.cursor/plans/`, **copy or promote it into `plans/` immediately** so agents and humans can find it. Shared truth is `plans/`; Cursor-local copies are optional mirrors only.
 
+## Canonical runtime (agents)
+
+**Authoritative:** [`docs/operations/canonical_runtime_state.md`](../docs/operations/canonical_runtime_state.md)
+
+- `master` @ `9e1b13694b4047560f8ddd77a77282147b46c3fb` — Mac = GitHub = VPS
+- Local Docker: `http://127.0.0.1:3013/chat` / `http://127.0.0.1:8012` from `/Users/aagarwal/Downloads/ai-soc-assistant-t4-architecture-20260821`
+- Worktree reconciliation COMPLETE (1 canonical worktree). Pre-P11: live MCP OFF. Reproduce defects on that SHA/stack first.
+
 ## Active work
 
 | Plan | Status |
 |------|--------|
-| [`2026-08-21_1937_understanding-authority-and-response-ux.md`](2026-08-21_1937_understanding-authority-and-response-ux.md) | **Active — P0/P1/P2 done @ `5d1e487e`.** Remaining `P3 → P4 → P5 → P6 → P7 → P8` (do not start P3 until loop-asap). Final-RQC product applicability; provenance; response ownership + BLOCK≠containment; SOC workspace UI/UX (UUID, viewport, hierarchy, responsive already scoped inside P6). Architecture freeze `49c5a494` read-only. Branch `feat/complete-or-abstain-t4-ux` (ahead of `origin/master` `49e545d9`; no divergence). P8 records `FINAL_CANDIDATE_SHA` and stops — no push/merge/deploy in-loop. Loop: [`LOOP_RUNNER_understanding-authority-and-response-ux.md`](LOOP_RUNNER_understanding-authority-and-response-ux.md). |
+| [`2026-08-27_optional-phase-s-spl-optimization.md`](2026-08-27_optional-phase-s-spl-optimization.md) | **Accepted / merged** — OPTIONAL_PHASE_S on master lineage through `4e48840c`; production SHA now `9e1b1369` (includes post-P10 docs rescue). `AI_SOC_SPL_OPTIMIZATION_LLM_ENABLED=true` on deployed posture. |
+| [`2026-08-26_1030_production-answer-shape-spl-mcp-convergence.md`](2026-08-26_1030_production-answer-shape-spl-mcp-convergence.md) | **Accepted (7.1)** — post-P10 answer/tool convergence; plan-status metadata on master via `9e1b1369`. |
+| [`2026-08-21_1937_understanding-authority-and-response-ux.md`](2026-08-21_1937_understanding-authority-and-response-ux.md) | **Superseded for product authority by master @ `9e1b1369`.** Historical: P0/P1/P2 on `feat/complete-or-abstain-t4-ux`. Do not diagnose current product from that branch. |
 | [`2026-08-21_0034_agentic-investigation-production.md`](2026-08-21_0034_agentic-investigation-production.md) | **Draft — READY FOR ARCHITECTURE REVIEW.** Production `/chat` implementation plan for the 2026-08-20 `architecture.md` investigation target (envelope before ResourcePlan, guided unveto, PlanDelta, T1–T4 downstream convergence). Docs only; do not implement until review. T1–T3 catalogue patch remains a separate workstream. |
 | [`2026-08-20_2130_ec-s1-connected-remediation.md`](2026-08-20_2130_ec-s1-connected-remediation.md) | **Done (4/4).** S1 rem as connected SOC: one monitoring chain, CREATED/SENT/ACTIVE/NOT_REQUIRED, View SPL + request/response, auto executive summary, RESPONSE COMPLETE with risk remaining MEDIUM. EC/demo only. Branch `feat/ec-s1-s7-agent-framework`. |
 | [`2026-08-20_1630_ec-s1-analyst-question-polish.md`](2026-08-20_1630_ec-s1-analyst-question-polish.md) | **Done (5/5).** Reorder S1 around who/what/succeeded; honest detection wording; unexplained permits; metrics/provenance/empty-UI polish. EC/demo only. Branch `feat/ec-s1-s7-agent-framework`. |
@@ -62,6 +72,7 @@ If Cursor also writes a plan under `.cursor/plans/` or `/root/.cursor/plans/`, *
 
 ## Operational references
 
+- [`docs/operations/canonical_runtime_state.md`](../docs/operations/canonical_runtime_state.md) — **canonical Mac/GitHub/VPS SHA + local stack** (agents: read first).
 - [`AGENTS.md`](../AGENTS.md) — repository operating rules, plan discipline, verification gates.
 - [`CLAUDE.md`](../CLAUDE.md) — project context, stack, and deployment notes.
 - [`docs/coe/COE_ROLLOUT_CONFIGURATION.md`](../docs/coe/COE_ROLLOUT_CONFIGURATION.md) — COE rollout profile and smoke checklist.
