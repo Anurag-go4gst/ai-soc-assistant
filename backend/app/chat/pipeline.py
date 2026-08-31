@@ -320,6 +320,7 @@ from app.chat.guided_hybrid_collection import collect_guided_hybrid_evidence
 from app.chat.awaiting_investigation_plan_gate import (
     is_awaiting_investigation_approval,
     skipped_soc_kb_awaiting_approval_payload,
+    strip_material_fields_for_awaiting_approval,
 )
 from app.chat.guided_investigation_synthesizer import (
     build_guided_llm_degraded_message,
@@ -5808,19 +5809,22 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
     )
     if investigation_approval and investigation_approval.get("safe_message"):
         message = str(investigation_approval["safe_message"])
-    # Pre-approval packaging contract: plan + Approve/Edit/Cancel only.
-    _awaiting_pack = is_awaiting_investigation_approval(state)
-    if _awaiting_pack:
-        analyst_response = None
-        analyst_summary_from_lab = None
-        proposed_actions = None
-        source_evidence = []
-        state = {
-            **state,
-            "investigation_outcome": None,
-            "email_draft": None,
-            "remediation_execution": None,
-        }
+    # Pre-approval packaging contract: plan + Approve/Edit/Cancel only. The
+    # boundary itself is owned by awaiting_investigation_plan_gate so the initial
+    # and edited-and-revalidated awaiting states cannot diverge.
+    if is_awaiting_investigation_approval(state):
+        _awaiting_packaging = strip_material_fields_for_awaiting_approval(
+            analyst_response=analyst_response,
+            analyst_summary=analyst_summary_from_lab,
+            proposed_actions=proposed_actions,
+            source_evidence=source_evidence,
+            state=state,
+        )
+        analyst_response = _awaiting_packaging.analyst_response
+        analyst_summary_from_lab = _awaiting_packaging.analyst_summary
+        proposed_actions = _awaiting_packaging.proposed_actions
+        source_evidence = _awaiting_packaging.source_evidence
+        state = _awaiting_packaging.state
     response = PlaceholderResponse(
         trace_id=trace_id,
         user_query=request.message,

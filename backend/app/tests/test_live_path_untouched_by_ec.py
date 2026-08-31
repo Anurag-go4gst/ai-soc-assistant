@@ -181,7 +181,7 @@ RACES_BASELINE_SHA = "27970ea4d10f0e894c8adb4214e18cd46e24b28e"
 # stealing the guided narration hop (false planner-unavailable). Packet:
 # docs/evals/guided_hil_boundary_pipeline_protected_change_packet.md
 RACES_APPROVED_PROTECTED_BLOB_SHA256 = {
-    "backend/app/chat/pipeline.py": "9116223a99e758dedd4f4c8eee6237bab07812724bff5b17c44d323b9f4a78b0",
+    "backend/app/chat/pipeline.py": "f1bf4ca85dd9324e5c0c0856c34f05c83f4dd1b91096c4352b81b21ce7ab4946",
     "backend/app/schemas/responses.py": "e8dfaa87e0b1db1c0c6ceccb74fa66f95a7604c90cbd531eb6c52a30ff3a8d7c",
     # Post-P10 5.4/5.5: envelope_version AUTH0 + investigation-envelope hard-block.
     "backend/app/orchestration/mcp_execution_gate.py": "f45957827fe05844c0702bf6979d55dea5bd0c422380fc1ce8b946d78b718a98",

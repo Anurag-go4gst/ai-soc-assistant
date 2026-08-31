@@ -15,6 +15,33 @@ from app.knowledge.rag_collection_selector import select_rag_collections
 from app.knowledge.repository import KnowledgeRepository, SocKbStore, get_knowledge_repository, load_soc_kb_store
 
 TOKEN_RE = re.compile(r"[a-z0-9:_-]+")
+#: English function words that must not, on their own, evidence a match.
+#: ``_score_entry`` credits a field when the query and the field share any token.
+#: With no filter, an unrelated ATLAS case-study narrative ("SesameOp … OpenAI
+#: Assistants API **for** command **and** control") matched an SSH
+#: failed-then-successful-login query on "and"/"for" alone across five weighted
+#: fields plus the excerpt, summing to 0.427 — past ``soc_kb_min_confidence``
+#: (0.35). The rule is therefore "a field may not score on stopwords ALONE",
+#: not "stopwords are deleted": an overlap containing at least one topical term
+#: still scores its full value, so genuine matches keep their exact prior score.
+RETRIEVAL_STOPWORDS = frozenset(
+    {
+        "a", "an", "and", "any", "are", "as", "at", "be", "been", "but", "by",
+        "can", "could", "did", "do", "does", "for", "from", "had", "has", "have",
+        "how", "i", "if", "in", "into", "is", "it", "its", "me", "my", "of", "on",
+        "or", "our", "so", "than", "that", "the", "their", "them", "then",
+        "there", "these", "they", "this", "those", "to", "was", "we", "were",
+        "what", "when", "where", "whether", "which", "while", "who", "why",
+        "will", "with", "would", "you", "your",
+    }
+)
+
+
+def _is_topical_overlap(overlap: set[str]) -> bool:
+    """True when an overlap carries at least one non-stopword term."""
+    return bool(overlap - RETRIEVAL_STOPWORDS)
+
+
 TYPO_NORMALIZATIONS = {
     "faild": "failed",
     "logn": "login",
@@ -408,14 +435,14 @@ def _score_entry(
     for field, weight in fields.items():
         terms = _terms_from_items(entry.get(field))
         overlap = query_terms.intersection(terms)
-        if overlap:
+        if overlap and _is_topical_overlap(overlap):
             contribution = min(weight, weight * len(overlap) / max(1, min(4, len(terms))))
             score += contribution
             field_score += contribution
             reasons.append(f"{field}_match")
 
     doc_terms = _terms_from_items([doc.get("title"), doc.get("document_type"), doc.get("namespace"), doc.get("domain"), *(doc.get("tags") or [])])
-    if query_terms.intersection(doc_terms):
+    if _is_topical_overlap(query_terms.intersection(doc_terms)):
         score += 0.08
         field_score += 0.08
         reasons.append("document_metadata_match")
@@ -457,58 +484,6 @@ def _score_entry(
         reasons.append("wrong_environment_exclusion")
 
     weighted = min(1.0, score * float(entry.get("confidence_weight") or 1.0))
-    # ATLAS case-study narratives: do not promote on generic excerpt keywords
-    # alone (e.g. "compromised"/"investigate") — require topical/structural match.
-    # Uses existing metadata + score reasons; no per-title denylist.
-    meta = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
-    if str(meta.get("source") or "") == "mitre_atlas" and str(meta.get("entity") or "") == "casestudy":
-        structural = {
-            "title_match",
-            "section_title_match",
-            "retrieval_hints_match",
-            "synonyms_match",
-            "positive_examples_match",
-            "tags_match",
-            "mitre_refs_match",
-            "retrieval_hint_phrase_match",
-            "exact_query_substring",
-        }
-        atlas_topic = any(
-            marker in normalized_query
-            for marker in (
-                "atlas",
-                "aml.",
-                "aml cs",
-                "llm",
-                "openai",
-                "prompt injection",
-                "adversarial ml",
-                "machine learning",
-                "ai security",
-                "generative ai",
-            )
-        )
-        if not (set(reasons) & structural) and not atlas_topic:
-            return (
-                0.0,
-                sorted(set(reasons + ["atlas_casestudy_requires_topical_match"])),
-                {
-                    **{
-                        "deterministic_schema_search": round(max(field_score, 0.0), 3),
-                        "keyword_search": round(
-                            len(query_terms.intersection(_terms_from_items(entry.get("source_excerpt"))))
-                            / max(len(query_terms), 1),
-                            3,
-                        ),
-                        "negative_example_penalty": 0.0,
-                        "wrong_allowed_use_penalty": allowed_use_penalty,
-                        "wrong_skill_penalty": skill_penalty,
-                        "wrong_environment_penalty": environment_penalty,
-                        "final_candidate_selection": 0.0,
-                        "atlas_casestudy_topical_gate": -1.0,
-                    }
-                },
-            )
     stage_scores = {
         "deterministic_schema_search": round(max(field_score, 0.0), 3),
         "keyword_search": round(len(query_terms.intersection(_terms_from_items(entry.get("source_excerpt")))) / max(len(query_terms), 1), 3),

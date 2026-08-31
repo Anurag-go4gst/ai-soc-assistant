@@ -78,7 +78,9 @@ interface ChatBubbleProps {
   onCoordinationSkip?: (progressId: string) => void;
 }
 
-const _AWAITING_APPROVAL = new Set(['awaiting_approval', 'edited_awaiting_approval']);
+// Real InvestigationApprovalStatus members that await an analyst decision.
+// Must mirror awaiting_investigation_plan_gate._AWAITING_APPROVAL_STATUSES.
+const _AWAITING_APPROVAL = new Set(['awaiting_approval', 'edited_revalidated']);
 
 /** Defence-in-depth: hide post-execution cards while plan HIL is awaiting approval. */
 function isAwaitingInvestigationApproval(trace: PlaceholderResponse | null | undefined): boolean {

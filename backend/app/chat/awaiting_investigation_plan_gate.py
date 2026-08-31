@@ -7,6 +7,7 @@ Guided LLM skip reasons must not be misreported as model unavailability.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Literal
 
 GuidedFailureClass = Literal[
@@ -19,10 +20,16 @@ GuidedFailureClass = Literal[
     "NONE",
 ]
 
+#: Real ``InvestigationApprovalStatus`` members (see
+#: ``app.chat.contracts.investigation_envelope``) that mean "a validated plan is
+#: waiting for an analyst decision". ``edited_revalidated`` is the post-Edit
+#: state and offers the same run/edit/cancel actions as the initial state
+#: (``investigation_envelope_runtime._approval_state``), so it must receive the
+#: identical no-execution boundary. No other status is an awaiting state.
 _AWAITING_APPROVAL_STATUSES = frozenset(
     {
         "awaiting_approval",
-        "edited_awaiting_approval",
+        "edited_revalidated",
     }
 )
 
@@ -163,14 +170,42 @@ def analyst_facing_guided_degraded_message(
     return f"{body}\n\nMinimal deterministic checklist:\n{checklist_block}"
 
 
-def strip_material_fields_for_awaiting_approval(response_kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Defense-in-depth: drop post-execution surfaces from an awaiting-approval payload."""
-    out = dict(response_kwargs)
-    out["investigation_outcome"] = None
-    out["source_evidence"] = []
-    out["analyst_response"] = None
-    out["analyst_summary"] = None
-    out["proposed_actions"] = None
-    out["email_draft"] = None
-    # Keep investigation_approval / validated_investigation_plan / planning_outcome.
-    return out
+@dataclass(frozen=True)
+class AwaitingApprovalPackaging:
+    """Material surfaces after the awaiting-approval boundary is applied."""
+
+    analyst_response: Any
+    analyst_summary: Any
+    proposed_actions: Any
+    source_evidence: list[Any]
+    state: dict[str, Any]
+
+
+def strip_material_fields_for_awaiting_approval(
+    *,
+    analyst_response: Any,
+    analyst_summary: Any,
+    proposed_actions: Any,
+    source_evidence: list[Any] | None,
+    state: dict[str, Any],
+) -> AwaitingApprovalPackaging:
+    """Sole owner of the pre-approval material-field boundary.
+
+    A plan awaiting Approve/Edit/Cancel may carry planning surfaces only. Every
+    post-execution surface is dropped here so the initial and the edited-and-
+    revalidated awaiting states converge on one implementation. Planning
+    surfaces (``investigation_approval``, ``validated_investigation_plan``,
+    ``canonical_planning_outcome``) are deliberately untouched.
+    """
+    return AwaitingApprovalPackaging(
+        analyst_response=None,
+        analyst_summary=None,
+        proposed_actions=None,
+        source_evidence=[],
+        state={
+            **state,
+            "investigation_outcome": None,
+            "email_draft": None,
+            "remediation_execution": None,
+        },
+    )

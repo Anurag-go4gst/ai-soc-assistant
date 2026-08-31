@@ -65,4 +65,41 @@ describe('ChatBubble awaiting investigation approval', () => {
     expect(screen.queryByText('Step that must stay hidden')).toBeNull();
     expect(screen.queryByText(/Technical evidence path/i)).toBeNull();
   });
+
+  it('hides post-execution cards for an edited, revalidated plan too', () => {
+    const message: SocChatMessage = {
+      id: 'm2',
+      role: 'assistant',
+      content: 'plan',
+      displayStage: 'complete',
+      trace: awaitingTrace({
+        investigation_approval: {
+          status: 'edited_revalidated',
+          handoff_id: 'inv-1',
+          handoff_version: 2,
+          allowed_actions: ['run', 'edit', 'cancel'],
+          plan_summary: {
+            what_will_be_checked: ['Failed and successful SSH authentication'],
+            why_it_matters: 'Determine whether unauthorized access is likely.',
+            scope_and_time: ['bounded timeline around the sequence'],
+            resources_and_capabilities: ['read-only Splunk search'],
+          },
+          validated_plan: {},
+          safe_message: 'Edited investigation plan revalidated. Review it before approving.',
+          revalidation_warnings: [],
+          plan_version: 2,
+        },
+        planning_outcome: undefined,
+      } as unknown as Partial<PlaceholderResponse>),
+    };
+    render(
+      <ChatBubble
+        message={message}
+        onInvestigationReview={() => undefined}
+      />,
+    );
+    expect(screen.queryByText('Should not render')).toBeNull();
+    expect(screen.queryByText('Should not render analyst steps')).toBeNull();
+    expect(screen.queryByText('Step that must stay hidden')).toBeNull();
+  });
 });

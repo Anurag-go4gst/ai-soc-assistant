@@ -76,6 +76,41 @@ def _objective_from_query(query: str, signal_class: str) -> str:
     )
 
 
+#: Evidence requirement added when the resolved entities describe an
+#: authentication *sequence* (failed attempts followed by a success), regardless
+#: of protocol — SSH, VPN, interactive remote access, privileged auth. It states
+#: what an analyst must look at, not that any of it happened; downstream
+#: collection still degrades honestly when a telemetry source does not exist.
+_POST_AUTHENTICATION_ACTIVITY_EVIDENCE = (
+    "Review post-login account and host activity for commands, processes, "
+    "privilege changes, persistence, lateral movement, or unusual network activity."
+)
+
+_AUTH_FAILURE_EVENT_TYPES = frozenset({"authentication_failure", "auth_failure", "login_failure"})
+_AUTH_SUCCESS_EVENT_TYPES = frozenset({"authentication_success", "auth_success", "login_success"})
+
+
+def _entity_values(entities: dict[str, Any], key: str) -> set[str]:
+    raw = entities.get(key)
+    if raw in (None, "", [], {}):
+        return set()
+    items = raw if isinstance(raw, (list, tuple, set)) else [raw]
+    return {str(item).strip().lower() for item in items if str(item).strip()}
+
+
+def _is_authentication_sequence(entities: dict[str, Any]) -> bool:
+    """True when resolved entities carry BOTH failed and successful authentication.
+
+    Failure-only ("show failed logins") and success-only ("who logged in today")
+    asks deliberately do not qualify — a single-outcome authentication question
+    must not acquire post-compromise investigation requirements.
+    """
+    event_types = _entity_values(entities, "event_type")
+    return bool(event_types & _AUTH_FAILURE_EVENT_TYPES) and bool(
+        event_types & _AUTH_SUCCESS_EVENT_TYPES
+    )
+
+
 def _data_categories(
     *,
     signal_class: str,
@@ -198,6 +233,10 @@ def build_deterministic_investigation_plan(
         if str(item).strip()
     ]
     evidence_needed = list(dict.fromkeys([*rqc_evidence, *evidence_needed]))
+    if _is_authentication_sequence(stable_entities):
+        evidence_needed = list(
+            dict.fromkeys([*evidence_needed, _POST_AUTHENTICATION_ACTIVITY_EVIDENCE])
+        )
     authoritative_facts = _authoritative_facts(rqc)
     return InvestigationPlan(
         investigation_objective=_objective_from_query(stable_query, signal_class),
