@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from app.spl.llm_plan_compiler import compile_intent_spec_to_spl, compile_plan_to_spl
 from app.spl.review_only_spl_postprocessor import normalize_review_only_spl
 from app.spl.spl_intent_spec import build_spl_intent_spec
@@ -41,6 +43,7 @@ def test_sequence_compile_preserves_order_and_gap() -> None:
     assert "sort 0 + _time" in spl
     assert "300" in spl or "maxspan=5m" in spl
     assert "head 100" not in spl
+    assert re.search(r"\)\s+\(", spl.split("|", 1)[0]) is None
 
 
 def test_sequence_threshold_and_process_parent_child_compile() -> None:

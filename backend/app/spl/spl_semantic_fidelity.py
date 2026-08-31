@@ -307,6 +307,28 @@ def validate_semantic_fidelity(
         if "src_ip" in correlate and not re.search(r"\bby\b[^|\n]*src_ip", lowered):
             losses.append("same_source_correlation_missing")
             repair_feedback.append("semantic_loss:same_source_correlation_missing")
+        elif "src_ip" in correlate:
+            preserved.append("group_by_src_ip")
+        event_sets = [str(item) for item in (spec.get("required_event_sets") or []) if str(item).strip()]
+        if len(event_sets) >= 2:
+            base = text.split("|", 1)[0]
+            if re.search(r"\)\s+\(", base):
+                losses.append("sequence_event_union_missing")
+                repair_feedback.append("semantic_loss:sequence_event_union_missing")
+            else:
+                preserved.append("sequence_event_union")
+        correlate_keys = {str(item).lower() for item in (roles_for_seq.get("correlate_by") or [])}
+        if "host" not in correlate_keys:
+            overcorrelated = False
+            for match in re.finditer(r"\|\s*(?:streamstats|stats)[^|]*\bby\s+([^|]+)", lowered):
+                if re.search(r"\bhost(?:_norm)?\b", match.group(1)):
+                    overcorrelated = True
+                    break
+            if overcorrelated:
+                losses.append("sequence_host_overcorrelation")
+                repair_feedback.append("semantic_loss:sequence_host_overcorrelation")
+            else:
+                preserved.append("sequence_host_not_correlation_key")
 
     if shape == "trend":
         grain = str(spec.get("temporal_grain") or "")

@@ -423,6 +423,11 @@ def test_p1_compiled_or_injected_faithful_draft(spl_flags: None) -> None:
     _assert_no_execution(candidate, validation)
 
 
+def _sequence_by_clause(spl: str) -> str:
+    match = re.search(r"\|\s*streamstats[^|]*\bby\s+([^|]+)", spl, re.I)
+    return match.group(1).lower() if match else ""
+
+
 def test_p2_injected_faithful_sequence(spl_flags: None) -> None:
     spec = build_spl_intent_spec(P2_FAILED_THEN_SUCCESS)
     spl = compile_intent_spec_to_spl(spec)
@@ -445,6 +450,39 @@ def test_p2_injected_faithful_sequence(spl_flags: None) -> None:
     final = str(candidate.get("candidate_spl") or "")
     assert "4625" in final or "failure" in final.lower()
     assert "4624" in final or "success" in final.lower()
+
+
+def test_p2_sequence_search_is_union_not_and(spl_flags: None) -> None:
+    """Live P2 defect: juxtaposed event-set groups AND in Splunk and match nothing."""
+    spec = build_spl_intent_spec(P2_FAILED_THEN_SUCCESS)
+    spl = compile_intent_spec_to_spl(spec)
+    base = spl.split("|", 1)[0]
+    assert re.search(r"\)\s+\(", base) is None, base
+    assert " or " in base.lower()
+    assert "4625" in base or "failure" in base.lower()
+    assert "4624" in base or "success" in base.lower()
+    by_clause = _sequence_by_clause(spl)
+    assert "src_ip" in by_clause
+    assert "user" in by_clause
+    assert not re.search(r"\bhost(?:_norm)?\b", by_clause), by_clause
+    assert re.search(r"(?:latest|values)\(\s*host_norm\s*\)", spl, re.I)
+    fidelity = validate_semantic_fidelity(spec, spl)
+    assert fidelity.get("passed") is True, fidelity
+    bad = (
+        "search index=<your_index> sourcetype=pgcil:auth earliest=-24h latest=now "
+        "(action=failure OR action=failed OR EventCode=4625) "
+        "(action=success OR EventCode=4624) "
+        '| eval event_type=if((action=failure OR EventCode=4625), "failed_login", '
+        '"successful_login") '
+        "| streamstats time_window=15m count(eval(event_type=\"failed_login\")) as failure_count "
+        "by src_ip_norm, user_norm, host_norm "
+        '| where event_type="successful_login" AND failure_count>20 AND (_time-last_failure_epoch)<=600'
+    )
+    bad_fid = validate_semantic_fidelity(spec, bad)
+    assert bad_fid.get("passed") is False
+    losses = " ".join(str(item) for item in (bad_fid.get("losses") or []))
+    assert "sequence_event_union_missing" in losses
+    assert "sequence_host_overcorrelation" in losses
 
 
 def test_p3_process_constraints_in_spec(spl_flags: None) -> None:
@@ -682,6 +720,8 @@ def test_live_p2_content_validation_compiles_sequence(spl_flags: None) -> None:
     assert "10m" in compact or "<=600" in compact
     assert "failure_count>20" in compact or "failure_count>=21" in compact
     assert re.search(r"\bby\b[^|\n]*src_ip", spl.lower())
+    assert re.search(r"\)\s+\(", spl.split("|", 1)[0]) is None
+    assert not re.search(r"\bhost(?:_norm)?\b", _sequence_by_clause(spl))
     assert "first_failure" in spl.lower()
     assert "success_time" in spl.lower()
     spec = build_spl_intent_spec(P2_FAILED_THEN_SUCCESS)

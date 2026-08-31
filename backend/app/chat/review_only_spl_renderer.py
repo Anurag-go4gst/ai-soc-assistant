@@ -329,6 +329,8 @@ _LOSS_ANALYST_REASONS: tuple[tuple[str, str], ...] = (
     ("baseline_data_unreachable", "the generated query did not include the requested preceding baseline period"),
     ("baseline_window_missing", "the generated query did not include the requested preceding baseline period"),
     ("same_source_correlation_missing", "the generated query did not preserve the requested same-source-IP sequence"),
+    ("sequence_event_union_missing", "the generated query cannot retrieve both requested event types because the base search requires mutually exclusive conditions at once"),
+    ("sequence_host_overcorrelation", "the generated query required the same destination host for the sequence, which was not requested"),
     ("sequence_ordering_missing", "the generated query did not preserve the requested event sequence"),
     ("sequence_gap_missing", "the generated query did not preserve the requested sequence timing"),
     ("parent_child_relation_missing", "the generated query did not preserve the requested parent-to-child process relationship"),

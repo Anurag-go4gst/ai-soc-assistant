@@ -196,10 +196,24 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         match = _safe_value(item.get("match"))
         if field and _is_predicate_match(match):
             search_terms.append(f'{field}="{match}"')
+    event_fragments: list[str] = []
     for event_name in spec.get("required_event_sets") or []:
         fragment = _EVENT_SET_FILTERS.get(str(event_name))
         if fragment:
-            search_terms.append(fragment)
+            event_fragments.append(fragment)
+    if len(event_fragments) >= 2:
+        # Splunk juxtaposition is AND. Mutually exclusive event types (failure vs
+        # success, password-change vs login) must be retrieved as a union or the
+        # base search matches nothing.
+        inners: list[str] = []
+        for fragment in event_fragments:
+            inner = fragment.strip()
+            if inner.startswith("(") and inner.endswith(")"):
+                inner = inner[1:-1].strip()
+            inners.append(inner)
+        search_terms.append("(" + " OR ".join(inners) + ")")
+    elif event_fragments:
+        search_terms.append(event_fragments[0])
     process = spec.get("process_constraints") if isinstance(spec.get("process_constraints"), dict) else {}
     child_names = [str(item) for item in (process.get("child") or []) if str(item).strip()]
     parent_names = [str(item) for item in (process.get("parent") or []) if str(item).strip()]
@@ -333,17 +347,18 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         agg_window, follow_gap = _sequence_windows_from_spec(spec)
         ordered = [str(item) for item in (spec.get("ordered_sequence") or spec.get("required_event_sets") or [])]
         correlate = _alias((roles.get("correlate_by") or roles.get("subject") or group_by or ["user"])[0])
-        case_parts: list[str] = []
+        case_arms: list[str] = []
         for name in ordered:
             fragment = _EVENT_SET_FILTERS.get(name)
-            if fragment:
-                case_parts.append(f'if({fragment}, "{name}",')
+            if not fragment:
+                continue
+            cond = fragment.strip()
+            if cond.startswith("(") and cond.endswith(")"):
+                cond = cond[1:-1].strip()
+            case_arms.append(f'{cond}, "{name}"')
         event_eval = ""
-        if case_parts:
-            nested = "null"
-            for part in reversed(case_parts):
-                nested = f"{part} {nested})"
-            event_eval = f"| eval event_type={nested}"
+        if case_arms:
+            event_eval = "| eval event_type=case(" + ", ".join(case_arms) + ")"
         parts = [search_line]
         if eval_clause:
             parts.append(eval_clause)
@@ -359,6 +374,10 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         keep = ["_time", *by_fields]
         if event_eval:
             keep.append("event_type")
+        outputs = {str(item) for item in (spec.get("required_outputs") or [])}
+        host_alias = alias_by_field.get("host") or (_alias("host") if "host" in outputs else "")
+        if host_alias and host_alias not in by_fields:
+            keep.append(host_alias)
         proj = _early_projection(keep)
         if proj:
             parts.append(proj)
@@ -393,13 +412,14 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         else:
             parts.append(f"| transaction {streamstats_by} maxspan={agg_window}")
         extra_aggs: list[str] = []
-        outputs = {str(item) for item in (spec.get("required_outputs") or [])}
         if threshold_n is not None or "failure_count" in outputs:
             extra_aggs.append("max(failure_count) as failure_count")
         if "first_failure_time" in outputs and threshold_n is not None:
             extra_aggs.append("min(first_failure_epoch) as first_failure_keep")
         if "success_time" in outputs:
             extra_aggs.append("latest(_time) as success_time_epoch")
+        if host_alias and host_alias not in by_fields:
+            extra_aggs.append(f"latest({host_alias}) as {host_alias}")
         extra = (" " + " ".join(extra_aggs)) if extra_aggs else ""
         parts.append(
             f"| stats count as sequence_matches{extra} earliest(_time) as first_match_epoch "
@@ -594,14 +614,9 @@ def _sequence_by_fields(
             ordered.append(token)
 
     _add(correlate)
-    for group in group_by:
-        _add(_alias(group))
-    output_map = {"user": "user", "host": "host", "src_ip": "src_ip", "domain": "domain"}
-    for output_name, field_name in output_map.items():
-        if output_name in (spec.get("required_outputs") or []):
-            _add(_alias(field_name))
-    for alias in alias_by_field.values():
-        _add(str(alias))
+    roles_map = spec.get("entity_roles") if isinstance(spec.get("entity_roles"), dict) else {}
+    for name in roles_map.get("correlate_by") or []:
+        _add(_alias(str(name)))
     return ordered or [correlate]
 
 

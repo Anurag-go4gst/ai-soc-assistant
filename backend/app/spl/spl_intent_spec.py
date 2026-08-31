@@ -1014,6 +1014,20 @@ def build_spl_intent_spec(
     for field_name in _grouped_by_fields(query):
         _append_unique(roles.group_by, field_name)
         _append_unique(group_by, field_name)
+    if analysis_shape == "sequence":
+        seq_keys: list[str] = []
+        if "user" in required_outputs or "user" in roles.group_by:
+            _append_unique(seq_keys, "user")
+        if (
+            "src_ip" in roles.correlate_by
+            or "src_ip" in required_outputs
+            or _SRC_IP_RE.search(query)
+        ):
+            _append_unique(seq_keys, "src_ip")
+        if _SAME_HOST_RE.search(query):
+            _append_unique(seq_keys, "host")
+        if seq_keys:
+            roles.correlate_by = seq_keys
 
     norm_requirements, norm_consumers = _normalization_for(roles)
     explicit_threshold = bool(bindings.explicit_thresholds) or bool(_THRESHOLD_RE.search(query))
