@@ -101,6 +101,12 @@ _SEQUENCE_AFTER_REPAIR = (
     "The successful login must occur after the last failure in the qualified burst, "
     "not before it."
 )
+_SEQUENCE_IDENTITY_REPAIR = (
+    "Each qualifying successful login must keep the burst it matched. "
+    "Do not independently take the maximum burst count, earliest failure time, "
+    "and latest success time or destination host grouped only by user and source IP. "
+    "That mixes fields from different sequences."
+)
 _PARENT_CHILD_CMD_REPAIR = (
     "powershell in command_line must not satisfy the child-process constraint. "
     "Bind the child to Image / New_Process_Name / child_process."
@@ -291,6 +297,36 @@ def _sequence_burst_then_follow(text: str) -> dict[str, bool]:
         "success_after_burst": after,
         "established": windowed and carry and after,
     }
+
+
+def _sequence_identity_collapsed(text: str) -> bool:
+    """True when final stats can mix burst state from one sequence with success from another."""
+    for match in re.finditer(r"\|\s*stats\s+([^|]+)", text, re.I):
+        body = match.group(1)
+        by_match = re.search(r"\bby\s+(.+)$", body, re.I)
+        if not by_match:
+            continue
+        by_fields = {
+            token.strip().lower()
+            for token in by_match.group(1).split(",")
+            if token.strip()
+        }
+        if by_fields & {"_time", "success_time", "success_time_epoch"}:
+            continue
+        aggs = body[: by_match.start()]
+        burst_pick = re.search(
+            r"\b(?:max|min)\s*\(\s*(?:burst_\w+|\w*failure\w*|event_a_\w+)\s*\)",
+            aggs,
+            re.I,
+        )
+        success_pick = re.search(
+            r"\b(?:latest|earliest|last|first)\s*\(\s*(?:_time|host(?:_norm)?|dest\w*_host|success\w*)\s*\)",
+            aggs,
+            re.I,
+        )
+        if burst_pick and success_pick:
+            return True
+    return False
 
 
 def _assignment_haystack(text: str, fields: tuple[str, ...]) -> str:
@@ -632,6 +668,11 @@ def validate_semantic_fidelity(
             else:
                 losses.append("sequence_success_before_failure")
                 repair_feedback.append(_SEQUENCE_AFTER_REPAIR)
+            if _sequence_identity_collapsed(text):
+                losses.append("sequence_identity_collapsed")
+                repair_feedback.append(_SEQUENCE_IDENTITY_REPAIR)
+            else:
+                preserved.append("sequence_identity_preserved")
 
     if shape == "trend":
         grain = str(spec.get("temporal_grain") or "")
@@ -669,7 +710,7 @@ def validate_semantic_fidelity(
         after_eval = lowered.split(alias.lower(), 1)[-1]
         consumed = bool(
             re.search(
-                rf"\b(by|dc\s*\(|where|streamstats|timechart|stats)\b[^|]*\b{re.escape(alias.lower())}\b",
+                rf"\b(by|dc\s*\(|where|streamstats|timechart|stats|fields)\b[^|]*\b{re.escape(alias.lower())}\b",
                 after_eval,
             )
             or f"dc({alias.lower()})" in after_eval

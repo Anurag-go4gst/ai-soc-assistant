@@ -64,7 +64,7 @@ def test_sequence_threshold_and_process_parent_child_compile() -> None:
     assert "burst_count>20" in compact
     assert "_time>burst_last_epoch" in compact
     assert "streamstats last(eval(" in failed_spl.replace("\n", " ")
-    assert "as failure_count" in failed_spl
+    assert "rename burst_count as failure_count" in failed_spl
     process = build_spl_intent_spec(
         "Write review-only SPL to find powershell.exe launched by winword.exe or "
         "excel.exe, grouped by host and user, returning parent process, child process, "

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from typing import Any
@@ -661,6 +662,7 @@ def test_sequence_pattern_is_generic_burst_then_follow() -> None:
     assert "time_window=15m" in compiled
     assert "burst_count>20" in compact
     assert "_time>burst_last_epoch" in compact
+    assert "rename burst_count as failure_count" in compiled
     assert not re.search(r"\|\s*streamstats[^|]*\bby\s+[^|]*\bhost", compiled, re.I)
 
 
@@ -732,6 +734,109 @@ def test_p2_sequence_mutants_a_through_j() -> None:
     )
     burst_fid = validate_semantic_fidelity(spec, no_burst)
     assert "sequence_burst_not_established_before_follow" in (burst_fid.get("losses") or [])
+
+
+_P2_COLLAPSE_STATS = (
+    '| stats count as sequence_matches max(burst_count) as failure_count '
+    'min(burst_first_epoch) as first_failure_keep latest(_time) as success_time_epoch '
+    'latest(host_norm) as host_norm earliest(_time) as first_match_epoch '
+    'latest(_time) as last_match_epoch by user_norm, src_ip_norm'
+)
+
+
+def _p2_prefix_through_where(compiled: str) -> str:
+    match = re.search(
+        r'^(.*\|\s*where event_type="successful_login"[^|]*)',
+        compiled,
+        re.I | re.S,
+    )
+    assert match is not None
+    return match.group(1)
+
+
+def test_p2_two_sequences_same_user_ip_are_not_cross_mixed() -> None:
+    spec = build_spl_intent_spec(P2)
+    compiled = compile_intent_spec_to_spl(spec)
+    compact = compiled.replace(" ", "")
+    after_where = re.split(
+        r'\|\s*where event_type="successful_login"',
+        compiled,
+        maxsplit=1,
+        flags=re.I,
+    )[1]
+    assert re.search(r"\|\s*stats\b", after_where, re.I) is None
+    assert "max(burst_count)" not in compact
+    assert "latest(host_norm)" not in compact
+    assert "rename burst_count as failure_count" in compiled
+    assert "first_failure=strftime(burst_first_epoch" in compact
+    assert "success_time=strftime(_time" in compact
+    fid = validate_semantic_fidelity(spec, compiled)
+    assert fid.get("passed") is True, fid
+    mixed = {
+        "user": "alice",
+        "src_ip": "10.0.0.5",
+        "failure_count": 25,
+        "first_failure": "09:45",
+        "success_time": "18:00",
+        "destination_host": "HOST-B",
+    }
+    preserved = [
+        {
+            "user": "alice",
+            "src_ip": "10.0.0.5",
+            "failure_count": 25,
+            "first_failure": "09:45",
+            "success_time": "10:00",
+            "destination_host": "HOST-A",
+        },
+        {
+            "user": "alice",
+            "src_ip": "10.0.0.5",
+            "failure_count": 22,
+            "first_failure": "17:40",
+            "success_time": "18:00",
+            "destination_host": "HOST-B",
+        },
+    ]
+    assert mixed not in preserved
+
+
+def test_p2_sequence_identity_collapsed_mutants() -> None:
+    spec = build_spl_intent_spec(P2)
+    compiled = compile_intent_spec_to_spl(spec)
+    prefix = _p2_prefix_through_where(compiled)
+    assert validate_semantic_fidelity(spec, compiled).get("passed") is True
+
+    mutant1 = (
+        prefix
+        + " | stats max(burst_count) as failure_count min(burst_first_epoch) as first_failure "
+        "latest(_time) as success_time by user_norm, src_ip_norm"
+    )
+    fid1 = validate_semantic_fidelity(spec, mutant1)
+    assert "sequence_identity_collapsed" in (fid1.get("losses") or [])
+
+    mutant2 = (
+        prefix
+        + " | stats max(burst_count) as failure_count latest(host_norm) as host_norm "
+        "by user_norm, src_ip_norm"
+    )
+    fid2 = validate_semantic_fidelity(spec, mutant2)
+    assert "sequence_identity_collapsed" in (fid2.get("losses") or [])
+
+    mutant3 = prefix + " " + _P2_COLLAPSE_STATS + (
+        ' | eval first_failure=strftime(first_failure_keep, "%Y-%m-%d %H:%M:%S"), '
+        'success_time=strftime(success_time_epoch, "%Y-%m-%d %H:%M:%S")'
+    )
+    fid3 = validate_semantic_fidelity(spec, mutant3)
+    assert "sequence_identity_collapsed" in (fid3.get("losses") or [])
+
+    ok_by_success_time = (
+        prefix
+        + " | stats max(burst_count) as failure_count latest(host_norm) as host_norm "
+        "by user_norm, src_ip_norm, _time"
+    )
+    ok_fid = validate_semantic_fidelity(spec, ok_by_success_time)
+    assert "sequence_identity_collapsed" not in (ok_fid.get("losses") or [])
 
 
 def test_p2_preprocessor_does_not_rewrite_sequence_semantics() -> None:
@@ -1024,3 +1129,20 @@ def test_p4_renderer_keeps_host_domain_first_seen() -> None:
     assert "Investigation steps" not in text
     assert "MITRE" not in text
     assert "No query was executed." in text
+
+
+_P1_COMPILER_SHA256_D04C00A5 = "f27b363dc854b64411104b34698cca82544e9f85b4f6bf1986b2adfbf4693ef8"
+_P3_COMPILER_SHA256_D04C00A5 = "0bed5774228536dc771475418724980b643326f1a4468f133157b0d8df755f15"
+_P4_COMPILER_SHA256_D04C00A5 = "a4d195beecd85bd8e57e90b4d6ce71b437c12426bb8e7bf7a3b3dd14ba635eb8"
+
+
+def test_p1_p3_p4_compiler_spl_unchanged_from_d04c00a5() -> None:
+    snapshots = (
+        (P1, _P1_COMPILER_SHA256_D04C00A5, "mvmap(baseline_objects, if(baseline_objects==host_norm,1,0))"),
+        (P3, _P3_COMPILER_SHA256_D04C00A5, "powershell.exe"),
+        (P4, _P4_COMPILER_SHA256_D04C00A5, "mvmap(baseline_objects, if(baseline_objects==domain_norm,1,0))"),
+    )
+    for query, expected, needle in snapshots:
+        spl = compile_intent_spec_to_spl(build_spl_intent_spec(query))
+        assert needle in spl
+        assert hashlib.sha256(spl.encode()).hexdigest() == expected

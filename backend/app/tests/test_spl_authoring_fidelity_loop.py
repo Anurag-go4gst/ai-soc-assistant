@@ -465,7 +465,8 @@ def test_p2_sequence_search_is_union_not_and(spl_flags: None) -> None:
     assert "src_ip" in by_clause
     assert "user" in by_clause
     assert not re.search(r"\bhost(?:_norm)?\b", by_clause), by_clause
-    assert re.search(r"(?:latest|values)\(\s*host_norm\s*\)", spl, re.I)
+    assert re.search(r"\|\s*fields\s+[^|]*\bhost_norm\b", spl, re.I)
+    assert re.search(r"(?:latest|values)\(\s*host_norm\s*\)", spl, re.I) is None
     fidelity = validate_semantic_fidelity(spec, spl)
     assert fidelity.get("passed") is True, fidelity
     bad = (

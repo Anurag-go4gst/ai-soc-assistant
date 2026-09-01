@@ -535,6 +535,29 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
             parts.append(f"| transaction {streamstats_by} maxspan={agg_window}")
         extra_aggs: list[str] = []
         burst_then_follow = threshold_n is not None and len(ordered) >= 2
+        if burst_then_follow:
+            # Keep one row per qualifying success. Final stats by user+src_ip
+            # independently max/min/latest burst vs success fields and mixes
+            # unrelated sequences for the same correlation keys.
+            if threshold_n is not None or "failure_count" in outputs:
+                parts.append("| rename burst_count as failure_count")
+            if "first_failure_time" in outputs:
+                parts.append(
+                    '| eval first_failure=strftime(burst_first_epoch, "%Y-%m-%d %H:%M:%S")'
+                )
+            if "success_time" in outputs:
+                parts.append(
+                    '| eval success_time=strftime(_time, "%Y-%m-%d %H:%M:%S")'
+                )
+            drop = [
+                "burst_first_epoch",
+                "burst_last_epoch",
+                "first_failure_epoch",
+                "last_failure_epoch",
+                "event_type",
+            ]
+            parts.append("| fields - " + " ".join(drop))
+            return re.sub(r"\s+", " ", " ".join(parts)).strip()
         if threshold_n is not None or "failure_count" in outputs:
             count_field = "burst_count" if burst_then_follow else "failure_count"
             extra_aggs.append(f"max({count_field}) as failure_count")
