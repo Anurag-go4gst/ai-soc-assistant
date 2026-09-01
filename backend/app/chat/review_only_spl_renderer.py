@@ -31,6 +31,11 @@ from app.chat.signal_class_guidance import (
     resolve_signal_class_review_supplement,
 )
 from app.spl.binding_semantics import format_profile_binding_line
+from app.spl.review_only_analyst_synthesis import (
+    attach_synthesis_trace,
+    render_review_only_analyst_card_text,
+    synthesize_review_only_analyst_explanation,
+)
 
 _MAIN_TITLE = "Review-only SPL draft — no live query was executed"
 _SEVERITY_NOT_ASSIGNED = "Not assigned from this question alone"
@@ -463,9 +468,13 @@ def render_universal_spl_utility_answer(
 def render_user_bound_spl_utility_answer(
     *,
     candidate_spl: dict[str, Any] | None = None,
+    user_query: str | None = None,
 ) -> str:
     if _has_pattern_guided_synthesis(candidate_spl):
-        return render_pattern_guided_review_answer(candidate_spl=candidate_spl)
+        return render_pattern_guided_review_answer(
+            candidate_spl=candidate_spl,
+            user_query=user_query,
+        )
     draft_spl = str((candidate_spl or {}).get("candidate_spl") or "").strip()
     lines = ["Review-only - not executed", ""]
     if draft_spl:
@@ -566,27 +575,23 @@ def _synthesis_mappings(candidate_spl: dict[str, Any], spec: dict[str, Any]) -> 
 def render_pattern_guided_review_answer(
     *,
     candidate_spl: dict[str, Any] | None = None,
+    user_query: str | None = None,
+    llm_raw_output_provider: Any = None,
 ) -> str:
     cs = candidate_spl if isinstance(candidate_spl, dict) else {}
     trace = cs.get("utility_spl_draft_trace") if isinstance(cs.get("utility_spl_draft_trace"), dict) else {}
     spec = trace.get("semantic_intent_spec") if isinstance(trace.get("semantic_intent_spec"), dict) else {}
     draft_spl = str(cs.get("candidate_spl") or "").strip()
-    bullets = _synthesis_bullets(spec, draft_spl)
-    mappings = _synthesis_mappings(cs, spec)
-    lines = [
-        "Review-only SPL draft — not executed",
-        "",
-        "What this query does",
-        *[f"• {item}" for item in bullets],
-        "",
-    ]
-    if draft_spl:
-        lines.append(draft_spl)
-        lines.append("")
-    lines.append("Mappings / assumptions")
-    lines.extend(f"• {item}" for item in mappings)
-    lines.extend(["", "No query was executed."])
-    return "\n".join(lines).strip()
+    request = str(user_query or cs.get("user_query") or "").strip()
+    synthesis = synthesize_review_only_analyst_explanation(
+        original_user_request=request,
+        spec=spec,
+        final_validated_spl=draft_spl,
+        candidate_spl=cs,
+        llm_raw_output_provider=llm_raw_output_provider,
+    )
+    attach_synthesis_trace(cs, synthesis)
+    return render_review_only_analyst_card_text(synthesis, draft_spl)
 
 
 _UTILITY_CARD_CLEARS: dict[str, Any] = {
@@ -648,7 +653,10 @@ def render_review_only_spl_answer(
             candidate_spl=candidate_spl,
         )
     if _is_concise_spl_utility(draft_preview, candidate_spl):
-        return render_user_bound_spl_utility_answer(candidate_spl=candidate_spl)
+        return render_user_bound_spl_utility_answer(
+            candidate_spl=candidate_spl,
+            user_query=user_query,
+        )
 
     lines: list[str] = [_MAIN_TITLE, ""]
 
@@ -836,13 +844,26 @@ def apply_review_only_spl_render(
     if _is_concise_spl_utility(draft_preview, candidate_spl):
         utility_spl = _draft_spl_text(analyst_response, draft_preview, candidate_spl=candidate_spl)
         is_universal = _is_universal_spl_utility(draft_preview, candidate_spl)
-        card_summary = (
-            render_universal_spl_utility_summary(candidate_spl=candidate_spl)
-            if is_universal
-            else "Review-only SPL artifact displayed exactly from deterministic user-bound constraints. Nothing was executed."
-        )
+        synthesis = {}
+        if isinstance(candidate_spl, dict):
+            trace = candidate_spl.get("utility_spl_draft_trace")
+            if isinstance(trace, dict) and isinstance(trace.get("analyst_synthesis"), dict):
+                synthesis = trace["analyst_synthesis"]
+        mappings = [str(item).strip() for item in (synthesis.get("mappings_assumptions") or []) if str(item).strip()]
+        what_it_does = [str(item).strip() for item in (synthesis.get("what_it_does") or []) if str(item).strip()]
+        summary = str(synthesis.get("summary") or "").strip()
+        expected = str(synthesis.get("expected_result") or "").strip()
+        if is_universal:
+            card_summary = render_universal_spl_utility_summary(candidate_spl=candidate_spl)
+        elif summary:
+            card_summary = summary
+        else:
+            card_summary = (
+                "Review-only SPL artifact displayed exactly from deterministic "
+                "user-bound constraints. Nothing was executed."
+            )
         updates = {
-            "finding_title": _UNIVERSAL_UTILITY_TITLE if is_universal else "Review-only SPL draft. This was not executed.",
+            "finding_title": _UNIVERSAL_UTILITY_TITLE if is_universal else "Review-only SPL draft — not executed",
             "scenario_label": None,
             "response_profile": "spl_only",
             "investigation_steps": [],
@@ -851,16 +872,16 @@ def apply_review_only_spl_render(
             "severity_rationale": None,
             "severity_safety_note": None,
             "direct_answer_summary": card_summary,
-            "one_sentence_finding": None,
+            "one_sentence_finding": expected or None,
             "analyst_checklist": [],
-            "initial_assessment": [],
+            "initial_assessment": what_it_does,
             "required_evidence": [],
             "missing_evidence": [],
             "limitations": [],
             "mitre_mappings": [],
             "spl_code": None,
             "draft_spl_code": utility_spl or None,
-            "spl_draft_preview": None,
+            "spl_draft_preview": {"assumptions": mappings} if mappings else None,
             "spl_status_detail": None,
             "spl_status": "review_required",
             "spl_unbound_constraints": [],

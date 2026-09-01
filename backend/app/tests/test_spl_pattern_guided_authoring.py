@@ -1132,6 +1132,7 @@ def test_p4_renderer_keeps_host_domain_first_seen() -> None:
 
 
 _P1_COMPILER_SHA256_D04C00A5 = "f27b363dc854b64411104b34698cca82544e9f85b4f6bf1986b2adfbf4693ef8"
+_P2_COMPILER_SHA256_6C1D6C4B = "97b84cdf8e4aaecfc4a49825f5913d79959d6da1ca7489b0f4ce1ffcad1b8e1c"
 _P3_COMPILER_SHA256_D04C00A5 = "0bed5774228536dc771475418724980b643326f1a4468f133157b0d8df755f15"
 _P4_COMPILER_SHA256_D04C00A5 = "a4d195beecd85bd8e57e90b4d6ce71b437c12426bb8e7bf7a3b3dd14ba635eb8"
 
@@ -1139,6 +1140,19 @@ _P4_COMPILER_SHA256_D04C00A5 = "a4d195beecd85bd8e57e90b4d6ce71b437c12426bb8e7bf7
 def test_p1_p3_p4_compiler_spl_unchanged_from_d04c00a5() -> None:
     snapshots = (
         (P1, _P1_COMPILER_SHA256_D04C00A5, "mvmap(baseline_objects, if(baseline_objects==host_norm,1,0))"),
+        (P3, _P3_COMPILER_SHA256_D04C00A5, "powershell.exe"),
+        (P4, _P4_COMPILER_SHA256_D04C00A5, "mvmap(baseline_objects, if(baseline_objects==domain_norm,1,0))"),
+    )
+    for query, expected, needle in snapshots:
+        spl = compile_intent_spec_to_spl(build_spl_intent_spec(query))
+        assert needle in spl
+        assert hashlib.sha256(spl.encode()).hexdigest() == expected
+
+
+def test_p1_p2_p3_p4_compiler_spl_unchanged_from_6c1d6c4b() -> None:
+    snapshots = (
+        (P1, _P1_COMPILER_SHA256_D04C00A5, "mvmap(baseline_objects, if(baseline_objects==host_norm,1,0))"),
+        (P2, _P2_COMPILER_SHA256_6C1D6C4B, "burst_count>20"),
         (P3, _P3_COMPILER_SHA256_D04C00A5, "powershell.exe"),
         (P4, _P4_COMPILER_SHA256_D04C00A5, "mvmap(baseline_objects, if(baseline_objects==domain_norm,1,0))"),
     )

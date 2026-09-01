@@ -77,4 +77,53 @@ describe('AnalystResponseCard SPL utility rendering', () => {
     expect(screen.queryByText('Investigation plan')).not.toBeInTheDocument();
     expect(screen.getByText('Recommended checks')).toBeInTheDocument();
   });
+
+  it('renders utility synthesis as summary, what it does, SPL, mappings, expected result', () => {
+    const { container } = render(
+      <AnalystResponseCard
+        response={{
+          response_profile: 'spl_only',
+          finding_title: 'Review-only SPL draft — not executed',
+          direct_answer_summary: 'Review-only authentication sequence query.',
+          initial_assessment: [
+            'Finds a failure burst of more than 20 failed authentication attempts within 15 minutes.',
+            'Establishes that qualifying failure burst first, then a later successful login within 10 minutes.',
+          ],
+          one_sentence_finding: 'Each row represents a qualifying burst and a later successful login.',
+          draft_spl_code: 'search index=wineventlog earliest=-24h | stats count',
+          spl_draft_preview: {
+            draft_spl: 'search index=wineventlog earliest=-24h | stats count',
+            draft_status: 'review_only',
+            draft_source: 'compiler',
+            detection_family: 'user_bound_spl_authoring',
+            assumptions: ['Authentication failures use EventCode 4625.'],
+            required_source_fields: [],
+            source_profile_missing: false,
+            governed_template_missing: true,
+            validator_status: 'review_required',
+            review_required: true,
+            execution_enabled: false,
+            warning: 'Review only — not executed.',
+            not_catalog_approved_notice: 'Review-only draft.',
+          },
+          investigation_steps: [],
+          recommended_actions: [],
+          mitre_mappings: [],
+        }}
+      />,
+    );
+    const text = container.textContent ?? '';
+    expect(text).toContain('Review-only authentication sequence query.');
+    expect(text).toContain('What this query does');
+    expect(text).toContain('failure burst');
+    expect(text).toContain('Mappings / assumptions');
+    expect(text).toContain('EventCode 4625');
+    expect(text).toContain('Expected result');
+    expect(text).toContain('No query was executed.');
+    expect(text).not.toContain('Investigation steps');
+    expect(text).not.toContain('MITRE');
+    expect(text.indexOf('What this query does')).toBeLessThan(text.indexOf('search index=wineventlog'));
+    expect(text.indexOf('search index=wineventlog')).toBeLessThan(text.indexOf('Mappings / assumptions'));
+    expect(text.indexOf('Mappings / assumptions')).toBeLessThan(text.indexOf('Expected result'));
+  });
 });

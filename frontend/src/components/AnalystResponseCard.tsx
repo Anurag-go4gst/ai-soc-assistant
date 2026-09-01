@@ -108,9 +108,15 @@ export function AnalystResponseCard({
     return key && !investigationStepKeys.has(key);
   });
   const hasPriorityInvestigation = hasPriorityActions(uniquePriorityActions);
-  const showInvestigationSteps = Boolean(!isKnowledgeRecall && investigationSteps.length);
-  const showRequiredEvidence = Boolean(!isKnowledgeRecall && response.required_evidence?.length);
-  const showMissingEvidence = Boolean(!isKnowledgeRecall && missingEvidence.length);
+  const isUtilitySynthesisCard = Boolean(
+    splOnly
+      && response.draft_spl_code?.trim()
+      && !response.spl_code
+      && response.initial_assessment?.length,
+  );
+  const showInvestigationSteps = Boolean(!isKnowledgeRecall && investigationSteps.length && !isUtilitySynthesisCard);
+  const showRequiredEvidence = Boolean(!isKnowledgeRecall && response.required_evidence?.length && !isUtilitySynthesisCard);
+  const showMissingEvidence = Boolean(!isKnowledgeRecall && missingEvidence.length && !isUtilitySynthesisCard);
   const showGuidanceLimitations = Boolean(
     !isKnowledgeRecall &&
       response.limitations?.length &&
@@ -140,7 +146,7 @@ export function AnalystResponseCard({
   // workflow" heading).
   const isReviewOnlySplDraft = splOnly && Boolean(draftSplCode);
   const isUniversalUtilitySplDraft =
-    isReviewOnlySplDraft && !response.spl_status_detail && !response.spl_code;
+    isReviewOnlySplDraft && !response.spl_status_detail && !response.spl_code && !isUtilitySynthesisCard;
   const llmSplCandidate = response.llm_spl_candidate;
   const showLlmSplCandidate = Boolean(llmSplCandidate);
   const displaySplCode = formatSplForDisplay(response.spl_code ?? '').trim();
@@ -279,10 +285,20 @@ export function AnalystResponseCard({
   if (showSpl || showDraftSpl || response.spl_status_detail) {
     phases.push({
       key: 'spl',
-      label: wasExecuted ? 'Executed detection' : isUniversalUtilitySplDraft ? 'Universal SPL draft' : showDraftSpl && !showSpl ? 'Draft SPL preview' : 'SPL status',
+      label: wasExecuted
+        ? 'Executed detection'
+        : isUtilitySynthesisCard
+          ? 'SPL'
+          : isUniversalUtilitySplDraft
+            ? 'Universal SPL draft'
+            : showDraftSpl && !showSpl
+              ? 'Draft SPL preview'
+              : 'SPL status',
       icon: <Terminal className="h-3.5 w-3.5" />,
       accent: showDraftSpl && !showSpl ? 'amber' : 'cyan',
-      chips: isUniversalUtilitySplDraft
+      chips: isUtilitySynthesisCard
+        ? [{ text: 'Review only', variant: 'warning' as const }]
+        : isUniversalUtilitySplDraft
         ? [{ text: 'Template-free', variant: 'outline' as const }, { text: 'Review only', variant: 'warning' as const }]
         : showDraftSpl && !showSpl
         ? [
@@ -301,7 +317,7 @@ export function AnalystResponseCard({
           ) : null}
           {showDraftSpl ? (
             <>
-              {!isUniversalUtilitySplDraft ? (
+              {!isUniversalUtilitySplDraft && !isUtilitySynthesisCard ? (
               <p
                 className={cn(
                   'text-sm leading-6 text-amber-100/95',
@@ -312,7 +328,7 @@ export function AnalystResponseCard({
                 {response.review_notice ?? draftPreview?.warning}
               </p>
               ) : null}
-              {draftPreview?.assumptions?.length ? (
+              {draftPreview?.assumptions?.length && !isUtilitySynthesisCard ? (
                 <div className="mt-3">
                   <SectionTitle>Assumptions and placeholders</SectionTitle>
                   <BulletList items={draftPreview.assumptions} />
@@ -326,6 +342,21 @@ export function AnalystResponseCard({
               >
                 <code className="whitespace-pre-wrap break-words">{formatSplForDisplay(draftSplCode ?? '')}</code>
               </pre>
+              {isUtilitySynthesisCard && draftPreview?.assumptions?.length ? (
+                <div className="mt-3">
+                  <SectionTitle>Mappings / assumptions</SectionTitle>
+                  <BulletList items={draftPreview.assumptions} />
+                </div>
+              ) : null}
+              {isUtilitySynthesisCard && response.one_sentence_finding ? (
+                <div className="mt-3">
+                  <SectionTitle>Expected result</SectionTitle>
+                  <p className="mt-1 leading-6 text-slate-200">{response.one_sentence_finding}</p>
+                </div>
+              ) : null}
+              {isUtilitySynthesisCard ? (
+                <p className="mt-3 text-sm leading-6 text-slate-300">No query was executed.</p>
+              ) : null}
             </>
           ) : null}
           {showSpl ? (
@@ -504,7 +535,7 @@ export function AnalystResponseCard({
         <p className="mt-2 text-sm leading-6 text-slate-200">{response.severity_safety_note}</p>
       ) : null}
 
-      {initialAssessment.length ? (
+      {initialAssessment.length && !isUtilitySynthesisCard ? (
         <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2">
           <SectionTitle>Initial assessment</SectionTitle>
           <BulletList items={initialAssessment} />
@@ -519,6 +550,12 @@ export function AnalystResponseCard({
               {paragraph}
             </p>
           ))}
+        </div>
+      ) : null}
+      {isUtilitySynthesisCard ? (
+        <div className="mt-3">
+          <SectionTitle>What this query does</SectionTitle>
+          <BulletList items={initialAssessment} />
         </div>
       ) : null}
 
