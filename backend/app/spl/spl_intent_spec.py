@@ -25,6 +25,7 @@ SUPPORTED_ANALYSIS_SHAPES: tuple[str, ...] = (
     "rolling",
     "sequence",
     "first_seen",
+    "parent_child",
 )
 UNSUPPORTED_ANALYSIS_SHAPES: tuple[str, ...] = ("comparison",)
 
@@ -281,6 +282,8 @@ def _event_domain(query: str, tokens: Any) -> str | None:
     if _FIREWALL_RE.search(lowered):
         return "firewall"
     if any(token in lowered for token in ("dns", "domain name")):
+        return "dns"
+    if _DEST_DOMAIN_RE.search(query or ""):
         return "dns"
     if any(token in lowered for token in ("auth", "login", "logon", "password", "account")):
         return "authentication"
@@ -572,6 +575,7 @@ def _output_shape_for(analysis_shape: str) -> str:
         "rolling": "windowed_table",
         "sequence": "sequence_matches",
         "first_seen": "first_seen_table",
+        "parent_child": "parent_child_table",
         "comparison": "comparison_table",
     }.get(analysis_shape, "events")
 
@@ -730,7 +734,7 @@ def _prohibitions(
     bans: list[str] = []
     all_events = "all_events_no_action_filter" in (filters or [])
     if result_limit is None and (
-        analysis_shape in {"trend", "rolling", "sequence"} or all_events
+        analysis_shape in {"trend", "rolling", "sequence", "first_seen", "parent_child"} or all_events
     ):
         bans.append("arbitrary_head_100")
         bans.append("arbitrary_truncation")
@@ -932,6 +936,8 @@ def build_spl_intent_spec(
         aggregations=aggregations,
         filters=filters,
     )
+    if process_constraints.get("child") and process_constraints.get("parent"):
+        analysis_shape = "parent_child"
     if analysis_shape == "comparison":
         support_status = "unsupported"
         degrade_reason = "unsupported_comparison_semantics"

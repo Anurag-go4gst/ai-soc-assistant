@@ -34,17 +34,104 @@ _EVENT_SET_TOKENS = {
 
 
 _EVAL_ONLY_CALL_RE = re.compile(
-    r"\b(?:like|match|case|coalesce|mvfind|mvfilter|mvcount|relative_time|"
+    r"\b(?:like|match|case|coalesce|mvfind|mvfilter|mvmap|mvcount|relative_time|"
     r"strftime|isnull|isnotnull|cidrmatch|typeof|tonumber|tostring|if)\s*\(",
     re.I,
 )
 _MVFIND_RE = re.compile(r"\bmvfind\s*\(", re.I)
-_EXACT_MV_MEMBERSHIP_RE = re.compile(
+_MVFILTER_CROSS_FIELD_RE = re.compile(
     r"mvfilter\s*\(\s*[A-Za-z_][A-Za-z0-9_]*\s*==\s*[A-Za-z_][A-Za-z0-9_]*\s*\)",
     re.I,
 )
+_MVMAP_EXACT_RE = re.compile(
+    r"mvmap\s*\(\s*([A-Za-z_][\w]*)\s*,\s*if\s*\(\s*\1\s*==\s*[A-Za-z_][\w]*\s*,\s*1\s*,\s*0\s*\)\s*\)",
+    re.I,
+)
+_SEEN_BEFORE_MAX_RE = re.compile(
+    r"seen_before\s*=\s*coalesce\s*\(\s*max\s*\(\s*exact_matches\s*\)\s*,\s*0\s*\)",
+    re.I,
+)
+_WHERE_SEEN_BEFORE_ZERO_RE = re.compile(r"\|\s*where\s+seen_before\s*=\s*0\b", re.I)
+_MVFILTER_CROSS_FIELD_REPAIR = (
+    "mvfilter() may reference only one field. Use "
+    "mvmap(baseline_objects, if(baseline_objects==<object>,1,0)), then "
+    "seen_before=coalesce(max(exact_matches),0) and keep rows where seen_before=0."
+)
 _AS_NEW_HOST_RE = re.compile(r"\bas\s+new_host\b", re.I)
 _TOKEN_SECONDS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+_BASELINE_PERIOD_ASSIGN_RE = re.compile(
+    r"eval\s+([A-Za-z_][\w]*)\s*=\s*if\s*\(\s*period\s*==?\s*[\"']baseline[\"']\s*,\s*([A-Za-z_][\w]*)",
+    re.I,
+)
+_STREAMSTATS_VALUES_BY_RE = re.compile(
+    r"streamstats\s+values\(\s*([A-Za-z_][\w]*)\s*\)(?:\s+as\s+[A-Za-z_][\w]*)?\s+by\s+([^|\n]+)",
+    re.I,
+)
+_BIN_TIME_RE = re.compile(r"\bbin\s+_time\b|\btimechart\b", re.I)
+_STATS_CMD_RE = re.compile(r"\b(?:stats|tstats)\b", re.I)
+_SUBJECT_ALIASES = {
+    "user": ("user", "user_norm", "account", "username", "src_user", "account_name", "targetusername"),
+    "host": ("host", "host_norm", "dest_host", "dvc", "computername"),
+    "src_ip": ("src_ip", "src_ip_norm", "src", "source_ip"),
+}
+_OBJECT_ALIASES = {
+    "host": ("host", "host_norm", "dest_host", "dest", "dvc", "computername", "object_norm", "new_host"),
+    "domain": ("domain", "domain_norm", "query", "object_norm", "dest_domain"),
+}
+_EXTRA_CORRELATION_REPAIR = (
+    "The historical host baseline must be accumulated separately per account. "
+    "Source IP is an output field and must not partition the historical baseline. "
+    "Use the subject specified by the semantic contract only."
+)
+_LATE_BIN_REPAIR = (
+    "The request requires one-hour windows. _time must still exist when the "
+    "hourly bin is applied. Do not aggregate away _time before bin _time span=1h."
+)
+_SEQUENCE_HOST_REPAIR = (
+    "The failure burst and later successful login must be correlated by user and "
+    "source IP only. Destination host is an output from the success event and must "
+    "not partition the sequence."
+)
+_SEQUENCE_BURST_REPAIR = (
+    "Qualify the failure burst inside the requested window first, snapshot the "
+    "count and first/last failure times, then correlate a later successful login. "
+    "Do not count failures inside a window that ends at the success timestamp."
+)
+_SEQUENCE_AFTER_REPAIR = (
+    "The successful login must occur after the last failure in the qualified burst, "
+    "not before it."
+)
+_PARENT_CHILD_CMD_REPAIR = (
+    "powershell in command_line must not satisfy the child-process constraint. "
+    "Bind the child to Image / New_Process_Name / child_process."
+)
+_PARENT_CHILD_PARENT_REPAIR = (
+    "winword or excel in the child process must not satisfy the parent. "
+    "Bind the parent to ParentImage / Parent_Process_Name / parent_process."
+)
+_PARENT_CHILD_DIRECTION_REPAIR = (
+    "Parent to child direction must be explicit: parent fields constrain the "
+    "launcher, child fields constrain the launched process."
+)
+_CHILD_ROLE_FIELDS = (
+    "Image",
+    "New_Process_Name",
+    "child_process",
+    "process_name",
+)
+_PARENT_ROLE_FIELDS = (
+    "ParentImage",
+    "Parent_Process_Name",
+    "parent_process",
+    "parent_process_name",
+)
+_COMMAND_LINE_FIELDS = (
+    "CommandLine",
+    "command_line",
+    "process_command_line",
+)
+_JOIN_APPEND_RE = re.compile(r"\|\s*(?:join|append)\b|\[\s*search\b", re.I)
+_FIELDS_AFTER_RE = re.compile(r"\|\s*(?:fields|table)\s+([^|]+)", re.I)
 
 
 def _window_token(spec_window: str | None) -> str | None:
@@ -64,11 +151,44 @@ def _token_seconds(token: str | None) -> int | None:
     return int(match.group(1)) * _TOKEN_SECONDS[match.group(2)]
 
 
+def _has_exact_mvmap_membership(text: str) -> bool:
+    return bool(
+        _MVMAP_EXACT_RE.search(text)
+        and _SEEN_BEFORE_MAX_RE.search(text)
+        and _WHERE_SEEN_BEFORE_ZERO_RE.search(text)
+    )
+
+
 def _spl_search_lookback_seconds(spl: str) -> int | None:
     match = _EARLIEST_RE.search(str(spl or ""))
     if not match:
         return None
     return _token_seconds(match.group(1).lstrip("-"))
+
+
+def _observation_baseline_overlap(spec: dict[str, Any], text: str) -> bool:
+    """True when baseline membership is taken from events that include observation."""
+    observation = str(spec.get("observation_window") or "").strip()
+    baseline = str(spec.get("baseline_window") or "").strip()
+    if not observation or not baseline:
+        return False
+    assign = re.search(
+        r"baseline_object\s*=\s*if\s*\(\s*([^,]+)\s*,",
+        text,
+        re.I,
+    )
+    if not assign:
+        return bool(re.search(r"baseline_object\s*=", text, re.I)) and (
+            'period="baseline"' not in text.lower().replace(" ", "")
+        )
+    cond = assign.group(1).lower().replace(" ", "").replace("'", '"')
+    if 'period="baseline"' in cond:
+        return False
+    if 'period="observation"' in cond:
+        return True
+    if f'-{baseline.lower()}' in cond:
+        return True
+    return True
 
 
 def _baseline_retrieval_reachable(spec: dict[str, Any], spl: str) -> bool:
@@ -81,6 +201,137 @@ def _baseline_retrieval_reachable(spec: dict[str, Any], spl: str) -> bool:
     required = obs_sec + base_sec
     got = _spl_search_lookback_seconds(spl)
     return got is not None and got >= required
+
+
+def _rel_field(spec: dict[str, Any], rel_type: str, key: str, fallback: str) -> str:
+    for item in spec.get("relationships") or []:
+        if isinstance(item, dict) and item.get("type") == rel_type and item.get(key):
+            return str(item.get(key))
+    roles = spec.get("entity_roles") if isinstance(spec.get("entity_roles"), dict) else {}
+    values = roles.get("subject" if key == "subject" else "target") or []
+    if values:
+        return str(values[0])
+    return fallback
+
+
+def _alias_match(token: str, aliases: tuple[str, ...]) -> bool:
+    compact = str(token or "").strip().lower()
+    return compact in {item.lower() for item in aliases}
+
+
+def _first_seen_accumulation(spec: dict[str, Any], text: str) -> dict[str, Any]:
+    """Semantic streamstats accumulation: baseline-only object field, by subject only."""
+    subject = _rel_field(spec, "first_seen", "subject", "user")
+    obj = _rel_field(spec, "first_seen", "object", "host")
+    subject_aliases = _SUBJECT_ALIASES.get(subject, (subject, f"{subject}_norm"))
+    object_aliases = _OBJECT_ALIASES.get(obj, (obj, f"{obj}_norm", "object_norm"))
+    assigns = {
+        match.group(1).lower(): match.group(2).lower()
+        for match in _BASELINE_PERIOD_ASSIGN_RE.finditer(text)
+    }
+    stream = _STREAMSTATS_VALUES_BY_RE.search(text)
+    by_keys: list[str] = []
+    extra_keys: list[str] = []
+    accumulated = False
+    if stream:
+        src_field = stream.group(1).lower()
+        by_keys = [part.strip().lower() for part in stream.group(2).split(",") if part.strip()]
+        extra_keys = [key for key in by_keys if not _alias_match(key, subject_aliases)]
+        object_field = assigns.get(src_field)
+        accumulated = bool(object_field and _alias_match(object_field, object_aliases))
+    return {
+        "accumulated": accumulated,
+        "has_streamstats": "streamstats" in text.lower(),
+        "by_keys": by_keys,
+        "extra_keys": extra_keys,
+        "subject": subject,
+        "object": obj,
+    }
+
+
+def _grain_bin_reachable(spl: str, grain: str) -> tuple[bool, bool]:
+    """Return (has_matching_bin, time_reachable_at_bin)."""
+    commands = [part.strip() for part in re.split(r"\s*\|\s*", str(spl or "")) if part.strip()]
+    grain_l = grain.strip().lower()
+    bin_idx: int | None = None
+    has_matching_bin = False
+    for index, command in enumerate(commands):
+        if not _BIN_TIME_RE.search(command):
+            continue
+        bin_idx = index
+        has_matching_bin = (not grain_l) or f"span={grain_l}" in command.lower().replace(" ", "")
+        if has_matching_bin:
+            break
+    if bin_idx is None:
+        return False, False
+    for command in commands[:bin_idx]:
+        if not _STATS_CMD_RE.search(command):
+            continue
+        by_match = re.search(r"\bby\s+(.+)$", command, re.I)
+        by_clause = by_match.group(1) if by_match else ""
+        if not re.search(r"\b_time\b", by_clause):
+            return has_matching_bin, False
+    return has_matching_bin, True
+
+
+def _sequence_burst_then_follow(text: str) -> dict[str, bool]:
+    """EVENT_A burst in WINDOW_A, carried forward, EVENT_B after last EVENT_A."""
+    windowed = bool(re.search(r"streamstats[^|]*time_window\s*=", text, re.I))
+    carry = bool(re.search(r"\|\s*streamstats[^|]*\blast\s*\(", text, re.I))
+    after = bool(
+        re.search(
+            r"_time\s*>\s*(burst_last|last_failure|event_a_last|prev_time)",
+            text,
+            re.I,
+        )
+    )
+    return {
+        "windowed_burst": windowed,
+        "burst_carried": carry,
+        "success_after_burst": after,
+        "established": windowed and carry and after,
+    }
+
+
+def _assignment_haystack(text: str, fields: tuple[str, ...]) -> str:
+    chunks: list[str] = []
+    for field in fields:
+        escaped = re.escape(field)
+        assign = re.compile(rf"(?<![A-Za-z0-9_]){escaped}\s*=\s*([^\s|,]+)", re.I)
+        chunks.extend(match.group(1) for match in assign.finditer(text))
+        like = re.compile(
+            rf"like\s*\(\s*{escaped}\s*,\s*[\"']([^\"']+)[\"']",
+            re.I,
+        )
+        chunks.extend(match.group(1) for match in like.finditer(text))
+    return " ".join(chunks).lower()
+
+
+def _process_token_present(token: str, haystack: str) -> bool:
+    needle = str(token).lower().replace(".exe", "")
+    return bool(needle) and needle in haystack
+
+
+def _any_process_token(tokens: list[Any], haystack: str) -> bool:
+    return any(_process_token_present(str(item), haystack) for item in tokens)
+
+
+def _parent_child_repair_child(spec: dict[str, Any]) -> str:
+    process = spec.get("process_constraints") if isinstance(spec.get("process_constraints"), dict) else {}
+    child = " or ".join(str(item) for item in (process.get("child") or []) if str(item).strip()) or "the child process"
+    parent = " or ".join(str(item) for item in (process.get("parent") or []) if str(item).strip()) or "the parent process"
+    return (
+        f"The requested relationship is {parent} launching {child}. "
+        f"{child} must be proven in the child-process semantic field, "
+        "not merely present in command-line text."
+    )
+
+
+def _parent_child_repair_lineage() -> str:
+    return (
+        "parent_process, child_process and command_line are requested outputs but are "
+        "removed by the current stats command. Preserve them through aggregation."
+    )
 
 
 def _quoted_string_contains_newline(text: str, quote: str) -> bool:
@@ -149,6 +400,7 @@ def validate_semantic_fidelity(
     search_command = text.split("|", 1)[0]
     if _EVAL_ONLY_CALL_RE.search(search_command):
         losses.append("eval_function_in_search_command")
+        losses.append("command_context_invalid")
         repair_feedback.append("semantic_loss:eval_function_in_search_command")
     else:
         preserved.append("search_command_predicates_only")
@@ -276,7 +528,7 @@ def validate_semantic_fidelity(
         if dc_fields & (expected | expected_norm):
             preserved.append("distinct_count")
         elif shape == "first_seen" and (
-            _EXACT_MV_MEMBERSHIP_RE.search(text) or "new_object" in lowered
+            _has_exact_mvmap_membership(text) or "seen_before" in lowered
         ):
             # First-seen distinctness is exact baseline exclusion, not a dc() column.
             preserved.append("distinct_count")
@@ -349,9 +601,37 @@ def validate_semantic_fidelity(
                     break
             if overcorrelated:
                 losses.append("sequence_host_overcorrelation")
-                repair_feedback.append("semantic_loss:sequence_host_overcorrelation")
+                repair_feedback.append(_SEQUENCE_HOST_REPAIR)
             else:
                 preserved.append("sequence_host_not_correlation_key")
+        burst = _sequence_burst_then_follow(text)
+        threshold_n = spec.get("explicit_threshold_value")
+        comparison = str(spec.get("explicit_threshold_comparison") or "greater_than").strip().lower()
+        if threshold_n is not None and comparison in {"", "greater_than", "gt", ">"}:
+            compact_ops = re.sub(r"\s+", "", lowered)
+            names = ("failure_count", "burst_count", "event_a_count", "lockout_count")
+            inclusive = any(f"{name}>={int(threshold_n)}" in compact_ops for name in names)
+            exclusive = any(
+                f"{name}>{int(threshold_n)}" in compact_ops
+                and f"{name}>={int(threshold_n)}" not in compact_ops
+                for name in names
+            )
+            if inclusive and not exclusive:
+                losses.append("sequence_threshold_inclusive")
+                repair_feedback.append(
+                    f"semantic_loss:failure_burst_must_be_greater_than_{threshold_n}_not_at_least"
+                )
+        if spec.get("explicit_threshold_present") and analytical.get("kind") == "sequence":
+            if burst["established"]:
+                preserved.append("sequence_burst_then_follow")
+            else:
+                losses.append("sequence_burst_not_established_before_follow")
+                repair_feedback.append(_SEQUENCE_BURST_REPAIR)
+            if burst["success_after_burst"]:
+                preserved.append("sequence_success_after_burst")
+            else:
+                losses.append("sequence_success_before_failure")
+                repair_feedback.append(_SEQUENCE_AFTER_REPAIR)
 
     if shape == "trend":
         grain = str(spec.get("temporal_grain") or "")
@@ -426,6 +706,7 @@ def validate_semantic_fidelity(
             preserved.append("baseline_window")
         elif not reachable:
             losses.append("baseline_data_unreachable")
+            losses.append("baseline_unreachable")
             repair_feedback.append(
                 "semantic_loss:baseline_data_unreachable:"
                 "search_envelope_must_cover_observation_plus_baseline"
@@ -448,6 +729,9 @@ def validate_semantic_fidelity(
     )
     if shape == "first_seen" or first_seen_rel:
         exclusion_tokens = (
+            "mvmap",
+            "seen_before",
+            "exact_matches",
             "mvfilter",
             "mvfind",
             "baseline",
@@ -462,25 +746,64 @@ def validate_semantic_fidelity(
         else:
             losses.append("first_seen_relation_missing")
             repair_feedback.append("semantic_loss:first_seen_relation_missing")
-        if _MVFIND_RE.search(text) or (
-            "mvfind" in lowered and not _EXACT_MV_MEMBERSHIP_RE.search(text)
+        if _MVFILTER_CROSS_FIELD_RE.search(text):
+            losses.append("mvfilter_cross_field")
+            losses.append("exact_membership_missing")
+            repair_feedback.append(_MVFILTER_CROSS_FIELD_REPAIR)
+        elif _MVFIND_RE.search(text) or (
+            "mvfind" in lowered and not _has_exact_mvmap_membership(text)
         ):
             losses.append("regex_membership")
             losses.append("exact_membership_missing")
             repair_feedback.append("semantic_loss:exact_membership_required_not_regex")
-        elif _EXACT_MV_MEMBERSHIP_RE.search(text):
+        elif _has_exact_mvmap_membership(text):
             preserved.append("exact_membership")
         else:
             losses.append("exact_membership_missing")
             repair_feedback.append("semantic_loss:exact_membership_missing")
-        subject = ""
-        if isinstance(roles, dict) and roles.get("subject"):
-            subject = str(roles["subject"][0])
+        if _observation_baseline_overlap(spec, text):
+            losses.append("observation_baseline_overlap")
+            repair_feedback.append(
+                "The baseline window must immediately precede the observation window "
+                "and must not include observation events."
+            )
+        accumulation = _first_seen_accumulation(spec, text)
+        if accumulation["accumulated"]:
+            preserved.append("first_seen_subject_accumulation")
+        else:
+            losses.append("first_seen_subject_accumulation_missing")
+            repair_feedback.append(
+                "semantic_loss:first_seen_must_accumulate_baseline_objects_by_subject_via_streamstats"
+            )
+        extra_keys = list(accumulation.get("extra_keys") or [])
+        if extra_keys:
+            losses.append("first_seen_extra_correlation_key")
+            repair_feedback.append(_EXTRA_CORRELATION_REPAIR)
+        subject = str(accumulation.get("subject") or "")
+        by_keys = [str(item) for item in (accumulation.get("by_keys") or [])]
+        subject_aliases = _SUBJECT_ALIASES.get(subject, (subject, f"{subject}_norm"))
+        if by_keys and not any(_alias_match(key, subject_aliases) for key in by_keys):
+            losses.append("first_seen_subject_wrong")
+            repair_feedback.append(
+                "Historical membership must be accumulated per the requested subject "
+                f"({subject}), not a different entity."
+            )
         if subject == "user" and not any(
             token in lowered for token in ("by user", "by user_norm", "by account")
         ):
             losses.append("same_account_comparison_missing")
             repair_feedback.append("semantic_loss:same_account_comparison_missing")
+        grain = str(spec.get("temporal_grain") or "").strip()
+        if grain:
+            has_bin, time_ok = _grain_bin_reachable(text, grain)
+            if not has_bin:
+                losses.append("time_bucket_missing")
+                repair_feedback.append("semantic_loss:time_bucket_missing")
+            elif not time_ok:
+                losses.append("required_temporal_grain_unreachable")
+                repair_feedback.append(_LATE_BIN_REPAIR)
+            else:
+                preserved.append("temporal_grain")
         object_entities = {
             str(item).lower()
             for item in ((roles.get("target") or []) if isinstance(roles, dict) else [])
@@ -504,11 +827,11 @@ def validate_semantic_fidelity(
         "first_seen": ("first_seen", "earliest(_time)"),
         "last_seen": ("last_seen", "latest(_time)"),
         "command_line": ("command_line", "commandline", "process_command_line"),
-        "parent_process": ("parent", "parentimage", "parent_process"),
-        "child_process": ("powershell", "image", "child", "new_process_name"),
+        "parent_process": ("parent_process", "parent_process_name"),
+        "child_process": ("child_process", "new_process_name"),
         "failure_count": ("failure_count",),
-        "first_failure_time": ("first_failure", "first_match", "min(first_failure"),
-        "success_time": ("success_time", "last_match"),
+        "first_failure_time": ("first_failure", "first_event_a"),
+        "success_time": ("success_time", "event_b_time"),
         "event_count": ("event_count", "count as event_count"),
         "connection_count": ("connection_count", "count as connection_count"),
     }
@@ -528,6 +851,32 @@ def validate_semantic_fidelity(
             losses.append(f"output_missing:{output_name}")
             repair_feedback.append(f"semantic_loss:output_missing:{output_name}")
 
+    if shape == "first_seen" or first_seen_rel:
+        obj = _rel_field(spec, "first_seen", "object", "host")
+        stats_cmds = re.findall(r"\|\s*stats\s+([^|]+)", text, re.I)
+        if obj == "host":
+            last_stats = stats_cmds[-1] if stats_cmds else ""
+            fields_match = re.search(r"\|\s*fields\s+([^|]+)", text, re.I)
+            surface = f"{last_stats} {fields_match.group(1) if fields_match else ''}"
+            if _AS_NEW_HOST_RE.search(surface) or re.search(r"\bnew_host\b", surface, re.I):
+                preserved.append("output:new_host")
+            else:
+                losses.append("output_missing:new_host")
+                repair_feedback.append("semantic_loss:output_missing:new_host")
+            dc_fields = [item.lower() for item in _DC_RE.findall(text)]
+            host_ok = {item.lower() for item in _OBJECT_ALIASES["host"]}
+            if not any(field in host_ok for field in dc_fields):
+                losses.append("distinct_count_not_host_field")
+                repair_feedback.append("semantic_loss:distinct_count_must_use_actual_host_field")
+        required_out = {str(item).lower() for item in (spec.get("required_outputs") or [])}
+        if stats_cmds and ("src_ip" in required_out or "source_ip" in required_out):
+            last_stats = stats_cmds[-1]
+            if re.search(r"src_ip|source_ip", last_stats, re.I):
+                preserved.append("output:src_ip_survives_stats")
+            else:
+                losses.append("output_missing:src_ip")
+                repair_feedback.append("semantic_loss:source_ip_must_survive_aggregation")
+
     if spec.get("explicit_threshold_present") and spec.get("explicit_threshold_value") is not None:
         token = str(spec["explicit_threshold_value"])
         if token not in lowered.replace(" ", ""):
@@ -543,21 +892,79 @@ def validate_semantic_fidelity(
             repair_feedback.append(f"semantic_loss:unresolved_field_mapping:{token}")
 
     if spec.get("process_constraints") and isinstance(spec.get("process_constraints"), dict):
-        child = spec["process_constraints"].get("child") or []
-        parent = spec["process_constraints"].get("parent") or []
-        for item in child:
-            if str(item).lower().replace(".exe", "") not in lowered:
-                losses.append("process_child_missing")
-                repair_feedback.append(f"semantic_loss:process_child_missing:{item}")
-        for item in parent:
-            if str(item).lower().replace(".exe", "") not in lowered:
-                losses.append("process_parent_missing")
-                repair_feedback.append(f"semantic_loss:process_parent_missing:{item}")
+        child = list(spec["process_constraints"].get("child") or [])
+        parent = list(spec["process_constraints"].get("parent") or [])
+        child_hay = _assignment_haystack(text, _CHILD_ROLE_FIELDS)
+        parent_hay = _assignment_haystack(text, _PARENT_ROLE_FIELDS)
+        cmd_hay = _assignment_haystack(text, _COMMAND_LINE_FIELDS)
+        child_in_child = _any_process_token(child, child_hay)
+        parent_in_parent = _any_process_token(parent, parent_hay)
+        child_in_parent = _any_process_token(child, parent_hay)
+        parent_in_child = _any_process_token(parent, child_hay)
+        child_in_cmd = _any_process_token(child, cmd_hay)
+        if child_in_parent and parent_in_child and not (child_in_child and parent_in_parent):
+            losses.append("parent_child_inverted")
+            repair_feedback.append(
+                "Parent and child are inverted. The launcher belongs in the parent-process "
+                "field; the launched process belongs in the child-process field."
+            )
+        if child and not child_in_child:
+            losses.append("child_process_not_proven")
+            if child_in_cmd:
+                repair_feedback.append(_parent_child_repair_child(spec))
+            else:
+                repair_feedback.append("semantic_loss:child_process_not_proven")
+        if parent and not parent_in_parent:
+            losses.append("parent_process_missing")
+            if parent_in_child:
+                repair_feedback.append(_PARENT_CHILD_PARENT_REPAIR)
+            else:
+                repair_feedback.append("semantic_loss:parent_process_missing")
         if parent and child:
-            relation_tokens = ("parentimage", "parent_process", "parent_process_name")
-            if not any(token in lowered.replace(" ", "") for token in relation_tokens):
-                losses.append("parent_child_relation_missing")
-                repair_feedback.append("semantic_loss:parent_child_relation_missing")
+            unrelated = bool(_JOIN_APPEND_RE.search(text))
+            if unrelated or not (child_in_child and parent_in_parent):
+                if "parent_child_inverted" not in losses:
+                    losses.append("parent_child_relationship_missing")
+                    repair_feedback.append(_PARENT_CHILD_DIRECTION_REPAIR)
+        stats_hits = list(re.finditer(r"\|\s*stats\s+", text, re.I))
+        if stats_hits:
+            tail = text[stats_hits[-1].start():]
+            stats_body = tail.split("|", 2)
+            stats_cmd = stats_body[1] if len(stats_body) > 1 else tail
+            later = "|".join(stats_body[2:]) if len(stats_body) > 2 else ""
+            lineage_fields = ("parent_process", "child_process", "command_line")
+            referenced = []
+            for match in _FIELDS_AFTER_RE.finditer(later):
+                referenced.extend(part.strip().lower() for part in match.group(1).split(",") if part.strip())
+            stats_l = stats_cmd.lower()
+            for field in lineage_fields:
+                named_in_fields = any(field in item for item in referenced)
+                kept_in_stats = field in stats_l
+                required = field in {str(item).lower() for item in (spec.get("required_outputs") or [])}
+                if (named_in_fields or required) and not kept_in_stats:
+                    losses.append("field_lineage_missing")
+                    repair_feedback.append(_parent_child_repair_lineage())
+                    break
+            for output_name in spec.get("required_outputs") or []:
+                aliases = output_aliases.get(str(output_name), (str(output_name),))
+                if any(alias.lower() in tail.lower() for alias in aliases):
+                    preserved.append(f"output_survives_stats:{output_name}")
+                elif str(output_name) in {"first_seen", "last_seen", "event_count"}:
+                    continue
+                else:
+                    losses.append(f"output_dropped_by_stats:{output_name}")
+                    repair_feedback.append(_parent_child_repair_lineage())
+        required_out = {str(item).lower() for item in (spec.get("required_outputs") or [])}
+        if "first_seen" in required_out and not re.search(
+            r"earliest\s*\(\s*_time\s*\)|min\s*\(\s*_time\s*\)", text, re.I
+        ):
+            losses.append("output_missing:first_seen")
+            repair_feedback.append("semantic_loss:output_missing:first_seen")
+        if "last_seen" in required_out and not re.search(
+            r"latest\s*\(\s*_time\s*\)|max\s*\(\s*_time\s*\)", text, re.I
+        ):
+            losses.append("output_missing:last_seen")
+            repair_feedback.append("semantic_loss:output_missing:last_seen")
 
     if spec.get("support_status") == "unsupported":
         losses.append(str(spec.get("degrade_reason") or "unsupported_analysis_shape"))

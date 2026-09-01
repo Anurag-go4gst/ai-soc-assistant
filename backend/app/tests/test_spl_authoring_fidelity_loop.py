@@ -954,7 +954,8 @@ def test_domain_dot_is_not_regex_membership() -> None:
     spec = build_spl_intent_spec(P4_FIRST_SEEN_DOMAIN)
     spl = compile_intent_spec_to_spl(spec)
     assert "mvfind" not in spl.lower()
-    assert re.search(r"mvfilter\s*\(\s*baseline_objects\s*==", spl, re.I)
+    assert re.search(r"mvmap\s*\(\s*baseline_objects", spl, re.I)
+    assert re.search(r"mvfilter\s*\(\s*baseline_objects\s*==", spl, re.I) is None
     fidelity = validate_semantic_fidelity(spec, spl)
     assert fidelity.get("passed") is True, fidelity
 
@@ -994,6 +995,7 @@ def test_p4_destination_domain_is_not_aliased_as_new_host() -> None:
     assert fidelity.get("passed") is False
     losses = " ".join(str(item) for item in (fidelity.get("losses") or []))
     assert "output_entity_mismatch" in losses
+    assert "mvfilter_cross_field" in losses
     compiled = compile_intent_spec_to_spl(spec)
     assert re.search(r"\bas\s+new_host\b", compiled) is None
     assert re.search(r"\bas\s+domain\b", compiled)

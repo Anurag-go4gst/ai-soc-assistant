@@ -463,10 +463,128 @@ def render_user_bound_spl_utility_answer(
     *,
     candidate_spl: dict[str, Any] | None = None,
 ) -> str:
+    if _has_pattern_guided_synthesis(candidate_spl):
+        return render_pattern_guided_review_answer(candidate_spl=candidate_spl)
     draft_spl = str((candidate_spl or {}).get("candidate_spl") or "").strip()
     lines = ["Review-only - not executed", ""]
     if draft_spl:
         lines.append(draft_spl)
+    return "\n".join(lines).strip()
+
+
+def _has_pattern_guided_synthesis(candidate_spl: dict[str, Any] | None) -> bool:
+    cs = candidate_spl if isinstance(candidate_spl, dict) else {}
+    if cs.get("spl_authoring_unavailable"):
+        return False
+    if not str(cs.get("candidate_spl") or "").strip():
+        return False
+    trace = cs.get("utility_spl_draft_trace") if isinstance(cs.get("utility_spl_draft_trace"), dict) else {}
+    return bool(trace.get("pattern_id") or trace.get("pattern_selected"))
+
+
+def _synthesis_bullets(spec: dict[str, Any], spl: str) -> list[str]:
+    bullets: list[str] = []
+    observation = str(spec.get("observation_window") or "").strip()
+    baseline = str(spec.get("baseline_window") or "").strip()
+    roles = spec.get("entity_roles") if isinstance(spec.get("entity_roles"), dict) else {}
+    subject = ""
+    if isinstance(roles.get("subject"), list) and roles.get("subject"):
+        subject = str(roles["subject"][0])
+    target = ""
+    if isinstance(roles.get("target"), list) and roles.get("target"):
+        target = str(roles["target"][0])
+    if observation and baseline:
+        who = f"the same {subject}" if subject else "the same subject"
+        obj = target or "object"
+        bullets.append(
+            f"Retrieves a {observation} observation window plus a preceding {baseline} "
+            f"baseline for {who}, then keeps {obj} values absent from that baseline."
+        )
+    actors = [str(item) for item in (spec.get("actor_patterns") or []) if str(item).strip()]
+    if actors:
+        bullets.append("Restricts accounts matching " + " or ".join(actors) + ".")
+    events = {str(item) for item in (spec.get("required_event_sets") or [])}
+    shape = str(spec.get("analysis_shape") or "")
+    process = spec.get("process_constraints") if isinstance(spec.get("process_constraints"), dict) else {}
+    if shape == "parent_child" or (process.get("child") and process.get("parent")):
+        child_names = [str(item) for item in (process.get("child") or []) if str(item).strip()]
+        parent_names = [str(item) for item in (process.get("parent") or []) if str(item).strip()]
+        child_bit = " or ".join(child_names) if child_names else "the child process"
+        parent_bit = " or ".join(parent_names) if parent_names else "the parent process"
+        window_bit = observation or "24h"
+        bullets.append(
+            f"Finds {child_bit} launched by {parent_bit} on the same process event "
+            f"during the last {window_bit}, grouped by host and user."
+        )
+    elif shape == "sequence" and "failed_login" in events and "successful_login" in events:
+        analytical = spec.get("analytical_window") if isinstance(spec.get("analytical_window"), dict) else {}
+        window = str(analytical.get("size") or "").strip()
+        follow = str(spec.get("sequence_max_gap") or "").strip()
+        window_bit = f" within {window}" if window else ""
+        follow_bit = f" within {follow}" if follow else ""
+        bullets.append(
+            "Retrieves failed and successful logons as a union, proves a failure burst"
+            f"{window_bit}, then a later successful login from the same user and source IP"
+            f"{follow_bit}."
+        )
+    elif "successful_login" in events or "4624" in spl:
+        bullets.append("Filters successful Windows logons (EventCode=4624).")
+    grain = str(spec.get("temporal_grain") or "").strip()
+    if grain:
+        bullets.append(f"Groups first-seen matches into {grain} windows.")
+    outputs = [str(item) for item in (spec.get("required_outputs") or []) if str(item).strip()]
+    if outputs:
+        bullets.append("Returns " + ", ".join(outputs) + ".")
+    if not bullets:
+        bullets.append("Produces a review-only SPL draft matching the requested filters and outputs.")
+    return bullets[:6]
+
+
+def _synthesis_mappings(candidate_spl: dict[str, Any], spec: dict[str, Any]) -> list[str]:
+    mappings: list[str] = []
+    post = candidate_spl.get("review_only_spl_postprocessor_trace")
+    post = post if isinstance(post, dict) else {}
+    resolved_index = str(post.get("resolved_index") or "").strip()
+    source = str(post.get("index_resolution_source") or "").strip()
+    constraints = spec.get("source_constraints") if isinstance(spec.get("source_constraints"), dict) else {}
+    sourcetype = str(constraints.get("sourcetype") or post.get("resolved_sourcetype") or "").strip()
+    if resolved_index and resolved_index != "<your_index>":
+        origin = source.replace("_", " ") if source else "resolved"
+        mappings.append(f"Index `{resolved_index}` ({origin}).")
+    elif resolved_index == "<your_index>":
+        mappings.append("`<your_index>` is a placeholder until a source mapping is bound.")
+    if sourcetype:
+        mappings.append(f"Sourcetype `{sourcetype}`.")
+    horizon = str(spec.get("search_horizon") or "").strip()
+    if horizon:
+        mappings.append(f"Search horizon {horizon}.")
+    mappings.append("Review-only: nothing was executed.")
+    return mappings[:6]
+
+
+def render_pattern_guided_review_answer(
+    *,
+    candidate_spl: dict[str, Any] | None = None,
+) -> str:
+    cs = candidate_spl if isinstance(candidate_spl, dict) else {}
+    trace = cs.get("utility_spl_draft_trace") if isinstance(cs.get("utility_spl_draft_trace"), dict) else {}
+    spec = trace.get("semantic_intent_spec") if isinstance(trace.get("semantic_intent_spec"), dict) else {}
+    draft_spl = str(cs.get("candidate_spl") or "").strip()
+    bullets = _synthesis_bullets(spec, draft_spl)
+    mappings = _synthesis_mappings(cs, spec)
+    lines = [
+        "Review-only SPL draft — not executed",
+        "",
+        "What this query does",
+        *[f"• {item}" for item in bullets],
+        "",
+    ]
+    if draft_spl:
+        lines.append(draft_spl)
+        lines.append("")
+    lines.append("Mappings / assumptions")
+    lines.extend(f"• {item}" for item in mappings)
+    lines.extend(["", "No query was executed."])
     return "\n".join(lines).strip()
 
 

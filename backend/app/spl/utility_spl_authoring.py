@@ -13,8 +13,14 @@ from app.config import settings
 from app.safeguards.spl_validator import validate_spl, validate_spl_lab_candidate
 from app.spl.draft_preview import build_draft_preview
 from app.spl.llm_fallback import (
+    AUTHORING_SOURCE_ABSTAIN,
+    AUTHORING_SOURCE_LEGACY_COMPILER_RESCUE,
+    AUTHORING_SOURCE_LLM_PATTERN_NORMALIZED,
+    AUTHORING_SOURCE_LLM_PATTERN_PRIMARY,
+    AUTHORING_SOURCE_LLM_PATTERN_REPAIR,
     SPL_ADVISORY_ROLE,
     generate_llm_spl_fallback,
+    select_vetted_authoring_pattern,
 )
 from app.spl.llm_plan_compiler import compile_intent_spec_to_spl
 from app.spl.review_only_spl_postprocessor import finalize_review_only_spl
@@ -194,6 +200,10 @@ def _copy_authoring_diagnostics(trace: dict[str, Any], result: Any | None) -> No
         "authoring_failure_code",
         "authoring_failure_field",
         "finish_reason",
+        "rejected_candidate_spl",
+        "quality_findings",
+        "quality_status",
+        "hard_fail_count",
     ):
         value = getattr(result, attr, None)
         if value:
@@ -430,9 +440,11 @@ def _utility_assumptions(
     *,
     postprocessor_trace: dict[str, Any],
     final_raw_spl_source: str,
+    intent_spec: dict[str, Any] | None = None,
 ) -> list[str]:
     resolved_index = str(postprocessor_trace.get("resolved_index") or "").strip()
     resolution_source = str(postprocessor_trace.get("index_resolution_source") or "").strip()
+    shape = str((intent_spec or {}).get("analysis_shape") or "")
     if resolution_source == "placeholder" or not resolved_index or resolved_index == "<your_index>":
         index_note = (
             "Universal/template-free review-only SPL using a <your_index> placeholder; "
@@ -450,15 +462,16 @@ def _utility_assumptions(
 
     source_note = (
         "Bounded LLM SPL draft normalized by deterministic postprocessor; not executed."
-        if final_raw_spl_source == "llm_draft"
+        if final_raw_spl_source in {"llm_draft", "llm_repair"}
         else "Deterministic lab SPL draft normalized by deterministic postprocessor; not executed."
     )
-    return [
-        index_note,
-        "Splunk %w (0=Sunday, 6=Saturday) drives the weekend filter; %A (day name) is display only.",
-        window_note,
-        source_note,
-    ]
+    notes = [index_note]
+    if shape not in {"first_seen", "sequence", "parent_child"}:
+        notes.append(
+            "Splunk %w (0=Sunday, 6=Saturday) drives the weekend filter; %A (day name) is display only."
+        )
+    notes.extend([window_note, source_note])
+    return notes
 
 
 def candidate_from_universal_utility_authoring(
@@ -504,7 +517,13 @@ def candidate_from_universal_utility_authoring(
         "bounded_repair_attempted": False,
         "bounded_repair_used": False,
         "semantic_intent_spec": intent_spec,
+        "legacy_compiler_rescue": False,
     }
+    pattern = select_vetted_authoring_pattern(intent_spec)
+    if pattern:
+        spl_draft_trace["pattern_id"] = str(pattern.get("pattern_id") or "")
+        spl_draft_trace["pattern_selected"] = True
+        spl_draft_trace["pattern_example_id"] = str(pattern.get("example_id") or "")
 
     llm_result, llm_trace = attempt_bounded_utility_spl_llm_draft(
         user_query,
@@ -512,6 +531,9 @@ def candidate_from_universal_utility_authoring(
         context=llm_context,
     )
     spl_draft_trace.update(llm_trace)
+    rejected_raw = str(spl_draft_trace.get("rejected_candidate_spl") or "").strip()
+    if rejected_raw and not str(spl_draft_trace.get("raw_llm_spl") or "").strip():
+        spl_draft_trace["raw_llm_spl"] = rejected_raw[:8000]
     if llm_turn_budget is not None and spl_draft_trace.get("llm_spl_draft_requested"):
         outcome = "completed" if spl_draft_trace.get("llm_spl_draft_completed") else "dropped"
         if spl_draft_trace.get("llm_spl_draft_timed_out"):
@@ -556,7 +578,12 @@ def candidate_from_universal_utility_authoring(
     if llm_result is not None and llm_result.candidate_spl.strip():
         final_raw_spl_source = "llm_draft"
         spl_draft_trace["deterministic_skeleton_used"] = False
-        final_spl = _apply_candidate(llm_result.candidate_spl.strip(), llm_generated=True)
+        raw_llm_spl = llm_result.candidate_spl.strip()
+        spl_draft_trace["raw_llm_spl"] = raw_llm_spl[:8000]
+        spl_draft_trace["preprocessor_input"] = raw_llm_spl[:8000]
+        final_spl = _apply_candidate(raw_llm_spl, llm_generated=True)
+        spl_draft_trace["preprocessor_changes"] = list(postprocessor_trace.get("changes") or [])
+        spl_draft_trace["normalized_llm_spl"] = final_spl[:8000]
         validator_result = _validate_review_only_candidate(final_spl)
         fidelity_result = validate_semantic_fidelity(intent_spec, final_spl)
         spl_draft_trace["semantic_fidelity_initial"] = fidelity_result
@@ -567,6 +594,7 @@ def candidate_from_universal_utility_authoring(
             spl_draft_trace["bounded_repair_attempted"] = True
             spl_draft_trace["repair_attempt_count"] = 1
             spl_draft_trace["max_spl_llm_repairs"] = MAX_SPL_LLM_REPAIRS
+            spl_draft_trace["repair_feedback"] = list(repair_feedback)
             repair_context = {
                 **llm_context,
                 "previous_rejected_candidate": final_spl,
@@ -612,6 +640,7 @@ def candidate_from_universal_utility_authoring(
                     repair_used = True
                     final_raw_spl_source = "llm_repair"
                     spl_draft_trace["bounded_repair_used"] = True
+                    spl_draft_trace["repaired_spl"] = repaired_spl[:8000]
                     final_spl = repaired_spl
                     validator_result = repaired_validation
                     fidelity_result = repaired_fidelity
@@ -659,6 +688,7 @@ def candidate_from_universal_utility_authoring(
                     if compiled_fidelity.get("passed"):
                         spl_draft_trace["deterministic_skeleton_used"] = False
                         spl_draft_trace["deterministic_compiler_used"] = True
+                        spl_draft_trace["legacy_compiler_rescue"] = True
                         final_raw_spl_source = "deterministic_compiler"
                         final_spl = compiled_applied
                         validator_result = compiled_validation
@@ -694,6 +724,7 @@ def candidate_from_universal_utility_authoring(
                 spl_draft_trace["deterministic_skeleton_used"] = False
                 spl_draft_trace["deterministic_compiler_used"] = True
                 spl_draft_trace["compiler_rescued_unfaithful_or_failed_llm"] = True
+                spl_draft_trace["legacy_compiler_rescue"] = True
                 final_raw_spl_source = "deterministic_compiler"
                 final_spl = compiled_applied
                 validator_result = compiled_validation
@@ -735,6 +766,7 @@ def candidate_from_universal_utility_authoring(
         "reject_reasons": list(validator_result.get("reject_reasons") or []),
     }
     spl_draft_trace["semantic_fidelity_final"] = fidelity_result
+    spl_draft_trace["validation_losses"] = list((fidelity_result or {}).get("losses") or [])
     if unavailable:
         spl_draft_trace["unavailable_reason"] = unavailable_reason
 
@@ -749,22 +781,46 @@ def candidate_from_universal_utility_authoring(
         generation_mode = "spl_authoring_unavailable"
         provider = "unavailable"
         final_spl = ""
+        authoring_source = AUTHORING_SOURCE_ABSTAIN
     elif final_raw_spl_source == "llm_repair":
         generation_mode = "utility_llm_spl_repair"
         provider = "utility_llm_spl_repair"
+        authoring_source = AUTHORING_SOURCE_LLM_PATTERN_REPAIR
     elif final_raw_spl_source == "llm_draft":
         generation_mode = "utility_llm_spl_draft"
         provider = "utility_llm_spl_draft"
+        changes = list(
+            spl_draft_trace.get("preprocessor_changes")
+            or postprocessor_trace.get("changes")
+            or []
+        )
+        authoring_source = (
+            AUTHORING_SOURCE_LLM_PATTERN_NORMALIZED
+            if changes
+            else AUTHORING_SOURCE_LLM_PATTERN_PRIMARY
+        )
     elif final_raw_spl_source == "deterministic_compiler":
         generation_mode = "deterministic_compiler_draft"
         provider = "deterministic_compiler_draft"
+        authoring_source = AUTHORING_SOURCE_LEGACY_COMPILER_RESCUE
+        spl_draft_trace["legacy_compiler_rescue"] = True
     else:
         generation_mode = "deterministic_lab_draft"
         provider = "deterministic_lab_draft"
+        authoring_source = AUTHORING_SOURCE_ABSTAIN
+
+    spl_draft_trace["authoring_source"] = authoring_source
+    # Compiler rescue is never LLM pattern success, even if a draft existed.
+    spl_draft_trace["llm_pattern_success"] = authoring_source in {
+        AUTHORING_SOURCE_LLM_PATTERN_PRIMARY,
+        AUTHORING_SOURCE_LLM_PATTERN_NORMALIZED,
+        AUTHORING_SOURCE_LLM_PATTERN_REPAIR,
+    }
 
     assumptions = _utility_assumptions(
         postprocessor_trace=postprocessor_trace,
         final_raw_spl_source=final_raw_spl_source,
+        intent_spec=intent_spec,
     )
     if semantic_fidelity_unresolved and not unavailable:
         assumptions = [
@@ -807,6 +863,7 @@ def candidate_from_universal_utility_authoring(
         "user_query": user_query,
         "candidate_spl": final_spl,
         "generation_mode": generation_mode,
+        "authoring_source": authoring_source,
         "confidence": 0.55 if final_raw_spl_source in {"llm_draft", "llm_repair"} else 0.5,
         "assumptions": assumptions,
         "warnings": (

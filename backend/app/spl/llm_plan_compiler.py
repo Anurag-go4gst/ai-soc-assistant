@@ -85,7 +85,7 @@ _DOMAIN_PLACEHOLDERS: dict[str, tuple[str, str]] = {
 _FIELD_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 # Eval-only functions are valid in eval/where/case, never in the search command.
 _EVAL_ONLY_CALL_RE = re.compile(
-    r"\b(?:like|match|case|coalesce|mvfind|mvfilter|mvcount|relative_time|"
+    r"\b(?:like|match|case|coalesce|mvfind|mvfilter|mvmap|mvcount|relative_time|"
     r"strftime|isnull|isnotnull|cidrmatch|typeof|tonumber|tostring|if)\s*\(",
     re.I,
 )
@@ -168,18 +168,33 @@ _EVENT_SET_FILTERS: dict[str, str] = {
 }
 
 
-def exact_multivalue_contains(mv_field: str, scalar_field: str) -> str:
-    """Eval predicate for exact MV membership.
+def exact_multivalue_absence_commands(mv_field: str, scalar_field: str) -> list[str]:
+    """Exact MV absence using documented ``mvmap`` + ``max``.
 
-    Splunk ``mvfind(mv, x)`` treats ``x`` as regex, so host/domain values with
-    ``.`` ``+`` ``[]`` false-match. ``mvfilter(mv == scalar)`` uses eval ``==``,
-    which is exact string equality.
+    Splunk ``mvfind(mv, x)`` treats ``x`` as regex. ``mvfilter(predicate)`` may
+    reference only one field, so ``mvfilter(mv == scalar)`` is not valid SPL.
+    ``mvmap(mv, expr)`` may reference a separate scalar field (Splunk docs:
+    ``mvmap(results, results*threshold)``). ``max`` over the mapped 1/0 flags
+    is exact membership; ``seen_before=0`` keeps first-seen rows.
     """
     mv = _safe_field(mv_field) or ""
     scalar = _safe_field(scalar_field) or ""
     if not mv or not scalar:
-        return ""
-    return f"mvcount(mvfilter({mv} == {scalar}))>0"
+        return []
+    return [
+        f"| eval exact_matches=mvmap({mv}, if({mv}=={scalar},1,0))",
+        "| eval seen_before=coalesce(max(exact_matches),0)",
+        "| where seen_before=0",
+    ]
+
+
+def exact_multivalue_contains(mv_field: str, scalar_field: str) -> str:
+    """Deprecated boolean form — cross-field mvfilter is not valid Splunk.
+
+    Callers must use ``exact_multivalue_absence_commands``. Kept as an empty
+    sentinel so no remaining caller can emit ``mvfilter(mv == scalar)``.
+    """
+    return ""
 
 
 def _first_seen_object_output_name(object_entity: str, required_outputs: list[str]) -> str:
@@ -484,18 +499,29 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
             first_event = ordered[0]
             second_event = ordered[1]
             op = _threshold_compare_op(spec)
+            # Stage 1: prove the EVENT_A burst inside WINDOW_A on EVENT_A rows.
+            # Do not count EVENT_A inside a window that ends at EVENT_B.
             parts.append(
                 f"| streamstats time_window={agg_window} "
                 f'count(eval(event_type="{first_event}")) as failure_count '
                 f'min(eval(if(event_type="{first_event}", _time, null()))) as first_failure_epoch '
-                f'latest(eval(if(event_type="{first_event}", _time, null()))) as last_failure_epoch '
+                f'max(eval(if(event_type="{first_event}", _time, null()))) as last_failure_epoch '
+                f"by {streamstats_by}"
+            )
+            # Stage 2: snapshot a qualifying burst and carry it forward to later EVENT_B.
+            parts.append(
+                f"| streamstats "
+                f'last(eval(if(event_type="{first_event}" AND failure_count{op}{threshold_n}, failure_count, null()))) as burst_count '
+                f'last(eval(if(event_type="{first_event}" AND failure_count{op}{threshold_n}, first_failure_epoch, null()))) as burst_first_epoch '
+                f'last(eval(if(event_type="{first_event}" AND failure_count{op}{threshold_n}, last_failure_epoch, null()))) as burst_last_epoch '
                 f"by {streamstats_by}"
             )
             where = (
-                f'| where event_type="{second_event}" AND failure_count{op}{threshold_n}'
+                f'| where event_type="{second_event}" AND burst_count{op}{threshold_n} '
+                f"AND _time>burst_last_epoch"
             )
-            if follow_gap and follow_gap != agg_window:
-                where += f" AND (_time-last_failure_epoch)<={_gap_seconds(follow_gap)}"
+            if follow_gap:
+                where += f" AND (_time-burst_last_epoch)<={_gap_seconds(follow_gap)}"
             parts.append(where)
         elif len(ordered) >= 2:
             parts.append(
@@ -508,10 +534,13 @@ def compile_plan_to_spl(plan: dict[str, Any], *, intent_spec: dict[str, Any] | N
         else:
             parts.append(f"| transaction {streamstats_by} maxspan={agg_window}")
         extra_aggs: list[str] = []
+        burst_then_follow = threshold_n is not None and len(ordered) >= 2
         if threshold_n is not None or "failure_count" in outputs:
-            extra_aggs.append("max(failure_count) as failure_count")
+            count_field = "burst_count" if burst_then_follow else "failure_count"
+            extra_aggs.append(f"max({count_field}) as failure_count")
         if "first_failure_time" in outputs and threshold_n is not None:
-            extra_aggs.append("min(first_failure_epoch) as first_failure_keep")
+            first_field = "burst_first_epoch" if burst_then_follow else "first_failure_epoch"
+            extra_aggs.append(f"min({first_field}) as first_failure_keep")
         if "success_time" in outputs:
             extra_aggs.append("latest(_time) as success_time_epoch")
         if host_alias and host_alias not in by_fields:
@@ -641,12 +670,7 @@ def _compile_first_seen(
     parts.append("| sort 0 + _time")
     parts.append(f"| streamstats values(baseline_object) as baseline_objects by {subject}")
     parts.append('| where period="observation"')
-    membership = exact_multivalue_contains("baseline_objects", obj)
-    if membership:
-        parts.append(f"| eval new_object=if({membership}, null(), {obj})")
-    else:
-        parts.append(f"| eval new_object={obj}")
-    parts.append("| where isnotnull(new_object)")
+    parts.extend(exact_multivalue_absence_commands("baseline_objects", obj))
     object_output = _safe_field(_first_seen_object_output_name(object_raw, required_outputs)) or "new_object"
     stats_bits = [f"values({obj}) as {object_output}"]
     if "distinct_new_host_count" in required_outputs:

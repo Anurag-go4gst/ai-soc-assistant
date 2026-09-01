@@ -189,6 +189,8 @@ def _coerce_slot_handoff(slot_handoff: Any) -> dict[str, str]:
 
 def _changes_from_trace(trace: dict[str, Any], raw_spl: str, normalized_spl: str) -> list[str]:
     changes: list[str] = []
+    if trace.get("prefix_wildcard_like_applied"):
+        changes.append("actor_prefix_wildcard_normalized")
     if trace.get("index_rewrite_applied"):
         changes.append("index_placeholder_hygiene")
     if trace.get("lookback_rewrite_applied"):
@@ -391,6 +393,99 @@ def _resolve_index(context: dict[str, Any], original_index: str) -> tuple[str, s
     return _PLACEHOLDER_INDEX, "placeholder"
 
 
+_LIKE_CALL_RE = re.compile(
+    r"like\s*\(\s*([A-Za-z_][\w]*)\s*,\s*(['\"])([^'\"]+)\2\s*\)",
+    re.IGNORECASE,
+)
+_LIKE_INFIX_RE = re.compile(
+    r"\b([A-Za-z_][\w]*)\s+LIKE\s+(['\"])([^'\"]+)\2",
+    re.IGNORECASE,
+)
+_NORM_FIELD_FOR = {
+    "user": "user_norm",
+    "username": "user_norm",
+    "account": "user_norm",
+    "account_name": "user_norm",
+    "targetusername": "user_norm",
+}
+
+
+def _actor_prefix_stems(spec: dict[str, Any]) -> tuple[str, ...]:
+    stems: list[str] = []
+    for pattern in spec.get("actor_patterns") or []:
+        token = str(pattern).strip()
+        if token.endswith("*") and not token.startswith("*") and len(token) > 1:
+            stems.append(token[:-1])
+    return tuple(stems)
+
+
+def _prefix_like_target(inner: str, stems: tuple[str, ...]) -> str | None:
+    """Return `stem%` when inner is a prefix wildcard for a contract actor."""
+    compact = inner.strip().replace("%", "*")
+    while compact.startswith("*"):
+        compact = compact[1:]
+    while compact.endswith("*"):
+        compact = compact[:-1]
+    for stem in stems:
+        if compact == stem or compact.rstrip("-") == stem.rstrip("-"):
+            return f"{stem}%"
+    return None
+
+
+def _normalize_prefix_like_wildcards(
+    spl: str,
+    spec: dict[str, Any],
+) -> tuple[str, list[str]]:
+    """Translate LIKE `*` prefix wildcards to `%` when the contract is a prefix.
+
+    Search-command `field=admin-*` is left unchanged (valid Splunk prefix syntax).
+    Does not invent actors or rewrite contains-patterns that are not in the contract.
+    """
+    stems = _actor_prefix_stems(spec)
+    if not stems or not spl:
+        return spl, []
+    changes: list[str] = []
+
+    def _like_field(field: str) -> str:
+        mapped = _NORM_FIELD_FOR.get(field.lower())
+        if mapped and mapped.lower() in spl.lower():
+            return mapped
+        return field
+
+    def _repl(match: re.Match[str]) -> str:
+        field, quote, inner = match.group(1), match.group(2), match.group(3)
+        target = _prefix_like_target(inner, stems)
+        if target is None or inner == target:
+            return match.group(0)
+        out_field = _like_field(field)
+        changes.append("actor_prefix_wildcard_normalized")
+        changes.append(f"like({out_field}) {inner} -> {target}")
+        return f"like({out_field},{quote}{target}{quote})"
+
+    rewritten = _LIKE_CALL_RE.sub(_repl, spl)
+
+    def _infix_repl(match: re.Match[str]) -> str:
+        field, quote, inner = match.group(1), match.group(2), match.group(3)
+        target = _prefix_like_target(inner, stems)
+        if target is None:
+            return match.group(0)
+        out_field = _like_field(field)
+        changes.append("actor_prefix_wildcard_normalized")
+        changes.append(f"like({out_field}) {inner} -> {target}")
+        return f"like({out_field},{quote}{target}{quote})"
+
+    rewritten = _LIKE_INFIX_RE.sub(_infix_repl, rewritten)
+    # Deduplicate the public change token while keeping detail rows.
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for item in changes:
+        if item in seen:
+            continue
+        seen.add(item)
+        ordered.append(item)
+    return rewritten, ordered
+
+
 def normalize_review_only_spl(
     raw_spl: str,
     context: dict[str, Any] | None = None,
@@ -421,6 +516,13 @@ def normalize_review_only_spl(
         return NormalizedSplResult(normalized_spl=spl, trace=trace, warnings=warnings)
 
     trace["deterministic_postprocessor_applied"] = True
+
+    if ctx.get("llm_generated"):
+        rewritten, like_changes = _normalize_prefix_like_wildcards(spl, spec)
+        if like_changes:
+            spl = rewritten
+            trace["prefix_wildcard_like_applied"] = True
+            trace["prefix_wildcard_like_changes"] = like_changes[:8]
 
     # --- Phase 4: index resolution -------------------------------------------
     index_match = _INDEX_TOKEN_RE.search(spl)

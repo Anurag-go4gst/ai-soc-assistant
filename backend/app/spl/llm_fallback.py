@@ -72,6 +72,7 @@ class LlmSplFallbackResult:
     authoring_failure_code: str | None = None
     authoring_failure_field: str | None = None
     finish_reason: str | None = None
+    rejected_candidate_spl: str | None = None
 
 
 def generate_llm_spl_fallback(
@@ -130,6 +131,8 @@ def generate_llm_spl_fallback(
                 user_prompt=user_prompt,
                 # Raised from 400: the full advisory schema needs ~500 tokens; 400
                 # truncated mid-JSON (finish_reason=length) on live probes.
+                # Pattern adaptation uses a compact {status, candidate_spl} schema
+                # so the grammar does not spend the remaining budget on envelope keys.
                 max_tokens=_spl_max_output_tokens(),
                 temperature=0.0,
                 # Constrained generation: a json_schema response_format makes
@@ -138,10 +141,7 @@ def generate_llm_spl_fallback(
                 # json_object emitted ```json fences + dropped delimiters). This is
                 # the reliable fix; the tolerant repair in _strict_json_payload stays
                 # as the secondary net for servers that ignore json_schema.
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {"name": "spl_advisory", "schema": SPL_ADVISORY_JSON_SCHEMA},
-                },
+                response_format=_advisory_response_format(context),
             )
         except LocalChatError as exc:
             # A server that rejects json_schema (HTTP 400) degrades to a plain
@@ -172,22 +172,22 @@ def generate_llm_spl_fallback(
                 authoring_failure_stage="provider",
                 authoring_failure_code="provider_http_error",
             )
-        if completion.finish_reason == "length":
-            return _clarification(
-                CLARIFICATION_INVALID_SCHEMA,
-                adapter_errors=["llm_finish_reason=length"],
-                model=completion.model,
-                latency_ms=completion.latency_ms,
-                authoring_failure_stage="provider",
-                authoring_failure_code="finish_reason_length",
-                finish_reason="length",
-            )
         raw_output = completion.text
         model = completion.model
         latency_ms = completion.latency_ms
         finish_reason = completion.finish_reason
 
     strict_payload, strict_errors = _strict_json_payload(raw_output or "")
+    if finish_reason == "length" and not _complete_candidate_payload(strict_payload):
+        return _clarification(
+            CLARIFICATION_INVALID_SCHEMA,
+            adapter_errors=["llm_finish_reason=length"],
+            model=model,
+            latency_ms=latency_ms,
+            authoring_failure_stage="provider",
+            authoring_failure_code="finish_reason_length",
+            finish_reason="length",
+        )
     if strict_payload is None:
         parse_code = "empty_llm_output" if "empty_llm_output" in (strict_errors or []) else "json_parse_failed"
         return _clarification(
@@ -200,6 +200,8 @@ def generate_llm_spl_fallback(
             finish_reason=finish_reason,
         )
 
+    if _pattern_adaptation_requested(context):
+        strict_payload = _hydrate_pattern_adaptation_payload(strict_payload, context=context)
     adapted = adapt_llm_output(role=SPL_ADVISORY_ROLE, raw_output=json.dumps(strict_payload))
     if not adapted.accepted or not adapted.normalized_payload:
         field, code = _sanitized_adapter_failure(list(adapted.errors))
@@ -354,6 +356,7 @@ def generate_llm_spl_fallback(
             authoring_failure_stage="draft_quality",
             authoring_failure_code=CLARIFICATION_QUALITY_FAILED,
             finish_reason=finish_reason,
+            rejected_candidate_spl=candidate_spl,
         )
 
     approved = bool(validation.get("approved"))
@@ -395,6 +398,7 @@ def generate_llm_spl_fallback(
                 quality_status=quality_payload["quality_status"],
                 quality_findings=quality_findings,
                 hard_fail_count=quality.hard_fail_count,
+                finish_reason=finish_reason,
             )
     if (
         utility_authoring
@@ -428,6 +432,7 @@ def generate_llm_spl_fallback(
             quality_status=quality_payload["quality_status"],
             quality_findings=quality_findings,
             hard_fail_count=quality.hard_fail_count,
+            finish_reason=finish_reason,
         )
     if not approved:
         return LlmSplFallbackResult(
@@ -481,6 +486,7 @@ def generate_llm_spl_fallback(
         quality_status=quality_payload["quality_status"],
         quality_findings=quality_findings,
         hard_fail_count=quality.hard_fail_count,
+        finish_reason=finish_reason,
     )
 
 
@@ -836,12 +842,144 @@ SPL_ADVISORY_JSON_SCHEMA: dict[str, Any] = {
 }
 
 
+# Pattern-adaptation wire contract. The full advisory schema's required envelope
+# (index/sourcetype/assumptions/required_fields/unresolved_slots) is what made
+# live P1 hit finish_reason=length after a long candidate_spl. This schema is
+# only used when a vetted pattern is selected; the adapter still forces
+# execution_eligible=false.
+PATTERN_ADAPTATION_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "status": {
+            "type": "string",
+            "enum": ["candidate_generated", "needs_clarification", "blocked"],
+        },
+        "candidate_spl": {"type": "string"},
+    },
+    "required": ["status", "candidate_spl"],
+}
+
+
+AUTHORING_SOURCE_LLM_PATTERN_PRIMARY = "LLM_PATTERN_PRIMARY"
+AUTHORING_SOURCE_LLM_PATTERN_NORMALIZED = "LLM_PATTERN_NORMALIZED"
+AUTHORING_SOURCE_LLM_PATTERN_REPAIR = "LLM_PATTERN_REPAIR"
+AUTHORING_SOURCE_LEGACY_COMPILER_RESCUE = "LEGACY_COMPILER_RESCUE"
+AUTHORING_SOURCE_ABSTAIN = "ABSTAIN"
+
+
+def select_vetted_authoring_pattern(spec: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Return the enabled governed pattern for this analysis_shape, or None.
+
+    Selection reuses ``build_spl_intent_spec``'s analysis_shape. Only shapes with
+    ``pattern_enabled=True`` are treated as vetted topology; other shots remain
+    few-shots and are not claimed as governed patterns.
+    """
+    shape = str((spec or {}).get("analysis_shape") or "").strip().lower()
+    shot = _AUTHORING_FEW_SHOTS.get(shape)
+    if not isinstance(shot, dict) or not shot.get("pattern_enabled"):
+        return None
+    return shot
+
+
+def _pattern_adaptation_requested(context: dict[str, Any] | None) -> bool:
+    spec = (context or {}).get("semantic_analyst_intent") if isinstance(context, dict) else None
+    return select_vetted_authoring_pattern(spec if isinstance(spec, dict) else None) is not None
+
+
+def _advisory_response_format(context: dict[str, Any] | None) -> dict[str, Any]:
+    if _pattern_adaptation_requested(context):
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "spl_pattern_adaptation",
+                "schema": PATTERN_ADAPTATION_JSON_SCHEMA,
+            },
+        }
+    return {
+        "type": "json_schema",
+        "json_schema": {"name": "spl_advisory", "schema": SPL_ADVISORY_JSON_SCHEMA},
+    }
+
+
+def _complete_candidate_payload(payload: dict[str, Any] | None) -> bool:
+    return isinstance(payload, dict) and bool(str(payload.get("candidate_spl") or "").strip())
+
+
+def _hydrate_pattern_adaptation_payload(
+    payload: dict[str, Any],
+    *,
+    context: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Fill the existing advisory envelope after a compact {status, candidate_spl} wire object.
+
+    Does not invent detection topology. Adapter/content checks still require non-empty
+    assumptions and required_fields; those come from the governed contract when present.
+    """
+    hydrated = dict(payload)
+    spec = (context or {}).get("semantic_analyst_intent") if isinstance(context, dict) else {}
+    spec = spec if isinstance(spec, dict) else {}
+    if not hydrated.get("assumptions"):
+        hydrated["assumptions"] = ["pattern-adapted review-only draft"]
+    if not hydrated.get("required_fields"):
+        outputs = [str(item).strip() for item in (spec.get("required_outputs") or []) if str(item).strip()]
+        hydrated["required_fields"] = outputs or ["_time"]
+    hydrated.setdefault("unresolved_slots", [])
+    hydrated.setdefault("index", "")
+    hydrated.setdefault("sourcetype", "")
+    hydrated.setdefault("execution_eligible", False)
+    hydrated.setdefault("governed", False)
+    hydrated.setdefault("catalog_approved", False)
+    return hydrated
+
+
+def _pattern_adaptation_block(spec: dict[str, Any]) -> str:
+    shot = select_vetted_authoring_pattern(spec)
+    if not shot:
+        return ""
+    allowed = ", ".join(str(item) for item in (shot.get("allowed_adaptation_fields") or ()))
+    prohibited = ", ".join(str(item) for item in (shot.get("prohibited_structural_changes") or ()))
+    pattern_id = str(shot.get("pattern_id") or "")
+    if pattern_id == "sequence":
+        order = (
+            "Order: retrieve EVENT_A OR EVENT_B (never implicit AND) -> sort by time -> "
+            "prove EVENT_A burst inside WINDOW_A -> snapshot count/first/last -> "
+            "streamstats last() carry -> later EVENT_B after last EVENT_A within FOLLOW_WINDOW -> "
+            "requested stats/outputs."
+        )
+    elif pattern_id == "parent_child":
+        order = (
+            "Order: retrieve process events -> normalize parent/child/command-line roles -> "
+            "require CHILD predicate on the child role AND PARENT predicate on the parent role "
+            "on the SAME event -> stats by host and user while preserving parent/child/"
+            "command line plus earliest/latest and count."
+        )
+    else:
+        order = (
+            "Order: combined retrieval span -> period=observation|baseline -> "
+            "streamstats values(baseline_object) as baseline_objects by <subject> -> "
+            "keep observation -> exact mvmap(baseline_objects, if(baseline_objects==<object>,1,0)) "
+            "then seen_before=coalesce(max(exact_matches),0) where seen_before=0 "
+            "(never mvfilter(A==B), never mvfind) -> "
+            "requested stats/outputs."
+        )
+    return (
+        f"\nSelected governed pattern: {shot.get('pattern_id')}. "
+        "PRESERVE PATTERN TOPOLOGY; adapt only contract fields/filters/mappings/outputs.\n"
+        f"{order}\n"
+        f"Allowed: {allowed}. Prohibited: {prohibited}.\n"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Utility-authoring few-shots (prompt assets, shape-keyed).
 #
 # These extend the single pre-existing inline weekend example rather than
-# starting a second store; ``fewshot:spl_authoring_v1`` in
-# ``app.llm.policy.examples`` is the governance registry entry for them.
+# starting a second store. Metadata (pattern_id, invariants, allowed
+# adaptations) lives on these same dicts. ``few_shot_catalog_v1`` in
+# ``app.llm.policy.examples`` is the hashed P8 identity catalog and is not
+# extended here — adding FIRST_SEEN there would change production
+# ``spl_advisory_generator`` ACTIVE prefix hashes.
 # Selection reuses the deterministic ``analysis_shape`` from
 # ``build_spl_intent_spec`` — the same key the shape rules already use — so
 # exactly ONE example is rendered per call.
@@ -881,32 +1019,82 @@ _AUTHORING_FEW_SHOTS: dict[str, dict[str, Any]] = {
             "required_fields": ["user", "host", "src_ip"],
         },
     },
-    # FS2 — first-seen: observation window vs preceding baseline for the SAME subject.
+    # FS2 — first-seen: compiler-vetted topology, generic subject/object (not P1 literals).
     "first_seen": {
         "example_id": "fs.spl.authoring.first_seen_preceding_baseline",
+        "pattern_id": "first_seen",
+        "pattern_enabled": True,
+        "analysis_shape": "first_seen",
+        "semantic_invariants": (
+            "single_retrieval_horizon_covers_observation_plus_baseline",
+            "period_observation_vs_baseline_on_time",
+            "accumulate_baseline_objects_by_subject_via_streamstats",
+            "keep_observation_events_only_after_accumulation",
+            "exact_historical_absence_via_mvmap_eq_not_mvfilter_or_mvfind",
+            "requested_aggregation_after_new_object_filter",
+        ),
+        "allowed_adaptation_fields": (
+            "index",
+            "sourcetype",
+            "static_search_filters",
+            "actor_prefix_like",
+            "subject_field",
+            "object_field",
+            "observation_window",
+            "baseline_window",
+            "combined_horizon",
+            "temporal_grain",
+            "output_aliases",
+            "requested_stats",
+        ),
+        "prohibited_structural_changes": (
+            "collapse_observation_and_baseline",
+            "change_streamstats_subject",
+            "regex_membership_mvfind",
+            "mvfilter_cross_field",
+            "join_append_subsearch",
+            "invent_algorithm",
+            "arbitrary_head",
+        ),
+        "source_mapping_behaviour": "use_governed_bindings_when_supplied_else_placeholders",
+        "required_validation_checks": (
+            "retrieval_window",
+            "baseline_observation_split",
+            "same_subject_comparison",
+            "exact_object_absence",
+            "actor_prefix",
+            "field_lineage",
+            "_time_for_binning",
+            "requested_outputs",
+            "review_only",
+        ),
         "request": (
             "Find destination ports contacted by a host in the last 1 day that the same host "
             "had not contacted during the preceding 7 days; return host, port, first seen."
         ),
         "note": (
-            "Retrieve ONE span covering observation + baseline (here -8d), then split them "
-            "with an eval flag on _time. Compare per the same subject and keep only objects "
-            "whose baseline occurrences are zero. Never collapse the two windows into one "
-            "undivided search, and never add head to a first-seen result."
+            "Preserve this topology: one combined retrieval span, mark observation vs baseline, "
+            "streamstats values(baseline_object) by the SAME subject, keep observation events, "
+            "exact mvmap(baseline_objects, if(baseline_objects==object,1,0)) then "
+            "seen_before=coalesce(max(exact_matches),0) where seen_before=0 "
+            "(never mvfilter(A==B), never mvfind), then requested outputs. "
+            "Copy structure only — every field, window, and filter must come from the contract."
         ),
         "payload": {
             "status": "candidate_generated",
             "candidate_spl": (
-                'search index=<index> sourcetype=<sourcetype> earliest=-8d latest=now\n'
-                '| eval host_norm=lower(coalesce(host, "unknown"))\n'
-                '| eval window=if(_time>=relative_time(now(),"-1d"),"observation","baseline")\n'
-                '| stats count(eval(window="observation")) as observed_count, '
-                'count(eval(window="baseline")) as baseline_count, '
-                'min(eval(if(window="observation",_time,null()))) as first_seen '
-                'by host_norm, dest_port\n'
-                '| where observed_count>0 AND baseline_count=0\n'
-                '| eval first_seen=strftime(first_seen,"%Y-%m-%d %H:%M:%S")\n'
-                '| table host_norm, dest_port, first_seen'
+                'search index=<index> sourcetype=<sourcetype> earliest=-8d latest=now '
+                '| eval subject_norm=lower(coalesce(host, "unknown")), '
+                'object_norm=lower(coalesce(dest_port, "unknown")) '
+                '| eval period=if(_time>=relative_time(now(),"-1d"),"observation","baseline") '
+                '| eval baseline_object=if(period="baseline", object_norm, null()) '
+                '| sort 0 + _time '
+                '| streamstats values(baseline_object) as baseline_objects by subject_norm '
+                '| where period="observation" '
+                '| eval exact_matches=mvmap(baseline_objects, if(baseline_objects==object_norm,1,0)) '
+                '| eval seen_before=coalesce(max(exact_matches),0) '
+                '| where seen_before=0 '
+                '| stats values(object_norm) as dest_port earliest(_time) as first_seen by subject_norm'
             ),
             "index": "<index>",
             "sourcetype": "<sourcetype>",
@@ -916,75 +1104,183 @@ _AUTHORING_FEW_SHOTS: dict[str, dict[str, Any]] = {
             "required_fields": ["host", "dest_port", "_time"],
         },
     },
-    # FS3 — sequence: the two event kinds are alternatives (union), never an AND.
+    # FS3 — sequence: EVENT_A burst inside WINDOW_A, then later EVENT_B. Union, never AND.
     "sequence": {
         "example_id": "fs.spl.authoring.event_sequence",
+        "pattern_id": "sequence",
+        "pattern_enabled": True,
+        "analysis_shape": "sequence",
+        "semantic_invariants": (
+            "retrieve_event_a_or_event_b_union",
+            "order_by_subject_correlate_time",
+            "prove_event_a_burst_inside_window_a",
+            "snapshot_event_a_count_first_last",
+            "carry_qualified_burst_forward",
+            "event_b_after_last_event_a_within_follow_window",
+            "correlate_subject_and_source_ip_only",
+            "event_b_object_is_output_not_correlation_key",
+        ),
+        "allowed_adaptation_fields": (
+            "index",
+            "sourcetype",
+            "event_a_predicate",
+            "event_b_predicate",
+            "subject_field",
+            "correlate_ip_field",
+            "window_a",
+            "follow_window",
+            "event_a_threshold",
+            "output_aliases",
+            "requested_stats",
+        ),
+        "prohibited_structural_changes": (
+            "implicit_and_event_retrieval",
+            "count_event_a_in_window_ending_at_event_b",
+            "host_as_correlation_key",
+            "reorder_event_a_after_event_b",
+            "join_append_subsearch",
+            "invent_algorithm",
+            "arbitrary_head",
+        ),
+        "source_mapping_behaviour": "use_governed_bindings_when_supplied_else_placeholders",
+        "required_validation_checks": (
+            "event_union",
+            "burst_window",
+            "threshold_exclusive",
+            "same_user_same_source",
+            "success_after_burst",
+            "follow_gap",
+            "outputs",
+            "review_only",
+        ),
         "request": (
-            "Find accounts with more than 5 lockouts in 10 minutes followed by a password "
-            "reset within the next 30 minutes; return user, lockout count, reset time."
+            "Find accounts with more than 5 event_a occurrences in 10 minutes followed by "
+            "event_b within the next 30 minutes; return user, source IP, dest host, "
+            "event_a count, first event_a time, event_b time."
         ),
         "note": (
-            "Retrieve BOTH event kinds as a union in the base search — naming them as "
-            "separate conditions ANDs them and matches nothing. Correlate only on the entity "
-            "the request shares (here user). Order by time, then bound the gap."
+            "Preserve this topology: retrieve EVENT_A OR EVENT_B (never juxtaposed AND), "
+            "order by time, prove the EVENT_A burst inside WINDOW_A, snapshot count/first/last, "
+            "carry that burst with streamstats last(), then match a later EVENT_B after last "
+            "EVENT_A within FOLLOW_WINDOW. Correlate only subject + source IP. Destination host "
+            "is an EVENT_B output. Copy structure only — predicates, windows, and threshold "
+            "come from the contract."
         ),
         "payload": {
             "status": "candidate_generated",
             "candidate_spl": (
                 'search index=<index> sourcetype=<sourcetype> earliest=-24h latest=now '
-                '(EventCode=4740 OR EventCode=4724)\n'
-                '| eval user_norm=lower(coalesce(user, "unknown"))\n'
-                '| sort 0 user_norm, _time\n'
-                '| streamstats time_window=10m count(eval(EventCode=4740)) as lockout_count by user_norm\n'
-                '| eval reset_time=if(EventCode=4724,_time,null())\n'
-                '| stats max(lockout_count) as lockout_count, min(reset_time) as reset_time, '
-                'min(_time) as first_lockout_time by user_norm\n'
-                '| where lockout_count>5 AND isnotnull(reset_time) '
-                'AND reset_time>first_lockout_time AND reset_time<=first_lockout_time+1800\n'
-                '| eval reset_time=strftime(reset_time,"%Y-%m-%d %H:%M:%S")\n'
-                '| table user_norm, lockout_count, reset_time'
+                '(event_a OR event_b)\n'
+                '| eval subject_norm=lower(coalesce(user, "unknown")), '
+                'correlate_ip=coalesce(src_ip, "unknown"), '
+                'object_host=lower(coalesce(host, "unknown"))\n'
+                '| eval event_type=case(event_a, "event_a", event_b, "event_b")\n'
+                '| sort 0 + _time\n'
+                '| streamstats time_window=10m count(eval(event_type="event_a")) as event_a_count '
+                'min(eval(if(event_type="event_a", _time, null()))) as event_a_first '
+                'max(eval(if(event_type="event_a", _time, null()))) as event_a_last '
+                'by subject_norm, correlate_ip\n'
+                '| streamstats last(eval(if(event_type="event_a" AND event_a_count>5, event_a_count, null()))) as burst_count '
+                'last(eval(if(event_type="event_a" AND event_a_count>5, event_a_first, null()))) as burst_first '
+                'last(eval(if(event_type="event_a" AND event_a_count>5, event_a_last, null()))) as burst_last '
+                'by subject_norm, correlate_ip\n'
+                '| where event_type="event_b" AND burst_count>5 AND _time>burst_last AND (_time-burst_last)<=1800\n'
+                '| stats max(burst_count) as event_a_count min(burst_first) as first_event_a '
+                'latest(_time) as event_b_time latest(object_host) as dest_host '
+                'by subject_norm, correlate_ip\n'
+                '| eval first_event_a=strftime(first_event_a,"%Y-%m-%d %H:%M:%S"), '
+                'event_b_time=strftime(event_b_time,"%Y-%m-%d %H:%M:%S")\n'
+                '| table subject_norm, correlate_ip, dest_host, event_a_count, first_event_a, event_b_time'
             ),
             "index": "<index>",
             "sourcetype": "<sourcetype>",
             "result_cap": None,
             "unresolved_slots": ["index", "sourcetype"],
-            "assumptions": ["Both event kinds share one auth sourcetype"],
-            "required_fields": ["user", "EventCode", "_time"],
+            "assumptions": ["EVENT_A/EVENT_B predicates are adapted from the contract"],
+            "required_fields": ["user", "src_ip", "host", "_time"],
         },
     },
-    # FS4 — parent/child process relationship.
+    # FS4 — parent/child: same-event CHILD launched by PARENT, then stats.
     "parent_child": {
         "example_id": "fs.spl.authoring.parent_child",
+        "pattern_id": "parent_child",
+        "pattern_enabled": True,
+        "analysis_shape": "parent_child",
+        "semantic_invariants": (
+            "retrieve_process_events",
+            "normalize_parent_and_child_roles",
+            "require_child_predicate_on_child_role",
+            "require_parent_predicate_on_parent_role",
+            "same_event_parent_and_child",
+            "aggregate_by_host_and_user",
+            "preserve_parent_child_command_line_through_stats",
+            "earliest_and_latest_event_time",
+        ),
+        "allowed_adaptation_fields": (
+            "index",
+            "sourcetype",
+            "child_predicate",
+            "parent_predicate",
+            "observation_window",
+            "host_field",
+            "user_field",
+            "output_aliases",
+            "requested_stats",
+        ),
+        "prohibited_structural_changes": (
+            "invert_parent_child",
+            "prove_child_only_in_command_line",
+            "join_append_subsearch",
+            "drop_outputs_in_stats",
+            "eval_like_in_base_search",
+            "invent_algorithm",
+            "arbitrary_head",
+        ),
+        "source_mapping_behaviour": "use_governed_bindings_when_supplied_else_placeholders",
+        "required_validation_checks": (
+            "child_role",
+            "parent_role",
+            "same_event_relationship",
+            "outputs",
+            "review_only",
+        ),
         "request": (
-            "Find cmd.exe launched by outlook.exe in the last 12 hours; group by host and "
-            "user and return command line, first seen, last seen, and event count."
+            "Find child.exe launched by parent_a.exe or parent_b.exe in the last 12 hours; "
+            "group by host and user and return parent, child, command line, first seen, "
+            "last seen, and event count."
         ),
         "note": (
-            "Both the child and the parent constraint belong in the base search so the "
-            "relationship is preserved. Aggregate with stats when the request asks for "
-            "counts or first/last seen — that is not a raw-events request."
+            "Preserve this topology: retrieve process events, normalize parent/child/"
+            "command-line roles, require the CHILD predicate on the child role AND the "
+            "PARENT predicate on the parent role on the SAME event, then stats by host and "
+            "user while preserving those outputs plus earliest/latest and count. Copy "
+            "structure only — process names and windows come from the contract."
         ),
         "payload": {
             "status": "candidate_generated",
             "candidate_spl": (
-                'search index=<index> sourcetype=<sourcetype> earliest=-12h latest=now '
-                'process_name=cmd.exe parent_process_name=outlook.exe\n'
-                '| eval user_norm=lower(coalesce(user, "unknown")), '
-                'host_norm=lower(coalesce(host, "unknown"))\n'
-                '| stats min(_time) as first_seen, max(_time) as last_seen, '
-                'count as event_count, values(process_command_line) as command_line '
-                'by host_norm, user_norm, parent_process_name, process_name\n'
+                'search index=<index> sourcetype=<sourcetype> earliest=-12h latest=now\n'
+                '| eval subject_host=lower(coalesce(host, "unknown")), '
+                'subject_user=lower(coalesce(user, "unknown")), '
+                'parent_process=coalesce(ParentImage, Parent_Process_Name, "unknown"), '
+                'child_process=coalesce(Image, New_Process_Name, "unknown"), '
+                'command_line=coalesce(CommandLine, "unknown")\n'
+                '| where like(child_process, "%child.exe%") AND '
+                '(like(parent_process, "%parent_a.exe%") OR like(parent_process, "%parent_b.exe%"))\n'
+                '| stats count as event_count earliest(_time) as first_seen latest(_time) as last_seen '
+                'values(parent_process) as parent_process values(child_process) as child_process '
+                'values(command_line) as command_line by subject_host, subject_user\n'
                 '| eval first_seen=strftime(first_seen,"%Y-%m-%d %H:%M:%S"), '
                 'last_seen=strftime(last_seen,"%Y-%m-%d %H:%M:%S")\n'
-                '| table host_norm, user_norm, parent_process_name, process_name, command_line, '
+                '| table subject_host, subject_user, parent_process, child_process, command_line, '
                 'first_seen, last_seen, event_count'
             ),
             "index": "<index>",
             "sourcetype": "<sourcetype>",
             "result_cap": None,
             "unresolved_slots": ["index", "sourcetype"],
-            "assumptions": ["process_name/parent_process_name carry the process relationship"],
-            "required_fields": ["host", "user", "process_name", "parent_process_name"],
+            "assumptions": ["parent_process/child_process carry the same-event process relationship"],
+            "required_fields": ["host", "user", "parent_process", "child_process"],
         },
     },
     # FS5 — genuinely underspecified: ask, do not guess.
@@ -1025,7 +1321,15 @@ def _authoring_few_shot_block(spec: dict[str, Any]) -> str:
     )
     if not shot:
         return ""
-    body = json.dumps(shot["payload"], separators=(",", ":"), sort_keys=True)
+    payload = shot["payload"]
+    if shot.get("pattern_enabled"):
+        payload = {
+            "status": str(payload.get("status") or "candidate_generated"),
+            "candidate_spl": str(payload.get("candidate_spl") or ""),
+        }
+        body = json.dumps(payload, separators=(",", ":"))
+    else:
+        body = json.dumps(payload, separators=(",", ":"), sort_keys=True)
     # The rule precedes the JSON deliberately: a rule placed after the example
     # reads as a footnote and the example gets copied instead of applied.
     return (
@@ -1054,6 +1358,8 @@ def _utility_authoring_system_append(*, context: dict[str, Any] | None = None) -
         "- No inline // comments; no execution or findings claims.\n"
         "- Use %w (0=Sunday, 6=Saturday) for weekend filter logic; %A is display-only.\n"
     )
+    prefix += _pattern_adaptation_block(spec)
+    # candidate_spl is transported as a JSON string. The measured P3 failure was an
     # candidate_spl is transported as a JSON string. The measured P3 failure was an
     # unescaped inner double quote (coalesce(..., "unknown")): under json_schema
     # constrained decoding the sampler could not legally emit it and stalled into a
@@ -1122,18 +1428,38 @@ def _shape_authoring_rules(spec: dict[str, Any]) -> str:
     elif shape == "rolling":
         lines.append("- Preserve the rolling analytical window with streamstats time_window= and the distinct relationship. Sort 0 _time before streamstats.\n")
     elif shape == "sequence":
-        lines.append("- Preserve ordered event sets and sequence_max_gap. Do not collapse into a single EventCode alert template.\n")
+        lines.append(
+            "- Preserve ordered EVENT_A then EVENT_B. First prove the EVENT_A burst inside "
+            "WINDOW_A and snapshot count/first/last, then carry that burst forward and match "
+            "EVENT_B after last EVENT_A within FOLLOW_WINDOW. Correlate only by the contract "
+            "subject and source IP. Destination host is an EVENT_B output, not a correlation key. "
+            "Retrieve EVENT_A OR EVENT_B; never implicit AND.\n"
+        )
     elif shape == "first_seen":
         lines.append(
             "- Preserve a separate observation window and a preceding baseline window. "
             "Compare per the same subject (account or host). Flag objects absent from that subject's baseline. "
             "Do not collapse both windows into one undivided search, and do not drop actor patterns.\n"
         )
+    elif shape == "parent_child":
+        lines.append(
+            "- Preserve same-event parent-to-child process semantics. The child predicate belongs "
+            "on the child-process role and the parent predicate belongs on the parent-process role. "
+            "Do not invert them, and do not treat command-line text as proof of the child process. "
+            "After filtering, stats by host and user while preserving parent, child, command line, "
+            "earliest, latest, and count.\n"
+        )
     elif shape == "ranking":
         lines.append("- When the analyst asks for top/ranked results, include stats aggregation, sort descending, then head only if a result_limit was requested.\n")
     else:
         lines.append("- When the analyst asks for top/ranked results, include stats aggregation, sort descending, then head.\n")
-    if "arbitrary_head_100" in prohibitions or shape in {"trend", "rolling", "sequence"}:
+    if "arbitrary_head_100" in prohibitions or shape in {
+        "trend",
+        "rolling",
+        "sequence",
+        "first_seen",
+        "parent_child",
+    }:
         lines.append("- Do NOT add `head 100` arbitrarily; do not truncate time-series/rolling/sequence output.\n")
     else:
         lines.append("- When the analyst asks for ALL logs/events without a limit, do NOT add `head 100` arbitrarily.\n")
@@ -1231,7 +1557,7 @@ def _system_prompt(correctness_mode: bool = False, context: dict[str, Any] | Non
     spec = spec if isinstance(spec, dict) else {}
     shape = str(spec.get("analysis_shape") or "")
     prohibitions = {str(item) for item in (spec.get("prohibitions") or [])}
-    skip_forced_head = shape in {"trend", "rolling", "sequence"} or (
+    skip_forced_head = shape in {"trend", "rolling", "sequence", "first_seen", "parent_child"} or (
         "arbitrary_head_100" in prohibitions or "arbitrary_truncation" in prohibitions
     )
     skip_forced_stats = shape in {"raw", "sequence"} or "mandatory_aggregation" in prohibitions
@@ -1336,8 +1662,11 @@ def _system_prompt(correctness_mode: bool = False, context: dict[str, Any] | Non
         )
         + "unresolved_slots MUST list unknown source/time fields and must "
         "not be guessed. execution_eligible, governed, and catalog_approved MUST be false.\n"
-        "Example output:\n"
-        + _example_candidate_json(shape=shape, skip_forced_head=skip_forced_head)
+        + (
+            ""
+            if shape in _AUTHORING_FEW_SHOTS
+            else ("Example output:\n" + _example_candidate_json(shape=shape, skip_forced_head=skip_forced_head))
+        )
     )
 
 
@@ -1414,10 +1743,17 @@ def _user_prompt(
         )
         parts.extend(f"- {item}" for item in relevance_feedback)
         parts.append("")
-    parts.append(
-        "Return only JSON with keys status, confidence_score, confidence_label, detection_family, "
-        "candidate_spl, index, sourcetype, earliest, latest, time_window_hours, result_cap, unresolved_slots, "
-        "assumptions, required_fields, missing_details, clarifying_questions, validation_notes, "
-        "soc_std_rules_applied, risk_notes, execution_eligible, governed, catalog_approved. No markdown or reasoning text."
-    )
+    if _pattern_adaptation_requested(context if isinstance(context, dict) else None):
+        parts.append(
+            'Return only JSON with keys status and candidate_spl, for example '
+            '{"status":"candidate_generated","candidate_spl":"search ..."}. '
+            "No other keys. Escape double quotes inside candidate_spl. No markdown or reasoning text."
+        )
+    else:
+        parts.append(
+            "Return only JSON with keys status, confidence_score, confidence_label, detection_family, "
+            "candidate_spl, index, sourcetype, earliest, latest, time_window_hours, result_cap, unresolved_slots, "
+            "assumptions, required_fields, missing_details, clarifying_questions, validation_notes, "
+            "soc_std_rules_applied, risk_notes, execution_eligible, governed, catalog_approved. No markdown or reasoning text."
+        )
     return "\n".join(parts)
