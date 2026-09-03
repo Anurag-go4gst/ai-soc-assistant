@@ -18,6 +18,7 @@ analyst response. The renderer only shapes the visible text.
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from typing import Any
 
 from app.chat.t2_review_checklist import (
@@ -572,6 +573,73 @@ def _synthesis_mappings(candidate_spl: dict[str, Any], spec: dict[str, Any]) -> 
     return mappings[:6]
 
 
+_SOURCETYPE_IN_SPL_RE = re.compile(
+    r"sourcetype\s*=\s*[\"'`]?([^\s|]+)",
+    re.IGNORECASE,
+)
+_INDEX_IN_SPL_RE = re.compile(
+    r"index\s*=\s*[\"'`]?([^\s|]+)",
+    re.IGNORECASE,
+)
+
+
+_INLINE_CODE_ESCAPE_RE = re.compile(r"\\([\\`<>=_:])")
+
+
+def _inline_code(token: str) -> str:
+    """Wrap a token in a Markdown code span without pre-escaping its contents."""
+    raw = _INLINE_CODE_ESCAPE_RE.sub(r"\1", str(token or "").strip().strip("`"))
+    return f"`{raw}`"
+
+
+def _visible_source_assumption_lines(spl: str) -> list[str]:
+    """Analyst-facing index/sourcetype lines taken from the validated SPL only."""
+    text = str(spl or "")
+    authish = bool(
+        re.search(r"4624|4625|pgcil:auth|auth_index|auth_sourcetype|action\s*=\s*failure|action\s*=\s*success", text, re.I)
+    )
+    lines: list[str] = []
+    index_match = _INDEX_IN_SPL_RE.search(text)
+    index_token = (index_match.group(1) if index_match else "").strip("\"'`")
+    if index_token.startswith("<") or index_token in {"your_index", "auth_index"}:
+        display = index_token if index_token.startswith("<") else f"<{index_token}>"
+        kind = "authentication index" if authish else "source index"
+        lines.append(f"{_inline_code(display)} must be replaced with the approved {kind}.")
+    sourcetype_match = _SOURCETYPE_IN_SPL_RE.search(text)
+    sourcetype = (sourcetype_match.group(1) if sourcetype_match else "").strip("\"'`")
+    if sourcetype.startswith("<") and sourcetype.lower() in {"<auth_sourcetype>", "<your_sourcetype>"}:
+        sourcetype = "pgcil:auth"
+    if sourcetype and not sourcetype.startswith("<"):
+        if authish or sourcetype.lower() == "pgcil:auth":
+            lines.append(f"Authentication data is expected in sourcetype {_inline_code(sourcetype)}.")
+        else:
+            lines.append(f"Events are expected in sourcetype {_inline_code(sourcetype)}.")
+    return lines
+
+
+def _merge_visible_mappings(spl: str, synthesis_mappings: list[str]) -> list[str]:
+    source = _visible_source_assumption_lines(spl)
+    skip_index = any("must be replaced with the approved" in item.lower() for item in source)
+    skip_sourcetype = any("sourcetype" in item.lower() for item in source)
+    rest: list[str] = []
+    for item in synthesis_mappings:
+        lowered = item.lower()
+        if skip_index and ("your_index" in lowered or "auth_index" in lowered):
+            continue
+        if skip_sourcetype and "sourcetype" in lowered and "462" not in lowered:
+            continue
+        rest.append(item)
+    merged: list[str] = []
+    seen: set[str] = set()
+    for item in source + rest:
+        key = item.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(item)
+    return merged[:4]
+
+
 def render_pattern_guided_review_answer(
     *,
     candidate_spl: dict[str, Any] | None = None,
@@ -591,7 +659,11 @@ def render_pattern_guided_review_answer(
         llm_raw_output_provider=llm_raw_output_provider,
     )
     attach_synthesis_trace(cs, synthesis)
-    return render_review_only_analyst_card_text(synthesis, draft_spl)
+    display = replace(
+        synthesis,
+        mappings_assumptions=_merge_visible_mappings(draft_spl, list(synthesis.mappings_assumptions)),
+    )
+    return render_review_only_analyst_card_text(display, draft_spl)
 
 
 _UTILITY_CARD_CLEARS: dict[str, Any] = {
@@ -849,7 +921,10 @@ def apply_review_only_spl_render(
             trace = candidate_spl.get("utility_spl_draft_trace")
             if isinstance(trace, dict) and isinstance(trace.get("analyst_synthesis"), dict):
                 synthesis = trace["analyst_synthesis"]
-        mappings = [str(item).strip() for item in (synthesis.get("mappings_assumptions") or []) if str(item).strip()]
+        mappings = _merge_visible_mappings(
+            utility_spl,
+            [str(item).strip() for item in (synthesis.get("mappings_assumptions") or []) if str(item).strip()],
+        )
         what_it_does = [str(item).strip() for item in (synthesis.get("what_it_does") or []) if str(item).strip()]
         summary = str(synthesis.get("summary") or "").strip()
         expected = str(synthesis.get("expected_result") or "").strip()

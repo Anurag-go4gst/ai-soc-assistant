@@ -10,6 +10,7 @@ from app.spl.llm_plan_compiler import compile_intent_spec_to_spl
 from app.spl.review_only_analyst_synthesis import (
     SYNTHESIS_SOURCE_DETERMINISTIC,
     SYNTHESIS_SOURCE_LLM,
+    ReviewOnlyAnalystSynthesis,
     ReviewOnlySplSynthesisPayload,
     parse_synthesis_json,
     render_review_only_analyst_card_text,
@@ -268,6 +269,9 @@ def test_p2_synthesis_golden() -> None:
     assert "successful login" in lowered
     assert "10 minutes" in lowered or "600" in lowered
     assert "own burst" in lowered or "own" in lowered
+    assert "### spl" in lowered
+    assert "must be replaced with the approved authentication index" in lowered
+    assert "authentication data is expected in sourcetype `pgcil:auth`" in lowered
     assert "datamodel" not in lowered
     assert "tstats" not in lowered
     assert "join" not in lowered
@@ -341,4 +345,29 @@ def test_card_injects_validated_spl_not_model_spl() -> None:
     text = render_review_only_analyst_card_text(result, spl)
     assert spl in text
     assert model_spl not in text
-    assert "Expected result" in text
+    assert "### SPL" in text
+    assert "### Expected result" in text
+    assert text.index("### What this query does") < text.index("### SPL")
+    assert text.index("### SPL") < text.index(spl)
+
+
+def test_card_text_uses_single_markdown_dash_and_unescaped_inline_code() -> None:
+    synthesis = ReviewOnlyAnalystSynthesis(
+        summary="Review-only authentication sequence query.",
+        what_it_does=["• Finds more than 20 failed authentication attempts."],
+        mappings_assumptions=[
+            r"\`\<your\_index>\` must be replaced with the approved authentication index.",
+            r"Authentication data is expected in sourcetype \`pgcil\:auth\`.",
+        ],
+        expected_result="Each row is one burst plus a later success.",
+        source=SYNTHESIS_SOURCE_DETERMINISTIC,
+    )
+    text = render_review_only_analyst_card_text(synthesis, "search index=x")
+    assert "- Finds more than 20 failed authentication attempts." in text
+    assert "•" not in text
+    assert "- - " not in text
+    assert "`<your_index>`" in text
+    assert r"\<" not in text
+    assert r"\_" not in text
+    assert "`pgcil:auth`" in text
+    assert r"\:" not in text

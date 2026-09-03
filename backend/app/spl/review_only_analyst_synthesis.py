@@ -518,23 +518,29 @@ def synthesize_review_only_analyst_explanation(
     )
 
 
+def _plain_bullet_text(item: str) -> str:
+    text = re.sub(r"^[\s]*[-•]\s+", "", str(item or "").strip())
+    return re.sub(r"\\([\\`<>=_:])", r"\1", text)
+
+
 def render_review_only_analyst_card_text(
     synthesis: ReviewOnlyAnalystSynthesis,
     final_validated_spl: str,
 ) -> str:
-    lines = [REVIEW_ONLY_TITLE, "", synthesis.summary, "", "What this query does"]
-    lines.extend(f"• {item}" for item in synthesis.what_it_does)
+    lines = [REVIEW_ONLY_TITLE, "", synthesis.summary, "", "### What this query does"]
+    lines.extend(f"- {_plain_bullet_text(item)}" for item in synthesis.what_it_does)
     lines.append("")
     spl = str(final_validated_spl or "").strip()
     if spl:
+        lines.append("### SPL")
         lines.append(spl)
         lines.append("")
     if synthesis.mappings_assumptions:
-        lines.append("Mappings / assumptions")
-        lines.extend(f"• {item}" for item in synthesis.mappings_assumptions)
+        lines.append("### Mappings / assumptions")
+        lines.extend(f"- {_plain_bullet_text(item)}" for item in synthesis.mappings_assumptions)
         lines.append("")
     if synthesis.expected_result:
-        lines.append("Expected result")
+        lines.append("### Expected result")
         lines.append(synthesis.expected_result)
         lines.append("")
     lines.append(NO_EXECUTION_FOOTER)
