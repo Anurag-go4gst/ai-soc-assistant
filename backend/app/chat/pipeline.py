@@ -3808,9 +3808,18 @@ def _apply_remediation_lifecycle(state: ChatPipelineState) -> ChatPipelineState:
             if action == "approve":
                 envelope = reviewed.get("approved_remediation_envelope")
                 if isinstance(envelope, dict):
+                    # Freshness vs a *mutable* current plan is NOT applicable here.
+                    # After Approve, session pins clear ``pending_remediation_plan`` and the
+                    # frozen ``ApprovedRemediationEnvelope`` is the sole execution authority
+                    # for this same-turn write. Passing ``envelope.plan_fingerprint`` back as
+                    # ``current_plan_fingerprint`` would be a tautology (stored value vs itself),
+                    # not an independent freshness check. Do not invent a second plan store.
+                    # Library callers that *do* hold an independent current plan fingerprint
+                    # may still pass it into ``execute_approved_remediation`` to refuse stale
+                    # envelopes (``approved_plan_superseded``).
                     result = execute_approved_remediation(
                         approved_envelope=envelope,
-                        current_plan_fingerprint=str(envelope.get("plan_fingerprint") or ""),
+                        current_plan_fingerprint=None,
                         context={"rbac_role": reviewed.get("session_role")},
                     ).as_dict()
                     approval = (

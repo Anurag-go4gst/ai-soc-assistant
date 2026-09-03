@@ -484,3 +484,255 @@ def test_fingerprint_canonicalization_is_order_stable() -> None:
     assert exact_call_payload_fingerprint(
         envelope=envelope, step=step
     ) == exact_call_payload_fingerprint(envelope=envelope, step=step_reordered)
+
+
+# ---------------------------------------------------------------- immutable-envelope freshness
+# After Approve, session pins clear pending_remediation_plan. There is no mutable
+# "current canonical remediation plan" left to compare — only the frozen envelope.
+# SUPERSEDED_PLAN_CHECK = NOT_APPLICABLE_BY_IMMUTABLE_ENVELOPE_DESIGN on the live
+# approve→execute seam. The library still accepts an *independent* current_fp when
+# a caller actually has one.
+
+
+def test_approve_path_does_not_self_compare_envelope_fingerprint() -> None:
+    """Pipeline must not pass envelope.plan_fingerprint as current_plan_fingerprint."""
+    source = (_BACKEND_ROOT / "app" / "chat" / "pipeline.py").read_text(encoding="utf-8")
+    # Narrow to the remediation approve execution call site.
+    assert "current_plan_fingerprint=None" in source
+    assert 'current_plan_fingerprint=str(envelope.get("plan_fingerprint")' not in source
+
+
+def test_matching_independent_current_fingerprint_allows_execution(
+    _recording: RecordingEmailTransport,
+) -> None:
+    """When a caller *does* supply an independent current FP equal to the approved plan, allow."""
+    result = execute_approved_remediation(
+        approved_envelope=_envelope(_step("email_send")),
+        current_plan_fingerprint="fingerprint-a",
+        context={"recipient": "soc@example.com"},
+    )
+    assert result.refused_reason is None
+    assert result.receipts[0].status == STATUS_SUCCESS
+    assert len(_recording.sent) == 1
+
+
+def test_stale_independent_current_fingerprint_denies_and_sends_nothing(
+    _recording: RecordingEmailTransport,
+) -> None:
+    """Approve A then supply current=B → refuse whole envelope; connector calls = 0."""
+    result = execute_approved_remediation(
+        approved_envelope=_envelope(_step("email_send")),
+        current_plan_fingerprint="fingerprint-b",
+    )
+    assert result.refused_reason == "approved_plan_superseded"
+    assert result.receipts == []
+    assert _recording.sent == []
+
+
+def test_wording_mutation_changes_plan_fingerprint_and_denies_stale_approval(
+    _recording: RecordingEmailTransport,
+) -> None:
+    from app.chat.remediation_runtime import _fingerprint
+
+    step = _step("email_send")
+    plan_a = {
+        "schema_version": "validated_remediation_plan_v1",
+        "remediation_objective": "Contain host.",
+        "steps": [step.model_dump(mode="json")],
+        "manual_only_steps": [],
+        "plan_source": "deterministic_only",
+        "validation_warnings": [],
+        "dropped_reasons": [],
+        "human_approval_required": True,
+        "execution_authorized": False,
+    }
+    fp_a = _fingerprint(plan_a)
+    plan_b = dict(plan_a)
+    plan_b["remediation_objective"] = "Contain host — revised wording."
+    fp_b = _fingerprint(plan_b)
+    assert fp_a != fp_b
+    envelope = ApprovedRemediationEnvelope(
+        envelope_version=1,
+        remediation_objective=str(plan_a["remediation_objective"]),
+        approved_steps=[step],
+        plan_fingerprint=fp_a,
+    )
+    denied = execute_approved_remediation(
+        approved_envelope=envelope,
+        current_plan_fingerprint=fp_b,
+    )
+    assert denied.refused_reason == "approved_plan_superseded"
+    assert _recording.sent == []
+
+
+def test_forged_current_fingerprint_denies(
+    _recording: RecordingEmailTransport,
+) -> None:
+    result = execute_approved_remediation(
+        approved_envelope=_envelope(_step("email_send")),
+        current_plan_fingerprint="forged-not-a-real-plan-hash",
+    )
+    assert result.refused_reason == "approved_plan_superseded"
+    assert result.receipts == []
+    assert _recording.sent == []
+
+
+def test_deterministic_plan_reconstruction_keeps_fingerprint_stable(
+    _recording: RecordingEmailTransport,
+) -> None:
+    from app.chat.remediation_runtime import _fingerprint
+
+    step = _step("email_send")
+    plan_dump = {
+        "schema_version": "validated_remediation_plan_v1",
+        "remediation_objective": "Notify the owning team.",
+        "steps": [step.model_dump(mode="json")],
+        "manual_only_steps": [],
+        "plan_source": "deterministic_only",
+        "validation_warnings": [],
+        "dropped_reasons": [],
+        "human_approval_required": True,
+        "execution_authorized": False,
+    }
+    fp1 = _fingerprint(plan_dump)
+    fp2 = _fingerprint(dict(plan_dump))  # reconstructed identically
+    assert fp1 == fp2
+    envelope = ApprovedRemediationEnvelope(
+        envelope_version=1,
+        remediation_objective=str(plan_dump["remediation_objective"]),
+        approved_steps=[step],
+        plan_fingerprint=fp1,
+    )
+    result = execute_approved_remediation(
+        approved_envelope=envelope,
+        current_plan_fingerprint=fp2,
+    )
+    assert result.refused_reason is None
+    assert result.receipts[0].status == STATUS_SUCCESS
+    assert len(_recording.sent) == 1
+
+
+def test_approved_envelope_is_frozen_against_rebinding() -> None:
+    envelope = _envelope(_step("email_send"))
+    with pytest.raises(Exception):  # pydantic ValidationError / FrozenInstanceError
+        envelope.plan_fingerprint = "mutated"  # type: ignore[misc]
+    with pytest.raises(Exception):
+        envelope.remediation_objective = "rebinding attempt"  # type: ignore[misc]
+    with pytest.raises(Exception):
+        envelope.approved_steps = []  # type: ignore[misc]
+
+
+def test_cancelled_approval_does_not_mint_envelope_for_reuse(
+    _recording: RecordingEmailTransport,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_soc_remediation_planner_enabled", True)
+    created = handle_remediation_review(
+        {
+            "investigation_outcome": {
+                "investigation_status": "completed",
+                "disposition": "suspicious",
+                "action_eligibility": {
+                    "allowed_actions": ["email_send"],
+                    "unavailable_actions": [],
+                },
+            },
+            "capability_snapshot": {
+                "rows": [
+                    {
+                        "capability_id": "action:email_send",
+                        "capability_need": "recommended",
+                        "availability": "available",
+                    }
+                ]
+            },
+        },
+        action="create",
+    )
+    plan_before = created["remediation_approval"]["validated_plan"]
+    cancelled = handle_remediation_review(created, action="cancel")
+    assert cancelled["remediation_approval"]["status"] == "cancelled"
+    assert cancelled.get("approved_remediation_envelope") is None
+    # Reintroduce an identical-looking plan via create — that is a *new* HIL cycle,
+    # not reuse of the cancelled approval. Cancelled path never produced an envelope.
+    recreated = handle_remediation_review(
+        {
+            **cancelled,
+            "investigation_outcome": {
+                "investigation_status": "completed",
+                "disposition": "suspicious",
+                "action_eligibility": {
+                    "allowed_actions": ["email_send"],
+                    "unavailable_actions": [],
+                },
+            },
+            "capability_snapshot": {
+                "rows": [
+                    {
+                        "capability_id": "action:email_send",
+                        "capability_need": "recommended",
+                        "availability": "available",
+                    }
+                ]
+            },
+        },
+        action="create",
+    )
+    assert recreated["remediation_approval"]["status"] == "awaiting_approval"
+    assert recreated.get("approved_remediation_envelope") is None
+    assert recreated["remediation_approval"]["validated_plan"] is not None
+    # Identity of steps may match, but there is still no executable envelope until Approve.
+    assert plan_before is not None
+    assert _recording.sent == []
+
+
+def test_session_clears_pending_plan_after_approve_so_no_mutable_current_remains(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """pins_from_pipeline_state is the sole writer; approved clears pending_remediation_plan."""
+    from app.chat.session_context import pins_from_pipeline_state
+    from app.schemas.responses import PlaceholderResponse
+
+    monkeypatch.setattr(settings, "ai_soc_remediation_planner_enabled", True)
+    monkeypatch.setattr(settings, "ai_soc_session_context_enabled", True)
+    created = handle_remediation_review(
+        {
+            "session_id": "sess-p11-fp",
+            "investigation_outcome": {
+                "investigation_status": "completed",
+                "disposition": "suspicious",
+                "evidence_refs": ["ev.1"],
+                "action_eligibility": {
+                    "allowed_actions": ["email_send"],
+                    "unavailable_actions": [],
+                },
+            },
+            "capability_snapshot": {
+                "rows": [
+                    {
+                        "capability_id": "action:email_send",
+                        "capability_need": "recommended",
+                        "availability": "available",
+                    }
+                ]
+            },
+        },
+        action="create",
+    )
+    response = PlaceholderResponse(trace_id="tr-1", message="ok", note="test", user_query="q")
+    pending = pins_from_pipeline_state(
+        session_id="sess-p11-fp",
+        trace_id="tr-1",
+        response=response,
+        state=created,
+    )
+    assert pending.pending_remediation_plan is not None
+    approved = handle_remediation_review(created, action="approve")
+    cleared = pins_from_pipeline_state(
+        session_id="sess-p11-fp",
+        trace_id="tr-2",
+        response=response,
+        state=approved,
+    )
+    assert cleared.pending_remediation_plan is None
+    assert approved.get("approved_remediation_envelope") is not None
