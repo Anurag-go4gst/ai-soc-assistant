@@ -11,6 +11,7 @@ from app.actions import email_adapter
 from app.actions.email_adapter import RecordingEmailTransport, allowlisted, send_remediation_email
 from app.actions.remediation_execution import (
     ADAPTERS,
+    STATUS_FAILED,
     STATUS_SKIPPED_MANUAL,
     STATUS_SUCCESS,
     STATUS_UNAVAILABLE,
@@ -139,7 +140,7 @@ def test_allowlisted_email_executes_and_verifies(_recording: RecordingEmailTrans
     )
     receipt = result.receipts[0]
     assert receipt.status == STATUS_SUCCESS
-    assert receipt.verification_status == "verified"
+    assert receipt.verification_status == "provider_accepted"
     assert receipt.idempotency_key
     assert len(_recording.sent) == 1
     assert _recording.sent[0]["To"] == "soc@example.com"
@@ -221,7 +222,7 @@ def test_production_chat_approval_executes_exact_envelope_and_returns_verificati
     )
     receipt = result["remediation_execution"]["receipts"][0]
     assert receipt["status"] == STATUS_SUCCESS
-    assert receipt["verification_status"] == "verified"
+    assert receipt["verification_status"] == "provider_accepted"
     assert result["remediation_approval"]["execution_result"] == result["remediation_execution"]
     assert len(_recording.sent) == 1
 
@@ -234,7 +235,7 @@ def test_non_allowlisted_recipient_is_refused(_recording: RecordingEmailTranspor
     )
     receipt = result.receipts[0]
     assert receipt.status != STATUS_SUCCESS
-    assert receipt.reason == "action_arguments_do_not_match_approved_plan"
+    assert receipt.reason == "exact_call_arguments_mismatch"
     assert _recording.sent == []
 
 
@@ -307,3 +308,179 @@ def test_investigation_plan_delta_cannot_reach_the_action_gate() -> None:
 
 def test_adapter_registry_holds_only_registered_capabilities() -> None:
     assert set(ADAPTERS) == {"email_send"}
+
+
+# ---------------------------------------------------------------- attack / negative matrix
+
+
+def test_exact_call_email_a_cannot_authorize_email_b(
+    _recording: RecordingEmailTransport,
+) -> None:
+    from app.actions.remediation_execution import authorize_exact_action
+
+    step_a = _step("email_send")
+    envelope = _envelope(step_a)
+    ok, reason, _fp = authorize_exact_action(
+        envelope=envelope,
+        step=step_a,
+        requested_capability_id="email_send",
+        requested_arguments={"recipient": "other@example.com"},
+    )
+    assert ok is False
+    assert reason == "exact_call_arguments_mismatch"
+    result = execute_approved_remediation(
+        approved_envelope=envelope,
+        context={"recipient": "other@example.com"},
+    )
+    assert result.receipts[0].status == STATUS_FAILED
+    assert result.receipts[0].reason == "exact_call_arguments_mismatch"
+    assert _recording.sent == []
+
+
+def test_exact_call_email_cannot_authorize_firewall_block(
+    _recording: RecordingEmailTransport,
+) -> None:
+    from app.actions.remediation_execution import authorize_exact_action
+
+    step = _step("email_send")
+    envelope = _envelope(step)
+    ok, reason, _fp = authorize_exact_action(
+        envelope=envelope,
+        step=step,
+        requested_capability_id="firewall_block",
+        requested_arguments=dict(step.action_arguments),
+    )
+    assert ok is False
+    assert reason == "exact_call_capability_mismatch"
+    assert _recording.sent == []
+
+
+def test_payload_subject_body_mutation_invalidates_exact_call_fingerprint(
+    _recording: RecordingEmailTransport,
+) -> None:
+    from app.actions.remediation_execution import (
+        authorize_exact_action,
+        exact_call_payload_fingerprint,
+        _execute_email,
+    )
+
+    step = _step("email_send")
+    envelope = _envelope(step)
+    original = exact_call_payload_fingerprint(envelope=envelope, step=step)
+    mutated_step = step.model_copy(update={"description": "Send a different body entirely."})
+    mutated = exact_call_payload_fingerprint(envelope=envelope, step=mutated_step)
+    assert original != mutated
+    ok, reason, _fp = authorize_exact_action(
+        envelope=envelope,
+        step=step,
+        requested_capability_id="email_send",
+        requested_arguments=dict(step.action_arguments),
+        expected_fingerprint=mutated,
+    )
+    assert ok is False
+    assert reason == "exact_call_grant_invalidated"
+    receipt = _execute_email(
+        step,
+        envelope=envelope,
+        context={"expected_exact_call_fingerprint": mutated},
+    )
+    assert receipt.status == STATUS_FAILED
+    assert receipt.reason == "exact_call_grant_invalidated"
+    assert _recording.sent == []
+
+
+def test_connector_parameter_injection_is_rejected(
+    _recording: RecordingEmailTransport,
+) -> None:
+    result = execute_approved_remediation(
+        approved_envelope=_envelope(_step("email_send")),
+        context={"cc": "attacker@evil.example", "smtp_host": "evil.example"},
+    )
+    assert result.receipts[0].status == STATUS_FAILED
+    assert "exact_call_context_injection" in str(result.receipts[0].reason)
+    assert _recording.sent == []
+
+
+def test_disable_connector_after_approval_blocks_write(
+    _recording: RecordingEmailTransport,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    envelope = _envelope(_step("email_send"))
+    monkeypatch.setattr(settings, "ai_soc_action_email_enabled", False)
+    result = execute_approved_remediation(approved_envelope=envelope)
+    assert result.receipts[0].status == STATUS_FAILED
+    assert result.receipts[0].reason == "action_email_connector_disabled"
+    assert result.receipts[0].external_side_effect is False
+    assert _recording.sent == []
+
+
+def test_email_flag_off_keeps_snapshot_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_soc_action_email_enabled", False)
+    monkeypatch.setenv("AI_SOC_ACTION_EMAIL_ALLOWLIST", "soc@example.com")
+    monkeypatch.setenv("AI_SOC_ACTION_EMAIL_FROM", "ai-soc@example.com")
+    monkeypatch.setenv("AI_SOC_ACTION_EMAIL_SMTP_HOST", "smtp.example.com")
+    assert production_registered_action_kinds()["email_send"] is False
+
+
+def test_cancelled_envelope_is_not_reexecuted_via_stale_pin(
+    _recording: RecordingEmailTransport,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_soc_remediation_planner_enabled", True)
+    created = handle_remediation_review(
+        {
+            "investigation_outcome": {
+                "investigation_status": "completed",
+                "disposition": "suspicious",
+                "action_eligibility": {
+                    "allowed_actions": ["email_send"],
+                    "unavailable_actions": [],
+                },
+            },
+            "capability_snapshot": {
+                "rows": [
+                    {
+                        "capability_id": "action:email_send",
+                        "capability_need": "recommended",
+                        "availability": "available",
+                    }
+                ]
+            },
+        },
+        action="create",
+    )
+    cancelled = handle_remediation_review(created, action="cancel")
+    assert cancelled["remediation_approval"]["status"] == "cancelled"
+    # Cancel does not mint an envelope; pipeline approve path is the only executor.
+    assert cancelled.get("approved_remediation_envelope") is None
+    assert _recording.sent == []
+
+
+def test_fingerprint_canonicalization_is_order_stable() -> None:
+    from app.actions.remediation_execution import exact_call_payload_fingerprint
+
+    step = RemediationStep(
+        step_id="rem.01.email_send",
+        capability_id="email_send",
+        description="Notify soc.",
+        execution_mode="execute",
+        availability="available",
+        verification="Confirm receipt.",
+        action_arguments={"recipient": "soc@example.com", "note": "a"},
+    )
+    # Rebuild with reversed key insertion order — fingerprint must match.
+    step_reordered = RemediationStep(
+        step_id="rem.01.email_send",
+        capability_id="email_send",
+        description="Notify soc.",
+        execution_mode="execute",
+        availability="available",
+        verification="Confirm receipt.",
+        action_arguments={"note": "a", "recipient": "soc@example.com"},
+    )
+    envelope = _envelope(step)
+    assert exact_call_payload_fingerprint(
+        envelope=envelope, step=step
+    ) == exact_call_payload_fingerprint(envelope=envelope, step=step_reordered)

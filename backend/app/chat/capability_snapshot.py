@@ -248,14 +248,20 @@ def production_registered_action_kinds() -> dict[str, bool]:
 
     P11 owns the production email adapter. Until then email_send stays unavailable
     for planning (manual/alternate path), independent of EC demo transport.
+    Availability requires the connector flag, SMTP configuration, and a single
+    bound allowlisted recipient that can be fingerprinted into the plan.
     """
+    from app.config import settings
+
+    email_ready = bool(
+        settings.ai_soc_action_email_enabled
+        and "email_send" in ADAPTERS
+        and email_adapter.configured()
+        and email_adapter.default_recipient()
+    )
     return {
         "firewall_block": False,
-        "email_send": bool(
-            "email_send" in ADAPTERS
-            and email_adapter.configured()
-            and email_adapter.default_recipient()
-        ),
+        "email_send": email_ready,
     }
 
 

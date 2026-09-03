@@ -18,6 +18,7 @@ Invariants this module exists to hold:
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -95,6 +96,65 @@ def idempotency_key_for(envelope: ApprovedRemediationEnvelope, step: Remediation
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
 
+def _canonical_json(payload: Any) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+
+
+def exact_call_payload_fingerprint(
+    *,
+    envelope: ApprovedRemediationEnvelope,
+    step: RemediationStep,
+) -> str:
+    """AUTH0-style bind of approved capability + arguments + envelope identity.
+
+    Subject/body for email are derived from fingerprinted plan fields
+    (``remediation_objective``, ``description``, ``verification``), not free
+    connector parameters — so mutating those after approval changes this hash.
+    """
+    payload = {
+        "capability_id": step.capability_id,
+        "operation": f"action:{step.capability_id}",
+        "step_id": step.step_id,
+        "execution_mode": step.execution_mode,
+        "action_arguments": step.action_arguments,
+        "description": step.description,
+        "verification": step.verification,
+        "remediation_objective": envelope.remediation_objective,
+        "envelope_version": envelope.envelope_version,
+        "plan_fingerprint": envelope.plan_fingerprint,
+    }
+    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+
+
+def authorize_exact_action(
+    *,
+    envelope: ApprovedRemediationEnvelope,
+    step: RemediationStep,
+    requested_capability_id: str,
+    requested_arguments: dict[str, Any] | None = None,
+    expected_fingerprint: str | None = None,
+) -> tuple[bool, str | None, str]:
+    """Grant only the exact approved (capability, arguments, envelope) tuple.
+
+    A grant for ``email_send(A)`` cannot authorize ``email_send(B)`` or any other
+    write capability. Unknown connectors never grant.
+    """
+    fingerprint = exact_call_payload_fingerprint(envelope=envelope, step=step)
+    if expected_fingerprint and expected_fingerprint != fingerprint:
+        return False, "exact_call_grant_invalidated", fingerprint
+    if requested_capability_id != step.capability_id:
+        return False, "exact_call_capability_mismatch", fingerprint
+    if step.execution_mode != "execute" or step.availability != "available":
+        return False, "exact_call_step_not_executable", fingerprint
+    if requested_capability_id not in ADAPTERS:
+        return False, "exact_call_capability_not_registered", fingerprint
+    approved_args = dict(step.action_arguments or {})
+    requested = dict(requested_arguments or approved_args)
+    if _canonical_json(requested) != _canonical_json(approved_args):
+        return False, "exact_call_arguments_mismatch", fingerprint
+    return True, None, fingerprint
+
+
 def _execute_email(
     step: RemediationStep,
     *,
@@ -108,14 +168,47 @@ def _execute_email(
     )
     recipient = str(step.action_arguments.get("recipient") or "").strip()
     supplied_recipient = str(context.get("recipient") or "").strip()
-    if supplied_recipient and supplied_recipient != recipient:
+    requested_arguments = dict(step.action_arguments or {})
+    if supplied_recipient:
+        requested_arguments = {**requested_arguments, "recipient": supplied_recipient}
+    # Reject unexpected connector-parameter injection from execution context.
+    forbidden_context_keys = {
+        key_name
+        for key_name in context
+        if key_name
+        not in {
+            "recipient",
+            "rbac_role",
+            "downstream_idempotency_key",
+            "expected_exact_call_fingerprint",
+        }
+    }
+    if forbidden_context_keys:
         return ActionReceipt(
             step_id=step.step_id,
             capability_id=step.capability_id,
             status=STATUS_FAILED,
             execution_mode="not_attempted",
             idempotency_key=key,
-            reason="action_arguments_do_not_match_approved_plan",
+            reason=f"exact_call_context_injection:{sorted(forbidden_context_keys)}",
+        )
+    granted, deny_reason, _fingerprint = authorize_exact_action(
+        envelope=envelope,
+        step=step,
+        requested_capability_id="email_send",
+        requested_arguments=requested_arguments,
+        expected_fingerprint=(
+            str(context.get("expected_exact_call_fingerprint") or "").strip() or None
+        ),
+    )
+    if not granted:
+        return ActionReceipt(
+            step_id=step.step_id,
+            capability_id=step.capability_id,
+            status=STATUS_FAILED,
+            execution_mode="not_attempted",
+            idempotency_key=key,
+            reason=deny_reason or "exact_call_denied",
         )
     if not recipient:
         return ActionReceipt(
@@ -126,16 +219,19 @@ def _execute_email(
             idempotency_key=key,
             reason="no_recipient_supplied",
         )
+    # TOCTOU: re-derive subject/body only from the approved envelope/step fields.
+    subject = f"[AI-SOC] Remediation: {envelope.remediation_objective}"[:200]
+    body = (
+        f"Approved remediation step {step.step_id}.\n\n"
+        f"Objective: {envelope.remediation_objective}\n"
+        f"Action: {step.description}\n"
+        f"Verification: {step.verification}\n"
+        f"Approved envelope version: {envelope.envelope_version}\n"
+    )
     receipt = send_remediation_email(
         to=recipient,
-        subject=f"[AI-SOC] Remediation: {envelope.remediation_objective}"[:200],
-        body=(
-            f"Approved remediation step {step.step_id}.\n\n"
-            f"Objective: {envelope.remediation_objective}\n"
-            f"Action: {step.description}\n"
-            f"Verification: {step.verification}\n"
-            f"Approved envelope version: {envelope.envelope_version}\n"
-        ),
+        subject=subject,
+        body=body,
         idempotency_key=key,
     )
     return ActionReceipt(
@@ -162,18 +258,27 @@ _ACTION_EXECUTION_ROLES = frozenset(
 
 
 def _verify(receipt: ActionReceipt, step: RemediationStep) -> ActionReceipt:
-    """Post-action verification. An unverifiable success is reported as such."""
+    """Post-action verification. Transport success is never stronger than evidence.
+
+    For email, SMTP acceptance (and a locally minted Message-ID) proves only
+    ``provider_accepted`` — never recipient-received or ``verified``.
+    """
     if receipt.status != STATUS_SUCCESS:
         receipt.verification_status = "not_applicable"
         return receipt
     if receipt.capability_id == "email_send":
-        verified = bool(receipt.provider_message_id)
-        receipt.verification_status = "verified" if verified else "unverified"
-        receipt.verification_detail = (
-            f"Provider accepted message id {receipt.provider_message_id}."
-            if verified
-            else "Send reported success without a provider message id."
-        )
+        if receipt.provider_message_id:
+            receipt.verification_status = "provider_accepted"
+            receipt.verification_detail = (
+                f"Provider accepted message id {receipt.provider_message_id}. "
+                "This is not proof the recipient received the message."
+            )
+        else:
+            receipt.verification_status = "unverified"
+            receipt.verification_detail = (
+                "Send reported success without a provider message id; "
+                "not treated as verified delivery."
+            )
         return receipt
     receipt.verification_status = "unverified"
     receipt.verification_detail = step.verification
@@ -237,13 +342,40 @@ def execute_approved_remediation(
                 )
             )
             continue
-        def _execute_once(*, downstream_idempotency_key: str | None = None) -> dict[str, Any]:
+        # Exact-call grant minted from the approved envelope immediately before
+        # the connector attempt (TOCTOU re-bind). A mutated step fails closed.
+        grant_ok, grant_reason, grant_fp = authorize_exact_action(
+            envelope=envelope,
+            step=step,
+            requested_capability_id=step.capability_id,
+            requested_arguments=dict(step.action_arguments or {}),
+        )
+        if not grant_ok:
+            result.receipts.append(
+                ActionReceipt(
+                    step_id=step.step_id,
+                    capability_id=step.capability_id,
+                    status=STATUS_FAILED,
+                    execution_mode="not_attempted",
+                    idempotency_key=key,
+                    reason=grant_reason or "exact_call_denied",
+                )
+            )
+            continue
+
+        def _execute_once(
+            *,
+            downstream_idempotency_key: str | None = None,
+            _step: RemediationStep = step,
+            _grant_fp: str = grant_fp,
+        ) -> dict[str, Any]:
             adapter_context = {
                 **call_context,
                 "downstream_idempotency_key": downstream_idempotency_key,
+                "expected_exact_call_fingerprint": _grant_fp,
             }
             return _verify(
-                adapter(step, envelope=envelope, context=adapter_context), step
+                adapter(_step, envelope=envelope, context=adapter_context), _step
             ).as_dict()
 
         try:
