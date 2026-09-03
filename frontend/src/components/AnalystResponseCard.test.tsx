@@ -83,7 +83,7 @@ describe('AnalystResponseCard SPL utility rendering', () => {
       <AnalystResponseCard
         response={{
           response_profile: 'spl_only',
-          finding_title: 'Review-only SPL draft — not executed',
+          finding_title: 'Review-only SPL draft — not performed',
           direct_answer_summary: 'Review-only authentication sequence query.',
           initial_assessment: [
             'Finds a failure burst of more than 20 failed authentication attempts within 15 minutes.',
@@ -96,7 +96,11 @@ describe('AnalystResponseCard SPL utility rendering', () => {
             draft_status: 'review_only',
             draft_source: 'compiler',
             detection_family: 'user_bound_spl_authoring',
-            assumptions: ['Authentication failures use EventCode 4625.'],
+            assumptions: [
+              '`<your_index>` must be replaced with the approved authentication index.',
+              'Authentication data is expected in sourcetype `pgcil:auth`.',
+              'Authentication failures use EventCode 4625.',
+            ],
             required_source_fields: [],
             source_profile_missing: false,
             governed_template_missing: true,
@@ -113,17 +117,31 @@ describe('AnalystResponseCard SPL utility rendering', () => {
       />,
     );
     const text = container.textContent ?? '';
+    expect(text).toContain('Review-only SPL draft — not executed');
+    expect(text).not.toContain('not performed');
     expect(text).toContain('Review-only authentication sequence query.');
-    expect(text).toContain('What this query does');
     expect(text).toContain('failure burst');
-    expect(text).toContain('Mappings / assumptions');
+    expect(text).toContain('approved authentication index');
+    expect(text).toContain('pgcil:auth');
     expect(text).toContain('EventCode 4625');
-    expect(text).toContain('Expected result');
     expect(text).toContain('No query was executed.');
     expect(text).not.toContain('Investigation steps');
     expect(text).not.toContain('MITRE');
-    expect(text.indexOf('What this query does')).toBeLessThan(text.indexOf('search index=wineventlog'));
-    expect(text.indexOf('search index=wineventlog')).toBeLessThan(text.indexOf('Mappings / assumptions'));
-    expect(text.indexOf('Mappings / assumptions')).toBeLessThan(text.indexOf('Expected result'));
+    expect(text).not.toContain('•');
+    expect(text).not.toContain('\\<');
+    expect(text).not.toContain('\\_');
+    expect(text).not.toContain('\\:');
+    expect(text).toContain('<your_index>');
+    expect(text).toContain('pgcil:auth');
+    expect([...container.querySelectorAll('h3, h4')].map((el) => el.textContent)).toEqual([
+      'Review-only SPL draft — not executed',
+      'What this query does',
+      'SPL',
+      'Mappings / assumptions',
+      'Expected result',
+    ]);
+    const splBlock = container.querySelector('pre')?.textContent ?? '';
+    expect(splBlock).toContain('search index=wineventlog');
+    expect(container.querySelector('ol')).toBeNull();
   });
 });

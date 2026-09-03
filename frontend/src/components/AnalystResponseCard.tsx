@@ -176,6 +176,53 @@ export function AnalystResponseCard({
   const tableRows = response.splunk_results_table?.length ?? 0;
   const initialAssessment = response.initial_assessment?.filter(Boolean) ?? [];
 
+  if (isUtilitySynthesisCard && draftSplCode) {
+    const displayTitle = (title || 'Review-only SPL draft — not executed').replace(
+      /\bnot performed\b/gi,
+      'not executed',
+    );
+    const mappings = draftPreview?.assumptions?.filter(Boolean) ?? [];
+    return (
+      <div className="w-full min-w-0 max-w-full rounded-xl border border-cyan-500/20 bg-slate-950/70 px-4 py-5 text-[15px] text-slate-100 shadow-sm sm:px-6 xl:max-w-[1120px]">
+        <h3 className="text-xl font-semibold text-slate-50">{displayTitle}</h3>
+        {summaryText ? <p className="mt-3 leading-6 text-slate-200">{summaryText}</p> : null}
+        {initialAssessment.length ? (
+          <div className="mt-5">
+            <h4 className="text-base font-semibold text-slate-100">What this query does</h4>
+            <ul className="mt-2 list-none space-y-1.5 text-slate-200">
+              {initialAssessment.map((item) => (
+                <li key={item}>- {renderMarkdownInline(normalizeBulletItem(item))}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        <div className="mt-5">
+          <h4 className="text-base font-semibold text-slate-100">SPL</h4>
+          <pre className="mt-2 max-h-96 overflow-auto rounded-lg border border-amber-400/25 bg-slate-950 p-3 text-xs leading-6 text-amber-100">
+            <code className="whitespace-pre-wrap break-words">{formatSplForDisplay(draftSplCode)}</code>
+          </pre>
+        </div>
+        {mappings.length ? (
+          <div className="mt-5">
+            <h4 className="text-base font-semibold text-slate-100">Mappings / assumptions</h4>
+            <ul className="mt-2 list-none space-y-1.5 text-slate-200">
+              {mappings.map((item) => (
+                <li key={item}>- {renderMarkdownInline(normalizeBulletItem(item))}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {response.one_sentence_finding ? (
+          <div className="mt-5">
+            <h4 className="text-base font-semibold text-slate-100">Expected result</h4>
+            <p className="mt-2 leading-6 text-slate-200">{response.one_sentence_finding}</p>
+          </div>
+        ) : null}
+        <p className="mt-5 text-sm leading-6 text-slate-300">No query was executed.</p>
+      </div>
+    );
+  }
+
   // Phases are built from the fields that are actually present, so the same
   // timeline renders the full Experience Center fixture and the partial live
   // /chat answer (where MCP/LLM/RAG phases may be absent). Step numbers are
@@ -287,18 +334,14 @@ export function AnalystResponseCard({
       key: 'spl',
       label: wasExecuted
         ? 'Executed detection'
-        : isUtilitySynthesisCard
-          ? 'SPL'
-          : isUniversalUtilitySplDraft
-            ? 'Universal SPL draft'
-            : showDraftSpl && !showSpl
-              ? 'Draft SPL preview'
-              : 'SPL status',
+        : isUniversalUtilitySplDraft
+          ? 'Universal SPL draft'
+          : showDraftSpl && !showSpl
+            ? 'Draft SPL preview'
+            : 'SPL status',
       icon: <Terminal className="h-3.5 w-3.5" />,
       accent: showDraftSpl && !showSpl ? 'amber' : 'cyan',
-      chips: isUtilitySynthesisCard
-        ? [{ text: 'Review only', variant: 'warning' as const }]
-        : isUniversalUtilitySplDraft
+      chips: isUniversalUtilitySplDraft
         ? [{ text: 'Template-free', variant: 'outline' as const }, { text: 'Review only', variant: 'warning' as const }]
         : showDraftSpl && !showSpl
         ? [
@@ -317,7 +360,7 @@ export function AnalystResponseCard({
           ) : null}
           {showDraftSpl ? (
             <>
-              {!isUniversalUtilitySplDraft && !isUtilitySynthesisCard ? (
+              {!isUniversalUtilitySplDraft ? (
               <p
                 className={cn(
                   'text-sm leading-6 text-amber-100/95',
@@ -328,7 +371,7 @@ export function AnalystResponseCard({
                 {response.review_notice ?? draftPreview?.warning}
               </p>
               ) : null}
-              {draftPreview?.assumptions?.length && !isUtilitySynthesisCard ? (
+              {draftPreview?.assumptions?.length ? (
                 <div className="mt-3">
                   <SectionTitle>Assumptions and placeholders</SectionTitle>
                   <BulletList items={draftPreview.assumptions} />
@@ -342,21 +385,6 @@ export function AnalystResponseCard({
               >
                 <code className="whitespace-pre-wrap break-words">{formatSplForDisplay(draftSplCode ?? '')}</code>
               </pre>
-              {isUtilitySynthesisCard && draftPreview?.assumptions?.length ? (
-                <div className="mt-3">
-                  <SectionTitle>Mappings / assumptions</SectionTitle>
-                  <BulletList items={draftPreview.assumptions} />
-                </div>
-              ) : null}
-              {isUtilitySynthesisCard && response.one_sentence_finding ? (
-                <div className="mt-3">
-                  <SectionTitle>Expected result</SectionTitle>
-                  <p className="mt-1 leading-6 text-slate-200">{response.one_sentence_finding}</p>
-                </div>
-              ) : null}
-              {isUtilitySynthesisCard ? (
-                <p className="mt-3 text-sm leading-6 text-slate-300">No query was executed.</p>
-              ) : null}
             </>
           ) : null}
           {showSpl ? (
@@ -535,7 +563,7 @@ export function AnalystResponseCard({
         <p className="mt-2 text-sm leading-6 text-slate-200">{response.severity_safety_note}</p>
       ) : null}
 
-      {initialAssessment.length && !isUtilitySynthesisCard ? (
+      {initialAssessment.length ? (
         <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2">
           <SectionTitle>Initial assessment</SectionTitle>
           <BulletList items={initialAssessment} />
@@ -550,12 +578,6 @@ export function AnalystResponseCard({
               {paragraph}
             </p>
           ))}
-        </div>
-      ) : null}
-      {isUtilitySynthesisCard ? (
-        <div className="mt-3">
-          <SectionTitle>What this query does</SectionTitle>
-          <BulletList items={initialAssessment} />
         </div>
       ) : null}
 
@@ -823,8 +845,27 @@ function DataTable({ rows }: { rows: Record<string, unknown>[] }) {
   );
 }
 
+function unescapeMarkdownInline(value: string): string {
+  return value.replace(/\\([\\`<>=_:])/g, '$1');
+}
+
+function renderMarkdownInline(value: string): React.ReactNode {
+  const cleaned = unescapeMarkdownInline(value);
+  const parts = cleaned.split(/(`[^`]+`)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+      return (
+        <code key={`${part}-${index}`} className="rounded bg-slate-900 px-1 font-mono text-[0.9em] text-cyan-100">
+          {unescapeMarkdownInline(part.slice(1, -1))}
+        </code>
+      );
+    }
+    return <span key={`${part}-${index}`}>{part}</span>;
+  });
+}
+
 function normalizeBulletItem(item: string): string {
-  return item.replace(/^\s*-\s+/, '').trim();
+  return unescapeMarkdownInline(item.replace(/^\s*[-•]\s+/, '')).trim();
 }
 
 function BulletList({ items }: { items: string[] }) {
