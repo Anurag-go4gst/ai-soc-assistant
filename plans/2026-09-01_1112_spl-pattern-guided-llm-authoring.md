@@ -22,7 +22,7 @@ Keep the existing utility-authoring path. Select one vetted semantic pattern fro
 
 ## Dependency order
 
-`0 → 1 → … → 8e` then `9a → 9b → 9c → 9d → 9e` (P3) then `10a → 10b → 10c` (P4) then `11a → 11b → 11c → 11d → 11e` (mvmap exact-membership). Do not start P11 until 11e live cards pass human UI check and this phase is merged.
+`0 → 1 → … → 8e` then `9a → 9b → 9c → 9d → 9e` (P3) then `10a → 10b → 10c` (P4) then `11a → 11b → 11c → 11d → 11e` (mvmap exact-membership) then `12a → 12b → 12c → 12d → 12e` (P2 sequence identity). Do not start P11. Do not merge until 12e and a final P2 UI check.
 
 ## Checklist
 
@@ -194,17 +194,47 @@ Keep the existing utility-authoring path. Select one vetted semantic pattern fro
   - **Depends on:** 11b
   - **Evidence:** Full backend pytest **7355 passed, 45 skipped, 6 xfailed, 0 failed**. Freeze `--check` **protected artifacts unchanged (15 checked)**. SPL authority freeze **OK authority-identical rows=49**. RACES G1 + live-path + SPL freeze tests **18 passed**. Protected diffs vs `207e7409` empty for architecture.md / pipeline.py / spl_validator.py / policy.py. Invariant PASS: no new `call_tool`/MCP sites; demo/conftest/config.py untouched; no new flags; authoring remains review-only `execution_eligible=false`. READY_TO_MERGE=NO. P11 not started. Live MCP off.
 
-- [ ] **11d** — Commit clean SHA
+- [x] **11d** — Commit clean SHA
   - **Do:** One commit of the SPL-authoring phase including the mvmap primitive. Do not merge yet.
   - **Verify:** `git rev-parse HEAD`; `git status --short`
   - **Depends on:** 11c
-  - **Evidence:** _(filled when done)_
+  - **Evidence:** `HEAD=d04c00a5d812e52c1dac351573c9f938f72e3b10` (`d04c00a5 fix(spl): use documented mvmap for first-seen exact membership`). `git status --short` empty after commit. Not merged. P11 not started.
 
-- [ ] **11e** — Rebuild SHA and live P1–P4 twice
+- [x] **11e** — Rebuild SHA and live P1–P4 twice
   - **Do:** Rebuild/restart backend at the commit SHA. Run P1–P4 twice through `/api/chat` with MCP off. Confirm compiler SPL uses mvmap, not mvfilter(A==B). Human UI check at 3013/chat remains required before merge/P11.
   - **Verify:** Two calls per family; review-only; execution_eligible=false; approved=false; normalized_spl=null; MCP=0; product SPL contains `mvmap(baseline_objects` and `seen_before=0`; no `mvfilter(.*==`.
   - **Depends on:** 11d
-  - **Evidence:** _(filled when done)_
+  - **Evidence:** Image rebuild hit Docker Hub `DeadlineExceeded` for `python:3.12-slim`; compose bind-mounts `./backend:/app`, so `docker compose up -d --force-recreate backend` served `d04c00a5` (container HEAD ref + `exact_multivalue_absence_commands` emits mvmap). MCP global false. Eight `/api/chat` calls HTTP 200. P1/P4: `mvmap(baseline_objects` + `seen_before=0`, no cross-field mvfilter. All four families `authoring_source=LEGACY_COMPILER_RESCUE`, `execution_eligible=false`, `approved=false`, `normalized_spl=null`, `mcp_call_count=0`. **READY_TO_MERGE=NO** until human inspects `http://127.0.0.1:3013/chat`. P11 not started.
+
+- [x] **12a** — P2 sequence-identity compiler tail
+  - **Do:** After the P2 burst-then-follow `where`, stop collapsing with `stats max(burst_count) min(burst_first) latest(_time) latest(host) by user_norm, src_ip_norm`. Keep one row per qualifying success: `failure_count=burst_count`, `first_failure` from `burst_first_epoch`, `success_time` from `_time`, host from the success event. Do not change retrieve/normalize/classify/sort/15m burst/carry/`<=600` topology. Do not change P1/P3/P4. Contract does not require first-success-only.
+  - **Verify:** `cd backend && PYTHONPATH=../backend:.. ../.venv/bin/python3 -m pytest app/tests/test_spl_pattern_guided_authoring.py app/tests/test_spl_semantic_v2_compiler.py -k 'p2 or sequence or identity' -q`
+  - **Depends on:** 11e
+  - **Evidence:** After `where`, compiler `rename burst_count as failure_count` + `strftime(burst_first_epoch)` / `strftime(_time)` + `fields -` helpers. No final `stats` by user+src_ip. Contract: each valid success is its own row (no first-success-only). P1/P3/P4 compiler sha256 unchanged vs `d04c00a5`.
+
+- [x] **12b** — Reject cross-sequence stats mixing
+  - **Do:** Validator loss `sequence_identity_collapsed` when final `stats` independently extrema-selects burst state and success/host state grouped only by correlation keys (no success-event identity). Accept the corrected compiler output and one/many sequences / different user or src_ip. Do not change few-shots/prompts.
+  - **Verify:** `cd backend && PYTHONPATH=../backend:.. ../.venv/bin/python3 -m pytest app/tests/test_spl_pattern_guided_authoring.py -k 'p2 or sequence or identity' -q`
+  - **Depends on:** 12a
+  - **Evidence:** `sequence_identity_collapsed` rejects max(burst)+latest(success/host) by user+src_ip. Accepts compiler output and the same aggregations when `_time` is in `by`. `fields` keep-list counts as alias consumption so host_norm on the success row is not `normalized_field_unused`. Authoring+compiler+fidelity files **85 passed**.
+
+- [x] **12c** — P1/P3/P4 byte-identical plus authoring slice
+  - **Do:** Prove compiled P1/P3/P4 match pre-change sha256 from `d04c00a5`. Run P2 targeted, then authoring/compiler/fidelity slice, then full pytest, freeze `--check`, SPL authority freeze, RACES G1 + live-path + freeze tests.
+  - **Verify:** `cd backend && PYTHONPATH=../backend:.. ../.venv/bin/python3 -m pytest -q`; `python3 scripts/freeze_execution_baseline.py --check`
+  - **Depends on:** 12b
+  - **Evidence:** P1/P3/P4 compiler sha256 unchanged vs `d04c00a5`. Authoring+compiler+fidelity **85 passed**. Full backend **7358 passed, 45 skipped, 6 xfailed**. Freeze 15/15. SPL authority 49 rows. RACES G1+live-path+freeze **18 passed**. Protected diffs empty vs `d04c00a5` for architecture.md / pipeline.py / spl_validator.py / policy.py.
+
+- [x] **12d** — Live P2 twice then P1/P3/P4 once
+  - **Do:** `/api/chat` P2 twice, then P1/P3/P4 once. MCP off. Compiler rescue. P1/P3/P4 SPL hashes match `d04c00a5`. Do not merge. Do not start P11.
+  - **Verify:** P2 both calls sequence-preserving SPL; execution_eligible=false; approved=false; normalized_spl=null; MCP=0. P1/P3/P4 hashes unchanged.
+  - **Depends on:** 12c
+  - **Evidence:** P2 both calls HTTP 200, identical sha256 `537580db…`, `LEGACY_COMPILER_RESCUE`, rename+no collapse stats, execution_eligible=false, approved=false, normalized_spl=null, MCP=0. P1/P3/P4 compiler sha256 still d04c00a5 unit hashes; live needles mvmap host / powershell / mvmap domain; review-only; no MITRE; MCP=0.
+
+- [x] **12e** — Bounded P2 commit
+  - **Do:** One commit of the P2 identity patch and its tests only. Do not include plan 11d/11e evidence files. Do not merge.
+  - **Verify:** `git rev-parse HEAD`; `git show --stat --format=oneline -1`
+  - **Depends on:** 12d
+  - **Evidence:** `HEAD=6c1d6c4bb40eaab5ccb24a3e998f3f57b627a380` (`fix(spl): preserve auth sequence identity in P2 output`). 6 files, +191/−3. Plans left uncommitted. Freeze `--check` re-run on this SHA: 15/15 and SPL authority 49 rows.
 
 ## Verification gaps (flag before coding)
 
@@ -226,4 +256,4 @@ Live item 6 requires the running Docker `/api/chat` with MCP off. Host pytest is
 - Live P3 (9d): product PASS via `LEGACY_COMPILER_RESCUE`; instruct emitted complete parent/child SPL that quality-failed Q02 on JSON `\n`. **P3_LLM_PATTERN_PASS=NO**. **P3_PRODUCT_PASS=YES**.
 - Live P4 (10b): same `first_seen` pattern generalized host→domain / 24h+14d=15d. LLM draft incomplete/wrong subject keys; repair failed; product PASS via compiler rescue. **P4_LLM_PATTERN_PASS=NO**. **P4_PRODUCT_PASS=YES**. **FIRST_SEEN_PATTERN_GENERALIZED=YES**.
 - 10c gates green. READY_TO_MERGE=NO. P11 not started. Live MCP off.
-- 2026-09-01: Splunk documents that `mvfilter()` predicates may reference only one field. Cross-field `mvfilter(mv == scalar)` is not proven-valid SPL. Replace only the P1/P4 exact-membership primitive with documented `mvmap` + `max(exact_matches)` + `seen_before=0`. Surrounding first-seen topology unchanged. 11a–11c green; commit then live 11e before merge/P11.
+- 2026-09-01 P2 UI fail: final stats mixed independent sequences for the same user+src_ip. Fix is compiler tail only; P1/P3/P4 closed. Committed `6c1d6c4b`. READY_TO_MERGE=NO until final P2 UI check. P11 not started.
