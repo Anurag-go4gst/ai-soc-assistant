@@ -149,6 +149,8 @@ def build_reviewer_trace(forensic_bundle: dict[str, Any]) -> dict[str, Any]:
 def compact_timeline_event(event: dict[str, Any], *, effective: dict[str, Any] | None = None) -> dict[str, Any]:
     body = event.get("event") if isinstance(event.get("event"), dict) else {}
     kind = str(event.get("kind") or "")
+    # Live telemetry often stamps step_name on the inner body, not the envelope.
+    step_name = str(event.get("step_name") or body.get("step_name") or "")
     compact_body = {key: value for key, value in body.items() if key not in _HEAVY_EVENT_DROP_KEYS}
     if kind == "rag_retrieval":
         compact_body.update(classify_rag_event(body, effective=effective))
@@ -168,7 +170,7 @@ def compact_timeline_event(event: dict[str, Any], *, effective: dict[str, Any] |
             "accepted": body.get("accepted"),
             "forensic_ref": llm_call_ref(interaction_id) if interaction_id else None,
         }
-    if kind == "step" and str(event.get("step_name") or "") in {"node.finalize_response", "finalize_response"}:
+    if kind == "step" and step_name in {"node.finalize_response", "finalize_response"}:
         compact_body = {
             "final_answer_ref": artifact_ref("final_answer"),
             "status": event.get("status") or body.get("status"),
@@ -180,12 +182,23 @@ def compact_timeline_event(event: dict[str, Any], *, effective: dict[str, Any] |
             else None,
         }
     fact_kind = compact_body.get("fact_kind") or compact_body.get("kind")
-    if fact_kind == "executed_evidence" or compact_body.get("legacy_fact_kind") == "executed_evidence":
-        compact_body.update(classify_fact_kind(compact_body, effective=effective))
+    kinds = compact_body.get("kinds")
+    executed_in_kinds = isinstance(kinds, list) and "executed_evidence" in kinds
+    if (
+        fact_kind == "executed_evidence"
+        or compact_body.get("legacy_fact_kind") == "executed_evidence"
+        or executed_in_kinds
+    ):
+        compact_body.update(
+            classify_fact_kind(
+                {**compact_body, "fact_kind": fact_kind or "executed_evidence"},
+                effective=effective,
+            )
+        )
     return {
         "kind": kind,
         "created_at": event.get("created_at"),
-        "step_name": event.get("step_name"),
+        "step_name": step_name or event.get("step_name"),
         "status": event.get("status"),
         "event": compact_body,
     }

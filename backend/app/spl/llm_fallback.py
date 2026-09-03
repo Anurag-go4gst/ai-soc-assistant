@@ -151,19 +151,20 @@ def generate_llm_spl_fallback(
     execution eligibility is forced false by the adapter contract, SPL must pass
     deterministic validation and SOC-STD-SPL-001 quality lint before exposure.
     """
-    if llm_raw_output_provider is None:
-        if not utility_authoring and not settings.ai_soc_llm_spl_fallback_enabled:
-            return _clarification(
-                CLARIFICATION_LLM_DISABLED,
-                authoring_failure_stage="provider",
-                authoring_failure_code=CLARIFICATION_LLM_DISABLED,
-            )
-        if settings.ai_soc_llm_mode.strip().lower() == "disabled" or not settings.ai_soc_llm_enabled:
-            return _clarification(
-                CLARIFICATION_LLM_DISABLED,
-                authoring_failure_stage="provider",
-                authoring_failure_code=CLARIFICATION_LLM_DISABLED,
-            )
+    if not utility_authoring and not settings.ai_soc_llm_spl_fallback_enabled:
+        return _clarification(
+            CLARIFICATION_LLM_DISABLED,
+            authoring_failure_stage="provider",
+            authoring_failure_code=CLARIFICATION_LLM_DISABLED,
+        )
+    if llm_raw_output_provider is None and (
+        settings.ai_soc_llm_mode.strip().lower() in {"disabled", ""} or not settings.ai_soc_llm_enabled
+    ):
+        return _clarification(
+            CLARIFICATION_LLM_DISABLED,
+            authoring_failure_stage="provider",
+            authoring_failure_code=CLARIFICATION_LLM_DISABLED,
+        )
 
     raw_output: str | None = None
     model: str | None = None

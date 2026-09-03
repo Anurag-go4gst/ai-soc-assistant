@@ -92,12 +92,15 @@ def _stash_for_trace(record: dict[str, Any]) -> None:
 
 def reset_llm_interactions(*, trace_id: str | None = None) -> None:
     _collector.set(None)
-    tid = _active_trace_id(trace_id)
-    if tid is None:
-        return
     with _TRACE_BUCKET_LOCK:
-        _TRACE_BUCKETS.pop(tid, None)
-        _INFLIGHT_TRACES.discard(tid)
+        if trace_id is None:
+            _TRACE_BUCKETS.clear()
+            _INFLIGHT_TRACES.clear()
+            return
+        tid = _active_trace_id(trace_id)
+        if tid is not None:
+            _TRACE_BUCKETS.pop(tid, None)
+            _INFLIGHT_TRACES.discard(tid)
 
 
 def snapshot_llm_interactions(*, trace_id: str | None = None) -> list[dict[str, Any]]:

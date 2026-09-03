@@ -64,3 +64,44 @@ def test_executed_evidence_on_a_non_executed_turn_is_relabelled() -> None:
     assert classified["event"]["legacy_fact_kind"] == "executed_evidence"
     assert classified["event"]["effective_fact_kind"] == "source_evidence"
     assert classified["event"]["live_execution"] is False
+
+
+def test_canonical_facts_kinds_inventory_is_not_live_executed_evidence() -> None:
+    """Live P2 stamps executed_evidence in kinds[], not fact_kind."""
+    classified = compact_timeline_event(
+        {
+            "kind": "step",
+            "event": {
+                "step_name": "canonical_facts_snapshot",
+                "kinds": ["entity", "executed_evidence", "mitre_decision", "negative_evidence"],
+                "fact_count": 41,
+            },
+        },
+        effective={"execution": {"execution_performed": False}},
+    )
+    assert classified["event"]["legacy_fact_kind"] == "executed_evidence"
+    assert classified["event"]["effective_fact_kind"] == "source_evidence"
+    assert classified["event"]["live_execution"] is False
+
+
+def test_finalize_step_name_on_inner_body_rewrites_legacy_hil() -> None:
+    """Live finalize events put step_name on the body; envelope step_name is null."""
+    classified = compact_timeline_event(
+        {
+            "kind": "step",
+            "step_name": None,
+            "event": {
+                "status": "human_review",
+                "step_name": "node.finalize_response",
+                "answer_mode": "spl_utility_authoring",
+                "hil_required": True,
+                "message_preview": "Review-only SPL draft",
+            },
+        },
+        effective={"hil": {"current_turn_hil_required": False}},
+    )
+    assert classified["step_name"] == "node.finalize_response"
+    assert classified["event"]["hil_required_legacy"] is True
+    assert classified["event"]["current_turn_hil_required"] is False
+    assert "hil_required" not in classified["event"]
+    assert classified["event"]["final_answer_ref"] == "artifact:final_answer"

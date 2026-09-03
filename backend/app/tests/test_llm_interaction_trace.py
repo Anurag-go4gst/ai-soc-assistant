@@ -214,7 +214,7 @@ def test_capture_stashes_to_sole_inflight_turn_without_worker_trace_id() -> None
     from app.chat.llm_interaction_trace import bind_llm_interaction_turn
 
     trace_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
-    reset_llm_interactions(trace_id=trace_id)
+    reset_llm_interactions()
     bind_llm_interaction_turn(trace_id)
     try:
 
