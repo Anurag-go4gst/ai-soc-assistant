@@ -5,6 +5,7 @@ import type {
   ChatAnswerFeedbackResponse,
   ChatReviewOptions,
   DebugReadinessResponse,
+  DebugBundleDetail,
   DebugTraceBundle,
   DebugTraceTimeline,
   DebugTracesResponse,
@@ -906,10 +907,15 @@ export async function getDebugTraceTimeline(traceId: string): Promise<DebugTrace
   return response.json();
 }
 
-export async function getDebugTraceBundle(traceId: string): Promise<DebugTraceBundle> {
-  const response = await fetch(`${API_BASE_URL}/debug/traces/${encodeURIComponent(traceId)}/bundle`, {
-    credentials: 'include',
-  });
+export async function getDebugTraceBundle(
+  traceId: string,
+  detail: DebugBundleDetail = 'forensic',
+): Promise<DebugTraceBundle> {
+  const params = new URLSearchParams({ detail });
+  const response = await fetch(
+    `${API_BASE_URL}/debug/traces/${encodeURIComponent(traceId)}/bundle?${params.toString()}`,
+    { credentials: 'include' },
+  );
   if (response.status === 404) throw new Error('Trace not found (404)');
   if (response.status === 403) throw new Error('Debug API forbidden for this role (403)');
   if (!response.ok) throw new Error(`Debug bundle failed: ${response.status}`);

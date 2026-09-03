@@ -178,6 +178,13 @@ def derive_minimal_evidence_state(
             and evidence_class not in {"plan", "session"}
             and _fact_has_accepted_evidence(fact)
         )
+        # CanonicalFacts uses one `executed_evidence` kind for every SourceEvidence
+        # record, including governed SOC-KB retrieval. The EvidenceState key
+        # `executed_evidence` is read as "evidence produced by an actual execution",
+        # so only a fact whose provenance is an execution class may claim it; a
+        # knowledge/reference record is projected under its own key instead. The
+        # fact stream itself is untouched -- this is the derived view only.
+        kind = _evidence_state_key_for_fact_kind(kind, evidence_class=evidence_class)
         lifecycle: EvidenceLifecycle = "obtained" if is_obtained_evidence else "diagnostic"
         if is_obtained_evidence:
             obtained.append(kind)
@@ -258,6 +265,7 @@ def derive_minimal_evidence_state(
                 status="missing",
                 provenance="derived_minimal_evidence_state",
                 trust_class="untrusted_evidence",
+                applicability=_required_key_semantics(key),
             ),
         )
     items = []
@@ -317,6 +325,40 @@ def _unique(values: list[Any]) -> list[str]:
         seen.add(key)
         out.append(key)
     return out
+
+
+_EXECUTION_EVIDENCE_CLASSES = frozenset({"mcp_search", "mcp", "execution", "splunk_mcp"})
+
+
+def _required_key_semantics(key: str) -> str | None:
+    """Name what a required key actually demands, so a gap is not misread.
+
+    `spl` enters `required` from `evidence_plan.needs_spl` and means *executed SPL
+    result*, not "an SPL artifact exists" -- a review-only draft leaves it missing by
+    design. Spelling that out on the item keeps the list honest without rewriting
+    `required`/`missing`, which feed evidence sufficiency.
+    """
+    if key == "spl":
+        return "executed_spl_result"
+    if key == "mcp" or key.startswith("mcp:"):
+        return "executed_mcp_result"
+    return None
+
+
+def _evidence_state_key_for_fact_kind(kind: str, *, evidence_class: str) -> str:
+    """Map a CanonicalFact kind onto its EvidenceState key.
+
+    Identity for every kind except `executed_evidence`, which is only allowed to
+    keep that key when the fact carries execution provenance. Anything else
+    (governed RAG/knowledge records harvested from SourceEvidence) becomes
+    `source_evidence`, so `executed_evidence == obtained` can never be satisfied
+    by a run in which nothing executed.
+    """
+    if kind != "executed_evidence":
+        return kind
+    if evidence_class in _EXECUTION_EVIDENCE_CLASSES:
+        return kind
+    return "source_evidence"
 
 
 def _record_key(record: dict[str, Any]) -> str:

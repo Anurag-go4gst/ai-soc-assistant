@@ -1,0 +1,1218 @@
+{
+  "_note": "Bounded replay of trace 8791eeb8-6814-4c0a-86d6-6bb69e9813f2 (P2 review-only SPL authoring).",
+  "answer_mode": "spl_utility_authoring",
+  "candidate_spl": {
+    "allowed_spl_templates": [
+      "auth_success_after_failure"
+    ],
+    "assumptions": [
+      "Universal/template-free review-only SPL using COE-resolved index `pgcil_soc`; not tied to a company template registry.",
+      "Adjust `earliest`/`latest` to your review time window before any future execution review.",
+      "Deterministic lab SPL draft normalized by deterministic postprocessor; not executed."
+    ],
+    "candidate_spl": "search index=<your_index> sourcetype=pgcil:auth earliest=-24h latest=now (action=failure OR action=failed OR EventCode=4625 OR action=success OR EventCode=4624) | eval user_norm=lower(coalesce(user, username, src_user, Account_Name, TargetUserName, \"unknown\")), src_ip_norm=coalesce(src_ip, src, source, source_ip, Source_Network_Address, \"unknown\"), host_norm=lower(coalesce(dest_host, dest, dvc, host, ComputerName, \"unknown\")) | eval event_type=case(action=\"failure\" OR action=\"failed\" OR EventCode=4625, \"failed_login\", action=\"success\" OR EventCode=4624, \"successful_login\") | fields _time, user_norm, src_ip_norm, event_type, host_norm | sort 0 + _time | streamstats time_window=15m count(eval(event_type=\"failed_login\")) as failure_count min(eval(if(event_type=\"failed_login\", _time, null()))) as first_failure_epoch max(eval(if(event_type=\"failed_login\", _time, null()))) as last_failure_epoch by user_norm, src_ip_norm | streamstats last(eval(if(event_type=\"failed_login\" AND failure_count>20, failure_count, null()))) as burst_count last(eval(if(event_type=\"failed_login\" AND failure_count>20, first_failure_epoch, null()))) as burst_first_epoch last(eval(if(event_type=\"failed_login\" AND failure_count>20, last_failure_epoch, null()))) as burst_last_epoch by user_norm, src_ip_norm | where event_type=\"successful_login\" AND burst_count>20 AND _time>burst_last_epoch AND (_time-burst_last_epoch)<=600 | rename burst_count as failure_count | eval first_failure=strftime(burst_first_epoch, \"%Y-%m-%d %H:%M:%S\") | eval success_time=strftime(_time, \"%Y-%m-%d %H:%M:%S\") | fields - burst_first_epoch burst_last_epoch first_failure_epoch last_failure_epoch event_type",
+    "candidate_spl_generated": true,
+    "capability_profile": {
+      "authenticated_user_available": false,
+      "available_core_tools": [
+        "splunk_run_query",
+        "splunk_get_info",
+        "splunk_get_indexes",
+        "splunk_get_index_info",
+        "splunk_get_metadata",
+        "splunk_get_user_info",
+        "splunk_get_knowledge_objects"
+      ],
+      "available_saia_tools": [],
+      "available_tools": [
+        "splunk_get_index_info",
+        "splunk_get_indexes",
+        "splunk_get_info",
+        "splunk_get_knowledge_objects",
+        "splunk_get_metadata",
+        "splunk_get_user_info",
+        "splunk_run_query"
+      ],
+      "core_splunk_tools_available": true,
+      "discovered_at": "2026-09-03T05:18:38.278818+00:00",
+      "discovery_mode": "dynamic",
+      "environment_mode": "coe",
+      "fallback_required": true,
+      "get_index_info_available": true,
+      "get_indexes_available": true,
+      "get_info_available": true,
+      "get_knowledge_objects_available": true,
+      "get_metadata_available": true,
+      "get_user_info_available": true,
+      "knowledge_object_discovery_allowed": true,
+      "mcp_available": false,
+      "metadata_discovery_allowed": true,
+      "missing_expected_core_tools": [],
+      "missing_expected_saia_tools": [
+        "saia_generate_spl",
+        "saia_explain_spl",
+        "saia_optimize_spl",
+        "saia_ask_splunk_question"
+      ],
+      "run_query_available": true,
+      "run_query_requires_validation": true,
+      "run_saved_search_allowed": false,
+      "run_saved_search_available": false,
+      "run_saved_search_requires_hil": true,
+      "saia_ask_splunk_question_available": false,
+      "saia_available": false,
+      "saia_configured_mode": "auto",
+      "saia_explain_spl_available": false,
+      "saia_generate_spl_available": false,
+      "saia_optimize_spl_available": false,
+      "saia_usable": false,
+      "server_id": "splunk_soc",
+      "warnings": [
+        "splunk_ai_assistant_unavailable_fallback_required"
+      ]
+    },
+    "confidence": 0.5,
+    "detection_family": "auth_success_after_failure",
+    "enrichment_evidence_requirements": [
+      "user",
+      "src",
+      "host",
+      "fail_count",
+      "success_count",
+      "first_failure",
+      "last_success",
+      "source_ip_novelty"
+    ],
+    "execution_eligible": false,
+    "fallback_required": false,
+    "generation_mode": "deterministic_compiler_draft",
+    "governed_limitation": null,
+    "llm_fallback_reason": "explicit_spl_authoring_deterministic_compiler",
+    "llm_fallback_status": "lab_draft_fallback",
+    "llm_fallback_used": false,
+    "llm_latency_ms": null,
+    "llm_model": null,
+    "llm_supported": true,
+    "reason": null,
+    "review_only_spl_postprocessor_trace": {
+      "blocked_reorder_reasons": [],
+      "changes": [
+        "index_placeholder_hygiene"
+      ],
+      "command_reorder_applied": false,
+      "dependency_preserved": true,
+      "deterministic_postprocessor_applied": true,
+      "display_field_preserved": false,
+      "final_earliest": "earliest=-24h",
+      "final_spl_authority": "deterministic_postprocessor",
+      "index_resolution_source": "placeholder",
+      "index_rewrite_applied": true,
+      "index_rewrite_reason": "placeholder_over_draft_index",
+      "locale_normalization_applied": false,
+      "lookback_rewrite_applied": false,
+      "normalized_spl_hash": "537580dbc754280f",
+      "original_earliest": "earliest=-24h",
+      "original_index": "pgcil_soc",
+      "placeholder_used": true,
+      "postprocessor_applied": true,
+      "postprocessor_evaluated": true,
+      "postprocessor_family": "auth_success_after_failure",
+      "query_hash": "4d4ff189b739d07e",
+      "raw_llm_index_dropped": false,
+      "raw_llm_index_dropped_reason": null,
+      "raw_spl_hash": "d8026d8efd3f5c61",
+      "removed_expensive_commands": [],
+      "resolved_index": "<your_index>"
+    },
+    "review_only_spl_postprocessor_warnings": null,
+    "saia_available": null,
+    "saia_usable": null,
+    "selected_candidate_spl_provider": "deterministic_compiler_draft",
+    "skill": "attack_discovery",
+    "spl_binding_trace": null,
+    "spl_template_status": "active",
+    "t2_spl_native": null,
+    "template_id": null,
+    "template_production_executable": true,
+    "trace_id": "922fd1e8-fd99-4a58-97a9-48083a5aa898",
+    "user_constraint_bindings": null,
+    "user_query": "Write a review-only SPL query to identify users with more than 20 failed authentication attempts within 15 minutes followed by a successful login from the same source IP within the next 10 minutes. Return user, source IP, destination host, failed-login count, first failure time, and successful-login time. Do not execute.",
+    "utility_spl_draft_trace": {
+      "analyst_synthesis": {
+        "expected_result": "Each row represents a qualifying authentication-failure burst and a subsequent successful login associated with that burst.",
+        "mappings_assumptions": [
+          "`<your_index>` must be resolved to the approved source index before review.",
+          "Sourcetype `pgcil:auth`.",
+          "Authentication failures use the governed failure/action mappings or EventCode 4625.",
+          "Successful logins use the governed success mapping or EventCode 4624."
+        ],
+        "summary": "Review-only authentication sequence query: a qualifying failure burst followed by a later successful login.",
+        "what_it_does": [
+          "Finds a failure burst of more than 20 failed authentication attempts within 15m for the same user and source IP.",
+          "Establishes that qualifying failure burst first, then a later successful login within 10 minutes (600 seconds).",
+          "Destination host comes from the successful-login event; each valid success keeps its own burst association."
+        ]
+      },
+      "analyst_synthesis_dropped_reasons": [
+        "llm_timed_out"
+      ],
+      "analyst_synthesis_latency_ms": 0,
+      "analyst_synthesis_llm_attempted": true,
+      "analyst_synthesis_source": "DETERMINISTIC_SYNTHESIS_FALLBACK",
+      "authoring_failure_code": "llm_spl_fallback_client_unavailable",
+      "authoring_failure_stage": "provider",
+      "authoring_source": "LEGACY_COMPILER_RESCUE",
+      "bounded_repair_attempted": false,
+      "bounded_repair_used": false,
+      "budget_reallocated_to_spl_drafting": true,
+      "deterministic_compiler_used": true,
+      "deterministic_skeleton_available": true,
+      "deterministic_skeleton_used": false,
+      "final_raw_spl_source": "deterministic_compiler",
+      "final_spl_authority": "deterministic_postprocessor",
+      "legacy_compiler_rescue": true,
+      "llm_pattern_success": false,
+      "llm_spl_draft_completed": false,
+      "llm_spl_draft_dropped_reason": "llm_spl_fallback_client_unavailable",
+      "llm_spl_draft_enabled": true,
+      "llm_spl_draft_latency_ms": 0,
+      "llm_spl_draft_provider_label": "llm_spl_advisory",
+      "llm_spl_draft_requested": true,
+      "llm_spl_draft_skipped_reason": "llm_spl_fallback_client_unavailable",
+      "llm_spl_draft_timed_out": false,
+      "llm_spl_draft_used": false,
+      "pattern_example_id": "fs.spl.authoring.event_sequence",
+      "pattern_id": "sequence",
+      "pattern_selected": true,
+      "postprocessor_applied": false,
+      "review_only_spl_postprocessor_trace": {
+        "blocked_reorder_reasons": [],
+        "changes": [],
+        "command_reorder_applied": false,
+        "dependency_preserved": true,
+        "deterministic_postprocessor_applied": true,
+        "display_field_preserved": false,
+        "final_earliest": "earliest=-24h",
+        "final_spl_authority": "deterministic_postprocessor",
+        "index_resolution_source": "coe_environment_kb",
+        "index_rewrite_applied": false,
+        "locale_normalization_applied": false,
+        "lookback_rewrite_applied": false,
+        "no_op_reason": "already_normalized",
+        "normalized_spl_hash": "d8026d8efd3f5c61",
+        "original_earliest": "earliest=-24h",
+        "original_index": "pgcil_soc",
+        "placeholder_used": false,
+        "postprocessor_applied": false,
+        "postprocessor_evaluated": true,
+        "postprocessor_family": "auth_success_after_failure",
+        "query_hash": "4d4ff189b739d07e",
+        "raw_llm_index_dropped": false,
+        "raw_llm_index_dropped_reason": null,
+        "raw_spl_hash": "d8026d8efd3f5c61",
+        "removed_expensive_commands": [],
+        "resolved_index": "pgcil_soc"
+      },
+      "semantic_fidelity_compiler": {
+        "losses": [],
+        "passed": true,
+        "preserved": [
+          "search_command_predicates_only",
+          "group_by_src_ip",
+          "event_set:failed_login",
+          "event_set:successful_login",
+          "sequence_ordering",
+          "sequence_gap",
+          "sequence_aggregation_window",
+          "group_by_src_ip",
+          "sequence_event_union",
+          "sequence_host_not_correlation_key",
+          "sequence_burst_then_follow",
+          "sequence_success_after_burst",
+          "sequence_identity_preserved",
+          "normalized:user_norm",
+          "normalized:src_ip_norm",
+          "normalized:host_norm",
+          "output:user",
+          "output:host",
+          "output:src_ip",
+          "output:failure_count",
+          "output:first_failure_time",
+          "output:success_time",
+          "threshold:20"
+        ],
+        "repair_feedback": [],
+        "structural_errors": []
+      },
+      "semantic_fidelity_final": {
+        "losses": [],
+        "passed": true,
+        "preserved": [
+          "search_command_predicates_only",
+          "group_by_src_ip",
+          "event_set:failed_login",
+          "event_set:successful_login",
+          "sequence_ordering",
+          "sequence_gap",
+          "sequence_aggregation_window",
+          "group_by_src_ip",
+          "sequence_event_union",
+          "sequence_host_not_correlation_key",
+          "sequence_burst_then_follow",
+          "sequence_success_after_burst",
+          "sequence_identity_preserved",
+          "normalized:user_norm",
+          "normalized:src_ip_norm",
+          "normalized:host_norm",
+          "output:user",
+          "output:host",
+          "output:src_ip",
+          "output:failure_count",
+          "output:first_failure_time",
+          "output:success_time",
+          "threshold:20"
+        ],
+        "repair_feedback": [],
+        "structural_errors": []
+      },
+      "semantic_fidelity_initial": {
+        "losses": [
+          "arbitrary_head_100",
+          "arbitrary_truncation",
+          "sequence_ordering_missing",
+          "sequence_gap_missing",
+          "sequence_aggregation_window_missing",
+          "same_source_correlation_missing",
+          "sequence_burst_not_established_before_follow",
+          "sequence_success_before_failure",
+          "threshold_missing"
+        ],
+        "passed": false,
+        "preserved": [
+          "search_command_predicates_only",
+          "group_by_src_ip",
+          "event_set:failed_login",
+          "event_set:successful_login",
+          "sequence_event_union",
+          "sequence_host_not_correlation_key",
+          "sequence_identity_preserved",
+          "normalized:user_norm",
+          "normalized:src_ip_norm",
+          "normalized:host_norm",
+          "output:user",
+          "output:host",
+          "output:src_ip",
+          "output:failure_count",
+          "output:first_failure_time",
+          "output:success_time"
+        ],
+        "repair_feedback": [
+          "semantic_loss:do_not_arbitrarily_head_100_for_all_logs_request",
+          "semantic_loss:sequence_ordering_missing",
+          "semantic_loss:sequence_gap_missing",
+          "semantic_loss:sequence_aggregation_window_missing",
+          "semantic_loss:same_source_correlation_missing",
+          "Qualify the failure burst inside the requested window first, snapshot the count and first/last failure times, then correlate a later successful login. Do not count failures inside a window that ends at the success timestamp.",
+          "The successful login must occur after the last failure in the qualified burst, not before it.",
+          "semantic_loss:threshold_missing:20"
+        ],
+        "structural_errors": []
+      },
+      "semantic_intent_spec": {
+        "actor_patterns": [],
+        "aggregations": [],
+        "analysis_shape": "sequence",
+        "analyst_constraints": [
+          "do_not_execute",
+          "spl_artifact_only"
+        ],
+        "analytical_window": {
+          "kind": "sequence",
+          "provenance": "query_token",
+          "size": "15m"
+        },
+        "baseline_window": null,
+        "contract_version": "spl_semantic_v2",
+        "degrade_reason": null,
+        "distinct_by": [],
+        "entity_roles": {
+          "correlate_by": [
+            "user",
+            "src_ip"
+          ],
+          "distinct_by": [],
+          "group_by": [
+            "src_ip",
+            "user",
+            "host"
+          ],
+          "subject": [
+            "src_ip"
+          ],
+          "target": []
+        },
+        "event_domain": "authentication",
+        "execution_posture": "review_only_no_execution",
+        "explicit_literals": {
+          "indexes": [],
+          "sourcetypes": []
+        },
+        "explicit_threshold_comparison": "greater_than",
+        "explicit_threshold_present": true,
+        "explicit_threshold_value": 20,
+        "field_provenance": {
+          "group_by.src_ip": "query_token",
+          "group_by.user": "query_token",
+          "objective": "rqc",
+          "source_constraints.index": "source_mapping",
+          "source_constraints.sourcetype": "source_mapping"
+        },
+        "field_requirements": [
+          "user"
+        ],
+        "filters": [],
+        "group_by": [
+          "src_ip",
+          "user",
+          "host"
+        ],
+        "measures": [
+          {
+            "field": "_time",
+            "fn": "transaction_or_join",
+            "name": "sequence_match"
+          }
+        ],
+        "normalization_consumers": [
+          "filter",
+          "grouping",
+          "distinct",
+          "correlation",
+          "sequence"
+        ],
+        "normalization_requirements": [
+          {
+            "alias": "user_norm",
+            "expression": "lower(coalesce(user, username, src_user, Account_Name, TargetUserName, \"unknown\"))",
+            "source_fields": [
+              "user",
+              "username",
+              "src_user",
+              "Account_Name",
+              "TargetUserName"
+            ]
+          },
+          {
+            "alias": "src_ip_norm",
+            "expression": "coalesce(src_ip, src, source, source_ip, Source_Network_Address, \"unknown\")",
+            "source_fields": [
+              "src_ip",
+              "src",
+              "source",
+              "source_ip",
+              "Source_Network_Address"
+            ]
+          },
+          {
+            "alias": "host_norm",
+            "expression": "lower(coalesce(dest_host, dest, dvc, host, ComputerName, \"unknown\"))",
+            "source_fields": [
+              "dest_host",
+              "dest",
+              "dvc",
+              "host",
+              "ComputerName",
+              "dest_nt_host"
+            ]
+          }
+        ],
+        "objective": "Write a review-only SPL query to identify users with more than 20 failed authentication attempts within 15 minutes followed by a successful login from the same source IP within the next 10 minutes. Return user, source IP, destination host, failed-login count, first failure time, and successful-login time. Do not execute.",
+        "observation_window": null,
+        "operation_hints": [
+          "sequence_detection"
+        ],
+        "ordered_sequence": [
+          "failed_login",
+          "successful_login"
+        ],
+        "ordering": [],
+        "output_shape": "sequence_matches",
+        "process_constraints": {},
+        "prohibitions": [
+          "arbitrary_head_100",
+          "arbitrary_truncation",
+          "sequence_ordering_loss",
+          "sequence_gap_loss",
+          "alert_template_bias",
+          "normalized_field_unused",
+          "placeholder_despite_governed_mapping",
+          "generic_coalesce_ignoring_source_profile"
+        ],
+        "ranking": null,
+        "relationships": [
+          {
+            "measure": "sequence_match",
+            "object": "event_sequence",
+            "subject": "src_ip",
+            "type": "ordered_sequence"
+          }
+        ],
+        "relative_windows": [],
+        "required_event_sets": [
+          "failed_login",
+          "successful_login"
+        ],
+        "required_outputs": [
+          "user",
+          "host",
+          "src_ip",
+          "failure_count",
+          "first_failure_time",
+          "success_time"
+        ],
+        "result_limit": null,
+        "rqc_locked_fields": {
+          "ambiguity_state": "unambiguous",
+          "answer_goal": "spl_artifact",
+          "entities.event_type": [
+            "authentication_failure",
+            "authentication_success"
+          ],
+          "intent_family": "spl_generation_only",
+          "normalized_goal": "Write a review-only SPL query to identify users with more than 20 failed authentication attempts within 15 minutes followed by a successful login from the same source IP within the next 10 minutes. Return user, source IP, destination host, failed-login count, first failure time, and successful-login time. Do not execute.",
+          "qualification_source": "use_case_catalog",
+          "qualification_tier": "T2"
+        },
+        "search_horizon": null,
+        "semantic_constraints": [],
+        "sequence_max_gap": "10m",
+        "source_constraints": {
+          "index": "pgcil_soc",
+          "sourcetype": "pgcil:auth"
+        },
+        "support_status": "supported",
+        "temporal_grain": null,
+        "time_window": null,
+        "unresolved_required_fields": []
+      },
+      "utility_spl_draft_failover_enabled": false,
+      "utility_spl_draft_timeout_seconds": 90.0,
+      "utility_spl_repair_attempt": false,
+      "validation_losses": [],
+      "validator_result": {
+        "lab_candidate_eligible": false,
+        "reject_reasons": [
+          "missing_aggregation"
+        ]
+      }
+    },
+    "validation_required": true,
+    "warnings": [
+      "review_only_spl_authoring"
+    ]
+  },
+  "control_plane_trace": {
+    "candidate_spl_generation": {
+      "approved": false,
+      "candidate_spl_generated": true,
+      "deterministic_skeleton_used": false,
+      "execution_eligible": false,
+      "fallback_required": false,
+      "final_raw_spl_source": "deterministic_compiler",
+      "final_spl_authority": "deterministic_postprocessor",
+      "generation_mode": "deterministic_compiler_draft",
+      "llm_fallback_reason": "explicit_spl_authoring_deterministic_compiler",
+      "llm_fallback_status": "lab_draft_fallback",
+      "llm_fallback_used": false,
+      "llm_latency_ms": null,
+      "llm_model": null,
+      "llm_spl_draft_completed": false,
+      "llm_spl_draft_enabled": true,
+      "llm_spl_draft_requested": true,
+      "llm_spl_draft_skipped_reason": "llm_spl_fallback_client_unavailable",
+      "llm_spl_draft_timed_out": false,
+      "llm_spl_draft_used": false,
+      "llm_supported": true,
+      "normalized_spl_available": false,
+      "postprocessor_applied": false,
+      "review_only_spl_postprocessor_trace": {
+        "blocked_reorder_reasons": [],
+        "changes": [
+          "index_placeholder_hygiene"
+        ],
+        "command_reorder_applied": false,
+        "dependency_preserved": true,
+        "deterministic_postprocessor_applied": true,
+        "display_field_preserved": false,
+        "final_earliest": "earliest=-24h",
+        "final_spl_authority": "deterministic_postprocessor",
+        "index_resolution_source": "placeholder",
+        "index_rewrite_applied": true,
+        "index_rewrite_reason": "placeholder_over_draft_index",
+        "locale_normalization_applied": false,
+        "lookback_rewrite_applied": false,
+        "normalized_spl_hash": "537580dbc754280f",
+        "original_earliest": "earliest=-24h",
+        "original_index": "pgcil_soc",
+        "placeholder_used": true,
+        "postprocessor_applied": true,
+        "postprocessor_evaluated": true,
+        "postprocessor_family": "auth_success_after_failure",
+        "query_hash": "4d4ff189b739d07e",
+        "raw_llm_index_dropped": false,
+        "raw_llm_index_dropped_reason": null,
+        "raw_spl_hash": "d8026d8efd3f5c61",
+        "removed_expensive_commands": [],
+        "resolved_index": "<your_index>"
+      },
+      "selected_candidate_spl_provider": "deterministic_compiler_draft",
+      "utility_spl_draft_timeout_seconds": 90.0,
+      "validation_required": true
+    },
+    "evidence_plan": {
+      "answer_mode": "spl_utility_authoring",
+      "answer_rules": [
+        "State 'successful login after failures observed.'",
+        "Do not state 'compromised account' unless additional evidence exists.",
+        "T1078 remains candidate unless stronger account-misuse evidence exists."
+      ],
+      "checklist": [
+        "Confirm failure and success event ordering.",
+        "Review whether the source is known for the user.",
+        "Check privileged account or critical asset context.",
+        "Look for follow-on activity before compromise language."
+      ],
+      "correlation": {
+        "honesty": "Temporal correlation is not proof of causation; validate identity, asset, and change provenance.",
+        "join_key": "user",
+        "window": "8h"
+      },
+      "evidence_legs": [
+        {
+          "domain": "auth_success",
+          "entity": "user/host",
+          "fields": [
+            "user",
+            "src_ip",
+            "host",
+            "action",
+            "_time"
+          ]
+        },
+        {
+          "domain": "dns",
+          "entity": "src_ip/host",
+          "fields": [
+            "src_ip",
+            "host",
+            "query",
+            "answer",
+            "_time"
+          ]
+        }
+      ],
+      "investigation_workflow": [
+        "Correlate failures followed by successful authentication for the same user, source, host, and time window.",
+        "Check source IP novelty where available.",
+        "Keep Valid Accounts as a candidate unless additional misuse evidence exists."
+      ],
+      "limitations": [
+        "Sequence evidence can be benign if the user retried successfully.",
+        "Novelty is optional and may be unavailable in current telemetry."
+      ],
+      "mitre_candidates_metadata_only": [
+        "T1110.001",
+        "T1078"
+      ],
+      "needs_clarification": false,
+      "needs_hil": false,
+      "needs_mcp": false,
+      "needs_mitre": false,
+      "needs_rag": false,
+      "needs_spl": true,
+      "rag_phase": "post_mcp",
+      "recommended_pivots": [],
+      "requires_hil": false,
+      "source_profile_binding_summary": {
+        "environment_kb_is_telemetry": false,
+        "environment_knowledge_lookup_attempted": true,
+        "source_profile_bindings_applied": [
+          {
+            "profile_key": "auth_index",
+            "slot": "index",
+            "source": "coe_store",
+            "value": "pgcil_soc"
+          },
+          {
+            "profile_key": "auth_sourcetype",
+            "slot": "sourcetype",
+            "source": "coe_store",
+            "value": "pgcil:auth"
+          }
+        ],
+        "source_profile_bindings_found": [
+          {
+            "profile_key": "auth_index",
+            "slot": "index",
+            "source": "coe_store",
+            "value": "pgcil_soc"
+          },
+          {
+            "profile_key": "auth_sourcetype",
+            "slot": "sourcetype",
+            "source": "coe_store",
+            "value": "pgcil:auth"
+          }
+        ],
+        "source_profile_bindings_missing": [],
+        "source_profile_lookup_attempted": true
+      },
+      "unsupported_claims_avoid": [
+        "account_compromise",
+        "credential_dumping",
+        "malware"
+      ]
+    },
+    "evidence_state": {
+      "blocked": [],
+      "diagnostic": [
+        "entity",
+        "plan_step_outcome",
+        "execution_status"
+      ],
+      "empty": [],
+      "invalidated": [],
+      "items": [
+        {
+          "applicability": null,
+          "key": "user",
+          "provenance": "derived_minimal_evidence_state",
+          "status": "missing",
+          "trust_class": "untrusted_evidence"
+        },
+        {
+          "applicability": null,
+          "key": "src",
+          "provenance": "derived_minimal_evidence_state",
+          "status": "missing",
+          "trust_class": "untrusted_evidence"
+        },
+        {
+          "applicability": null,
+          "key": "host",
+          "provenance": "derived_minimal_evidence_state",
+          "status": "missing",
+          "trust_class": "untrusted_evidence"
+        },
+        {
+          "applicability": null,
+          "key": "fail_count",
+          "provenance": "derived_minimal_evidence_state",
+          "status": "missing",
+          "trust_class": "untrusted_evidence"
+        },
+        {
+          "applicability": null,
+          "key": "success_count",
+          "provenance": "derived_minimal_evidence_state",
+          "status": "missing",
+          "trust_class": "untrusted_evidence"
+        },
+        {
+          "applicability": null,
+          "key": "first_failure",
+          "provenance": "derived_minimal_evidence_state",
+          "status": "missing",
+          "trust_class": "untrusted_evidence"
+        },
+        {
+          "applicability": null,
+          "key": "last_success",
+          "provenance": "derived_minimal_evidence_state",
+          "status": "missing",
+          "trust_class": "untrusted_evidence"
+        },
+        {
+          "applicability": null,
+          "key": "source_ip_novelty",
+          "provenance": "derived_minimal_evidence_state",
+          "status": "missing",
+          "trust_class": "untrusted_evidence"
+        },
+        {
+          "applicability": "executed_mcp_result",
+          "key": "mcp:splunk",
+          "provenance": "derived_minimal_evidence_state",
+          "status": "missing",
+          "trust_class": "untrusted_evidence"
+        },
+        {
+          "applicability": "executed_spl_result",
+          "key": "spl",
+          "provenance": "derived_minimal_evidence_state",
+          "status": "missing",
+          "trust_class": "untrusted_evidence"
+        },
+        {
+          "applicability": null,
+          "key": "rag",
+          "provenance": "governed_soc_kb_retrieval",
+          "status": "obtained",
+          "trust_class": "untrusted_evidence"
+        },
+        {
+          "applicability": null,
+          "key": "source_evidence",
+          "provenance": "source_evidence",
+          "status": "obtained",
+          "trust_class": "untrusted_evidence"
+        },
+        {
+          "applicability": null,
+          "key": "negative_evidence",
+          "provenance": "negative_evidence_extractor",
+          "status": "obtained",
+          "trust_class": "untrusted_evidence"
+        },
+        {
+          "applicability": null,
+          "key": "entity",
+          "provenance": "query_understanding",
+          "status": "diagnostic",
+          "trust_class": "untrusted_input"
+        },
+        {
+          "applicability": null,
+          "key": "plan_step_outcome",
+          "provenance": "resource_plan",
+          "status": "diagnostic",
+          "trust_class": "trusted_control_authority"
+        },
+        {
+          "applicability": null,
+          "key": "execution_status",
+          "provenance": "execution",
+          "status": "diagnostic",
+          "trust_class": "trusted_control_authority"
+        }
+      ],
+      "missing": [
+        "user",
+        "src",
+        "host",
+        "fail_count",
+        "success_count",
+        "first_failure",
+        "last_success",
+        "source_ip_novelty",
+        "mcp:splunk",
+        "spl"
+      ],
+      "obtained": [
+        "rag",
+        "source_evidence",
+        "negative_evidence"
+      ],
+      "provenance": {
+        "derived_from": [
+          "source_evidence",
+          "structured_context",
+          "evidence_plan",
+          "resolved_query_contract",
+          "canonical_facts",
+          "final_evidence_gate",
+          "execution"
+        ]
+      },
+      "required": [
+        "user",
+        "src",
+        "host",
+        "fail_count",
+        "success_count",
+        "first_failure",
+        "last_success",
+        "source_ip_novelty",
+        "mcp:splunk",
+        "spl"
+      ],
+      "schema_version": "minimal_evidence_state_v2",
+      "stale": []
+    },
+    "llm_calls": [
+      {
+        "deadline_remaining_seconds": 234.79,
+        "kind": "sidecar",
+        "latency_ms": 0,
+        "model": null,
+        "outcome": "dropped",
+        "provider_label": "llm_spl_advisory",
+        "reserve_seconds": 120.0,
+        "role": "spl_advisory_generator"
+      }
+    ],
+    "llm_composer": {
+      "ai_soc_llm_answer_guard_enabled": true,
+      "ai_soc_llm_final_synthesis_enabled": true,
+      "ai_soc_llm_live_synthesis_enabled": true,
+      "ai_soc_llm_mode": "mock",
+      "composer_attempted": false,
+      "composer_is_enabled": true,
+      "expected_latency_hint": "On-prem single-slot model: live narration can take ~60s; the wait is expected. Facts stay deterministic and fall back if the model is slow.",
+      "llm_blocked_reason": "guidance_only_deterministic_envelope",
+      "llm_composer_enabled": true,
+      "llm_composer_used": false,
+      "llm_fallback_used": false,
+      "llm_guard_status": "skipped",
+      "provider_configured": false,
+      "provider_model_configured": true,
+      "provider_skip_reason": "no_provider_configured",
+      "provider_url_configured": false
+    },
+    "llm_turn_budget": {
+      "deadline_seconds": 235.0,
+      "elapsed_seconds": 0.77,
+      "max_narration_calls": 1,
+      "max_sidecar_calls": 2,
+      "narration_calls": 0,
+      "records": [
+        {
+          "deadline_remaining_seconds": 234.79,
+          "kind": "sidecar",
+          "latency_ms": 0,
+          "model": null,
+          "outcome": "dropped",
+          "provider_label": "llm_spl_advisory",
+          "reserve_seconds": 120.0,
+          "role": "spl_advisory_generator"
+        }
+      ],
+      "remaining_seconds": 234.23,
+      "sidecar_calls": 1,
+      "time_budget_exhausted": false
+    },
+    "mcp_execution": {
+      "auth0": {
+        "consumed": false,
+        "fingerprint": null,
+        "hil_required": false,
+        "invalidated": false,
+        "llm_granted": false,
+        "one_run": true,
+        "present": false,
+        "schema_version": null,
+        "selected_mcp_tool": null
+      },
+      "block_reason": "mcp_not_allowed_by_evidence_plan",
+      "call_grant_consumed": false,
+      "evidence_source": "unavailable",
+      "execution_intent": "none",
+      "result_count": 0,
+      "selected_mcp_server": null,
+      "selected_mcp_tool": null,
+      "status": "skipped",
+      "tool_selection_status": "blocked_by_evidence_plan"
+    },
+    "query_to_intent": {
+      "intent_classification": {
+        "action_mode": null,
+        "answer_goal": [
+          "spl_artifact"
+        ],
+        "answer_goal_primary": "spl_artifact",
+        "confidence": 0.88,
+        "confidence_band": "high",
+        "intent_family": "spl_generation_only",
+        "llm_intent_status": "skipped",
+        "primary_intent": "spl_generation",
+        "query_type": "ask_for_query_generation",
+        "reason": "Explicit SPL text/snippet/block request; universal review-only SPL authoring without source-profile clarification.",
+        "requested_output_type": "SPL",
+        "requires_clarification": false,
+        "requires_hil": false,
+        "secondary_intents": []
+      },
+      "llm_intent_assist_status": "skipped",
+      "query_signals": {
+        "explicit_run_spl": false,
+        "explicit_spl_authoring": true,
+        "review_only_spl": true,
+        "run_execution": false,
+        "run_spl": false,
+        "spl_authoring_shaped": true
+      }
+    },
+    "rag_trace": {
+      "collection_ids": null,
+      "evidence_refs": null,
+      "match_status": "retrieved",
+      "missing_sources": null,
+      "rag_skipped_for_spl_utility_authoring": null,
+      "reasons": [
+        "document_metadata_match",
+        "fields_match",
+        "positive_examples_match",
+        "retrieval_hint_phrase_match",
+        "retrieval_hints_match",
+        "section_title_match",
+        "source_excerpt_match",
+        "synonyms_match",
+        "tags_match",
+        "title_match"
+      ],
+      "retrieval_backend": null,
+      "retrieval_mode": "deterministic",
+      "retrieval_status": "retrieved",
+      "retrieval_workflow_stage": "spl_source_resolve"
+    },
+    "spl_artifact_handoff_summary": {
+      "artifact_present": true,
+      "artifact_review_required": true,
+      "authority_note": "SPL degrade-chain read model only; not execution authority.",
+      "authority_tier": "DIAGNOSTIC",
+      "candidate_provider": "deterministic_compiler_draft",
+      "candidate_provider_reason": "explicit_spl_authoring_deterministic_compiler",
+      "deterministic_fallback_used": true,
+      "execution_eligible": false,
+      "fallback_reason": "llm_spl_fallback_client_unavailable",
+      "governed_template_bound": false,
+      "lab_preview_used": true,
+      "llm_candidate_generated": false,
+      "llm_failover_used": true,
+      "must_not_execute_reason": "spl_source_profile_clarification",
+      "review_only": true,
+      "spl_artifact_source": "deterministic_fallback",
+      "spl_artifact_status": "lab_preview_review_only",
+      "t2_native_shape": false,
+      "trace_authority": "read_model_projection_only",
+      "trace_schema_version": "trace_lifecycle_v1",
+      "validator_status": "rejected"
+    }
+  },
+  "execution": {
+    "block_reason": "mcp_not_allowed_by_evidence_plan",
+    "duration_ms": 0,
+    "evidence_source": "unavailable",
+    "executed_spl": null,
+    "execution_intent": "none",
+    "execution_status_label": "not_executed",
+    "outcome_uncertain": false,
+    "precondition_evaluation": null,
+    "reconciliation_reason": null,
+    "result_count": 0,
+    "results_preview": [],
+    "selected_mcp_server": null,
+    "selected_mcp_tool": null,
+    "status": "skipped",
+    "tool_selection_reason": "mcp_not_allowed_by_evidence_plan",
+    "tool_selection_status": "blocked_by_evidence_plan"
+  },
+  "human_review": {
+    "allowed_actions": [
+      "Group failures by src and user.",
+      "Check whether source IP is expected or previously observed."
+    ],
+    "proposed_normalized_spl": null,
+    "reason": "source_profile_slots_missing",
+    "required": true,
+    "review_type": "spl_source_profile_clarification",
+    "reviewer_role": "tier2_soc_analyst",
+    "safe_message_for_user": "This SPL still needs source configuration before search can run. Provide values for: <your_index>. Open Settings \u2192 Environment Knowledge to enter COE index/sourcetype names, or refresh from MCP discovery.",
+    "selected_mcp_server": null,
+    "selected_mcp_tool": null,
+    "sop_action_hint": "Group failures by src and user.",
+    "sop_excerpt": "When failures cluster by source IP, compare unique users, geo or network ownership, and whether the source is expected for the environment.",
+    "sop_reference": "COE Sample Auth Investigation SOP v1.0 AUTH-002"
+  },
+  "live_mcp_called": null,
+  "run_contract": {
+    "allow_live_result_language": false,
+    "allow_mitre_mapping": false,
+    "allow_results_table": false,
+    "allow_severity_assessment": false,
+    "candidate_artifact_refs": [
+      "artifact_0d85e1f695acc5ac"
+    ],
+    "collected_evidence_count": 1,
+    "effective_hil_required": false,
+    "execution_authorized": false,
+    "execution_needed_for_answer": false,
+    "execution_status": "skipped",
+    "governance_refs": [],
+    "mcp_allowed": false,
+    "mcp_needed_for_live_answer": false,
+    "mcp_posture": {
+      "execution_authorized": false,
+      "primary_reason": "mcp_not_allowed_by_evidence_plan",
+      "secondary_reasons": [],
+      "selected_tool": null,
+      "status": "skipped"
+    },
+    "routing": {
+      "adjudication_authority_source": "catalogue_registry_skill",
+      "authority_holder": "canonical_run_contract",
+      "canonical_skill": "attack_discovery",
+      "guidance_request": false,
+      "intent_family": "spl_generation_only",
+      "legacy_authoritative": false,
+      "legacy_skill": null,
+      "live_data_request": false,
+      "path_type": null,
+      "route_source": "catalogue_registry_skill"
+    },
+    "source_evidence_available": true,
+    "source_evidence_summary": {
+      "candidate_artifact_count": 1,
+      "collected_evidence_count": 1,
+      "evidence_count": 1,
+      "produced_answer_sections": [],
+      "review_artifact_count": 0,
+      "source_evidence_available": true,
+      "status": "collected"
+    },
+    "spl_block_reason": null,
+    "spl_candidate_present": true,
+    "spl_candidate_renderable": true,
+    "spl_execution_eligible": false,
+    "spl_normalized": false,
+    "spl_status": "review_required",
+    "spl_validated": false
+  },
+  "selected_skill": "attack_discovery",
+  "source_evidence": [
+    {
+      "collection_status": "collected",
+      "created_at": "2026-09-03T05:18:38.313923+00:00",
+      "evidence_id": "ev_1a71748f76fdaf81",
+      "executed_spl": null,
+      "fields_returned": [],
+      "output_type": null,
+      "provenance": "governed_soc_kb_retrieval",
+      "provider_used": null,
+      "query_or_request_summary": "Write a review-only SPL query to identify users with more than 20 failed authentication attempts within 15 minutes followed by a successful login from the same source IP within the next 10 minutes. Return user, source IP, destination host, failed-login count, first failure time, and successful-login",
+      "raw_result_hash": null,
+      "raw_result_stored": false,
+      "result_count": 5,
+      "saved_search_name": null,
+      "sensitivity_flags": [],
+      "source_name": "COE Sample Auth Investigation SOP; COE Sample Splunk Auth Context",
+      "source_type": "rag",
+      "time_range": null,
+      "tool_category": null,
+      "tool_name": "governed_soc_kb_retrieval",
+      "trace_id": "922fd1e8-fd99-4a58-97a9-48083a5aa898",
+      "warnings": []
+    }
+  ],
+  "spl_validation": {
+    "allowed_spl_templates": [
+      "auth_success_after_failure"
+    ],
+    "approved": false,
+    "candidate_provider_reason": "explicit_spl_authoring_deterministic_compiler",
+    "capability_profile": {
+      "authenticated_user_available": false,
+      "available_core_tools": [
+        "splunk_run_query",
+        "splunk_get_info",
+        "splunk_get_indexes",
+        "splunk_get_index_info",
+        "splunk_get_metadata",
+        "splunk_get_user_info",
+        "splunk_get_knowledge_objects"
+      ],
+      "available_saia_tools": [],
+      "available_tools": [
+        "splunk_get_index_info",
+        "splunk_get_indexes",
+        "splunk_get_info",
+        "splunk_get_knowledge_objects",
+        "splunk_get_metadata",
+        "splunk_get_user_info",
+        "splunk_run_query"
+      ],
+      "core_splunk_tools_available": true,
+      "discovered_at": "2026-09-03T05:18:38.278818+00:00",
+      "discovery_mode": "dynamic",
+      "environment_mode": "coe",
+      "fallback_required": true,
+      "get_index_info_available": true,
+      "get_indexes_available": true,
+      "get_info_available": true,
+      "get_knowledge_objects_available": true,
+      "get_metadata_available": true,
+      "get_user_info_available": true,
+      "knowledge_object_discovery_allowed": true,
+      "mcp_available": false,
+      "metadata_discovery_allowed": true,
+      "missing_expected_core_tools": [],
+      "missing_expected_saia_tools": [
+        "saia_generate_spl",
+        "saia_explain_spl",
+        "saia_optimize_spl",
+        "saia_ask_splunk_question"
+      ],
+      "run_query_available": true,
+      "run_query_requires_validation": true,
+      "run_saved_search_allowed": false,
+      "run_saved_search_available": false,
+      "run_saved_search_requires_hil": true,
+      "saia_ask_splunk_question_available": false,
+      "saia_available": false,
+      "saia_configured_mode": "auto",
+      "saia_explain_spl_available": false,
+      "saia_generate_spl_available": false,
+      "saia_optimize_spl_available": false,
+      "saia_usable": false,
+      "server_id": "splunk_soc",
+      "warnings": [
+        "splunk_ai_assistant_unavailable_fallback_required"
+      ]
+    },
+    "enforced_limits": {
+      "default_earliest": "-24h",
+      "default_latest": "now",
+      "enforcement_mode": "out_of_band",
+      "max_result_limit": 100,
+      "result_limit_enforced": true
+    },
+    "enrichment_evidence_requirements": [
+      "user",
+      "src",
+      "host",
+      "fail_count",
+      "success_count",
+      "first_failure",
+      "last_success",
+      "source_ip_novelty"
+    ],
+    "fallback_required": false,
+    "governed_limitation": null,
+    "llm_fallback": null,
+    "llm_fallback_reason": "explicit_spl_authoring_deterministic_compiler",
+    "llm_fallback_status": "lab_draft_fallback",
+    "llm_fallback_used": false,
+    "llm_latency_ms": null,
+    "llm_model": null,
+    "llm_supported": true,
+    "normalized_spl": null,
+    "optimization_applied": false,
+    "optimization_revalidation_approved": false,
+    "optimization_revalidation_status": null,
+    "policy_version": "spl-policy-v1",
+    "reject_reasons": [
+      "review_only_spl_authoring"
+    ],
+    "saia_available": false,
+    "selected_candidate_spl_provider": "deterministic_compiler_draft",
+    "spl_explanation_provider": "rule_based",
+    "spl_guidance_provider": "scd_rag",
+    "spl_optimization_provider": "rule_based",
+    "spl_template_status": "active",
+    "template_id": null,
+    "template_production_executable": true,
+    "warnings": [
+      "review_only_spl_authoring"
+    ]
+  }
+}

@@ -1878,11 +1878,15 @@ export interface DebugSummarySkippedRole {
 export interface DebugFinalOutput {
   message?: string | null;
   analyst_summary?: string | null;
+  answer_preview?: string | null;
+  final_answer_ref?: string | null;
   selected_skill?: string | null;
   answer_mode?: string | null;
   severity_label?: string | null;
   mitre_status?: string | null;
   hil_required?: boolean;
+  current_turn_hil_required?: boolean;
+  artifact_review_required?: boolean;
   hil_reason?: string | null;
   guard_status?: string | null;
   final_answer_safety_status?: string | null;
@@ -2040,18 +2044,24 @@ export interface DebugTraceTimeline {
   event_count: number;
 }
 
+export type DebugBundleDetail = 'forensic' | 'reviewer';
+
 export interface DebugTraceBundle {
   trace_id: string;
+  schema_version?: string;
   run: DebugTraceRun;
   timeline: DebugTraceEvent[];
   explainability: {
+    effective_state?: Record<string, unknown> | null;
     debug_summary?: DebugSummary | null;
     control_plane_trace?: Record<string, unknown> | null;
     governance_trace?: Record<string, unknown> | null;
     lineage_summary?: Record<string, unknown> | null;
     llm_sidecars?: Record<string, unknown> | null;
+    llm_interactions?: Record<string, unknown>[] | null;
     final_output?: DebugFinalOutput | null;
   };
+  artifacts?: Record<string, string>;
   turn_id?: string | null;
 }
 

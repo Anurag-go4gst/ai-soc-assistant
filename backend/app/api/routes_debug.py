@@ -68,10 +68,14 @@ def debug_trace_timeline(
 @router.get("/debug/traces/{trace_id}/bundle")
 def debug_trace_bundle(
     trace_id: str,
+    detail: str = Query(default="forensic"),
     _user: dict[str, Any] = Depends(_require_debug_api_access),
 ) -> dict[str, Any]:
     _validate_trace_id(trace_id)
-    bundle = fetch_trace_bundle(trace_id, max_events=_BUNDLE_EVENT_LIMIT)
+    normalized = (detail or "forensic").strip().lower()
+    if normalized not in {"forensic", "reviewer"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid_bundle_detail")
+    bundle = fetch_trace_bundle(trace_id, max_events=_BUNDLE_EVENT_LIMIT, detail=normalized)
     if bundle is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="trace_not_found")
     return bundle

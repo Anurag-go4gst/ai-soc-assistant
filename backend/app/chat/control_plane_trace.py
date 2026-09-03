@@ -859,6 +859,12 @@ def _rag_trace(rag: dict[str, Any] | None) -> dict[str, Any]:
         "retrieval_status": rag.get("retrieval_status"),
         "rag_skipped_for_spl_utility_authoring": rag.get("rag_skipped_for_spl_utility_authoring"),
         "reasons": rag.get("reasons"),
+        # Which pipeline stage actually performed the lookup. A retrieval at
+        # `spl_source_resolve` is a source-profile hint lookup, not runtime
+        # investigation RAG, and the effective-state projection classifies it as
+        # enrichment on the strength of this field.
+        "retrieval_workflow_stage": rag.get("retrieval_workflow_stage"),
+        "retrieval_mode": rag.get("retrieval_mode"),
         "retrieval_backend": rag.get("retrieval_backend"),
         "collection_ids": rag.get("collection_ids"),
         "evidence_refs": rag.get("evidence_refs"),

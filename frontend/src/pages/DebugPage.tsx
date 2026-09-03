@@ -16,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import type {
   DebugReadinessResponse,
   DebugSummary,
+  DebugBundleDetail,
   DebugTraceBundle,
   DebugTraceEvent,
   DebugTraceRun,
@@ -74,6 +75,7 @@ export function DebugPage() {
   const [traceInput, setTraceInput] = useState(searchParams.get('trace_id') ?? '');
   const [timeline, setTimeline] = useState<DebugTraceTimeline | null>(null);
   const [bundle, setBundle] = useState<DebugTraceBundle | null>(null);
+  const [bundleDetail, setBundleDetail] = useState<DebugBundleDetail>('forensic');
 
   const loadOverview = async () => {
     setPageState('loading');
@@ -100,7 +102,7 @@ export function DebugPage() {
     }
   };
 
-  const loadTraceDetail = async (traceId: string) => {
+  const loadTraceDetail = async (traceId: string, detail: DebugBundleDetail = bundleDetail) => {
     if (!traceId.trim()) {
       setTimeline(null);
       setBundle(null);
@@ -109,7 +111,7 @@ export function DebugPage() {
     try {
       const [timelineResult, bundleResult] = await Promise.all([
         getDebugTraceTimeline(traceId),
-        getDebugTraceBundle(traceId),
+        getDebugTraceBundle(traceId, detail),
       ]);
       setTimeline(timelineResult);
       setBundle(bundleResult);
@@ -210,7 +212,16 @@ export function DebugPage() {
               <TraceTimelinePanel timeline={timeline} />
             </section>
 
-            <BundlePanel bundle={bundle} />
+            <BundlePanel
+              bundle={bundle}
+              detail={bundleDetail}
+              onDetailChange={(next) => {
+                setBundleDetail(next);
+                if (selectedTraceId) {
+                  void loadTraceDetail(selectedTraceId, next);
+                }
+              }}
+            />
           </>
         ) : null}
       </div>
@@ -532,27 +543,40 @@ function FinalOutputCard({
 }: {
   finalOutput?: import('@/types/api').DebugFinalOutput | null;
 }) {
-  if (!finalOutput?.message && !finalOutput?.analyst_summary) {
+  if (!finalOutput?.message && !finalOutput?.analyst_summary && !finalOutput?.answer_preview) {
     return null;
   }
   return (
     <div className="space-y-2 rounded-md border border-cyan-900/40 bg-cyan-950/20 p-3 text-xs">
       <p className="text-[0.65rem] uppercase tracking-wide text-cyan-400/90">Final analyst answer</p>
-      <SummaryRow label="Message" value={finalOutput.message} emptyHint="not captured" />
+      <SummaryRow
+        label="Message"
+        value={finalOutput.message || finalOutput.answer_preview}
+        emptyHint="not captured"
+      />
       {finalOutput.analyst_summary && finalOutput.analyst_summary !== finalOutput.message ? (
         <SummaryRow label="Analyst summary" value={finalOutput.analyst_summary} emptyHint="not captured" />
       ) : null}
       <div className="flex flex-wrap gap-1.5 pt-1">
         {finalOutput.severity_label ? <MetaChip text={`severity: ${finalOutput.severity_label}`} /> : null}
         {finalOutput.mitre_status ? <MetaChip text={`MITRE: ${finalOutput.mitre_status}`} /> : null}
-        {finalOutput.hil_required ? <MetaChip text="HIL required" /> : null}
+        {finalOutput.hil_required || finalOutput.current_turn_hil_required ? <MetaChip text="HIL required" /> : null}
+        {finalOutput.artifact_review_required ? <MetaChip text="artifact review" /> : null}
         {finalOutput.guard_status ? <MetaChip text={`guard: ${finalOutput.guard_status}`} /> : null}
       </div>
     </div>
   );
 }
 
-function BundlePanel({ bundle }: { bundle: DebugTraceBundle | null }) {
+function BundlePanel({
+  bundle,
+  detail,
+  onDetailChange,
+}: {
+  bundle: DebugTraceBundle | null;
+  detail: DebugBundleDetail;
+  onDetailChange: (detail: DebugBundleDetail) => void;
+}) {
   const [copied, setCopied] = useState(false);
   const bundleJson = bundle ? JSON.stringify(bundle, null, 2) : '';
 
@@ -573,6 +597,26 @@ function BundlePanel({ bundle }: { bundle: DebugTraceBundle | null }) {
     <Card className="soc-panel min-w-0 max-w-full overflow-hidden">
       <CardHeader className="flex flex-row flex-wrap items-center gap-2 space-y-0 p-5 py-3">
         <CardTitle className="text-sm font-semibold">Debug bundle</CardTitle>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={detail === 'reviewer' ? 'default' : 'outline'}
+            className="shrink-0"
+            onClick={() => onDetailChange('reviewer')}
+          >
+            Reviewer
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={detail === 'forensic' ? 'default' : 'outline'}
+            className="shrink-0"
+            onClick={() => onDetailChange('forensic')}
+          >
+            Forensic
+          </Button>
+        </div>
         {bundle ? (
           <Button type="button" size="sm" variant="default" className="shrink-0" onClick={() => void copyBundle()}>
             {copied ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}

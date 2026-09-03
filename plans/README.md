@@ -18,6 +18,7 @@ If Cursor also writes a plan under `.cursor/plans/` or `/root/.cursor/plans/`, *
 
 | Plan | Status |
 |------|--------|
+| [`2026-09-03_1200_debug-trace-v2-reviewer-export.md`](2026-09-03_1200_debug-trace-v2-reviewer-export.md) | **Active — compact reviewer debug export + forensic LLM lineage.** Observability/projection only. P1–P4 SPL frozen. P11 not started. LIVE MCP OFF. Default bundle stays forensic (`detail=reviewer` is the compact projection). |
 | [`2026-09-01_1548_spl-analyst-synthesis.md`](2026-09-01_1548_spl-analyst-synthesis.md) | **Active — post-validation review-only analyst synthesis.** P1–P4 SPL frozen at `6c1d6c4b`. Presentation only; validated SPL immutable. READY_TO_MERGE=NO. P11 not started. LIVE MCP OFF. |
 | [`2026-09-01_1112_spl-pattern-guided-llm-authoring.md`](2026-09-01_1112_spl-pattern-guided-llm-authoring.md) | **Active — P1–P4 product PASS via rescue; waiting human UI at 3013/chat before merge.** `P*_LLM_PATTERN_PASS=NO`. First-seen membership is documented `mvmap` (not cross-field `mvfilter`). Branch `fix/spl-authoring-fidelity` @ `d04c00a5`. READY_TO_MERGE=NO. P11 not started. |
 | [`2026-08-31_1230_spl-authoring-fidelity.md`](2026-08-31_1230_spl-authoring-fidelity.md) | **Active.** Review-only SPL utility-authoring reliability + semantic fidelity + honest abstention. Branch `fix/spl-authoring-fidelity` from `54487cb3`. Reuse `spl_semantic_v2`; no DetectionSpec; P11/live MCP not started. Loop: [`LOOP_RUNNER_spl-authoring-fidelity.md`](LOOP_RUNNER_spl-authoring-fidelity.md). |

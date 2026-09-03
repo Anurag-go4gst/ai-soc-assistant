@@ -180,8 +180,13 @@ RACES_BASELINE_SHA = "27970ea4d10f0e894c8adb4214e18cd46e24b28e"
 # stops pre-approval RAG/outcome/lab packaging and prevents synthesis-lab from
 # stealing the guided narration hop (false planner-unavailable). Packet:
 # docs/evals/guided_hil_boundary_pipeline_protected_change_packet.md
+# TRACE_V2 (2026-09-03): operator-requested observability persist — flush
+# canonical llm_interaction_v1 records (redacted prompts/responses) onto
+# existing llm_call_logs and merge compact collector summaries into
+# control_plane_trace.llm_calls. No routing, ResourcePlan, EvidencePlan, SPL,
+# HIL execution, MCP, RAG, or synthesis-semantics change.
 RACES_APPROVED_PROTECTED_BLOB_SHA256 = {
-    "backend/app/chat/pipeline.py": "f1bf4ca85dd9324e5c0c0856c34f05c83f4dd1b91096c4352b81b21ce7ab4946",
+    "backend/app/chat/pipeline.py": "46e06839ee732e38b497251ca3a85b8b11a421ba2de698e58158d51eb7f77263",
     "backend/app/schemas/responses.py": "e8dfaa87e0b1db1c0c6ceccb74fa66f95a7604c90cbd531eb6c52a30ff3a8d7c",
     # Post-P10 5.4/5.5: envelope_version AUTH0 + investigation-envelope hard-block.
     "backend/app/orchestration/mcp_execution_gate.py": "f45957827fe05844c0702bf6979d55dea5bd0c422380fc1ce8b946d78b718a98",

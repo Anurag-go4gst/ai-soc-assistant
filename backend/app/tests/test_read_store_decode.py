@@ -111,6 +111,20 @@ def test_normalize_event_dict_passthrough() -> None:
     assert event.get("a") == 1
 
 
+def test_normalize_event_keeps_forensic_llm_prompt_text() -> None:
+    prompt = "Investigate " + ("x" * 2500)
+    payload = {
+        "schema_version": "llm_interaction_v1",
+        "role": "spl_advisory_generator",
+        "forensic": {"request": {"user_prompt": prompt, "max_tokens": 800}, "response": {"raw_text": prompt}},
+    }
+    event, is_err = _normalize_event(payload)
+    assert is_err is False
+    assert event["forensic"]["request"]["user_prompt"] == prompt
+    assert event["forensic"]["request"]["max_tokens"] == 800
+    assert "...[truncated]" not in event["forensic"]["request"]["user_prompt"]
+
+
 # --------------------------------------------------------------------------- #
 # row → event mappers: one corrupt row must not lose the good rows
 # --------------------------------------------------------------------------- #

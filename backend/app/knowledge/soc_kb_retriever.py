@@ -200,6 +200,8 @@ def soc_kb_source_evidence(trace_id: str, query: str, retrieval: dict[str, Any])
         status=collection_status,
         result_count=len(entries),
         evidence_origin=retrieval.get("evidence_origin"),
+        retrieval_workflow_stage=retrieval.get("retrieval_workflow_stage"),
+        retrieval_mode=retrieval.get("retrieval_mode"),
     )
     return envelope
 
@@ -211,6 +213,8 @@ def _record_rag_telemetry(
     status: str,
     result_count: int,
     evidence_origin: Any,
+    retrieval_workflow_stage: Any = None,
+    retrieval_mode: Any = None,
 ) -> None:
     """Persist a redacted RAG-retrieval event (no chunk text) for the debug trace."""
     try:
@@ -222,6 +226,8 @@ def _record_rag_telemetry(
             status=status,
             result_count=result_count,
             evidence_origin=evidence_origin if isinstance(evidence_origin, str) else None,
+            retrieval_workflow_stage=retrieval_workflow_stage if isinstance(retrieval_workflow_stage, str) else None,
+            retrieval_mode=retrieval_mode if isinstance(retrieval_mode, str) else None,
         )
     except Exception:  # noqa: BLE001 - telemetry must never break retrieval
         logging.getLogger("ai_soc.telemetry").warning("rag_telemetry_persist_failed", exc_info=True)
@@ -320,6 +326,7 @@ def _retrieve(
         "excluded_counts": excluded_counts,
         "collection_selection": collection_selection or {},
         "selected_collections": list((collection_selection or {}).get("selected_collections") or collections.keys()),
+        "retrieval_workflow_stage": workflow_stage,
         "retrieval_mode": settings.soc_kb_retrieval_mode,
         "vector_backend": settings.soc_kb_vector_backend,
         "vector_candidate_count": len(vector_candidates),

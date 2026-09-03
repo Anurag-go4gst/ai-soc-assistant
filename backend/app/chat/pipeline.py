@@ -131,6 +131,13 @@ from app.llm.evidence_observer import (
     parse_evidence_observer_output,
     sanitize_rows_for_observer,
 )
+from app.chat.llm_interaction_trace import (
+    compact_llm_call_index,
+    forensic_llm_call_event,
+    merge_llm_call_summaries,
+    reset_llm_interactions,
+    snapshot_llm_interactions,
+)
 from app.llm.sidecar_clients import invoke_sidecar_role_with_metadata
 from app.synthesis.composer_context_builders import (
     mcp_tool_hints_from_registry,
@@ -897,8 +904,9 @@ def _persist_live_chat_telemetry(
     """Phase 0/1: persist the durable trace spine + per-turn LLM-call ledger.
 
     Telemetry must never break the chat flow, so all work is wrapped here and the
-    connector also fails closed internally. Only metadata is persisted — no raw
-    prompts, completions, or events (redaction is applied by the connector).
+    connector also fails closed internally. Metadata is redacted. Canonical
+    ``llm_interaction_v1`` events persist the redacted prompt/response bodies
+    needed for forensic reconstruction; they do not store credentials.
     """
     try:
         telemetry = _routes_chat().get_telemetry_connector()
@@ -918,17 +926,39 @@ def _persist_live_chat_telemetry(
         )
         budget = state.get("llm_turn_budget")
         records = budget.records if isinstance(budget, TurnLlmBudget) else []
-        for record in records:
-            telemetry.record_llm_call(
-                trace_id,
-                kind=record.get("kind"),
-                role=record.get("role"),
-                provider_label=record.get("provider_label"),
-                outcome=record.get("outcome"),
-                latency_ms=record.get("latency_ms"),
-                model=record.get("model"),
-            )
-            _count_llm_call(record)
+        captured = snapshot_llm_interactions()
+        if captured:
+            seen_roles = {(str(item.get("role") or ""), item.get("latency_ms")) for item in captured}
+            for record in captured:
+                telemetry.record_llm_call(trace_id, **forensic_llm_call_event(record))
+                _count_llm_call({"outcome": record.get("validation", {}).get("transport_status") or "completed"})
+            for record in records:
+                key = (str(record.get("role") or ""), record.get("latency_ms"))
+                if key in seen_roles:
+                    continue
+                telemetry.record_llm_call(
+                    trace_id,
+                    kind=record.get("kind"),
+                    role=record.get("role"),
+                    provider_label=record.get("provider_label"),
+                    outcome=record.get("outcome"),
+                    latency_ms=record.get("latency_ms"),
+                    model=record.get("model"),
+                )
+                _count_llm_call(record)
+        else:
+            for record in records:
+                telemetry.record_llm_call(
+                    trace_id,
+                    kind=record.get("kind"),
+                    role=record.get("role"),
+                    provider_label=record.get("provider_label"),
+                    outcome=record.get("outcome"),
+                    latency_ms=record.get("latency_ms"),
+                    model=record.get("model"),
+                )
+                _count_llm_call(record)
+        llm_call_count = len(captured) if captured else len(records)
         try:
             from app.chat.final_output_trace import build_final_output_trace
 
@@ -950,10 +980,20 @@ def _persist_live_chat_telemetry(
             metadata={
                 "answer_mode": answer_mode,
                 "selected_skill": payload.get("selected_skill"),
-                "llm_call_count": len(records),
-                "llm_live_calls": sum(1 for item in records if item.get("outcome") == "completed"),
+                "llm_call_count": llm_call_count,
+                "llm_live_calls": sum(
+                    1
+                    for item in (captured or records)
+                    if (item.get("outcome") or item.get("status")) == "completed"
+                    or (
+                        isinstance(item.get("response"), dict)
+                        and item["response"].get("raw_text")
+                    )
+                ),
+                "llm_interactions": compact_llm_call_index(captured) if captured else None,
             },
         )
+        reset_llm_interactions()
         _telemetry_metrics.increment(
             "chat_turns_human_review" if run_status == "human_review" else "chat_turns_completed"
         )
@@ -5540,7 +5580,13 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             answer_guard=answer_guard.model_dump(),
             node_trace=visibility.get("node_trace"),
         )
-        control_plane_trace["llm_calls"] = visibility.get("llm_calls")
+        control_plane_trace["llm_calls"] = merge_llm_call_summaries(
+            visibility.get("llm_calls") if isinstance(visibility.get("llm_calls"), list) else [],
+            snapshot_llm_interactions(),
+        )
+        compact_interactions = compact_llm_call_index(snapshot_llm_interactions())
+        if compact_interactions:
+            control_plane_trace["llm_interactions"] = compact_interactions
         control_plane_trace["llm_composer"] = composer_trace
         if missing_evidence_reasoning_trace is not None:
             control_plane_trace["missing_evidence_reasoning"] = missing_evidence_reasoning_trace

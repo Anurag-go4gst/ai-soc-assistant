@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from app.config import settings
+from app.chat.llm_interaction_trace import capture_llm_interaction
 from app.llm.clients.endpoint_resolver import build_failover_chat_client
 from app.llm.clients.failover_client import FailoverChatClient
 from app.llm.prompts import (
@@ -16,6 +17,7 @@ from app.llm.prompts import (
     REVIEW_ONLY_SAFETY_RULES,
 )
 from app.llm.llm_call_context import call_purpose_for_role, llm_call_purpose_scope, run_with_call_context
+from app.llm.policy.candidates import live_system_prompt
 from app.llm.sidecar_governance import (
     REASONING_REJECTION_MATCHING,
     resolve_sidecar_role_status,
@@ -101,8 +103,6 @@ def _contract_for_role(role: str) -> dict[str, Any]:
 
 
 def _system_prompt_for_role(role: str, system_prompt: str | None) -> str:
-    from app.llm.policy.candidates import live_system_prompt
-
     system = system_prompt or str(_contract_for_role(role).get("system_instruction") or "").strip()
     if not system:
         system = "Return JSON only. Do not add markdown."
@@ -176,6 +176,35 @@ def build_sidecar_raw_provider(
     )
 
 
+def _capture_sidecar_invocation(
+    *,
+    role: str,
+    user_prompt: str,
+    system_prompt: str | None,
+    max_tokens: int,
+    temperature: float | None,
+    result: SidecarInvocationResult,
+) -> None:
+    try:
+        capture_llm_interaction(
+            role=role,
+            stage=None,
+            provider_label=result.answered_label,
+            system_prompt=_system_prompt_for_role(role, system_prompt),
+            user_prompt=user_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            raw_text=result.raw_output,
+            finish_reason=result.finish_reason,
+            transport_status="timed_out" if result.timed_out else ("completed" if result.raw_output else "failed"),
+            accepted=False,
+            contributed_to_final_output=False,
+            latency_ms=result.latency_ms,
+        )
+    except Exception:  # noqa: BLE001 - trace capture must never break a sidecar hop
+        return
+
+
 def invoke_sidecar_role(
     *,
     role: str,
@@ -244,7 +273,7 @@ def invoke_sidecar_role_with_metadata(
         deadline=deadline,
     )
     if not call.timed_out:
-        return SidecarInvocationResult(
+        result = SidecarInvocationResult(
             raw_output=call.raw_output,
             timed_out=False,
             answered_label=answered_label_holder[0],
@@ -254,11 +283,20 @@ def invoke_sidecar_role_with_metadata(
             human_action_required=call.human_action_required,
             failure_kind=call.failure_kind,
         )
+        _capture_sidecar_invocation(
+            role=role,
+            user_prompt=user_prompt,
+            system_prompt=system_prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            result=result,
+        )
+        return result
 
     if allow_failover and len(client.chain) > 1:
         fallback_client = _instruct_failover_client(client)
         if fallback_client is None:
-            return SidecarInvocationResult(
+            result = SidecarInvocationResult(
                 raw_output=None,
                 timed_out=True,
                 answered_label=None,
@@ -267,6 +305,15 @@ def invoke_sidecar_role_with_metadata(
                 human_action_required=call.human_action_required,
                 failure_kind=call.failure_kind,
             )
+            _capture_sidecar_invocation(
+                role=role,
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                result=result,
+            )
+            return result
         hop_timeout = min(timeout, _FAILOVER_HOP_TIMEOUT_SECONDS)
         fallback_deadline = time.monotonic() + float(hop_timeout)
         fallback_label_holder: list[str | None] = [None]
@@ -290,7 +337,7 @@ def invoke_sidecar_role_with_metadata(
             deadline=fallback_deadline,
         )
         if not fallback_call.timed_out and fallback_call.raw_output:
-            return SidecarInvocationResult(
+            result = SidecarInvocationResult(
                 raw_output=fallback_call.raw_output,
                 timed_out=False,
                 answered_label=fallback_label_holder[0],
@@ -300,7 +347,16 @@ def invoke_sidecar_role_with_metadata(
                 human_action_required=fallback_call.human_action_required,
                 failure_kind=fallback_call.failure_kind,
             )
-        return SidecarInvocationResult(
+            _capture_sidecar_invocation(
+                role=role,
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                result=result,
+            )
+            return result
+        result = SidecarInvocationResult(
             raw_output=None,
             timed_out=True,
             answered_label=None,
@@ -309,8 +365,17 @@ def invoke_sidecar_role_with_metadata(
             human_action_required=fallback_call.human_action_required,
             failure_kind=fallback_call.failure_kind,
         )
+        _capture_sidecar_invocation(
+            role=role,
+            user_prompt=user_prompt,
+            system_prompt=system_prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            result=result,
+        )
+        return result
 
-    return SidecarInvocationResult(
+    result = SidecarInvocationResult(
         raw_output=None,
         timed_out=True,
         answered_label=None,
@@ -319,6 +384,15 @@ def invoke_sidecar_role_with_metadata(
         human_action_required=call.human_action_required,
         failure_kind=call.failure_kind,
     )
+    _capture_sidecar_invocation(
+        role=role,
+        user_prompt=user_prompt,
+        system_prompt=system_prompt,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        result=result,
+    )
+    return result
 
 
 def build_intent_advisory_prompt(

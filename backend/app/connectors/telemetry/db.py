@@ -17,8 +17,11 @@ from app.connectors.telemetry.base import TraceHandle
 from app.connectors.telemetry.redaction import (
     MAX_SERIALIZED_PAYLOAD_BYTES,
     minimize,
+    redact_secrets_keep_text,
     truncate,
 )
+
+_FORENSIC_LLM_MAX_BYTES = 512 * 1024
 
 # Direct submodule reference. We do not access ``metrics`` as a package
 # attribute because ``app.connectors.telemetry.__init__`` may still be
@@ -187,10 +190,15 @@ class DbTelemetryConnector:
         )
 
     def _insert_json(self, table: str, trace_id: str, **fields: Any) -> None:
+        payload = fields
+        if str(fields.get("schema_version") or "") == "llm_interaction_v1":
+            payload = _forensic_llm_event(fields)
         self._run(
             f"INSERT INTO {table} (trace_id, event) VALUES ($1, $2::jsonb)",
             trace_id,
-            _json(_minimize(fields)),
+            _json(payload) if str(fields.get("schema_version") or "") != "llm_interaction_v1" else json.dumps(
+                payload, separators=(",", ":"), sort_keys=True, default=str
+            ),
         )
 
     def _run(self, sql: str, *args: Any) -> None:
@@ -254,6 +262,8 @@ _METADATA_PRIORITY_KEYS = (
     "llm_live_calls",
     "mcp_used",
     "debug_summary",
+    "effective_state",
+    "llm_interactions",
     "final_output",
     "control_plane_trace",
     "run_contract",
@@ -280,6 +290,7 @@ def _slim_control_plane_trace(control_plane_trace: dict[str, Any]) -> dict[str, 
         "query_to_intent",
         "spl_artifact_handoff_summary",
         "llm_calls",
+        "llm_interactions",
         "llm_turn_budget",
         "llm_composer",
         "mcp_execution",
@@ -317,6 +328,26 @@ def _json(value: Any) -> str:
         {"__truncated__": True, "preview": serialized[:512] + "..."},
         separators=(",", ":"),
     )
+
+
+def _forensic_llm_event(fields: dict[str, Any]) -> dict[str, Any]:
+    """Persist exact redacted prompts without the default 2k-char truncate."""
+    body = redact_secrets_keep_text(fields)
+    serialized = json.dumps(body, separators=(",", ":"), sort_keys=True, default=str)
+    if len(serialized.encode("utf-8")) <= _FORENSIC_LLM_MAX_BYTES:
+        return body
+    forensic = body.get("forensic") if isinstance(body.get("forensic"), dict) else {}
+    request = forensic.get("request") if isinstance(forensic.get("request"), dict) else {}
+    response = forensic.get("response") if isinstance(forensic.get("response"), dict) else {}
+    for key in ("system_prompt", "user_prompt"):
+        value = request.get(key)
+        if isinstance(value, str) and len(value) > 4000:
+            request[key] = value[:4000] + "...[truncated_for_row_cap]"
+    raw = response.get("raw_text")
+    if isinstance(raw, str) and len(raw) > 4000:
+        response["raw_text"] = raw[:4000] + "...[truncated_for_row_cap]"
+    body["forensic_truncated"] = True
+    return body
 
 
 # Backwards-compatible internal aliases (other modules import these names).

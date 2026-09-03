@@ -24,8 +24,10 @@ from dataclasses import replace
 from typing import Any, Callable
 
 from app.config import settings
+from app.chat.llm_interaction_trace import capture_llm_interaction
 from app.llm.adapter.output_preprocessor import preprocess_llm_output
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
+from app.llm.policy.candidates import live_system_prompt, spl_shape_few_shot_block
 from app.spl.llm_fallback import (
     CLARIFICATION_INVALID_SCHEMA,
     CLARIFICATION_NO_CLIENT,
@@ -938,36 +940,112 @@ def get_detection_plan(
     resolved. It selects at most one governed few-shot, and only under the
     candidate eval arm; production renders no example and is unchanged.
     """
+    system_prompt = live_system_prompt("spl_advisory_generator", _plan_system_prompt())
+    user_prompt = _plan_user_prompt(user_query, grounding, spl_shape_few_shot_block(analysis_shape))
+    response_schema = {
+        "type": "json_schema",
+        "json_schema": {"name": "detection_plan", "schema": PLAN_JSON_SCHEMA},
+    }
+    max_tokens = _spl_max_output_tokens()
+    raw = ""
+    finish_reason = None
+    usage: dict[str, Any] = {}
+    model = None
+    provider_label = None
+    latency_ms = None
+    transport_status = "completed"
     if llm_raw_output_provider is not None:
         raw = llm_raw_output_provider()
+        provider_label = "injected_provider"
     else:
         active_client = client or build_synthesis_client_from_settings()
         if active_client is None:
             return None, [CLARIFICATION_NO_CLIENT]
         try:
-            from app.llm.policy.candidates import live_system_prompt, spl_shape_few_shot_block
-
             completion = active_client.generate(
-                system_prompt=live_system_prompt("spl_advisory_generator", _plan_system_prompt()),
-                user_prompt=_plan_user_prompt(
-                    user_query, grounding, spl_shape_few_shot_block(analysis_shape)
-                ),
-                max_tokens=_spl_max_output_tokens(),
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                max_tokens=max_tokens,
                 temperature=0.0,
                 seed=seed,
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {"name": "detection_plan", "schema": PLAN_JSON_SCHEMA},
-                },
+                response_format=response_schema,
             )
         except LocalChatError:
+            capture_llm_interaction(
+                role="spl_advisory_generator",
+                stage="spl_authoring",
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                response_schema=response_schema,
+                temperature=0.0,
+                max_tokens=max_tokens,
+                transport_status="failed",
+                parse_status="not_run",
+                reject_reasons=[CLARIFICATION_NO_CLIENT],
+                accepted=False,
+                contributed_to_final_output=False,
+            )
             return None, [CLARIFICATION_NO_CLIENT]
+        finish_reason = completion.finish_reason
+        usage = dict(completion.usage or {})
+        model = completion.model
+        provider_label = completion.answered_label or None
+        latency_ms = completion.latency_ms
         if completion.finish_reason == "length":
+            capture_llm_interaction(
+                role="spl_advisory_generator",
+                stage="spl_authoring",
+                provider_label=provider_label,
+                model=model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                response_schema=response_schema,
+                temperature=0.0,
+                max_tokens=max_tokens,
+                raw_text=completion.text,
+                finish_reason=finish_reason,
+                usage=usage,
+                transport_status="completed",
+                parse_status="failed",
+                reject_reasons=["llm_finish_reason=length"],
+                accepted=False,
+                contributed_to_final_output=False,
+                fallback_selected=True,
+                fallback_reason="llm_finish_reason=length",
+                latency_ms=latency_ms,
+            )
             return None, ["llm_finish_reason=length"]
         raw = completion.text
     pre = preprocess_llm_output(raw or "", PLAN_JSON_SCHEMA, allow_retry=False)
+    parse_ok = pre.payload is not None
+    reject = [] if parse_ok else (pre.validation_errors or [pre.verdict])
+    capture_llm_interaction(
+        role="spl_advisory_generator",
+        stage="spl_authoring",
+        provider_label=provider_label,
+        model=model,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        response_schema=response_schema,
+        temperature=0.0,
+        max_tokens=max_tokens,
+        raw_text=raw,
+        parsed_payload=pre.payload,
+        finish_reason=finish_reason,
+        usage=usage,
+        transport_status=transport_status,
+        parse_status="parsed" if parse_ok else "failed",
+        schema_status="valid" if parse_ok else "failed",
+        quality_status="not_run",
+        reject_reasons=reject,
+        accepted=False,
+        contributed_to_final_output=False,
+        fallback_selected=not parse_ok,
+        fallback_reason=reject[0] if reject else None,
+        latency_ms=latency_ms,
+    )
     if pre.payload is None:
-        return None, pre.validation_errors or [pre.verdict]
+        return None, reject
     return pre.payload, []
 
 

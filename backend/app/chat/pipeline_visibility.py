@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.chat.control_plane_trace import _redact
+from app.chat.llm_interaction_trace import merge_llm_call_summaries, snapshot_llm_interactions
 from app.chat.session_context import SessionContextResolution
 from app.use_cases.content_enrichment import curated_enrichment_trace, enrichment_spl_governance
 from app.spl.spl_provenance_trace import is_deterministic_spl_provider, is_real_llm_spl_provider
@@ -421,12 +422,15 @@ def _spl_node_llm_call(candidate_spl: dict[str, Any] | None) -> dict[str, Any] |
 
 
 def _llm_calls_summary(state: dict[str, Any]) -> list[dict[str, Any]]:
-    """Authoritative list of LLM invocations this turn (from the turn budget)."""
+    """Authoritative list of LLM invocations this turn.
+
+    Turn-budget records remain, and canonical collector records (synthesis and
+    any generate() that did not consume sidecar budget) are merged in.
+    """
     budget = state.get("llm_turn_budget")
     records = getattr(budget, "records", None)
-    if not isinstance(records, list):
-        return []
-    return [dict(r) for r in records if isinstance(r, dict)]
+    budget_records = [dict(r) for r in records if isinstance(r, dict)] if isinstance(records, list) else []
+    return merge_llm_call_summaries(budget_records, snapshot_llm_interactions())
 
 
 def _spl_status_reason(status: str | None) -> str:

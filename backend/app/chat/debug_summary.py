@@ -11,6 +11,7 @@ from typing import Any
 
 from app.chat.contracts.resolved_query import ALLOWED_RECIPIENT_ROLES
 from app.chat.final_output_trace import build_final_output_trace
+from app.chat.trace_effective_state import build_effective_state_projection
 
 _MAX_SKIPPED_ROLES = 7
 _SEMANTIC_T4_NOTE_ALLOWLIST = frozenset(
@@ -107,6 +108,13 @@ def build_debug_summary(
         ),
         "auth0": project_auth0_debug(execution, mcp_trace=cp.get("mcp_execution")),
         "t4_circuit": project_t4_circuit_debug(semantic if isinstance(semantic, dict) else None),
+        # Single final-effective-state read model. Every block above is written by
+        # the stage that owns it, so read together they can disagree (an
+        # intermediate clarification a later stage resolved, one `llm_used` across
+        # four roles, `executed_evidence` on a run that executed nothing). This
+        # resolves them under one documented precedence; it adds no authority and
+        # the legacy blocks keep their original meaning.
+        "effective_state": build_effective_state_projection(base) if base else {},
     }
 
 
@@ -262,6 +270,13 @@ def project_evidence_state_debug(raw: dict[str, Any] | None) -> dict[str, Any]:
                 "status": item.get("status"),
                 "trust_class": item.get("trust_class"),
                 "provenance": item.get("provenance") if isinstance(item.get("provenance"), str) else None,
+                # What the key actually demands. `spl` means an executed SPL
+                # *result*, so a review-only draft leaves it missing by design --
+                # without this the entry reads as an unexplained gap next to a
+                # rendered SPL artifact.
+                "applicability": item.get("applicability")
+                if isinstance(item.get("applicability"), str)
+                else None,
             }
         )
     provenance = source.get("provenance") if isinstance(source.get("provenance"), dict) else {}

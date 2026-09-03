@@ -26,6 +26,7 @@ from app.chat.debug_summary import (
     llm_live_calls_from_payload,
     routing_list_fields,
 )
+from app.chat.llm_interaction_trace import compact_llm_call_index, snapshot_llm_interactions
 from app.spl.spl_provenance_trace import is_deterministic_spl_provider, llm_used_factual
 from app.schemas.responses import PlaceholderResponse
 
@@ -131,6 +132,18 @@ def _link_trace_to_turn(
         "debug_summary": debug_summary,
         **routing_list_fields(debug_summary),
     }
+    # Promote the final-effective-state read model to the top of the bundle. It is
+    # the same object build_debug_summary already computed; surfacing it here means
+    # a reader lands on the reconciled story before the per-stage projections.
+    effective_state = debug_summary.get("effective_state")
+    if isinstance(effective_state, dict) and effective_state:
+        metadata["effective_state"] = effective_state
+        # Stored debug_summary keeps a pointer, not a second independent copy.
+        debug_summary = {**debug_summary, "effective_state": {"$ref": "run.metadata.effective_state"}}
+        metadata["debug_summary"] = debug_summary
+    interactions = compact_llm_call_index(snapshot_llm_interactions())
+    if interactions:
+        metadata["llm_interactions"] = interactions
     control_plane_trace = payload.get("control_plane_trace")
     if isinstance(control_plane_trace, dict) and control_plane_trace:
         metadata["control_plane_trace"] = control_plane_trace

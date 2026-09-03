@@ -20,7 +20,7 @@ from app.config import settings
 from app.connectors.mcp.base import ConnectorStatus
 from app.connectors.telemetry import metrics
 from app.connectors.telemetry.base import TraceHandle
-from app.connectors.telemetry.redaction import minimize
+from app.connectors.telemetry.redaction import minimize, redact_secrets_keep_text
 
 _LOGGER = logging.getLogger("ai_soc.telemetry")
 _WRITE_LOCK = Lock()
@@ -100,6 +100,9 @@ class FileTelemetryConnector:
         self._append("rag_retrieval", trace_id, event=minimize(fields))
 
     def record_llm_call(self, trace_id: str, **fields: Any) -> None:
+        if str(fields.get("schema_version") or "") == "llm_interaction_v1":
+            self._append("llm_call", trace_id, event=redact_secrets_keep_text(fields))
+            return
         self._append("llm_call", trace_id, event=minimize(fields))
 
     def record_harness_result(self, trace_id: str, **fields: Any) -> str:

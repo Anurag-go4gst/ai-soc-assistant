@@ -10,6 +10,7 @@ import time
 from typing import Any, Callable
 
 from app.config import settings
+from app.chat.llm_interaction_trace import annotate_last_llm_interaction
 from app.safeguards.spl_validator import validate_spl, validate_spl_lab_candidate
 from app.spl.draft_preview import build_draft_preview
 from app.spl.llm_fallback import (
@@ -816,6 +817,23 @@ def candidate_from_universal_utility_authoring(
         AUTHORING_SOURCE_LLM_PATTERN_NORMALIZED,
         AUTHORING_SOURCE_LLM_PATTERN_REPAIR,
     }
+    reject_reasons = list(validator_result.get("reject_reasons") or [])
+    llm_accepted = bool(spl_draft_trace["llm_pattern_success"])
+    annotate_last_llm_interaction(
+        SPL_ADVISORY_ROLE,
+        quality_status=(
+            "passed"
+            if validator_result.get("lab_candidate_eligible")
+            else "failed"
+            if validator_result
+            else "not_run"
+        ),
+        reject_reasons=reject_reasons,
+        accepted=llm_accepted,
+        contributed_to_final_output=llm_accepted,
+        fallback_selected=not llm_accepted,
+        fallback_reason=None if llm_accepted else (reject_reasons[0] if reject_reasons else None),
+    )
 
     assumptions = _utility_assumptions(
         postprocessor_trace=postprocessor_trace,

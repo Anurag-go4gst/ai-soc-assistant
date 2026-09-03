@@ -127,8 +127,8 @@ def test_debug_bundle_and_timeline_use_event_limits(
         calls.append(("timeline", max_events))
         return {"run": {"trace_id": trace_id}, "events": [], "event_count": 0}
 
-    def _fake_bundle(trace_id: str, *, max_events: int | None = None) -> dict[str, Any]:
-        calls.append(("bundle", max_events))
+    def _fake_bundle(trace_id: str, *, max_events: int | None = None, detail: str = "forensic") -> dict[str, Any]:
+        calls.append(("bundle", max_events, detail))
         return {"trace_id": trace_id, "run": {"trace_id": trace_id}, "timeline": []}
 
     monkeypatch.setattr("app.api.routes_debug.fetch_trace_timeline", _fake_timeline)
@@ -136,8 +136,14 @@ def test_debug_bundle_and_timeline_use_event_limits(
 
     timeline_response = client.get("/api/debug/traces/trace-1")
     bundle_response = client.get("/api/debug/traces/trace-1/bundle")
+    reviewer_response = client.get("/api/debug/traces/trace-1/bundle?detail=reviewer")
+    invalid_response = client.get("/api/debug/traces/trace-1/bundle?detail=pretty")
 
     assert timeline_response.status_code == 200
     assert bundle_response.status_code == 200
+    assert reviewer_response.status_code == 200
+    assert invalid_response.status_code == 400
+    assert invalid_response.json()["detail"] == "invalid_bundle_detail"
     assert ("timeline", 500) in calls
-    assert ("bundle", 200) in calls
+    assert ("bundle", 200, "forensic") in calls
+    assert ("bundle", 200, "reviewer") in calls

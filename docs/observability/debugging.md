@@ -21,10 +21,13 @@ returns 404; when the user lacks access, 403.
 ## The one workflow
 
 1. Reproduce the bad/slow answer in chat. Copy `trace_id` from the response.
-2. `GET /api/debug/traces/{trace_id}/bundle` — the COE handoff artifact:
-   run summary + ordered event timeline + explainability. **Start with
-   `explainability.debug_summary`** (routing, LLM skips, SPL path, MCP, HIL) before
-   opening nested `control_plane_trace`.
+2. `GET /api/debug/traces/{trace_id}/bundle` — the COE handoff artifact
+   (default `detail=forensic`, lossless). Start with
+   `explainability.effective_state`, then `explainability.debug_summary`.
+   Add `?detail=reviewer` for the compact STANDARD export (`schema_version=reviewer_trace_v2`):
+   final-state fields, artifact refs, and no duplicated heavy snapshots.
+   Forensic LLM request/response bodies live on timeline `llm_call` events
+   (`schema_version=llm_interaction_v1`).
 3. Read the timeline top-to-bottom: route → evidence → SPL → MCP → LLM → answer.
 4. `GET /api/debug/readiness` for the LLM/MCP/RAG/sink snapshot + counters.
 
@@ -34,7 +37,8 @@ returns 404; when the user lacks access, 403.
 |----------|---------|
 | List recent turns | `GET /api/debug/traces?limit=&entrypoint=&status=&since=` |
 | Full timeline of one turn | `GET /api/debug/traces/{trace_id}` (capped 500 events) |
-| Repro/handoff bundle | `GET /api/debug/traces/{trace_id}/bundle` (capped 200 events) |
+| Repro/handoff bundle | `GET /api/debug/traces/{trace_id}/bundle` (capped 200 events, `detail=forensic` default) |
+| Compact reviewer export | `GET /api/debug/traces/{trace_id}/bundle?detail=reviewer` |
 | **Why no LLM / was a model actually called** | `explainability.debug_summary.llm` (`live_calls`, `skipped_roles`, `spl_path`, `spl_live_called`) + trace list `llm_live_calls` (not `llm_used`, which tracks SPL advisory flags). Timeline `llm_call` events for per-hop detail. |
 | **Is the LLM working / why not** | readiness `llm` block + timeline `llm_call` events: `role`, `outcome` (`completed`/`timed_out`/`dropped`/`blocked`), `latency_ms`, `model`; counters `llm_calls_total`/`llm_calls_timed_out`/`llm_calls_fallback` |
 | **Why this route / catalog steal** | trace list `match_path` + `use_case_id` + `matched_pattern`; bundle `debug_summary.routing` |

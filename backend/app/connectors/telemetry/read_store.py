@@ -14,7 +14,8 @@ from typing import Any
 import asyncpg
 
 from app.config import settings
-from app.connectors.telemetry.redaction import minimize
+from app.connectors.telemetry.redaction import minimize, redact_secrets_keep_text
+from app.chat.reviewer_trace import assemble_forensic_bundle, build_reviewer_trace
 
 logger = logging.getLogger("ai_soc.telemetry.read_store")
 
@@ -84,30 +85,26 @@ def fetch_trace_timeline(trace_id: str, *, max_events: int | None = None) -> dic
     return asyncio.run(_fetch_trace_timeline_async(trace_id, max_events=max_events))
 
 
-def fetch_trace_bundle(trace_id: str, *, max_events: int | None = None) -> dict[str, Any] | None:
+def fetch_trace_bundle(
+    trace_id: str,
+    *,
+    max_events: int | None = None,
+    detail: str = "forensic",
+) -> dict[str, Any] | None:
     timeline = fetch_trace_timeline(trace_id, max_events=max_events)
     if timeline is None:
         return None
-    run = timeline.get("run") or {}
-    metadata = _as_dict(run.get("metadata"))
-    events = timeline.get("events") or []
-    return {
-        "trace_id": trace_id,
-        "run": run,
-        "timeline": events,
-        "explainability": {
-            "debug_summary": metadata.get("debug_summary"),
-            "control_plane_trace": metadata.get("control_plane_trace"),
-            "governance_trace": metadata.get("governance_trace"),
-            "lineage_summary": metadata.get("lineage_summary"),
-            "llm_sidecars": metadata.get("llm_sidecars"),
-            "final_output": metadata.get("final_output"),
-        },
-        "turn_id": metadata.get("turn_id"),
-        "event_truncated": bool(timeline.get("event_truncated")),
-        "event_limit": timeline.get("event_limit"),
-        "decode_error_count": int(timeline.get("decode_error_count") or 0),
-    }
+    forensic = assemble_forensic_bundle(
+        trace_id=trace_id,
+        run=timeline.get("run") or {},
+        events=timeline.get("events") or [],
+        event_truncated=bool(timeline.get("event_truncated")),
+        event_limit=timeline.get("event_limit"),
+        decode_error_count=int(timeline.get("decode_error_count") or 0),
+    )
+    if str(detail or "forensic").strip().lower() == "reviewer":
+        return build_reviewer_trace(forensic)
+    return forensic
 
 
 async def _list_trace_runs_async(
@@ -184,6 +181,8 @@ def _normalize_event(event_value: Any) -> tuple[dict[str, Any], bool]:
     """
     normalized = _as_dict(event_value)
     is_decode_error = normalized.get("_decode_error") is True
+    if str(normalized.get("schema_version") or "") == "llm_interaction_v1":
+        return redact_secrets_keep_text(normalized), is_decode_error
     return minimize(normalized), is_decode_error
 
 

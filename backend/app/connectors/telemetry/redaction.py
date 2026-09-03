@@ -124,12 +124,96 @@ def minimize(value: Any) -> Any:
     return value
 
 
+# Exact keys (and `_password` / `_api_key` suffixes) dropped from forensic LLM
+# payloads. Deliberately not the substring matcher in ``is_secret_key`` — that
+# matcher treats `max_tokens` as a secret because it contains `token`.
+_FORENSIC_DROP_KEYS = frozenset(
+    {
+        "password",
+        "passwd",
+        "pwd",
+        "passphrase",
+        "secret",
+        "api_key",
+        "apikey",
+        "private_key",
+        "privatekey",
+        "session_secret",
+        "cookie",
+        "cookies",
+        "authorization",
+        "bearer",
+        "jwt",
+        "credential",
+        "credentials",
+        "sign_key",
+        "signing_key",
+        "access_token",
+        "refresh_token",
+        "id_token",
+        "auth_token",
+    }
+)
+_FORENSIC_DROP_SUFFIXES = (
+    "_password",
+    "_passwd",
+    "_secret",
+    "_api_key",
+    "_apikey",
+    "_private_key",
+    "_session_secret",
+    "_authorization",
+    "_cookie",
+    "_bearer",
+)
+
+
+def is_forensic_secret_key(key: str) -> bool:
+    """True for credential keys. ``max_tokens`` / ``prompt_hash`` stay."""
+    lowered = str(key or "").lower().replace("-", "_")
+    if lowered in _FORENSIC_DROP_KEYS:
+        return True
+    return any(lowered.endswith(suffix) for suffix in _FORENSIC_DROP_SUFFIXES)
+
+
+def redact_secrets_keep_text(value: Any) -> Any:
+    """Redact secrets without truncating semantic prompt/response text.
+
+    Forensic LLM reconstruction needs the exact redacted prompt and raw model
+    output. ``minimize`` truncates strings to ``MAX_STRING_LEN`` and would
+    destroy that. This path still drops credential keys and masks bearer/JWT/
+    PEM/API-key substrings inside values.
+    """
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for k, v in value.items():
+            key = str(k)
+            if is_forensic_secret_key(key):
+                continue
+            out[key] = redact_secrets_keep_text(v)
+        return out
+    if isinstance(value, (list, tuple)):
+        return [redact_secrets_keep_text(item) for item in value]
+    if isinstance(value, str):
+        return mask_secret_substrings(value)
+    return value
+
+
+def secret_substrings_were_masked(original: str | None, redacted: str | None) -> bool:
+    if not isinstance(original, str) or not isinstance(redacted, str):
+        return False
+    return original != redacted
+
+
 __all__ = [
     "MAX_SERIALIZED_PAYLOAD_BYTES",
     "MAX_STRING_LEN",
     "MAX_LIST_LEN",
     "is_secret_key",
+    "is_forensic_secret_key",
     "mask_secret_substrings",
     "minimize",
+    "redact_secrets_keep_text",
+    "secret_substrings_were_masked",
     "truncate",
 ]

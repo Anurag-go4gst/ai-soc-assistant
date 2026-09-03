@@ -17,6 +17,7 @@ from typing import Any, Callable
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from app.config import settings
+from app.chat.llm_interaction_trace import capture_llm_interaction
 from app.llm.adapter.json_extractor import extract_first_json_object
 from app.llm.clients import LocalChatError, build_synthesis_client_from_settings
 from app.llm.llm_call_context import CALL_PURPOSE_SYNTHESIS_LAB, llm_call_purpose_scope
@@ -136,6 +137,11 @@ class ReviewOnlyAnalystSynthesis:
     expected_result: str
     source: str
     dropped_reasons: list[str] = field(default_factory=list)
+    # Observability only. The debug bundle must be able to say whether an LLM was
+    # asked to narrate this card, and how long it took, without inferring it from
+    # a global llm_used boolean that a dropped SPL advisory also drives.
+    llm_attempted: bool = False
+    llm_latency_ms: int | None = None
 
     def public_payload(self) -> dict[str, Any]:
         return {
@@ -479,7 +485,7 @@ def synthesize_review_only_analyst_explanation(
         candidate_spl=candidate_spl,
         governed_source_mappings=mappings,
     )
-    payload, reasons = _attempt_llm_synthesis(
+    payload, reasons, attempt = _attempt_llm_synthesis(
         original_user_request=original_user_request,
         spec=spec,
         final_validated_spl=final_validated_spl,
@@ -487,6 +493,8 @@ def synthesize_review_only_analyst_explanation(
         validated_assumptions=validated_assumptions or [],
         llm_raw_output_provider=llm_raw_output_provider,
     )
+    fallback.llm_attempted = attempt.attempted
+    fallback.llm_latency_ms = attempt.latency_ms
     if payload is None:
         fallback.dropped_reasons = reasons or ["llm_unavailable"]
         return fallback
@@ -505,6 +513,8 @@ def synthesize_review_only_analyst_explanation(
         mappings_assumptions=payload.mappings_assumptions,
         expected_result=payload.expected_result,
         source=SYNTHESIS_SOURCE_LLM,
+        llm_attempted=attempt.attempted,
+        llm_latency_ms=attempt.latency_ms,
     )
 
 
@@ -543,8 +553,18 @@ def attach_synthesis_trace(
         candidate_spl["utility_spl_draft_trace"] = trace
     trace["analyst_synthesis_source"] = synthesis.source
     trace["analyst_synthesis"] = synthesis.public_payload()
+    trace["analyst_synthesis_llm_attempted"] = bool(synthesis.llm_attempted)
+    trace["analyst_synthesis_latency_ms"] = synthesis.llm_latency_ms
     if synthesis.dropped_reasons:
         trace["analyst_synthesis_dropped_reasons"] = list(synthesis.dropped_reasons)
+
+
+@dataclass
+class _SynthesisAttempt:
+    """Observability record for the narration attempt (never analyst-visible)."""
+
+    attempted: bool = False
+    latency_ms: int | None = None
 
 
 def _attempt_llm_synthesis(
@@ -555,9 +575,10 @@ def _attempt_llm_synthesis(
     governed_source_mappings: list[str],
     validated_assumptions: list[str],
     llm_raw_output_provider: Callable[[], str] | None,
-) -> tuple[ReviewOnlySplSynthesisPayload | None, list[str]]:
+) -> tuple[ReviewOnlySplSynthesisPayload | None, list[str], _SynthesisAttempt]:
+    attempt = _SynthesisAttempt()
     if llm_raw_output_provider is None and not getattr(settings, "ai_soc_llm_enabled", False):
-        return None, ["llm_disabled"]
+        return None, ["llm_disabled"], attempt
     synthesis_input = build_synthesis_input(
         original_user_request=original_user_request,
         spec=spec,
@@ -590,6 +611,8 @@ def _attempt_llm_synthesis(
             )
         return result.text
 
+    attempt.attempted = True
+    started = time.monotonic()
     try:
         call = run_sidecar_llm_with_timeout(
             _provider,
@@ -598,14 +621,54 @@ def _attempt_llm_synthesis(
             wrapper_kind="review_only_spl_synthesis",
         )
     except LocalChatError as exc:
-        return None, [exc.code or "llm_error"]
+        attempt.latency_ms = int((time.monotonic() - started) * 1000)
+        reasons = [exc.code or "llm_error"]
+        _capture_synthesis_interaction(
+            user_prompt=user_prompt,
+            raw_text=None,
+            parsed_payload=None,
+            reject_reasons=reasons,
+            transport_status="failed",
+            parse_status="not_run",
+            latency_ms=attempt.latency_ms,
+        )
+        return None, reasons, attempt
+    attempt.latency_ms = int((time.monotonic() - started) * 1000)
     if call.timed_out:
-        return None, ["llm_timed_out"]
+        _capture_synthesis_interaction(
+            user_prompt=user_prompt,
+            raw_text=call.raw_output,
+            parsed_payload=None,
+            reject_reasons=["llm_timed_out"],
+            transport_status="timed_out",
+            parse_status="not_run",
+            latency_ms=attempt.latency_ms,
+        )
+        return None, ["llm_timed_out"], attempt
     if not call.raw_output:
-        return None, list(call.notes) or ["empty_completion"]
+        reasons = list(call.notes) or ["empty_completion"]
+        _capture_synthesis_interaction(
+            user_prompt=user_prompt,
+            raw_text=call.raw_output,
+            parsed_payload=None,
+            reject_reasons=reasons,
+            transport_status="failed",
+            parse_status="failed",
+            latency_ms=attempt.latency_ms,
+        )
+        return None, reasons, attempt
     payload, errors = parse_synthesis_json(call.raw_output)
     if payload is None:
-        return None, errors
+        _capture_synthesis_interaction(
+            user_prompt=user_prompt,
+            raw_text=call.raw_output,
+            parsed_payload=None,
+            reject_reasons=errors,
+            transport_status="completed",
+            parse_status="failed",
+            latency_ms=attempt.latency_ms,
+        )
+        return None, errors, attempt
     extra = validate_synthesis_payload(
         payload,
         spec=spec,
@@ -614,8 +677,73 @@ def _attempt_llm_synthesis(
         governed_source_mappings=governed_source_mappings,
     )
     if extra:
-        return None, extra
-    return payload, []
+        _capture_synthesis_interaction(
+            user_prompt=user_prompt,
+            raw_text=call.raw_output,
+            parsed_payload=payload.model_dump() if hasattr(payload, "model_dump") else None,
+            reject_reasons=extra,
+            transport_status="completed",
+            parse_status="parsed",
+            schema_status="valid",
+            grounding_status="failed",
+            latency_ms=attempt.latency_ms,
+        )
+        return None, extra, attempt
+    _capture_synthesis_interaction(
+        user_prompt=user_prompt,
+        raw_text=call.raw_output,
+        parsed_payload=payload.model_dump() if hasattr(payload, "model_dump") else None,
+        reject_reasons=[],
+        transport_status="completed",
+        parse_status="parsed",
+        schema_status="valid",
+        grounding_status="passed",
+        accepted=True,
+        contributed_to_final_output=True,
+        fallback_selected=False,
+        latency_ms=attempt.latency_ms,
+    )
+    return payload, [], attempt
+
+
+def _capture_synthesis_interaction(
+    *,
+    user_prompt: str,
+    raw_text: str | None,
+    parsed_payload: Any,
+    reject_reasons: list[str],
+    transport_status: str,
+    parse_status: str,
+    schema_status: str | None = None,
+    grounding_status: str | None = None,
+    accepted: bool = False,
+    contributed_to_final_output: bool = False,
+    fallback_selected: bool = True,
+    latency_ms: int | None = None,
+) -> None:
+    try:
+        capture_llm_interaction(
+            role="review_only_spl_synthesis",
+            stage="synthesis",
+            system_prompt=_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            temperature=0.0,
+            max_tokens=_SYNTHESIS_MAX_TOKENS,
+            raw_text=raw_text,
+            parsed_payload=parsed_payload,
+            transport_status=transport_status,
+            parse_status=parse_status,
+            schema_status=schema_status,
+            grounding_status=grounding_status,
+            reject_reasons=reject_reasons,
+            accepted=accepted,
+            contributed_to_final_output=contributed_to_final_output,
+            fallback_selected=fallback_selected,
+            fallback_reason=reject_reasons[0] if reject_reasons else None,
+            latency_ms=latency_ms,
+        )
+    except Exception:  # noqa: BLE001 - observability must never fail synthesis
+        return
 
 
 def _first(value: Any) -> str:
