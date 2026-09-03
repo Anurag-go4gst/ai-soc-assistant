@@ -356,7 +356,9 @@ def _llm_projection(
         "llm_synthesis_attempt_count": counts.get("llm_synthesis_attempt_count"),
         "llm_synthesis_completed_count": counts.get("llm_synthesis_completed_count"),
         "llm_repair_attempt_count": counts.get("llm_repair_attempt_count"),
-        "accepted_llm_roles": counts.get("accepted_llm_roles") or llm.get("roles_accepted") or [],
+        "accepted_llm_roles": list(counts.get("accepted_llm_roles") or [])
+        if "accepted_llm_roles" in counts
+        else list(llm.get("roles_accepted") or []),
         "dropped_llm_roles": counts.get("dropped_llm_roles") or [],
         "spl_advisory_attempt_count": counts.get("spl_advisory_attempt_count"),
         "legacy_llm_used": llm.get("legacy_llm_used"),

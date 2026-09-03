@@ -141,7 +141,9 @@ def _link_trace_to_turn(
         # Stored debug_summary keeps a pointer, not a second independent copy.
         debug_summary = {**debug_summary, "effective_state": {"$ref": "run.metadata.effective_state"}}
         metadata["debug_summary"] = debug_summary
-    interactions = compact_llm_call_index(snapshot_llm_interactions())
+    interactions = compact_llm_call_index(
+        snapshot_llm_interactions(trace_id=str(getattr(response, "trace_id", None) or "") or None)
+    )
     if interactions:
         metadata["llm_interactions"] = interactions
     control_plane_trace = payload.get("control_plane_trace")

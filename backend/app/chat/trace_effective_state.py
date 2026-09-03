@@ -726,11 +726,19 @@ def _llm_block(
         if isinstance(item, dict)
     ]
     roles = [str(item.get("role") or "") for item in records if item.get("role")]
-    accepted_roles = [
-        str(item.get("role") or "")
-        for item in records
-        if item.get("role") and str(item.get("outcome") or "") not in {"dropped", "failed", "timed_out"}
-    ]
+    accepted_roles = []
+    for item in records:
+        role = str(item.get("role") or "")
+        if not role:
+            continue
+        disposition = item.get("disposition") if isinstance(item.get("disposition"), dict) else {}
+        if "accepted" in item or "accepted" in disposition:
+            if bool(item.get("accepted") or disposition.get("accepted")):
+                accepted_roles.append(role)
+            continue
+        status = str(item.get("status") or item.get("outcome") or "")
+        if status not in {"", "dropped", "failed", "timed_out", "skipped", "not_called"}:
+            accepted_roles.append(role)
     intent_status = str(_dig(trace, "query_to_intent", "llm_intent_assist_status") or "")
     spl_authoring_used = bool(candidate_lifecycle["used"])
     synthesis_used = synthesis["synthesis_source"] == "LLM_SYNTHESIS"

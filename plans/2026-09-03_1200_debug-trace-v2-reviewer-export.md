@@ -132,17 +132,18 @@ Parallel / leave unstaged: `review_only_spl_renderer.py`, `review_only_analyst_s
   - **Depends on:** 11
   - **Evidence:** `freeze_execution_baseline.py --check` → `protected artifacts unchanged (15 checked)`. `test_spl_optimization_authority_freeze.py` + `test_races_g1_backend_isolation.py` → 10 passed. Drift: plan name `test_spl_authority_freeze.py` / `test_races_g1.py` → actual `test_spl_optimization_authority_freeze.py` / `test_races_g1_backend_isolation.py`.
 
-- [ ] **13** — Self-check + selective commit
+- [x] **13** — Self-check + selective commit
   - **Do:** Independent self-review against TRACE_V2_ACCEPTANCE questions. `git status`. Commit only trace files. Suggested message: `fix(trace): compact reviewer export and capture forensic LLM lineage`. Record SHA.
   - **Verify:** `git status --porcelain`; `git log -1 --format=%H`
   - **Depends on:** 12
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** First commit `2c0b40da` (reviewer export + forensic schema). Live P2 `041430d8` showed capture missing on the utility `generate_llm_spl_fallback` path (LangGraph ContextVar isolation). Follow-on commit captures that path, stashes by trace_id, copies sidecar executor context, and skips leftover budget `llm_call` rows. Parallel renderer/card/11d-11e files left unstaged.
 
 - [ ] **14** — Post-commit gates + rebuild + P2 UI/API replay
   - **Do:** Rerun critical trace tests + P1–P4 hash freeze on the committed SHA. Rebuild/restart the stack serving `http://127.0.0.1:3013/chat`. Run P2 once. Export reviewer + forensic. Record fresh trace id. No further code changes unless a gate fails.
   - **Verify:** post-commit pytest slice; live P2 HTTP 200; SPL hash `537580db…`; MCP=0; two LLM interactions in forensic.
   - **Depends on:** 13
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Pre-follow-on live P2 `32f3b7c7-ca7b-41fb-a766-c97c93ff3c64` (after capture wiring, before leftover-budget skip): SPL hash `537580dbc754280f`; forensic had exact redacted prompts/responses for `spl_advisory_generator` and `review_only_spl_synthesis`; reviewer `llm_used_in_final_answer=false`; MCP=0 Splunk=0; execution_requested=false. Post-commit replay pending.
+
 
 ## Verification gaps
 
@@ -152,4 +153,4 @@ None — every item has a concrete Verify command.
 
 - 2026-09-03: Uncommitted effective-state work already in the tree is in-scope (canonical ES). Unrelated renderer/frontend-card/11d-11e diffs are out of scope and must stay unstaged.
 - 2026-09-03: Synthesis LLM bypasses `TurnLlmBudget`; counting it via collector must not increment sidecar hop budget (runtime).
-- 2026-09-03: `is_secret_key` matches substring `token`, which would drop `max_tokens`. Forensic redaction uses exact secret keys.
+- 2026-09-03: Live P2 uses `generate_llm_spl_fallback` (utility authoring), not `get_detection_plan`. Capture must be on that function. LangGraph/FastAPI worker ContextVars do not propagate; stash by `trace_id` + bind at admission.

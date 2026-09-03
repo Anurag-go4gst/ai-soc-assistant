@@ -430,7 +430,10 @@ def _llm_calls_summary(state: dict[str, Any]) -> list[dict[str, Any]]:
     budget = state.get("llm_turn_budget")
     records = getattr(budget, "records", None)
     budget_records = [dict(r) for r in records if isinstance(r, dict)] if isinstance(records, list) else []
-    return merge_llm_call_summaries(budget_records, snapshot_llm_interactions())
+    return merge_llm_call_summaries(
+        budget_records,
+        snapshot_llm_interactions(trace_id=str(state.get("trace_id") or "") or None),
+    )
 
 
 def _spl_status_reason(status: str | None) -> str:

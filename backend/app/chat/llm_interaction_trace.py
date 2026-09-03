@@ -11,9 +11,11 @@ from __future__ import annotations
 import hashlib
 import json
 from contextvars import ContextVar
+from threading import Lock, local
 from typing import Any
 from uuid import uuid4
 
+from app.connectors.telemetry.log_context import current_trace_id
 from app.connectors.telemetry.redaction import (
     redact_secrets_keep_text,
     secret_substrings_were_masked,
@@ -42,14 +44,83 @@ _collector: ContextVar[list[dict[str, Any]] | None] = ContextVar(
     "ai_soc_llm_interactions",
     default=None,
 )
+# Sidecar hops run in a thread-pool with copy_context(). ContextVar writes in
+# that copy do not propagate back to the /chat worker, so forensic records also
+# stash by the request trace_id (which *is* copied into the worker).
+_TRACE_BUCKETS: dict[str, list[dict[str, Any]]] = {}
+_INFLIGHT_TRACES: set[str] = set()
+_TRACE_BUCKET_LOCK = Lock()
+_THREAD_TRACE = local()
 
 
-def reset_llm_interactions() -> None:
-    _collector.set([])
+def _active_trace_id(trace_id: str | None = None) -> str | None:
+    for candidate in (trace_id, current_trace_id(), getattr(_THREAD_TRACE, "trace_id", None)):
+        tid = str(candidate or "").strip()
+        if tid and tid != "-":
+            return tid
+    return None
 
 
-def snapshot_llm_interactions() -> list[dict[str, Any]]:
-    return list(_collector.get() or [])
+def _resolve_stash_trace_id() -> str | None:
+    tid = _active_trace_id()
+    if tid is not None:
+        return tid
+    with _TRACE_BUCKET_LOCK:
+        if len(_INFLIGHT_TRACES) == 1:
+            return next(iter(_INFLIGHT_TRACES))
+    return None
+
+
+def bind_llm_interaction_turn(trace_id: str | None) -> None:
+    """Register the live /chat turn so worker-thread captures can stash."""
+    tid = _active_trace_id(trace_id)
+    if tid is None:
+        return
+    _THREAD_TRACE.trace_id = tid
+    with _TRACE_BUCKET_LOCK:
+        _INFLIGHT_TRACES.add(tid)
+        _TRACE_BUCKETS.setdefault(tid, [])
+
+
+def _stash_for_trace(record: dict[str, Any]) -> None:
+    tid = _resolve_stash_trace_id()
+    if tid is None:
+        return
+    with _TRACE_BUCKET_LOCK:
+        _TRACE_BUCKETS.setdefault(tid, []).append(record)
+
+
+def reset_llm_interactions(*, trace_id: str | None = None) -> None:
+    _collector.set(None)
+    tid = _active_trace_id(trace_id)
+    if tid is None:
+        return
+    with _TRACE_BUCKET_LOCK:
+        _TRACE_BUCKETS.pop(tid, None)
+        _INFLIGHT_TRACES.discard(tid)
+
+
+def snapshot_llm_interactions(*, trace_id: str | None = None) -> list[dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+
+    def _add(item: dict[str, Any]) -> None:
+        key = str(item.get("interaction_id") or f"anon-{len(order)}")
+        if key not in merged:
+            order.append(key)
+        merged[key] = item
+
+    for item in list(_collector.get() or []):
+        if isinstance(item, dict):
+            _add(item)
+    tid = _active_trace_id(trace_id)
+    if tid is not None:
+        with _TRACE_BUCKET_LOCK:
+            stored = list(_TRACE_BUCKETS.get(tid) or [])
+        for item in stored:
+            if isinstance(item, dict):
+                _add(item)
+    return [merged[key] for key in order]
 
 
 def _hash_text(text: str) -> str:
@@ -175,6 +246,7 @@ def capture_llm_interaction(**kwargs: Any) -> dict[str, Any]:
         bucket = []
         _collector.set(bucket)
     bucket.append(record)
+    _stash_for_trace(record)
     return record
 
 
@@ -184,7 +256,15 @@ def annotate_last_llm_interaction(role: str, **updates: Any) -> dict[str, Any] |
     The model invocation already happened; this only records downstream quality
     or fidelity outcomes on that same canonical record.
     """
-    bucket = _collector.get() or []
+    bucket = list(_collector.get() or [])
+    tid = _resolve_stash_trace_id()
+    if tid is not None:
+        with _TRACE_BUCKET_LOCK:
+            stored = list(_TRACE_BUCKETS.get(tid) or [])
+        seen = {id(item) for item in bucket}
+        for item in stored:
+            if id(item) not in seen:
+                bucket.append(item)
     for item in reversed(bucket):
         if str(item.get("role") or "") != role:
             continue

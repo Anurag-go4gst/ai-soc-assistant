@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from app.chat.llm_interaction_trace import capture_llm_interaction
 from app.config import settings
 from app.llm.adapter import adapt_llm_output
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
@@ -24,6 +25,65 @@ CLARIFICATION_INVALID_SCHEMA = "llm_spl_fallback_schema_invalid"
 CLARIFICATION_VALIDATION_FAILED = "llm_spl_fallback_validation_failed"
 CLARIFICATION_QUALITY_FAILED = "llm_spl_fallback_quality_failed"
 CLARIFICATION_UNSUPPORTED_SOURCE = "llm_spl_fallback_unsupported_source"
+
+
+def _capture_spl_advisory_interaction(
+    *,
+    user_query: str,
+    utility_authoring: bool,
+    correctness_mode: bool,
+    context: dict[str, Any] | None,
+    relevance_feedback: list[str] | None,
+    raw_output: str | None,
+    parsed_payload: Any = None,
+    model: str | None,
+    latency_ms: int | None,
+    finish_reason: str | None,
+    usage: dict[str, Any] | None = None,
+    provider_label: str | None = None,
+    transport_status: str,
+    parse_status: str,
+    schema_status: str | None = None,
+    quality_status: str | None = None,
+    reject_reasons: list[str] | None = None,
+) -> None:
+    """Observability only — never changes advisory SPL selection."""
+    try:
+        system_prompt, user_prompt = spl_advisory_prompts(
+            user_query,
+            utility_authoring=utility_authoring,
+            correctness_mode=correctness_mode,
+            context=context,
+            relevance_feedback=relevance_feedback,
+        )
+        capture_llm_interaction(
+            role=SPL_ADVISORY_ROLE,
+            stage="spl_authoring",
+            provider_label=provider_label,
+            model=model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_schema=_advisory_response_format(context),
+            temperature=0.0,
+            max_tokens=_spl_max_output_tokens(),
+            raw_text=raw_output,
+            parsed_payload=parsed_payload,
+            finish_reason=finish_reason,
+            usage=usage,
+            transport_status=transport_status,
+            parse_status=parse_status,
+            schema_status=schema_status,
+            quality_status=quality_status,
+            reject_reasons=reject_reasons or [],
+            accepted=False,
+            contributed_to_final_output=False,
+            fallback_selected=True,
+            fallback_reason=(reject_reasons or [None])[0],
+            latency_ms=latency_ms,
+        )
+    except Exception:  # noqa: BLE001 - trace capture must never break SPL authoring
+        return
+
 
 AUTHORING_FAILURE_STAGES = (
     "provider",
@@ -91,23 +151,26 @@ def generate_llm_spl_fallback(
     execution eligibility is forced false by the adapter contract, SPL must pass
     deterministic validation and SOC-STD-SPL-001 quality lint before exposure.
     """
-    if not utility_authoring and not settings.ai_soc_llm_spl_fallback_enabled:
-        return _clarification(
-            CLARIFICATION_LLM_DISABLED,
-            authoring_failure_stage="provider",
-            authoring_failure_code=CLARIFICATION_LLM_DISABLED,
-        )
-    if settings.ai_soc_llm_mode.strip().lower() == "disabled" or not settings.ai_soc_llm_enabled:
-        return _clarification(
-            CLARIFICATION_LLM_DISABLED,
-            authoring_failure_stage="provider",
-            authoring_failure_code=CLARIFICATION_LLM_DISABLED,
-        )
+    if llm_raw_output_provider is None:
+        if not utility_authoring and not settings.ai_soc_llm_spl_fallback_enabled:
+            return _clarification(
+                CLARIFICATION_LLM_DISABLED,
+                authoring_failure_stage="provider",
+                authoring_failure_code=CLARIFICATION_LLM_DISABLED,
+            )
+        if settings.ai_soc_llm_mode.strip().lower() == "disabled" or not settings.ai_soc_llm_enabled:
+            return _clarification(
+                CLARIFICATION_LLM_DISABLED,
+                authoring_failure_stage="provider",
+                authoring_failure_code=CLARIFICATION_LLM_DISABLED,
+            )
 
     raw_output: str | None = None
     model: str | None = None
     latency_ms: int | None = None
     finish_reason: str | None = None
+    usage: dict[str, Any] = {}
+    provider_label: str | None = None
     if llm_raw_output_provider is not None:
         raw_output = llm_raw_output_provider()
     else:
@@ -176,8 +239,32 @@ def generate_llm_spl_fallback(
         model = completion.model
         latency_ms = completion.latency_ms
         finish_reason = completion.finish_reason
+        usage = dict(completion.usage or {}) if getattr(completion, "usage", None) else {}
+        provider_label = getattr(completion, "answered_label", None)
 
     strict_payload, strict_errors = _strict_json_payload(raw_output or "")
+    _capture_spl_advisory_interaction(
+        user_query=user_query,
+        utility_authoring=utility_authoring,
+        correctness_mode=correctness_mode,
+        context=context,
+        relevance_feedback=relevance_feedback,
+        raw_output=raw_output,
+        parsed_payload=strict_payload,
+        model=model,
+        latency_ms=latency_ms,
+        finish_reason=finish_reason,
+        usage=usage,
+        provider_label=provider_label,
+        transport_status="completed" if raw_output else "failed",
+        parse_status="parsed" if strict_payload is not None else "failed",
+        schema_status="valid" if strict_payload is not None else "failed",
+        reject_reasons=(
+            ["llm_finish_reason=length"]
+            if finish_reason == "length" and not _complete_candidate_payload(strict_payload)
+            else list(strict_errors or [])
+        ),
+    )
     if finish_reason == "length" and not _complete_candidate_payload(strict_payload):
         return _clarification(
             CLARIFICATION_INVALID_SCHEMA,

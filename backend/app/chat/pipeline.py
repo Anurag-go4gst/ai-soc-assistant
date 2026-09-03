@@ -132,6 +132,7 @@ from app.llm.evidence_observer import (
     sanitize_rows_for_observer,
 )
 from app.chat.llm_interaction_trace import (
+    bind_llm_interaction_turn,
     compact_llm_call_index,
     forensic_llm_call_event,
     merge_llm_call_summaries,
@@ -796,6 +797,7 @@ def _record_node_timing(
 
 def persist_chat_admission(trace_id: str, user: object, *, entrypoint: str = "chat") -> None:
     """Persist a running trace admission row before pipeline work (best-effort)."""
+    bind_llm_interaction_turn(trace_id)
     try:
         session_role = user.get("role") if isinstance(user, dict) else None
         connector = _routes_chat().get_telemetry_connector()
@@ -926,15 +928,14 @@ def _persist_live_chat_telemetry(
         )
         budget = state.get("llm_turn_budget")
         records = budget.records if isinstance(budget, TurnLlmBudget) else []
-        captured = snapshot_llm_interactions()
+        captured = snapshot_llm_interactions(trace_id=trace_id)
         if captured:
-            seen_roles = {(str(item.get("role") or ""), item.get("latency_ms")) for item in captured}
+            seen_roles = {str(item.get("role") or "") for item in captured if item.get("role")}
             for record in captured:
                 telemetry.record_llm_call(trace_id, **forensic_llm_call_event(record))
                 _count_llm_call({"outcome": record.get("validation", {}).get("transport_status") or "completed"})
             for record in records:
-                key = (str(record.get("role") or ""), record.get("latency_ms"))
-                if key in seen_roles:
+                if str(record.get("role") or "") in seen_roles:
                     continue
                 telemetry.record_llm_call(
                     trace_id,
@@ -993,7 +994,7 @@ def _persist_live_chat_telemetry(
                 "llm_interactions": compact_llm_call_index(captured) if captured else None,
             },
         )
-        reset_llm_interactions()
+        reset_llm_interactions(trace_id=trace_id)
         _telemetry_metrics.increment(
             "chat_turns_human_review" if run_status == "human_review" else "chat_turns_completed"
         )
@@ -5580,11 +5581,12 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             answer_guard=answer_guard.model_dump(),
             node_trace=visibility.get("node_trace"),
         )
+        captured_for_trace = snapshot_llm_interactions(trace_id=str(state.get("trace_id") or "") or None)
         control_plane_trace["llm_calls"] = merge_llm_call_summaries(
             visibility.get("llm_calls") if isinstance(visibility.get("llm_calls"), list) else [],
-            snapshot_llm_interactions(),
+            captured_for_trace,
         )
-        compact_interactions = compact_llm_call_index(snapshot_llm_interactions())
+        compact_interactions = compact_llm_call_index(captured_for_trace)
         if compact_interactions:
             control_plane_trace["llm_interactions"] = compact_interactions
         control_plane_trace["llm_composer"] = composer_trace

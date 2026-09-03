@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from app.chat.llm_interaction_trace import (
+    annotate_last_llm_interaction,
     capture_llm_interaction,
     compact_llm_call_index,
     count_interactions_by_role,
@@ -139,3 +140,100 @@ def test_p2_style_two_calls_count_as_two_attempts_and_zero_accepted() -> None:
     assert counts["accepted_llm_roles"] == []
     assert "spl_advisory_generator" in counts["dropped_llm_roles"]
     assert "review_only_spl_synthesis" in counts["dropped_llm_roles"]
+
+
+def test_generate_llm_spl_fallback_captures_the_live_p2_advisory_path() -> None:
+    """P2 utility authoring calls generate_llm_spl_fallback, not get_detection_plan."""
+    from app.spl.llm_fallback import generate_llm_spl_fallback
+
+    reset_llm_interactions()
+    generate_llm_spl_fallback(
+        user_query="count failed logins by user",
+        utility_authoring=True,
+        llm_raw_output_provider=lambda: "not-json",
+    )
+    records = snapshot_llm_interactions()
+    assert len(records) == 1
+    assert records[0]["role"] == "spl_advisory_generator"
+    assert records[0]["request"]["user_prompt"]
+    assert records[0]["response"]["raw_text"] == "not-json"
+    assert records[0]["disposition"]["accepted"] is False
+
+
+def test_capture_survives_copy_context_thread_pool() -> None:
+    """Sidecar hops copy the parent context into the executor, then stash by trace_id."""
+    from concurrent.futures import ThreadPoolExecutor
+    from contextvars import copy_context
+
+    from app.chat.llm_interaction_trace import bind_llm_interaction_turn
+    from app.connectors.telemetry.log_context import reset_trace_id, set_trace_id
+
+    trace_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    reset_llm_interactions(trace_id=trace_id)
+    bind_llm_interaction_turn(trace_id)
+    token = set_trace_id(trace_id)
+    try:
+
+        def _worker() -> None:
+            capture_llm_interaction(
+                role="spl_advisory_generator",
+                user_prompt="p2 advisory prompt",
+                system_prompt="Return JSON only.",
+                raw_text='{"filters":[]}',
+                transport_status="completed",
+                latency_ms=12,
+            )
+
+        ctx = copy_context()
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pool.submit(ctx.run, _worker).result(timeout=5)
+        from app.chat import llm_interaction_trace as _mod
+
+        assert list(_mod._collector.get() or []) == []
+        records = snapshot_llm_interactions(trace_id=trace_id)
+        assert len(records) == 1
+        assert records[0]["role"] == "spl_advisory_generator"
+        assert records[0]["request"]["user_prompt"] == "p2 advisory prompt"
+        assert records[0]["response"]["raw_text"] == '{"filters":[]}'
+        annotated = annotate_last_llm_interaction(
+            "spl_advisory_generator",
+            quality_status="failed",
+            reject_reasons=["missing_aggregation"],
+        )
+        assert annotated is not None
+        assert annotated["validation"]["reject_reasons"] == ["missing_aggregation"]
+    finally:
+        reset_llm_interactions(trace_id=trace_id)
+        reset_trace_id(token)
+
+
+def test_capture_stashes_to_sole_inflight_turn_without_worker_trace_id() -> None:
+    """If a worker thread has no trace ContextVar, the sole in-flight turn still receives the record."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.chat.llm_interaction_trace import bind_llm_interaction_turn
+
+    trace_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    reset_llm_interactions(trace_id=trace_id)
+    bind_llm_interaction_turn(trace_id)
+    try:
+
+        def _worker() -> None:
+            capture_llm_interaction(
+                role="review_only_spl_synthesis",
+                user_prompt="synthesis prompt",
+                raw_text="not json",
+                transport_status="completed",
+                parse_status="failed",
+                reject_reasons=["no_balanced_json_object"],
+                latency_ms=20,
+            )
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pool.submit(_worker).result(timeout=5)
+        records = snapshot_llm_interactions(trace_id=trace_id)
+        assert len(records) == 1
+        assert records[0]["role"] == "review_only_spl_synthesis"
+        assert records[0]["response"]["raw_text"] == "not json"
+    finally:
+        reset_llm_interactions(trace_id=trace_id)

@@ -183,10 +183,14 @@ RACES_BASELINE_SHA = "27970ea4d10f0e894c8adb4214e18cd46e24b28e"
 # TRACE_V2 (2026-09-03): operator-requested observability persist — flush
 # canonical llm_interaction_v1 records (redacted prompts/responses) onto
 # existing llm_call_logs and merge compact collector summaries into
-# control_plane_trace.llm_calls. No routing, ResourcePlan, EvidencePlan, SPL,
-# HIL execution, MCP, RAG, or synthesis-semantics change.
+# control_plane_trace.llm_calls. Follow-on: bind the turn at admission and
+# snapshot by trace_id so sidecar thread-pool captures are not lost.
+# Also skip leftover budget llm_call rows when a canonical interaction for that
+# role already exists (latency often differs by a few ms).
+# No routing, ResourcePlan, EvidencePlan, SPL, HIL execution, MCP, RAG, or
+# synthesis-semantics change.
 RACES_APPROVED_PROTECTED_BLOB_SHA256 = {
-    "backend/app/chat/pipeline.py": "46e06839ee732e38b497251ca3a85b8b11a421ba2de698e58158d51eb7f77263",
+    "backend/app/chat/pipeline.py": "cd5802482819aa655b3a49bddc4c6f2419751c3fca0ab9eb832144de45c950ec",
     "backend/app/schemas/responses.py": "e8dfaa87e0b1db1c0c6ceccb74fa66f95a7604c90cbd531eb6c52a30ff3a8d7c",
     # Post-P10 5.4/5.5: envelope_version AUTH0 + investigation-envelope hard-block.
     "backend/app/orchestration/mcp_execution_gate.py": "f45957827fe05844c0702bf6979d55dea5bd0c422380fc1ce8b946d78b718a98",

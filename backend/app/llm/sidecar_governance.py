@@ -12,6 +12,7 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from contextvars import copy_context
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -426,7 +427,7 @@ def run_sidecar_llm_with_timeout(
             slot.release()
 
     try:
-        future = _SIDECAR_EXECUTOR.submit(_slot_guarded)
+        future = _SIDECAR_EXECUTOR.submit(copy_context().run, _slot_guarded)
     except Exception:  # noqa: BLE001 — pool rejected the work; release and skip
         slot.release()
         duration_ms = int((time.monotonic() - started) * 1000)
