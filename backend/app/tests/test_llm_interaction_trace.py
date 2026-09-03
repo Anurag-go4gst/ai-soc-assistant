@@ -134,6 +134,10 @@ def test_p2_style_two_calls_count_as_two_attempts_and_zero_accepted() -> None:
     records = snapshot_llm_interactions()
     counts = count_interactions_by_role(records)
     assert counts["total_attempts"] == 2
+    assert counts["interactions_attempted"] == 2
+    assert counts["interactions_completed"] == 2
+    assert counts["interactions_accepted"] == 0
+    assert counts["interactions_contributing_to_final_output"] == 0
     assert counts["spl_advisory_attempt_count"] == 1
     assert counts["llm_synthesis_attempt_count"] == 1
     assert counts["llm_used_in_final_answer"] is False

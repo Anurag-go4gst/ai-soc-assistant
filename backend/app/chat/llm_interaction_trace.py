@@ -454,8 +454,23 @@ def count_interactions_by_role(records: list[dict[str, Any]] | None) -> dict[str
     dropped_roles = sorted(
         {_role(item) for item in items if _attempted(item) and not _accepted(item) and _role(item)}
     )
+    attempted_items = [item for item in items if _attempted(item)]
+    completed_items = [item for item in items if _completed(item)]
+    accepted_items = [item for item in items if _accepted(item)]
+    contributing_items = [
+        item
+        for item in items
+        if bool(
+            item.get("contributed_to_final_output")
+            or _as_dict(item.get("disposition")).get("contributed_to_final_output")
+        )
+    ]
     return {
-        "total_attempts": len([item for item in items if _attempted(item)]),
+        "total_attempts": len(attempted_items),
+        "interactions_attempted": len(attempted_items),
+        "interactions_completed": len(completed_items),
+        "interactions_accepted": len(accepted_items),
+        "interactions_contributing_to_final_output": len(contributing_items),
         "llm_sidecar_attempt_count": len([item for item in sidecar if _attempted(item)]),
         "llm_sidecar_completed_count": len([item for item in sidecar if _completed(item)]),
         "llm_synthesis_attempt_count": len([item for item in synthesis if _attempted(item)]),
@@ -464,13 +479,8 @@ def count_interactions_by_role(records: list[dict[str, Any]] | None) -> dict[str
         "llm_repair_attempt_count": len([item for item in repair if _attempted(item)]),
         "accepted_llm_roles": accepted_roles,
         "dropped_llm_roles": dropped_roles,
-        "llm_used_in_final_answer": any(
-            bool(
-                item.get("contributed_to_final_output")
-                or _as_dict(item.get("disposition")).get("contributed_to_final_output")
-            )
-            for item in items
-        ),
+        "rejected_roles": dropped_roles,
+        "llm_used_in_final_answer": bool(contributing_items),
     }
 
 

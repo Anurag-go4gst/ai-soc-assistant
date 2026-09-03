@@ -6,6 +6,7 @@ Default ``/debug/traces/{id}/bundle`` stays the lossless forensic contract.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any
 
@@ -37,6 +38,13 @@ _HEAVY_EVENT_DROP_KEYS = frozenset(
         "analyst_summary",
         "candidate_spl",
         "utility_spl_draft_trace",
+        "request",
+        "response",
+        "system_prompt",
+        "user_prompt",
+        "raw_text",
+        "parsed_payload",
+        "forensic",
     }
 )
 
@@ -112,22 +120,28 @@ def build_reviewer_trace(forensic_bundle: dict[str, Any]) -> dict[str, Any]:
         if isinstance(effective.get("evidence_plan"), dict)
         else {}
     )
+    review_decision = _review_decision(effective=effective, hil=hil, execution=execution)
+    effective_ref = {"$ref": artifact_ref("effective_state")} if effective else None
     return {
         "trace_id": bundle.get("trace_id") or run.get("trace_id"),
         "schema_version": SCHEMA_VERSION,
         "summary": {
-            "status": run.get("status"),
+            "legacy_run_status": run.get("status"),
+            "review_outcome": review_decision["run_outcome"],
             "answer_mode": effective.get("answer_mode") or run.get("answer_mode") or metadata.get("answer_mode"),
             "use_case_id": run.get("use_case_id") or metadata.get("use_case_id"),
             "duration_ms": run.get("duration_ms"),
             "selected_skill": run.get("selected_skill") or metadata.get("selected_skill"),
         },
-        "effective_state": effective,
-        "spl": _spl_projection(effective, validation),
+        "review_decision": review_decision,
+        "effective_state": effective_ref,
+        "spl": _spl_projection(effective, validation, execution),
         "llm": _llm_projection(effective, compact_llm, counts),
         "synthesis": _synthesis_projection(effective, compact_llm),
         "enrichment": _enrichment_projection(effective, rag),
         "execution": _execution_projection(effective, execution),
+        "evidence": _evidence_projection(effective, execution),
+        "source_binding": _source_binding_projection(effective),
         "hil": hil,
         "connectors": _connector_projection(effective, evidence_plan_class, execution, counts),
         "timeline": [
@@ -135,7 +149,7 @@ def build_reviewer_trace(forensic_bundle: dict[str, Any]) -> dict[str, Any]:
         ],
         "artifacts": artifacts,
         "explainability": {
-            "effective_state": {"$ref": artifact_ref("effective_state")} if effective else None,
+            "effective_state": effective_ref,
             "final_output": _reviewer_final_output(explain.get("final_output"), hil=hil, effective=effective),
             "debug_summary": None,
             "control_plane_trace": None,
@@ -152,6 +166,13 @@ def compact_timeline_event(event: dict[str, Any], *, effective: dict[str, Any] |
     # Live telemetry often stamps step_name on the inner body, not the envelope.
     step_name = str(event.get("step_name") or body.get("step_name") or "")
     compact_body = {key: value for key, value in body.items() if key not in _HEAVY_EVENT_DROP_KEYS}
+    if "query" in compact_body:
+        original_query = compact_body.pop("query")
+        compact_body["question_preview"] = _preview(original_query)
+        if isinstance(original_query, str) and original_query.strip():
+            compact_body["question_hash"] = hashlib.sha256(original_query.encode()).hexdigest()
+    if "query_preview" in compact_body:
+        compact_body["query_preview"] = _preview(compact_body.get("query_preview"))
     if kind == "rag_retrieval":
         compact_body.update(classify_rag_event(body, effective=effective))
     if kind == "llm_call":
@@ -331,24 +352,85 @@ def _hil_projection(effective: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _spl_projection(effective: dict[str, Any], validation: dict[str, Any]) -> dict[str, Any]:
-    authoring = effective.get("spl_authoring") if isinstance(effective.get("spl_authoring"), dict) else {}
+def _review_decision(
+    *,
+    effective: dict[str, Any],
+    hil: dict[str, Any],
+    execution: dict[str, Any],
+) -> dict[str, Any]:
+    """Reviewer-only outcome. Not runtime HIL or execution authority."""
+    current_turn = bool(hil.get("current_turn_hil_required"))
+    performed = bool(execution.get("execution_performed"))
+    authorized = bool(execution.get("execution_authorized"))
+    review_only = str(effective.get("answer_mode") or "") in {
+        "spl_utility_authoring",
+        "spl_review_only",
+        "review_only",
+    } or bool(hil.get("artifact_review_required"))
+    if performed:
+        run_outcome = "completed_with_execution"
+    elif current_turn:
+        run_outcome = "blocked_for_hil"
+    elif review_only:
+        run_outcome = "completed_review_only"
+    else:
+        run_outcome = "completed"
     return {
-        "authoring_fidelity_status": validation.get("authoring_fidelity_status"),
-        "llm_candidate_validation_status": validation.get("llm_candidate_validation_status"),
+        "run_outcome": run_outcome,
+        "artifact_ready_for_review": bool(hil.get("artifact_review_required")) or review_only,
+        "current_turn_requires_user_input": current_turn,
+        "current_turn_blocked_for_hil": current_turn,
+        "execution_permitted": bool(authorized or performed),
+        "execution_requires_approval_if_requested": bool(hil.get("execution_hil_required_if_requested")),
+        "reason": (
+            "Review-only SPL artifact delivered; live execution was neither requested nor authorised."
+            if run_outcome == "completed_review_only"
+            else None
+        ),
+    }
+
+
+def _spl_projection(
+    effective: dict[str, Any],
+    validation: dict[str, Any],
+    execution: dict[str, Any],
+) -> dict[str, Any]:
+    authoring = effective.get("spl_authoring") if isinstance(effective.get("spl_authoring"), dict) else {}
+    llm_status = str(validation.get("llm_candidate_validation_status") or "")
+    if llm_status in {"failed", "rejected"}:
+        llm_candidate_status = "rejected"
+    elif llm_status in {"passed", "accepted"}:
+        llm_candidate_status = "accepted"
+    elif llm_status:
+        llm_candidate_status = llm_status
+    else:
+        llm_candidate_status = "not_run"
+    execution_eligible = validation.get("execution_eligible")
+    if execution_eligible is None:
+        execution_eligible = authoring.get("execution_eligible")
+    authoring_status = validation.get("authoring_fidelity_status") or "unknown"
+    safety = "passed" if authoring_status == "passed" and not execution_eligible else authoring_status
+    return {
+        "authoring_fidelity_status": authoring_status,
+        "llm_candidate_status": llm_candidate_status,
+        "llm_candidate_reason": (validation.get("llm_candidate_validation_reasons") or [None])[0]
+        if validation.get("llm_candidate_validation_reasons")
+        else None,
+        "llm_candidate_validation_status": llm_status or None,
         "llm_candidate_reject_reason": (validation.get("llm_candidate_validation_reasons") or [None])[0]
         if validation.get("llm_candidate_validation_reasons")
         else None,
         "llm_candidate_validation_reasons": validation.get("llm_candidate_validation_reasons") or [],
         "candidate_spl_validation_status": validation.get("candidate_spl_validation_status"),
+        "execution_promotion_status": validation.get("execution_validation_status"),
         "execution_validation_status": validation.get("execution_validation_status"),
-        "execution_eligible": validation.get("execution_eligible")
-        if validation.get("execution_eligible") is not None
-        else authoring.get("execution_eligible"),
+        "candidate_execution_eligible": bool(execution_eligible),
+        "execution_eligible": bool(execution_eligible),
+        "execution_performed": bool(execution.get("execution_performed")),
+        "final_answer_safety_status": safety,
         "normalized_spl_available": validation.get("normalized_spl_available"),
         "final_spl_hash": authoring.get("final_spl_hash"),
         "final_raw_spl_source": authoring.get("final_raw_spl_source") or validation.get("final_spl_source"),
-        "legacy_validator_status": validation.get("legacy_validator_status"),
     }
 
 
@@ -361,18 +443,24 @@ def _llm_projection(
     used_in_final = counts.get("llm_used_in_final_answer") if compact_llm else llm.get("llm_used_in_final_answer")
     if used_in_final is None:
         used_in_final = llm.get("llm_contributed_to_final_output")
+    rejected = list(counts.get("rejected_roles") or counts.get("dropped_llm_roles") or [])
     return {
+        "interactions_attempted": counts.get("interactions_attempted", counts.get("total_attempts")),
+        "interactions_completed": counts.get("interactions_completed"),
+        "interactions_accepted": counts.get("interactions_accepted"),
+        "interactions_contributing_to_final_output": counts.get("interactions_contributing_to_final_output"),
+        "rejected_roles": rejected,
+        "accepted_llm_roles": list(counts.get("accepted_llm_roles") or [])
+        if "accepted_llm_roles" in counts
+        else list(llm.get("roles_accepted") or []),
         "llm_used_in_final_answer": bool(used_in_final),
         "llm_contributed_to_final_output": bool(llm.get("llm_contributed_to_final_output")),
+        "dropped_llm_roles": counts.get("dropped_llm_roles") or rejected,
         "llm_sidecar_attempt_count": counts.get("llm_sidecar_attempt_count"),
         "llm_sidecar_completed_count": counts.get("llm_sidecar_completed_count"),
         "llm_synthesis_attempt_count": counts.get("llm_synthesis_attempt_count"),
         "llm_synthesis_completed_count": counts.get("llm_synthesis_completed_count"),
         "llm_repair_attempt_count": counts.get("llm_repair_attempt_count"),
-        "accepted_llm_roles": list(counts.get("accepted_llm_roles") or [])
-        if "accepted_llm_roles" in counts
-        else list(llm.get("roles_accepted") or []),
-        "dropped_llm_roles": counts.get("dropped_llm_roles") or [],
         "spl_advisory_attempt_count": counts.get("spl_advisory_attempt_count"),
         "legacy_llm_used": llm.get("legacy_llm_used"),
         "legacy_llm_used_definition": llm.get("legacy_llm_used_definition"),
@@ -391,7 +479,16 @@ def _synthesis_projection(effective: dict[str, Any], compact_llm: list[dict[str,
         if isinstance(synthesis.get("synthesis_fallback_reason"), list)
         else synthesis.get("synthesis_fallback_reason"),
         "latency_ms": synthesis.get("synthesis_latency_ms"),
-        "interactions": synth_calls,
+        "interaction_refs": [
+            {
+                "interaction_id": item.get("interaction_id"),
+                "role": item.get("role"),
+                "forensic_ref": item.get("forensic_ref"),
+                "reject_reason": item.get("reject_reason"),
+                "accepted": item.get("accepted"),
+            }
+            for item in synth_calls
+        ],
     }
 
 
@@ -411,11 +508,64 @@ def _execution_projection(effective: dict[str, Any], execution: dict[str, Any]) 
     return {
         "execution_requested": bool(execution.get("execution_requested")),
         "execution_performed": bool(execution.get("execution_performed")),
+        "execution_authorized": bool(execution.get("execution_authorized")),
         "mcp_calls": execution.get("mcp_calls") or 0,
         "splunk_calls": execution.get("splunk_calls") or 0,
         "live_execution_evidence_available": bool(evidence.get("live_execution_evidence_available")),
         "execution_eligible": bool(execution.get("execution_eligible")),
     }
+
+
+def _evidence_projection(effective: dict[str, Any], execution: dict[str, Any]) -> dict[str, Any]:
+    evidence = effective.get("evidence") if isinstance(effective.get("evidence"), dict) else {}
+    executed = evidence.get("executed_evidence") if isinstance(evidence.get("executed_evidence"), dict) else {}
+    artifact = evidence.get("spl_artifact") if isinstance(evidence.get("spl_artifact"), dict) else {}
+    return {
+        "spl_artifact_available": bool(evidence.get("artifact_evidence_available")),
+        "spl_artifact_status": artifact.get("status"),
+        "live_execution_evidence_available": bool(evidence.get("live_execution_evidence_available")),
+        "executed_evidence_status": executed.get("status"),
+        "executed_evidence_reason": executed.get("reason"),
+        "execution_performed": bool(execution.get("execution_performed")),
+        "evidence_plan_ref": artifact_ref("evidence_plan"),
+        "resource_plan_ref": artifact_ref("resource_plan"),
+    }
+
+
+def _source_binding_projection(effective: dict[str, Any]) -> dict[str, Any]:
+    """Runtime resolution vs review-draft display. Never copies internal index values."""
+    profile = effective.get("source_profile") if isinstance(effective.get("source_profile"), dict) else {}
+    slots_in = profile.get("slots") if isinstance(profile.get("slots"), dict) else {}
+    slots_out: dict[str, Any] = {}
+    for name, slot in slots_in.items():
+        if not isinstance(slot, dict):
+            continue
+        display = slot.get("display_value")
+        placeholder = _is_display_placeholder(display)
+        slots_out[str(name)] = {
+            "runtime_binding_resolved": bool(slot.get("resolved")),
+            "runtime_value_source": slot.get("resolution_source"),
+            "review_draft_display_value": display,
+            "review_draft_display_reason": slot.get("withholding_reason") if placeholder else None,
+            "intentional_display_placeholder": bool(
+                placeholder and slot.get("withholding_reason") == "review_only_placeholder_policy"
+            ),
+            "exposed_in_review_draft": bool(slot.get("exposed_in_review_draft")),
+        }
+    index = slots_out.get("index") if isinstance(slots_out.get("index"), dict) else {}
+    return {
+        "runtime_binding_resolved": bool(profile.get("all_required_bindings_resolved")),
+        "runtime_value_source": index.get("runtime_value_source"),
+        "review_draft_display_value": index.get("review_draft_display_value"),
+        "review_draft_display_reason": index.get("review_draft_display_reason"),
+        "intentional_display_placeholder": bool(index.get("intentional_display_placeholder")),
+        "slots": slots_out,
+    }
+
+
+def _is_display_placeholder(value: Any) -> bool:
+    text = str(value or "").strip()
+    return text.startswith("<") and text.endswith(">")
 
 
 def _connector_projection(
@@ -432,21 +582,32 @@ def _connector_projection(
     if isinstance(connectors, list) and connectors:
         potential = [str(item) for item in connectors]
     else:
-        # Planning often lists llm+mcp even when neither executed. Reviewer
-        # distinguishes this from actual_connector_usage below.
+        # Planning often lists llm+mcp even when neither is runtime-required.
         potential = ["llm", "mcp"]
+    llm_count = int(counts.get("interactions_attempted") or counts.get("total_attempts") or 0)
+    mcp_required = bool(runtime.get("mcp"))
+    mcp_calls = int(execution.get("mcp_calls") or 0)
+    splunk_calls = int(execution.get("splunk_calls") or 0)
     return {
         "potential_connectors": potential,
-        "actual_connector_usage": {
-            "llm_attempted": int(counts.get("total_attempts") or 0) > 0,
-            "llm_calls": int(counts.get("total_attempts") or 0),
-            "mcp_calls": int(execution.get("mcp_calls") or 0),
-            "splunk_calls": int(execution.get("splunk_calls") or 0),
+        "runtime_required_connectors": {
+            "llm": False,
+            "mcp": mcp_required,
+            "splunk": False,
         },
+        "actual_connector_usage": {
+            "llm_interactions": llm_count,
+            "llm_attempted": llm_count > 0,
+            "llm_calls": llm_count,
+            "mcp_calls": mcp_calls,
+            "splunk_calls": splunk_calls,
+        },
+        "mcp_required_this_turn": mcp_required,
+        "mcp_executed": mcp_calls > 0,
         "runtime_requirements": {
             "spl": bool(runtime.get("spl")),
             "rag": bool(runtime.get("rag")),
-            "mcp": bool(runtime.get("mcp")),
+            "mcp": mcp_required,
             "hil": bool(runtime.get("hil")),
             "mitre": bool(runtime.get("mitre")),
         },
