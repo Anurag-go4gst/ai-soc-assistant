@@ -589,6 +589,22 @@ def classify_intent(
         )
 
     if signals.get("spl_generation") and not signals.get("run_execution"):
+        live_read_investigation = bool(
+            signals.get("live_investigation_verbs")
+            and signals.get("live_data_request")
+            and not signals.get("review_only_spl")
+        )
+        if signals.get("success_after_failure") and live_read_investigation:
+            return _build_classification(
+                intent_family="live_investigation",
+                primary_intent="attack_discovery",
+                query_type="ask_for_live_results",
+                answer_goal=["live_results"],
+                confidence=0.86,
+                requires_clarification=False,
+                reason="Compound success-after-failure hunt requested as a live investigation.",
+                requested_output_type="INVESTIGATION",
+            )
         if signals.get("success_after_failure"):
             return _build_classification(
                 intent_family="hybrid_alert_review",

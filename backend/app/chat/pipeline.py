@@ -14,6 +14,7 @@ from app.connectors.telemetry import metrics as _telemetry_metrics
 from app.connectors.telemetry.log_context import current_trace_id, reset_trace_id, set_trace_id
 from app.actions.capability_policy import action_capability_for
 from app.actions.remediation_execution import execute_approved_remediation
+from app.chat.contracts.explicit_user_constraints import remediation_write_prohibited
 from app.chat.analyst_response_builder import (
     build_analyst_response_for_live,
     build_reference_source_playbook,
@@ -3817,10 +3818,23 @@ def _apply_remediation_lifecycle(state: ChatPipelineState) -> ChatPipelineState:
                     # Library callers that *do* hold an independent current plan fingerprint
                     # may still pass it into ``execute_approved_remediation`` to refuse stale
                     # envelopes (``approved_plan_superseded``).
+                    q2i = reviewed.get("query_to_intent")
+                    if hasattr(q2i, "model_dump"):
+                        q2i = q2i.model_dump(mode="json")
+                    q2i = q2i if isinstance(q2i, dict) else {}
+                    rqc = reviewed.get("resolved_query_contract")
+                    rqc = rqc if isinstance(rqc, dict) else {}
+                    write_prohibited = remediation_write_prohibited(
+                        query_signals=q2i.get("query_signals") if isinstance(q2i.get("query_signals"), dict) else {},
+                        resolved_query_contract=rqc,
+                    )
+                    exec_context: dict[str, Any] = {"rbac_role": reviewed.get("session_role")}
+                    if write_prohibited:
+                        exec_context["do_not_execute_remediation"] = True
                     result = execute_approved_remediation(
                         approved_envelope=envelope,
                         current_plan_fingerprint=None,
-                        context={"rbac_role": reviewed.get("session_role")},
+                        context=exec_context,
                     ).as_dict()
                     approval = (
                         dict(reviewed.get("remediation_approval") or {})

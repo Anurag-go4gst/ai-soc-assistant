@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.query_understanding.success_after_failure import detect_success_after_failure
+
 
 _DOMAIN_RULES: tuple[tuple[str, re.Pattern[str], tuple[str, ...]], ...] = (
     ("phishing", re.compile(r"\b(phish(?:ing|ed)?|clicked (?:a )?link|email (?:alert|event))\b", re.I), ("user", "host", "url", "message_id", "_time")),
@@ -12,8 +14,9 @@ _DOMAIN_RULES: tuple[tuple[str, re.Pattern[str], tuple[str, ...]], ...] = (
     ("ot_jump_host", re.compile(r"\b(jump[- ]?host|rdp)\b", re.I), ("user", "src_ip", "dest_host", "session_id", "_time")),
     ("relay_change", re.compile(r"\b(relay|ied)\b.{0,48}\b(config|firmware|change|push)\b|\b(config|firmware)\b.{0,48}\b(relay|ied)\b", re.I), ("user", "asset", "change_id", "firmware_hash", "_time")),
     ("firewall_network", re.compile(r"\b(firewall|network session|connection|traffic)\b", re.I), ("src_ip", "dest_ip", "dest_port", "action", "_time")),
-    ("auth_failure", re.compile(r"\b(fail(?:ed|ure)? (?:login|auth)|authentication failures?)\b", re.I), ("user", "src_ip", "host", "action", "_time")),
-    ("auth_success", re.compile(r"\b(success(?:ful)? (?:login|auth)|then succeeded|success after)\b", re.I), ("user", "src_ip", "host", "action", "_time")),
+    ("auth_failure", re.compile(r"\b(fail(?:ed|ure)? (?:login|auth|sign[- ]?in)|authentication failures?)\b", re.I), ("user", "src_ip", "host", "action", "_time")),
+    ("auth_success", re.compile(r"\b(success(?:ful)? (?:login|auth|sign[- ]?in)|then succeeded|success after)\b", re.I), ("user", "src_ip", "host", "action", "_time")),
+    ("post_login_activity", re.compile(r"\b(?:after the successful login|post[- ]login|subsequent (?:account |sign-?in )?activity|suspicious activity after)\b", re.I), ("user", "src_ip", "host", "_time")),
     ("endpoint_process", re.compile(r"\b(endpoint|process execution|powershell|edr)\b", re.I), ("user", "host", "process_name", "process_hash", "_time")),
     ("dns", re.compile(r"\b(dns|domain|query)\b", re.I), ("src_ip", "host", "query", "answer", "_time")),
     ("egress", re.compile(r"\b(exfil|outbound transfer|upload|bytes_out)\b", re.I), ("user", "src_ip", "dest_ip", "bytes_out", "_time")),
@@ -30,11 +33,17 @@ def compose_multi_leg_evidence(query: str) -> dict[str, Any] | None:
     for domain, pattern, fields in _DOMAIN_RULES:
         if pattern.search(query):
             legs.append({"domain": domain, "entity": _entity_for(domain), "fields": list(fields)})
+    if detect_success_after_failure(query):
+        present = {leg["domain"] for leg in legs}
+        for domain in ("auth_failure", "auth_success"):
+            if domain not in present:
+                fields = next(rule[2] for rule in _DOMAIN_RULES if rule[0] == domain)
+                legs.append({"domain": domain, "entity": _entity_for(domain), "fields": list(fields)})
     if len(legs) < 2:
         return None
 
     domains = {leg["domain"] for leg in legs}
-    if domains == {"auth_failure", "auth_success"}:
+    if "auth_failure" in domains and "auth_success" in domains:
         join_key = "user,src_ip,host"
         window = "30m"
     elif "relay_change" in domains:

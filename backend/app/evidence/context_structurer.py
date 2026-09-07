@@ -79,15 +79,19 @@ def _structured_facts(collected: list[dict[str, Any]]) -> list[dict[str, Any]]:
     facts: list[dict[str, Any]] = []
     for index, evidence in enumerate(collected, start=1):
         evidence_id = str(evidence["evidence_id"])
-        facts.append(
-            {
-                "fact_id": f"fact_{index:03d}",
-                "statement": _fact_statement(evidence),
-                "source_refs": [evidence_id],
-                "derivation": "computed_by_ai_soc",
-                "confidence": 1.0,
-            }
-        )
+        statement = _fact_statement(evidence)
+        if statement:
+            facts.append(
+                {
+                    "fact_id": f"fact_{index:03d}",
+                    "statement": statement,
+                    "source_refs": [evidence_id],
+                    "derivation": "computed_by_ai_soc",
+                    "confidence": 1.0,
+                }
+            )
+        if not _retrieval_completed(evidence):
+            continue
         for field in evidence.get("fields_returned", [])[:8]:
             facts.append(
                 {
@@ -101,10 +105,27 @@ def _structured_facts(collected: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return facts
 
 
-def _fact_statement(evidence: dict[str, Any]) -> str:
+def _retrieval_completed(evidence: dict[str, Any]) -> bool:
+    status = str(evidence.get("status") or "").lower()
+    if status in {"collected", "retrieved", "success"}:
+        return True
+    preview = evidence.get("preview_rows")
+    return bool(preview) and int(evidence.get("result_count") or 0) > 0
+
+
+def _fact_statement(evidence: dict[str, Any]) -> str | None:
+    if not _retrieval_completed(evidence):
+        return None
+    count = int(evidence.get("result_count") or 0)
     if evidence.get("source_type") == "rag":
-        return f"{evidence.get('source_name')} returned {evidence.get('result_count', 0)} governed SOC KB entries through governed retrieval."
-    return f"{evidence.get('source_name')} returned {evidence.get('result_count', 0)} previewable rows through {evidence.get('tool_name') or 'unknown tool'}."
+        return (
+            f"{evidence.get('source_name')} returned {count} governed SOC KB entries "
+            "through governed retrieval."
+        )
+    return (
+        f"{evidence.get('source_name')} returned {count} previewable rows through "
+        f"{evidence.get('tool_name') or 'unknown tool'}."
+    )
 
 
 def _entity_summary(collected: list[dict[str, Any]]) -> dict[str, Any]:

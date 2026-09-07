@@ -315,6 +315,9 @@ def execute_approved_remediation(
     if role not in _ACTION_EXECUTION_ROLES:
         result.refused_reason = f"rbac_denied:{role or 'unknown'}"
         return result
+    if call_context.pop("do_not_execute_remediation", False):
+        result.refused_reason = "user_prohibited_remediation_execution"
+        return result
     for step in envelope.approved_steps:
         key = idempotency_key_for(envelope, step)
         if step.execution_mode != "execute":

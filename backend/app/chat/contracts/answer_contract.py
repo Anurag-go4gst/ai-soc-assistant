@@ -841,6 +841,11 @@ def _success_after_failure_context(query_signals: dict[str, Any] | None, intent_
     `chat.query_signals` and threaded here, keeping the contract a pure
     projection of the deciders.
     """
-    if intent_family != "hybrid_alert_review":
+    if intent_family not in {
+        "hybrid_alert_review",
+        "live_investigation",
+        "hybrid_investigation",
+        "hybrid_investigation_plus_policy",
+    }:
         return False
     return bool((query_signals or {}).get("success_after_failure"))

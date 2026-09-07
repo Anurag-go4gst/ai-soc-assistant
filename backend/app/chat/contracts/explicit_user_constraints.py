@@ -266,13 +266,15 @@ def build_explicit_user_constraints(
         output_type = output_type.rsplit(".", 1)[-1]
     output_type = output_type.strip().lower() or None
 
-    # An explicit "do not execute" / review-only ask is an execution prohibition.
-    # Absence of a run request is NOT a prohibition — only an explicit one counts.
+    # An explicit "do not execute" / review-only ask is a READ/SPL execution
+    # prohibition. A remediation-only prohibition must not collapse into that.
     execution_prohibited = bool(signals.get("review_only_spl") or signals.get("do_not_execute"))
 
     prohibitions: list[str] = []
     if execution_prohibited:
         prohibitions.append("do_not_execute")
+    if signals.get("do_not_execute_remediation"):
+        prohibitions.append("do_not_execute_remediation")
     for key in ("prohibited_actions", "explicit_prohibitions"):
         prohibitions.extend(item.lower() for item in _clean(signals.get(key)))
 
@@ -285,3 +287,21 @@ def build_explicit_user_constraints(
         execution_prohibited=execution_prohibited,
         prohibitions=tuple(sorted(set(prohibitions))),
     )
+
+
+def remediation_write_prohibited(
+    *,
+    query_signals: Mapping[str, Any] | None = None,
+    resolved_query_contract: Mapping[str, Any] | None = None,
+) -> bool:
+    """True when the user prohibited remediation writes, not investigation reads."""
+    signals = dict(query_signals or {})
+    if bool(signals.get("do_not_execute_remediation")):
+        return True
+    contract = dict(resolved_query_contract or {})
+    provenance = contract.get("provenance")
+    provenance = dict(provenance) if isinstance(provenance, Mapping) else {}
+    constraints = provenance.get("explicit_user_constraints")
+    constraints = dict(constraints) if isinstance(constraints, Mapping) else {}
+    prohibitions = constraints.get("prohibitions") or []
+    return "do_not_execute_remediation" in {str(item) for item in prohibitions}

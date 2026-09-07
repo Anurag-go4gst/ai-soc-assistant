@@ -123,7 +123,7 @@ def match_use_cases(query: str, *, limit: int = 3) -> list[UseCaseSelection]:
     catalog = load_use_case_catalog()
     _df = _catalogue_document_frequency()
     _catalogue_size = len(catalog)
-    signals = extract_query_signals(query) if any(item.requires_signals for item in catalog) else None
+    signals = extract_query_signals(query)
     matches: list[UseCaseSelection] = []
     for use_case in catalog:
         # Containment alone reads "we have no SOAR playbook yet" as a request for
@@ -168,6 +168,7 @@ def match_use_cases(query: str, *, limit: int = 3) -> list[UseCaseSelection]:
             )
         )
     _demote_weak_modifier_overrides(matches)
+    _prefer_success_after_failure_family(matches, signals)
     _demote_hunt_when_mitre_lacks_context(normalized, matches)
     _demote_hunt_when_mapping_action_is_the_ask(matches)
     _demote_hunt_when_procedure_is_the_ask(normalized, matches)
@@ -250,6 +251,46 @@ def _demote_weak_modifier_overrides(matches: list[UseCaseSelection]) -> None:
         if definition is None or definition.use_case_type == "meta_output_artifact":
             continue
         selection.coverage_score = 0.0
+
+
+def _prefer_success_after_failure_family(
+    matches: list[UseCaseSelection],
+    signals: dict | None,
+) -> None:
+    """Keep the compound auth contract when success-after-failure is detected.
+
+    ``auth_failed_login_spike`` matches the substring "failed login" even when
+    the query also reports a subsequent success. That keyword must enrich, not
+    replace, the existing ``auth_success_after_failure`` family.
+    """
+    if not (signals or {}).get("success_after_failure"):
+        return
+    for selection in matches:
+        if selection.use_case_id == "auth_failed_login_spike":
+            selection.coverage_score = 0.0
+    if any(item.use_case_id == "auth_success_after_failure" for item in matches):
+        return
+    definition = get_use_case("auth_success_after_failure")
+    if definition is None:
+        return
+    matches.append(
+        UseCaseSelection(
+            use_case_id=definition.use_case_id,
+            display_name=definition.display_name,
+            category=definition.category,
+            primary_skill=definition.primary_skill,
+            confidence=min(0.95, 0.62),
+            matched_patterns=["success_after_failure"],
+            default_spl_template=definition.default_spl_template,
+            output_template=definition.output_template,
+            required_sources=list(definition.required_sources),
+            optional_sources=list(definition.optional_sources),
+            action_capability_tier=definition.action_capability_tier,
+            coverage_ratio=0.62,
+            specificity=1.0,
+            coverage_score=0.62,
+        )
+    )
 
 
 # Item 4 — "too close to call". Item 2 inspected 0.00–0.12 and found no

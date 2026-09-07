@@ -479,7 +479,18 @@ def _allow_severity_assessment(
         return False
     intent_family = str(intent.get("intent_family") or "")
     if policy_backed and intent_family in _POLICY_SEVERITY_FAMILIES:
-        return True
+        legs = {
+            str(leg.get("domain") or "")
+            for leg in (evidence_plan.get("evidence_legs") or [])
+            if isinstance(leg, dict)
+        }
+        compound_auth_live = intent_family in {
+            "live_investigation",
+            "hybrid_investigation",
+            "hybrid_investigation_plus_policy",
+        } and "auth_failure" in legs and "auth_success" in legs
+        if (not compound_auth_live) or environment_evidence_count > 0 or execution_authorized:
+            return True
     if route_live_data_request and not execution_authorized and collected_evidence_count == 0:
         return False
     if intent_family == "spl_generation_only" and route_live_data_request and collected_evidence_count == 0:

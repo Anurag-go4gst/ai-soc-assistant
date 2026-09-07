@@ -30,6 +30,8 @@ if TYPE_CHECKING:
 
 _COMPOSER_VERSION = "deterministic_v1"
 _GUIDED_HYBRID_COMPOSER_VERSION = "guided_hybrid_v1"
+_AUTH_SEQUENCE_DOMAINS = frozenset({"auth_failure", "auth_success"})
+_COMPOUND_AUTH_TEMPLATE = "auth_success_after_failure"
 
 
 def compose_resource_plan(
@@ -44,11 +46,12 @@ def compose_resource_plan(
     """Translate a decided EvidencePlan into an ordered, fallback-aware plan."""
     assert_resource_plan_authority(operation="compose_resource_plan")
     registry = registry or load_resource_registry()
+    effective_use_case_id = _compound_auth_use_case_id(evidence_plan, use_case_id)
     steps: list[PlanStep] = []
     contract = _skill_contract(skill_id, registry)
 
     rag_step = _rag_step(evidence_plan) if getattr(evidence_plan, "needs_rag", False) else None
-    spl_step = _spl_step(evidence_plan, use_case_id, registry) if getattr(evidence_plan, "needs_spl", False) else None
+    spl_step = _spl_step(evidence_plan, effective_use_case_id, registry) if getattr(evidence_plan, "needs_spl", False) else None
     mcp_step = _mcp_step(evidence_plan, registry) if getattr(evidence_plan, "needs_mcp", False) else None
 
     # Plan 8 C0: primary skill is an ownership/entry signal, not a capability veto.
@@ -102,6 +105,7 @@ def compose_resource_plan(
         steps.append(cve_step)
     if mitre_step is not None:
         steps.append(mitre_step)
+    steps.extend(_evidence_leg_parity_steps(evidence_plan, steps))
 
     answer_mode = str(getattr(evidence_plan, "answer_mode", "") or "")
     if answer_mode == "guided_investigation":
@@ -134,9 +138,14 @@ def compose_resource_plan(
     provenance: dict[str, Any] = {
         "composer": _COMPOSER_VERSION,
         "intent_family": intent_family,
-        "use_case_id": use_case_id,
+        "use_case_id": effective_use_case_id,
         "match_path": match_path,
     }
+    legs = list(getattr(evidence_plan, "evidence_legs", None) or [])
+    if legs:
+        provenance["evidence_legs"] = legs
+        provenance["correlation"] = dict(getattr(evidence_plan, "correlation", None) or {})
+        provenance["evidence_leg_parity"] = "required_legs_have_explicit_outcome"
     if skill_id:
         provenance["skill_id"] = skill_id
     if contract is not None and contract.get("default_workflow"):
@@ -413,6 +422,67 @@ def _infer_path_type_for_discovery(
     if getattr(evidence_plan, "needs_spl", False):
         return "spl_review"
     return None
+
+
+def _leg_domains(evidence_plan: Any) -> set[str]:
+    legs = getattr(evidence_plan, "evidence_legs", None) or []
+    return {
+        str(leg.get("domain") or "")
+        for leg in legs
+        if isinstance(leg, dict) and leg.get("domain")
+    }
+
+
+def _compound_auth_use_case_id(evidence_plan: Any, use_case_id: str | None) -> str | None:
+    """Bind the existing success-after-failure family when both auth legs are required."""
+    if _AUTH_SEQUENCE_DOMAINS <= _leg_domains(evidence_plan):
+        return _COMPOUND_AUTH_TEMPLATE
+    return use_case_id
+
+
+def _evidence_leg_parity_steps(evidence_plan: Any, existing: list[PlanStep]) -> list[PlanStep]:
+    """Required auth legs must not disappear: covering SPL, conditional pivot, or explicit unavailable."""
+    domains = _leg_domains(evidence_plan)
+    extra: list[PlanStep] = []
+    existing_ids = {step.step_id for step in existing}
+    spl_covers_auth_sequence = any(step.purpose == "spl_artifact" for step in existing) and (
+        _AUTH_SEQUENCE_DOMAINS <= domains
+    )
+    if "post_login_activity" in domains and "leg_post_login_activity" not in existing_ids:
+        extra.append(
+            PlanStep(
+                step_id="leg_post_login_activity",
+                resource_id="skill:evidence_collection",
+                purpose="evidence_collection",
+                status="planned",
+                on_unavailable="explicit_unavailable:post_login_source",
+                policy_checks=[
+                    "conditional_on_auth_success_corroborated",
+                    "no_fabricated_negative_evidence",
+                ],
+                status_reason="conditional_post_login_pivot",
+            )
+        )
+    for domain in ("auth_failure", "auth_success"):
+        if domain not in domains:
+            continue
+        if spl_covers_auth_sequence:
+            continue
+        step_id = f"leg_{domain}"
+        if step_id in existing_ids:
+            continue
+        extra.append(
+            PlanStep(
+                step_id=step_id,
+                resource_id="skill:evidence_collection",
+                purpose="evidence_collection",
+                status="skipped_unavailable",
+                on_unavailable="explicit_unavailable:no_covering_resource_step",
+                policy_checks=["evidence_leg_parity", "no_silent_drop"],
+                status_reason="required_evidence_leg_has_no_covering_resource_step",
+            )
+        )
+    return extra
 
 
 def _rag_step(evidence_plan: Any) -> PlanStep:

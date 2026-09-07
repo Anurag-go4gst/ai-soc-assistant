@@ -17,6 +17,27 @@ from app.query_understanding.success_after_failure import detect_success_after_f
 from app.spl.runtime_source_profiles import resolve_runtime_profile_for_query
 
 _TECHNIQUE_ID_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b", re.IGNORECASE)
+_REMEDIATION_EXECUTION_PROHIBITION_RE = re.compile(
+    r"(?:do\s+not|don't)\s+(?:execute|run|perform)\s+(?:any\s+)?"
+    r"(?:remediation|containment|contain|isolation|write)"
+    r"|do\s+not\s+remediate"
+    r"|(?:do\s+not|don't)\s+contain\b"
+    r"|but\s+do\s+not\s+contain\b",
+    re.IGNORECASE,
+)
+_READ_SEARCH_PROHIBITION_RE = re.compile(
+    r"(?:do\s+not|don't)\s+(?:run|execute)\s+(?:any\s+)?(?:searches|search|queries|query|the\s+search|the\s+query)"
+    r"|(?:do\s+not|don't)\s+(?:run|execute)\s+it\b"
+    r"|but\s+do\s+not\s+run\s+it\b"
+    r"|write\s+the\s+spl\b.{0,40}(?:do\s+not|don't)\s+run",
+    re.IGNORECASE,
+)
+_UNSCOPED_EXECUTE_NEGATION_TERMS = (
+    "not execute",
+    "do not execute",
+    "without executing",
+    "but not execute",
+)
 _MAP_TO_MITRE_RE = re.compile(r"\bmap\b.{0,120}\b(?:mitre|att&ck)\b", re.IGNORECASE)
 _LOG_SEARCH_RE = re.compile(
     r"\b(?:search|find|look for)\b.{0,80}\b(?:logs?|firewall|proxy|endpoint|vpn|dns|powershell)\b",
@@ -684,19 +705,26 @@ def extract_query_signals(
     service_stop = any(term in normalized for term in ("service stop", "stopped service", "net stop"))
     host_spread = any(term in normalized for term in ("host spread", "multiple hosts", "impacted host"))
     severity_request = "severity" in normalized
-    review_only_spl = any(
-        term in normalized
-        for term in (
-            "spl i can review",
-            "review-only spl",
-            "review only spl",
-            "governed spl",
-            "not execute",
-            "but not execute",
-            "without executing",
-            "do not execute",
-        )
-    ) or (("spl" in normalized or "query" in normalized) and "review" in normalized and not run_execution)
+    do_not_execute_remediation = bool(_REMEDIATION_EXECUTION_PROHIBITION_RE.search(normalized))
+    read_search_prohibited = bool(_READ_SEARCH_PROHIBITION_RE.search(normalized))
+    review_only_terms = (
+        "spl i can review",
+        "review-only spl",
+        "review only spl",
+        "governed spl",
+        "not execute",
+        "but not execute",
+        "without executing",
+        "do not execute",
+    )
+    review_only_hits = [term for term in review_only_terms if term in normalized]
+    if do_not_execute_remediation and not read_search_prohibited:
+        review_only_hits = [
+            term for term in review_only_hits if term not in _UNSCOPED_EXECUTE_NEGATION_TERMS
+        ]
+    review_only_spl = bool(review_only_hits) or read_search_prohibited or (
+        ("spl" in normalized or "query" in normalized) and "review" in normalized and not run_execution
+    )
     alert_context_present = bool(
         re.search(r"\balt-\d{4}-\d+\b", normalized)
         or re.search(r"\bfor alert\b", normalized)
@@ -1282,7 +1310,7 @@ def extract_query_signals(
         and not mitre_evidence_threshold
         and not use_case_review_guidance
         and not conceptual_mitre_judgment
-        and not success_after_failure
+        and not (success_after_failure and (review_only_spl or not live_investigation_verbs))
         and (
             explicit_search_intent
             or soc_actionable_hunt
@@ -1405,6 +1433,7 @@ def extract_query_signals(
         "host_spread": host_spread,
         "severity_request": severity_request,
         "review_only_spl": review_only_spl,
+        "do_not_execute_remediation": do_not_execute_remediation,
         "analytics_aggregation": analytics_aggregation,
         "exact_105_analytics": exact_105_analytics,
         "exact_105_hunt_spl": exact_105_hunt_spl,

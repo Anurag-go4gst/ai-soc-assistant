@@ -265,6 +265,24 @@ def test_severity_disallowed_for_live_request_without_execution() -> None:
     assert state.severity_label is None
 
 
+def test_severity_disallowed_for_policy_backed_live_investigation_without_evidence() -> None:
+    state = _gate(
+        intent={"intent_family": "live_investigation"},
+        execution={"status": "requires_human_review"},
+        route_live_data_request=True,
+        policy_backed=True,
+        severity_label="P2 High",
+        evidence_plan={
+            "evidence_legs": [
+                {"domain": "auth_failure"},
+                {"domain": "auth_success"},
+            ]
+        },
+    )
+    assert state.allow_severity_assessment is False
+    assert state.severity_label is None
+
+
 def test_severity_allowed_when_policy_backed_family() -> None:
     state = _gate(
         intent={"intent_family": "alert_summary"},

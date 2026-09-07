@@ -31,6 +31,9 @@ def detect_success_after_failure(normalized: str) -> bool:
             "after failed logins",
             "followed by a successful login",
             "followed by successful login",
+            "followed by a successful sign-in",
+            "followed by a successful sign in",
+            "followed by a successful signin",
             "failures followed by",
             "failure followed by",
             "failed logins followed by",
@@ -43,8 +46,7 @@ def detect_success_after_failure(normalized: str) -> bool:
         term in text for term in ("followed", "after failure", "after failures", "after failed", "after repeated")
     ):
         return True
-    if ("successful" in text or "success" in text) and "after" in text and (
-        "failure" in text or "failures" in text or "failed login" in text
-    ):
+    successful = "successful" in text or "success" in text or "sign-in" in text or "sign in" in text
+    if successful and ("after" in text or "followed by" in text) and "fail" in text:
         return True
     return False

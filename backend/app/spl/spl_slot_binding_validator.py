@@ -11,6 +11,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.query_understanding.success_after_failure import detect_success_after_failure
 from app.spl.policy import SplValidationPolicy, load_spl_policy
 from app.spl.template_registry import SplTemplateDefinition, get_spl_template
 
@@ -342,7 +343,7 @@ def extract_natural_language_slots(user_query: str) -> dict[str, Any]:
     if re.search(r"\b(permits?|allow|allowed)\b", normalized, re.I):
         slots["action_semantic"] = "permit"
 
-    if re.search(r"\bfailed\s+login", normalized, re.I):
+    if re.search(r"\bfailed\s+login", normalized, re.I) and not detect_success_after_failure(normalized):
         slots["action_semantic"] = slots.get("action_semantic", "failed_login")
 
     from app.query_understanding.time_window import normalize_time_window
