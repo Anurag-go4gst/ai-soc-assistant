@@ -18,6 +18,15 @@ from app.chat.contracts.investigation_plan import ValidatedInvestigationPlan
 from app.chat.contracts.resolved_query import ResolvedQueryContract
 from app.planner.phase_contract import PhaseContract
 from app.planner.resource_plan import ResourcePlan
+from app.chat.skill_intent_compatibility import CAPABILITY_MCP, CAPABILITY_SPL
+
+_LIVE_INVESTIGATION_FAMILIES = frozenset(
+    {
+        "live_investigation",
+        "hybrid_investigation",
+        "hybrid_investigation_plus_policy",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -38,6 +47,40 @@ def _is_search_capability(capability_id: str) -> bool:
     return value.startswith("mcp:") and any(
         marker in value for marker in ("run_query", "search_splunk", "run_splunk_query")
     )
+
+
+def _read_source_required(
+    resolved_query_contract: ResolvedQueryContract,
+    validated_plan: ValidatedInvestigationPlan,
+) -> bool:
+    """Whether a live read source is required to answer — independent of availability."""
+    required = {str(item).lower() for item in (resolved_query_contract.required_capabilities or [])}
+    if CAPABILITY_MCP in required or CAPABILITY_SPL in required:
+        return True
+    if resolved_query_contract.answer_goal == "live_results":
+        return True
+    if resolved_query_contract.intent_family in _LIVE_INVESTIGATION_FAMILIES:
+        return True
+    for binding in validated_plan.capability_bindings:
+        cid = str(binding.capability_id or "").lower()
+        if cid.startswith("mcp:") or "splunk" in cid:
+            return True
+    return False
+
+
+def _approved_answer_mode(
+    resolved_query_contract: ResolvedQueryContract,
+    *,
+    read_source_required: bool,
+) -> str:
+    family = str(resolved_query_contract.intent_family or "")
+    if family in _LIVE_INVESTIGATION_FAMILIES or resolved_query_contract.answer_goal == "live_results":
+        return "live_investigation"
+    if family in {"guided_investigation", "github_investigation"} and not read_source_required:
+        return "guided_investigation"
+    if read_source_required:
+        return "live_investigation"
+    return "guided_investigation"
 
 
 def build_approved_investigation_evidence_plan(
@@ -63,19 +106,26 @@ def build_approved_investigation_evidence_plan(
         raise ValueError("approved_capability_missing_from_validated_plan")
 
     search_capabilities = sorted(cap for cap in approved if _is_search_capability(cap))
-    needs_mcp = bool(search_capabilities)
-    needs_spl = needs_mcp
+    read_source_required = _read_source_required(resolved_query_contract, validated_plan)
+    mcp_available = bool(search_capabilities)
+    needs_mcp = read_source_required
+    needs_spl = read_source_required or CAPABILITY_SPL in {
+        str(item).lower() for item in (resolved_query_contract.required_capabilities or [])
+    }
+    answer_mode = _approved_answer_mode(
+        resolved_query_contract, read_source_required=read_source_required
+    )
     required = list(dict.fromkeys(envelope.approved_evidence_categories))
     evidence = EvidencePlan(
-        answer_mode="guided_investigation",
+        answer_mode=answer_mode,  # type: ignore[arg-type]
         rag_phase="pre_mcp" if needs_mcp else "rag_only",
         needs_rag=True,
         needs_spl=needs_spl,
         needs_mcp=needs_mcp,
         needs_mitre=False,
         spl_allowed=needs_spl,
-        mcp_allowed=needs_mcp,
-        mcp_available=needs_mcp,
+        mcp_allowed=mcp_available,
+        mcp_available=mcp_available,
         policy_context_required=False,
         policy_context_recommended=True,
         requires_hil=needs_mcp,
@@ -88,18 +138,30 @@ def build_approved_investigation_evidence_plan(
         limitations=[
             "P5 stops on an evidence gap; it does not invent or schedule an extra search.",
             "All connector calls remain subject to validation, exact-call authorization, RBAC, HIL, and execution flags.",
+            *(
+                [
+                    "Live investigation is required, but the read source is currently unavailable or disabled."
+                ]
+                if needs_mcp and not mcp_available
+                else []
+            ),
         ],
         runtime_support_status="approved_envelope_compiled",
         use_case_id=use_case_id,
         discovery_allowed=False,
         investigation_planning_enabled=True,
         spl_review_allowed=False,
-        safe_spl_execution_allowed=needs_mcp,
+        safe_spl_execution_allowed=mcp_available,
         freeform_spl_execution_allowed=False,
         mcp_action_allowed=False,
         reasons=[
             "immutable_approved_investigation_envelope",
             f"envelope_version:{envelope.envelope_version}",
+            *(
+                ["read_source_required_but_unavailable"]
+                if needs_mcp and not mcp_available
+                else []
+            ),
         ],
     )
     return evidence, search_capabilities

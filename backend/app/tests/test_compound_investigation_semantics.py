@@ -329,3 +329,171 @@ def test_evidence_leg_without_covering_step_is_explicit() -> None:
     success = resource.step_by_id("leg_auth_success")
     assert failure is not None and failure.status == "skipped_unavailable"
     assert success is not None and success.status == "skipped_unavailable"
+
+
+def test_do_not_execute_does_not_classify_as_ot_network_beacon() -> None:
+    from app.chat.signal_class_guidance import classify_signal_class
+
+    assert classify_signal_class(MFA_QUERY) != "network_beacon"
+    assert classify_signal_class(PRIMARY_QUERY) != "network_beacon"
+    assert classify_signal_class(PRIMARY_QUERY) != "recon_scan"
+    assert classify_signal_class(MFA_QUERY) != "recon_scan"
+
+
+def test_mfa_visible_plan_is_compound_auth_not_ot_beacon() -> None:
+    from app.chat.investigation_plan_builder import build_deterministic_investigation_plan
+    from app.chat.investigation_plan_relevance import (
+        plan_text_blob,
+        required_auth_anchors_present,
+        unjustified_primary_pivots,
+    )
+
+    plan = build_deterministic_investigation_plan(query=MFA_QUERY)
+    blob = plan_text_blob(plan)
+    assert unjustified_primary_pivots(blob, query=MFA_QUERY) == []
+    anchors = required_auth_anchors_present(blob)
+    assert anchors["authentication_failure"] is True
+    assert anchors["authentication_success"] is True
+    assert anchors["post_login_activity"] is True
+    assert "network beacon" not in blob.lower()
+    assert "ot inventory" not in blob.lower()
+    assert "review-only" not in plan.investigation_objective.lower()
+
+
+def test_ssh_visible_plan_preserves_failure_success_post_login() -> None:
+    from app.chat.investigation_plan_builder import build_deterministic_investigation_plan
+    from app.chat.investigation_plan_relevance import plan_text_blob, required_auth_anchors_present
+
+    plan = build_deterministic_investigation_plan(query=PRIMARY_QUERY)
+    blob = plan_text_blob(plan)
+    anchors = required_auth_anchors_present(blob)
+    assert anchors["authentication_failure"] is True
+    assert anchors["authentication_success"] is True
+    assert anchors["post_login_activity"] is True
+    assert "failed-login spike only" not in blob.lower()
+
+
+def test_powershell_plan_is_endpoint_network_not_auth_only() -> None:
+    from app.chat.investigation_plan_builder import build_deterministic_investigation_plan
+    from app.chat.investigation_plan_relevance import plan_text_blob
+
+    query = (
+        "Investigate a suspicious PowerShell execution followed by an outbound network "
+        "connection and a downloaded child process. Determine whether the events are "
+        "related, evaluate the relevant endpoint and network evidence, and tell me "
+        "whether the activity appears malicious. Recommend the next action but do not "
+        "execute remediation."
+    )
+    plan = build_deterministic_investigation_plan(query=query)
+    blob = plan_text_blob(plan).lower()
+    assert "powershell" in blob or "process" in blob
+    assert "network" in blob or "outbound" in blob
+    assert "network beacon" not in blob
+    assert "ot inventory" not in blob
+
+
+def test_catalogue_match_is_known_registry_not_ood() -> None:
+    from app.query_understanding.semantic_intent import build_semantic_intent_envelope
+
+    qu = understand_query(MFA_QUERY)
+    assert qu.deterministic_match_path == "use_case_catalog"
+    envelope = build_semantic_intent_envelope(
+        query_understanding=qu,
+        routed={"skill": "attack_discovery", "tool_plan": ["route_only", "attack_discovery"]},
+        route_plan_shadow={},
+        route_authority=None,
+        primary_operation="attack_discovery",
+        coverage_id=None,
+    )
+    assert envelope["path_type"] == "known_registry"
+
+
+def test_live_investigation_path_is_not_generic_soc_guidance() -> None:
+    from app.chat.planning_decision import compute_planning_decision_trace_only
+
+    decision = compute_planning_decision_trace_only(
+        intent_classification={
+            "intent_family": "live_investigation",
+            "requires_clarification": False,
+        },
+        evidence_plan={
+            "answer_mode": "live_investigation",
+            "needs_spl": False,
+            "needs_mcp": True,
+            "needs_rag": False,
+            "needs_mitre": False,
+        },
+        routed={"skill": "attack_discovery", "tool_plan": ["attack_discovery"]},
+    )
+    assert decision.path_type == "hybrid_investigation"
+    assert decision.path_type != "generic_soc_guidance"
+
+
+def test_scoped_live_compound_does_not_clarify_missing_user_fields() -> None:
+    from app.chat.known_detail_completion import evaluate_known_detail_completion
+
+    q2i = build_query_to_intent(
+        query=PRIMARY_QUERY,
+        query_understanding=understand_query(PRIMARY_QUERY),
+        routed_skill="attack_discovery",
+    )
+    completeness = evaluate_known_detail_completion(
+        use_case_id="auth_success_after_failure",
+        query_to_intent=q2i.model_dump(),
+        query_understanding=understand_query(PRIMARY_QUERY),
+    )
+    assert completeness.clarification_required is False
+    assert completeness.divert_to_guided is False
+
+
+def test_approved_live_plan_keeps_mcp_required_when_source_unavailable() -> None:
+    from app.chat.contracts.investigation_envelope import ApprovedInvestigationEnvelope
+    from app.chat.contracts.investigation_plan import ValidatedInvestigationPlan
+    from app.chat.contracts.resolved_query import ResolvedQueryContract
+    from app.chat.investigation_run_compiler import build_approved_investigation_evidence_plan
+
+    rqc = ResolvedQueryContract(
+        normalized_goal=MFA_QUERY,
+        intent_family="live_investigation",
+        answer_goal="live_results",
+        ambiguity_state="unambiguous",
+        required_capabilities=frozenset({"spl", "mcp"}),
+        evidence_requirements=["authentication_events"],
+        entities={"event_type": ["authentication_failure", "authentication_success"]},
+        time_scope="last 24 hours",
+        qualification_tier="T4",
+        qualification_source="test",
+        understanding_source="deterministic_qualification",
+    )
+    plan = ValidatedInvestigationPlan(
+        investigation_objective="Investigate MFA success after failure",
+        evidence_needed=["authentication failure", "authentication success", "post-login activity"],
+        data_categories=["auth"],
+        capability_bindings=[],
+        human_review_required=True,
+    )
+    envelope = ApprovedInvestigationEnvelope(
+        envelope_version=2,
+        objective="Investigate MFA success after failure",
+        targets=["account"],
+        entities=rqc.entities,
+        time_scope="last 24 hours",
+        approved_evidence_categories=["auth"],
+        allowed_read_only_capabilities=[],
+    )
+    evidence, search_capabilities = build_approved_investigation_evidence_plan(
+        envelope=envelope,
+        validated_plan=plan,
+        resolved_query_contract=rqc,
+        handoff_id="cpi:loop",
+        handoff_version=2,
+        use_case_id="auth_success_after_failure",
+    )
+    assert search_capabilities == []
+    assert evidence.needs_mcp is True
+    assert evidence.mcp_available is False
+    assert evidence.mcp_allowed is False
+    assert evidence.answer_mode == "live_investigation"
+    assert "read_source_required_but_unavailable" in evidence.reasons
+    assert evidence.answer_mode != "guided_investigation"
+

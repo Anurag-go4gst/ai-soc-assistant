@@ -85,6 +85,28 @@ _OT_PROTOCOL_TERMS: tuple[tuple[str, SignalClass], ...] = (
     ("pdc", "process_aware_ot"),
 )
 
+# Word-boundary only. Substring ``"ot" in "do not execute"`` previously
+# classified every remediation-prohibition query as OT / network_beacon.
+_OT_CONTEXT_RE = re.compile(r"\b(?:ot|scada|plcs?|substations?)\b", re.IGNORECASE)
+
+
+def _term_matches(term: str, text: str) -> bool:
+    """True when ``term`` appears as a whole token, not a substring of another word.
+
+    ``"recon" in "recommend"`` and ``"ot" in "not"`` must not classify SOC
+    investigation asks as OT protocol hunts.
+    """
+    if not term or not text:
+        return False
+    pattern = r"\b" + re.escape(term).replace(r"\ ", r"[\s-]+") + r"\b"
+    return bool(re.search(pattern, text, flags=re.IGNORECASE))
+
+
+def query_has_explicit_ot_context(query: str) -> bool:
+    """True only for explicit OT/SCADA/PLC/substation tokens, not the word 'not'."""
+    return bool(_OT_CONTEXT_RE.search(query or ""))
+
+
 _CLASS_DETECTORS: tuple[tuple[SignalClass, re.Pattern[str]], ...] = (
     ("protocol_command", re.compile(r"\b(dnp3|modbus(?:\s+tcp)?|iec[\s-]?61850|iec[\s-]?104|goose|mms|opc|unsolicited|function code|register write|connection churn)\b", re.I)),
     ("timing_integrity", re.compile(r"\b(ntp|irig[\s-]?b|time[\s-]?sync|clock|gps|stratum)\b", re.I)),
@@ -247,10 +269,9 @@ _TEMPLATES: dict[SignalClass, dict[str, list[str]]] = {
 
 
 def extract_ot_terms(query: str) -> list[str]:
-    normalized = query.lower()
     found: list[str] = []
     for term, _ in _OT_PROTOCOL_TERMS:
-        if term in normalized and term not in found:
+        if _term_matches(term, query) and term not in found:
             found.append(term)
     return found
 
@@ -272,12 +293,12 @@ def classify_signal_class(query: str, entities: dict[str, Any] | None = None) ->
     ).lower()
     combined = f"{normalized} {entity_text}".strip()
     for term, signal_class in _OT_PROTOCOL_TERMS:
-        if term in combined:
+        if _term_matches(term, combined):
             return signal_class
     for signal_class, pattern in _CLASS_DETECTORS:
         if pattern.search(combined):
             return signal_class
-    if any(term in normalized for term in ("ot", "scada", "plc", "substation")):
+    if _OT_CONTEXT_RE.search(normalized):
         access_markers = (
             "remote",
             "access",

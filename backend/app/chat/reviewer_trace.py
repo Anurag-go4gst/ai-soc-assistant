@@ -191,6 +191,20 @@ def compact_timeline_event(event: dict[str, Any], *, effective: dict[str, Any] |
             "accepted": body.get("accepted"),
             "forensic_ref": llm_call_ref(interaction_id) if interaction_id else None,
         }
+    if kind == "step" and step_name == "workflow_plan_created":
+        skill = str(body.get("skill") or compact_body.get("skill") or "")
+        compact_body["plan_role"] = (
+            body.get("plan_role")
+            or compact_body.get("plan_role")
+            or (
+                "authoritative"
+                if skill in {"attack_discovery", "spl_generation", "alert_summary"}
+                else "guided_review_blueprint"
+                if skill == "guided_investigation"
+                else "knowledge"
+            )
+        )
+        compact_body["skill"] = skill or compact_body.get("skill")
     if kind == "step" and step_name in {"node.finalize_response", "finalize_response"}:
         compact_body = {
             "final_answer_ref": artifact_ref("final_answer"),
@@ -586,6 +600,9 @@ def _connector_projection(
         potential = ["llm", "mcp"]
     llm_count = int(counts.get("interactions_attempted") or counts.get("total_attempts") or 0)
     mcp_required = bool(runtime.get("mcp"))
+    mcp_available = plan.get("mcp_available")
+    if mcp_available is None:
+        mcp_available = bool(plan.get("mcp_allowed"))
     mcp_calls = int(execution.get("mcp_calls") or 0)
     splunk_calls = int(execution.get("splunk_calls") or 0)
     return {
@@ -595,6 +612,8 @@ def _connector_projection(
             "mcp": mcp_required,
             "splunk": False,
         },
+        "read_source_required": mcp_required,
+        "read_source_available": bool(mcp_available),
         "actual_connector_usage": {
             "llm_interactions": llm_count,
             "llm_attempted": llm_count > 0,

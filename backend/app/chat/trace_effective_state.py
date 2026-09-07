@@ -247,6 +247,16 @@ def _review_only_context(
     execution_asked = bool(
         signals.get("run_execution") or signals.get("explicit_run_spl") or signals.get("run_spl")
     )
+    approval = _as_dict(payload.get("investigation_approval"))
+    run_status = _as_dict(payload.get("investigation_run_status"))
+    investigation_execution_requested = bool(
+        payload.get("approved_investigation_envelope")
+        or str(approval.get("status") or "") == "approved"
+        or str(run_status.get("status") or "")
+        in {"incomplete", "complete", "blocked", "running", "insufficient", "failed"}
+    )
+    if investigation_execution_requested:
+        execution_asked = True
     explicit_do_not_execute = bool(
         review_only and not execution_asked and run_contract.get("execution_needed_for_answer") is not True
     )

@@ -478,17 +478,29 @@ def _allow_severity_assessment(
     if str(evidence_plan.get("answer_mode") or "") == "spl_utility_authoring":
         return False
     intent_family = str(intent.get("intent_family") or "")
+    live_investigation_ask = intent_family in {
+        "live_investigation",
+        "hybrid_investigation",
+        "hybrid_investigation_plus_policy",
+    } or str(evidence_plan.get("answer_mode") or "") == "live_investigation"
+    if live_investigation_ask and environment_evidence_count == 0 and not execution_authorized:
+        return False
+    if "read_source_required_but_unavailable" in (evidence_plan.get("reasons") or []):
+        return False
     if policy_backed and intent_family in _POLICY_SEVERITY_FAMILIES:
+        live_investigation_family = intent_family in {
+            "live_investigation",
+            "hybrid_investigation",
+            "hybrid_investigation_plus_policy",
+        } or str(evidence_plan.get("answer_mode") or "") == "live_investigation"
+        if live_investigation_family and environment_evidence_count == 0 and not execution_authorized:
+            return False
         legs = {
             str(leg.get("domain") or "")
             for leg in (evidence_plan.get("evidence_legs") or [])
             if isinstance(leg, dict)
         }
-        compound_auth_live = intent_family in {
-            "live_investigation",
-            "hybrid_investigation",
-            "hybrid_investigation_plus_policy",
-        } and "auth_failure" in legs and "auth_success" in legs
+        compound_auth_live = live_investigation_family and "auth_failure" in legs and "auth_success" in legs
         if (not compound_auth_live) or environment_evidence_count > 0 or execution_authorized:
             return True
     if route_live_data_request and not execution_authorized and collected_evidence_count == 0:

@@ -88,6 +88,13 @@ def plan_workflow(
         "required_sources": _SOURCE_REQUIREMENTS.get(skill, []),
         "available_sources": [],
         "missing_sources": _SOURCE_REQUIREMENTS.get(skill, []),
+        "plan_role": (
+            "authoritative"
+            if skill in {"attack_discovery", "spl_generation", "alert_summary"}
+            else "guided_review_blueprint"
+            if skill == "guided_investigation"
+            else "knowledge"
+        ),
         "message": "Workflow plan created. No SPL/MCP/RAG execution has started.",
     }
 
@@ -102,6 +109,7 @@ def plan_workflow(
         step_count=len(steps),
         query_preview=query[:160],
         execution_enabled=False,
+        plan_role=workflow_plan["plan_role"],
     )
     return workflow_plan
 

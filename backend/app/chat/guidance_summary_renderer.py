@@ -47,6 +47,24 @@ def apply_guidance_summary_render(
     """Pull evidence-plan checklist/workflow into the card summary for guidance paths."""
     if not is_guidance_summary_path(path_type) or analyst_response is None:
         return analyst_response, message
+    if isinstance(evidence_plan, dict) and "read_source_required_but_unavailable" in (
+        evidence_plan.get("reasons") or []
+    ):
+        unavailable = str(message or "").strip()
+        if unavailable:
+            return (
+                analyst_response.model_copy(
+                    update={
+                        "direct_answer_summary": unavailable[:2000],
+                        "one_sentence_finding": unavailable[:500],
+                        "review_notice": (
+                            "Live investigation requested; governed read source unavailable."
+                        ),
+                    }
+                ),
+                unavailable,
+            )
+        return analyst_response, message
     if str(getattr(analyst_response, "response_profile", "") or "") == "spl_only":
         return analyst_response, message
 

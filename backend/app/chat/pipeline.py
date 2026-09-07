@@ -3369,19 +3369,29 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
     trace_id = state["trace_id"]
     planning = state.get("planning_decision")
     guided = isinstance(planning, dict) and planning.get("path_type") == "guided_investigation"
-    selected_skill = "guided_investigation" if guided else "knowledge_recall"
+    effective_skill = _effective_routing_skill(state)
+    live_skills = {"attack_discovery", "spl_generation", "alert_summary"}
+    if effective_skill in live_skills:
+        # Catalogue live investigation must not be replaced by the guided
+        # review-only / no_live_query blueprint merely because a later
+        # planning_decision path_type drifted to guided_investigation.
+        selected_skill = effective_skill
+        guided = False
+        tool_plan = list((state.get("routed") or {}).get("tool_plan") or [])
+    elif guided:
+        selected_skill = "guided_investigation"
+        tool_plan = (
+            ["retrieve_approved_knowledge", "optional_review_only_spl", "mcp_search"]
+            if settings.ai_soc_guided_composable_planning_enabled
+            else ["retrieve_approved_knowledge", "optional_review_only_spl", "no_mcp"]
+        )
+    else:
+        selected_skill = "knowledge_recall"
+        tool_plan = ["retrieve_approved_knowledge", "no_spl", "no_mcp"]
     rc = _routes_chat()
     workflow_plan = rc.plan_workflow(
         selected_skill=selected_skill,
-        tool_plan=(
-            (
-                ["retrieve_approved_knowledge", "optional_review_only_spl", "mcp_search"]
-                if settings.ai_soc_guided_composable_planning_enabled
-                else ["retrieve_approved_knowledge", "optional_review_only_spl", "no_mcp"]
-            )
-            if guided
-            else ["retrieve_approved_knowledge", "no_spl", "no_mcp"]
-        ),
+        tool_plan=tool_plan,
         query=request.message,
         trace_id=trace_id,
     )
@@ -5878,7 +5888,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         if isinstance(state.get("investigation_approval"), dict)
         else None
     )
-    if investigation_approval and investigation_approval.get("safe_message"):
+    if (
+        investigation_approval
+        and investigation_approval.get("safe_message")
+        and is_awaiting_investigation_approval(state)
+    ):
         message = str(investigation_approval["safe_message"])
     # Pre-approval packaging contract: plan + Approve/Edit/Cancel only. The
     # boundary itself is owned by awaiting_investigation_plan_gate so the initial
@@ -9821,6 +9835,24 @@ def _attach_spl_governance(
     return payload
 
 
+_LIVE_SOURCE_UNAVAILABLE_MESSAGE = (
+    "Live investigation was requested and approved. "
+    "A governed read source is required to answer, but that source is currently "
+    "unavailable or disabled. No telemetry was queried and no live evidence was "
+    "collected. Conclusion: insufficient evidence — the investigation is inconclusive. "
+    "Recommended next action: enable a governed read source or provide the relevant "
+    "logs; do not treat the reported events as confirmed compromise. "
+    "Remediation was not executed."
+)
+
+
+def _live_read_source_unavailable(evidence_plan: dict[str, Any] | None) -> bool:
+    if not isinstance(evidence_plan, dict):
+        return False
+    reasons = evidence_plan.get("reasons") or []
+    return "read_source_required_but_unavailable" in reasons
+
+
 def _chat_message(
     spl_validation: dict | None,
     execution: dict | None = None,
@@ -9856,6 +9888,8 @@ def _chat_message(
         candidate_plan = evidence_plan.get("resource_plan")
         if isinstance(candidate_plan, dict):
             resource_plan = candidate_plan
+    if _live_read_source_unavailable(evidence_plan):
+        return _LIVE_SOURCE_UNAVAILABLE_MESSAGE
     intent_family = ""
     primary_intent = ""
     if isinstance(intent_classification, dict):
@@ -10157,6 +10191,11 @@ def _chat_note(
     if not settings.soc_kb_retrieval_enabled:
         rag_note = "No RAG retrieval"
     if spl_validation is None:
+        if _live_read_source_unavailable(evidence_plan):
+            return (
+                "Live investigation requested, but the governed read source is unavailable or disabled. "
+                "No MCP execution was performed."
+            )
         path_type = planning_decision.get("path_type") if isinstance(planning_decision, dict) else None
         if path_type in {"spl_review", "spl_review_plus_rag", "hybrid_investigation"}:
             return (

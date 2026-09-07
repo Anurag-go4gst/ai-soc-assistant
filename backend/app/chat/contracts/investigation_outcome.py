@@ -106,7 +106,10 @@ def derive_investigation_outcome(
         if isinstance(fact, dict) and fact.get("statement") and fact.get("source_refs")
     ]
     missing = list(sufficiency.get("missing") or evidence.get("missing") or structured.get("missing_evidence") or [])
-    refs = list(gate.get("collected_evidence_refs") or structured.get("source_evidence_refs") or [])
+    if isinstance(gate, dict) and "collected_evidence_refs" in gate:
+        refs = list(gate.get("collected_evidence_refs") or [])
+    else:
+        refs = list(structured.get("source_evidence_refs") or [])
     recommended = [str(item) for item in capability.get("allowed_actions") or [] if str(item) not in BLOCKED_EXECUTION_ACTIONS]
     common: dict[str, Any] = {
         "disposition": disposition,

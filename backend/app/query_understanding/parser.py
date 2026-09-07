@@ -12,6 +12,7 @@ from app.query_understanding.soc_investigation_shape import (
 )
 from app.chat.answer_shape_router import classify_answer_shape
 from app.chat.query_signals import detect_security_log_aggregation_investigation_query
+from app.query_understanding.success_after_failure import detect_success_after_failure
 from app.query_understanding.time_window import normalize_time_window
 from app.use_cases.registry import load_use_case_catalog, match_use_cases
 from app.use_cases.routing_authority import catalog_authority_row, llm_advisory_recommended
@@ -301,11 +302,23 @@ def _event_types(query: str) -> list[str]:
         or "failed authentication" in normalized
         or "authentication failure" in normalized
         or "authentication failures" in normalized
-        or ("failed" in normalized and any(tok in normalized for tok in ("ssh", "login", "logon", "auth")))
+        or (
+            "failed" in normalized
+            and any(
+                tok in normalized
+                for tok in ("ssh", "login", "logon", "auth", "mfa", "sign-in", "sign in", "signin")
+            )
+        )
     )
+    if detect_success_after_failure(normalized):
+        auth_failure = True
     if auth_failure:
         types.append("authentication_failure")
-    if "success" in normalized or "successful login" in normalized:
+    if (
+        "success" in normalized
+        or "successful login" in normalized
+        or detect_success_after_failure(normalized)
+    ):
         types.append("authentication_success")
     if "lockout" in normalized or "locked" in normalized:
         types.append("account_lockout")

@@ -199,7 +199,7 @@ RACES_BASELINE_SHA = "27970ea4d10f0e894c8adb4214e18cd46e24b28e"
 # live-read vs remediation-write; EvidencePlan leg parity in composer; do not
 # pass write-prohibition flags into connector adapter context.
 RACES_APPROVED_PROTECTED_BLOB_SHA256 = {
-    "backend/app/chat/pipeline.py": "7eb3f9b052a91735d1b8daaf9abcfc423c8ef8f02133e7ba2a93881e3778f0f8",
+    "backend/app/chat/pipeline.py": "fa26fda736fbe2d942a1555cc2b7f4446b606ab75bcb92a2c0d1af20daee303f",
     "backend/app/planner/composer.py": "f8b953c88d59d110c8a0b063899f2d16944425b0693d0e2aa5e8340d2834e14b",
     "backend/app/schemas/responses.py": "e8dfaa87e0b1db1c0c6ceccb74fa66f95a7604c90cbd531eb6c52a30ff3a8d7c",
     # Post-P10 5.4/5.5: envelope_version AUTH0 + investigation-envelope hard-block.
