@@ -102,11 +102,65 @@ _COMPOUND_AUTH_HYPOTHESES = [
     "Telemetry cannot currently confirm the reported sequence; treat user-stated events as a hypothesis until SourceEvidence exists.",
 ]
 
-_ENDPOINT_NETWORK_HYPOTHESES = [
-    "The process execution, outbound connection, and child/download events are the same activity chain.",
-    "The events overlap in time but are independent operational activity.",
-    "Telemetry cannot currently confirm the relationship; treat correlation as a hypothesis until SourceEvidence exists.",
-]
+#: Human-readable label per composed evidence domain, used to state the compound
+#: hypothesis in the analyst's own terms. Domain-agnostic: adding a domain to
+#: ``multi_leg_evidence`` extends this without a new investigation branch.
+_DOMAIN_LABELS: dict[str, str] = {
+    "auth_failure": "authentication failure",
+    "auth_success": "authentication success",
+    "post_login_activity": "post-login account activity",
+    "endpoint_process": "process execution",
+    "firewall_network": "firewall / network session",
+    "dns": "DNS resolution",
+    "egress": "outbound transfer",
+    "phishing": "phishing email",
+    "vpn_auth": "VPN authentication",
+    "ot_jump_host": "OT jump-host session",
+    "relay_change": "relay/IED change",
+}
+
+
+def _domain_label(domain: str) -> str:
+    return _DOMAIN_LABELS.get(str(domain), str(domain).replace("_", " "))
+
+
+def _compound_hypotheses(domains: list[str]) -> list[str]:
+    """Same-chain / independent / unconfirmable, stated over the reported domains.
+
+    This is the generic form of a compound investigation hypothesis set. It is
+    not a per-scenario template: the domains come from the analyst's own text via
+    ``compose_multi_leg_evidence``.
+    """
+    labels = [_domain_label(domain) for domain in dict.fromkeys(domains)]
+    if len(labels) >= 2:
+        subject = ", ".join(labels[:-1]) + f" and {labels[-1]}"
+    else:
+        subject = labels[0] if labels else "the reported"
+    return [
+        f"The {subject} events are the same activity chain.",
+        f"The {subject} events overlap in time but are independent operational activity.",
+        "Telemetry cannot currently confirm the relationship; treat correlation as a "
+        "hypothesis until SourceEvidence exists.",
+    ]
+
+
+def _correlation_requirement(composition: dict[str, Any] | None) -> list[str]:
+    """State the join that turns separate legs into one chain — or nothing.
+
+    The relationship between the reported events is the question the analyst
+    asked; dropping it reduces a correlation investigation to parallel searches.
+    """
+    correlation = (composition or {}).get("correlation")
+    if not isinstance(correlation, dict):
+        return []
+    join_key = str(correlation.get("join_key") or "").strip()
+    window = str(correlation.get("window") or "").strip()
+    if not join_key or not window:
+        return []
+    return [
+        f"Correlate the collected legs on {join_key} within {window}, normalizing "
+        "identity and time first; temporal correlation is not proof of causation."
+    ]
 
 #: Evidence requirement added when the resolved entities describe an
 #: authentication *sequence* (failed attempts followed by a success), regardless
@@ -248,15 +302,21 @@ def build_deterministic_investigation_plan(
     compound_auth = detect_success_after_failure(stable_query) or _is_authentication_sequence(
         stable_entities
     )
-    endpoint_network = {"endpoint_process", "firewall_network"} <= set(composition_domains)
+    # A compound investigation is defined by the number of reported evidence
+    # domains, not by which domains they are. The authentication sequence keeps
+    # its named contract (failure -> success -> post-login is a required chain,
+    # not merely two observed legs); every other multi-domain ask is built the
+    # same generic way instead of needing its own branch.
+    distinct_domains = list(dict.fromkeys(composition_domains))
+    compound_multi_domain = len(distinct_domains) >= 2
     if compound_auth:
         hypotheses = list(_COMPOUND_AUTH_HYPOTHESES)
         evidence_needed = evidence_for_domains(
             ["auth_failure", "auth_success", "post_login_activity"]
         )
-    elif endpoint_network:
-        hypotheses = list(_ENDPOINT_NETWORK_HYPOTHESES)
-        evidence_needed = evidence_for_domains(composition_domains)
+    elif compound_multi_domain:
+        hypotheses = _compound_hypotheses(distinct_domains)
+        evidence_needed = evidence_for_domains(distinct_domains)
     else:
         guidance = build_guided_investigation_guidance(stable_query, stable_entities)
         hypotheses, evidence_needed = _parse_guidance_lists(guidance)
@@ -264,6 +324,10 @@ def build_deterministic_investigation_plan(
             evidence_needed = list(
                 dict.fromkeys([*evidence_for_domains(composition_domains), *evidence_needed])
             )
+    if compound_auth or compound_multi_domain:
+        evidence_needed = list(
+            dict.fromkeys([*evidence_needed, *_correlation_requirement(composition)])
+        )
     signal_class = classify_signal_class(stable_query, stable_entities)
     grounding = build_guided_hunt_grounding(
         query=stable_query,
@@ -301,8 +365,8 @@ def build_deterministic_investigation_plan(
         )
     if compound_auth:
         data_categories = ["auth", "identity", "endpoint"]
-    elif composition_domains:
-        data_categories = categories_for_domains(composition_domains) or _data_categories(
+    elif distinct_domains:
+        data_categories = categories_for_domains(distinct_domains) or _data_categories(
             signal_class=signal_class,
             detection_families=detection_families,
         )
@@ -316,7 +380,7 @@ def build_deterministic_investigation_plan(
         investigation_objective=_objective_from_query(
             stable_query,
             signal_class,
-            live_investigation=live_investigation or compound_auth or endpoint_network,
+            live_investigation=live_investigation or compound_auth or compound_multi_domain,
             composition_domains=composition_domains,
         ),
         hypotheses=hypotheses,

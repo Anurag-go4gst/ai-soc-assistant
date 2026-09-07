@@ -3364,6 +3364,19 @@ def _apply_effective_hil_to_state(
             )
     return updated
 
+def _read_source_required_from_state(state: ChatPipelineState) -> bool:
+    """Did the committed evidence plan require a governed read source this turn?
+
+    Read from the evidence plan rather than the skill name so the answer stays
+    honest for every owner: needing MCP/SPL and not getting it is an availability
+    outcome, never "the skill did not need it".
+    """
+    plan = state.get("evidence_plan")
+    if not isinstance(plan, dict):
+        return False
+    return bool(plan.get("needs_mcp") or plan.get("needs_spl"))
+
+
 def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
     request = state["request"]
     trace_id = state["trace_id"]
@@ -3423,6 +3436,7 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
         requested_mcp_server=request.requested_mcp_server,
         requested_mcp_tool=request.requested_mcp_tool,
         mcp_allowed=False,
+        read_source_required=_read_source_required_from_state(state),
     )
     emit_mcp_status_from_execution(execution)
     prepared = {
@@ -6613,6 +6627,9 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
         requested_mcp_server=request.requested_mcp_server,
         requested_mcp_tool=request.requested_mcp_tool,
         mcp_allowed=False,
+        read_source_required=bool(
+            (evidence_payload or {}).get("needs_mcp") or (evidence_payload or {}).get("needs_spl")
+        ),
     )
     emit_mcp_status_from_execution(execution)
     trace = {
@@ -10245,8 +10262,14 @@ def _execution_stage(
     mcp_capability: str | None = None,
     approved_investigation_envelope: dict[str, Any] | None = None,
     require_approved_investigation_envelope: bool = False,
+    read_source_required: bool = False,
 ) -> tuple[dict, dict]:
     if spl_validation is None:
+        # "Not required for this skill" and "required by the plan but never
+        # produced" are different states. Collapsing them told the analyst a
+        # governed read source was unnecessary when the approved plan needed it
+        # and it was merely unavailable (architecture: required != available).
+        required_but_absent = bool(read_source_required)
         return (
             {
                 "status": "skipped",
@@ -10254,12 +10277,23 @@ def _execution_stage(
                 "selected_mcp_server": None,
                 "selected_mcp_tool": None,
                 "tool_selection_status": "unavailable",
-                "tool_selection_reason": "spl_not_required_for_skill",
+                "tool_selection_reason": (
+                    "read_source_required_but_unavailable"
+                    if required_but_absent
+                    else "spl_not_required_for_skill"
+                ),
                 "executed_spl": None,
                 "result_count": 0,
                 "results_preview": [],
-                "block_reason": None,
+                "block_reason": (
+                    "read_source_required_but_unavailable" if required_but_absent else None
+                ),
                 "duration_ms": 0,
+                **(
+                    {"evidence_source": "unavailable", "execution_status_label": "not_executed"}
+                    if required_but_absent
+                    else {}
+                ),
             },
             no_human_review(),
         )

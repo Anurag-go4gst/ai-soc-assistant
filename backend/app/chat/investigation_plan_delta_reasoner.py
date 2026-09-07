@@ -86,7 +86,11 @@ def propose_plan_delta(
             "role": "plan_delta_reasoner",
             "provider": invocation.answered_label,
             "authority": "advisory",
-            "attempted": bool(raw or invocation.timed_out or invocation.failure_kind),
+            # The hop WAS attempted: control reached the sidecar invocation.
+            # Deriving this from the output conflated "no call" with "call that
+            # returned nothing", and hid a real LLM hop from turn accounting.
+            "attempted": True,
+            "empty_output": not raw,
             "timed_out": invocation.timed_out,
             "failure_kind": invocation.failure_kind,
         }

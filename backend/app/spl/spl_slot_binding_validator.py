@@ -105,9 +105,17 @@ _RULE_APP_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _./:-]{0,127}$")
 _FIELD_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$")
 _COUNTRY_PATTERN = re.compile(r"^[A-Za-z]{2,3}$")
 _TIME_TOKEN_PATTERN = re.compile(r"^(?:earliest|latest)=", re.IGNORECASE)
-_RELATIVE_TIME_PATTERN = re.compile(r"^-\d+[smhdw]$", re.IGNORECASE)
+#: Splunk snap-to-time suffix ("@d", "@w1", "@mon"). A snapped offset is still a
+#: BOUNDED expression, and it is what ``query_understanding.time_window`` emits
+#: for "today" / "yesterday". Rejecting it here declared the parser's own
+#: canonical window "unbounded" and collapsed template rendering for every such
+#: query. Unbounded forms ("all", "earliest=0", no bound) stay rejected.
+_SNAP_SUFFIX = r"(?:@(?:s|m|h|d|w[0-7]?|mon|q|y))?"
+_RELATIVE_OFFSET = rf"-\d+[smhdw]{_SNAP_SUFFIX}"
+_RELATIVE_TIME_PATTERN = re.compile(rf"^{_RELATIVE_OFFSET}$", re.IGNORECASE)
 _EARLIEST_LATEST_PAIR = re.compile(
-    r"^earliest=-\d+[smhdw]\s+latest=(?:now|-\d+[smhdw])$",
+    rf"^earliest=(?:{_RELATIVE_OFFSET}|@(?:s|m|h|d|w[0-7]?|mon|q|y))"
+    rf"\s+latest=(?:now|{_RELATIVE_OFFSET}|@(?:s|m|h|d|w[0-7]?|mon|q|y))$",
     re.IGNORECASE,
 )
 

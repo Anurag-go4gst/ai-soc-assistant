@@ -594,7 +594,20 @@ def classify_intent(
             and signals.get("live_data_request")
             and not signals.get("review_only_spl")
         )
-        if signals.get("success_after_failure") and live_read_investigation:
+        # A compound investigation is defined by SHAPE, not by domain: the analyst
+        # described events in two or more evidence domains and is asking whether
+        # they are one chain. Authentication success-after-failure is one member
+        # of that class, not its definition — restricting the live-investigation
+        # arm to it silently rewrote every non-auth compound investigation
+        # (DNS + firewall, endpoint + egress, ...) into "user requested SPL
+        # generation", dropping the correlation ask and the investigation
+        # lifecycle with it. This grants no capability, SPL or MCP; it only keeps
+        # the request's shape intact for the Final RQC.
+        compound_investigation = bool(
+            signals.get("success_after_failure")
+            or signals.get("compound_multi_domain_investigation")
+        )
+        if compound_investigation and live_read_investigation:
             return _build_classification(
                 intent_family="live_investigation",
                 primary_intent="attack_discovery",
@@ -602,7 +615,7 @@ def classify_intent(
                 answer_goal=["live_results"],
                 confidence=0.86,
                 requires_clarification=False,
-                reason="Compound success-after-failure hunt requested as a live investigation.",
+                reason="Compound multi-domain hunt requested as a live investigation.",
                 requested_output_type="INVESTIGATION",
             )
         if signals.get("success_after_failure"):
@@ -972,6 +985,31 @@ def classify_intent(
             return _build_alert_summary_classification(
                 reason="Maps to a catalog use case with summary-output intent; alert-summary path (no SPL).",
                 confidence=0.8,
+            )
+        # Same shape rule as the out-of-catalogue arm above: a compound
+        # multi-domain ask ("are these two signals the same chain?") is an
+        # investigation that MAY use SPL, not a request for an SPL artifact.
+        # Without this, a catalogue row that happens to cover ONE of the legs
+        # (e.g. dns_beaconing_candidate) collapses the whole correlation ask into
+        # that single template — architecture 2.4 / invariant 39: do not reroute
+        # an investigation to spl_generation to obtain its capabilities.
+        if (
+            signals.get("success_after_failure")
+            or signals.get("compound_multi_domain_investigation")
+        ) and not knowledge_shaped:
+            return _build_classification(
+                intent_family="live_investigation",
+                primary_intent="attack_discovery",
+                query_type="ask_for_live_results",
+                answer_goal=["live_results"],
+                confidence=0.8,
+                requires_clarification=False,
+                action_mode="recommend_only",
+                reason=(
+                    "Maps to a catalog use case but the ask spans multiple evidence "
+                    "domains; keep the compound investigation shape (execution disabled)."
+                ),
+                requested_output_type="INVESTIGATION",
             )
         if skill_hint == "attack_discovery":
             return _build_classification(

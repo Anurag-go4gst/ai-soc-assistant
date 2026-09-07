@@ -51,9 +51,11 @@ _DOMAIN_EVIDENCE: dict[str, str] = {
         "Endpoint/process execution telemetry for the reported host, including parent/child process and command line where available."
     ),
     "firewall_network": (
-        "Network session telemetry correlated to the same host/user/time window as the process or authentication events."
+        "Firewall / network session telemetry for the same host and time window, correlated with the other reported signals."
     ),
-    "dns": "DNS query telemetry for the same host/time window, only if a prior evidence step justifies a name/reputation pivot.",
+    "dns": (
+        "DNS query telemetry for the same host and time window: resolved names, answers, query frequency and periodicity."
+    ),
     "egress": "Outbound transfer volume and destinations for the same host/user after the correlated events.",
 }
 
@@ -67,6 +69,99 @@ _DOMAIN_CATEGORIES: dict[str, tuple[str, ...]] = {
     "egress": ("egress_flows",),
     "vpn_auth": ("auth", "identity"),
 }
+
+
+#: Surface markers that identify which evidence DOMAIN a plan item is about.
+#: Symmetric by design: the repo already refused network/OT pivots on an
+#: authentication investigation, but nothing refused authentication pivots on a
+#: network investigation, so a case-blind proposal could add an auth checklist to
+#: a DNS/firewall hunt. Markers are domain vocabulary, not per-query keywords.
+_DOMAIN_MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "auth",
+        (
+            "authentication",
+            "auth event",
+            "login",
+            "logon",
+            "sign-in",
+            "sign in",
+            "credential",
+            "mfa",
+            "password",
+            "lockout",
+        ),
+    ),
+    ("identity", ("identity provider", "directory account", "privileged account")),
+    (
+        "endpoint",
+        ("endpoint", "process execution", "parent process", "child process", "powershell", "edr"),
+    ),
+    ("dns", ("dns", "resolved name", "domain resolution")),
+    (
+        "firewall_sessions",
+        ("firewall", "network session", "session log", "denied connection", "rule name"),
+    ),
+    ("network_flows", ("network flow", "netflow", "traffic volume", "peer flow")),
+    ("egress_flows", ("exfiltration", "outbound transfer", "bytes_out", "data egress")),
+    ("email", ("phishing", "email message", "mail gateway")),
+)
+
+#: Categories that never identify a domain on their own.
+_NEUTRAL_CATEGORIES = frozenset({"asset_context", "change_records"})
+
+
+def _domains_in_text(text: str) -> set[str]:
+    lowered = " ".join((text or "").lower().split())
+    return {
+        domain
+        for domain, markers in _DOMAIN_MARKERS
+        if any(marker in lowered for marker in markers)
+    }
+
+
+def plan_domain_scope(data_categories: list[str] | tuple[str, ...]) -> set[str]:
+    """Domains the committed plan is actually about, from its data categories."""
+    scope = {
+        str(item).strip().lower()
+        for item in data_categories
+        if str(item).strip().lower() not in _NEUTRAL_CATEGORIES
+    }
+    # ``auth``/``identity`` and ``network_flows``/``firewall_sessions`` are
+    # neighbours: an item about one must not be dropped because the plan named
+    # the other.
+    if scope & {"auth", "identity"}:
+        scope |= {"auth", "identity"}
+    if scope & {"network_flows", "firewall_sessions"}:
+        scope |= {"network_flows", "firewall_sessions"}
+    if scope & {"endpoint", "process_execution"}:
+        scope |= {"endpoint", "process_execution"}
+    return scope
+
+
+def unjustified_domain_pivots(
+    items: list[str],
+    *,
+    plan_domains: set[str],
+) -> tuple[list[str], list[str]]:
+    """Split proposal items into (kept, dropped-as-off-domain).
+
+    An item that names no domain is kept: generic corroboration steps are not
+    pivots. An item is dropped only when every domain it names sits outside the
+    committed plan's scope — that is a *new primary* pivot the investigation has
+    no justification for yet, not a refinement of one it already owns.
+    """
+    if not plan_domains:
+        return list(items), []
+    kept: list[str] = []
+    dropped: list[str] = []
+    for item in items:
+        domains = _domains_in_text(item)
+        if domains and not (domains & plan_domains):
+            dropped.append(item)
+            continue
+        kept.append(item)
+    return kept, dropped
 
 
 def plan_text_blob(plan: Any) -> str:

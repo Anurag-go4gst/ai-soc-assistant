@@ -157,8 +157,17 @@ class TurnLlmBudget:
         reserve_seconds: float | None = None,
         token_usage: dict[str, Any] | None = None,
         cancelled: bool | None = None,
+        counts_against_quota: bool = True,
     ) -> None:
-        self.sidecar_calls += 1
+        """Record one sidecar hop.
+
+        ``counts_against_quota=False`` records a first-class investigation hop
+        (planner / PlanDelta) for accounting and tracing without consuming the
+        *optional* advisory quota those hops were never gated by. The hop is still
+        bounded by the turn deadline.
+        """
+        if counts_against_quota:
+            self.sidecar_calls += 1
         self.records.append(
             self._record_entry(
                 kind="sidecar",

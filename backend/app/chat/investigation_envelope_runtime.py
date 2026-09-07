@@ -455,6 +455,46 @@ def _advance_review(
     return run_in_canonical_unit_of_work(_txn)
 
 
+def _resume_query_to_intent(
+    state: dict[str, Any],
+    *,
+    record: CanonicalHandoffRecord,
+    canonical: dict[str, Any],
+    routed: dict[str, Any],
+    intent: dict[str, Any],
+) -> dict[str, Any]:
+    """Rebuild the query_to_intent contract for an investigation-review turn.
+
+    Reuses the clarification-resume reconstruction rather than adding a second
+    resume mechanism; the envelope's own ``intent_classification`` always wins so
+    the approval's HIL semantics survive.
+    """
+    from app.chat.canonical_query_to_intent_resume import (
+        reconstruct_query_to_intent_for_resume,
+    )
+    from app.chat.intent_classifier import build_query_to_intent
+
+    request = state.get("request")
+    query = str(state.get("effective_query") or getattr(request, "message", "") or "")
+    query_understanding = state.get("query_understanding")
+    payload = reconstruct_query_to_intent_for_resume(
+        resumed_record=record,
+        merged_canonical=canonical,
+        query=query,
+        query_understanding=query_understanding,
+        routed=routed,
+    )
+    if payload is None:
+        payload = build_query_to_intent(
+            query=query,
+            query_understanding=query_understanding,
+        ).model_dump()
+    payload = dict(payload)
+    payload["intent_classification"] = intent
+    payload["investigation_review_resume"] = True
+    return payload
+
+
 def maybe_handle_investigation_review(state: dict[str, Any]) -> dict[str, Any] | None:
     """Handle an explicitly version-bound investigation decision before replanning."""
     if not settings.ai_soc_investigation_plan_before_resource_plan_enabled:
@@ -498,10 +538,23 @@ def maybe_handle_investigation_review(state: dict[str, Any]) -> dict[str, Any] |
         }
     intent["requires_clarification"] = approval.status == "replanning_required"
     intent["requires_hil"] = True
+    # This handler short-circuits the planning node, so it owns every contract
+    # that node would otherwise have produced. Without ``query_to_intent`` the
+    # downstream SPL/dispatch stage fails closed on `missing_query_to_intent`,
+    # the compiled ResourcePlan is discarded, and an approved investigation
+    # degrades into a RAG-only answer with no execution decision at all.
+    query_to_intent = _resume_query_to_intent(
+        state,
+        record=record,
+        canonical=canonical,
+        routed=routed,
+        intent=intent,
+    )
     outcome = awaiting_investigation_plan_outcome(canonical_input=canonical)
     next_state = {
         **state,
         "routed": routed,
+        "query_to_intent": query_to_intent,
         "intent_classification": intent,
         "resolved_query_contract": rqc,
         "canonical_planning_input": canonical,

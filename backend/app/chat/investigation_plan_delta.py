@@ -235,6 +235,13 @@ def validate_plan_delta(
     return PlanDeltaDecision(status="accepted", reason="bounded_read_only_delta_validated", validated_delta=validated)
 
 
+def _stopped_run_status(run_status: dict[str, Any], reason: str) -> dict[str, Any]:
+    """Record why the bounded revision stopped, so the trace matches the run."""
+    status = dict(run_status)
+    status.update({"next_action": "stop", "plan_delta_emitted": False, "stop_reason": reason})
+    return status
+
+
 def attach_plan_delta_decision(state: dict[str, Any]) -> dict[str, Any]:
     """Reason and validate one bounded revision; execution remains with the RP hub."""
     envelope_raw = state.get("approved_investigation_envelope")
@@ -256,27 +263,52 @@ def attach_plan_delta_decision(state: dict[str, Any]) -> dict[str, Any]:
         from app.chat.investigation_plan_delta_reasoner import propose_plan_delta
 
         revisions = [item for item in state.get("plan_delta_revisions") or [] if isinstance(item, dict)]
+        turn_budget = state.get("llm_turn_budget")
         result = propose_plan_delta(
             envelope=ApprovedInvestigationEnvelope.model_validate(envelope_raw),
             missing_evidence=missing,
             prior_revision_fingerprint=(
                 str(revisions[-1].get("revision_fingerprint") or "") if revisions else None
             ),
-            turn_budget=state.get("llm_turn_budget"),
+            turn_budget=turn_budget,
         )
         proposal_raw = result.proposal
         reasoning_trace = result.trace
+        # Same accounting rule as the investigation planner: a hop that really
+        # ran is counted, whether or not its proposal survived validation.
+        if reasoning_trace.get("attempted") and turn_budget is not None:
+            from app.chat.investigation_plan_delta_reasoner import PLAN_DELTA_ROLE
+
+            turn_budget.record_sidecar(
+                role=PLAN_DELTA_ROLE,
+                provider_label=reasoning_trace.get("provider"),
+                outcome="completed" if result.proposal is not None else "dropped",
+                counts_against_quota=False,
+            )
     else:
         reasoning_trace = {"role": "plan_delta_reasoner", "provider": "test_or_recorded", "authority": "advisory"}
     if not isinstance(proposal_raw, dict):
         decision = PlanDeltaDecision(status="reasoner_unavailable", reason="no_valid_plan_delta_proposal")
-        return {**state, "plan_delta_decision": decision.model_dump(mode="json"), "plan_delta_reasoning_trace": reasoning_trace}
+        return {
+            **state,
+            "plan_delta_decision": decision.model_dump(mode="json"),
+            "plan_delta_reasoning_trace": reasoning_trace,
+            # The reasoner DID run. Leaving the generic
+            # "missing_evidence_no_plan_delta_in_p5" stop reason in place would
+            # report the opposite of what happened.
+            "investigation_run_status": _stopped_run_status(run_status, decision.reason),
+        }
 
     try:
         proposal = PlanDeltaProposal.model_validate(proposal_raw)
     except Exception as exc:
         decision = PlanDeltaDecision(status="rejected", reason=f"proposal_schema_invalid:{type(exc).__name__}")
-        return {**state, "plan_delta_decision": decision.model_dump(mode="json"), "plan_delta_reasoning_trace": reasoning_trace}
+        return {
+            **state,
+            "plan_delta_decision": decision.model_dump(mode="json"),
+            "plan_delta_reasoning_trace": reasoning_trace,
+            "investigation_run_status": _stopped_run_status(run_status, decision.reason),
+        }
     revisions = [item for item in state.get("plan_delta_revisions") or [] if isinstance(item, dict)]
     decision = validate_plan_delta(
         proposal,
@@ -291,8 +323,7 @@ def attach_plan_delta_decision(state: dict[str, Any]) -> dict[str, Any]:
         "plan_delta_reasoning_trace": reasoning_trace,
     }
     if decision.status != "accepted" or decision.validated_delta is None:
-        status = dict(run_status)
-        status.update({"next_action": "stop", "plan_delta_emitted": False, "stop_reason": decision.reason})
+        status = _stopped_run_status(run_status, decision.reason)
         if decision.status == "remediation_recommended":
             updated["remediation_recommendation"] = decision.remediation_recommendation
         updated["investigation_run_status"] = status

@@ -13,6 +13,7 @@ from app.query_understanding.soc_investigation_shape import (
     detect_investigation_hypothesis_guidance,
     detect_soc_investigation_shape,
 )
+from app.chat.multi_leg_evidence import compose_multi_leg_evidence
 from app.query_understanding.success_after_failure import detect_success_after_failure
 from app.spl.runtime_source_profiles import resolve_runtime_profile_for_query
 
@@ -1340,6 +1341,17 @@ def extract_query_signals(
         and not cve_focus_investigation
     )
 
+    # Compound multi-domain investigation: the analyst described events in two or
+    # more distinct evidence domains and is asking whether they are one chain.
+    # Domain-agnostic on purpose — auth "success after failure" is one member of
+    # this class, not its definition. Reuses the existing generic leg composer
+    # rather than adding a second domain vocabulary. Planning metadata only: it
+    # grants no capability, no SPL and no MCP.
+    _composition = compose_multi_leg_evidence(query)
+    compound_multi_domain_investigation = bool(
+        len({leg["domain"] for leg in (_composition or {}).get("evidence_legs", [])}) >= 2
+    )
+
     # Investigation OBJECTIVE, distinct from soc_actionable_hunt on purpose.
     # It is NOT a disjunct of soc_detection_intent or live_data_request: that
     # shared-signal coupling is what made widening _DETECTION_VERB_RE regress
@@ -1448,6 +1460,7 @@ def extract_query_signals(
         "guidance_request": guidance_request,
         "soc_actionable_hunt": soc_actionable_hunt,
         "posture_determination": posture_determination,
+        "compound_multi_domain_investigation": compound_multi_domain_investigation,
         "soc_detection_intent": soc_detection_intent,
         "sop_or_playbook_shaped": bool(playbook_procedure or sop_show_request),
         "explicit_spl_authoring": explicit_spl_authoring,

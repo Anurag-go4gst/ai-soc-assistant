@@ -53,7 +53,11 @@ def compose_multi_leg_evidence(query: str) -> dict[str, Any] | None:
         join_key = "user,host"
         window = "24h"
     else:
-        join_key = "user"
+        # Derive the join from what the legs are actually keyed on rather than
+        # assuming an identity-centric investigation. A DNS + firewall pair is
+        # host/address-scoped; asserting "user" there would tell the analyst to
+        # correlate on a field neither leg carries.
+        join_key = _shared_entity_key(legs) or "user"
         window = "8h"
     return {
         "evidence_legs": legs,
@@ -80,6 +84,33 @@ def render_multi_leg_guidance(composition: dict[str, Any] | None) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def _shared_entity_key(legs: list[dict[str, Any]]) -> str:
+    """Fields every leg actually collects, in first-leg order ("src_ip").
+
+    Uses the per-leg field lists rather than the coarse ``entity`` label: two legs
+    may both be "user/host" scoped while collecting different host fields, and a
+    join key naming a field one leg never returns is worse than no key at all.
+    ``_time`` is the correlation window, not a join key.
+    """
+    if not legs:
+        return ""
+    field_sets = [
+        {str(field) for field in (leg.get("fields") or []) if str(field) != "_time"}
+        for leg in legs
+    ]
+    if not field_sets or any(not item for item in field_sets):
+        return ""
+    shared = set.intersection(*field_sets)
+    if not shared:
+        return ""
+    ordered = [
+        str(field)
+        for field in (legs[0].get("fields") or [])
+        if str(field) in shared and str(field) != "_time"
+    ]
+    return ",".join(ordered)
 
 
 def _entity_for(domain: str) -> str:

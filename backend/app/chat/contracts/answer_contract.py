@@ -257,7 +257,11 @@ def build_answer_contract(
     unsupported = _dedupe([str(item) for item in plan.get("unsupported_claims_avoid") or [] if item])
     assumptions = _safe_display_list((candidate_spl or {}).get("assumptions") or [])
     answer_rules = _safe_display_list(plan.get("answer_rules") or [])
-    spl_status = _spl_status(spl_validation, spl_allowed=bool(plan.get("spl_allowed")))
+    spl_status = _spl_status(
+        spl_validation,
+        spl_allowed=bool(plan.get("spl_allowed")),
+        spl_required=bool(plan.get("needs_spl")),
+    )
     spl_status_detail = _spl_status_detail(spl_validation, candidate_spl)
     hil_status = _hil_status(review, plan, missing)
     success_after_failure = _success_after_failure_context(
@@ -496,11 +500,22 @@ def _dedupe(values: list[str]) -> list[str]:
     return deduped
 
 
-def _spl_status(spl_validation: dict[str, Any] | None, *, spl_allowed: bool = True) -> SplStatus:
+def _spl_status(
+    spl_validation: dict[str, Any] | None,
+    *,
+    spl_allowed: bool = True,
+    spl_required: bool = False,
+) -> SplStatus:
+    """`not_required` means the answer does not need SPL — not that SPL is missing.
+
+    When the evidence plan says SPL *is* needed but none was produced or allowed,
+    the honest status is ``blocked``. Reporting `not_required` there tells the
+    analyst the investigation did not need a search it actually did need.
+    """
     if not spl_allowed:
-        return "not_required"
+        return "blocked" if spl_required else "not_required"
     if not isinstance(spl_validation, dict):
-        return "not_required"
+        return "blocked" if spl_required else "not_required"
     if spl_validation.get("approved") and spl_validation.get("normalized_spl"):
         return "ready_for_review"
     if spl_validation.get("review_required"):

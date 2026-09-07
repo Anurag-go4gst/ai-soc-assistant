@@ -167,6 +167,10 @@ def build_approved_investigation_evidence_plan(
     return evidence, search_capabilities
 
 
+#: Step purposes that the execution/MCP gate can actually block.
+_EXECUTION_PURPOSES = frozenset({"mcp_execution", "spl_execution", "live_search"})
+
+
 def attach_investigation_observation(state: dict[str, Any]) -> dict[str, Any]:
     """Project operational progress and an honest P5 stop/sufficient verdict."""
     if not isinstance(state.get("approved_investigation_envelope"), dict):
@@ -198,7 +202,17 @@ def attach_investigation_observation(state: dict[str, Any]) -> dict[str, Any]:
             else "No matching governed evidence was found for this step."
         )
         if status not in {"executed", "fallback_taken", "completed"}:
+            # Per-step evidence attribution is an architecture extension, so a
+            # step that did not execute claims none of the turn's evidence rather
+            # than borrowing the whole list.
             summary = "No governed evidence was produced by this step."
+            evidence_refs = []
+        # A step reports its OWN failure. The execution block reason belongs to
+        # the execution/MCP hop; attributing it to the RAG and SPL steps told the
+        # analyst that knowledge retrieval failed because MCP was disabled.
+        failure = str(step.get("status_reason") or "") or None
+        if failure is None and purpose in _EXECUTION_PURPOSES:
+            failure = str(execution.get("block_reason") or "") or None
         progress.append(
             {
                 "step_id": str(step.get("step_id") or ""),
@@ -207,7 +221,7 @@ def attach_investigation_observation(state: dict[str, Any]) -> dict[str, Any]:
                 "source": str(step.get("resource_id") or ""),
                 "evidence_summary": summary,
                 "evidence_refs": evidence_refs,
-                "failure": str(step.get("status_reason") or execution.get("block_reason") or "") or None,
+                "failure": failure,
             }
         )
 
