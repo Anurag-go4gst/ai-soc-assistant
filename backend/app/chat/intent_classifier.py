@@ -428,6 +428,23 @@ def classify_intent(
 
     if (
         str(candidate_mappings.get("match_path") or "") == "out_of_registry"
+        and detect_investigation_request(query)
+        and signals.get("soc_actionable_hunt")
+        and not signals.get("block_or_contain")
+        and not signals.get("explicit_run_spl")
+        and not signals.get("run_execution")
+        and not signals.get("explicit_spl_authoring")
+    ):
+        return _build_guided_investigation_classification(
+            reason=(
+                "Out-of-registry SOC investigation request preserves its investigation "
+                "shape before generic live-data SPL routing."
+            ),
+            confidence=0.72,
+        )
+
+    if (
+        str(candidate_mappings.get("match_path") or "") == "out_of_registry"
         and signals.get("live_data_request")
         and not signals.get("guidance_request")
         and not signals.get("block_or_contain")

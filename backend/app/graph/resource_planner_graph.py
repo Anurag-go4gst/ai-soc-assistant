@@ -34,9 +34,11 @@ from app.chat.pipeline import (
     graph_node_shadow_tail,
     graph_node_spl_source_resolve,
     graph_node_workflow_spl,
+    _workflow_spl_from_plan_delta,
 )
 from app.chat.session_context import resolve_session_context
 from app.config import settings
+from app.evidence.source_evidence import admit_execution_source_evidence
 from app.chat.progress_context import bind_progress_reporter, emit_stage, reset_progress_reporter
 from app.chat.progress_events import ProgressReporter
 from app.synthesis.turn_timing import benchmark_run_kind_override, synthesis_turn_timing_scope
@@ -562,6 +564,9 @@ def rp_node_composed_dispatch(state: ResourcePlannerGraphState) -> ResourcePlann
     state = _apply_work_bundle_to_workers(state)
     if isinstance(state.get("approved_investigation_envelope"), dict):
         state = graph_node_ensure_workflow_plan(state)
+    delta_state = _workflow_spl_from_plan_delta(state)
+    if delta_state is not None:
+        state = delta_state
     state = graph_node_composed_dispatch(state)
     state = _with_trace(state, "composed_dispatch")
     return _record(
@@ -641,6 +646,7 @@ def rp_node_context_sufficiency(state: ResourcePlannerGraphState) -> ResourcePla
     from app.evidence.evidence_sufficiency import attach_evidence_sufficiency
     from app.chat.investigation_run_compiler import attach_investigation_observation
 
+    state = admit_execution_source_evidence(state)
     state = observe_plan_delta_execution(state)
     state = attach_evidence_sufficiency(state)
     state = attach_investigation_observation(state)
@@ -689,6 +695,7 @@ def rp_node_plan_delta_reasoner(state: ResourcePlannerGraphState) -> ResourcePla
             "approved_investigation_envelope",
             "capability_snapshot",
             "evidence_state",
+            "source_evidence",
             "investigation_run_status",
             "plan_delta_revisions",
         ],

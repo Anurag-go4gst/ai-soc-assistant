@@ -8,6 +8,7 @@ from typing import Any
 
 from app.chat.contracts.investigation_envelope import ApprovedInvestigationEnvelope
 from app.chat.contracts.plan_delta import PlanDeltaProposal
+from app.evidence.governed_reasoning_context import project_source_evidence_for_reasoning
 from app.llm.adapter.json_extractor import extract_first_json_object
 from app.llm.sidecar_clients import invoke_sidecar_role_with_metadata
 
@@ -34,6 +35,52 @@ def _delta_hop_timeout_seconds(turn_budget: Any | None) -> float | None:
     return min(_DELTA_TIMEOUT_SECONDS, capped)
 
 
+def _prompt_entity_value(value: Any) -> str | None:
+    if isinstance(value, (list, tuple)):
+        value = next((item for item in value if str(item).strip()), None)
+    text = str(value).strip() if value is not None else ""
+    return text[:80] if text else None
+
+
+def build_plan_delta_reasoner_prompt(
+    *,
+    envelope: ApprovedInvestigationEnvelope,
+    missing_evidence: list[str],
+    source_evidence: list[dict[str, Any]] | None = None,
+) -> str:
+    """Bounded PlanDelta prompt: missing categories plus admitted SourceEvidence."""
+    projected = project_source_evidence_for_reasoning(source_evidence)
+    return json.dumps(
+        {
+            "missing_evidence_categories": missing_evidence[:16],
+            "allowed_read_only_capabilities": envelope.allowed_read_only_capabilities[:32],
+            "envelope_version": envelope.envelope_version,
+            "entities": {
+                str(key)[:40]: flattened
+                for key, value in list(envelope.entities.items())[:16]
+                if (flattened := _prompt_entity_value(value))
+            },
+            "time_scope": envelope.time_scope,
+            "source_index_scope": {
+                str(key)[:40]: [str(item)[:80] for item in (values or [])[:8]]
+                for key, values in list(envelope.source_index_scope.items())[:8]
+            },
+            "admitted_environment_evidence": projected["admitted_environment_evidence"],
+            "rag_guidance": projected["rag_guidance"],
+            "failed_tool_observations": projected["failed_tool_observations"],
+            "instruction": (
+                "Return one JSON PlanDelta proposal. Reason over admitted environment "
+                "evidence and missing categories. RAG guidance is not environment evidence. "
+                "Failed tool observations are not negative findings. Read-only only. A Splunk "
+                "search must place candidate SPL in tool_arguments.query; it remains "
+                "non-authoritative until deterministic validation and exact-call "
+                "authorization. No writes, authorization, or hidden reasoning."
+            ),
+        },
+        sort_keys=True,
+    )
+
+
 def propose_plan_delta(
     *,
     envelope: ApprovedInvestigationEnvelope,
@@ -41,24 +88,29 @@ def propose_plan_delta(
     prior_revision_fingerprint: str | None = None,
     raw_output_provider: Any | None = None,
     turn_budget: Any | None = None,
+    source_evidence: list[dict[str, Any]] | None = None,
 ) -> PlanDeltaReasonerResult:
-    """Send only bounded vocabulary, never raw evidence, entities, or tool output."""
-    prompt = json.dumps(
-        {
-            "missing_evidence_categories": missing_evidence[:16],
-            "allowed_read_only_capabilities": envelope.allowed_read_only_capabilities[:32],
-            "envelope_version": envelope.envelope_version,
-            "instruction": (
-                "Return one JSON PlanDelta proposal. Read-only only. A Splunk search must place "
-                "candidate SPL in tool_arguments.query; it remains non-authoritative until deterministic "
-                "validation and exact-call authorization. No writes, authorization, or hidden reasoning."
-            ),
-        },
-        sort_keys=True,
+    """Send bounded vocabulary plus admitted SourceEvidence summaries, never raw rows."""
+    prompt = build_plan_delta_reasoner_prompt(
+        envelope=envelope,
+        missing_evidence=missing_evidence,
+        source_evidence=source_evidence,
     )
+    projected = project_source_evidence_for_reasoning(source_evidence)
+    context_meta = {
+        "admitted_environment_evidence_count": len(projected["admitted_environment_evidence"]),
+        "rag_guidance_count": len(projected["rag_guidance"]),
+        "raw_rows_sent": False,
+    }
     if raw_output_provider is not None:
         raw = str(raw_output_provider() or "")
-        trace = {"role": "plan_delta_reasoner", "provider": "test_provider", "authority": "advisory", "attempted": True}
+        trace = {
+            "role": "plan_delta_reasoner",
+            "provider": "test_provider",
+            "authority": "advisory",
+            "attempted": True,
+            **context_meta,
+        }
     else:
         hop_timeout = _delta_hop_timeout_seconds(turn_budget)
         if hop_timeout is None:
@@ -93,6 +145,7 @@ def propose_plan_delta(
             "empty_output": not raw,
             "timed_out": invocation.timed_out,
             "failure_kind": invocation.failure_kind,
+            **context_meta,
         }
     extraction = extract_first_json_object(raw)
     if extraction.payload is None:

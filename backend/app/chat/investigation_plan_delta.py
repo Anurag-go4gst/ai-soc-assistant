@@ -271,6 +271,9 @@ def attach_plan_delta_decision(state: dict[str, Any]) -> dict[str, Any]:
                 str(revisions[-1].get("revision_fingerprint") or "") if revisions else None
             ),
             turn_budget=turn_budget,
+            source_evidence=[
+                item for item in (state.get("source_evidence") or []) if isinstance(item, dict)
+            ],
         )
         proposal_raw = result.proposal
         reasoning_trace = result.trace

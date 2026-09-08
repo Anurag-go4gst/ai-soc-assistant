@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.chat.contracts.canonical_planning_input import CatalogueTier
@@ -115,7 +116,35 @@ def _extract_requested_conditional_actions(query: str) -> list[RequestedConditio
 
     lifecycle = "PENDING_CONDITION" if predicate_id else "REQUESTED"
 
-    if any(tok in text for tok in ("remediat", "containment action", "prepare the remediation")):
+    knowledge_only = bool(
+        re.search(
+            r"^(?:explain\b|define\b|what\s+(?:is|does)\b|how\s+does\b)",
+            text,
+        )
+        or re.search(r"\b(?:mean|usually\s+include|definition)\b", text)
+    )
+    remediation_request = bool(
+        not knowledge_only
+        and (
+            re.search(
+                r"\b(?:prepare|propose|recommend|draft)\b[^.?!]{0,48}"
+                r"\b(?:remediat|containment)\w*\b",
+                text,
+            )
+            or re.search(
+                r"\bwhat\s+(?:containment|remediation)(?:\s+(?:step|action|measure))?s?\s+"
+                r"should\s+(?:we|i|the\s+analyst|the\s+team)\s+(?:take|use|apply|recommend)\b",
+                text,
+            )
+            or re.search(
+                r"\bhow\s+should\s+[^.?!]{0,48}\b(?:be\s+)?(?:contain(?:ed)?|remediat(?:ed)?)\b",
+                text,
+            )
+            or "containment action" in text
+        )
+    )
+
+    if remediation_request:
         actions.append(
             RequestedConditionalAction(
                 action_kind="remediation",
@@ -158,6 +187,29 @@ def _requested_outputs_from_actions(
         if action.action_kind == "email_draft" and "email_draft" not in outputs:
             outputs.append("email_draft")
     return outputs
+
+
+def _recommendation_requested(query: str) -> bool:
+    """Preserve an advisory speech act without treating it as write authority."""
+    text = " ".join((query or "").lower().split())
+    if re.search(r"^(?:explain|define|what\s+(?:is|does)|how\s+does)\b", text):
+        return False
+    return bool(
+        re.search(
+            r"\b(?:recommend|propose|suggest)\b[^.?!]{0,64}\b"
+            r"(?:response|action|step|containment|remediation)\b",
+            text,
+        )
+        or re.search(
+            r"\bwhat\s+should\s+(?:we|i|the\s+analyst|the\s+team)\s+do\s+next\b",
+            text,
+        )
+        or re.search(
+            r"\bwhat\s+(?:containment|remediation)(?:\s+(?:step|action|measure))?s?\s+should\b",
+            text,
+        )
+        or re.search(r"\bhow\s+should\s+[^.?!]{0,48}\b(?:contain|remediat)\w*\b", text)
+    )
 
 
 def build_resolved_query_contract(
@@ -205,6 +257,9 @@ def build_resolved_query_contract(
     )
     match_path = (q2i.candidate_mappings or {}).get("match_path") or qualification_source
     requested_actions = _extract_requested_conditional_actions(query)
+    requested_outputs = _requested_outputs_from_actions(requested_actions)
+    if _recommendation_requested(query) and "analyst_action_guidance" not in requested_outputs:
+        requested_outputs.append("analyst_action_guidance")
     contract = ResolvedQueryContract(
         normalized_goal=query.strip(),
         intent_family=intent.intent_family,
@@ -233,7 +288,7 @@ def build_resolved_query_contract(
         },
         understanding_source=understanding_source,
         requested_conditional_actions=requested_actions,
-        requested_outputs=_requested_outputs_from_actions(requested_actions),
+        requested_outputs=requested_outputs,
     )
     return attach_understanding_authority(contract)
 

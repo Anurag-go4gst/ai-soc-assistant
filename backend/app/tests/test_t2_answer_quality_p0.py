@@ -165,6 +165,31 @@ def test_regulatory_shape_suppresses_spl_surfacing(monkeypatch) -> None:
     assert enhanced.spl_status == "not_required"
 
 
+def test_shape_surfacing_cannot_override_normalized_run_contract_state(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "ai_soc_t2_answer_surfacing_enabled", True)
+    contract = AnswerContract(
+        render_sections={"spl_artifact": True},
+        spl_present=True,
+        spl_status="ready_for_review",
+        spl_candidate_present=True,
+        spl_candidate_renderable=True,
+        spl_validated=True,
+        spl_normalized=True,
+        run_contract_mirrored=True,
+    )
+    enhanced = enhance_answer_contract_for_t2_surfacing(
+        contract,
+        candidate_spl={"candidate_spl": "index=ot | stats count"},
+        spl_draft_preview=None,
+        spl_validation={"approved": True, "normalized_spl": "index=ot | stats count"},
+        user_query="Explain the reporting policy and include the validated query artifact.",
+        match_path="out_of_registry",
+    )
+    assert enhanced.spl_status == "ready_for_review"
+    assert enhanced.spl_normalized is True
+    assert enhanced.render_sections["spl_artifact"] is True
+
+
 def test_in_catalog_build_answer_contract_unchanged_with_surfacing_flag(monkeypatch) -> None:
     kwargs = dict(
         intent_classification={"intent_family": "hybrid_alert_review", "answer_goal": ["spl_artifact"]},

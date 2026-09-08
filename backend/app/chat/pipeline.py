@@ -15,6 +15,7 @@ from app.connectors.telemetry.log_context import current_trace_id, reset_trace_i
 from app.actions.capability_policy import action_capability_for
 from app.actions.remediation_execution import execute_approved_remediation
 from app.chat.contracts.explicit_user_constraints import remediation_write_prohibited
+from app.chat.contracts.investigation_envelope import envelope_authorizes_search
 from app.chat.analyst_response_builder import (
     build_analyst_response_for_live,
     build_reference_source_playbook,
@@ -30,6 +31,7 @@ from app.evidence.source_evidence import (
     append_mcp_loop_source_evidence,
     build_provider_source_evidence,
     build_source_evidence,
+    merge_admitted_source_evidence,
 )
 from app.knowledge.rag_evidence_lineage import resolve_answer_readiness, resolve_response_evidence_origin
 from app.knowledge.soc_kb_retriever import retrieve_soc_kb
@@ -168,7 +170,7 @@ from app.threat.mitre_decision import resolve_mitre_decision
 from app.threat.mitre_kb import MitreMappingDecision, map_mitre_for_use_case
 from app.use_cases.content_enrichment import enrichment_spl_governance, enrichment_spl_governance_for_runtime
 from app.use_cases.models import UseCaseSelection
-from app.use_cases.registry import match_use_cases
+from app.use_cases.registry import get_use_case, match_use_cases
 from app.use_cases.routing_authority import catalog_authority_row, sidecar_intent_is_t0
 from app.chat.contracts.pipeline_dispatch import (
     McpDiscoveryContext,
@@ -2632,6 +2634,8 @@ def graph_node_spl_postprocessor(state: ChatPipelineState) -> ChatPipelineState:
     raw_spl = str(candidate.get("candidate_spl") or "").strip()
     if not raw_spl:
         return advance_dispatch_cursor(state, PipelineStage.spl_postprocessor)
+    if str(candidate.get("generation_mode") or "") == "validated_plan_delta":
+        return advance_dispatch_cursor(state, PipelineStage.spl_postprocessor)
 
     request = state["request"]
     query_text = state.get("effective_query") or request.message
@@ -2890,15 +2894,24 @@ def _workflow_spl_from_plan_delta(state: ChatPipelineState) -> ChatPipelineState
     if not isinstance(raw_spl, str) or not raw_spl.strip():
         return None
 
+    envelope_raw = state.get("approved_investigation_envelope")
+    rqc = (
+        state.get("resolved_query_contract")
+        if isinstance(state.get("resolved_query_contract"), dict)
+        else {}
+    )
+    if isinstance(envelope_raw, dict):
+        rqc = {
+            **rqc,
+            "entities": envelope_raw.get("entities") if isinstance(envelope_raw.get("entities"), dict) else rqc.get("entities"),
+            "time_scope": envelope_raw.get("time_scope") or rqc.get("time_scope"),
+        }
+
     validation = validate_spl(raw_spl)
     validation = apply_rqc_constraint_preservation(
         validation,
         spl=raw_spl,
-        resolved_query_contract=(
-            state.get("resolved_query_contract")
-            if isinstance(state.get("resolved_query_contract"), dict)
-            else None
-        ),
+        resolved_query_contract=rqc or None,
     )
     normalized = (
         str(validation.get("normalized_spl") or "")
@@ -3001,6 +3014,7 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             _dec = _pd.get("decision")
             if isinstance(_dec, dict) and isinstance(_dec.get("slot_handoff"), dict):
                 _slot_handoff = _dec.get("slot_handoff")
+        envelope_raw = state.get("approved_investigation_envelope")
         candidate_spl, spl_validation = _candidate_spl_stage(
             trace_id=trace_id,
             skill=effective_skill,
@@ -3030,6 +3044,7 @@ def graph_node_workflow_spl(state: ChatPipelineState) -> ChatPipelineState:
             resolved_query_contract=state.get("resolved_query_contract")
             if isinstance(state.get("resolved_query_contract"), dict)
             else None,
+            approved_investigation_envelope=envelope_raw if isinstance(envelope_raw, dict) else None,
         )
         rqc = state.get("resolved_query_contract") if isinstance(state.get("resolved_query_contract"), dict) else None
         spl_text = None
@@ -3263,6 +3278,7 @@ def graph_node_execution(state: ChatPipelineState) -> ChatPipelineState:
         hook_idempotency=resolve_hook_idempotency_context(state),
         approved_investigation_envelope=approved_envelope,
         require_approved_investigation_envelope=require_envelope,
+        read_source_required=_read_source_required_from_state(state),
     )
     # O5c Step 2: the broaden confirm turn executed the approved broadened
     # search. Attach the two-call cross-turn envelope (empty primary + broadened
@@ -3427,6 +3443,18 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
         if guided
         else None
     )
+    envelope_raw = state.get("approved_investigation_envelope")
+    live_read_required = envelope_authorizes_search(
+        envelope_raw if isinstance(envelope_raw, dict) else None
+    ) or bool(_evidence_plan(state).get("needs_spl"))
+    prepared = {
+        **state,
+        "workflow_plan": workflow_plan,
+        "spl_draft_preview": spl_draft_preview,
+    }
+    if live_read_required:
+        # Knowledge-lane prep must not skip or erase a required governed read.
+        return prepared
     execution, human_review = _execution_stage(
         trace_id=trace_id,
         selected_skill=selected_skill,
@@ -3440,11 +3468,9 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
     )
     emit_mcp_status_from_execution(execution)
     prepared = {
-        **state,
-        "workflow_plan": workflow_plan,
+        **prepared,
         "candidate_spl": None,
         "spl_validation": None,
-        "spl_draft_preview": spl_draft_preview,
         "execution": execution,
         "human_review": human_review,
     }
@@ -3490,7 +3516,7 @@ def graph_node_rag_early(state: ChatPipelineState) -> ChatPipelineState:
             PipelineStage.rag_early,
         )
     workflow_plan = state["workflow_plan"]
-    execution = state["execution"] if "execution" in state else {"block_reason": None}
+    execution = state.get("execution") if isinstance(state.get("execution"), dict) else {"block_reason": None}
     retrieval = retrieve_soc_kb(
         query=request.message,
         selected_skill=_context_selected_skill(state),
@@ -3975,6 +4001,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             "structured_facts": [],
             "source_evidence_ids": [],
         }
+    else:
+        prior = [item for item in (state.get("source_evidence") or []) if isinstance(item, dict)]
+        source_evidence = merge_admitted_source_evidence(prior, source_evidence)
     if not isinstance(state.get("soc_kb_retrieval"), dict):
         utility_signals = extract_query_signals(state.get("effective_query") or request.message)
         if is_universal_utility_spl_authoring(state.get("effective_query") or request.message, utility_signals):
@@ -6662,11 +6691,19 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
 def _uses_rag_only_path(state: ChatPipelineState) -> bool:
     if _session_spl_refine_active(state):
         return False
+    envelope = state.get("approved_investigation_envelope")
+    if envelope_authorizes_search(envelope if isinstance(envelope, dict) else None):
+        return False
     planning = state.get("planning_decision")
     path_type = planning.get("path_type") if isinstance(planning, dict) else None
+    answer_mode = _evidence_plan(state).get("answer_mode")
+    guided_owner = path_type == "guided_investigation" or answer_mode == "guided_investigation"
+    # Composable planning is the existing ResourcePlan path; it must not be
+    # collapsed to knowledge-only merely because the route family is guided.
+    if guided_owner and bool(getattr(settings, "ai_soc_guided_composable_planning_enabled", False)):
+        return False
     if path_type == "guided_investigation":
         return True
-    answer_mode = _evidence_plan(state).get("answer_mode")
     return answer_mode in {"rag_only", "guided_investigation"} or path_type == "generic_soc_guidance"
 
 
@@ -7781,6 +7818,7 @@ def _candidate_spl_stage(
     slot_handoff: dict[str, Any] | None = None,
     dispatch_flags: dict[str, bool] | None = None,
     resolved_query_contract: dict[str, Any] | None = None,
+    approved_investigation_envelope: dict[str, Any] | None = None,
 ) -> tuple[dict | None, dict | None]:
     if not spl_allowed:
         return None, None
@@ -7788,10 +7826,15 @@ def _candidate_spl_stage(
         skill == "guided_investigation"
         and _guided_investigation_spl_rescue_eligible(user_query)
     )
-    if skill not in {"attack_discovery", "spl_generation"} and not guided_spl_rescue:
+    envelope_search = envelope_authorizes_search(approved_investigation_envelope)
+    if (
+        skill not in {"attack_discovery", "spl_generation"}
+        and not guided_spl_rescue
+        and not envelope_search
+    ):
         return None, None
 
-    signals = query_signals if isinstance(query_signals, dict) else {}
+    signals = query_signals if isinstance(query_signals, dict) and query_signals else extract_query_signals(user_query)
     if signals.get("explicit_spl_authoring"):
         telemetry = _routes_chat().get_telemetry_connector()
         profile = build_splunk_capability_profile(required_saia_tool="saia_generate_spl")
@@ -7852,7 +7895,7 @@ def _candidate_spl_stage(
                 template_id=template_id,
             )
     _dispatch_v2_on = bool(getattr(settings, "ai_soc_pipeline_dispatch_v2_enabled", False))
-    if guided_spl_rescue and not _dispatch_v2_on:
+    if guided_spl_rescue and not _dispatch_v2_on and not envelope_search:
         t2_native_candidate = _candidate_from_t2_spl_native(
             trace_id=trace_id,
             skill=skill,
@@ -7862,9 +7905,27 @@ def _candidate_spl_stage(
             spl_governance=spl_governance,
         )
         return t2_native_candidate if t2_native_candidate is not None else (None, None)
+    if envelope_search and not template_id:
+        selected = _selected_use_case(user_query, query_signals=signals)
+        if selected is not None:
+            template_id = selected.default_spl_template
+            use_case_id = use_case_id or selected.use_case_id
+            spl_governance = _runtime_spl_governance(use_case_id) or spl_governance
+        if not template_id:
+            signal_use_case_id = None
+            if signals.get("powershell_context"):
+                signal_use_case_id = "edr_powershell_suspicious_command"
+            elif signals.get("dns_beaconing"):
+                signal_use_case_id = "dns_beaconing_candidate"
+            if signal_use_case_id:
+                definition = get_use_case(signal_use_case_id)
+                if definition is not None:
+                    template_id = definition.default_spl_template
+                    use_case_id = use_case_id or definition.use_case_id
+                    spl_governance = _runtime_spl_governance(use_case_id) or spl_governance
     template = get_spl_template(template_id)
     governance_block_reason = _spl_governance_block_reason(template_id, template, spl_governance)
-    if governance_block_reason is not None:
+    if governance_block_reason is not None and not envelope_search:
         return _candidate_clarification(
             trace_id=trace_id,
             skill=skill,
@@ -8019,7 +8080,8 @@ def _candidate_spl_stage(
     # template rows to clarification — let the LLM generate, then the relevance +
     # validation gates decide. Without failover, preserve the prior clarification.
     if (
-        not llm_failover_enabled
+        not envelope_search
+        and not llm_failover_enabled
         and spl_governance
         and spl_governance.get("spl_template_status")
         in {"planned", "unavailable", "missing", "unknown", "sop_only"}
@@ -8061,7 +8123,6 @@ def _candidate_spl_stage(
         if lab_draft_candidate is not None:
             return lab_draft_candidate
 
-    signals = query_signals if isinstance(query_signals, dict) else {}
     if signals.get("live_data_request") and not _dispatch_v2_on:
         from app.spl.draft_preview import has_strong_detection_family_match
 
@@ -8125,7 +8186,24 @@ def _candidate_spl_stage(
     if fallback_candidate is not None:
         return fallback_candidate
 
-    if True or settings.ai_soc_spl_template_governance_enabled:
+    if envelope_search:
+        envelope_draft = _candidate_from_lab_draft(
+            trace_id=trace_id,
+            skill=skill,
+            user_query=user_query,
+            telemetry=telemetry,
+            profile=profile,
+            spl_governance=spl_governance,
+            pattern_type=mapped_pattern_type,
+            use_case_id=use_case_id,
+            live_data_request=True,
+            llm_fallback_reason="approved_envelope_search_lab_draft",
+            llm_intent_advisory=llm_intent_advisory,
+        )
+        if envelope_draft is not None:
+            return envelope_draft
+
+    if not envelope_search and (True or settings.ai_soc_spl_template_governance_enabled):
         block_reason = _spl_governance_block_reason(template_id, template, spl_governance)
         if block_reason is None and spl_governance and not spl_governance.get("runtime_spl_governance_allowed", True):
             block_reason = str(
@@ -10356,7 +10434,10 @@ def _mcp_tool_plan_needs_mcp(state: ChatPipelineState, spl_validation: dict | No
         return False
     if not _mcp_allowed(state):
         return False
-    return _context_selected_skill(state) in EXECUTION_ELIGIBLE_SKILLS
+    if _context_selected_skill(state) in EXECUTION_ELIGIBLE_SKILLS:
+        return True
+    envelope = state.get("approved_investigation_envelope")
+    return envelope_authorizes_search(envelope if isinstance(envelope, dict) else None)
 
 
 def _reference_resolution_needed(evidence_plan: dict | None) -> bool:

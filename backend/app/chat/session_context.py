@@ -10,6 +10,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from app.chat.contracts.resolved_query import RequestedConditionalAction
+from app.chat.canonical_handoff_store import get_latest_handoff
 from app.chat.session_store import SessionPins, delete_session_pins, get_session_pins, new_session_id, save_session_pins
 from app.config import settings
 from app.schemas.requests import ChatRequest
@@ -322,7 +323,38 @@ def pins_from_pipeline_state(
     pending_handoff_version = state.get("pending_handoff_version")
     evidence_plan = state.get("evidence_plan") if isinstance(state.get("evidence_plan"), dict) else {}
     resource_plan = evidence_plan.get("resource_plan")
-    if isinstance(resource_plan, dict) and (resource_plan.get("provenance") or {}).get("committed"):
+    execution_pending = bool(pending_execution_confirmation)
+    human = human_review if isinstance(human_review, dict) else None
+    if human is None and isinstance(state.get("human_review"), dict):
+        human = state.get("human_review")
+    if isinstance(human, dict) and human.get("review_type") == "spl_execution_confirmation":
+        execution_pending = True
+    approval = state.get("investigation_approval")
+    approved_awaiting_execution = (
+        isinstance(approval, dict)
+        and approval.get("status") == "approved"
+        and not (
+            isinstance(state_execution, dict) and state_execution.get("status") == "executed"
+        )
+    )
+    if pending_handoff_id:
+        latest = get_latest_handoff(str(pending_handoff_id))
+        if latest is not None and latest.normalized_status() in {"investigation_approved", "plan_committed"}:
+            pending_handoff_version = latest.handoff_version
+        elif (
+            isinstance(resource_plan, dict)
+            and (resource_plan.get("provenance") or {}).get("committed")
+            and not execution_pending
+            and not approved_awaiting_execution
+        ):
+            pending_handoff_id = None
+            pending_handoff_version = None
+    elif (
+        isinstance(resource_plan, dict)
+        and (resource_plan.get("provenance") or {}).get("committed")
+        and not execution_pending
+        and not approved_awaiting_execution
+    ):
         pending_handoff_id = None
         pending_handoff_version = None
 

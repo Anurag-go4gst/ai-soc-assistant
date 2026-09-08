@@ -24,7 +24,31 @@ ALERT_RE = re.compile(r"\b(?:alert_id|alert|notable|event_id|eventid)[:=]\s*([A-
 HOST_RE = re.compile(r"\b(?:host|asset)[:=]\s*([A-Za-z0-9_.:-]+)", re.IGNORECASE)
 USER_RE = re.compile(r"\buser[:=]\s*([A-Za-z0-9_.@-]+)", re.IGNORECASE)
 _HOST_BARE_RE = re.compile(r"\b(?:on|from)\s+([A-Za-z0-9][A-Za-z0-9_.-]{2,})\b", re.IGNORECASE)
-_HOST_BARE_STOPWORDS = frozenset({"host", "user", "from", "on", "the", "a", "an", "our", "this", "that"})
+_HOST_BARE_STOPWORDS = frozenset(
+    {
+        "host",
+        "user",
+        "from",
+        "on",
+        "the",
+        "a",
+        "an",
+        "our",
+        "this",
+        "that",
+        # Determiners and quantities after "on"/"from" describe a noun phrase;
+        # they are not host identifiers (for example, "from several systems").
+        "one",
+        "another",
+        "same",
+        "each",
+        "every",
+        "some",
+        "any",
+        "several",
+        "multiple",
+    }
+)
 _USER_BARE_RE = re.compile(r"\buser\s+([A-Za-z0-9][A-Za-z0-9_.@-]{1,})\b", re.IGNORECASE)
 _USER_BARE_STOPWORDS = frozenset(
     {

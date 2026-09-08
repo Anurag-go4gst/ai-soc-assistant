@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from app.api.routes_chat import chat
 from app.chat.canonical_handoff_store import clear_all_handoffs_for_tests
 from app.chat.canonical_planning_orchestrator import graph_node_lane_and_canonical_planning
-from app.chat.contracts.investigation_envelope import ApprovedInvestigationEnvelope
+from app.chat.contracts.investigation_envelope import ApprovedInvestigationEnvelope, envelope_authorizes_search
 from app.chat.investigation_envelope_runtime import (
     InvestigationEnvelopeError,
     build_plan_summary,
@@ -268,3 +268,35 @@ def test_imperative_chat_two_turn_cancel_has_no_resource_plan_or_execution(
     assert second.execution is not None
     assert second.execution.status == "skipped"
     assert second.execution.selected_mcp_tool is None
+
+
+def test_approved_search_capability_authorizes_live_read() -> None:
+    assert envelope_authorizes_search(
+        {"allowed_read_only_capabilities": ["mcp:splunk_soc:splunk_run_query"]}
+    )
+    assert not envelope_authorizes_search(
+        {"allowed_read_only_capabilities": ["mcp:splunk_soc:splunk_get_info"]}
+    )
+    assert not envelope_authorizes_search(None)
+
+
+def test_approved_search_envelope_allows_guided_spl_candidate() -> None:
+    from app.chat.pipeline import _candidate_spl_stage
+
+    query = (
+        "Investigate WINWORD.EXE spawning powershell.exe, scheduled-task persistence, "
+        "and outbound traffic on host WS-14"
+    )
+    without_envelope, _ = _candidate_spl_stage("t-guided-spl", "guided_investigation", query)
+    assert without_envelope is None
+    with_envelope, validation = _candidate_spl_stage(
+        "t-guided-spl",
+        "guided_investigation",
+        query,
+        approved_investigation_envelope={
+            "allowed_read_only_capabilities": ["mcp:splunk_soc:splunk_run_query"]
+        },
+    )
+    assert with_envelope is not None
+    assert str(with_envelope.get("candidate_spl") or "").strip(), with_envelope.get("generation_mode") or with_envelope.get("llm_fallback_reason") or with_envelope
+    assert validation is not None

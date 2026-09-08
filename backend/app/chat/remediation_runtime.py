@@ -107,6 +107,7 @@ def build_validated_remediation_plan(
     capability_snapshot: dict[str, Any] | None,
     turn_budget: Any | None = None,
     raw_output_provider: Any | None = None,
+    source_evidence: list[dict[str, Any]] | None = None,
 ) -> tuple[ValidatedRemediationPlan, dict[str, Any]]:
     """Deterministic baseline, optionally narrowed by the advisory reasoning hop."""
     baseline = build_deterministic_remediation_plan(
@@ -128,6 +129,8 @@ def build_validated_remediation_plan(
         baseline=baseline,
         raw_output_provider=raw_output_provider,
         turn_budget=turn_budget,
+        investigation_outcome=investigation_outcome,
+        source_evidence=source_evidence,
     )
     validated = validate_remediation_plan(
         baseline,
@@ -413,6 +416,9 @@ def maybe_attach_remediation_offer(
                 capability_snapshot=state.get("capability_snapshot"),
                 turn_budget=turn_budget,
                 raw_output_provider=raw_output_provider,
+                source_evidence=[
+                    item for item in (state.get("source_evidence") or []) if isinstance(item, dict)
+                ],
             )
         approval = _approval_state(status="awaiting_approval", plan=plan)
         return {
@@ -515,6 +521,9 @@ def handle_remediation_review(
             capability_snapshot=state.get("capability_snapshot"),
             turn_budget=turn_budget,
             raw_output_provider=raw_output_provider,
+            source_evidence=[
+                item for item in (state.get("source_evidence") or []) if isinstance(item, dict)
+            ],
         )
         approval = _approval_state(status="awaiting_approval", plan=plan)
         return {

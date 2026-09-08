@@ -131,14 +131,15 @@ def _enhance_contract_for_rag_surfacing(contract: AnswerContract) -> AnswerContr
     for section in ("policy_citation", "procedural_steps"):
         if section not in section_order:
             section_order.append(section)
-    return contract.model_copy(
-        update={
-            "render_sections": render,
-            "spl_present": False,
-            "spl_status": "not_required",
-            "section_order": section_order,
-        }
-    )
+    updates: dict[str, Any] = {
+        "render_sections": render,
+        "section_order": section_order,
+    }
+    # RAG is additive context on hybrid turns. It cannot overwrite the
+    # RunContract-owned lifecycle of an already validated normalized SPL.
+    if not contract.spl_normalized:
+        updates.update({"spl_present": False, "spl_status": "not_required"})
+    return contract.model_copy(update=updates)
 
 
 

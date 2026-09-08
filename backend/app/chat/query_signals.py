@@ -81,6 +81,13 @@ _KNOWLEDGE_TRIAGE_PREFIX_RE = re.compile(
     r"^(?:how\s+(?:do|should)\s+analysts?\s+(?:usually\s+)?triage|how\s+to\s+triage)\b",
     re.IGNORECASE,
 )
+_CONTAINMENT_DECISION_SUPPORT_RE = re.compile(
+    r"(?:\bwhat\s+(?:containment|remediation)(?:\s+(?:step|action|measure))?s?\s+"
+    r"should\s+(?:we|i|the\s+analyst|the\s+team)\s+(?:take|use|apply|recommend)\b"
+    r"|\bhow\s+should\s+[^.?!]{0,48}\b(?:be\s+)?(?:contain(?:ed)?|remediat(?:ed)?)\b"
+    r"|\bwhat\s+do\s+you\s+recommend\b[^.?!]{0,48}\b(?:contain|remediat|isolat|quarantin))",
+    re.IGNORECASE,
+)
 _FIREWALL_BLOCK_DENY_RE = re.compile(
     r"\b(?:firewall\s+(?:block|deny|drop)s?|(?:block|deny|drop)(?:ed|s)?\s+(?:connection|traffic)s?)\b",
     re.IGNORECASE,
@@ -940,9 +947,12 @@ def extract_query_signals(
             "just disable",
         )
     )
+    _natural_containment_advice = bool(_CONTAINMENT_DECISION_SUPPORT_RE.search(normalized))
+    if _natural_containment_advice:
+        block_or_contain = True
     containment_decision_support = bool(
         block_or_contain
-        and _advisory_framing
+        and (_advisory_framing or _natural_containment_advice)
         and not _enforcement_imperative
         and not command_mode_active
     )

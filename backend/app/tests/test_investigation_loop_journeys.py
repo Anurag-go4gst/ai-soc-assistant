@@ -18,6 +18,7 @@ from app.chat.pipeline import build_live_chat_response
 from app.chat.session_store import clear_all_session_pins_for_tests
 from app.chat.trace_effective_state import build_effective_state_projection
 from app.config import settings
+from app.query_understanding.parser import understand_query
 from app.schemas.requests import ChatRequest
 
 SSH_QUERY = (
@@ -40,6 +41,15 @@ POWERSHELL_QUERY = (
     "connection and a downloaded child process. Determine whether the events are "
     "related, evaluate the relevant endpoint and network evidence, and tell me "
     "whether the activity appears malicious. Recommend the next action but do not "
+    "execute remediation."
+)
+
+ENDPOINT_PERSISTENCE_QUERY = (
+    "An analyst reports that an office application spawned a script interpreter on one "
+    "workstation; minutes later a new scheduled task appeared and the same host contacted "
+    "an unfamiliar external address. Investigate whether these events are related, correlate "
+    "them by host, user, and time, and—if the task is suspicious—check persistence and "
+    "subsequent activity. Give a conclusion and recommend the safest next action, but do not "
     "execute remediation."
 )
 
@@ -96,6 +106,11 @@ def _assert_mcp_off_execution_boundary(second) -> None:
     execution = payload.get("execution") or {}
     assert execution.get("status") != "executed"
     assert execution.get("executed_spl") in (None, "")
+    if payload.get("spl_validation") is None:
+        assert execution.get("block_reason") == "read_source_required_but_unavailable"
+        assert execution.get("tool_selection_reason") == "read_source_required_but_unavailable"
+    else:
+        assert execution.get("block_reason") == "mcp_not_allowed_by_evidence_plan"
     outcome = payload.get("investigation_outcome") or {}
     assert list(outcome.get("findings") or []) == []
     rem = payload.get("remediation_execution") or {}
@@ -169,3 +184,19 @@ def test_powershell_hil_plan_is_endpoint_network_family(pass_id: int) -> None:
     assert rem in ({}, None) or not rem.get("executed_any")
     outcome = payload.get("investigation_outcome") or {}
     assert list(outcome.get("findings") or []) == []
+
+
+@pytest.mark.parametrize("pass_id", [1, 2])
+def test_endpoint_persistence_query_preserves_investigation_shape(pass_id: int) -> None:  # noqa: ARG001
+    understood = understand_query(ENDPOINT_PERSISTENCE_QUERY)
+    assert "one" not in understood.entities.host
+    first = build_live_chat_response(ChatRequest(message=ENDPOINT_PERSISTENCE_QUERY))
+    blob = _plan_blob(first).lower()
+    assert first.selected_skill == "guided_investigation"
+    assert first.investigation_approval is not None
+    assert first.investigation_approval.get("status") == "awaiting_approval"
+    assert "process" in blob or "script" in blob
+    assert "scheduled" in blob or "persistence" in blob
+    assert "network" in blob or "external" in blob or "connection" in blob
+    second = _approve(first, ENDPOINT_PERSISTENCE_QUERY)
+    _assert_mcp_off_execution_boundary(second)

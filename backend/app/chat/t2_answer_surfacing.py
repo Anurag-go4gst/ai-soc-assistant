@@ -60,7 +60,10 @@ def enhance_answer_contract_for_t2_surfacing(
     if not settings.ai_soc_t2_answer_surfacing_enabled or should_bypass_shape_router(match_path):
         return contract
     shape = classify_answer_shape(user_query, resource_plan=resource_plan).primary_shape
-    if shape_suppresses_spl(shape):
+    # Shape routing is a presentation hint, not SPL lifecycle authority. Once
+    # RunContract has projected a validated normalized artifact, this layer may
+    # not relabel it ``not_required`` or hide it from the same response.
+    if shape_suppresses_spl(shape) and not contract.spl_normalized:
         render = dict(contract.render_sections)
         render["spl_artifact"] = False
         return contract.model_copy(update={"render_sections": render, "spl_present": False, "spl_status": "not_required"})
