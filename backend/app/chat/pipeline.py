@@ -4298,6 +4298,11 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             resolved_query_contract=state.get("resolved_query_contract")
             if isinstance(state.get("resolved_query_contract"), dict)
             else None,
+            # The approved plan carries the competing hypotheses this investigation
+            # was actually weighing; without it the outcome reports none.
+            investigation_plan=state.get("validated_investigation_plan")
+            if isinstance(state.get("validated_investigation_plan"), dict)
+            else None,
             outcome_v2_enabled=settings.ai_soc_investigation_outcome_v2_enabled,
         )
         state = {**state, "investigation_outcome": investigation_outcome.model_dump(mode="json")}

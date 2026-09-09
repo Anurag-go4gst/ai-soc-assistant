@@ -8,6 +8,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.chat.analyst_missing_evidence import project_missing_evidence
+
 
 AnswerGoal = Literal[
     "live_results",
@@ -226,11 +228,19 @@ def build_answer_contract(
     )
     intent_family = str(intent.get("intent_family") or "") or None
     answer_mode = str(plan.get("answer_mode") or "") or None
-    required_evidence = _dedupe(
+    # Analyst-facing display of the internal required-evidence keys. The keys
+    # themselves stay untouched on the EvidencePlan: this is the projection
+    # boundary, so the planner keeps its control state and the analyst sees
+    # evidence they can actually go and collect.
+    _required_display, _ = project_missing_evidence(
         [str(item) for item in plan.get("required_evidence_keys") or [] if item]
     )
+    required_evidence = _dedupe(_required_display)
 
-    missing: list[str] = [str(item) for item in plan.get("missing_required_evidence") or [] if item]
+    _missing_display, _ = project_missing_evidence(
+        [str(item) for item in plan.get("missing_required_evidence") or [] if item]
+    )
+    missing: list[str] = list(_missing_display)
     if severity_decision is not None and _is_auth_use_case(resolved_use_case_id, intent_family):
         missing.extend(
             str(item)

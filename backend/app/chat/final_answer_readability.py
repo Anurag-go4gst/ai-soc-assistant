@@ -730,7 +730,9 @@ def _required_evidence_display(contract: AnswerContract) -> list[str]:
     for key in contract.required_evidence:
         raw_key = str(key)
         label = _EVIDENCE_LABELS.get(raw_key, raw_key.replace("_", " "))
-        text = f"{raw_key} — {label}"
+        # The contract already carries analyst-facing evidence language, so a
+        # "key — label" pair would just repeat the same phrase twice.
+        text = raw_key if label.lower() == raw_key.lower() else f"{raw_key} — {label}"
         if text not in labels:
             labels.append(text)
     return labels

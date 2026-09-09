@@ -12,6 +12,11 @@ from pydantic import BaseModel, Field
 
 from app.actions.capability_policy import ActionCapability, BLOCKED_EXECUTION_ACTIONS
 from app.chat.investigation_shaped import investigation_outcome_applicable
+from app.chat.analyst_missing_evidence import (
+    analyst_limitations,
+    project_missing_evidence,
+)
+
 
 SCHEMA_VERSION = "investigation_outcome_v1"
 SCHEMA_VERSION_V2 = "investigation_outcome_v2"
@@ -90,6 +95,7 @@ def derive_investigation_outcome(
     investigation_run_status: dict[str, Any] | None = None,
     investigation_approval: dict[str, Any] | None = None,
     resolved_query_contract: dict[str, Any] | None = None,
+    investigation_plan: dict[str, Any] | None = None,
     outcome_v2_enabled: bool = False,
 ) -> InvestigationOutcome | InvestigationOutcomeV2:
     """Deterministic outcome from existing governed packages. LLM proposal is advisory."""
@@ -130,13 +136,27 @@ def derive_investigation_outcome(
     else:
         refs = list(structured.get("source_evidence_refs") or [])
     recommended = [str(item) for item in capability.get("allowed_actions") or [] if str(item) not in BLOCKED_EXECUTION_ACTIONS]
+    # Analyst-facing projection of the internal missing-evidence set. Internal
+    # control keys stay in the internal contracts above; they are not evidence
+    # gaps a responder can act on.
+    analyst_missing, source_unavailable = project_missing_evidence(
+        missing,
+        spl_requested=_spl_artifact_requested(resolved_query),
+        knowledge_contract_required=_knowledge_contract_required(resolved_query),
+    )
+    supported_hypotheses, unconfirmed_hypotheses = _classify_hypotheses(
+        plan=investigation_plan if isinstance(investigation_plan, dict) else {},
+        resolved_query=resolved_query,
+        evidence=evidence,
+        findings=findings,
+    )
     common: dict[str, Any] = {
         "disposition": disposition,
         "findings": findings,
-        "supported_hypotheses": [],
-        "unconfirmed_hypotheses": [],
+        "supported_hypotheses": supported_hypotheses,
+        "unconfirmed_hypotheses": unconfirmed_hypotheses,
         "evidence_refs": [str(item) for item in refs],
-        "missing_evidence": [str(item) for item in missing],
+        "missing_evidence": analyst_missing,
         "severity_label": severity_label,
         "recommended_actions": recommended,
         "action_eligibility": {
@@ -197,7 +217,8 @@ def derive_investigation_outcome(
                     approval=approval,
                 ),
                 limitations=_limitations(
-                    missing=missing,
+                    missing=analyst_missing,
+                    source_unavailable=source_unavailable,
                     context=context,
                     run_status=run_status,
                 ),
@@ -253,6 +274,60 @@ def apply_llm_outcome_proposal(
             "policy_eligibility": outcome.policy_eligibility,
         }
     )
+
+
+
+#: Evidence keys that are internal control state, never environment observation.
+#: A hypothesis is not corroborated by the fact that a RAG lookup ran.
+_NON_ENVIRONMENT_EVIDENCE_KEYS = frozenset({"rag", "rag:sop", "spl", "mcp", "collected_source_evidence"})
+
+
+def _classify_hypotheses(
+    *,
+    plan: dict[str, Any],
+    resolved_query: dict[str, Any],
+    evidence: dict[str, Any],
+    findings: list[str],
+) -> tuple[list[str], list[str]]:
+    """Carry the investigation's competing hypotheses into the outcome.
+
+    Hypotheses are analytical state, not environment facts: they are never
+    SourceEvidence and never become findings. They come from the approved plan
+    (which already merges the T4 competing hypotheses and the planner's), so a
+    hypothesis surviving here is continuity, not a new claim.
+
+    Promotion to SUPPORTED requires admitted environment SourceEvidence. A
+    hypothesis is never supported because the user asserted it, because T4 or the
+    planner proposed it, or because RAG mentioned it — those are the inputs, not
+    corroboration. With no admitted environment evidence every hypothesis stays
+    UNCONFIRMED, which is the honest answer, not an empty list.
+    """
+    hypotheses: list[str] = []
+    for source in (plan.get("hypotheses"), resolved_query.get("competing_hypotheses")):
+        for item in source or []:
+            text = str(item or "").strip()
+            if text and text not in hypotheses:
+                hypotheses.append(text)
+    if not hypotheses:
+        return [], []
+
+    obtained = {
+        str(key)
+        for key in (evidence.get("obtained") or [])
+        if str(key) not in _NON_ENVIRONMENT_EVIDENCE_KEYS
+    }
+    if not obtained or not findings:
+        # No admitted environment evidence, or nothing grounded in it: everything
+        # the investigation was weighing remains open.
+        return [], hypotheses
+
+    # With admitted environment evidence, a hypothesis is supported only when a
+    # grounded finding (statement carrying source_refs) actually states it. No
+    # fuzzy inference: the finding must contain the hypothesis text.
+    grounded = " ".join(findings).lower()
+    supported = [item for item in hypotheses if item.lower() in grounded]
+    unconfirmed = [item for item in hypotheses if item not in supported]
+    return supported, unconfirmed
 
 
 def actions_from_investigation_outcome(
@@ -345,20 +420,57 @@ def _investigation_status(
     return "incomplete"
 
 
+
+def _spl_artifact_requested(resolved_query: dict[str, Any]) -> bool:
+    """True when the analyst actually asked for an SPL artifact."""
+    goal = str(resolved_query.get("answer_goal") or "").lower()
+    caps = {str(item).lower() for item in (resolved_query.get("required_capabilities") or [])}
+    return "spl" in goal or any("spl" in cap for cap in caps)
+
+
+def _knowledge_contract_required(resolved_query: dict[str, Any]) -> bool:
+    """True when the governed contract makes knowledge/SOP guidance the answer."""
+    family = str(resolved_query.get("intent_family") or "").lower()
+    goal = str(resolved_query.get("answer_goal") or "").lower()
+    return "knowledge" in family or "knowledge" in goal or "sop" in goal
+
+
+
 def _limitations(
     *,
     missing: list[Any],
+    source_unavailable: bool,
     context: dict[str, Any],
     run_status: dict[str, Any],
 ) -> list[str]:
-    values = [f"Missing governed evidence: {item}" for item in missing if str(item).strip()]
+    values = analyst_limitations(
+        [str(item) for item in missing if str(item).strip()],
+        source_unavailable=source_unavailable,
+    )
+    # Sufficiency reasons are a mix of analyst-readable prose ("MCP execution
+    # disabled") and internal control codes ("no_collected_evidence",
+    # "evidence_origin:stub_rag"). Keep the prose -- it explains the limitation --
+    # and drop the codes, which only repeat in machine words a gap already stated
+    # above in analyst language.
+    for reason in context.get("reasons") or []:
+        text = str(reason).strip()
+        if text and not _is_internal_code(text):
+            values.append(text)
     stop_reason = str(run_status.get("stop_reason") or "").strip()
     if stop_reason:
-        values.append(f"Investigation stopped: {stop_reason}")
-    for reason in context.get("reasons") or []:
-        if str(reason).strip():
-            values.append(str(reason))
+        if _is_internal_code(stop_reason):
+            values.append(
+                "The investigation stopped before reaching a conclusion; the "
+                "evidence above is still required."
+            )
+        else:
+            values.append(f"Investigation stopped: {stop_reason}")
     return list(dict.fromkeys(values))
+
+
+def _is_internal_code(text: str) -> bool:
+    """An identifier-shaped token (snake_case / colon-delimited), not analyst prose."""
+    return " " not in text.strip()
 
 
 def _recommended_next_action(
