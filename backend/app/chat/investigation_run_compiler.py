@@ -232,12 +232,12 @@ def attach_investigation_observation(state: dict[str, Any]) -> dict[str, Any]:
     )
     status = str(sufficiency.get("status") or "INSUFFICIENT").upper()
     sufficient = status == "SUFFICIENT"
-    missing = list(
-        sufficiency.get("missing")
-        or (state.get("evidence_state") or {}).get("missing")
-        or evidence_plan.get("missing_required_evidence")
-        or []
-    )
+    if "missing" in sufficiency:
+        missing = list(sufficiency.get("missing") or [])
+    elif isinstance(state.get("evidence_state"), dict) and "missing" in (state.get("evidence_state") or {}):
+        missing = list((state.get("evidence_state") or {}).get("missing") or [])
+    else:
+        missing = list(evidence_plan.get("missing_required_evidence") or [])
     run_status = {
         "status": "sufficient" if sufficient else "incomplete",
         "stop_reason": None if sufficient else "missing_evidence_no_plan_delta_in_p5",

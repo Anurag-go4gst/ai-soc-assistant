@@ -106,7 +106,7 @@ def _structured_facts(collected: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _retrieval_completed(evidence: dict[str, Any]) -> bool:
-    status = str(evidence.get("status") or "").lower()
+    status = str(evidence.get("status") or evidence.get("collection_status") or "").lower()
     if status in {"collected", "retrieved", "success"}:
         return True
     preview = evidence.get("preview_rows")
@@ -117,15 +117,32 @@ def _fact_statement(evidence: dict[str, Any]) -> str | None:
     if not _retrieval_completed(evidence):
         return None
     count = int(evidence.get("result_count") or 0)
+    source = evidence.get("source_name") or evidence.get("source_type") or "source"
     if evidence.get("source_type") == "rag":
         return (
-            f"{evidence.get('source_name')} returned {count} governed SOC KB entries "
+            f"{source} returned {count} governed SOC KB entries "
             "through governed retrieval."
         )
-    return (
-        f"{evidence.get('source_name')} returned {count} previewable rows through "
-        f"{evidence.get('tool_name') or 'unknown tool'}."
-    )
+    previews: list[str] = []
+    for row in evidence.get("preview_rows") or []:
+        if not isinstance(row, dict):
+            continue
+        compact = ", ".join(
+            f"{key}={row[key]}"
+            for key in list(row.keys())[:10]
+            if row.get(key) not in (None, "")
+        )
+        if compact:
+            previews.append(compact)
+        if len(previews) >= 3:
+            break
+    tool = evidence.get("tool_name") or "unknown tool"
+    if previews:
+        return (
+            f"{source} returned {count} previewable rows through {tool}: "
+            + "; ".join(previews)
+        )
+    return f"{source} returned {count} previewable rows through {tool}."
 
 
 def _entity_summary(collected: list[dict[str, Any]]) -> dict[str, Any]:
@@ -134,7 +151,7 @@ def _entity_summary(collected: list[dict[str, Any]]) -> dict[str, Any]:
         for row in evidence.get("preview_rows", []):
             if not isinstance(row, dict):
                 continue
-            for key in ("user", "src", "dest", "host", "sourcetype"):
+            for key in ("user", "src", "dest", "host", "sourcetype", "process", "process_name", "action", "task_exec"):
                 if key in row and row[key] not in entities.setdefault(key, []):
                     entities[key].append(row[key])
     return {key: values[:10] for key, values in entities.items()}

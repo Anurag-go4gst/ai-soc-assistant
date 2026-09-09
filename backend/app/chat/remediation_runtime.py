@@ -151,8 +151,9 @@ def remediation_plan_eligible(state: dict[str, Any]) -> bool:
 
     Positive authority reuses InvestigationOutcome fields only:
     ``investigation_status == completed`` and ``disposition == suspicious``.
-    ``suspicious`` is derived from obtained evidence ∧ live-result language ∧
-    high severity — not from LLM prose and not from skill name alone.
+    ``suspicious`` is derived from obtained environment evidence together with
+    completed sufficiency, or the existing high-severity live-evidence path —
+    not from LLM prose, skill name, or renderer wording alone.
 
     Final-RQC product applicability and knowledge-only answer mode are defensive
     vetoes. User-conditional predicate truth is a separate gate and cannot make

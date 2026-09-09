@@ -126,3 +126,102 @@ def test_generated_candidate_spl_is_non_authoritative() -> None:
     assert item.trust_class == "non_authoritative_generated"
     assert item.status == "diagnostic"
     assert "candidate_spl" not in state.obtained
+
+
+def test_collected_mcp_satisfies_environment_categories_not_enrichment() -> None:
+    state = derive_minimal_evidence_state(
+        source_evidence=[
+            {
+                "evidence_id": "ev_mcp",
+                "source_type": "splunk_mcp",
+                "source_name": "splunk_soc",
+                "collection_status": "collected",
+                "fields_returned": ["host", "user", "action", "dest", "task_exec"],
+                "preview_rows": [
+                    {
+                        "host": "WS-14",
+                        "user": "jdoe",
+                        "action": "scheduled_task_created",
+                        "task_exec": "powershell.exe",
+                        "dest": "198.51.100.88",
+                    }
+                ],
+            }
+        ],
+        evidence_plan={
+            "required_evidence_keys": ["endpoint", "auth", "process_execution", "rag", "spl"],
+            "needs_rag": True,
+            "needs_spl": True,
+            "needs_mcp": True,
+            "mcp_allowed": True,
+            "answer_mode": "live_investigation",
+            "checklist": [
+                "Endpoint/process execution telemetry for the reported host.",
+                "Correlate the collected legs on host,user within 8h.",
+            ],
+        },
+        structured_context={"missing_evidence": ["approved_sop_guidance", "rag:sop"]},
+    )
+    assert "mcp" in state.obtained
+    assert "endpoint" in state.obtained
+    assert "process_execution" in state.obtained
+    assert "spl" in state.obtained
+    assert "rag" not in state.missing
+    assert "approved_sop_guidance" not in state.missing
+    assert "auth" not in state.missing
+    assert state.missing == []
+
+
+def test_rag_cannot_satisfy_environment_requirement() -> None:
+    state = derive_minimal_evidence_state(
+        source_evidence=[
+            {
+                "evidence_id": "ev_rag",
+                "source_type": "rag",
+                "source_name": "soc_kb",
+                "collection_status": "collected",
+                "preview_rows": [{"document_type": "sop", "title": "PowerShell hunting"}],
+            }
+        ],
+        evidence_plan={
+            "required_evidence_keys": ["endpoint", "process_execution"],
+            "needs_rag": True,
+            "needs_mcp": True,
+            "mcp_allowed": True,
+            "answer_mode": "live_investigation",
+        },
+    )
+    assert "rag" in state.obtained
+    assert "endpoint" in state.missing
+    assert "process_execution" in state.missing
+    assert "mcp" in state.missing
+
+
+def test_process_only_rows_leave_network_checklist_leg_open() -> None:
+    state = derive_minimal_evidence_state(
+        source_evidence=[
+            {
+                "evidence_id": "ev_process",
+                "source_type": "splunk_mcp",
+                "collection_status": "collected",
+                "fields_returned": ["host", "process_name", "user"],
+                "preview_rows": [{"host": "WS-14", "process_name": "powershell.exe", "user": "jdoe"}],
+            }
+        ],
+        evidence_plan={
+            "required_evidence_keys": ["endpoint", "process_execution"],
+            "needs_mcp": True,
+            "mcp_allowed": True,
+            "answer_mode": "live_investigation",
+            "checklist": [
+                "Endpoint/process execution telemetry for the reported host, including parent/child process.",
+                "Post-success account and host activity: processes, privilege changes, lateral movement, or unusual network use.",
+            ],
+        },
+    )
+    assert "endpoint" in state.obtained
+    assert "process_execution" in state.obtained
+    assert "network_flows" in state.required
+    assert "network_flows" in state.missing
+    assert "firewall_sessions" not in state.required
+    assert "firewall_sessions" not in state.missing

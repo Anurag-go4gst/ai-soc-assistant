@@ -437,7 +437,7 @@ def build_signal_class_guidance(query: str, entities: dict[str, Any] | None = No
             "Hypotheses\n- Expected operational activity or a recent approved change.\n"
             "- Telemetry drift producing an apparent anomaly.\n"
             "- Suspicious activity requiring corroboration across independent sources.\n\n"
-            "Evidence to collect\n- Relevant OT/IT logs for a bounded time window.\n"
+            "Evidence to collect\n- Relevant logs for a bounded time window.\n"
             "- Asset ownership, criticality, baseline, and recent change history.\n"
             "- Peer comparison and first-seen analysis.\n\n"
             "Limitations: no live query was run; no MITRE technique or severity is claimed."

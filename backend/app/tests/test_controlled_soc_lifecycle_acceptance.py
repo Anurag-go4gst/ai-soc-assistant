@@ -138,10 +138,11 @@ def _stub_reasoners(monkeypatch: pytest.MonkeyPatch, captured: dict) -> None:
                 payload = json.loads(user_prompt)
             except json.JSONDecodeError:
                 payload = {}
+            skip = {"rag", "spl", "approved_sop_guidance", "rag:sop"}
             missing = [
                 str(item)
                 for item in (payload.get("missing_evidence_categories") or [])
-                if str(item) and str(item) != "rag"
+                if str(item) and str(item) not in skip
             ]
             caps = [str(item) for item in (payload.get("allowed_read_only_capabilities") or [])]
             search_cap = next(
@@ -149,6 +150,13 @@ def _stub_reasoners(monkeypatch: pytest.MonkeyPatch, captured: dict) -> None:
                 caps[0] if caps else "",
             )
             admitted = payload.get("admitted_environment_evidence") or []
+            captured.setdefault("plan_delta_attempts", []).append(
+                {
+                    "admitted_count": len(admitted if isinstance(admitted, list) else []),
+                    "missing": list(missing),
+                    "raw_missing": payload.get("missing_evidence_categories"),
+                }
+            )
             if not search_cap or not missing or not admitted:
                 return SidecarInvocationResult(
                     raw_output=None,
@@ -388,13 +396,49 @@ def test_controlled_full_lifecycle_read_reason_delta_outcome_p11(
         )
 
         outcome = payload.get("investigation_outcome") or {}
-        assert outcome.get("disposition") in {"suspicious", "inconclusive", "benign", "blocked", None} or outcome
+        assert outcome.get("investigation_status") == "completed", outcome
+        assert outcome.get("disposition") == "suspicious", outcome
+        missing = [str(item) for item in (outcome.get("missing_evidence") or [])]
+        assert "rag" not in missing
+        assert "spl" not in missing
+        assert "approved_sop_guidance" not in missing
+        assert "rag:sop" not in missing
         if collected:
             # User claims must not be the only evidence_refs.
             refs = list(outcome.get("evidence_refs") or [])
+            assert refs
             assert all("analyst said" not in str(ref).lower() for ref in refs)
 
+        visible = f"{payload.get('message') or ''} {payload.get('analyst_summary') or ''}"
+        ar = payload.get("analyst_response") or {}
+        if isinstance(ar, dict):
+            visible = f"{visible} {ar.get('one_sentence_finding') or ''} {ar.get('direct_answer_summary') or ''}"
+        visible_l = visible.lower()
+        assert visible.strip(), "completed investigation must produce an analyst narrative"
+        assert "generic guided" not in visible_l
+        assert "powershell" in visible_l or "process" in visible_l
+        assert "scheduled" in visible_l or "task" in visible_l or "persist" in visible_l
+        assert "198.51.100.88" in visible or "dest" in visible_l
+        assert "suspicious" in visible_l or outcome.get("disposition") == "suspicious"
+        extra_after = [
+            item
+            for item in (captured.get("plan_delta_attempts") or [])
+            if set(item.get("missing") or []).issubset({"rag", "spl", "approved_sop_guidance", "rag:sop"})
+        ]
+        assert extra_after == []
+
         rem = payload.get("remediation_approval") or {}
+        assert rem.get("status") in {
+            "offered",
+            "awaiting_approval",
+            "edited_revalidated",
+            "approved",
+        }, {"remediation_approval": rem, "outcome": outcome, "eligible_fields": {
+            "status": outcome.get("investigation_status"),
+            "disposition": outcome.get("disposition"),
+            "evidence_refs": outcome.get("evidence_refs"),
+            "remediation_offer_required": outcome.get("remediation_offer_required"),
+        }}
         session_id = second.session_context_status.session_id if second.session_context_status else None
         if rem.get("status") == "offered":
             created = _chat(
@@ -414,18 +458,21 @@ def test_controlled_full_lifecycle_read_reason_delta_outcome_p11(
             envelope = (approved_payload.get("remediation_approval") or {}).get("approved_envelope") or {}
             assert envelope.get("envelope_version") or envelope.get("plan_fingerprint")
             action_ev = approved_payload.get("remediation_execution") or approved_payload.get("action_evidence") or {}
-            if recording.sent:
-                assert len(recording.sent) == 1
-                replay = _chat(
-                    LIFECYCLE_QUERY,
-                    session_id=session_id,
-                    remediation_review_action="approve",
-                )
-                assert len(recording.sent) == 1
-                replay_exec = replay.model_dump(mode="json").get("remediation_execution") or {}
-                assert replay_exec.get("idempotent") or replay_exec.get("duplicate") or len(recording.sent) == 1
-                receipt = action_ev if isinstance(action_ev, dict) else {}
-                assert receipt.get("verified") not in {True, "verified"}
+            assert recording.sent, {
+                "remediation_execution": action_ev,
+                "remediation_approval": approved_payload.get("remediation_approval"),
+            }
+            assert len(recording.sent) == 1
+            replay = _chat(
+                LIFECYCLE_QUERY,
+                session_id=session_id,
+                remediation_review_action="approve",
+            )
+            assert len(recording.sent) == 1
+            replay_exec = replay.model_dump(mode="json").get("remediation_execution") or {}
+            assert replay_exec.get("idempotent") or replay_exec.get("duplicate") or len(recording.sent) == 1
+            receipt = action_ev if isinstance(action_ev, dict) else {}
+            assert receipt.get("verified") not in {True, "verified"}
         production = Path(__file__).resolve().parents[1]
         production_py = "\n".join(
             path.read_text()

@@ -20,6 +20,20 @@ Disposition = Literal["suspicious", "benign", "inconclusive", "blocked"]
 SecurityDisposition = Literal["suspicious", "benign", "inconclusive"]
 InvestigationStatus = Literal["completed", "incomplete", "blocked", "cancelled"]
 _HIGH_SEVERITY = ("P1", "P2")
+_ENVIRONMENT_OBTAINED_KEYS = frozenset(
+    {
+        "mcp",
+        "endpoint",
+        "process_execution",
+        "auth",
+        "identity",
+        "network_flows",
+        "firewall_sessions",
+        "dns",
+        "egress_flows",
+        "executed_evidence",
+    }
+)
 
 
 class InvestigationOutcome(BaseModel):
@@ -105,7 +119,12 @@ def derive_investigation_outcome(
         for fact in structured.get("structured_facts") or []
         if isinstance(fact, dict) and fact.get("statement") and fact.get("source_refs")
     ]
-    missing = list(sufficiency.get("missing") or evidence.get("missing") or structured.get("missing_evidence") or [])
+    if "missing" in sufficiency:
+        missing = list(sufficiency.get("missing") or [])
+    elif "missing" in evidence:
+        missing = list(evidence.get("missing") or [])
+    else:
+        missing = list(structured.get("missing_evidence") or [])
     if isinstance(gate, dict) and "collected_evidence_refs" in gate:
         refs = list(gate.get("collected_evidence_refs") or [])
     else:
@@ -280,9 +299,20 @@ def _disposition(
     obtained = [str(item) for item in evidence.get("obtained") or []]
     if "negative_evidence" in kinds and not obtained:
         return "benign"
-    label = str(severity_label or "")
-    live = bool(gate.get("allow_live_result_language"))
-    if live and obtained and any(tag in label for tag in _HIGH_SEVERITY):
+    environment_obtained = bool(set(obtained) & _ENVIRONMENT_OBTAINED_KEYS)
+    if not environment_obtained and gate.get("collected_evidence_refs") and gate.get(
+        "allow_environment_fact_claims"
+    ):
+        environment_obtained = True
+    sufficiency_complete = str(sufficiency.get("status") or "").upper() == "SUFFICIENT"
+    high_severity = any(tag in str(severity_label or "") for tag in _HIGH_SEVERITY)
+    live_environment = bool(
+        gate.get("allow_environment_fact_claims") or gate.get("allow_live_result_language")
+    )
+    # Disposition is the security finding. Severity is independent. Presentation
+    # language (`allow_live_result_language`) must not be the only way to name
+    # obtained environment evidence as suspicious.
+    if environment_obtained and (sufficiency_complete or (live_environment and high_severity)):
         return "suspicious"
     return "inconclusive"
 

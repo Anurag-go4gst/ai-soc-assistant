@@ -346,11 +346,13 @@ def _route_out_of_registry(
 
     # P1 floor 1 — analyst investigation/triage/evidence framing routes to the
     # guided_investigation rescue, ahead of the keyword detection-family match.
-    # The family matcher is greedy (it fires on PMU/HMI nouns), so without this an
-    # "evidence-led investigation plan" was being pulled into the SPL path. Genuine
+    # The family matcher is greedy (it fires on a single detection-family phrase),
+    # so without this an evidence-led investigation was pulled into review-only
+    # SPL. Live-data ("check the relevant … evidence") is part of investigation,
+    # not a reason to collapse a compound ask into one family. Genuine
     # knowledge-explanation openers are excluded inside the detector.
 
-    if not action and detect_investigation_request(query) and not live_data:
+    if not action and detect_investigation_request(query):
         return _route_guided_investigation_rescue(
             understanding,
             query,

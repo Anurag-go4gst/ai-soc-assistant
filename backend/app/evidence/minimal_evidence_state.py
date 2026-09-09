@@ -37,6 +37,71 @@ _GENERATED_SOURCE_TYPES = frozenset({"splunk_mcp_saia"})
 _BLOCKED_STATUSES = frozenset({"blocked", "requires_human_review"})
 _INVALIDATED_STATUSES = frozenset({"failed", "ambiguous"})
 _STALE_MARKERS = ("stale", "expired", "freshness_exceeded")
+_ENRICHMENT_KEYS = frozenset(
+    {
+        "rag",
+        "rag:sop",
+        "approved_sop_guidance",
+        "cve_snapshot",
+        "github",
+        "github_reference",
+        "source_reference",
+        "vendor_bulletin",
+        "mitre_reference",
+        "reference_dataset",
+    }
+)
+_ENVIRONMENT_CATEGORY_KEYS = frozenset(
+    {
+        "endpoint",
+        "process_execution",
+        "auth",
+        "identity",
+        "network_flows",
+        "firewall_sessions",
+        "dns",
+        "egress_flows",
+        "mcp",
+    }
+)
+_PROCESS_FIELD_MARKERS = frozenset(
+    {
+        "host",
+        "hostname",
+        "device",
+        "process",
+        "process_name",
+        "process_hash",
+        "parent_process",
+        "command_line",
+        "image",
+        "task_exec",
+        "task_name",
+        "action",
+    }
+)
+_NETWORK_FIELD_MARKERS = frozenset(
+    {"dest", "dest_ip", "dest_port", "src", "src_ip", "bytes", "bytes_out", "query", "answer", "domain"}
+)
+_AUTH_FIELD_MARKERS = frozenset(
+    {"eventcode", "logon_type", "authentication_method", "mfa_status", "result", "signature"}
+)
+_AUTH_ACTION_MARKERS = frozenset(
+    {"failure", "success", "failed", "logon", "login", "auth_failure", "auth_success"}
+)
+_AUTH_CONTRACT_MARKERS = (
+    "authentication failure",
+    "authentication success",
+    "failed login",
+    "mfa",
+    "ssh",
+    "logon",
+    "vpn",
+    "sign-in",
+    "signin",
+    "auth_failure",
+    "auth_success",
+)
 
 
 class EvidenceStateItem(BaseModel):
@@ -111,6 +176,7 @@ def derive_minimal_evidence_state(
         required = _unique([*required, "mcp"])
     for cap in rqc.get("required_capabilities") or []:
         required = _unique([*required, str(cap)])
+    required = _unique([*required, *_environment_categories_from_checklist(plan)])
 
     obtained: list[str] = []
     stale: list[str] = []
@@ -137,6 +203,23 @@ def derive_minimal_evidence_state(
         item_by_key[key] = item
         if lifecycle == "obtained":
             obtained.append(key)
+            if key == "mcp" and plan.get("needs_spl"):
+                obtained.append("spl")
+            for category in _environment_categories_from_record(record):
+                obtained.append(category)
+                item_by_key.setdefault(
+                    category,
+                    EvidenceStateItem(
+                        key=category,
+                        status="obtained",
+                        provenance=item.provenance,
+                        trust_class=item.trust_class,
+                        scope=item.scope,
+                        observed_at=item.observed_at,
+                        freshness=item.freshness,
+                        applicability="environment_telemetry",
+                    ),
+                )
             for field_name in record.get("fields_returned") or []:
                 field_key = str(field_name)
                 obtained.append(field_key)
@@ -256,6 +339,11 @@ def derive_minimal_evidence_state(
     blocked = [key for key in blocked if key not in accepted]
     empty = [key for key in empty if key not in accepted]
     usable = set(obtained) - set(stale) - set(invalidated) - set(blocked)
+    required = [
+        key
+        for key in required
+        if not _non_blocking_requirement(key, usable=usable, plan=plan, rqc=rqc)
+    ]
     missing = [key for key in required if key not in usable]
     for key in missing:
         item_by_key.setdefault(
@@ -342,7 +430,108 @@ def _required_key_semantics(key: str) -> str | None:
         return "executed_spl_result"
     if key == "mcp" or key.startswith("mcp:"):
         return "executed_mcp_result"
+    if key in _ENRICHMENT_KEYS:
+        return "enrichment_not_environment_evidence"
     return None
+
+
+def _record_field_names(record: dict[str, Any]) -> set[str]:
+    names = {str(item).lower() for item in (record.get("fields_returned") or []) if item}
+    for row in record.get("preview_rows") or []:
+        if isinstance(row, dict):
+            names.update(str(key).lower() for key in row)
+    return names
+
+
+def _environment_categories_from_record(record: dict[str, Any]) -> list[str]:
+    """Map obtained environment telemetry onto investigation-contract category keys.
+
+    Domain labels such as `endpoint` never equal the SourceEvidence key `mcp`.
+    Field names from collected rows are the existing binding, not a second schema.
+    """
+    source_type = str(record.get("source_type") or "")
+    if source_type not in {"splunk_mcp", "splunk", "mcp"}:
+        return []
+    fields = _record_field_names(record)
+    actions = {
+        str(row.get("action") or "").lower()
+        for row in (record.get("preview_rows") or [])
+        if isinstance(row, dict)
+    }
+    categories: list[str] = []
+    if fields & _PROCESS_FIELD_MARKERS:
+        categories.extend(("endpoint", "process_execution"))
+    if fields & _NETWORK_FIELD_MARKERS:
+        categories.extend(("network_flows", "firewall_sessions"))
+        if "query" in fields or "answer" in fields or "domain" in fields:
+            categories.append("dns")
+        if "bytes" in fields or "bytes_out" in fields:
+            categories.append("egress_flows")
+    if (fields & _AUTH_FIELD_MARKERS) or (actions & _AUTH_ACTION_MARKERS):
+        categories.extend(("auth", "identity"))
+    return _unique(categories)
+
+
+def _environment_categories_from_checklist(plan: dict[str, Any]) -> list[str]:
+    """Project the approved investigation checklist onto environment category keys.
+
+    Envelope ``data_categories`` are coarse. Checklist/evidence-needed text is the
+    current contract's evidence legs (process vs network vs auth). This is not a
+    second schema: it only names categories already used by EvidenceState.
+    """
+    categories: list[str] = []
+    for raw in list(plan.get("checklist") or []) + list(plan.get("investigation_workflow") or []):
+        item = str(raw).lower()
+        if not item:
+            continue
+        if any(
+            marker in item
+            for marker in ("endpoint", "process execution", "parent process", "child process", "edr")
+        ):
+            categories.extend(("endpoint", "process_execution"))
+        # One checklist leg maps to one environment category. "Unusual network
+        # use" is a flow/egress question; firewall/session logs are only
+        # required when the contract actually names them.
+        if any(marker in item for marker in ("firewall", "network session")):
+            categories.append("firewall_sessions")
+        elif any(marker in item for marker in ("network flow", "unusual network", "network use", "outbound")):
+            categories.append("network_flows")
+        if any(marker in item for marker in ("dns", "resolved name", "domain resolution")):
+            categories.append("dns")
+        if any(marker in item for marker in ("exfiltration", "outbound transfer", "egress")):
+            categories.append("egress_flows")
+        if any(marker in item for marker in _AUTH_CONTRACT_MARKERS):
+            categories.extend(("auth", "identity"))
+    return _unique(categories)
+
+
+def _authentication_contract_required(plan: dict[str, Any], rqc: dict[str, Any]) -> bool:
+    blob = " ".join(
+        [
+            *[str(item) for item in (plan.get("checklist") or [])],
+            *[str(item) for item in (rqc.get("evidence_requirements") or [])],
+            str(rqc.get("intent_family") or ""),
+            str(rqc.get("normalized_goal") or ""),
+            str(rqc.get("answer_goal") or ""),
+        ]
+    ).lower()
+    return any(marker in blob for marker in _AUTH_CONTRACT_MARKERS)
+
+
+def _non_blocking_requirement(
+    key: str,
+    *,
+    usable: set[str],
+    plan: dict[str, Any],
+    rqc: dict[str, Any],
+) -> bool:
+    """True when a catalogue key must not block an otherwise complete environment investigation."""
+    environment_obtained = bool(usable & _ENVIRONMENT_CATEGORY_KEYS)
+    if key in _ENRICHMENT_KEYS and environment_obtained:
+        return True
+    if key in {"auth", "identity"} and environment_obtained and not _authentication_contract_required(plan, rqc):
+        return True
+    return False
 
 
 def _evidence_state_key_for_fact_kind(kind: str, *, evidence_class: str) -> str:

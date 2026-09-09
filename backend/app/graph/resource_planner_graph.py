@@ -667,19 +667,97 @@ def rp_node_context_sufficiency(state: ResourcePlannerGraphState) -> ResourcePla
     )
 
 
-def _rp_after_context_sufficiency(state: ResourcePlannerGraphState) -> AfterContextSufficiency:
-    envelope = state.get("approved_investigation_envelope")
-    run_status = state.get("investigation_run_status")
+_TERMINAL_EXECUTION_STATUSES = frozenset(
+    {
+        "executed",
+        "failed",
+        "blocked",
+        "blocked_policy",
+        "timeout",
+        "denied",
+        "error",
+        "unavailable",
+    }
+)
+_NONTERMINAL_EXECUTION_STATUSES = frozenset(
+    {
+        "requires_human_review",
+        "awaiting_confirmation",
+        "not_started",
+        "planned",
+        "pending",
+        "",
+    }
+)
+_EXECUTION_CONFIRMATION_REVIEW_TYPES = frozenset(
+    {
+        "spl_execution_confirmation",
+        "mcp_execution_confirmation",
+        "execution_confirmation",
+        "analyst_confirmation_required",
+    }
+)
+
+
+def plan_delta_reasoning_eligible(state: ResourcePlannerGraphState | dict[str, Any]) -> tuple[bool, str]:
+    """Whether PlanDelta reasoning may run after this hop's sufficiency refresh.
+
+    Owner of the context_sufficiency → plan_delta_reasoner branch. Not a second
+    lifecycle state machine: it only reads existing execution, HIL, envelope,
+    and investigation_run_status fields.
+    """
     if not settings.ai_soc_plan_delta_enabled:
-        return "decide_facts"
-    if not isinstance(envelope, dict) or not isinstance(run_status, dict):
-        return "decide_facts"
+        return False, "plan_delta_disabled"
+    envelope = state.get("approved_investigation_envelope")
+    if not isinstance(envelope, dict):
+        return False, "awaiting_investigation_approval"
     policy = envelope.get("plan_delta_policy") if isinstance(envelope.get("plan_delta_policy"), dict) else {}
     if policy.get("automatic_bounded_read_only_delta_allowed") is not True:
-        return "decide_facts"
-    if run_status.get("status") != "incomplete" or not run_status.get("missing_evidence"):
-        return "decide_facts"
-    return "plan_delta_reasoner"
+        return False, "automatic_delta_not_allowed"
+    approval = state.get("investigation_approval") if isinstance(state.get("investigation_approval"), dict) else {}
+    if str(approval.get("status") or "") in {"awaiting_approval", "edited_revalidated"}:
+        return False, "awaiting_plan_approval"
+    run_status = state.get("investigation_run_status") if isinstance(state.get("investigation_run_status"), dict) else {}
+    missing = [str(item) for item in (run_status.get("missing_evidence") or []) if str(item).strip()]
+    if str(run_status.get("status") or "") != "incomplete" or not missing:
+        return False, "no_material_gap"
+    human = state.get("human_review") if isinstance(state.get("human_review"), dict) else {}
+    review_type = str(human.get("review_type") or human.get("reason") or "")
+    if bool(human.get("required")) and (
+        review_type in _EXECUTION_CONFIRMATION_REVIEW_TYPES or "confirm_execution" in review_type
+    ):
+        return False, "awaiting_tool_confirmation"
+    execution = state.get("execution") if isinstance(state.get("execution"), dict) else {}
+    exec_status = str(execution.get("status") or "")
+    if exec_status in _NONTERMINAL_EXECUTION_STATUSES:
+        return False, "current_read_not_terminal"
+    if exec_status not in _TERMINAL_EXECUTION_STATUSES:
+        return False, "current_read_not_terminal"
+    if exec_status == "executed":
+        source = [item for item in (state.get("source_evidence") or []) if isinstance(item, dict)]
+        admitted = [
+            item
+            for item in source
+            if str(item.get("collection_status") or "")
+            in {"collected", "failed", "blocked", "skipped", "empty"}
+        ]
+        if not admitted:
+            return False, "source_evidence_not_admitted"
+    capabilities = [
+        str(item)
+        for item in (envelope.get("allowed_read_only_capabilities") or [])
+        if str(item).strip()
+    ]
+    if not capabilities:
+        return False, "no_follow_up_capability"
+    return True, "post_terminal_read_material_gap"
+
+
+def _rp_after_context_sufficiency(state: ResourcePlannerGraphState) -> AfterContextSufficiency:
+    eligible, _reason = plan_delta_reasoning_eligible(state)
+    if eligible:
+        return "plan_delta_reasoner"
+    return "decide_facts"
 
 
 def rp_node_plan_delta_reasoner(state: ResourcePlannerGraphState) -> ResourcePlannerGraphState:

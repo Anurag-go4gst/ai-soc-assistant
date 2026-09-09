@@ -38,6 +38,7 @@ from app.chat.contracts.semantic_t4_proposal import (
     OPTIONAL_UNRESOLVED_FILLS,
     SemanticT4Proposal,
 )
+from app.chat.llm_interaction_trace import capture_llm_interaction
 from app.chat.resolved_query_builder import attach_understanding_authority, capabilities_for_intent_family
 from app.config import settings
 from app.llm.adapter.output_preprocessor import preprocess_llm_output
@@ -52,6 +53,7 @@ from app.llm.sidecar_governance import (
     SidecarLlmCallResult,
     run_sidecar_llm_with_timeout,
 )
+from app.query_understanding.soc_investigation_shape import detect_investigation_request
 from app.safeguards.trust_boundary import CONTROL_PREAMBLE, wrap_untrusted_source
 
 SEMANTIC_T4_TIMEOUT_SECONDS = 2.0
@@ -271,6 +273,47 @@ def _build_semantic_t4_user_prompt(query: str, deterministic: ResolvedQueryContr
 #: Abstain reasons that resolve the turn *without* a semantic hop. The
 #: architecture routes these to clarification / policy handling, not to T4.
 _ABSTAIN_REASONS_WITHOUT_T4 = frozenset({"clarification_required", "policy_blocked"})
+_OUT_OF_REGISTRY_PATHS = frozenset({"out_of_registry", "semantic_out_of_registry"})
+
+
+def _is_t4_out_of_registry(deterministic: ResolvedQueryContract) -> bool:
+    if str(deterministic.qualification_tier or "") != "T4":
+        return False
+    source = str(deterministic.qualification_source or "").strip()
+    provenance = deterministic.provenance or {}
+    match_path = str(
+        provenance.get("deterministic_match_path")
+        or provenance.get("observed_match_path")
+        or provenance.get("match_path")
+        or source
+        or ""
+    )
+    return match_path in _OUT_OF_REGISTRY_PATHS or source in _OUT_OF_REGISTRY_PATHS
+
+
+def _investigation_shaped_lacks_complete_understanding(
+    deterministic: ResolvedQueryContract,
+) -> bool:
+    """Out-of-registry investigation-shaped asks are not complete DET meaning.
+
+    Filling intent_family/answer_goal is not a governed match of a novel
+    compound investigation. Detection-family / live-data floors must not
+    collapse that ask into an ACCEPT that skips T4. SPL-authoring and
+    fully specified review-only searches do not match
+    ``detect_investigation_request`` and remain ACCEPT / skip-T4.
+
+    This does **not** invent an unresolved ``semantic_referent`` slot: T4-off
+    production keeps the existing guided investigation path; T4-on ABSTAINs
+    so the hop may run.
+    """
+    if not _is_t4_out_of_registry(deterministic):
+        return False
+    if str(deterministic.answer_goal or "") == "spl_artifact":
+        return False
+    query = str(deterministic.normalized_goal or "").strip()
+    if not query:
+        return False
+    return detect_investigation_request(query)
 
 
 def _deterministic_semantic_complete(deterministic: ResolvedQueryContract) -> bool:
@@ -295,6 +338,8 @@ def _deterministic_semantic_complete(deterministic: ResolvedQueryContract) -> bo
         return False
     sufficiency = deterministic.understanding_sufficiency or {}
     if list(sufficiency.get("missing") or ()):
+        return False
+    if _investigation_shaped_lacks_complete_understanding(deterministic):
         return False
     return True
 
@@ -1103,9 +1148,11 @@ def _live_single_hop_provider(query: str, deterministic: ResolvedQueryContract) 
     )
     from app.llm.policy.candidates import candidate_t4_response_schema, live_system_prompt
 
+    system_prompt = live_system_prompt("semantic_t4", _SEMANTIC_T4_SYSTEM_PROMPT)
+    user_prompt = _build_semantic_t4_user_prompt(query, deterministic)
     result = client.generate(
-        system_prompt=live_system_prompt("semantic_t4", _SEMANTIC_T4_SYSTEM_PROMPT),
-        user_prompt=_build_semantic_t4_user_prompt(query, deterministic),
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
         # 400 tokens at the measured 4.1-4.5 tok/s is ~90s of generation alone,
         # which is most of the 120s VPS remediation budget (C2/C3 measurements).
         # The proposal schema fits comfortably below this cap; a truncated payload
@@ -1127,4 +1174,24 @@ def _live_single_hop_provider(query: str, deterministic: ResolvedQueryContract) 
         },
         timeout_seconds=timeout,
     )
+    try:
+        capture_llm_interaction(
+            role="semantic_t4",
+            stage="understanding",
+            provider_label=result.answered_label or result.model,
+            model=result.model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=0.1,
+            max_tokens=220,
+            raw_text=result.text,
+            finish_reason=result.finish_reason,
+            usage=dict(result.usage or {}),
+            transport_status="completed" if result.text else "failed",
+            accepted=False,
+            contributed_to_final_output=False,
+            latency_ms=result.latency_ms,
+        )
+    except Exception:  # noqa: BLE001 — trace capture must never break the hop
+        pass
     return result.text

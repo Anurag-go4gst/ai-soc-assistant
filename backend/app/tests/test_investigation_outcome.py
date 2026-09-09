@@ -89,7 +89,7 @@ def test_sourced_llm_findings_may_append_without_gaining_authority() -> None:
             "hypotheses": ["credential stuffing"],
         },
     )
-    assert updated.disposition == "inconclusive"
+    assert updated.disposition == base.disposition
     assert "possible brute force" in updated.findings
     assert "credential stuffing" in updated.unconfirmed_hypotheses
     assert updated.llm_proposal_accepted is True
@@ -103,3 +103,37 @@ def test_blocked_sufficiency_yields_blocked_disposition() -> None:
     )
     assert outcome.disposition == "blocked"
     assert actions_from_investigation_outcome(outcome) == []
+
+
+def test_sufficient_environment_evidence_is_suspicious_without_high_severity() -> None:
+    outcome = derive_investigation_outcome(
+        evidence_state={"obtained": ["mcp", "endpoint", "process_execution"], "missing": []},
+        evidence_sufficiency={"status": "SUFFICIENT", "missing": [], "next_action": "CONTINUE"},
+        final_evidence_gate={"collected_evidence_refs": ["ev1"], "allow_live_result_language": False},
+        severity_label="Not assigned from this question alone",
+        outcome_v2_enabled=True,
+        investigation_run_status={"status": "sufficient"},
+        investigation_approval={"status": "approved"},
+        resolved_query_contract={"intent_family": "live_investigation", "answer_goal": "live_results"},
+    )
+    assert outcome.investigation_status == "completed"
+    assert outcome.disposition == "suspicious"
+    assert outcome.severity_label == "Not assigned from this question alone"
+
+
+def test_empty_sufficiency_missing_does_not_inherit_enrichment_keys() -> None:
+    outcome = derive_investigation_outcome(
+        evidence_state={"obtained": ["mcp", "endpoint", "process_execution"], "missing": []},
+        evidence_sufficiency={"status": "SUFFICIENT", "missing": [], "next_action": "CONTINUE"},
+        structured_context={"missing_evidence": ["approved_sop_guidance", "rag:sop"]},
+        final_evidence_gate={"collected_evidence_refs": ["ev1"]},
+        severity_label="Not assigned from this question alone",
+        outcome_v2_enabled=True,
+        investigation_run_status={"status": "sufficient"},
+        investigation_approval={"status": "approved"},
+        resolved_query_contract={"intent_family": "live_investigation", "answer_goal": "live_results"},
+    )
+    assert outcome.investigation_status == "completed"
+    assert outcome.missing_evidence == []
+    assert "approved_sop_guidance" not in outcome.missing_evidence
+    assert "rag:sop" not in outcome.missing_evidence
