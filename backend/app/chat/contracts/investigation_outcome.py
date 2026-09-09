@@ -222,7 +222,10 @@ def derive_investigation_outcome(
                     context=context,
                     run_status=run_status,
                 ),
-                recommended_next_action=_recommended_next_action(
+                recommended_next_action=_analyst_next_action(
+                    missing=analyst_missing,
+                    unconfirmed=unconfirmed_hypotheses,
+                    source_unavailable=source_unavailable,
                     sufficiency=sufficiency,
                     run_status=run_status,
                 ),
@@ -477,6 +480,72 @@ def _is_internal_code(text: str) -> bool:
     return " " not in text.strip()
 
 
+
+def _analyst_next_action(
+    *,
+    missing: list[str],
+    unconfirmed: list[str],
+    source_unavailable: bool,
+    sufficiency: dict[str, Any],
+    run_status: dict[str, Any],
+) -> str | None:
+    """The next investigative step for the analyst, not the internal control verdict.
+
+    Internal control still decides STOP / BLOCK / DEGRADE and keeps that decision on
+    ``investigation_run_status.next_action``. "stop" is a correct execution decision
+    and useless SOC advice, so the analyst-facing line is derived from canonical
+    state instead: the material evidence gap, the hypotheses it would separate, and
+    the decision that would unlock.
+
+    Composed only from evidence the investigation already declared missing, so it
+    can neither claim a finding nor imply anything was collected. It recommends
+    reading, never writing.
+    """
+    # Only analyst-readable concepts may appear here. An identifier-shaped residue
+    # ("mcp_rows") is internal plumbing and must never become "Collect mcp_rows".
+    readable = [item for item in missing if " " in str(item).strip()]
+    if not readable:
+        return _recommended_next_action(sufficiency=sufficiency, run_status=run_status)
+
+    primary = readable[0]
+    supporting = readable[1:3]
+    what = f"Collect {primary}"
+    if supporting:
+        what += " together with " + " and ".join(supporting)
+    what += "."
+
+    if len(unconfirmed) >= 2:
+        why = (
+            f" This is the highest-value next step because it is the evidence that "
+            f"separates \u201c{_trim(unconfirmed[0])}\u201d from \u201c{_trim(unconfirmed[1])}\u201d, "
+            "which no currently held evidence can distinguish."
+        )
+    elif unconfirmed:
+        why = (
+            f" This is the highest-value next step because \u201c{_trim(unconfirmed[0])}\u201d "
+            "remains unconfirmed and nothing currently held can corroborate it."
+        )
+    else:
+        why = " This is the highest-value next step because no environment evidence has been collected yet."
+
+    decision = (
+        " Establishing it would determine whether the reported events form one "
+        "activity chain, and therefore whether containment should be considered. "
+        "No remediation has been executed."
+    )
+    if source_unavailable:
+        decision += (
+            " The governed read source is currently unavailable, so this may need to "
+            "be obtained from the owning team or platform."
+        )
+    return what + why + decision
+
+
+def _trim(text: str, limit: int = 90) -> str:
+    value = str(text or "").strip().rstrip(".")
+    return value if len(value) <= limit else value[: limit - 1] + "\u2026"
+
+
 def _recommended_next_action(
     *,
     sufficiency: dict[str, Any],
@@ -508,6 +577,10 @@ def _analyst_process_next_action(raw: str) -> str:
         return "Continue investigation"
     if token == "CALL_T4":
         return "Semantic understanding required"
+    if token in {"STOP", "HALT", "ABORT"}:
+        return "Unable to proceed — additional evidence required"
+    if token == "CONTINUE_TO_OUTCOME":
+        return "Continue investigation"
     if token in _WORKFLOW_CONTROL_NEXT_ACTIONS:
         return "Unable to proceed"
     return raw

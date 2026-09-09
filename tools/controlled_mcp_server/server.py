@@ -50,6 +50,46 @@ NETWORK_ROWS = [
     }
 ]
 
+#: Hypothesis-revision fixture. READ #1 returns a SIGNED, well-known administrative
+#: binary -- process identity alone therefore weakens "malware binary" -- but carries
+#: one suspicious contextual clue (a service account running it out of hours from an
+#: unexpected parent). READ #2 supplies the lineage/session/destination context that
+#: separates legitimate administration from abuse of a legitimate tool. The expected
+#: conclusion is deliberately NOT encoded here; only telemetry is.
+ADMIN_TOOL_FIRST_READ_ROWS = [
+    {
+        "host": "SRV-APP-03",
+        "user": "svc_backup",
+        "parent_process": "wscript.exe",
+        "process": "psexec.exe",
+        "signature_status": "signed",
+        "signer": "Microsoft Corporation",
+        "product_name": "PsExec Sysinternals",
+        "cmdline": "psexec.exe -s cmd.exe",
+        "_time": "2026-09-08T02:47:11Z",
+    }
+]
+ADMIN_TOOL_SECOND_READ_ROWS = [
+    {
+        "host": "SRV-APP-03",
+        "user": "svc_backup",
+        "logon_type": "3",
+        "src": "10.9.4.51",
+        "dest": "203.0.113.77",
+        "dest_port": 443,
+        "bytes": 940112,
+        "_time": "2026-09-08T02:49:36Z",
+    },
+    {
+        "host": "SRV-APP-03",
+        "user": "svc_backup",
+        "action": "scheduled_task_created",
+        "task_name": "BackupHealthCheck",
+        "task_exec": "psexec.exe",
+        "_time": "2026-09-08T02:51:02Z",
+    },
+]
+
 TOOLS = [
     {
         "name": "splunk_run_query",
@@ -148,7 +188,13 @@ class ControlledMcpHandler(BaseHTTPRequestHandler):
         with state.lock:
             state.search_calls += 1
             call_no = state.search_calls
-        if state.mode == "insufficient":
+        if state.mode == "admin_tool_revision":
+            rows = (
+                list(ADMIN_TOOL_FIRST_READ_ROWS)
+                if call_no == 1
+                else list(ADMIN_TOOL_SECOND_READ_ROWS)
+            )
+        elif state.mode == "insufficient":
             rows = list(PROCESS_ROWS)
         elif call_no == 1:
             rows = list(PROCESS_ROWS)
@@ -203,7 +249,7 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=18081)
     parser.add_argument("--token", default=DEFAULT_TOKEN)
-    parser.add_argument("--mode", choices=("full", "insufficient"), default="full")
+    parser.add_argument("--mode", choices=("full", "insufficient", "admin_tool_revision"), default="full")
     args = parser.parse_args()
     server = ControlledMcpServer(host=args.host, port=args.port, token=args.token, mode=args.mode)
     print(f"controlled-mcp listening on {server.start()}/mcp mode={args.mode}", flush=True)

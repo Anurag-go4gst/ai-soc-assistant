@@ -53,6 +53,7 @@ from app.llm.sidecar_governance import (
     SidecarLlmCallResult,
     run_sidecar_llm_with_timeout,
 )
+from app.chat.canonical_evidence_taxonomy import split_reported_observations
 from app.query_understanding.soc_investigation_shape import (
     detect_investigation_request,
     detect_spl_artifact_request,
@@ -682,20 +683,40 @@ def _parse_proposal(raw_output: str) -> tuple[SemanticT4Proposal | None, str | N
 
 # Deictic references: the query points at something the analyst has not supplied.
 # This — and only this — is semantic uncertainty the analyst can resolve.
-_REFERENT_PATTERNS = (
-    # Bare "that"/"it" are excluded on purpose: "lookups **that** look generated" is a
-    # relative pronoun, not a referent, and treating it as one turned a clear hunt
-    # into a clarification (measured in C3).
+#: Anaphors. These point at something, but the antecedent may be supplied by the
+#: turn itself: in "A gateway failed certificate validation ... Investigate whether
+#: THIS is a misconfiguration", "this" is the events just reported. They only mean
+#: an UNRESOLVED referent when the turn reports no observation to refer back to.
+#: Bare "that"/"it" are excluded on purpose: "lookups **that** look generated" is a
+#: relative pronoun, not a referent, and treating it as one turned a clear hunt
+#: into a clarification (measured in C3).
+_ANAPHORIC_REFERENT_PATTERNS = (
     r"\bthis\b",
     r"\bthese\b",
     r"\bthose\b",
+)
+
+#: References that reach outside this turn. No amount of in-turn description
+#: supplies "that alert", "the same host" or "last time", so these are always
+#: unresolved.
+_EXTERNAL_REFERENT_PATTERNS = (
     r"\bthat (host|alert|event|case|user|account|one|incident|domain|ip)\b",
     r"\bsame (host|alert|user|account|case|incident|thing)\b",
     r"\bearlier\b",
     r"\bprevious(ly)?\b",
     r"\blast time\b",
-    r"\bthe (alert|host|user|case|incident|event)\b",
     r"\bit (again|too)\b",
+)
+
+#: A definite article presupposes a referent. Like an anaphor it is satisfied when
+#: the turn itself reports the thing ("A server did X ... investigate the server"),
+#: and unresolved when it does not ("investigate the affected machine").
+_DEFINITE_REFERENT_PATTERNS = (
+    r"\bthe (?:\w+\s+){0,1}(alert|host|user|case|incident|event|machine|server|workstation|endpoint|device|system|account)\b",
+)
+
+_REFERENT_PATTERNS = (
+    _ANAPHORIC_REFERENT_PATTERNS + _EXTERNAL_REFERENT_PATTERNS + _DEFINITE_REFERENT_PATTERNS
 )
 
 # A concrete entity carries a value. A category ("suspicious DNS", "DGA domains")
@@ -721,9 +742,20 @@ _TIME_EXPRESSION_RE = re.compile(
 
 
 def _has_unresolved_referent(query: str) -> bool:
-    """True when the query points at something the analyst did not supply."""
+    """True when the query points at something the analyst did not supply.
+
+    An anaphor whose antecedent the turn itself reports is resolved: the analyst
+    described the events and then asked about "this". Only a reference reaching
+    outside the turn, or an anaphor with nothing reported to bind to, is unresolved.
+    """
     lowered = query.lower()
-    return any(re.search(pattern, lowered) for pattern in _REFERENT_PATTERNS)
+    if any(re.search(pattern, lowered) for pattern in _EXTERNAL_REFERENT_PATTERNS):
+        return True
+    context_dependent = _ANAPHORIC_REFERENT_PATTERNS + _DEFINITE_REFERENT_PATTERNS
+    if not any(re.search(pattern, lowered) for pattern in context_dependent):
+        return False
+    reported, _ = split_reported_observations(query)
+    return not reported
 
 
 def _frozen_clarification_claim(proposal: SemanticT4Proposal) -> bool:
@@ -779,7 +811,26 @@ def _may_merge_t4_clarification(
         return False
     if _has_unresolved_referent(query):
         return True
+    if _class_level_investigation(query):
+        # SEMANTIC completeness, not EXECUTION-SCOPE completeness. "Investigate a
+        # suspicious engineering laptop" names a target CLASS and a goal, so its
+        # meaning is determinable and it can be planned. Not yet being able to bind
+        # a concrete hostname is an execution-scope gap owned by the ResourcePlan /
+        # capability layer, which may request the missing scope before a host-scoped
+        # call. Treating it as semantic ambiguity here stopped clear investigations
+        # from ever producing a plan. Class A above still clarifies a genuinely
+        # unresolved referent ("compare this with yesterday").
+        return False
     return _semantic_ambiguity_eligible_for_t4(deterministic)
+
+
+def _class_level_investigation(query: str) -> bool:
+    """A stated investigation goal whose target is a class rather than a named entity.
+
+    Deliberately does not require a concrete host/account/IP: that is exactly the
+    execution-scope question this predicate refuses to confuse with meaning.
+    """
+    return detect_investigation_request(query)
 
 
 def _is_concrete_entity(value: Any) -> bool:
