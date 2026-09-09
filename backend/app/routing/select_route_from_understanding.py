@@ -352,7 +352,15 @@ def _route_out_of_registry(
     # not a reason to collapse a compound ask into one family. Genuine
     # knowledge-explanation openers are excluded inside the detector.
 
-    if not action and detect_investigation_request(query):
+    # Precedence: an explicit SPL-authoring request outranks investigation framing.
+    # "Generate a review-only SPL query to correlate X with Y" reads as analytic but
+    # names a search artifact as the deliverable, so it must not be pulled into the
+    # guided rescue.
+    if (
+        not action
+        and detect_investigation_request(query)
+        and not detect_spl_artifact_request(query)
+    ):
         return _route_guided_investigation_rescue(
             understanding,
             query,

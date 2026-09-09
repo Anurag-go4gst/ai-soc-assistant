@@ -53,7 +53,10 @@ from app.llm.sidecar_governance import (
     SidecarLlmCallResult,
     run_sidecar_llm_with_timeout,
 )
-from app.query_understanding.soc_investigation_shape import detect_investigation_request
+from app.query_understanding.soc_investigation_shape import (
+    detect_investigation_request,
+    detect_spl_artifact_request,
+)
 from app.safeguards.trust_boundary import CONTROL_PREAMBLE, wrap_untrusted_source
 
 SEMANTIC_T4_TIMEOUT_SECONDS = 2.0
@@ -308,12 +311,20 @@ def _investigation_shaped_lacks_complete_understanding(
     """
     if not _is_t4_out_of_registry(deterministic):
         return False
-    if str(deterministic.answer_goal or "") == "spl_artifact":
-        return False
     query = str(deterministic.normalized_goal or "").strip()
     if not query:
         return False
-    return detect_investigation_request(query)
+    if not detect_investigation_request(query):
+        return False
+    # The analyst's requested DELIVERABLE decides, and it is read from the ask
+    # itself. Trusting a pre-assigned ``answer_goal == "spl_artifact"`` here was
+    # circular: the mislabel this guard exists to catch switched the guard off,
+    # so an investigation-shaped out-of-registry ask ACCEPTed and skipped T4.
+    # An explicit artifact request ("write SPL to ...") still outranks the
+    # investigation framing; merely needing a search internally does not.
+    if detect_spl_artifact_request(query):
+        return False
+    return True
 
 
 def _deterministic_semantic_complete(deterministic: ResolvedQueryContract) -> bool:

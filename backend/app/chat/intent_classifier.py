@@ -26,7 +26,10 @@ from app.config import settings
 from app.coverage.hunt_pattern_types import EXACT_105_HUNT_PATTERNS, cisco_hunt_pattern_types
 from app.coverage.question_runtime_map import question_runtime_entry
 from app.query_understanding.models import QueryUnderstandingResult, RequestedOutputType
-from app.query_understanding.soc_investigation_shape import detect_investigation_request
+from app.query_understanding.soc_investigation_shape import (
+    detect_investigation_request,
+    detect_spl_artifact_request,
+)
 from app.use_cases.registry import load_use_case_catalog
 
 
@@ -449,6 +452,15 @@ def classify_intent(
         and not signals.get("guidance_request")
         and not signals.get("block_or_contain")
         and not signals.get("explicit_run_spl")
+        # EXECUTION/TOOL NEED is not the USER'S ANSWER GOAL. "A search may be
+        # required to answer this investigation" must not become "the requested
+        # deliverable is SPL". Without this, any investigation-shaped out-of-registry
+        # ask that happens to need live data was relabelled spl_generation_only /
+        # spl_artifact, which then skipped T4 and overrode the guided route.
+        # Precedence: an explicit artifact request outranks investigation framing,
+        # so "generate a review-only SPL query to correlate X with Y" stays SPL
+        # authoring even though it reads as analytic.
+        and not _investigation_goal_outranks_artifact(query, signals)
     ):
         return _build_classification(
             intent_family="spl_generation_only",
@@ -1233,6 +1245,20 @@ def _build_explicit_spl_authoring_classification(*, reason: str) -> IntentClassi
         requested_output_type="SPL",
     )
 
+
+
+
+def _investigation_goal_outranks_artifact(query: str, signals: dict[str, Any]) -> bool:
+    """True when the analyst's deliverable is a judgement, not a search artifact.
+
+    Detection vocabulary and a live-data need do not make the deliverable SPL.
+    An explicit authoring request does, and it wins over investigation framing.
+    """
+    if not detect_investigation_request(query):
+        return False
+    if signals.get("explicit_spl_authoring") or detect_spl_artifact_request(query):
+        return False
+    return True
 
 
 def build_query_to_intent(

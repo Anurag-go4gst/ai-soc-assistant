@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 _HYPOTHESIS_GUIDANCE_MARKERS = (
     "hunting hypotheses",
     "hypotheses should",
@@ -168,6 +170,14 @@ def is_unsafe_execution(normalized: str) -> bool:
 _INVESTIGATION_MARKERS = (
     "investigate",
     "investigation",
+    # Asking how reported events relate is an analytic goal, not a request for a
+    # search artifact, so "correlate" lives here and not among the detection
+    # imperatives that request a result set. Broader analytic openers
+    # ("determine whether", "tell me if") were tried and reverted: as bare phrases
+    # they also match guidance asks ("how do we determine whether ...") and
+    # referent-ambiguous asks ("tell me if it is getting worse"), which then look
+    # like COMPLETE investigations and wrongly suppress the T4 hop.
+    "correlate ",
     "evidence-led",
     "evidence plan",
     "what evidence",
@@ -234,7 +244,6 @@ _DETECTION_IMPERATIVES = (
     "find ",
     "identify ",
     "detect ",
-    "correlate ",
     "which users",
     "which hosts",
     "which accounts",
@@ -316,6 +325,60 @@ def detect_broad_hunt_guidance_request(query: str) -> bool:
     return False
 
 
+#: Analytic answer-goal openers. On their own these are ordinary English and match
+#: guidance asks ("how do we determine whether ...") and referent-ambiguous asks
+#: ("tell me if it is getting worse"), so they only count in CONJUNCTION with a
+#: security verdict the analyst is asking us to reach. That pairing -- "tell me if
+#: X indicates persistence" -- is an investigation goal regardless of which
+#: technical noun X is, which is exactly the vocabulary-independence required.
+_ANALYTIC_GOAL_OPENERS = (
+    "determine whether",
+    "determine if",
+    "tell me if",
+    "tell me whether",
+    "check whether",
+    "check if",
+    "assess if",
+    "is this",
+    "are these",
+)
+
+#: The verdict being requested. Naming one of these is asking for a security
+#: judgement, not for a search artifact and not for an explanation of method.
+_SECURITY_VERDICTS = (
+    "compromise",
+    "compromised",
+    "persistence",
+    "lateral movement",
+    "exfiltration",
+    "malicious",
+    "suspicious",
+    "beaconing",
+    "authorised",
+    "authorized",
+    "legitimate",
+    "benign",
+    "related",
+)
+
+
+#: "How do we determine whether X is Y" asks for the METHOD, not for a verdict on a
+#: specific reported case. This guard applies only to the analytic-verdict pairing
+#: below: an explicit "how should I investigate ..." still matches
+#: _INVESTIGATION_MARKERS and stays a guided investigation.
+_METHOD_QUESTION_RE = re.compile(r"\bhow\s+(?:do|should|can|would|might)\s+(?:we|i|you|analysts|the soc)\b")
+
+
+def _analytic_verdict_request(normalized: str) -> bool:
+    """An analytic opener paired with the security verdict the analyst wants."""
+    if _METHOD_QUESTION_RE.search(normalized):
+        return False
+    if not any(opener in normalized for opener in _ANALYTIC_GOAL_OPENERS):
+        return False
+    return any(verdict in normalized for verdict in _SECURITY_VERDICTS)
+
+
+
 def detect_investigation_request(query: str) -> bool:
     """Out-of-registry analyst investigation/triage/evidence framing.
 
@@ -327,7 +390,9 @@ def detect_investigation_request(query: str) -> bool:
         return False
     if any(opener in normalized for opener in _KNOWLEDGE_EXPLANATION_OPENERS):
         return False
-    return any(marker in normalized for marker in _INVESTIGATION_MARKERS)
+    if any(marker in normalized for marker in _INVESTIGATION_MARKERS):
+        return True
+    return _analytic_verdict_request(normalized)
 
 
 def detect_spl_artifact_request(query: str) -> bool:
