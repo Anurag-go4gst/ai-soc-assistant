@@ -17,6 +17,7 @@ from app.chat.investigation_plan_relevance import (
     evidence_for_domains,
     filter_unjustified_auth_pivots,
 )
+from app.chat.canonical_evidence_taxonomy import build_semantic_evidence_composition
 from app.chat.multi_leg_evidence import compose_multi_leg_evidence
 from app.chat.planned_mcp_call import enrich_capability_binding
 from app.chat.query_signals import extract_query_signals
@@ -73,6 +74,32 @@ def _parse_guidance_lists(guidance: str) -> tuple[list[str], list[str]]:
     return hypotheses, evidence
 
 
+
+def _compose_investigation_evidence(
+    *, raw_query: str, rqc: dict[str, Any], stable_query: str
+) -> dict[str, Any] | None:
+    """Evidence legs for this investigation, sourced by understanding tier.
+
+    A T4 (out-of-registry) ask is composed from the accepted structured semantic
+    contract plus the analyst's reported observations, so instruction wording is
+    never the sole source of investigation semantics. A known T1-T3 ACCEPT keeps
+    its existing governed evidence contract untouched. Both produce the same
+    composition shape and the same canonical category vocabulary.
+    """
+    tier = str(rqc.get("qualification_tier") or "")
+    source = str(rqc.get("understanding_source") or "")
+    if tier == "T4" or source == "semantic_t4":
+        composition = build_semantic_evidence_composition(
+            raw_query=raw_query,
+            normalized_goal=rqc.get("normalized_goal"),
+            semantic_evidence_requirements=rqc.get("evidence_requirements"),
+            semantic_hypotheses=rqc.get("competing_hypotheses"),
+        )
+        if composition:
+            return composition
+    return compose_multi_leg_evidence(stable_query)
+
+
 def _objective_from_query(
     query: str,
     signal_class: str,
@@ -119,6 +146,9 @@ _DOMAIN_LABELS: dict[str, str] = {
     "vpn_auth": "remote-access authentication",
     "ot_jump_host": "OT jump-host session",
     "relay_change": "relay/IED change",
+    "file_activity": "file/archive activity",
+    "scheduled_task": "scheduled-task creation",
+    "lateral_access": "access to the second host",
 }
 
 
@@ -280,6 +310,7 @@ def _required_capability_bindings(snapshot: dict[str, Any]) -> list[Investigatio
 def build_deterministic_investigation_plan(
     *,
     query: str,
+    raw_query: str | None = None,
     entities: dict[str, Any] | None = None,
     soc_kb_retrieval: dict[str, Any] | None = None,
     enrichment_projection: dict[str, Any] | None = None,
@@ -295,12 +326,25 @@ def build_deterministic_investigation_plan(
     live_investigation = bool(
         signals.get("live_data_request") and not signals.get("review_only_spl")
     )
-    composition = compose_multi_leg_evidence(stable_query)
+    # The analyst's own words, not just the normalized goal: a goal sentence
+    # compresses away reported detail ("an archive file was created locally") and
+    # keeps the instruction clause, so composing from it alone lets instruction
+    # wording outvote reported events.
+    composition = _compose_investigation_evidence(
+        raw_query=str(raw_query or query), rqc=rqc, stable_query=stable_query
+    )
     composition_domains = [
         str(leg.get("domain"))
         for leg in ((composition or {}).get("evidence_legs") or [])
         if isinstance(leg, dict) and leg.get("domain")
     ]
+    # Only observation-backed legs may be stated as one activity chain. A domain
+    # the analyst merely asked us to check still earns an evidence leg, but it is
+    # not a reported event and must not appear in a correlation hypothesis.
+    backed_domains = [
+        str(domain)
+        for domain in ((composition or {}).get("observation_backed_domains") or [])
+    ] or composition_domains
     compound_auth = detect_success_after_failure(stable_query) or _is_authentication_sequence(
         stable_entities
     )
@@ -317,7 +361,9 @@ def build_deterministic_investigation_plan(
             ["auth_failure", "auth_success", "post_login_activity"]
         )
     elif compound_multi_domain:
-        hypotheses = _compound_hypotheses(distinct_domains)
+        hypotheses = _compound_hypotheses(
+            [d for d in dict.fromkeys(backed_domains)] or distinct_domains
+        )
         evidence_needed = evidence_for_domains(distinct_domains)
     else:
         guidance = build_guided_investigation_guidance(stable_query, stable_entities)

@@ -52,9 +52,11 @@ def maybe_attach_validated_investigation_plan(state: dict[str, Any]) -> dict[str
         else {}
     )
     request = state.get("request")
-    query = str(rqc.get("normalized_goal") or getattr(request, "message", "") or "").strip()
+    raw_query = str(getattr(request, "message", "") or "").strip()
+    query = str(rqc.get("normalized_goal") or raw_query or "").strip()
     baseline = build_deterministic_investigation_plan(
         query=query,
+        raw_query=raw_query,
         entities=rqc.get("entities") if isinstance(rqc.get("entities"), dict) else None,
         resolved_query_contract=rqc,
         capability_snapshot=snapshot,

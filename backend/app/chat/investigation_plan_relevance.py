@@ -57,6 +57,18 @@ _DOMAIN_EVIDENCE: dict[str, str] = {
         "DNS query telemetry for the same host and time window: resolved names, answers, query frequency and periodicity."
     ),
     "egress": "Outbound transfer volume and destinations for the same host/user after the correlated events.",
+    "file_activity": (
+        "File and archive activity on the reported host: creation time, path, size, and the "
+        "process and account that wrote it."
+    ),
+    "scheduled_task": (
+        "Scheduled task / persistence mechanism creation on the reported host: task name, "
+        "command or action, author account, and creation time."
+    ),
+    "lateral_access": (
+        "Access from the reported source to the second host: account, logon type, source and "
+        "destination host, and the process context on the destination."
+    ),
 }
 
 _DOMAIN_CATEGORIES: dict[str, tuple[str, ...]] = {
@@ -68,6 +80,9 @@ _DOMAIN_CATEGORIES: dict[str, tuple[str, ...]] = {
     "dns": ("dns",),
     "egress": ("egress_flows",),
     "vpn_auth": ("auth", "identity"),
+    "file_activity": ("endpoint", "file_activity"),
+    "scheduled_task": ("endpoint", "persistence"),
+    "lateral_access": ("auth", "endpoint", "identity"),
 }
 
 

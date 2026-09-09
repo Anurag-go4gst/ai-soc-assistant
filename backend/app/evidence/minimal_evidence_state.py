@@ -61,6 +61,8 @@ _ENVIRONMENT_CATEGORY_KEYS = frozenset(
         "firewall_sessions",
         "dns",
         "egress_flows",
+        "persistence",
+        "file_activity",
         "mcp",
     }
 )
@@ -88,6 +90,22 @@ _AUTH_FIELD_MARKERS = frozenset(
 )
 _AUTH_ACTION_MARKERS = frozenset(
     {"failure", "success", "failed", "logon", "login", "auth_failure", "auth_success"}
+)
+#: Persistence and file/archive evidence. A plan may require these categories, so
+#: the projection must be able to mark them obtained from real collected rows --
+#: otherwise a reported scheduled task or archive is permanently unsatisfiable and
+#: blocks an investigation whose evidence was in fact collected.
+_PERSISTENCE_FIELD_MARKERS = frozenset(
+    {"task_name", "task_exec", "task_command", "service_name", "registry_path", "autorun_key"}
+)
+_PERSISTENCE_ACTION_MARKERS = frozenset(
+    {"scheduled_task_created", "task_created", "service_created", "autorun_created", "persistence"}
+)
+_FILE_FIELD_MARKERS = frozenset(
+    {"file_name", "file_path", "file_hash", "file_size", "archive_name", "archive_path"}
+)
+_FILE_ACTION_MARKERS = frozenset(
+    {"file_created", "file_write", "archive_created", "file_added"}
 )
 _AUTH_CONTRACT_MARKERS = (
     "authentication failure",
@@ -469,6 +487,10 @@ def _environment_categories_from_record(record: dict[str, Any]) -> list[str]:
             categories.append("egress_flows")
     if (fields & _AUTH_FIELD_MARKERS) or (actions & _AUTH_ACTION_MARKERS):
         categories.extend(("auth", "identity"))
+    if (fields & _PERSISTENCE_FIELD_MARKERS) or (actions & _PERSISTENCE_ACTION_MARKERS):
+        categories.extend(("endpoint", "persistence"))
+    if (fields & _FILE_FIELD_MARKERS) or (actions & _FILE_ACTION_MARKERS):
+        categories.extend(("endpoint", "file_activity"))
     return _unique(categories)
 
 
@@ -500,6 +522,16 @@ def _environment_categories_from_checklist(plan: dict[str, Any]) -> list[str]:
             categories.append("dns")
         if any(marker in item for marker in ("exfiltration", "outbound transfer", "egress")):
             categories.append("egress_flows")
+        if any(
+            marker in item
+            for marker in ("scheduled task", "persistence", "autorun", "run key", "service creation")
+        ):
+            categories.append("persistence")
+        if any(
+            marker in item
+            for marker in ("archive", "file activity", "file creation", "file and archive")
+        ):
+            categories.append("file_activity")
         if any(marker in item for marker in _AUTH_CONTRACT_MARKERS):
             categories.extend(("auth", "identity"))
     return _unique(categories)
