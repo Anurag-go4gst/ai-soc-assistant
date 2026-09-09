@@ -422,10 +422,14 @@ def _investigation_status(
 
 
 def _spl_artifact_requested(resolved_query: dict[str, Any]) -> bool:
-    """True when the analyst actually asked for an SPL artifact."""
-    goal = str(resolved_query.get("answer_goal") or "").lower()
-    caps = {str(item).lower() for item in (resolved_query.get("required_capabilities") or [])}
-    return "spl" in goal or any("spl" in cap for cap in caps)
+    """True when the analyst's requested DELIVERABLE is an SPL artifact.
+
+    Keyed on the answer goal only. A required SPL *capability* means the
+    investigation may need a search internally, which is a tool need and not
+    something the analyst asked us to hand them -- reporting "a validated SPL
+    artifact" as a missing evidence item on an investigation is misleading.
+    """
+    return str(resolved_query.get("answer_goal") or "").lower() == "spl_artifact"
 
 
 def _knowledge_contract_required(resolved_query: dict[str, Any]) -> bool:
