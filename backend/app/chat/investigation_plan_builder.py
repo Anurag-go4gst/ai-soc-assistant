@@ -114,7 +114,9 @@ _DOMAIN_LABELS: dict[str, str] = {
     "dns": "DNS resolution",
     "egress": "outbound transfer",
     "phishing": "phishing email",
-    "vpn_auth": "VPN authentication",
+    # Matched by "vpn" or "remote access": the label must cover both without
+    # asserting a protocol the analyst did not state.
+    "vpn_auth": "remote-access authentication",
     "ot_jump_host": "OT jump-host session",
     "relay_change": "relay/IED change",
 }

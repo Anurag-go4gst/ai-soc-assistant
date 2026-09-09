@@ -24,6 +24,14 @@ ALERT_RE = re.compile(r"\b(?:alert_id|alert|notable|event_id|eventid)[:=]\s*([A-
 HOST_RE = re.compile(r"\b(?:host|asset)[:=]\s*([A-Za-z0-9_.:-]+)", re.IGNORECASE)
 USER_RE = re.compile(r"\buser[:=]\s*([A-Za-z0-9_.@-]+)", re.IGNORECASE)
 _HOST_BARE_RE = re.compile(r"\b(?:on|from)\s+([A-Za-z0-9][A-Za-z0-9_.-]{2,})\b", re.IGNORECASE)
+#: Shape of a host identifier: contains a digit, dot, hyphen or underscore, or is
+#: an all-caps short label (PDC, DMZ01). A bare all-alphabetic English word after
+#: "on"/"from" is prose, not a hostname — "distinguish evidence from coincidence"
+#: must not bind an asset named "coincidence". Blocklisting English is unbounded,
+#: so require positive host morphology instead and fail closed: an entity we
+#: cannot distinguish from prose is worse than an absent one, because it scopes
+#: the whole investigation to an asset that does not exist.
+_HOST_IDENTIFIER_SHAPE_RE = re.compile(r"[0-9._-]")
 _HOST_BARE_STOPWORDS = frozenset(
     {
         "host",
@@ -235,6 +243,17 @@ def _requested_output(normalized: str, use_case_template: str | None) -> tuple[R
     return RequestedOutputType.CLARIFICATION, OutputTemplate.CLARIFICATION_RESPONSE
 
 
+def _looks_like_host_identifier(token: str) -> bool:
+    """True when a bare token has the shape of a machine identifier.
+
+    Accepts ``srv1``, ``APP-01``, ``win_ws.corp`` and all-caps labels; rejects
+    ordinary lowercase prose such as ``coincidence`` or ``yesterday``.
+    """
+    if _HOST_IDENTIFIER_SHAPE_RE.search(token):
+        return True
+    return token.isupper()
+
+
 def _entities(query: str) -> QueryEntities:
     ips = IP_RE.findall(query)
     hosts = list(HOST_RE.findall(query))
@@ -244,6 +263,8 @@ def _entities(query: str) -> QueryEntities:
         if token.lower() in _HOST_BARE_STOPWORDS:
             continue
         if token in ips:
+            continue
+        if not _looks_like_host_identifier(token):
             continue
         if match.upper() not in {h.upper() for h in hosts}:
             hosts.append(match)
