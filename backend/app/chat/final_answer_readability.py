@@ -15,6 +15,8 @@ from app.spl.draft_preview import (
     build_draft_preview_analyst_message,
     family_presentation,
 )
+from app.chat.analyst_missing_evidence import project_missing_evidence
+
 
 _EXECUTION_LABELS = {
     "review_only_not_executed": "Review only — not executed",
@@ -227,7 +229,9 @@ def apply_final_answer_readability(
     payload["execution_status_label"] = contract.execution_status_display
     payload["spl_status"] = contract.spl_status
     payload["hil_status"] = contract.hil_status
-    payload["missing_evidence"] = list(contract.missing_evidence)
+    # Display edge: the contract keeps internal keys for control flow upstream.
+    missing_display, _ = project_missing_evidence(contract.missing_evidence)
+    payload["missing_evidence"] = missing_display
     payload["analyst_checklist"] = list(contract.analyst_checklist_safe)
     payload["investigation_steps"] = list(contract.investigation_steps)
     payload["unsupported_claims_avoid"] = list(contract.unsupported_claims_avoid)
@@ -726,13 +730,27 @@ _EVIDENCE_LABELS = {
 
 
 def _required_evidence_display(contract: AnswerContract) -> list[str]:
+    """Analyst-facing labels for the contract's internal required-evidence keys.
+
+    This is the display edge: the contract itself keeps the raw keys, because
+    severity and section decisions upstream still read them.
+    """
     labels: list[str] = []
     for key in contract.required_evidence:
         raw_key = str(key)
-        label = _EVIDENCE_LABELS.get(raw_key, raw_key.replace("_", " "))
-        # The contract already carries analyst-facing evidence language, so a
-        # "key — label" pair would just repeat the same phrase twice.
-        text = raw_key if label.lower() == raw_key.lower() else f"{raw_key} — {label}"
+        label = _EVIDENCE_LABELS.get(raw_key)
+        if label is not None:
+            # A curated field-level label keeps its "key — label" form.
+            text = raw_key if label.lower() == raw_key.lower() else f"{raw_key} — {label}"
+        else:
+            projected, _ = project_missing_evidence([raw_key])
+            if not projected:
+                # Pure control state — not an analyst-collectable requirement.
+                continue
+            # Several keys can share one canonical concept (endpoint and
+            # process_execution are both "process and endpoint evidence"); naming
+            # the concept once is the requirement, the key is plumbing.
+            text = projected[0]
         if text not in labels:
             labels.append(text)
     return labels

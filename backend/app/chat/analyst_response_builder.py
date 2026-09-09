@@ -20,6 +20,8 @@ from app.risk.severity_policy import (
     ANALYTICS_SEVERITY_NOT_ASSIGNED_LABEL,
 )
 from app.threat.mitre_evidence_preconditions import PRECONDITION_BY_ID, not_claimed_reason
+from app.chat.analyst_missing_evidence import project_missing_evidence
+
 
 _INVESTIGATION_GUIDANCE_USE_CASES = frozenset(
     {
@@ -722,10 +724,14 @@ def build_minimal_guidance_envelope(
 
     direct = str(message or "").strip()
     if contract is not None and contract.missing_evidence:
-        direct = (
-            f"{direct}\n\nEvidence still needed: "
-            + "; ".join(str(item) for item in contract.missing_evidence[:8])
-        ).strip()
+        # Display edge: the contract keeps internal keys for severity/section
+        # control flow; the analyst is shown evidence they can actually collect.
+        missing_display, _ = project_missing_evidence(contract.missing_evidence)
+        if missing_display:
+            direct = (
+                f"{direct}\n\nEvidence still needed: "
+                + "; ".join(missing_display[:8])
+            ).strip()
     if checklist:
         checklist_block = "\n".join(f"- {item}" for item in checklist[:8])
         prefix = f"SOC review checklist:\n\n{checklist_block}"
