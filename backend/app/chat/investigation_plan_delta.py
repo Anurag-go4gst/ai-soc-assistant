@@ -14,6 +14,7 @@ from app.chat.contracts.plan_delta import (
     PlanDeltaProposal,
     ValidatedPlanDelta,
 )
+from app.chat.hypothesis_assessment import hypotheses_from_state
 from app.chat.planned_mcp_call import (
     argument_template_for_tool,
     enrich_capability_bindings,
@@ -274,9 +275,17 @@ def attach_plan_delta_decision(state: dict[str, Any]) -> dict[str, Any]:
             source_evidence=[
                 item for item in (state.get("source_evidence") or []) if isinstance(item, dict)
             ],
+            hypotheses=hypotheses_from_state(state),
+            prior_assessments=(
+                state.get("hypothesis_assessments")
+                if isinstance(state.get("hypothesis_assessments"), dict)
+                else None
+            ),
         )
         proposal_raw = result.proposal
         reasoning_trace = result.trace
+        if isinstance(result.hypothesis_assessments, dict):
+            state = {**state, "hypothesis_assessments": result.hypothesis_assessments}
         # Same accounting rule as the investigation planner: a hop that really
         # ran is counted, whether or not its proposal survived validation.
         if reasoning_trace.get("attempted") and turn_budget is not None:

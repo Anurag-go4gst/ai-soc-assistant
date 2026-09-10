@@ -44,6 +44,8 @@ _ROLE_TO_CALL_PURPOSE: dict[str, str] = {
     "template_render_parameter_assist": CALL_PURPOSE_SPL,
     "guided_investigation_plan_proposer": CALL_PURPOSE_SHADOW,
     "investigation_planner": CALL_PURPOSE_SIDECAR,
+    "plan_delta_reasoner": CALL_PURPOSE_SIDECAR,
+    "evidence_reasoner": CALL_PURPOSE_SIDECAR,
     "pattern_reasoner": CALL_PURPOSE_MITRE,
 }
 

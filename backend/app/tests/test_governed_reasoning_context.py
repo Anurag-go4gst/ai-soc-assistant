@@ -134,6 +134,7 @@ def test_plandelta_prompt_includes_admitted_environment_evidence() -> None:
     payload = json.loads(prompt)
     assert payload["admitted_environment_evidence"]
     assert "powershell.exe" in payload["admitted_environment_evidence"][0]
+    assert payload["current_hypotheses"] == []
     assert payload["entities"]["user"] == "alice"
     assert payload["rag_guidance"]
     assert "containment playbook" in payload["rag_guidance"][0]

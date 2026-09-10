@@ -408,6 +408,14 @@ def _build_deterministic_lab_draft(
             summary_parts.append("Remaining material uncertainty: " + ", ".join(remaining[:6]) + ".")
         elif str(outcome.get("investigation_status") or "") == "completed":
             summary_parts.append("No material current-contract evidence gap remains.")
+        evolution = str(
+            ((outcome.get("provenance") or {}).get("hypothesis_assessment") or {}).get(
+                "evolution_summary"
+            )
+            or ""
+        ).strip()
+        if evolution:
+            summary_parts.append(evolution)
         if mitre_lines:
             summary_parts.append("MITRE (permitted set): " + ", ".join(mitre_lines) + ".")
         summary_parts.append(aggregate_note)

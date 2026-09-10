@@ -11,6 +11,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from app.actions.capability_policy import ActionCapability, BLOCKED_EXECUTION_ACTIONS
+from app.chat.hypothesis_assessment import public_hypothesis_lists
 from app.chat.investigation_shaped import investigation_outcome_applicable
 from app.chat.analyst_missing_evidence import (
     analyst_limitations,
@@ -96,6 +97,7 @@ def derive_investigation_outcome(
     investigation_approval: dict[str, Any] | None = None,
     resolved_query_contract: dict[str, Any] | None = None,
     investigation_plan: dict[str, Any] | None = None,
+    hypothesis_assessments: dict[str, Any] | None = None,
     outcome_v2_enabled: bool = False,
 ) -> InvestigationOutcome | InvestigationOutcomeV2:
     """Deterministic outcome from existing governed packages. LLM proposal is advisory."""
@@ -149,6 +151,9 @@ def derive_investigation_outcome(
         resolved_query=resolved_query,
         evidence=evidence,
         findings=findings,
+        hypothesis_assessments=hypothesis_assessments
+        if isinstance(hypothesis_assessments, dict)
+        else None,
     )
     common: dict[str, Any] = {
         "disposition": disposition,
@@ -188,6 +193,14 @@ def derive_investigation_outcome(
             "not_decision_record": True,
         },
     }
+    if isinstance(hypothesis_assessments, dict) and hypothesis_assessments.get("items"):
+        common["provenance"]["hypothesis_assessment"] = {
+            "schema_version": hypothesis_assessments.get("schema_version"),
+            "evidence_fingerprint": hypothesis_assessments.get("evidence_fingerprint"),
+            "items": hypothesis_assessments.get("items"),
+            "history": hypothesis_assessments.get("history") or [],
+            "evolution_summary": hypothesis_assessments.get("evolution_summary") or "",
+        }
     if outcome_v2_enabled:
         # Final RQC product applicability: InvestigationOutcome V2 (investigation_status,
         # remediation_offer_required, recommended_next_action) applies only to
@@ -291,6 +304,7 @@ def _classify_hypotheses(
     resolved_query: dict[str, Any],
     evidence: dict[str, Any],
     findings: list[str],
+    hypothesis_assessments: dict[str, Any] | None = None,
 ) -> tuple[list[str], list[str]]:
     """Carry the investigation's competing hypotheses into the outcome.
 
@@ -304,6 +318,9 @@ def _classify_hypotheses(
     planner proposed it, or because RAG mentioned it — those are the inputs, not
     corroboration. With no admitted environment evidence every hypothesis stays
     UNCONFIRMED, which is the honest answer, not an empty list.
+
+    When a DET-validated hypothesis_assessments package is present, it is the
+    classification authority. Weakened remains unconfirmed on this public contract.
     """
     hypotheses: list[str] = []
     for source in (plan.get("hypotheses"), resolved_query.get("competing_hypotheses")):
@@ -313,6 +330,11 @@ def _classify_hypotheses(
                 hypotheses.append(text)
     if not hypotheses:
         return [], []
+
+    if isinstance(hypothesis_assessments, dict) and hypothesis_assessments.get("items"):
+        supported, unconfirmed = public_hypothesis_lists(hypothesis_assessments)
+        if supported or unconfirmed:
+            return supported, unconfirmed
 
     obtained = {
         str(key)

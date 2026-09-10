@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.chat.canonical_evidence_taxonomy import categories_in_text
 from app.query_understanding.success_after_failure import detect_success_after_failure
 
 #: Primary concepts that are unjustified on a success-after-failure authentication
@@ -124,6 +125,46 @@ _DOMAIN_MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 #: Categories that never identify a domain on their own.
 _NEUTRAL_CATEGORIES = frozenset({"asset_context", "change_records"})
+
+
+def categories_for_evidence_needed(evidence_needed: list[str]) -> list[str]:
+    """Map required-evidence prose onto the existing data_category vocabulary.
+
+    This is downstream parity, not a second taxonomy. Canonical category IDs from
+    ``categories_in_text`` are projected through ``categories_for_domains``. Phrases
+    the closed taxonomy does not yet name (network source history, change-window
+    context) map onto the existing ``network_flows`` / ``change_records`` labels
+    already used by InvestigationPlan.
+    """
+    joined = " . ".join(str(item) for item in evidence_needed if str(item).strip())
+    categories = list(categories_for_domains(categories_in_text(joined)))
+    lowered = joined.lower()
+    if any(
+        term in lowered
+        for term in (
+            "network source",
+            "source history",
+            "connection history",
+            "network history",
+        )
+    ):
+        for item in ("network_flows", "firewall_sessions"):
+            if item not in categories:
+                categories.append(item)
+    if any(
+        term in lowered
+        for term in (
+            "change-window",
+            "change window",
+            "change history",
+            "change records",
+            "approved change",
+            "recent change",
+        )
+    ):
+        if "change_records" not in categories:
+            categories.append("change_records")
+    return categories
 
 
 def _domains_in_text(text: str) -> set[str]:

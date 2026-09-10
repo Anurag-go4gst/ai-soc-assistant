@@ -497,6 +497,8 @@ class ChatPipelineState(TypedDict, total=False):
     evidence_state: dict[str, Any] | None
     evidence_sufficiency: dict[str, Any] | None
     investigation_outcome: dict[str, Any] | None
+    hypothesis_assessments: dict[str, Any] | None
+    hypothesis_assessment_trace: dict[str, Any] | None
     plan_dispatch_trace: dict[str, Any] | None
     # Plan 6 E0 — names of pipeline_inline phases that actually ran this turn
     # (mitre_finalize / cve_adapter). Provenance only; not a hook schedule.
@@ -4251,6 +4253,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         hil_required=run_contract.effective_hil_required,
     )
     from app.chat.contracts.investigation_outcome import derive_investigation_outcome
+    from app.chat.hypothesis_assessment import refresh_hypothesis_assessments
     from app.chat.investigation_shaped import investigation_outcome_applicable
 
     # Final governed product gate: attach InvestigationOutcome only when the
@@ -4276,6 +4279,7 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
         # Pre-approval: InvestigationOutcome is post-evidence packaging — absent.
         _io_applicable = False
     if _io_applicable:
+        state = refresh_hypothesis_assessments(state)
         investigation_outcome = derive_investigation_outcome(
             trace_id=trace_id,
             evidence_state=state.get("evidence_state") if isinstance(state.get("evidence_state"), dict) else None,
@@ -4302,6 +4306,9 @@ def graph_node_context_finalize(state: ChatPipelineState) -> ChatPipelineState:
             # was actually weighing; without it the outcome reports none.
             investigation_plan=state.get("validated_investigation_plan")
             if isinstance(state.get("validated_investigation_plan"), dict)
+            else None,
+            hypothesis_assessments=state.get("hypothesis_assessments")
+            if isinstance(state.get("hypothesis_assessments"), dict)
             else None,
             outcome_v2_enabled=settings.ai_soc_investigation_outcome_v2_enabled,
         )

@@ -188,6 +188,7 @@ EXPECTED_RECORD_IO: dict[str, RecordIo] = {
             "plan_delta_revisions",
             "plan_delta_execution_request",
             "investigation_run_status",
+            "hypothesis_assessments",
         ),
         (
             "approved_investigation_envelope",
@@ -202,6 +203,7 @@ EXPECTED_RECORD_IO: dict[str, RecordIo] = {
             "plan_delta_revisions",
             "plan_delta_execution_request",
             "investigation_run_status",
+            "hypothesis_assessments",
         ),
     ),
     "decide_facts": _io(
@@ -563,6 +565,7 @@ def test_representative_wrapper_dataflow_produces_every_declared_output(
             "plan_delta_revisions",
             "plan_delta_execution_request",
             "investigation_run_status",
+            "hypothesis_assessments",
         ),
     )
     _assert_wrapper_dataflow(

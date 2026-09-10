@@ -131,13 +131,20 @@ def _discover(server: ControlledMcpServer) -> None:
 
 def _stub_reasoners(monkeypatch: pytest.MonkeyPatch, captured: dict) -> None:
     def fake_invoke(*, role: str, user_prompt: str, **_kwargs):
-        if role == "plan_delta_reasoner":
-            captured["plan_delta_prompt"] = user_prompt
+        if role in {"plan_delta_reasoner", "evidence_reasoner"}:
+            captured.setdefault("reasoner_roles", []).append(role)
             payload: dict = {}
             try:
                 payload = json.loads(user_prompt)
             except json.JSONDecodeError:
                 payload = {}
+            if role == "plan_delta_reasoner":
+                captured["plan_delta_prompt"] = user_prompt
+                captured.setdefault("plan_delta_prompts", []).append(user_prompt)
+            else:
+                captured.setdefault("assessment_prompts", []).append(user_prompt)
+            assessments = _stub_hypothesis_assessments(payload)
+            captured.setdefault("assessment_rounds", []).append(assessments)
             skip = {"rag", "spl", "approved_sop_guidance", "rag:sop"}
             missing = [
                 str(item)
@@ -155,11 +162,18 @@ def _stub_reasoners(monkeypatch: pytest.MonkeyPatch, captured: dict) -> None:
                     "admitted_count": len(admitted if isinstance(admitted, list) else []),
                     "missing": list(missing),
                     "raw_missing": payload.get("missing_evidence_categories"),
+                    "hypotheses": payload.get("current_hypotheses"),
                 }
             )
+            if role == "evidence_reasoner":
+                return SidecarInvocationResult(
+                    raw_output=json.dumps({"hypothesis_assessments": assessments}),
+                    timed_out=False,
+                    answered_label="test_provider",
+                )
             if not search_cap or not missing or not admitted:
                 return SidecarInvocationResult(
-                    raw_output=None,
+                    raw_output=json.dumps({"hypothesis_assessments": assessments}) if assessments else None,
                     timed_out=False,
                     answered_label="test_provider",
                 )
@@ -170,6 +184,7 @@ def _stub_reasoners(monkeypatch: pytest.MonkeyPatch, captured: dict) -> None:
             host = str(host_raw).strip() or "WS-14"
             indexes = ((payload.get("source_index_scope") or {}).get("indexes") or ["pgcil_soc"])
             index = str(indexes[0] if indexes else "pgcil_soc")
+            evidence_need = _stub_evidence_need(missing, assessments)
             delta_spl = (
                 f'search index={index} sourcetype=pgcil:edr earliest=-24h latest=now host="{host}" '
                 f"| stats count as event_count values(dest) as dest values(action) as action by host,user "
@@ -178,10 +193,11 @@ def _stub_reasoners(monkeypatch: pytest.MonkeyPatch, captured: dict) -> None:
             return SidecarInvocationResult(
                 raw_output=json.dumps(
                     {
-                        "evidence_need": missing[0],
+                        "evidence_need": evidence_need,
                         "capability_id": search_cap,
                         "access_mode": "read_only",
                         "tool_arguments": {"query": delta_spl},
+                        "hypothesis_assessments": assessments,
                     }
                 ),
                 timed_out=False,
@@ -201,9 +217,104 @@ def _stub_reasoners(monkeypatch: pytest.MonkeyPatch, captured: dict) -> None:
         fake_invoke,
     )
     monkeypatch.setattr(
+        "app.chat.hypothesis_assessment.invoke_sidecar_role_with_metadata",
+        fake_invoke,
+    )
+    monkeypatch.setattr(
         "app.chat.remediation_plan_reasoner.invoke_sidecar_role_with_metadata",
         fake_invoke,
     )
+
+
+def _stub_hypothesis_assessments(payload: dict) -> list[dict]:
+    hypotheses = payload.get("current_hypotheses") or []
+    admitted = payload.get("admitted_environment_evidence") or []
+    admitted_blob = " ".join(str(item) for item in admitted).lower()
+    env_ids: list[str] = []
+    for row in admitted:
+        marker = "evidence_id="
+        text = str(row)
+        if marker in text:
+            env_ids.append(text.split(marker, 1)[1].split(";", 1)[0].strip())
+    signed_admin = "signature_status=signed" in admitted_blob or (
+        "signed" in admitted_blob
+        and ("psexec" in admitted_blob or "sysinternals" in admitted_blob)
+    )
+    distinguishing = (
+        "scheduled_task" in admitted_blob
+        or "203.0.113" in admitted_blob
+        or "logon_type" in admitted_blob
+    )
+    items: list[dict] = []
+    for hyp in hypotheses:
+        if not isinstance(hyp, dict):
+            continue
+        hid = str(hyp.get("hypothesis_id") or "")
+        text = str(hyp.get("text") or "")
+        low = text.lower()
+        assessment = "unconfirmed"
+        rationale = "Admitted environment evidence does not yet confirm this hypothesis."
+        supporting: list[str] = []
+        contradicting: list[str] = []
+        material_gap = ""
+        if not env_ids:
+            rationale = "No admitted environment evidence is available."
+        elif signed_admin and any(
+            term in low
+            for term in (
+                "malicious",
+                "malware",
+                "executable itself",
+                "malicious binary",
+                "malware-binary",
+            )
+        ):
+            assessment = "weakened"
+            rationale = "Signed known administrative binary reduces the malware-binary hypothesis."
+            contradicting = env_ids[:2]
+            material_gap = "process lineage, session context, or destination activity"
+        elif distinguishing and any(
+            term in low
+            for term in ("abuse", "abused", "same activity chain", "same chain", "related")
+        ):
+            assessment = "supported"
+            rationale = (
+                "Lineage, destination, and persistence context supports abuse of legitimate "
+                "tooling or the same activity chain."
+            )
+            supporting = env_ids[:3]
+        elif signed_admin and any(
+            term in low
+            for term in ("legitimate", "administrative", "independent operational", "benign")
+        ):
+            rationale = "Administrative identity is plausible but suspicious context remains."
+            material_gap = "user/session context versus abuse of legitimate tooling"
+        items.append(
+            {
+                "hypothesis_id": hid,
+                "text": text,
+                "assessment": assessment,
+                "rationale": rationale,
+                "supporting_source_refs": supporting,
+                "contradicting_source_refs": contradicting,
+                "material_gap": material_gap,
+            }
+        )
+    return items
+
+
+def _stub_evidence_need(missing: list[str], assessments: list[dict]) -> str:
+    gaps = " ".join(str(item.get("material_gap") or "") for item in assessments).lower()
+    for prefer in ("lineage", "session", "network", "persistence", "command"):
+        if prefer in gaps:
+            for item in missing:
+                if prefer in item.lower():
+                    return item
+    for prefer in ("network", "persistence", "endpoint", "process"):
+        for item in missing:
+            if prefer in item.lower():
+                return item
+    return missing[0]
 
 
 def _chat(message: str, **kwargs):

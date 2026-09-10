@@ -179,6 +179,7 @@ class ResourcePlannerGraphState(ChatPipelineState, total=False):
     plan_delta_revisions: list[dict[str, Any]]
     plan_delta_execution_request: dict[str, Any]
     active_resource_plan_step_id: str
+    hypothesis_assessments: dict[str, Any]
 
 
 def _evidence_plan(state: ResourcePlannerGraphState) -> dict[str, Any]:
@@ -782,6 +783,7 @@ def rp_node_plan_delta_reasoner(state: ResourcePlannerGraphState) -> ResourcePla
             "plan_delta_revisions",
             "plan_delta_execution_request",
             "investigation_run_status",
+            "hypothesis_assessments",
         ],
         authority="deterministic",
     )

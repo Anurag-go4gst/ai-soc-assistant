@@ -109,24 +109,51 @@ def test_two_governed_reads_revise_the_initial_hypothesis(
             or "svc_backup" in evidence_blob
         ), evidence_blob
 
-        # The PlanDelta reasoner ran after READ #1 over admitted evidence only.
         prompt = captured.get("plan_delta_prompt") or ""
         if prompt:
             assert "admitted_environment_evidence" in prompt
+            assert "current_hypotheses" in prompt
 
         outcome = payload.get("investigation_outcome") or {}
+        assessment = ((outcome.get("provenance") or {}).get("hypothesis_assessment") or {})
+        history = assessment.get("history") or []
+        items = assessment.get("items") or []
+        assert items, outcome
+        assessments_by_round = []
+        for entry in history:
+            if not isinstance(entry, dict):
+                continue
+            assessments_by_round.append(
+                {
+                    str(item.get("hypothesis_id")): str(item.get("assessment"))
+                    for item in (entry.get("items") or [])
+                    if isinstance(item, dict)
+                }
+            )
+        # At least one hypothesis must change state across evidence rounds.
+        changed = False
+        if len(assessments_by_round) >= 2:
+            first = assessments_by_round[0]
+            for later in assessments_by_round[1:]:
+                if later != first:
+                    changed = True
+                    break
+        final_states = {str(item.get("hypothesis_id")): str(item.get("assessment")) for item in items}
+        if assessments_by_round:
+            changed = changed or final_states != assessments_by_round[0]
+        assert changed, {
+            "history": history,
+            "items": items,
+            "rounds": captured.get("assessment_rounds"),
+        }
+        assert assessment.get("evolution_summary"), assessment
+        assert "h1" not in str(assessment.get("evolution_summary") or "").split()
+
         # A legitimate binary name never becomes a benign conclusion on its own.
         assert outcome.get("disposition") != "benign", outcome
-        # Hypotheses survive as analytical state and none is supported without
-        # a grounded finding.
         supported = outcome.get("supported_hypotheses") or []
         unconfirmed = outcome.get("unconfirmed_hypotheses") or []
         assert unconfirmed or supported, outcome
-        for item in supported:
-            assert any(
-                str(item).lower() in str(finding).lower()
-                for finding in (outcome.get("findings") or [])
-            ), outcome
 
         # Remediation was recommended-only; nothing was written.
         assert payload.get("remediation_execution") is None

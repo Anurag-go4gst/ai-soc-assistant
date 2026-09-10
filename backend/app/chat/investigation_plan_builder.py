@@ -14,6 +14,7 @@ from app.chat.guidance_templates import build_guided_investigation_guidance
 from app.chat.guided_hunt_grounding import build_guided_hunt_grounding
 from app.chat.investigation_plan_relevance import (
     categories_for_domains,
+    categories_for_evidence_needed,
     evidence_for_domains,
     filter_unjustified_auth_pivots,
 )
@@ -202,6 +203,14 @@ def _correlation_requirement(composition: dict[str, Any] | None) -> list[str]:
 _POST_AUTHENTICATION_ACTIVITY_EVIDENCE = (
     "Review post-login account and host activity for commands, processes, "
     "privilege changes, persistence, lateral movement, or unusual network activity."
+)
+
+_GENERIC_BOILERPLATE_HYPOTHESES = frozenset(
+    {
+        "expected operational activity or a recent approved change.",
+        "telemetry drift producing an apparent anomaly.",
+        "suspicious activity requiring corroboration across independent sources.",
+    }
 )
 
 _AUTH_FAILURE_EVENT_TYPES = frozenset({"authentication_failure", "auth_failure", "login_failure"})
@@ -411,6 +420,24 @@ def build_deterministic_investigation_plan(
         evidence_needed = list(
             dict.fromkeys([*evidence_needed, _POST_AUTHENTICATION_ACTIVITY_EVIDENCE])
         )
+    semantic_hypotheses = [
+        str(item).strip()
+        for item in (rqc.get("competing_hypotheses") or [])
+        if str(item).strip()
+    ]
+    if semantic_hypotheses:
+        hypotheses = list(
+            dict.fromkeys(
+                [
+                    *semantic_hypotheses,
+                    *[
+                        item
+                        for item in hypotheses
+                        if item.strip().lower() not in _GENERIC_BOILERPLATE_HYPOTHESES
+                    ],
+                ]
+            )
+        )
     if compound_auth:
         data_categories = ["auth", "identity", "endpoint"]
     elif distinct_domains:
@@ -423,6 +450,9 @@ def build_deterministic_investigation_plan(
             signal_class=signal_class,
             detection_families=detection_families,
         )
+    data_categories = list(
+        dict.fromkeys([*data_categories, *categories_for_evidence_needed(evidence_needed)])
+    )[:12]
     authoritative_facts = _authoritative_facts(rqc)
     return InvestigationPlan(
         investigation_objective=_objective_from_query(

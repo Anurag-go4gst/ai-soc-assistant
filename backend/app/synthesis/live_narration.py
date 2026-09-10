@@ -167,6 +167,14 @@ def _build_governed_prompt(
     outcome = package.investigation_outcome if isinstance(package.investigation_outcome, dict) else {}
     if outcome.get("disposition"):
         lines.append(f"- Investigation disposition (deterministic): {outcome.get('disposition')}")
+    evolution = str(
+        ((outcome.get("provenance") or {}).get("hypothesis_assessment") or {}).get(
+            "evolution_summary"
+        )
+        or ""
+    ).strip()
+    if evolution:
+        lines.append("- Hypothesis evolution (deterministic, evidence-bound): " + evolution)
 
     mitre = deterministic_draft.get("mitre_mappings") or []
     if mitre:

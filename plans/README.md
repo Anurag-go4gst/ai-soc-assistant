@@ -18,6 +18,7 @@ If Cursor also writes a plan under `.cursor/plans/` or `/root/.cursor/plans/`, *
 
 | Plan | Status |
 |------|--------|
+| [`2026-09-10_1200_hypothesis-revision-closure.md`](2026-09-10_1200_hypothesis-revision-closure.md) | **Active — evidence-driven hypothesis revision on the PlanDelta seam.** architecture.md read-only. START_SHA `881232d1`. Branch `fix/investigation-loop-plan-convergence`. |
 | [`2026-09-08_1355_investigation-outcome-remediation-closure.md`](2026-09-08_1355_investigation-outcome-remediation-closure.md) | **Active — investigation outcome → remediation closure.** Narrow continuation of controlled lifecycle. architecture.md read-only. Checkpoint `1147647e`. No merge/push/tag. Branch `fix/investigation-loop-plan-convergence`. |
 | [`2026-09-07_1902_controlled-soc-lifecycle-acceptance.md`](2026-09-07_1902_controlled-soc-lifecycle-acceptance.md) | **Active — items 0–7 proven; item 8 STOPPED** (inconclusive leftover catalogue keys). Successor is 2026-09-08_1355. architecture.md read-only. Branch `fix/investigation-loop-plan-convergence`. |
 | [`2026-09-03_1200_debug-trace-v2-reviewer-export.md`](2026-09-03_1200_debug-trace-v2-reviewer-export.md) | **Active — compact reviewer debug export + forensic LLM lineage.** Observability/projection only. P1–P4 SPL frozen. P11 not started. LIVE MCP OFF. Default bundle stays forensic (`detail=reviewer` is the compact projection). |
