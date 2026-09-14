@@ -1186,7 +1186,14 @@ def _apply_catalog_projection(
         update={
             "use_case_id": use_case_id,
             "required_evidence_keys": required,
-            "optional_evidence_keys": [str(item) for item in record.get("optional_sources") or [] if item],
+            "optional_evidence_keys": list(
+                dict.fromkeys(
+                    [
+                        *[str(item) for item in record.get("optional_evidence_requirements") or [] if item],
+                        *[str(item) for item in record.get("optional_sources") or [] if item],
+                    ]
+                )
+            ),
             "present_evidence_keys": sorted(present),
             "missing_required_evidence": missing,
             "checklist": [str(item) for item in record.get("analyst_checklist") or [] if item],
@@ -1290,7 +1297,7 @@ def _present_from_signals(signals: dict[str, Any]) -> set[str]:
 
 def _optional_evidence_keys(context: CuratedEnrichmentContext, required: list[str]) -> list[str]:
     values: list[str] = []
-    for key in context.not_claimed_defaults:
-        if key not in required:
+    for key in list(context.optional_evidence_requirements) + list(context.not_claimed_defaults):
+        if key not in required and key not in values:
             values.append(key)
     return values

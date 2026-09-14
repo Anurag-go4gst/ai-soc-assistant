@@ -39,6 +39,18 @@ _FAILED_LOGIN_NUMERIC_COLUMNS = (
 )
 
 
+def _live_read_source_unavailable(execution_payload: dict[str, Any] | None) -> bool:
+    payload = execution_payload if isinstance(execution_payload, dict) else {}
+    blob = " ".join(
+        str(payload.get(key) or "")
+        for key in ("block_reason", "tool_selection_reason", "evidence_source")
+    ).lower()
+    return any(
+        token in blob
+        for token in ("unavailable", "read_source_required", "mcp_not_allowed")
+    )
+
+
 
 _SUMMARY_PREFIX_MARKERS = (
     "summarize for shift handoff:",
@@ -584,7 +596,10 @@ def build_analyst_response_for_live(
                 human_review.get("safe_message_for_user") or "Analyst review is required before execution."
             )
     elif spl_code and execution_status != "executed":
-        review_notice = "Candidate SPL — review only, not executed."
+        if _live_read_source_unavailable(execution_payload):
+            review_notice = "Optional SPL draft is a fallback; live source is unavailable."
+        else:
+            review_notice = "Candidate SPL — review only, not executed."
 
     severity_confidence, severity_rationale = _severity_confidence(
         user_query,
@@ -746,7 +761,10 @@ def build_minimal_guidance_envelope(
             human_review.get("safe_message_for_user") or "Analyst review is required before execution."
         )
     elif draft_spl_code or spl_draft_preview:
-        review_notice = "Candidate SPL — review only; Splunk search was not run."
+        if _live_read_source_unavailable(execution):
+            review_notice = "Optional SPL draft is a fallback; live source is unavailable."
+        else:
+            review_notice = "Candidate SPL — review only; Splunk search was not run."
 
     envelope = AnalystResponseEnvelope(
         scenario_label=scrub_auth_anomaly_display_text(selected_use_case_label, user_query=user_query),

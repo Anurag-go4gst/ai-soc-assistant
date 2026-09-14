@@ -15,13 +15,13 @@
     "governed_registries": {
       "backend/app/coverage/question_runtime_map_v1.json": "621232b2a97b40b2944fede12e3a42723aaef1494367cb80c8ca2c3decb20c28",
       "backend/app/skills/catalog.json": "f68444eada8becbfba4c1fdbdeb22b7e7dc8ed851dd3596e5dfbb93e0ff726c7",
-      "backend/app/spl/templates.json": "304e0aa0c33aa311e46b1d7ec22c9cadc264d192b25df60f382588f05babd8e6",
-      "backend/app/use_cases/catalog.json": "d7740a5a3017da5ba07c652dbadb2cdaf7df97714430c106f4bd5c4a9ed60833"
+      "backend/app/spl/templates.json": "740aa103b725bbba7722a47ea07b35456ebf92afe652926a5be6d3e2ea6cc8a1",
+      "backend/app/use_cases/catalog.json": "2279e8f2e5621f819bba0bc50b9b27350018608399110aa168925a6eb5de1e8a"
     },
     "published_doc_mirrors": {
-      "docs/architecture/details.html": "d33b274e68d0dd8f01e9b718a4078613c5518d088c3b25d54a360f64d99f9cd3",
-      "frontend/dist/docs/architecture/details.html": "d33b274e68d0dd8f01e9b718a4078613c5518d088c3b25d54a360f64d99f9cd3",
-      "frontend/public/docs/architecture/details.html": "d33b274e68d0dd8f01e9b718a4078613c5518d088c3b25d54a360f64d99f9cd3"
+      "docs/architecture/details.html": "a1e51c625267f32176f2e3ec5baac7d624743005c2fddbfb65538d507146cb42",
+      "frontend/dist/docs/architecture/details.html": "a1e51c625267f32176f2e3ec5baac7d624743005c2fddbfb65538d507146cb42",
+      "frontend/public/docs/architecture/details.html": "a1e51c625267f32176f2e3ec5baac7d624743005c2fddbfb65538d507146cb42"
     }
   },
   "root": "/var/www/ai-soc-assistant"

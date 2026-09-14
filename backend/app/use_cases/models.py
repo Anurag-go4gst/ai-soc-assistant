@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -42,6 +44,7 @@ class UseCaseDefinition(BaseModel):
     must_not_override_detection_family: bool = False
     execution_eligible_default: bool = False
     human_review_required: bool = False
+    spl_semantic_contract: dict[str, Any] | None = None
 
 
 class UseCaseSelection(BaseModel):

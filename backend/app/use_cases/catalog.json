@@ -119,7 +119,8 @@
         "login failures followed by"
       ],
       "example_queries": [
-        "Generate SPL for successful login after failures"
+        "Generate SPL for successful login after failures",
+        "Generate a review-only SPL query to detect repeated failed authentication attempts followed by a successful login"
       ],
       "required_entities": [],
       "optional_entities": [
@@ -128,6 +129,14 @@
         "source_ip",
         "time_window"
       ],
+      "spl_semantic_contract": {
+        "analysis_shape": "sequence",
+        "required_event_sets": ["failed_login", "successful_login"],
+        "ordered_sequence": ["failed_login", "successful_login"],
+        "correlate_by": ["user", "src_ip", "host"],
+        "sequence_window": "earliest=-60m latest=now",
+        "ordering_constraint": "success_after_failure_burst"
+      },
       "default_time_window": "earliest=-60m latest=now",
       "primary_skill": "attack_discovery",
       "secondary_skills": [

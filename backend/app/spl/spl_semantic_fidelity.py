@@ -5,6 +5,28 @@ from __future__ import annotations
 import re
 from typing import Any
 
+_FAILURE_SAME_ROW = re.compile(
+    r"(?:action|status|result|outcome|eventtype|failed_login)\s*=\s*[\"']?(?:failure|failed|fail|denied)|"
+    r"\bfailed[_]?login\s*=|"
+    r"\bEventCode\s*=\s*4625\b",
+    re.I,
+)
+_SUCCESS_SAME_ROW = re.compile(
+    r"(?:action|status|result|outcome|eventtype|successful_login)\s*=\s*[\"']?(?:success|successful|allowed)|"
+    r"\bsuccess(?:ful)?[_]?login\s*=|"
+    r"\bEventCode\s*=\s*4624\b",
+    re.I,
+)
+_SEQUENCE_ORDER_SURVIVES = re.compile(
+    r"last_success[^\n|]*first_failure|"
+    r"first_failure[^\n|]*last_success|"
+    r"last_success_epoch\s*>\s*first_failure|"
+    r"_time\s*>\s*burst|"
+    r"\btransaction\b|"
+    r"\bstreamstats\b",
+    re.I,
+)
+
 _DENIED_SPL_RE = re.compile(
     # The deterministic compiler emits filters in the quoted form (action="denied"),
     # so the optional quote is needed to credit a filter that IS present. A query
@@ -412,6 +434,26 @@ def validate_spl_structure(spl: str) -> list[str]:
     return errors
 
 
+def impossible_same_row_event_predicates(spl: str) -> bool:
+    """True when a pre-aggregation stage requires failure and success on one row."""
+    stages = [stage.strip() for stage in str(spl or "").split("|")]
+    agg_index = next(
+        (index for index, stage in enumerate(stages) if _STATS_RE.search(stage) or "streamstats" in stage.lower()),
+        None,
+    )
+    pre_agg = stages if agg_index is None else stages[:agg_index]
+    for stage in pre_agg:
+        command = stage.split(None, 1)[0].lower() if stage.split() else ""
+        if command in {"eval", "stats", "streamstats", "eventstats", "timechart", "tstats", "table", "fields"}:
+            continue
+        if not (_FAILURE_SAME_ROW.search(stage) and _SUCCESS_SAME_ROW.search(stage)):
+            continue
+        if re.search(r"\bOR\b", stage, re.I):
+            continue
+        return True
+    return False
+
+
 def validate_semantic_fidelity(
     spec: dict[str, Any],
     spl: str,
@@ -440,6 +482,14 @@ def validate_semantic_fidelity(
         repair_feedback.append("semantic_loss:eval_function_in_search_command")
     else:
         preserved.append("search_command_predicates_only")
+
+    if impossible_same_row_event_predicates(text):
+        losses.append("sequence_impossible_same_row")
+        repair_feedback.append(
+            "semantic_loss:sequence_impossible_same_row — do not AND failure and success on the same event"
+        )
+    elif shape == "sequence" or spec.get("ordered_sequence"):
+        preserved.append("sequence_possible_same_row")
 
     filters = spec.get("filters") or []
     if "denied_traffic" in filters:
@@ -673,6 +723,13 @@ def validate_semantic_fidelity(
                 repair_feedback.append(_SEQUENCE_IDENTITY_REPAIR)
             else:
                 preserved.append("sequence_identity_preserved")
+        if not _SEQUENCE_ORDER_SURVIVES.search(text):
+            losses.append("sequence_order_lost_in_aggregation")
+            repair_feedback.append(
+                "semantic_loss:sequence_order_lost_in_aggregation — keep failure→success ordering after aggregation"
+            )
+        else:
+            preserved.append("sequence_order_survives_aggregation")
 
     if shape == "trend":
         grain = str(spec.get("temporal_grain") or "")

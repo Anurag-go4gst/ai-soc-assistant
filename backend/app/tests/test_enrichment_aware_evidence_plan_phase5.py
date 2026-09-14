@@ -49,8 +49,9 @@ def test_auth_success_after_failure_preserves_sequence_evidence_expectations(mon
 
     for key in ("user", "src", "host", "fail_count", "success_count", "first_failure", "last_success"):
         assert key in plan.required_evidence_keys
-    assert "source_ip_novelty" in plan.required_evidence_keys
-    assert "source_ip_novelty" in plan.missing_required_evidence
+    assert "source_ip_novelty" not in plan.required_evidence_keys
+    assert "source_ip_novelty" in plan.optional_evidence_keys
+    assert "source_ip_novelty" not in plan.missing_required_evidence
     assert "account_compromise" in plan.unsupported_claims_avoid
 
 

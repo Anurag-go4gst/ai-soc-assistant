@@ -13,12 +13,14 @@ from app.config import settings
 from app.chat.llm_interaction_trace import annotate_last_llm_interaction
 from app.safeguards.spl_validator import validate_spl, validate_spl_lab_candidate
 from app.spl.draft_preview import build_draft_preview
+from app.spl.draft_quality import evaluate_draft_quality
 from app.spl.llm_fallback import (
     AUTHORING_SOURCE_ABSTAIN,
     AUTHORING_SOURCE_LEGACY_COMPILER_RESCUE,
     AUTHORING_SOURCE_LLM_PATTERN_NORMALIZED,
     AUTHORING_SOURCE_LLM_PATTERN_PRIMARY,
     AUTHORING_SOURCE_LLM_PATTERN_REPAIR,
+    CLARIFICATION_QUALITY_FAILED,
     SPL_ADVISORY_ROLE,
     generate_llm_spl_fallback,
     select_vetted_authoring_pattern,
@@ -182,15 +184,6 @@ _REPAIRABLE_VALIDATOR_REASONS = frozenset({
     "blocked_command",
 })
 MAX_SPL_LLM_REPAIRS = 1
-_HARD_AUTHORING_FAILURE_STAGES = frozenset(
-    {
-        "json_parse",
-        "schema_validation",
-        "content_validation",
-        "draft_quality",
-        "semantic_validation",
-    }
-)
 
 
 def _copy_authoring_diagnostics(trace: dict[str, Any], result: Any | None) -> None:
@@ -587,6 +580,17 @@ def candidate_from_universal_utility_authoring(
         spl_draft_trace["normalized_llm_spl"] = final_spl[:8000]
         validator_result = _validate_review_only_candidate(final_spl)
         fidelity_result = validate_semantic_fidelity(intent_spec, final_spl)
+        quality_report = evaluate_draft_quality(final_spl, detection_family=detection_family)
+        spl_draft_trace["llm_draft_quality_status"] = quality_report.quality_status
+        if quality_report.hard_fail_count > 0:
+            fidelity_result = {
+                "passed": False,
+                "preserved": list(fidelity_result.get("preserved") or []),
+                "losses": list(dict.fromkeys([*list(fidelity_result.get("losses") or []), "draft_quality_hard_fail"])),
+                "repair_feedback": list(fidelity_result.get("repair_feedback") or [])
+                + ["semantic_loss:impossible_same_row_predicates"],
+                "structural_errors": list(fidelity_result.get("structural_errors") or []),
+            }
         spl_draft_trace["semantic_fidelity_initial"] = fidelity_result
         repair_feedback = _semantic_repair_feedback(validator_result, fidelity=fidelity_result)
         if (repair_feedback and not validator_result.get("lab_candidate_eligible")) or (
@@ -645,67 +649,75 @@ def candidate_from_universal_utility_authoring(
                     final_spl = repaired_spl
                     validator_result = repaired_validation
                     fidelity_result = repaired_fidelity
-    else:
-        stage = str(spl_draft_trace.get("authoring_failure_stage") or "")
-        if stage in _HARD_AUTHORING_FAILURE_STAGES:
-            spl_draft_trace["deterministic_skeleton_used"] = False
-            final_raw_spl_source = "abstention"
-            final_spl = ""
-            validator_result = _validate_review_only_candidate("")
-            fidelity_result = {
-                "passed": False,
-                "preserved": [],
-                "losses": ["authoring_validation_failed"],
-                "repair_feedback": [],
-                "structural_errors": [],
-            }
-            spl_draft_trace["semantic_fidelity_initial"] = fidelity_result
-        else:
-            skeleton_applied = _apply_candidate(skeleton_spl, llm_generated=False)
-            skeleton_validation = _validate_review_only_candidate(skeleton_applied)
-            raw_fidelity = validate_semantic_fidelity(intent_spec, skeleton_spl)
-            skeleton_fidelity = validate_semantic_fidelity(intent_spec, skeleton_applied)
-            spl_draft_trace["semantic_fidelity_initial"] = skeleton_fidelity
-            skeleton_admissible = (
-                not _is_generic_lab_skeleton(skeleton_spl)
-                and not _is_generic_lab_skeleton(skeleton_applied)
-                and bool(raw_fidelity.get("passed") or skeleton_fidelity.get("passed"))
+        quality_report = evaluate_draft_quality(final_spl, detection_family=detection_family)
+        spl_draft_trace["llm_draft_quality_status"] = quality_report.quality_status
+        quality_failed = quality_report.hard_fail_count > 0
+        fidelity_failed = fidelity_result is not None and not fidelity_result.get("passed")
+        if quality_failed or fidelity_failed:
+            spl_draft_trace["llm_candidate_rejected"] = True
+            spl_draft_trace["llm_candidate_reject_reason"] = (
+                "draft_quality_hard_fail" if quality_failed else "semantic_fidelity_failed"
             )
-            if skeleton_admissible:
-                spl_draft_trace["deterministic_skeleton_used"] = True
-                final_raw_spl_source = "deterministic_skeleton"
-                final_spl = skeleton_applied
-                validator_result = skeleton_validation
-                fidelity_result = (
-                    skeleton_fidelity if skeleton_fidelity.get("passed") else raw_fidelity
-                )
-            else:
-                compiled = compile_intent_spec_to_spl(intent_spec)
-                if compiled.strip():
-                    compiled_applied = _apply_candidate(compiled, llm_generated=False)
-                    compiled_validation = _validate_review_only_candidate(compiled_applied)
-                    compiled_fidelity = validate_semantic_fidelity(intent_spec, compiled_applied)
-                    spl_draft_trace["semantic_fidelity_compiler"] = compiled_fidelity
-                    if compiled_fidelity.get("passed"):
-                        spl_draft_trace["deterministic_skeleton_used"] = False
-                        spl_draft_trace["deterministic_compiler_used"] = True
-                        spl_draft_trace["legacy_compiler_rescue"] = True
-                        final_raw_spl_source = "deterministic_compiler"
-                        final_spl = compiled_applied
-                        validator_result = compiled_validation
-                        fidelity_result = compiled_fidelity
-                    else:
-                        spl_draft_trace["deterministic_skeleton_used"] = False
-                        final_raw_spl_source = "abstention"
-                        final_spl = ""
-                        validator_result = compiled_validation
-                        fidelity_result = compiled_fidelity
+            final_spl = ""
+            final_raw_spl_source = "abstention"
+            if quality_failed:
+                fidelity_result = {
+                    "passed": False,
+                    "preserved": list((fidelity_result or {}).get("preserved") or []),
+                    "losses": list(
+                        dict.fromkeys(
+                            [*list((fidelity_result or {}).get("losses") or []), "draft_quality_hard_fail"]
+                        )
+                    ),
+                    "repair_feedback": list((fidelity_result or {}).get("repair_feedback") or []),
+                    "structural_errors": list((fidelity_result or {}).get("structural_errors") or []),
+                }
+    else:
+        skeleton_applied = _apply_candidate(skeleton_spl, llm_generated=False)
+        skeleton_validation = _validate_review_only_candidate(skeleton_applied)
+        raw_fidelity = validate_semantic_fidelity(intent_spec, skeleton_spl)
+        skeleton_fidelity = validate_semantic_fidelity(intent_spec, skeleton_applied)
+        spl_draft_trace["semantic_fidelity_initial"] = skeleton_fidelity
+        skeleton_admissible = (
+            not _is_generic_lab_skeleton(skeleton_spl)
+            and not _is_generic_lab_skeleton(skeleton_applied)
+            and bool(raw_fidelity.get("passed") or skeleton_fidelity.get("passed"))
+        )
+        if skeleton_admissible:
+            spl_draft_trace["deterministic_skeleton_used"] = True
+            final_raw_spl_source = "deterministic_skeleton"
+            final_spl = skeleton_applied
+            validator_result = skeleton_validation
+            fidelity_result = (
+                skeleton_fidelity if skeleton_fidelity.get("passed") else raw_fidelity
+            )
+        else:
+            compiled = compile_intent_spec_to_spl(intent_spec)
+            if compiled.strip():
+                compiled_applied = _apply_candidate(compiled, llm_generated=False)
+                compiled_validation = _validate_review_only_candidate(compiled_applied)
+                compiled_fidelity = validate_semantic_fidelity(intent_spec, compiled_applied)
+                spl_draft_trace["semantic_fidelity_compiler"] = compiled_fidelity
+                if compiled_fidelity.get("passed"):
+                    spl_draft_trace["deterministic_skeleton_used"] = False
+                    spl_draft_trace["deterministic_compiler_used"] = True
+                    spl_draft_trace["legacy_compiler_rescue"] = True
+                    final_raw_spl_source = "deterministic_compiler"
+                    final_spl = compiled_applied
+                    validator_result = compiled_validation
+                    fidelity_result = compiled_fidelity
                 else:
                     spl_draft_trace["deterministic_skeleton_used"] = False
                     final_raw_spl_source = "abstention"
                     final_spl = ""
-                    validator_result = skeleton_validation
-                    fidelity_result = skeleton_fidelity
+                    validator_result = compiled_validation
+                    fidelity_result = compiled_fidelity
+            else:
+                spl_draft_trace["deterministic_skeleton_used"] = False
+                final_raw_spl_source = "abstention"
+                final_spl = ""
+                validator_result = skeleton_validation
+                fidelity_result = skeleton_fidelity
 
     if (
         str(intent_spec.get("support_status") or "") == "supported"
@@ -818,21 +830,52 @@ def candidate_from_universal_utility_authoring(
         AUTHORING_SOURCE_LLM_PATTERN_REPAIR,
     }
     reject_reasons = list(validator_result.get("reject_reasons") or [])
-    llm_accepted = bool(spl_draft_trace["llm_pattern_success"])
+    llm_is_final = authoring_source in {
+        AUTHORING_SOURCE_LLM_PATTERN_PRIMARY,
+        AUTHORING_SOURCE_LLM_PATTERN_NORMALIZED,
+        AUTHORING_SOURCE_LLM_PATTERN_REPAIR,
+    }
+    llm_quality_failed = (
+        str(spl_draft_trace.get("llm_draft_quality_status") or "").lower() == "failed"
+        or str(spl_draft_trace.get("quality_status") or "").lower() == "failed"
+        or str(spl_draft_trace.get("llm_spl_draft_dropped_reason") or "") == CLARIFICATION_QUALITY_FAILED
+        or bool(spl_draft_trace.get("llm_candidate_rejected"))
+        or (llm_is_final and not validator_result.get("lab_candidate_eligible"))
+        or (llm_is_final and fidelity_result is not None and not fidelity_result.get("passed"))
+    )
+    quality_status = "failed" if llm_quality_failed else (
+        "passed"
+        if validator_result.get("lab_candidate_eligible")
+        else "failed"
+        if validator_result
+        else "not_run"
+    )
+    llm_accepted = bool(spl_draft_trace["llm_pattern_success"]) and quality_status != "failed"
+    fallback_used = final_raw_spl_source in {
+        "deterministic_skeleton",
+        "deterministic_compiler",
+        "abstention",
+    } or bool(spl_draft_trace.get("llm_candidate_rejected"))
+    spl_draft_trace["llm_candidate_rejected"] = bool(
+        spl_draft_trace.get("llm_candidate_rejected") or (not llm_accepted and spl_draft_trace.get("llm_spl_draft_requested"))
+    )
+    spl_draft_trace["fallback_selected"] = fallback_used and not llm_accepted
+    spl_draft_trace["final_spl_source"] = final_raw_spl_source
     annotate_last_llm_interaction(
         SPL_ADVISORY_ROLE,
-        quality_status=(
-            "passed"
-            if validator_result.get("lab_candidate_eligible")
-            else "failed"
-            if validator_result
-            else "not_run"
-        ),
+        quality_status=quality_status,
         reject_reasons=reject_reasons,
         accepted=llm_accepted,
         contributed_to_final_output=llm_accepted,
         fallback_selected=not llm_accepted,
-        fallback_reason=None if llm_accepted else (reject_reasons[0] if reject_reasons else None),
+        fallback_reason=(
+            None
+            if llm_accepted
+            else (
+                str(spl_draft_trace.get("llm_candidate_reject_reason") or "")
+                or (reject_reasons[0] if reject_reasons else None)
+            )
+        ),
     )
 
     assumptions = _utility_assumptions(

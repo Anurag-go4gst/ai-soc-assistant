@@ -23,6 +23,30 @@ from app.connectors.telemetry.redaction import (
 
 SCHEMA_VERSION = "llm_interaction_v1"
 
+
+def _quality_status_failed(status: Any) -> bool:
+    return str(status or "").strip().lower() == "failed"
+
+
+def apply_quality_promotion_invariant(record: dict[str, Any]) -> dict[str, Any]:
+    """Failed quality can never mark a candidate accepted or contributing.
+
+    Schema-valid / parsed output is not sufficient to publish SPL. Callers may
+    still pass ``accepted=True``; this invariant forces the disposition closed.
+    """
+    payload = record if isinstance(record, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+    if not _quality_status_failed(validation.get("quality_status")):
+        return payload
+    disposition = payload.get("disposition") if isinstance(payload.get("disposition"), dict) else {}
+    disposition["accepted"] = False
+    disposition["contributed_to_final_output"] = False
+    if disposition.get("fallback_selected") is not True:
+        disposition["fallback_selected"] = True
+    payload["disposition"] = disposition
+    payload["validation"] = validation
+    return payload
+
 SYNTHESIS_ROLES = frozenset(
     {
         "review_only_spl_synthesis",
@@ -238,6 +262,7 @@ def build_llm_interaction_record(
         "prompt_hash": prompt_hash,
         "response_hash": response_hash,
     }
+    apply_quality_promotion_invariant(record)
     return redact_secrets_keep_text(record)
 
 
@@ -290,6 +315,7 @@ def annotate_last_llm_interaction(role: str, **updates: Any) -> dict[str, Any] |
         for key in ("accepted", "contributed_to_final_output", "fallback_selected", "fallback_reason"):
             if key in updates and updates[key] is not None:
                 disposition[key] = updates[key]
+        apply_quality_promotion_invariant(item)
         return item
     return None
 

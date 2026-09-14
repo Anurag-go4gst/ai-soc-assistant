@@ -226,7 +226,7 @@ class FakeTelemetry:
         pass
 
 
-def fake_plan_workflow(selected_skill: str, tool_plan: list[str], query: str, trace_id: str) -> dict[str, Any]:
+def fake_plan_workflow(selected_skill: str, tool_plan: list[str], query: str, trace_id: str, **kwargs: Any) -> dict[str, Any]:
     return {
         "trace_id": trace_id,
         "skill": selected_skill,

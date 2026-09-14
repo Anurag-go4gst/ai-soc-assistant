@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.chat.contracts.investigation_envelope import envelope_authorizes_search
 from app.chat.contracts.run_contract import (
     AUTHORITY_HOLDER,
     RouteContract,
@@ -177,6 +178,16 @@ def build_run_contract(
     if utility_spl_authoring:
         execution_needed = False
         mcp_needed = False
+    elif (
+        isinstance(state.get("approved_investigation_envelope"), dict)
+        and state.get("approved_investigation_envelope")
+        and bool(evidence_plan.get("needs_mcp") or evidence_plan.get("needs_spl"))
+    ):
+        execution_needed = True
+        mcp_needed = True
+    elif envelope_authorizes_search(state.get("approved_investigation_envelope")):
+        execution_needed = True
+        mcp_needed = True
     else:
         execution_needed = live_data_request and route.canonical_skill in _LIVE_ANSWER_SKILLS
         mcp_needed = execution_needed
@@ -272,6 +283,12 @@ def build_answer_preview(contract: RunContract) -> str:
     """Review-only preview strings when execution did not collect telemetry."""
     if contract.allow_live_result_language:
         return ""
+    if (
+        contract.execution_needed_for_answer
+        and contract.routing.canonical_skill == "guided_investigation"
+        and str(contract.execution_status or "") != "executed"
+    ):
+        return "Live read was required but the source is unavailable. Findings remain inconclusive."
     if contract.routing.canonical_skill == "spl_generation":
         return _REVIEW_ONLY_SPL_PREVIEW
     return _REVIEW_ONLY_NO_TELEMETRY

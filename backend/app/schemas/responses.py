@@ -65,6 +65,7 @@ class WorkflowPlan(BaseModel):
     available_sources: list[str] = []
     missing_sources: list[str] = []
     message: str
+    plan_role: str | None = None
 
 
 class CandidateSplEnvelope(BaseModel):

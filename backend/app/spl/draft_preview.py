@@ -894,6 +894,8 @@ search index=<vpn_index> sourcetype=<vpn_auth_sourcetype> earliest=-90d latest=n
             r"success.*after.*fail",
             r"after\s+(?:repeated\s+)?fail",
             r"fail.*then.*success",
+            r"fail.*followed\s+by.*success",
+            r"followed\s+by\s+a\s+successful",
             r"success(?:ful)?\s+log\s*in.*fail",
         ),
         draft_spl="""
@@ -906,19 +908,19 @@ search index=<auth_index> sourcetype=<auth_sourcetype> earliest=-24h latest=now 
 | where user_norm!="" AND outcome!="other"
 | eval failure_time=if(outcome="failure", _time, null())
 | eval success_time=if(outcome="success", _time, null())
-| stats count(failure_time) as failure_count count(success_time) as success_count min(failure_time) as first_failure_epoch max(success_time) as last_success_epoch values(src_ip_norm) as source_ips values(host_norm) as hosts by user_norm
+| stats count(failure_time) as failure_count count(success_time) as success_count min(failure_time) as first_failure_epoch max(success_time) as last_success_epoch by user_norm, src_ip_norm, host_norm
 | where failure_count>=5 AND success_count>=1 AND last_success_epoch>first_failure_epoch
 | eval first_failure=strftime(first_failure_epoch, "%Y-%m-%d %H:%M:%S")
 | eval last_success=strftime(last_success_epoch, "%Y-%m-%d %H:%M:%S")
 | fields - first_failure_epoch last_success_epoch
-| table user_norm failure_count success_count source_ips hosts first_failure last_success
+| table user_norm src_ip_norm host_norm failure_count success_count first_failure last_success
 | sort - failure_count
 | head 100
 """,
         assumptions=(
-            "Correlates repeated failures followed by a later success for the SAME user; success must occur after the first failure.",
-            "Shift-left success/failure/denied actions in base search; outcome bucketed via match() on action_norm.",
-            "Source IPs and hosts are preserved with values() so analysts can see whether failures and the success share a source/host.",
+            "Correlates repeated failures followed by a later success for the SAME user, source IP, and destination host; success must occur after the first failure.",
+            "Shift-left success/failure/denied actions in base search; outcome bucketed via match() on action_norm. Failure and success are never required on the same event.",
+            "Identity keys user_norm, src_ip_norm, and host_norm survive the stats grouping so each success stays attached to its prior qualifying failure burst.",
             "Failure threshold (>=5) is illustrative — tune per environment; lower for high-value accounts.",
             "Replace <auth_index> and <auth_sourcetype> from your authentication source profile before review.",
             "This draft is lab-only; not governed, not approved, and not executed.",
@@ -2487,7 +2489,7 @@ def match_detection_family(user_query: str) -> str | None:
     if (
         re.search(r"success", normalized)
         and re.search(r"fail", normalized)
-        and re.search(r"\bafter\b|following|then|repeated", normalized)
+        and re.search(r"\bafter\b|following|then|repeated|followed", normalized)
     ):
         return "auth_success_after_failure"
     if re.search(r"\brdp\b|remote desktop|\b3389\b", normalized):

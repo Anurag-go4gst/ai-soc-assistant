@@ -49,6 +49,9 @@ def test_capture_records_exact_redacted_prompt_and_response() -> None:
         accepted=False,
         latency_ms=1314,
     )
+    assert record["disposition"]["accepted"] is False
+    assert record["disposition"]["contributed_to_final_output"] is False
+    assert record["disposition"]["fallback_selected"] is True
     assert record["request"]["system_prompt"] == "Return JSON only."
     assert "Investigation request" in record["request"]["user_prompt"]
     assert record["response"]["raw_text"] == '{"filters":[]}'
@@ -61,6 +64,35 @@ def test_capture_records_exact_redacted_prompt_and_response() -> None:
     assert "Return JSON only" not in json.dumps(compact)
     assert compact["forensic_ref"].startswith("timeline:llm_call:")
     assert compact["reject_reason"] == "missing_aggregation"
+
+
+def test_failed_quality_cannot_be_accepted_or_contributed() -> None:
+    record = capture_llm_interaction(
+        role="spl_advisory_generator",
+        raw_text='{"candidate_spl":"search index=auth failed_login=\\"failed\\" AND successful_login=\\"success\\""}',
+        parsed_payload={"candidate_spl": 'search index=auth failed_login="failed" AND successful_login="success"'},
+        transport_status="completed",
+        parse_status="parsed",
+        schema_status="valid",
+        quality_status="failed",
+        accepted=True,
+        contributed_to_final_output=True,
+        fallback_selected=False,
+    )
+    assert record["validation"]["quality_status"] == "failed"
+    assert record["disposition"]["accepted"] is False
+    assert record["disposition"]["contributed_to_final_output"] is False
+    annotated = annotate_last_llm_interaction(
+        "spl_advisory_generator",
+        quality_status="failed",
+        accepted=True,
+        contributed_to_final_output=True,
+        fallback_selected=False,
+    )
+    assert annotated is not None
+    assert annotated["disposition"]["accepted"] is False
+    assert annotated["disposition"]["contributed_to_final_output"] is False
+    assert annotated["disposition"]["fallback_selected"] is True
 
 
 def test_hydrate_lifts_forensic_nested_request_and_response() -> None:

@@ -142,6 +142,11 @@ def build_merged_t2_message(
     return merged or guidance_text
 
 
+def _investigation_source_unavailable(contract: AnswerContract | None) -> bool:
+    """True when T2 may surface a fallback SPL but must not relabel the lifecycle."""
+    return str(getattr(contract, "execution_status_label", "") or "") == "execution_pending_mcp_unavailable"
+
+
 def _guidance_already_owns_draft_preview(guidance_text: str) -> bool:
     lowered = str(guidance_text or "").lower()
     return any(marker in lowered for marker in _DRAFT_PREVIEW_OWNERSHIP_MARKERS)
@@ -156,13 +161,23 @@ def _summary_for_t2_section_plan(
     user_query: str,
     match_path: str | None,
     resource_plan: dict[str, Any] | None = None,
+    answer_contract: AnswerContract | None = None,
 ) -> str:
     """Single-owner card summary for T2 review-only answers.
 
     ``message`` may remain a merged markdown fallback for simple clients, but the
     structured analyst card already owns SPL, checklist, and limitation sections.
     Keep the summary short so those producers do not all render twice.
+
+    Approved investigations with a live-read / source-unavailable outcome keep
+    their investigation-lifecycle summary. T2 may still attach the fallback SPL
+    artifact; it must not redefine the turn as review-only authoring.
     """
+    if _investigation_source_unavailable(answer_contract):
+        return (
+            "Live read was required but the source is unavailable. "
+            "An optional SPL draft is provided as a fallback."
+        )
     shape = classify_answer_shape(user_query, resource_plan=resource_plan).primary_shape
     if shape_suppresses_spl(shape):
         return "Knowledge-only guidance prepared for analyst review; no SPL was generated."
@@ -226,17 +241,19 @@ def apply_t2_answer_surfacing(
         from app.chat.final_answer_readability import apply_final_answer_readability
 
         updated_response = apply_final_answer_readability(analyst_response, updated_contract)
-        summary = _summary_for_t2_section_plan(
-            guidance_text=message,
-            spl_draft_preview=spl_draft_preview,
-            candidate_spl=candidate_spl,
-            spl_validation=spl_validation,
-            user_query=user_query,
-            match_path=match_path,
-            resource_plan=resource_plan,
-        )
-        if summary:
-            updated_response = updated_response.model_copy(update={"direct_answer_summary": summary[:500]})
+        if not _investigation_source_unavailable(updated_contract):
+            summary = _summary_for_t2_section_plan(
+                guidance_text=message,
+                spl_draft_preview=spl_draft_preview,
+                candidate_spl=candidate_spl,
+                spl_validation=spl_validation,
+                user_query=user_query,
+                match_path=match_path,
+                resource_plan=resource_plan,
+                answer_contract=updated_contract,
+            )
+            if summary:
+                updated_response = updated_response.model_copy(update={"direct_answer_summary": summary[:500]})
         from app.chat.guidance_envelope import populate_envelope_from_guidance
         from app.chat.t2_review_checklist import is_t2_spl_native_candidate
 

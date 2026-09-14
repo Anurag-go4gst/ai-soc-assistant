@@ -2533,17 +2533,23 @@ def graph_node_shadow_enrichment(state: ChatPipelineState) -> ChatPipelineState:
 
 def graph_node_ensure_workflow_plan(state: ChatPipelineState) -> ChatPipelineState:
     """Plan-only slice of workflow_spl when composed dispatch skips SPL generation."""
-    if state.get("workflow_plan"):
+    live_read = _investigation_live_read_required(state)
+    existing = state.get("workflow_plan")
+    if isinstance(existing, dict) and not _workflow_plan_stale_for_live_read(existing, live_read):
         return state
     request = state["request"]
-    routed = state["routed"]
+    routed = state["routed"] if isinstance(state.get("routed"), dict) else {}
     trace_id = state["trace_id"]
     effective_skill = _effective_routing_skill(state)
+    tool_plan = list(routed.get("tool_plan") or [])
+    if live_read and "mcp_search" not in tool_plan:
+        tool_plan = [item for item in tool_plan if item != "no_mcp"] + ["mcp_search"]
     workflow_plan = _routes_chat().plan_workflow(
         selected_skill=effective_skill,
-        tool_plan=list(routed["tool_plan"]),
+        tool_plan=tool_plan,
         query=request.message,
         trace_id=trace_id,
+        live_read_required=live_read if effective_skill == "guided_investigation" else None,
     )
     return {**state, "workflow_plan": workflow_plan}
 
@@ -3395,6 +3401,28 @@ def _read_source_required_from_state(state: ChatPipelineState) -> bool:
     return bool(plan.get("needs_mcp") or plan.get("needs_spl"))
 
 
+def _investigation_live_read_required(state: ChatPipelineState) -> bool:
+    """Post-approval (or compiled-plan) live read, independent of the legacy blueprint."""
+    envelope = state.get("approved_investigation_envelope")
+    if envelope_authorizes_search(envelope if isinstance(envelope, dict) else envelope):
+        return True
+    if isinstance(envelope, dict) and envelope:
+        return _read_source_required_from_state(state)
+    return False
+
+
+def _workflow_plan_stale_for_live_read(plan: dict[str, Any], live_read: bool) -> bool:
+    if not live_read:
+        return False
+    gates = plan.get("safety_gates") or []
+    return (
+        "no_live_query" in gates
+        or "review_only" in gates
+        or "no_execution" in gates
+        or plan.get("plan_role") == "guided_review_blueprint"
+    )
+
+
 def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
     request = state["request"]
     trace_id = state["trace_id"]
@@ -3419,12 +3447,16 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
     else:
         selected_skill = "knowledge_recall"
         tool_plan = ["retrieve_approved_knowledge", "no_spl", "no_mcp"]
+    live_read_required = _investigation_live_read_required(state) or bool(_evidence_plan(state).get("needs_spl"))
+    if live_read_required and selected_skill == "guided_investigation" and "mcp_search" not in tool_plan:
+        tool_plan = [item for item in tool_plan if item != "no_mcp"] + ["mcp_search"]
     rc = _routes_chat()
     workflow_plan = rc.plan_workflow(
         selected_skill=selected_skill,
         tool_plan=tool_plan,
         query=request.message,
         trace_id=trace_id,
+        live_read_required=live_read_required if selected_skill == "guided_investigation" else None,
     )
     hybrid_dispatch_active = guided and uses_guided_hybrid_dispatch_from_state(state)
     spl_draft_preview = (
@@ -3445,10 +3477,6 @@ def graph_node_prepare_rag_only(state: ChatPipelineState) -> ChatPipelineState:
         if guided
         else None
     )
-    envelope_raw = state.get("approved_investigation_envelope")
-    live_read_required = envelope_authorizes_search(
-        envelope_raw if isinstance(envelope_raw, dict) else None
-    ) or bool(_evidence_plan(state).get("needs_spl"))
     prepared = {
         **state,
         "workflow_plan": workflow_plan,
@@ -3746,10 +3774,15 @@ def _record_guided_resource_outcome(
     def update_decisions(decisions: dict[str, Any]) -> dict[str, Any]:
         updated = dict(decisions)
         if update_spl and spl_draft_preview is not None:
+            live_fallback = envelope_authorizes_search(
+                state.get("approved_investigation_envelope")
+                if isinstance(state.get("approved_investigation_envelope"), dict)
+                else None
+            )
             updated["spl"] = {
                 **dict(updated.get("spl") or {}),
                 "needed": True,
-                "status": "planned_review_only",
+                "status": "draft_fallback" if live_fallback else "planned_review_only",
                 "detection_family": spl_draft_preview.get("detection_family"),
                 "skip_reason": None,
             }
@@ -3936,13 +3969,21 @@ def _ensure_context_finalize_state(state: ChatPipelineState) -> ChatPipelineStat
         }
     if not isinstance(updated.get("human_review"), dict):
         updated["human_review"] = no_human_review()
-    if not isinstance(updated.get("workflow_plan"), dict):
+    if not isinstance(updated.get("workflow_plan"), dict) or _workflow_plan_stale_for_live_read(
+        updated.get("workflow_plan") if isinstance(updated.get("workflow_plan"), dict) else {},
+        _investigation_live_read_required(updated),
+    ):
         skill = str((updated.get("routed") or {}).get("skill") or "knowledge_recall")
+        live_read = _investigation_live_read_required(updated)
+        tool_plan = list((updated.get("routed") or {}).get("tool_plan") or [])
+        if live_read and "mcp_search" not in tool_plan:
+            tool_plan = [item for item in tool_plan if item != "no_mcp"] + ["mcp_search"]
         updated["workflow_plan"] = plan_workflow(
             selected_skill=skill,
-            tool_plan=list((updated.get("routed") or {}).get("tool_plan") or []),
+            tool_plan=tool_plan,
             query=str(getattr(updated.get("request"), "message", "") or updated.get("effective_query") or ""),
             trace_id=str(updated.get("trace_id") or "missing-trace"),
+            live_read_required=live_read if skill == "guided_investigation" else None,
         )
     return updated
 
@@ -6551,15 +6592,20 @@ def _run_guided_hybrid_dispatch(state: ChatPipelineState) -> ChatPipelineState:
         validation = validate_guided_resource_plan(evidence, validated_resource)
         validated_resource = validation.validated_resource_plan
         rc = _routes_chat()
+        live_read = _investigation_live_read_required(state) or bool(
+            getattr(settings, "ai_soc_guided_composable_planning_enabled", False)
+        )
+        tool_plan = (
+            ["retrieve_approved_knowledge", "optional_review_only_spl", "mcp_search"]
+            if live_read or settings.ai_soc_guided_composable_planning_enabled
+            else ["retrieve_approved_knowledge", "optional_review_only_spl", "no_mcp"]
+        )
         workflow_plan = rc.plan_workflow(
             selected_skill="guided_investigation",
-            tool_plan=(
-                ["retrieve_approved_knowledge", "optional_review_only_spl", "mcp_search"]
-                if settings.ai_soc_guided_composable_planning_enabled
-                else ["retrieve_approved_knowledge", "optional_review_only_spl", "no_mcp"]
-            ),
+            tool_plan=tool_plan,
             query=request.message,
             trace_id=trace_id,
+            live_read_required=live_read,
         )
 
         def _execute_guided_safe_catalog_spl(

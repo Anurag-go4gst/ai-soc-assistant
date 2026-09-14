@@ -457,7 +457,7 @@ def test_alt_2024_0891_success_after_failure_hybrid_alert_review(
     spl = response.spl_validation.normalized_spl or ""
     assert "host=APP-01" not in spl
     assert 'alert_id="ALT-2024-0891"' in spl
-    assert " by user " in spl
+    assert "by user" in spl
     assert "action=failure OR action=success" in spl or (
         'action="failure"' in spl and 'action="success"' in spl
     )

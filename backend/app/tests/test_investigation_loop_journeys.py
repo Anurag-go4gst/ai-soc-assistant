@@ -118,6 +118,34 @@ def _assert_mcp_off_execution_boundary(second) -> None:
     effective = build_effective_state_projection(payload)
     assert effective["execution"]["execution_requested"] is True
     assert effective["execution"]["execution_performed"] is False
+    assert effective["review_only"] is False
+    if effective["spl_authoring"].get("spl_artifact_available"):
+        assert effective["spl_authoring"]["spl_role"] == "investigation_fallback"
+        assert effective["evidence"]["spl_artifact"]["status"] == "draft_fallback"
+    from app.chat.reviewer_trace import assemble_forensic_bundle, build_reviewer_trace
+
+    reviewer = build_reviewer_trace(
+        assemble_forensic_bundle(
+            trace_id="loop",
+            run={
+                "trace_id": "loop",
+                "status": "completed",
+                "selected_skill": payload.get("selected_skill"),
+                "answer_mode": payload.get("answer_mode"),
+                "metadata": {"effective_state": effective, "selected_skill": payload.get("selected_skill")},
+            },
+            events=[],
+            payload=payload,
+        )
+    )
+    assert reviewer["review_decision"]["run_outcome"] != "completed_review_only"
+    assert reviewer["execution"]["execution_requested"] is True
+    reason = str(reviewer["review_decision"].get("reason") or "")
+    assert "neither requested nor authorised" not in reason.lower()
+    wp = payload.get("workflow_plan") or {}
+    if "mcp_search" in list(wp.get("tool_plan") or []):
+        assert wp.get("plan_role") != "guided_review_blueprint"
+        assert "no_live_query" not in list(wp.get("safety_gates") or [])
     message = str(second.message or "")
     card = second.analyst_response
     card_text = ""

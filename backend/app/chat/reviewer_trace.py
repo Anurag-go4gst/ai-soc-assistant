@@ -193,12 +193,15 @@ def compact_timeline_event(event: dict[str, Any], *, effective: dict[str, Any] |
         }
     if kind == "step" and step_name == "workflow_plan_created":
         skill = str(body.get("skill") or compact_body.get("skill") or "")
+        execution = (effective or {}).get("execution") if isinstance((effective or {}).get("execution"), dict) else {}
         compact_body["plan_role"] = (
             body.get("plan_role")
             or compact_body.get("plan_role")
             or (
                 "authoritative"
                 if skill in {"attack_discovery", "spl_generation", "alert_summary"}
+                else "investigation"
+                if skill == "guided_investigation" and bool(execution.get("execution_requested"))
                 else "guided_review_blueprint"
                 if skill == "guided_investigation"
                 else "knowledge"
@@ -376,31 +379,40 @@ def _review_decision(
     current_turn = bool(hil.get("current_turn_hil_required"))
     performed = bool(execution.get("execution_performed"))
     authorized = bool(execution.get("execution_authorized"))
-    review_only = str(effective.get("answer_mode") or "") in {
+    execution_requested = bool(execution.get("execution_requested"))
+    turn_review_only = bool(effective.get("review_only")) or str(effective.get("answer_mode") or "") in {
         "spl_utility_authoring",
         "spl_review_only",
         "review_only",
-    } or bool(hil.get("artifact_review_required"))
+    }
     if performed:
         run_outcome = "completed_with_execution"
     elif current_turn:
         run_outcome = "blocked_for_hil"
-    elif review_only:
+    elif execution_requested and not performed:
+        run_outcome = "blocked_source_unavailable"
+    elif turn_review_only or (
+        bool(hil.get("artifact_review_required")) and not execution_requested
+    ):
         run_outcome = "completed_review_only"
     else:
         run_outcome = "completed"
+    if run_outcome == "completed_review_only":
+        reason = "Review-only SPL artifact delivered; live execution was neither requested nor authorised."
+    elif run_outcome == "blocked_source_unavailable":
+        reason = (
+            "Live execution was requested and a governed read was required, but the source was unavailable."
+        )
+    else:
+        reason = None
     return {
         "run_outcome": run_outcome,
-        "artifact_ready_for_review": bool(hil.get("artifact_review_required")) or review_only,
+        "artifact_ready_for_review": bool(hil.get("artifact_review_required")) or turn_review_only,
         "current_turn_requires_user_input": current_turn,
         "current_turn_blocked_for_hil": current_turn,
         "execution_permitted": bool(authorized or performed),
         "execution_requires_approval_if_requested": bool(hil.get("execution_hil_required_if_requested")),
-        "reason": (
-            "Review-only SPL artifact delivered; live execution was neither requested nor authorised."
-            if run_outcome == "completed_review_only"
-            else None
-        ),
+        "reason": reason,
     }
 
 
@@ -443,6 +455,8 @@ def _spl_projection(
         "execution_performed": bool(execution.get("execution_performed")),
         "final_answer_safety_status": safety,
         "normalized_spl_available": validation.get("normalized_spl_available"),
+        "spl_truth": authoring.get("spl_truth") or "none",
+        "spl_role": authoring.get("spl_role") or "none",
         "final_spl_hash": authoring.get("final_spl_hash"),
         "final_raw_spl_source": authoring.get("final_raw_spl_source") or validation.get("final_spl_source"),
     }
@@ -537,6 +551,7 @@ def _evidence_projection(effective: dict[str, Any], execution: dict[str, Any]) -
     return {
         "spl_artifact_available": bool(evidence.get("artifact_evidence_available")),
         "spl_artifact_status": artifact.get("status"),
+        "spl_truth": artifact.get("spl_truth") or (effective.get("spl_authoring") or {}).get("spl_truth"),
         "live_execution_evidence_available": bool(evidence.get("live_execution_evidence_available")),
         "executed_evidence_status": executed.get("status"),
         "executed_evidence_reason": executed.get("reason"),
