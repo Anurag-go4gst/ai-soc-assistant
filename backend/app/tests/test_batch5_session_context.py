@@ -120,11 +120,18 @@ def test_target_graph_session_refine_never_enters_legacy_fallback(
     session_id = first.session_context_status.session_id if first.session_context_status else None
     assert session_id
     follow_up = chat(ChatRequest(message="refine that SPL", session_id=session_id))
-    # The target graph does not import/call the duplicate fallback.  This
-    # follow-up currently degrades without a candidate rather than entering a
-    # second executor; no candidate can reach MCP from that result.
-    assert follow_up.candidate_spl is None
+    # The target graph does not import/call the duplicate fallback (guarded by
+    # ``_boom`` above).  The invariant is that nothing from this follow-up can
+    # reach MCP — not that the refine produces nothing.  Once the slot binder
+    # stopped rejecting snap-to-time windows the refine reaches the governed
+    # review-only producer, so pin the safety properties instead of the old
+    # empty-result observation.
+    candidate = follow_up.candidate_spl
+    if candidate is not None:
+        assert candidate.execution_eligible is False
+        assert follow_up.spl_validation is None or follow_up.spl_validation.approved is False
     assert follow_up.execution is None or follow_up.execution.execution_status_label != "live_executed"
+    assert follow_up.model_dump(mode="json").get("live_mcp_called") in (None, False)
 
 
 def test_stale_session_context_triggers_clarification() -> None:

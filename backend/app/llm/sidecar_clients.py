@@ -47,6 +47,7 @@ _ROLE_TIMEOUT_SECONDS: dict[str, float] = {
     "guided_investigation_plan_proposer": 15.0,
     "investigation_planner": 120.0,
     "plan_delta_reasoner": 30.0,
+    "evidence_reasoner": 30.0,
     "remediation_planner": 30.0,
 }
 

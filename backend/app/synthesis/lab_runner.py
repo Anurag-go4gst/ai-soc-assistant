@@ -74,7 +74,11 @@ def run_governed_synthesis_lab(
     route_plan_summary: dict[str, Any] | None = None,
     allow_live_narration: bool = True,
 ) -> SynthesisLabResult:
-    if not settings.ai_soc_llm_final_synthesis_enabled:
+    completed_investigation = (
+        isinstance(investigation_outcome, dict)
+        and str(investigation_outcome.get("investigation_status") or "") == "completed"
+    )
+    if not settings.ai_soc_llm_final_synthesis_enabled and not completed_investigation:
         return SynthesisLabResult(
             status=SynthesisStatus(
                 enabled=False,
@@ -95,7 +99,7 @@ def run_governed_synthesis_lab(
     }
     mode = str(context_sufficiency.get("status") or INSUFFICIENT_EVIDENCE)
     readiness = bool(context_sufficiency.get("synthesis_readiness"))
-    if settings.ai_soc_llm_require_context_sufficiency and not readiness:
+    if settings.ai_soc_llm_require_context_sufficiency and not readiness and not completed_investigation:
         return _blocked_result(
             mode=mode,
             reason=f"context_sufficiency:{mode}",
@@ -107,7 +111,7 @@ def run_governed_synthesis_lab(
             **contract_inputs,
         )
 
-    if mode in _BLOCKED_MODES:
+    if mode in _BLOCKED_MODES and not completed_investigation:
         return _blocked_result(
             mode=mode,
             reason=f"context_sufficiency:{mode}",
@@ -339,9 +343,26 @@ def _build_deterministic_lab_draft(
     spl_validation: dict[str, Any] | None,
 ) -> dict[str, Any]:
     facts = structured_context.get("structured_facts") or []
+    preview_rows = _preview_rows_from_evidence(source_evidence)
     lead = ""
-    if facts and isinstance(facts[0], dict):
+    for fact in facts:
+        if not isinstance(fact, dict):
+            continue
+        statement = str(fact.get("statement") or "").strip()
+        if statement and "=" in statement:
+            lead = statement
+            break
+    if not lead and facts and isinstance(facts[0], dict):
         lead = str(facts[0].get("statement") or "").strip()
+    evidence_compact = [
+        ", ".join(
+            f"{key}={row[key]}"
+            for key in list(row.keys())[:12]
+            if row.get(key) not in (None, "")
+        )
+        for row in preview_rows[:6]
+    ]
+    evidence_compact = [item for item in evidence_compact if item]
 
     reference_facts = structured_context.get("reference_facts")
     reference_facts = reference_facts if isinstance(reference_facts, list) else []
@@ -357,6 +378,7 @@ def _build_deterministic_lab_draft(
             aggregate_note = f"Approved aggregate {aggregate.aggregate_key}={aggregate.value} (source={aggregate.source})."
             break
 
+    outcome = package.investigation_outcome if isinstance(package.investigation_outcome, dict) else {}
     summary_parts = []
     if reference_facts:
         # Reference-taxonomy turns (plan item 19) resolve real dataset facts
@@ -371,15 +393,37 @@ def _build_deterministic_lab_draft(
     else:
         if lead:
             summary_parts.append(lead)
+        if evidence_compact:
+            summary_parts.append("Admitted environment evidence: " + "; ".join(evidence_compact))
+        for finding in (outcome.get("findings") or [])[:6]:
+            text = str(finding).strip()
+            if text and text not in summary_parts:
+                summary_parts.append(text)
+        if outcome.get("disposition"):
+            summary_parts.append(f"Investigation disposition: {outcome.get('disposition')}.")
+        if outcome.get("recommended_next_action"):
+            summary_parts.append(f"Recommended next action: {outcome.get('recommended_next_action')}.")
+        remaining = [str(item) for item in (outcome.get("missing_evidence") or []) if str(item).strip()]
+        if remaining:
+            summary_parts.append("Remaining material uncertainty: " + ", ".join(remaining[:6]) + ".")
+        elif str(outcome.get("investigation_status") or "") == "completed":
+            summary_parts.append("No material current-contract evidence gap remains.")
+        evolution = str(
+            ((outcome.get("provenance") or {}).get("hypothesis_assessment") or {}).get(
+                "evolution_summary"
+            )
+            or ""
+        ).strip()
+        if evolution:
+            summary_parts.append(evolution)
         if mitre_lines:
             summary_parts.append("MITRE (permitted set): " + ", ".join(mitre_lines) + ".")
         summary_parts.append(aggregate_note)
         if severity_label:
             summary_parts.append(f"Severity matrix: {severity_label}.")
-        if missing:
+        if missing and str(outcome.get("investigation_status") or "") != "completed":
             summary_parts.append("Missing evidence: " + " ".join(missing))
 
-    preview_rows = _preview_rows_from_evidence(source_evidence)
     normalized_spl = None
     if spl_validation and spl_validation.get("approved"):
         normalized_spl = spl_validation.get("normalized_spl")
@@ -414,7 +458,7 @@ def _build_deterministic_lab_draft(
         draft_severity = str(outcome.get("severity_label"))
 
     draft: dict[str, Any] = {
-        "analyst_summary": " ".join(part for part in summary_parts if part)[:1200],
+        "analyst_summary": " ".join(part for part in summary_parts if part)[:2400],
         "severity_label": draft_severity,
         "mitre_mappings": mitre_payload,
         "splunk_results_table": preview_rows,
@@ -492,13 +536,16 @@ def _narrate_with_progress_and_timeout(
 
 
 def _preview_rows_from_evidence(source_evidence: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
     for envelope in source_evidence:
-        if envelope.get("source_type") != "splunk_mcp":
+        if envelope.get("source_type") not in {"splunk_mcp", "splunk", "mcp"}:
             continue
-        rows = envelope.get("preview_rows") or []
-        if isinstance(rows, list):
-            return [row for row in rows if isinstance(row, dict)][:5]
-    return []
+        for row in envelope.get("preview_rows") or []:
+            if isinstance(row, dict):
+                rows.append(row)
+            if len(rows) >= 8:
+                return rows
+    return rows
 
 
 def _priority_from_severity(severity_label: str | None) -> str | None:

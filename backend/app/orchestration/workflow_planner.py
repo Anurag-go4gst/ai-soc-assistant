@@ -70,11 +70,29 @@ def plan_workflow(
     query: str,
     trace_id: str,
     telemetry: Any | None = None,
+    live_read_required: bool | None = None,
 ) -> dict[str, Any]:
     skill = validate_skill(selected_skill)
     steps = deepcopy(_WORKFLOW_BLUEPRINTS[skill])
+    live_read_planned = skill == "guided_investigation" and (
+        live_read_required is True
+        or (live_read_required is not False and "mcp_search" in set(tool_plan))
+    )
+    if live_read_planned:
+        # tool_plan already asked for a governed read. The static review-only
+        # blueprint is a fallback-artifact lane, not the investigation lifecycle.
+        _GATE_REWRITE = {
+            "review_only": "optional_spl_fallback",
+            "no_live_query": "live_read_required",
+            "no_execution": "execution_gated_on_source",
+        }
+        for step in steps:
+            step["safety_gates"] = [_GATE_REWRITE.get(gate, gate) for gate in step["safety_gates"]]
     required_connectors = sorted({connector for step in steps for connector in step["required_connectors"]})
     safety_gates = sorted({gate for step in steps for gate in step["safety_gates"]})
+    required_sources = list(_SOURCE_REQUIREMENTS.get(skill, []))
+    if live_read_planned and "mcp:splunk" not in required_sources:
+        required_sources.append("mcp:splunk")
 
     workflow_plan = {
         "trace_id": trace_id,
@@ -85,9 +103,18 @@ def plan_workflow(
         "steps": steps,
         "required_connectors": required_connectors,
         "safety_gates": safety_gates,
-        "required_sources": _SOURCE_REQUIREMENTS.get(skill, []),
+        "required_sources": required_sources,
         "available_sources": [],
-        "missing_sources": _SOURCE_REQUIREMENTS.get(skill, []),
+        "missing_sources": required_sources,
+        "plan_role": (
+            "authoritative"
+            if skill in {"attack_discovery", "spl_generation", "alert_summary"}
+            else "investigation"
+            if live_read_planned
+            else "guided_review_blueprint"
+            if skill == "guided_investigation"
+            else "knowledge"
+        ),
         "message": "Workflow plan created. No SPL/MCP/RAG execution has started.",
     }
 
@@ -102,6 +129,7 @@ def plan_workflow(
         step_count=len(steps),
         query_preview=query[:160],
         execution_enabled=False,
+        plan_role=workflow_plan["plan_role"],
     )
     return workflow_plan
 

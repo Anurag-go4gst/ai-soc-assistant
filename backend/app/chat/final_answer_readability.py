@@ -15,6 +15,8 @@ from app.spl.draft_preview import (
     build_draft_preview_analyst_message,
     family_presentation,
 )
+from app.chat.analyst_missing_evidence import project_missing_evidence
+
 
 _EXECUTION_LABELS = {
     "review_only_not_executed": "Review only — not executed",
@@ -118,9 +120,12 @@ _DRAFT_GENERIC_LEAD_IN = (
     "against your source profile; the draft is review-only and has not been executed."
 )
 _REVIEW_ONLY_DRAFT_PREFIX = "Review-only SPL draft - no live query was executed."
+_INVESTIGATION_FALLBACK_PREFIX = (
+    "Live read was required but the source is unavailable. An optional SPL draft is provided as a fallback."
+)
 
 
-def _draft_preview_lead_in(spl_draft_preview: Any) -> str:
+def _draft_preview_lead_in(spl_draft_preview: Any, *, investigation_fallback: bool = False) -> str:
     preview = spl_draft_preview if isinstance(spl_draft_preview, dict) else {}
     family = str(preview.get("detection_family") or "")
     if family == "auth_failed_login_threshold":
@@ -130,19 +135,33 @@ def _draft_preview_lead_in(spl_draft_preview: Any) -> str:
             return _with_review_only_draft_prefix(
                 f"This ranks users by failed-login volume over {window}. Abnormally high "
                 "activity is surfaced by relative ranking (top-N), not a fixed count threshold. "
-                "Lab draft only — not executed."
+                "Lab draft only — not executed.",
+                investigation_fallback=investigation_fallback,
             )
         return _with_review_only_draft_prefix(
             f"This ranks source/user pairs by failed-login volume over {window}. "
-            "Tune any threshold after review. Lab draft only — not executed."
+            "Tune any threshold after review. Lab draft only — not executed.",
+            investigation_fallback=investigation_fallback,
         )
-    return _with_review_only_draft_prefix(_DRAFT_FAMILY_LEAD_INS.get(family, _DRAFT_GENERIC_LEAD_IN))
+    return _with_review_only_draft_prefix(
+        _DRAFT_FAMILY_LEAD_INS.get(family, _DRAFT_GENERIC_LEAD_IN),
+        investigation_fallback=investigation_fallback,
+    )
 
 
-def _with_review_only_draft_prefix(text: str) -> str:
-    if text.startswith(_REVIEW_ONLY_DRAFT_PREFIX):
+def _is_investigation_spl_fallback(contract: AnswerContract | None) -> bool:
+    if contract is None:
+        return False
+    return str(contract.execution_status_label or "") == "execution_pending_mcp_unavailable"
+
+
+def _with_review_only_draft_prefix(text: str, *, investigation_fallback: bool = False) -> str:
+    prefix = _INVESTIGATION_FALLBACK_PREFIX if investigation_fallback else _REVIEW_ONLY_DRAFT_PREFIX
+    if text.startswith(prefix) or text.startswith(_REVIEW_ONLY_DRAFT_PREFIX) or text.startswith(_INVESTIGATION_FALLBACK_PREFIX):
+        if investigation_fallback and text.startswith(_REVIEW_ONLY_DRAFT_PREFIX):
+            return f"{prefix} {text[len(_REVIEW_ONLY_DRAFT_PREFIX):].strip()}"
         return text
-    return f"{_REVIEW_ONLY_DRAFT_PREFIX} {text}"
+    return f"{prefix} {text}"
 
 
 def _draft_preview_presentation(spl_draft_preview: Any) -> dict[str, str]:
@@ -227,7 +246,9 @@ def apply_final_answer_readability(
     payload["execution_status_label"] = contract.execution_status_display
     payload["spl_status"] = contract.spl_status
     payload["hil_status"] = contract.hil_status
-    payload["missing_evidence"] = list(contract.missing_evidence)
+    # Display edge: the contract keeps internal keys for control flow upstream.
+    missing_display, _ = project_missing_evidence(contract.missing_evidence)
+    payload["missing_evidence"] = missing_display
     payload["analyst_checklist"] = list(contract.analyst_checklist_safe)
     payload["investigation_steps"] = list(contract.investigation_steps)
     payload["unsupported_claims_avoid"] = list(contract.unsupported_claims_avoid)
@@ -277,6 +298,8 @@ def apply_final_answer_readability(
         payload = _scrub_draft_preview_contradictions(payload)
         _apply_analytics_draft_severity_guard(payload, presentation)
     payload["direct_answer_summary"] = _direct_answer_summary(envelope, contract)
+    if _is_investigation_spl_fallback(contract) and payload.get("direct_answer_summary"):
+        payload["one_sentence_finding"] = str(payload["direct_answer_summary"])[:500]
     payload = _apply_guided_investigation_card(payload, contract)
     payload = _apply_knowledge_profile_cleanup(payload, contract)
     payload = _dedupe_labels(payload, contract)
@@ -346,7 +369,11 @@ def _apply_guided_investigation_card(
     payload["direct_answer_summary"] = str(
         payload.get("direct_answer_summary")
         or payload.get("one_sentence_finding")
-        or "Guided investigation prepared for analyst review; no live query was executed."
+        or (
+            "Live read was required but the source is unavailable. Findings remain inconclusive."
+            if _is_investigation_spl_fallback(contract)
+            else "Guided investigation prepared for analyst review; no live query was executed."
+        )
     )
     return payload
 
@@ -373,7 +400,10 @@ def _contains_draft_forbidden_phrase(text: str) -> bool:
 
 def _direct_answer_summary(envelope: AnalystResponseEnvelope, contract: AnswerContract) -> str:
     if envelope.draft_spl_code:
-        return _draft_preview_lead_in(envelope.spl_draft_preview)
+        return _draft_preview_lead_in(
+            envelope.spl_draft_preview,
+            investigation_fallback=_is_investigation_spl_fallback(contract),
+        )
     if contract.intent_family == "reference_knowledge" or "reference_lookup" in set(contract.answer_goal or []):
         return _reference_knowledge_summary(envelope)
     if contract.intent_family == "mitre_explanation":
@@ -726,11 +756,27 @@ _EVIDENCE_LABELS = {
 
 
 def _required_evidence_display(contract: AnswerContract) -> list[str]:
+    """Analyst-facing labels for the contract's internal required-evidence keys.
+
+    This is the display edge: the contract itself keeps the raw keys, because
+    severity and section decisions upstream still read them.
+    """
     labels: list[str] = []
     for key in contract.required_evidence:
         raw_key = str(key)
-        label = _EVIDENCE_LABELS.get(raw_key, raw_key.replace("_", " "))
-        text = f"{raw_key} — {label}"
+        label = _EVIDENCE_LABELS.get(raw_key)
+        if label is not None:
+            # A curated field-level label keeps its "key — label" form.
+            text = raw_key if label.lower() == raw_key.lower() else f"{raw_key} — {label}"
+        else:
+            projected, _ = project_missing_evidence([raw_key])
+            if not projected:
+                # Pure control state — not an analyst-collectable requirement.
+                continue
+            # Several keys can share one canonical concept (endpoint and
+            # process_execution are both "process and endpoint evidence"); naming
+            # the concept once is the requirement, the key is plumbing.
+            text = projected[0]
         if text not in labels:
             labels.append(text)
     return labels

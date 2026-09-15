@@ -304,6 +304,44 @@
     .hero-fact .v.sm { font-size: 17px; }
     .hero-fact p { margin: 6px 0 0; font-size: 13.5px; color: var(--txt-dim); line-height: 1.45; }
 
+    .profile-plate {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--rule);
+      border: 1px solid var(--rule);
+      margin: 0 0 8px;
+      max-width: 92ch;
+    }
+    .profile-plate article {
+      background: var(--ink-plate);
+      padding: 16px 18px;
+    }
+    .profile-plate .k {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--txt-faint);
+      display: block;
+      margin-bottom: 6px;
+    }
+    .profile-plate h5 {
+      font-family: var(--display);
+      font-size: 16px;
+      margin: 0 0 8px;
+      color: #fff;
+    }
+    .profile-plate p {
+      margin: 0;
+      font-size: 13.5px;
+      color: var(--txt-dim);
+      line-height: 1.5;
+    }
+    @media (max-width: 760px) {
+      .profile-plate { grid-template-columns: 1fr; }
+    }
+
     /* ---------- sections ---------- */
     section { padding: 62px 0 10px; scroll-margin-top: 84px; }
     .part-break {
@@ -537,7 +575,7 @@
     /* ---------- card grids ---------- */
     .grid { display: grid; gap: 14px; margin: 20px 0; }
     .g2 { grid-template-columns: repeat(auto-fit, minmax(275px, 1fr)); }
-    .g3 { grid-template-columns: repeat(auto-fit, minmax(238px, 1fr)); }
+    .g3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
     .g4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
     .card {
       background: var(--ink-plate);
@@ -558,8 +596,17 @@
       margin: 0 0 8px;
       color: #fff;
       letter-spacing: -0.015em;
+      overflow-wrap: break-word;
     }
-    .card h5 code { font-size: 13.5px; background: none; border: 0; padding: 0; color: #fff; }
+    .card h5 code {
+      font-size: 13.5px;
+      background: none;
+      border: 0;
+      padding: 0;
+      color: #fff;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
     .card p { margin: 0; font-size: 14.5px; color: var(--txt-dim); line-height: 1.55; }
     .card .cap {
       font-family: var(--mono);
@@ -811,31 +858,48 @@
     .flowsvg[data-path="t1"] [data-k="eD2"],
     .flowsvg[data-path="t1"] [data-k="nD2"],
     .flowsvg[data-path="t1"] [data-k="c3"],
-    .flowsvg[data-path="t4"] [data-k="eNP"],
-    .flowsvg[data-path="t4"] [data-k="nD4"],
-    .flowsvg[data-path="t4"] [data-k="c1"],
-    /* the OT question stays T4/guided — it does NOT resolve to T0, so that lane is dim here */
-    .flowsvg[data-path="t4"] [data-k="eT0"],
-    .flowsvg[data-path="t4"] [data-k="nT0"],
-    .flowsvg[data-path="t4"] [data-k="eT0b"],
-    .flowsvg[data-path="t4"] [data-k="t1"],
-    .flowsvg[data-path="t4"] [data-k="t2"],
-    .flowsvg[data-path="t4"] [data-k="t3"],
-    .flowsvg[data-path="t4"] [data-k="eD1"],
-    .flowsvg[data-path="t4"] [data-k="nD1"],
-    .flowsvg[data-path="t4"] [data-k="c2"],
-    .flowsvg[data-path="t4"] [data-k="eD2"],
-    .flowsvg[data-path="t4"] [data-k="nD2"],
-    .flowsvg[data-path="t4"] [data-k="c3"] { opacity: 0.13; }
+    /* Path B: T4 qualifies to T0 knowledge-only — D1, not SPL and not the guided envelope. */
+    .flowsvg[data-path="t0"] [data-k="eNP"],
+    .flowsvg[data-path="t0"] [data-k="nD4"],
+    .flowsvg[data-path="t0"] [data-k="c1"],
+    .flowsvg[data-path="t0"] [data-k="t1"],
+    .flowsvg[data-path="t0"] [data-k="t2"],
+    .flowsvg[data-path="t0"] [data-k="t3"],
+    .flowsvg[data-path="t0"] [data-k="eD2"],
+    .flowsvg[data-path="t0"] [data-k="nD2"],
+    .flowsvg[data-path="t0"] [data-k="c3"],
+    .flowsvg[data-path="t0"] [data-k="eD3"],
+    .flowsvg[data-path="t0"] [data-k="nD3"],
+    .flowsvg[data-path="t0"] [data-k="e7"],
+    .flowsvg[data-path="t0"] [data-k="n7"],
+    .flowsvg[data-path="t0"] [data-k="c4"],
+    /* Path C: T4 stays guided. Envelope HIL is D4; after Run the work path is D2, not D3. */
+    .flowsvg[data-path="guided"] [data-k="eT0"],
+    .flowsvg[data-path="guided"] [data-k="nT0"],
+    .flowsvg[data-path="guided"] [data-k="eT0b"],
+    .flowsvg[data-path="guided"] [data-k="t1"],
+    .flowsvg[data-path="guided"] [data-k="t2"],
+    .flowsvg[data-path="guided"] [data-k="t3"],
+    .flowsvg[data-path="guided"] [data-k="eD1"],
+    .flowsvg[data-path="guided"] [data-k="nD1"],
+    .flowsvg[data-path="guided"] [data-k="c2"],
+    .flowsvg[data-path="guided"] [data-k="eD3"],
+    .flowsvg[data-path="guided"] [data-k="nD3"],
+    .flowsvg[data-path="guided"] [data-k="e7"],
+    .flowsvg[data-path="guided"] [data-k="n7"],
+    .flowsvg[data-path="guided"] [data-k="c4"] { opacity: 0.13; }
 
     /* On a traversal variant, make the taken path unmistakable rather than relying on
        the dimmed branches being noticed: thicken its strokes and lift its fills. */
     .flowsvg[data-path="t1"] .n:not([style]) rect,
-    .flowsvg[data-path="t4"] .n:not([style]) rect,
+    .flowsvg[data-path="t0"] .n:not([style]) rect,
+    .flowsvg[data-path="guided"] .n:not([style]) rect,
     .flowsvg[data-path="t1"] .n polygon,
-    .flowsvg[data-path="t4"] .n polygon { stroke-width: 2; }
+    .flowsvg[data-path="t0"] .n polygon,
+    .flowsvg[data-path="guided"] .n polygon { stroke-width: 2; }
     .flowsvg[data-path="t1"] .e path,
-    .flowsvg[data-path="t4"] .e path { stroke-width: 2.25; }
+    .flowsvg[data-path="t0"] .e path,
+    .flowsvg[data-path="guided"] .e path { stroke-width: 2.25; }
 
     .pathkey {
       display: flex;
@@ -1300,7 +1364,7 @@
     }
     .journey-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 16px;
       margin: 22px 0;
     }
@@ -1578,12 +1642,13 @@
         margin-bottom: 6px;
       }
       .wc.mint::before  { content: "Path A · known"; color: var(--mint); }
-      .wc.amber::before { content: "Path B · novel"; color: var(--amber); }
+      .wc.amber::before { content: "Path C · guided"; color: var(--amber); }
     }
     @media (max-width: 760px) {
       /* long identifiers (AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED, post_guided_completeness.evaluated)
          must wrap on narrow screens or they push the whole page sideways */
       :not(pre) > code { white-space: normal; overflow-wrap: anywhere; }
+      .card h5 code { overflow-wrap: break-word; }
     }
     @media (max-width: 640px) {
       body { font-size: 16.5px; }
@@ -1613,8 +1678,8 @@
       <button class="rail-toggle" id="railToggle" aria-label="Toggle contents">☰ Contents</button>
       <div class="brand">AI SOC ASSISTANT <span>/ query flow</span></div>
       <div class="topbar-meta">
-        live path only · one canonical spine<br />
-        verified 2026-08-08 · <code>master@1681f90</code>
+        live path · eight-stage floor + COE overlay<br />
+        verified 2026-09-14 · <code>4040aae</code>
       </div>
     </div>
     <div class="progress" id="progress"></div>
@@ -1627,12 +1692,12 @@
       <div class="rail-part">Orientation</div>
       <a href="#spine"><span class="num">◆</span>The one flow — 8 stages</a>
       <a href="#legend"><span class="num">◆</span>How to read this page</a>
-      <a href="#walk"><span class="num">◆</span>Two active paths</a>
+      <a href="#walk"><span class="num">◆</span>Three active paths</a>
 
       <div class="rail-part">I · Vocabulary</div>
       <a href="#s1"><span class="num">1</span>Catalogue tiers T0–T4</a>
       <a href="#s2"><span class="num">2</span>Processing lanes</a>
-      <a href="#s3"><span class="num">3</span>Planning outcomes O1–O8</a>
+      <a href="#s3"><span class="num">3</span>Planning outcomes O1–O9</a>
       <a href="#s4"><span class="num">4</span>Dispatch paths D1–D4</a>
 
       <div class="rail-part">II · The cast</div>
@@ -1641,6 +1706,7 @@
       <div class="rail-part">III · The flow in depth</div>
       <a href="#s6"><span class="num">6</span>Stages 1–2 · Understanding</a>
       <a href="#s7"><span class="num">7</span>Stage 3 · Planning seam</a>
+      <a href="#s-envelope"><span class="num">7b</span>Stage 3 · Investigation envelope</a>
       <a href="#s8"><span class="num">8</span>Stage 3 · Detail tools</a>
       <a href="#s9"><span class="num">9</span>Stage 3 · Clarification</a>
       <a href="#s10"><span class="num">10</span>Stages 4–5 · Specialists</a>
@@ -1676,35 +1742,50 @@
         <h1>How a SOC question becomes a <em>governed</em> answer</h1>
         <p class="lede">
           This is the <strong>only</strong> path a live question takes. One query enters, one deterministic
-          spine of eight stages runs, one analyst card comes out. The model participates at three
-          narrow points and is never the authority at any of them.
+          spine of eight stages runs, and one analyst card comes out — unless Stage 3 stops first for
+          clarification or an investigation-plan approval. The model may assist at several governed
+          hops and is never the authority at any of them.
         </p>
         <p class="lede" style="font-size:17.5px;">
           Read the spine below first. Everything after it is the same eight stages at higher
-          resolution — nothing on this page describes a second or alternative architecture, and
-          anything that is <em>not</em> live is quarantined in <a href="#a1">Appendix A1</a>.
+          resolution — nothing on this page describes a second orchestrator. Flag-gated investigation
+          work is live on the COE profile and labeled as such. Rollback-only leftovers stay in
+          <a href="#a1">Appendix A1</a>.
         </p>
+
+        <div class="profile-plate" aria-label="Runtime profiles">
+          <article>
+            <span class="k">Floor · repo / development</span>
+            <h5>Eight-stage Resource Planner</h5>
+            <p>T4 semantic understanding is on. Investigation planner, envelope-before-ResourcePlan, CapabilitySnapshot, PlanDelta, guided composable planning, and the remediation planner stay off.</p>
+          </article>
+          <article>
+            <span class="k">COE · this product architecture</span>
+            <h5>Same spine, investigation overlay on</h5>
+            <p>All of the above are on (<code>env/profiles/coe.env.example</code>). A guided hunt can stop at Run / Edit / Cancel, then compile ResourcePlan + PhaseContract. Domain execution agents and live remediation connectors are <em>not</em> claimed.</p>
+          </article>
+        </div>
 
         <div class="hero-facts">
           <div class="hero-fact">
             <span class="k">Recognition tiers</span>
             <span class="v">T0–T4</span>
-            <p>How well the question was recognised. Decides the lane, not the answer.</p>
+            <p>How well the question was recognised. T1–T3 either ACCEPT a complete match or ABSTAIN. Decides the lane, not the answer.</p>
           </div>
           <div class="hero-fact">
             <span class="k">Planning outcomes</span>
-            <span class="v">1 of 8</span>
-            <p>Exactly one typed status. Only <code>planned</code> can reach execution.</p>
+            <span class="v">1 of 9</span>
+            <p>Exactly one typed status. Only <code>planned</code> can reach execution. <code>awaiting_investigation_plan</code> is a HIL stop.</p>
           </div>
           <div class="hero-fact">
             <span class="k">Route skills</span>
             <span class="v">5</span>
-            <p>A closed enum. Exactly one skill owns a turn.</p>
+            <p>A closed enum. Exactly one skill owns a turn. Guided owns composable investigation when the COE overlay is on.</p>
           </div>
           <div class="hero-fact">
             <span class="k">LLM authority</span>
             <span class="v sm" style="color:var(--rose)">None, anywhere</span>
-            <p>Advisory, proposer, narrator. Never severity, MITRE, SPL execution, or MCP.</p>
+            <p>Advisory, proposer, narrator. Never severity, MITRE, SPL execution, or MCP. Hop count depends on profile.</p>
           </div>
         </div>
       </header>
@@ -1713,11 +1794,12 @@
       <section id="spine">
         <div class="sec-head">
           <span class="sec-num">THE CANONICAL FLOW</span>
-          <h3 class="sec-title">Eight stages. Every live turn. No exceptions.</h3>
+          <h3 class="sec-title">Eight stages. Every live turn. Overlay stops are labeled.</h3>
           <p>
             Read from the compiled graph (<code>run_chat_via_resource_planner_graph</code>), not from intent.
             These stage numbers are used by <strong>every</strong> other diagram, table, and section on this
-            page — if you see “Stage 6” anywhere, it is this Stage 6.
+            page — if you see “Stage 6” anywhere, it is this Stage 6. A COE investigation turn can pause
+            after Stage 3 at <code>awaiting_investigation_plan</code> and only then compile the ResourcePlan.
           </p>
         </div>
 
@@ -1730,8 +1812,8 @@
 
         <figure class="architecture-visual" aria-labelledby="architecture-map-heading">
           <h4 id="architecture-map-heading">Architecture map — question to analyst card, end to end</h4>
-          <p>Follow the arrows. Both the recognized T1–T3 path and the T4→T0 reference path enter the same four-specialist fan-out and validated merge, choose one D1–D4 work path, run only the workers that path authorizes, then join the nine governance checks — each path entering at its own check — before the analyst card and durable trace are released.</p>
-          <p>The map traces one query at a time. Each of the four work paths is drawn in turn — they are alternatives, never concurrent — and the caption in the top-left names the path currently in flight. Iris dots mark the three stages where the LLM may run. To go slower, pick a recognition path below and step through it: the map dims everything that path never touches, and each click moves the query one stage and explains what just happened.</p>
+          <p>Follow the arrows. Both the recognized T1–T3 path and the T4→T0 reference path enter the same four-specialist fan-out and validated merge, choose one D1–D4 work path, run only the workers that path authorizes, then join the nine governance checks — each path entering at its own check — before the analyst card and durable trace are released. On COE, a guided hunt may stop at D4 for Run / Edit / Cancel, then re-enter as D2 after approval.</p>
+          <p>The map traces one query at a time. Each of the four work paths is drawn in turn — they are alternatives, never concurrent — and the caption in the top-left names the path currently in flight. Iris dots mark hops where the LLM <em>may</em> assist (route advisor, T4 meaning-only, SPL plan, narrator). Additional COE hops — investigation planner, PlanDelta reasoner, remediation planner — are in the hop catalog, not extra orchestrators. To go slower, pick a recognition path below and step through it.</p>
           <div class="arch-anim-bar">
             <button type="button" class="arch-anim-toggle" id="arch-anim-toggle" aria-pressed="false">Pause animation</button>
             <span class="arch-anim-note">One full cycle traces all four work paths, D2 → D3 → D1 → D4.</span>
@@ -1743,7 +1825,7 @@
               <div class="arch-walk__paths">
                 <button type="button" class="arch-walk__pick t-gate" data-walk-path="t13">T1–T3 · known request</button>
                 <button type="button" class="arch-walk__pick t-ref" data-walk-path="t0">T4 → T0 · reference</button>
-                <button type="button" class="arch-walk__pick t-stop" data-walk-path="t4">T4 · guided</button>
+                <button type="button" class="arch-walk__pick t-stop" data-walk-path="t4">T4 · guided investigation</button>
               </div>
             </div>
             <div class="arch-walk__run" id="arch-walk-run" hidden>
@@ -1759,7 +1841,7 @@
           <div class="architecture-svg-shell">
             <svg class="arch-svg desktop" viewBox="0 0 1180 1830" role="img" aria-labelledby="arch-desktop-title arch-desktop-desc" xmlns="http://www.w3.org/2000/svg">
               <title id="arch-desktop-title">AI SOC Assistant canonical architecture flow, end to end</title>
-              <desc id="arch-desktop-desc">A question is recognized as T1 through T3 or initially T4. A T4 reference question may resolve to T0. Every planned path then runs the Routing Contract, Knowledge Coverage, MCP Readiness, and SPL Readiness auditors, merges their reports, and chooses exactly one D1 through D4 path. Stage 7 runs only the workers that path authorizes: D1 the knowledge retrieval worker, D2 the approved plan steps, D3 the SPL build, source bind, and MCP execution gate, and D4 no evidence worker at all. Stage 8 runs the nine governance checks in fixed order, each path entering at its own check — D1 and D2 at check 1, D3 at check 2, D4 at check 8 — and the turn ends with an analyst card and durable trace, with no success recorded if final validation fails. An animation traces one query at a time along each of the four work paths in turn, and iris dots mark the three stages where the LLM may optionally assist: stage 2 as an advisory route suggestion, the stage 7 D3 SPL build as a detection-plan proposer, and stage 8 check 8 as a narrator of prose. All three are optional and none of them holds authority.</desc>
+              <desc id="arch-desktop-desc">A question is recognized as T1 through T3 after a complete-or-abstain gate, or initially T4 after abstain. A T4 reference question may resolve to T0. Every planned path then runs the Routing Contract, Knowledge Coverage, MCP Readiness, and SPL Readiness auditors, merges their reports, and chooses exactly one D1 through D4 path. Stage 7 runs only the workers that path authorizes. Stage 8 runs the nine governance checks; on COE a bounded PlanDelta reasoner may sit after evidence readiness. Iris dots mark optional LLM assists. Authority stays deterministic.</desc>
               <defs><marker id="arch-arrow-desktop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="context-stroke"/></marker></defs>
 
               <rect class="arch-node live" data-node="q-receive" x="420" y="20" width="340" height="60" rx="6"/>
@@ -1769,7 +1851,7 @@
 
               <rect class="arch-node live" data-node="q-recognize" x="420" y="110" width="340" height="70" rx="6"/>
               <text class="arch-title" x="590" y="139">2 · Recognize the request</text>
-              <text class="arch-sub" x="590" y="160">Assign an initial T0–T4 recognition tier</text>
+              <text class="arch-sub" x="590" y="160">T1–T3 ACCEPT complete match or ABSTAIN</text>
               <g class="arch-llm-marker"><title>LLM may assist here — advisory route suggestion. Optional; the deterministic registry must validate the suggestion before it can win.</title>
                 <circle class="arch-llm-ring" cx="741" cy="128" r="7"><animate attributeName="r" values="7;16;16" keyTimes="0;0.55;1" dur="2.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.55;1" dur="2.8s" repeatCount="indefinite"/></circle>
                 <circle class="arch-llm-dot" cx="741" cy="128" r="6"/>
@@ -1784,15 +1866,19 @@
               <path class="arch-edge" d="M310 305 L310 340"/>
 
               <rect class="arch-node gated" data-node="t4-entry" x="680" y="225" width="380" height="80" rx="6"/>
-              <text class="arch-label" x="870" y="250">Initial T4 · not recognized</text>
+              <text class="arch-label" x="870" y="250">Initial T4 · after ABSTAIN</text>
               <text class="arch-title" x="870" y="275">Guided entry path</text>
-              <text class="arch-sub" x="870" y="294">Qualify the request before choosing work</text>
+              <text class="arch-sub" x="870" y="294">T4 meaning-only, then qualify the request</text>
+              <g class="arch-llm-marker"><title>LLM may assist here — T4 semantic understanding after T1–T3 abstain. Meaning-only; DET validation produces Final RQC. Not the investigation planner.</title>
+                <circle class="arch-llm-ring" cx="1041" cy="243" r="7"><animate attributeName="r" values="7;16;16" keyTimes="0;0.55;1" dur="2.8s" begin="0.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0" keyTimes="0;0.55;1" dur="2.8s" begin="0.4s" repeatCount="indefinite"/></circle>
+                <circle class="arch-llm-dot" cx="1041" cy="243" r="6"/>
+              </g>
               <path class="arch-edge gated" d="M870 305 L870 340"/>
 
               <rect class="arch-node live" data-node="commit-plan" x="120" y="340" width="380" height="90" rx="6"/>
               <text class="arch-title" x="310" y="371">3 · Commit the Resource Plan</text>
               <text class="arch-sub" x="310" y="394">Confirm intent, required details, and policy</text>
-              <text class="arch-code" x="310" y="415">planned → continue · ask/stop → D4</text>
+              <text class="arch-code" x="310" y="415">planned → continue · HIL/stop → D4</text>
 
               <rect class="arch-node gated" data-node="ref-qualify" x="680" y="340" width="380" height="90" rx="6"/>
               <text class="arch-title" x="870" y="371">3 · Reference qualification</text>
@@ -1807,8 +1893,8 @@
               <text class="arch-sub" x="725" y="543">Knowledge-only evidence</text>
               <rect class="arch-node gated" data-node="guided-plan" x="870" y="475" width="210" height="75" rx="6"/>
               <text class="arch-label" x="975" y="500">No · remain T4</text>
-              <text class="arch-title" x="975" y="525">Guided plan</text>
-              <text class="arch-sub" x="975" y="543">Safe gaps and limits</text>
+              <text class="arch-title" x="975" y="525">Guided owner</text>
+              <text class="arch-sub" x="975" y="543">COE: envelope HIL then D2</text>
 
               <path class="arch-edge" d="M310 430 L310 565 L590 565 L590 590"/>
               <path class="arch-edge reference" d="M725 550 L725 565 L590 565 L590 590"/>
@@ -1856,7 +1942,7 @@
               <text class="arch-sub" x="710" y="1092">Validate, bind, execution gate</text>
               <rect class="arch-node stopped" data-node="d4" x="860" y="1040" width="250" height="70" rx="5"/>
               <text class="arch-title" x="985" y="1069">D4 · Stop or ask</text>
-              <text class="arch-sub" x="985" y="1092">No execution route</text>
+              <text class="arch-sub" x="985" y="1092">Clarify, block, or plan HIL</text>
 
               <path class="arch-edge reference" d="M160 1110 L160 1140"/>
               <path class="arch-edge" d="M435 1110 L435 1140"/>
@@ -1890,7 +1976,7 @@
 
               <rect class="arch-node stopped" data-node="w-none" x="860" y="1180" width="250" height="75" rx="5"/>
               <text class="arch-title" x="985" y="1208">No evidence worker</text>
-              <text class="arch-sub" x="985" y="1229">Clarify, block, or typed failure</text>
+              <text class="arch-sub" x="985" y="1229">Clarify, block, plan HIL, or fail</text>
               <text class="arch-code" x="985" y="1247">non_planned_finalize</text>
 
               <path class="arch-edge reference" d="M160 1340 L160 1400"/>
@@ -1903,7 +1989,7 @@
               <text class="arch-code" x="1063" y="1382">enters at check 8</text>
 
               <rect class="arch-group" x="35" y="1400" width="1110" height="290" rx="8"/>
-              <text class="arch-label" x="590" y="1428">Stage 8 · nine governance checks in fixed order</text>
+              <text class="arch-label" x="590" y="1428">Stage 8 · nine governance checks; COE may insert PlanDelta after check 3</text>
 
               <rect class="arch-node gated" data-node="chk1" x="65" y="1442" width="340" height="62" rx="5"/>
               <text class="arch-title" x="235" y="1468">1 · Search safety</text>
@@ -2003,7 +2089,7 @@
                 <text class="arch-flow-caption f-ref" x="40" y="58">T4 → T0 reference → D1 knowledge
                   <animate attributeName="opacity" dur="24s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.519;0.52;0.725;0.74;1"/>
                 </text>
-                <text class="arch-flow-caption f-stop" x="40" y="58">T4 guided → D4 stop or ask
+                <text class="arch-flow-caption f-stop" x="40" y="58">T4 guided → D4 HIL or typed stop
                   <animate attributeName="opacity" dur="24s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.769;0.77;0.975;0.99;1"/>
                 </text>
               </g>
@@ -2011,7 +2097,7 @@
 
             <svg class="arch-svg mobile" viewBox="0 0 360 2410" role="img" aria-labelledby="arch-mobile-title arch-mobile-desc" xmlns="http://www.w3.org/2000/svg">
               <title id="arch-mobile-title">AI SOC Assistant canonical architecture flow, mobile layout</title>
-              <desc id="arch-mobile-desc">A vertical version of the canonical flow. Both T1 through T3 and T4 through T0 planned paths converge on four permanent specialist auditors, merge, and choose one of D1 through D4. Stage 7 runs only the workers that path authorizes, stage 8 runs the nine governance checks in fixed order with each path entering at its own check, and the turn ends with an analyst card and durable trace. An animation traces one example query along the known T1 through T3 path into D2, and iris dots mark the three stages where the LLM may optionally assist: stage 2 route advisory, the D3 SPL build, and building the analyst card at stage 8 check 8.</desc>
+              <desc id="arch-mobile-desc">A vertical version of the canonical flow. Both T1 through T3 ACCEPT and T4 after ABSTAIN planned paths converge on four permanent specialist auditors, merge, and choose one of D1 through D4. Stage 7 runs only the workers that path authorizes, stage 8 runs the nine governance checks, and the turn ends with an analyst card and durable trace. Iris dots mark optional LLM assists. Authority stays deterministic.</desc>
               <defs><marker id="arch-arrow-mobile" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="context-stroke"/></marker></defs>
               <rect class="arch-node live" data-node="q-receive" x="15" y="20" width="330" height="60" rx="6"/>
               <text class="arch-title" x="180" y="47">1 · Receive the SOC question</text><text class="arch-sub" x="180" y="67">Carry forward approved context</text>
@@ -2033,7 +2119,7 @@
               <rect class="arch-node reference" data-node="ref-plan" x="15" y="560" width="160" height="80" rx="6"/>
               <text class="arch-label" x="95" y="585">Yes · T4 → T0</text><text class="arch-title" x="95" y="612">Reference plan</text><text class="arch-sub" x="95" y="631">Knowledge only</text>
               <rect class="arch-node gated" data-node="guided-plan" x="185" y="560" width="160" height="80" rx="6"/>
-              <text class="arch-label" x="265" y="585">No · stay T4</text><text class="arch-title" x="265" y="612">Guided plan</text><text class="arch-sub" x="265" y="631">Safe gaps</text>
+              <text class="arch-label" x="265" y="585">No · stay T4</text><text class="arch-title" x="265" y="612">Guided owner</text><text class="arch-sub" x="265" y="631">COE: envelope HIL</text>
               <path class="arch-edge" d="M180 300 L6 300 L6 670 L180 670 L180 690"/>
               <path class="arch-edge reference" d="M95 640 L95 670 L180 670 L180 690"/>
               <path class="arch-edge gated" d="M265 640 L265 670 L180 670 L180 690"/>
@@ -2051,7 +2137,7 @@
               <rect class="arch-node reference" data-node="d1" x="15" y="1340" width="160" height="65" rx="5"/><text class="arch-title" x="95" y="1368">D1 · Knowledge</text><text class="arch-sub" x="95" y="1390">Retrieval</text>
               <rect class="arch-node live" data-node="d2" x="185" y="1340" width="160" height="65" rx="5"/><text class="arch-title" x="265" y="1368">D2 · Composed</text><text class="arch-sub" x="265" y="1390">Step-walk</text>
               <rect class="arch-node gated" data-node="d3" x="15" y="1415" width="160" height="65" rx="5"/><text class="arch-title" x="95" y="1443">D3 · SPL</text><text class="arch-sub" x="95" y="1465">Validate + gate</text>
-              <rect class="arch-node stopped" data-node="d4" x="185" y="1415" width="160" height="65" rx="5"/><text class="arch-title" x="265" y="1443">D4 · Stop/ask</text><text class="arch-sub" x="265" y="1465">No execution</text>
+              <rect class="arch-node stopped" data-node="d4" x="185" y="1415" width="160" height="65" rx="5"/><text class="arch-title" x="265" y="1443">D4 · Stop/ask</text><text class="arch-sub" x="265" y="1465">HIL or fail</text>
               <path class="arch-edge reference" d="M95 1405 L8 1405 L8 1500 L180 1500 L180 1520"/><path class="arch-edge" d="M265 1405 L352 1405 L352 1500 L180 1500 L180 1520"/>
               <path class="arch-edge gated" d="M95 1480 L95 1500 L180 1500 L180 1520"/><path class="arch-edge stopped" d="M265 1480 L265 1500 L180 1500 L180 1520"/>
 
@@ -2101,13 +2187,16 @@
         </figure>
 
         <div class="note llm">
-          <strong>Where the LLM may run — three optional hops.</strong> Iris dots on the map mark them, and nothing else on the map is a model.
+          <strong>Where the LLM may run — governed hops, never authority.</strong> Iris dots on the map mark the hops that sit on every profile. Additional hops light up only when their flags are on. See the hop catalog in <a href="#s18">18</a>.
           <ol style="margin:10px 0 0; padding-left:20px;">
-            <li><strong>Stage 2 · Recognize the request</strong> — <em>route advisor.</em> Suggests a route. The deterministic registry must validate the suggestion before it can win; an unvalidated suggestion is discarded.</li>
-            <li><strong>Stage 7 · D3 SPL build</strong> — <em>detection-plan proposer.</em> Emits a small JSON detection plan that deterministic code compiles into SOC-STD SPL. Raw model SPL is never executable, and the compiled result still walks the ordinary validation, quality, and adapter gates.</li>
-            <li><strong>Stage 8 · check 8, build analyst card</strong> — <em>narrator.</em> Rewrites analyst-summary prose. No fact depends on it: severity, MITRE status, execution eligibility, and human-review verdict are decided before it runs, and any failure falls back to the deterministic draft.</li>
+            <li><strong>Stage 2 · Recognize</strong> — <em>route advisor</em> (instruct). Suggests a route. The deterministic registry must validate the suggestion before it can win.</li>
+            <li><strong>Stage 2 · after T1–T3 ABSTAIN</strong> — <em>T4 semantic understanding</em> (instruct, meaning-only). Builds a full proposal for DET validation into Final RQC. It does not patch fields on a partial T1–T3 contract, and it is not the investigation planner.</li>
+            <li><strong>Stage 3 · COE overlay</strong> — <em>investigation planner</em> (reasoning). Proposes an InvestigationPlan. DET validates; the analyst Run / Edit / Cancel is the authority.</li>
+            <li><strong>Stage 7 · D3 SPL build / utility authoring</strong> — <em>detection-plan proposer</em>. Emits a small JSON detection plan that deterministic code compiles into SOC-STD SPL. Raw model SPL is never executable.</li>
+            <li><strong>Stage 8 · after evidence readiness, COE</strong> — <em>PlanDelta reasoner</em>. Bounded, read-only, append-only revision proposal. Writes cannot enter the investigation loop.</li>
+            <li><strong>Stage 8 · check 8, build analyst card</strong> — <em>narrator</em>. Rewrites analyst-summary prose. No fact depends on it.</li>
           </ol>
-          <p style="margin:10px 0 0;">Every hop is optional — a turn completes correctly with the model entirely absent, and exact-105 turns commonly skip all three. No model participates anywhere else on the map: the four Stage 4 specialists, the guided detail tools, MCP tool selection, and the nine Stage 8 governance checks are deterministic, and the LLM never calls MCP. See <a href="#s18">18 · What the LLM may do</a>.</p>
+          <p style="margin:10px 0 0;">Every hop is optional — a turn completes correctly with the model entirely absent, and exact-105 turns commonly skip all of them. Specialists, guided detail-tool selection, MCP tool selection, and the nine Stage 8 governance checks are deterministic. The LLM never calls MCP.</p>
         </div>
 
         <div class="flow-map" role="group" aria-labelledby="plain-flow-title" aria-describedby="plain-flow-summary">
@@ -2115,7 +2204,7 @@
             <div>
               <span class="flow-kicker">The live pipeline · read top to bottom</span>
               <h4 id="plain-flow-title">What happens to a SOC question</h4>
-              <p id="plain-flow-summary">The tier tells us how confidently the request was recognized. It does not choose the answer. Every planned route then passes through the same four specialist reports, validated merge, one dispatch branch, and final governance checks.</p>
+              <p id="plain-flow-summary">The tier tells us how confidently the request was recognized. T1–T3 either ACCEPT a complete governed match or ABSTAIN completely. It does not choose the answer. Every planned route then passes through the same four specialist reports, validated merge, one dispatch branch, and final governance checks.</p>
             </div>
             <span class="chip mint">plain-language view</span>
           </div>
@@ -2134,18 +2223,18 @@
               <span class="flow-step__num">2</span>
               <div class="flow-step__body">
                 <h4>Recognize what kind of SOC request this is</h4>
-                <p>Compare the question with governed questions and use cases. This assigns an initial recognition tier and a starting lane.</p>
+                <p>Compare the question with governed questions and use cases. T1–T3 either ACCEPT a complete match or ABSTAIN. Abstain sends the turn to T4 for full meaning-only understanding — not field-level patching.</p>
                 <div class="flow-branch-grid">
                   <div class="flow-branch known">
-                    <b>T1–T3 · recognized request</b>
-                    <p>Use the known lane. T1 is an exact governed question, T2 a known use case, and T3 a close or semantic match.</p>
+                    <b>T1–T3 · ACCEPT</b>
+                    <p>Use the known lane. T1 is an exact governed question, T2 a known use case, and T3 a close or semantic match that cleared the complete-or-abstain gate.</p>
                   </div>
                   <div class="flow-branch guided">
-                    <b>T4 · not confidently recognized</b>
-                    <p>Use the guided lane first. Stage 3 may resolve a pure reference question to T0; otherwise it stays T4.</p>
+                    <b>T4 · after ABSTAIN</b>
+                    <p>T4 runs only after T1–T3 abstain. Stage 3 may still resolve a pure reference question to T0; otherwise guided investigation owns the turn.</p>
                   </div>
                 </div>
-                <span class="flow-code">Implementation: understand_query → route_skill → lane_router</span>
+                <span class="flow-code">Implementation: understand_query → complete_or_abstain_gate → (optional T4) → Final RQC → lane_router</span>
               </div>
             </li>
 
@@ -2161,10 +2250,10 @@
                   </div>
                   <div class="flow-branch guided">
                     <b>No · remain T4 guided</b>
-                    <p>Resolve safe, discoverable gaps; ask the analyst for anything only they can provide; otherwise state the limitations.</p>
+                    <p>Guided investigation owns composable RAG + SPL + MCP when the COE overlay is on. Floor profile stays recommend/review-only until those flags are on. Resolve safe gaps; ask only for what the analyst alone can provide.</p>
                   </div>
                 </div>
-                <span class="flow-code">Implementation: run_canonical_planning → one typed outcome O1–O8</span>
+                <span class="flow-code">Implementation: run_canonical_planning → one typed outcome O1–O9</span>
               </div>
             </li>
 
@@ -2187,12 +2276,12 @@
                   <div class="flow-specialist">
                     <b>MCP Readiness Auditor</b>
                     <p>Target role: report safe connector and candidate-tool readiness for MCP steps already present in the plan.</p>
-                    <span class="posture">specialist_mcp · fixed marker today</span>
+                    <span class="posture">specialist_mcp · planned_hop_count / candidate tools / execution_posture</span>
                   </div>
                   <div class="flow-specialist">
                     <b>SPL Readiness Auditor</b>
                     <p>Target role: report template, data-source, required-slot, and validation readiness without writing SPL.</p>
-                    <span class="posture">specialist_spl · fixed marker today</span>
+                    <span class="posture">specialist_spl · template / slots / execution_eligible=false</span>
                   </div>
                 </div>
                 <div class="flow-boundary"><strong>Important distinction:</strong> these are post-plan auditors. They are not the Route Skill selected in Stage 2, the Knowledge Retrieval Worker used after dispatch, the SPL builder, or an MCP executor.</div>
@@ -2217,7 +2306,7 @@
                   <div class="flow-dispatch live"><b>D1 · Knowledge only</b><p>Retrieve governed reference or SOC knowledge. Open no SPL path.</p></div>
                   <div class="flow-dispatch live"><b>D2 · Composed plan</b><p>Walk the approved plan steps in order and skip anything unavailable or forbidden.</p></div>
                   <div class="flow-dispatch gated"><b>D3 · SPL workflow</b><p>Prepare a search candidate, validate it, bind the source, and apply the MCP execution gate.</p></div>
-                  <div class="flow-dispatch stopped"><b>D4 · Stop or ask</b><p>Finalize a clarification, policy block, or typed failure with no execution route.</p></div>
+                  <div class="flow-dispatch stopped"><b>D4 · Stop or ask</b><p>Finalize a clarification, investigation-plan HIL, policy block, or typed failure with no execution route.</p></div>
                 </div>
                 <span class="flow-code">Runtime routes: rag_only · composed_dispatch · workflow_spl · non_planned_finalize</span>
               </div>
@@ -2240,7 +2329,7 @@
               <div class="flow-step__body">
                 <h4>Check what the answer is allowed to claim, then build the analyst card</h4>
                 <p>Verify candidate safety and execution posture, check whether evidence is sufficient, constrain severity and MITRE claims, require human review when needed, re-apply plan policy, assemble the answer, and validate it again.</p>
-                <span class="flow-code">Implementation: nine fixed governance nodes → analyst card + durable trace</span>
+                <span class="flow-code">Implementation: nine fixed governance nodes; COE may run plan_delta_reasoner after context_sufficiency → analyst card + durable trace</span>
               </div>
             </li>
           </ol>
@@ -2259,7 +2348,7 @@
 <text class="note" x="600" y="188">T1–T3 → lane known · T4 → lane guided</text>
 <g data-k="e3" class="e "><path d="M500,196 L500,222" marker-end="url(#ah-all)"/></g>
 <g data-k="n3" class="n dec "><polygon points="500,222 668,268 500,314 332,268"/><text class="t" x="500" y="265">3 · Canonical planning seam</text><text class="s" x="500" y="281">one typed outcome</text></g>
-<g data-k="eNP" class="e stop"><path d="M332,268 L130,268 L130,536" marker-end="url(#ah-all)"/><text class="el" x="196" y="258">O2–O8</text></g>
+<g data-k="eNP" class="e stop"><path d="M332,268 L130,268 L130,536" marker-end="url(#ah-all)"/><text class="el" x="196" y="258">O2–O9</text></g>
 <g data-k="nD4" class="n stop"><rect x="40" y="538" width="180" height="46" rx="4"/><text class="t" x="130.0" y="558.0">D4 · stop or ask</text><text class="s" x="130.0" y="574.0">finalize — no execution</text></g>
 <g data-k="eT0" class="e ref"><path d="M668,268 L900,268 L900,392" marker-end="url(#ah-all)"/><text class="el" x="784" y="258">T4 → T0</text></g>
 <g data-k="nT0" class="n ref"><rect x="806" y="394" width="186" height="44" rx="4"/><text class="t" x="899.0" y="413.0">T0 · reference</text><text class="s" x="899.0" y="429.0">knowledge_short_circuit</text></g>
@@ -2307,12 +2396,12 @@
             <div class="stage-body">
               <span class="node">rp_node_bootstrap › graph_node_init_routing › understand_query › route_skill</span>
               <h4>Understand → tier → lane</h4>
-              <p>Matched against the 105 taxonomy <em>and</em> the 65-entry use-case catalog. Produces exactly one <code>deterministic_match_path</code>, which the lane router turns into a <strong>catalogue tier</strong> and a <strong>processing lane</strong>. Parse failure degrades to keyword failover — never an error.</p>
+              <p>Matched against the 105 taxonomy <em>and</em> the 42-entry use-case catalog. T1–T3 either <strong>ACCEPT</strong> a complete governed match or <strong>ABSTAIN</strong> completely — there is no partial semantic lock for T4 to patch. Abstain yields T4; T4 is meaning-only and DET-validated into Final RQC before planning.</p>
               <div class="stage-branch">
                 <a class="bpill mint" href="#s1"><b>T1</b> exact 105</a>
                 <a class="bpill mint" href="#s1"><b>T2</b> use-case catalog</a>
                 <a class="bpill mint" href="#s1"><b>T3</b> near / semantic</a>
-                <a class="bpill amber" href="#s1"><b>T4</b> out_of_registry</a>
+                <a class="bpill amber" href="#s1"><b>T4</b> after ABSTAIN</a>
                 <a class="bpill iris" href="#s6">advisory route — must validate to win</a>
               </div>
             </div>
@@ -2323,12 +2412,13 @@
             <div class="stage-body">
               <span class="node">run_canonical_planning › lane_router › known_detail_completion › guided_detail_resolution › plan_evidence_from_canonical › enforce_canonical_outcome_invariant</span>
               <h4>The canonical planning seam — one function, one typed outcome</h4>
-              <p>Intent, completeness gate, bounded detail-tool resolution, reference qualification, route adjudication, route contract, evidence plan, committed resource plan. It is the <strong>only</strong> creator of a <code>ResourcePlan</code>, and it exits with exactly one of eight statuses. A <code>T4</code> turn may be re-tiered to <code>T0</code> here — nowhere else.</p>
+              <p>Intent, completeness gate, bounded detail-tool resolution, reference qualification, route adjudication, route contract, evidence plan. On the floor it is the <strong>only</strong> creator of a <code>ResourcePlan</code>. On COE, an approved investigation envelope is compiled into ResourcePlan + PhaseContract after Run. It exits with exactly one of nine statuses. A <code>T4</code> turn may be re-tiered to <code>T0</code> here — nowhere else.</p>
               <div class="stage-branch">
                 <a class="bpill mint" href="#s3"><b>O1</b> planned — continues</a>
                 <a class="bpill amber" href="#s3"><b>O2</b> clarification_required</a>
-                <a class="bpill rose" href="#s3"><b>O3</b> policy_blocked</a>
-                <a class="bpill rose" href="#s3"><b>O4–O8</b> five failure statuses</a>
+                <a class="bpill amber" href="#s3"><b>O3</b> awaiting_investigation_plan</a>
+                <a class="bpill rose" href="#s3"><b>O4</b> policy_blocked</a>
+                <a class="bpill rose" href="#s3"><b>O5–O9</b> five failure statuses</a>
               </div>
             </div>
           </div>
@@ -2338,7 +2428,7 @@
             <div class="stage-body">
               <span class="node">rp_node_resource_planner_delegate › specialist_skill / knowledge / mcp / spl</span>
               <h4>Parallel specialist fan-out — enrichment, not decomposition</h4>
-              <p>The plan already exists. Four specialists report in parallel — catalogue tier and a deterministic knowledge audit carry real content; the MCP and SPL lanes emit fixed markers today. They may fill <code>args_template</code> blanks they own. They do <strong>not</strong> re-pick the skill, rewrite intent, or invent a plan.</p>
+              <p>The plan already exists. Four specialists report in parallel — catalogue tier and a deterministic knowledge audit carry real content; MCP reports <code>planned_hop_count</code>, <code>candidate_tool_names</code>, and <code>execution_posture</code> (a candidate name is not a selected tool); SPL reports template/slot posture with <code>execution_eligible</code> hard-false. They may fill <code>args_template</code> blanks they own. They do <strong>not</strong> re-pick the skill, rewrite intent, or invent a plan.</p>
             </div>
           </div>
 
@@ -2402,11 +2492,11 @@
           <summary>60-second demo script <span class="hint">for a leadership or customer walkthrough</span></summary>
           <div class="details-body">
             <p style="margin-bottom:14px;color:var(--txt-faint);font-size:14.5px;">Every claim maps to a stage above and a section below.</p>
-            <div class="script-step"><span class="n">1</span><p>“A question comes in. <strong>Stage 2</strong> matches it against the governed 105 taxonomy and the use-case catalog, and that match becomes a <strong>tier</strong> and a <strong>lane</strong> — T1/T2/T3 take the known lane, T4 takes guided. Response notes read <code>Orchestration: resource_planner_hierarchy</code>.”</p></div>
-            <div class="script-step"><span class="n">2</span><p>“<strong>Stage 3</strong> is one canonical planning seam. There is no flag that turns it off and no second copy of routing or planning logic to drift against — a static architecture guard fails the build if a fork reappears. It exits with exactly one of eight typed statuses, and only <code>planned</code> can reach execution.”</p></div>
+            <div class="script-step"><span class="n">1</span><p>“A question comes in. <strong>Stage 2</strong> matches it against the governed 105 taxonomy and the use-case catalog. T1–T3 either ACCEPT a complete match or ABSTAIN. Abstain is T4 — meaning-only understanding, then Final RQC. Response notes read <code>Orchestration: resource_planner_hierarchy</code>.”</p></div>
+            <div class="script-step"><span class="n">2</span><p>“<strong>Stage 3</strong> is one canonical planning seam. There is no flag that turns it off and no second copy of routing or planning logic to drift against. It exits with exactly one of nine typed statuses. Only <code>planned</code> can reach execution. On COE, <code>awaiting_investigation_plan</code> is a Run / Edit / Cancel stop before any ResourcePlan is compiled.”</p></div>
             <div class="script-step"><span class="n">3</span><p>“When a known question is missing a detail we can look up ourselves, <strong>guided detail tools</strong> resolve it instead of interrupting the analyst — three calls, two iterations, read-only, no LLM in the selection loop. Only genuinely human-only details become a clarification, and that clarification is a durable handoff the next turn resumes.”</p></div>
-            <div class="script-step"><span class="n">4</span><p>“<strong>Stages 4–6</strong>: specialists enrich the plan in parallel, the merge validates policy parity, and exactly one dispatch branch runs. A blocked or clarifying turn cannot reach execution — that is topology, not a runtime check.”</p></div>
-            <div class="script-step"><span class="n">5</span><p>“<strong>Stage 7 — MCP is governed at a gate, not by hope.</strong> Only an approved <code>normalized_spl</code> is admitted, candidate SPL is never executable, tool selection is deterministic and read-only discovery is separated from search, and every call carries analyst confirmation.”</p></div>
+            <div class="script-step"><span class="n">4</span><p>“<strong>Stages 4–6</strong>: specialists enrich the plan in parallel, the merge validates policy parity, and exactly one dispatch branch runs. A blocked, clarifying, or awaiting-plan turn cannot reach execution — that is topology, not a runtime check. After Run, a composable investigation takes D2.”</p></div>
+            <div class="script-step"><span class="n">5</span><p>“<strong>Stage 7 — MCP is governed at a gate, not by hope.</strong> Only an approved <code>normalized_spl</code> is admitted, candidate SPL is never executable, every material call needs a new exact-call grant, and live registry mode always confirms.”</p></div>
             <div class="script-step"><span class="n">6</span><p>“<strong>Stage 8</strong> builds an analyst response card — not raw model prose — and every turn leaves a durable trail: 28 catalogued planning events, PostgreSQL handoffs, and a two-phase validation that refuses to record a success it did not produce.”</p></div>
           </div>
         </details>
@@ -2416,10 +2506,10 @@
       <section id="walk">
         <div class="walk-new">
           <div class="sec-head">
-            <span class="sec-num">THE SAME PIPELINE, TWO ACTIVE PATHS</span>
+            <span class="sec-num">THE SAME PIPELINE, THREE ACTIVE PATHS</span>
             <h3 class="sec-title">See what changes—and what stays the same</h3>
             <p>
-              These diagrams show only the steps each question actually takes. Both planned turns run the four
+              These diagrams show only the steps each question actually takes. Planned turns run the four
               specialist reports and validated merge. The recognition and work path differ; the safety boundary does not.
             </p>
           </div>
@@ -2456,21 +2546,38 @@
                 <li><b>Govern and present.</b> Prevent live-environment claims, build the cited analyst card, and validate it.</li>
               </ol>
             </article>
+
+            <article class="journey known" aria-labelledby="journey-guided-title">
+              <span class="flow-kicker">Path C · COE guided investigation</span>
+              <h4 id="journey-guided-title">T4 after ABSTAIN → envelope HIL → D2 composed</h4>
+              <p>Example: “Did anything odd talk out of the OT segment overnight?”</p>
+              <ol>
+                <li><b>Receive the question.</b> Carry forward safe session context.</li>
+                <li><b>T1–T3 ABSTAIN.</b> No complete governed match. T4 runs meaning-only understanding; DET validation produces Final RQC.</li>
+                <li><b>Qualify: not reference-only.</b> Live-estate correlation is in scope, so the turn stays T4 and <code>guided_investigation</code> owns it.</li>
+                <li><b>COE overlay.</b> CapabilitySnapshot records need × availability. The investigation planner proposes a plan; DET validates it; outcome is <code>awaiting_investigation_plan</code> (D4 HIL).</li>
+                <li><b>Analyst Run / Edit / Cancel.</b> Edit that changes Final RQC re-enters understanding. Run compiles an immutable approved envelope into ResourcePlan + PhaseContract.</li>
+                <li><b>Specialists, merge, D2.</b> The same four auditors run. Dispatch walks approved RAG + SPL + MCP steps. Each MCP call needs a new exact-call grant.</li>
+                <li><b>Govern and present.</b> If MCP is unavailable, the card says live read required with optional SPL as fallback — it does not relabel the turn as completed review-only.</li>
+              </ol>
+            </article>
           </div>
 
           <div class="note ok">
-            <strong>The invariant:</strong> T1–T3 and T4→T0 do not select different architectures. They enter the same
+            <strong>The invariant:</strong> T1–T3 ACCEPT, T4→T0, and T4 guided do not select different architectures. They enter the same
             Resource Planner, keep all four specialist lanes, merge under the same policy, choose one D1–D4 branch,
-            and finish under the same governance chain.
+            and finish under the same governance chain. On COE, guided is an investigation owner, not a review-only rescue.
           </div>
         </div>
         <div class="sec-head">
-          <span class="sec-num">THE SPINE, WALKED TWICE</span>
+          <span class="sec-num">THE SPINE, PATH A VS PATH C</span>
           <h3 class="sec-title">One known question, one novel question — same eight stages</h3>
           <p>
-            The clearest way to see that there is only one architecture: take a question the system knows
-            and a question it has never seen, and walk them down the same spine. They diverge at
-            <strong>Stage 3</strong> and rejoin at <strong>Stage 8</strong>. Nothing else changes.
+            The three highlighted drawings above are Path A (known → D3), Path B (T4 → T0 → D1), and
+            Path C (T4 guided envelope → D2). The table below compares Path A with Path C — the two
+            that share the live-estate question shape. They diverge at <strong>Stage 2–3</strong>
+            (ACCEPT vs ABSTAIN) and rejoin at <strong>Stage 8</strong>. On COE Path C may pause for
+            investigation-plan approval, then continue as D2 rather than review-only D3.
           </p>
         </div>
 
@@ -2487,7 +2594,7 @@
 <text class="note" x="600" y="188">T1–T3 → lane known · T4 → lane guided</text>
 <g data-k="e3" class="e "><path d="M500,196 L500,222" marker-end="url(#ah-t1)"/></g>
 <g data-k="n3" class="n dec "><polygon points="500,222 668,268 500,314 332,268"/><text class="t" x="500" y="265">3 · Canonical planning seam</text><text class="s" x="500" y="281">one typed outcome</text></g>
-<g data-k="eNP" class="e stop"><path d="M332,268 L130,268 L130,536" marker-end="url(#ah-t1)"/><text class="el" x="196" y="258">O2–O8</text></g>
+<g data-k="eNP" class="e stop"><path d="M332,268 L130,268 L130,536" marker-end="url(#ah-t1)"/><text class="el" x="196" y="258">O2–O9</text></g>
 <g data-k="nD4" class="n stop"><rect x="40" y="538" width="180" height="46" rx="4"/><text class="t" x="130.0" y="558.0">D4 · stop or ask</text><text class="s" x="130.0" y="574.0">finalize — no execution</text></g>
 <g data-k="eT0" class="e ref"><path d="M668,268 L900,268 L900,392" marker-end="url(#ah-t1)"/><text class="el" x="784" y="258">T4 → T0</text></g>
 <g data-k="nT0" class="n ref"><rect x="806" y="394" width="186" height="44" rx="4"/><text class="t" x="899.0" y="413.0">T0 · reference</text><text class="s" x="899.0" y="429.0">knowledge_short_circuit</text></g>
@@ -2516,50 +2623,91 @@
           <div class="pathkey"><span><i></i> this query's path</span><span><i class="faded"></i> branch not taken on this path</span></div>
         </div>
         <div class="svgwrap">
-            <span class="cap-line" style="color:var(--amber)">Path B · novel question (T4) — “Did anything odd talk out of the OT segment overnight?”</span>
-            <svg class="flowsvg" data-path="t4" viewBox="0 0 1000 900" role="img" aria-label="Path B: a novel T4 question, guided lane" xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah-t4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker></defs><g data-k="n1" class="n "><rect x="340" y="18" width="320" height="44" rx="4"/><text class="t" x="500.0" y="37.0">1 · Query + session context</text><text class="s" x="500.0" y="53.0">resolve_session_context</text></g>
-<g data-k="e1" class="e "><path d="M500,62 L500,94" marker-end="url(#ah-t4)"/></g>
+            <span class="cap-line" style="color:var(--iris)">Path B · reference (T4 → T0) — “What is CVE-2024-3400?”</span>
+            <svg class="flowsvg" data-path="t0" viewBox="0 0 1000 900" role="img" aria-label="Path B: T4 qualifies to T0, dispatch D1" xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah-t0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker></defs><g data-k="n1" class="n "><rect x="340" y="18" width="320" height="44" rx="4"/><text class="t" x="500.0" y="37.0">1 · Query + session context</text><text class="s" x="500.0" y="53.0">resolve_session_context</text></g>
+<g data-k="e1" class="e "><path d="M500,62 L500,94" marker-end="url(#ah-t0)"/></g>
 <g data-k="n2" class="n "><rect x="310" y="96" width="380" height="44" rx="4"/><text class="t" x="500.0" y="115.0">2 · Understand → tier + lane</text><text class="s" x="500.0" y="131.0">understand_query › route_skill</text></g>
-<g data-k="e2" class="e "><path d="M500,140 L500,166" marker-end="url(#ah-t4)"/></g>
+<g data-k="e2" class="e "><path d="M500,140 L500,166" marker-end="url(#ah-t0)"/></g>
 <g data-k="t1" class="n chipn "><rect x="262" y="170" width="66" height="26" rx="13"/><text class="c" x="295.0" y="187">T1</text></g>
 <g data-k="t2" class="n chipn "><rect x="336" y="170" width="66" height="26" rx="13"/><text class="c" x="369.0" y="187">T2</text></g>
 <g data-k="t3" class="n chipn "><rect x="410" y="170" width="66" height="26" rx="13"/><text class="c" x="443.0" y="187">T3</text></g>
 <g data-k="t4" class="n chipn "><rect x="484" y="170" width="90" height="26" rx="13"/><text class="c" x="529.0" y="187">T4</text></g>
 <text class="note" x="600" y="188">T1–T3 → lane known · T4 → lane guided</text>
-<g data-k="e3" class="e "><path d="M500,196 L500,222" marker-end="url(#ah-t4)"/></g>
+<g data-k="e3" class="e "><path d="M500,196 L500,222" marker-end="url(#ah-t0)"/></g>
 <g data-k="n3" class="n dec "><polygon points="500,222 668,268 500,314 332,268"/><text class="t" x="500" y="265">3 · Canonical planning seam</text><text class="s" x="500" y="281">one typed outcome</text></g>
-<g data-k="eNP" class="e stop"><path d="M332,268 L130,268 L130,536" marker-end="url(#ah-t4)"/><text class="el" x="196" y="258">O2–O8</text></g>
+<g data-k="eNP" class="e stop"><path d="M332,268 L130,268 L130,536" marker-end="url(#ah-t0)"/><text class="el" x="196" y="258">O2–O9</text></g>
 <g data-k="nD4" class="n stop"><rect x="40" y="538" width="180" height="46" rx="4"/><text class="t" x="130.0" y="558.0">D4 · stop or ask</text><text class="s" x="130.0" y="574.0">finalize — no execution</text></g>
-<g data-k="eT0" class="e ref"><path d="M668,268 L900,268 L900,392" marker-end="url(#ah-t4)"/><text class="el" x="784" y="258">T4 → T0</text></g>
+<g data-k="eT0" class="e ref"><path d="M668,268 L900,268 L900,392" marker-end="url(#ah-t0)"/><text class="el" x="784" y="258">T4 → T0</text></g>
 <g data-k="nT0" class="n ref"><rect x="806" y="394" width="186" height="44" rx="4"/><text class="t" x="899.0" y="413.0">T0 · reference</text><text class="s" x="899.0" y="429.0">knowledge_short_circuit</text></g>
-<g data-k="eT0b" class="e ref"><path d="M899,438 L899,806 L706,806" marker-end="url(#ah-t4)"/><text class="el" x="812" y="796">D1 · rag_only</text></g>
-<g data-k="e4" class="e go"><path d="M500,314 L500,344" marker-end="url(#ah-t4)"/><text class="el" x="560" y="334">O1 planned</text></g>
+<g data-k="eT0b" class="e ref"><path d="M899,438 L899,806 L706,806" marker-end="url(#ah-t0)"/><text class="el" x="812" y="796">D1 · rag_only</text></g>
+<g data-k="e4" class="e go"><path d="M500,314 L500,344" marker-end="url(#ah-t0)"/><text class="el" x="560" y="334">O1 planned</text></g>
 <g data-k="n4" class="n go"><rect x="355" y="346" width="290" height="42" rx="4"/><text class="t" x="500.0" y="364.0">4 · Specialists ×4 (parallel)</text><text class="s" x="500.0" y="380.0">skill · knowledge · mcp · spl</text></g>
-<g data-k="e5" class="e go"><path d="M500,388 L500,404" marker-end="url(#ah-t4)"/></g>
+<g data-k="e5" class="e go"><path d="M500,388 L500,404" marker-end="url(#ah-t0)"/></g>
 <g data-k="n5" class="n go"><rect x="355" y="406" width="290" height="42" rx="4"/><text class="t" x="500.0" y="424.0">5 · Merge → validated bundle</text><text class="s" x="500.0" y="440.0">policy-parity validated</text></g>
-<g data-k="e6" class="e go"><path d="M500,448 L500,478" marker-end="url(#ah-t4)"/></g>
+<g data-k="e6" class="e go"><path d="M500,448 L500,478" marker-end="url(#ah-t0)"/></g>
 <g data-k="n6" class="n dec go"><polygon points="500,480 620,524 500,568 380,524"/><text class="t" x="500" y="521">6 · Dispatch</text><text class="s" x="500" y="537">one entry point</text></g>
-<g data-k="eD1" class="e go"><path d="M380,524 L300,524 L300,588" marker-end="url(#ah-t4)"/><text class="el" x="336" y="514">D1</text></g>
+<g data-k="eD1" class="e go"><path d="M380,524 L300,524 L300,588" marker-end="url(#ah-t0)"/><text class="el" x="336" y="514">D1</text></g>
 <g data-k="nD1" class="n go"><rect x="222" y="590" width="156" height="44" rx="4"/><text class="t" x="300.0" y="609.0">D1 · RAG-only</text><text class="s" x="300.0" y="625.0">governed SOC-KB</text></g>
-<g data-k="eD2" class="e go"><path d="M500,568 L500,588" marker-end="url(#ah-t4)"/><text class="el" x="524" y="582">D2</text></g>
+<g data-k="eD2" class="e go"><path d="M500,568 L500,588" marker-end="url(#ah-t0)"/><text class="el" x="524" y="582">D2</text></g>
 <g data-k="nD2" class="n go"><rect x="412" y="590" width="156" height="44" rx="4"/><text class="t" x="490.0" y="609.0">D2 · composed</text><text class="s" x="490.0" y="625.0">step-walk dispatch</text></g>
-<g data-k="eD3" class="e gate"><path d="M620,524 L700,524 L700,588" marker-end="url(#ah-t4)"/><text class="el" x="660" y="514">D3</text></g>
+<g data-k="eD3" class="e gate"><path d="M620,524 L700,524 L700,588" marker-end="url(#ah-t0)"/><text class="el" x="660" y="514">D3</text></g>
 <g data-k="nD3" class="n gate"><rect x="602" y="590" width="180" height="44" rx="4"/><text class="t" x="692.0" y="609.0">D3 · SPL workflow</text><text class="s" x="692.0" y="625.0">→ stage 7</text></g>
-<g data-k="e7" class="e gate"><path d="M692,634 L692,662" marker-end="url(#ah-t4)"/></g>
+<g data-k="e7" class="e gate"><path d="M692,634 L692,662" marker-end="url(#ah-t0)"/></g>
 <g data-k="n7" class="n gate"><rect x="586" y="664" width="214" height="50" rx="4"/><text class="t" x="693.0" y="686.0">7 · SPL ladder → validate</text><text class="s" x="693.0" y="702.0">source resolve → MCP gate</text></g>
-<g data-k="c1" class="e stop"><path d="M130,584 L130,782 L300,782" marker-end="url(#ah-t4)"/></g>
-<g data-k="c2" class="e go"><path d="M300,634 L300,752 L420,752 L420,780" marker-end="url(#ah-t4)"/></g>
-<g data-k="c3" class="e go"><path d="M490,634 L490,780" marker-end="url(#ah-t4)"/></g>
-<g data-k="c4" class="e gate"><path d="M693,714 L693,752 L580,752 L580,780" marker-end="url(#ah-t4)"/></g>
+<g data-k="c1" class="e stop"><path d="M130,584 L130,782 L300,782" marker-end="url(#ah-t0)"/></g>
+<g data-k="c2" class="e go"><path d="M300,634 L300,752 L420,752 L420,780" marker-end="url(#ah-t0)"/></g>
+<g data-k="c3" class="e go"><path d="M490,634 L490,780" marker-end="url(#ah-t0)"/></g>
+<g data-k="c4" class="e gate"><path d="M693,714 L693,752 L580,752 L580,780" marker-end="url(#ah-t0)"/></g>
 <g data-k="n8" class="n "><rect x="300" y="782" width="400" height="46" rx="4"/><text class="t" x="500.0" y="802.0">8 · Governance chain — 9 nodes</text><text class="s" x="500.0" y="818.0">spl_validate → … → validate_final_answer</text></g>
-<g data-k="e8" class="e "><path d="M500,828 L500,852" marker-end="url(#ah-t4)"/></g>
+<g data-k="e8" class="e "><path d="M500,828 L500,852" marker-end="url(#ah-t0)"/></g>
+<g data-k="n9" class="n out"><rect x="340" y="854" width="320" height="40" rx="4"/><text class="t" x="500.0" y="878.0">Analyst card + durable trace</text></g></svg>
+          <div class="pathkey"><span><i></i> this query's path</span><span><i class="faded"></i> branch not taken on this path</span></div>
+        </div>
+
+            <span class="cap-line" style="color:var(--amber)">Path C · COE guided investigation (T4) — “Did anything odd talk out of the OT segment overnight?”</span>
+            <svg class="flowsvg" data-path="guided" viewBox="0 0 1000 900" role="img" aria-label="Path C: T4 guided envelope HIL then D2 composed" xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah-guided" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker></defs><g data-k="n1" class="n "><rect x="340" y="18" width="320" height="44" rx="4"/><text class="t" x="500.0" y="37.0">1 · Query + session context</text><text class="s" x="500.0" y="53.0">resolve_session_context</text></g>
+<g data-k="e1" class="e "><path d="M500,62 L500,94" marker-end="url(#ah-guided)"/></g>
+<g data-k="n2" class="n "><rect x="310" y="96" width="380" height="44" rx="4"/><text class="t" x="500.0" y="115.0">2 · Understand → tier + lane</text><text class="s" x="500.0" y="131.0">understand_query › route_skill</text></g>
+<g data-k="e2" class="e "><path d="M500,140 L500,166" marker-end="url(#ah-guided)"/></g>
+<g data-k="t1" class="n chipn "><rect x="262" y="170" width="66" height="26" rx="13"/><text class="c" x="295.0" y="187">T1</text></g>
+<g data-k="t2" class="n chipn "><rect x="336" y="170" width="66" height="26" rx="13"/><text class="c" x="369.0" y="187">T2</text></g>
+<g data-k="t3" class="n chipn "><rect x="410" y="170" width="66" height="26" rx="13"/><text class="c" x="443.0" y="187">T3</text></g>
+<g data-k="t4" class="n chipn "><rect x="484" y="170" width="90" height="26" rx="13"/><text class="c" x="529.0" y="187">T4</text></g>
+<text class="note" x="600" y="188">T1–T3 → lane known · T4 → lane guided</text>
+<g data-k="e3" class="e "><path d="M500,196 L500,222" marker-end="url(#ah-guided)"/></g>
+<g data-k="n3" class="n dec "><polygon points="500,222 668,268 500,314 332,268"/><text class="t" x="500" y="265">3 · Canonical planning seam</text><text class="s" x="500" y="281">one typed outcome</text></g>
+<g data-k="eNP" class="e stop"><path d="M332,268 L130,268 L130,536" marker-end="url(#ah-guided)"/><text class="el" x="196" y="258">O2–O9</text></g>
+<g data-k="nD4" class="n stop"><rect x="40" y="538" width="180" height="46" rx="4"/><text class="t" x="130.0" y="558.0">D4 · stop or ask</text><text class="s" x="130.0" y="574.0">finalize — no execution</text></g>
+<g data-k="eT0" class="e ref"><path d="M668,268 L900,268 L900,392" marker-end="url(#ah-guided)"/><text class="el" x="784" y="258">T4 → T0</text></g>
+<g data-k="nT0" class="n ref"><rect x="806" y="394" width="186" height="44" rx="4"/><text class="t" x="899.0" y="413.0">T0 · reference</text><text class="s" x="899.0" y="429.0">knowledge_short_circuit</text></g>
+<g data-k="eT0b" class="e ref"><path d="M899,438 L899,806 L706,806" marker-end="url(#ah-guided)"/><text class="el" x="812" y="796">D1 · rag_only</text></g>
+<g data-k="e4" class="e go"><path d="M500,314 L500,344" marker-end="url(#ah-guided)"/><text class="el" x="560" y="334">O1 planned</text></g>
+<g data-k="n4" class="n go"><rect x="355" y="346" width="290" height="42" rx="4"/><text class="t" x="500.0" y="364.0">4 · Specialists ×4 (parallel)</text><text class="s" x="500.0" y="380.0">skill · knowledge · mcp · spl</text></g>
+<g data-k="e5" class="e go"><path d="M500,388 L500,404" marker-end="url(#ah-guided)"/></g>
+<g data-k="n5" class="n go"><rect x="355" y="406" width="290" height="42" rx="4"/><text class="t" x="500.0" y="424.0">5 · Merge → validated bundle</text><text class="s" x="500.0" y="440.0">policy-parity validated</text></g>
+<g data-k="e6" class="e go"><path d="M500,448 L500,478" marker-end="url(#ah-guided)"/></g>
+<g data-k="n6" class="n dec go"><polygon points="500,480 620,524 500,568 380,524"/><text class="t" x="500" y="521">6 · Dispatch</text><text class="s" x="500" y="537">one entry point</text></g>
+<g data-k="eD1" class="e go"><path d="M380,524 L300,524 L300,588" marker-end="url(#ah-guided)"/><text class="el" x="336" y="514">D1</text></g>
+<g data-k="nD1" class="n go"><rect x="222" y="590" width="156" height="44" rx="4"/><text class="t" x="300.0" y="609.0">D1 · RAG-only</text><text class="s" x="300.0" y="625.0">governed SOC-KB</text></g>
+<g data-k="eD2" class="e go"><path d="M500,568 L500,588" marker-end="url(#ah-guided)"/><text class="el" x="524" y="582">D2</text></g>
+<g data-k="nD2" class="n go"><rect x="412" y="590" width="156" height="44" rx="4"/><text class="t" x="490.0" y="609.0">D2 · composed</text><text class="s" x="490.0" y="625.0">step-walk dispatch</text></g>
+<g data-k="eD3" class="e gate"><path d="M620,524 L700,524 L700,588" marker-end="url(#ah-guided)"/><text class="el" x="660" y="514">D3</text></g>
+<g data-k="nD3" class="n gate"><rect x="602" y="590" width="180" height="44" rx="4"/><text class="t" x="692.0" y="609.0">D3 · SPL workflow</text><text class="s" x="692.0" y="625.0">→ stage 7</text></g>
+<g data-k="e7" class="e gate"><path d="M692,634 L692,662" marker-end="url(#ah-guided)"/></g>
+<g data-k="n7" class="n gate"><rect x="586" y="664" width="214" height="50" rx="4"/><text class="t" x="693.0" y="686.0">7 · SPL ladder → validate</text><text class="s" x="693.0" y="702.0">source resolve → MCP gate</text></g>
+<g data-k="c1" class="e stop"><path d="M130,584 L130,782 L300,782" marker-end="url(#ah-guided)"/></g>
+<g data-k="c2" class="e go"><path d="M300,634 L300,752 L420,752 L420,780" marker-end="url(#ah-guided)"/></g>
+<g data-k="c3" class="e go"><path d="M490,634 L490,780" marker-end="url(#ah-guided)"/></g>
+<g data-k="c4" class="e gate"><path d="M693,714 L693,752 L580,752 L580,780" marker-end="url(#ah-guided)"/></g>
+<g data-k="n8" class="n "><rect x="300" y="782" width="400" height="46" rx="4"/><text class="t" x="500.0" y="802.0">8 · Governance chain — 9 nodes</text><text class="s" x="500.0" y="818.0">spl_validate → … → validate_final_answer</text></g>
+<g data-k="e8" class="e "><path d="M500,828 L500,852" marker-end="url(#ah-guided)"/></g>
 <g data-k="n9" class="n out"><rect x="340" y="854" width="320" height="40" rx="4"/><text class="t" x="500.0" y="878.0">Analyst card + durable trace</text></g></svg>
           <div class="pathkey"><span><i></i> this query's path</span><span><i class="faded"></i> branch not taken on this path</span></div>
         </div>
 
         <p style="max-width:74ch;">
           Lit nodes are what the query touched; dimmed nodes are the branches it did not take.
-          Both diagrams are the <strong>same drawing</strong> — only the highlighting differs.
+          All three diagrams are the <strong>same drawing</strong> — only the highlighting differs.
           Stage by stage, in detail:
         </p>
 
@@ -2572,9 +2720,9 @@
               <span class="wh-sub">A verbatim governed question — T1. A T2 or T3 question takes this identical path; only the match path differs.</span>
             </div>
             <div class="wh-col amber">
-              <span class="cap">Path B · novel</span>
+              <span class="cap">Path C · guided</span>
               <b>“Did anything odd talk out of the OT segment overnight?”</b>
-              <span class="wh-sub">Nothing in the 105 or the catalog matches — T4, guided lane.</span>
+              <span class="wh-sub">Nothing in the 105 or the catalog matches — T4 ABSTAIN, guided owner. Path B (CVE → T0) is the middle drawing above, not this column.</span>
             </div>
           </div>
 
@@ -2596,7 +2744,7 @@
               <b>Understanding</b>
               <p><code>deterministic_match_path = out_of_registry</code><br />
               → <code>initial_tier <b>T4</b></code> · lane <code>guided</code><br />
-              Investigation-shaped signals present. Route <code>guided_investigation</code>.</p>
+              Investigation-shaped signals present. T1–T3 ABSTAIN. T4 meaning-only → Final RQC. Route <code>guided_investigation</code>.</p>
             </div>
           </div>
 
@@ -2617,18 +2765,17 @@
               <p>
                 <code>build_query_to_intent</code> → <code>qualify_reference_query</code>: investigation scope present,
                 <strong>not</strong> reference-only → <span class="chip amber">stays T4</span>, no T0 short-circuit.<br />
-                → <code>run_guided_detail_resolution</code>: bounded, read-only, ≤3 calls / 2 iterations.
-                <code>spl_generation</code> and <code>attack_discovery</code> are recorded as
-                <code>planned_read_only</code> and deferred to the final planner.<br />
-                → <code>evaluate_post_guided_completeness</code> → <code>complete_with_limitations</code><br />
-                → plan composed and committed → <span class="chip mint">O1 planned</span>
+                → <code>run_guided_detail_resolution</code>: bounded, read-only, ≤3 calls / 2 iterations.<br />
+                Floor: recommend/review-only EvidencePlan unless composable planning is on.<br />
+                COE: CapabilitySnapshot + investigation planner → <span class="chip amber">O3 awaiting_investigation_plan</span>
+                until Run compiles ResourcePlan + PhaseContract → then <span class="chip mint">O1 planned</span>.
               </p>
             </div>
           </div>
 
           <div class="wrow">
             <div class="ws"><span>4</span></div>
-            <div class="wc mint"><b>Specialists</b><p>Skill reports the tier match; Knowledge runs a deterministic audit; MCP and SPL emit lane markers. <em>No model.</em></p></div>
+            <div class="wc mint"><b>Specialists</b><p>Skill reports the tier match; Knowledge runs a deterministic audit; MCP reports hop count, candidate tools, and execution posture; SPL reports slot/template posture with execution_eligible hard-false. <em>No model.</em></p></div>
             <div class="wc amber"><b>Specialists</b><p><em>Identical four lanes, identical code.</em> Knowledge audit reports wider gaps.</p></div>
           </div>
 
@@ -2641,7 +2788,7 @@
           <div class="wrow">
             <div class="ws gate"><span>6</span></div>
             <div class="wc mint"><b>Dispatch</b><p><span class="chip amber">D3</span> SPL workflow.</p></div>
-            <div class="wc amber"><b>Dispatch</b><p><span class="chip amber">D3</span> SPL workflow — <em>same branch</em>, review-only posture.</p></div>
+            <div class="wc amber"><b>Dispatch</b><p>Floor: often <span class="chip amber">D3</span> review-only SPL. COE after Run: <span class="chip mint">D2</span> composed RAG+SPL+MCP. Before Run: <span class="chip rose">D4</span> plan HIL.</p></div>
           </div>
 
           <div class="wrow">
@@ -2658,10 +2805,11 @@
             <div class="wc amber">
               <b>SPL ladder → gate</b>
               <p>
-                No template binds. Rung 4 or 5 depending on catalogue-pattern mapping — here a
-                <strong>deterministic lab draft / relevance-gated LLM plan</strong>, review-only.<br />
-                Unresolved source slots → analyst clarification, <em>never</em> a guess.<br />
-                Gate: nothing admitted. <span class="chip rose">no execution</span>
+                No template binds. Utility authoring / lab draft / LLM plan-compiler may produce a
+                <strong>fallback candidate</strong>. Unresolved source slots → analyst clarification, <em>never</em> a guess.<br />
+                Gate: nothing admitted until approved <code>normalized_spl</code> + exact-call grant.
+                If MCP is unavailable after approval, the card must say live-read required — not “completed review-only”.
+                <span class="chip rose">candidate SPL never executable</span>
               </p>
             </div>
           </div>
@@ -2674,16 +2822,16 @@
             </div>
             <div class="wc amber">
               <b>Governance chain → card</b>
-              <p><em>The same nine nodes, in the same order.</em> Card adds an out-of-catalog notice, hypotheses, an analyst checklist, and explicit limitations naming the deferred tools.</p>
+              <p><em>The same nine nodes, in the same order.</em> Card adds an out-of-catalog notice. On COE after approval, if MCP is missing: live read required, optional SPL fallback — not a completed review-only hunt.</p>
             </div>
           </div>
         </div>
 
         <div class="note ok">
-          <strong>Read the divergence honestly.</strong> The two paths differ in exactly one stage —
-          Stage 3 — and in which rung of the Stage 7 ladder produced the SPL. Recognition strength changes
-          <em>how much the system can claim</em>, never <em>which gates it passes through</em>. A T4 turn is not a
-          degraded mode; it is the same pipeline being honest about a weaker starting position.
+          <strong>Read the divergence honestly.</strong> The two paths differ at Stage 2 (ACCEPT vs ABSTAIN) and
+          Stage 3 (known completeness vs guided owner / envelope HIL), and in which Stage 7 rung produced any SPL.
+          Recognition strength changes <em>how much the system can claim</em>, never <em>which gates it passes through</em>.
+          A T4 turn is not a degraded mode; on COE it is the investigation owner.
         </div>
 
         <div class="note">
@@ -2709,8 +2857,9 @@
           <h3 class="sec-title">Catalogue tiers T0–T4 — how well the question was recognised</h3>
           <p>
             A tier is a statement about <strong>recognition strength</strong>, nothing else. It does not
-            mean priority, severity, quality, or how much the LLM is used. It is derived from exactly one
-            <code>deterministic_match_path</code> in Stage 2, in <code>app/chat/lane_router.py</code>.
+            mean priority, severity, quality, or how much the LLM is used. T1–T3 either ACCEPT a complete
+            governed match or ABSTAIN completely. T4 runs only after abstain. The lane comes from
+            <code>app/chat/lane_router.py</code> after that gate.
           </p>
         </div>
 
@@ -2730,7 +2879,7 @@
                 <td><span class="chip mint">T2</span></td>
                 <td><code>use_case_catalog</code></td>
                 <td><code>known</code></td>
-                <td><strong>A known behaviour class</strong> from the 65-entry catalog, not an exact-105 question.</td>
+                <td><strong>A known behaviour class</strong> from the 42-entry catalog, not an exact-105 question.</td>
               </tr>
               <tr>
                 <td><span class="chip mint">T3</span></td>
@@ -2742,7 +2891,7 @@
                 <td><span class="chip amber">T4</span></td>
                 <td><code>out_of_registry</code>, <code>semantic_out_of_registry</code>, <code>query_understanding_weak</code>, <code>qu_unavailable</code>, empty</td>
                 <td><code>guided</code></td>
-                <td><strong>Novel or weakly understood.</strong> Guided resolution applies. The only tier that can still be re-tiered.</td>
+                <td><strong>Novel or weakly understood after T1–T3 ABSTAIN.</strong> T4 is meaning-only. Guided investigation owns the turn unless Stage 3 qualifies it to T0. The only tier that can still be re-tiered.</td>
               </tr>
               <tr>
                 <td><span class="chip cyan">T0</span></td>
@@ -2832,7 +2981,7 @@
           <div class="card amber">
             <span class="cap">from T4</span>
             <h5><code>guided</code></h5>
-            <p>Runs bounded guided detail resolution. Review-only posture; honest limitations rather than a confident weak answer.</p>
+            <p>Runs bounded guided detail resolution. Floor: recommend/review-only. COE with composable planning: owner of RAG + SPL + MCP, still blocked from writes/remediation.</p>
           </div>
           <div class="card iris">
             <span class="cap">from T4 → T0 only</span>
@@ -2856,7 +3005,7 @@
       <section id="s3">
         <div class="sec-head">
           <span class="sec-num">03 · OUTCOMES</span>
-          <h3 class="sec-title">Planning outcomes O1–O8 — one continues, seven stop</h3>
+          <h3 class="sec-title">Planning outcomes O1–O9 — one continues, two HIL stops, six refuse</h3>
           <p>
             Stage 3 always exits as a typed <code>CanonicalPlanningOutcome</code>. Everything downstream branches on
             <strong>that status</strong> — never on whether an <code>evidence_plan</code> happens to be present.
@@ -2867,27 +3016,34 @@
           <div class="card mint">
             <span class="cap">Group A · the only executable status</span>
             <h5><span class="chip mint">O1</span> <code>planned</code></h5>
-            <p>Evidence plan present, resource plan <strong>committed</strong>. The only status that can reach dispatch and execution.</p>
+            <p>Evidence plan present, resource plan <strong>committed</strong> (on COE: after envelope Run + DET compile). The only status that can reach dispatch and execution.</p>
           </div>
           <div class="card amber">
             <span class="cap">Group B · analyst-blocking, not a failure</span>
             <h5><span class="chip amber">O2</span> <code>clarification_required</code></h5>
             <p>Handoff persisted, question returned. Carries <strong>no</strong> evidence plan and no resource plan, by contract.</p>
           </div>
+          <div class="card amber">
+            <span class="cap">Group B · COE investigation HIL</span>
+            <h5><span class="chip amber">O3</span> <code>awaiting_investigation_plan</code></h5>
+            <p>Validated investigation plan is ready for Run / Edit / Cancel. Carries <code>canonical_input</code> and <strong>no</strong> EvidencePlan or ResourcePlan. D4 until the analyst Runs.</p>
+          </div>
+        </div>
+        <div class="grid g3" style="margin-top:12px;">
           <div class="card rose">
             <span class="cap">Group B</span>
-            <h5><span class="chip rose">O3</span> <code>policy_blocked</code></h5>
+            <h5><span class="chip rose">O4</span> <code>policy_blocked</code></h5>
             <p>Policy refused. Carries a <code>policy_reason</code>; an evidence plan is optional, a resource plan is forbidden.</p>
           </div>
         </div>
 
         <p style="margin-top:26px;color:var(--txt-faint);font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;">Group C · the five terminal failure statuses — <code>FAILURE_STATUSES</code>, each carries a typed <code>PlanningFailure</code>, none carries a plan</p>
         <div class="grid g3" style="margin-top:10px;">
-          <div class="card rose"><h5><span class="chip rose">O4</span> <code>resolution_failed</code></h5><p>Guided detail resolution could not close the gaps it was asked to close.</p></div>
-          <div class="card rose"><h5><span class="chip rose">O5</span> <code>planning_failed</code></h5><p>The final planner could not build a valid evidence plan from the canonical input.</p></div>
-          <div class="card rose"><h5><span class="chip rose">O6</span> <code>unsupported</code></h5><p>Outside what this system is allowed to plan for at all.</p></div>
-          <div class="card rose"><h5><span class="chip rose">O7</span> <code>execution_failed</code></h5><p>A planned step failed in a way that invalidates the outcome rather than degrading it.</p></div>
-          <div class="card rose"><h5><span class="chip rose">O8</span> <code>persistence_failed</code></h5><p>Handoff, plan commit, or idempotency write failed. Persistence <strong>fails closed</strong> — no memory or file fallback.</p></div>
+          <div class="card rose"><h5><span class="chip rose">O5</span> <code>resolution_failed</code></h5><p>Guided detail resolution could not close the gaps it was asked to close.</p></div>
+          <div class="card rose"><h5><span class="chip rose">O6</span> <code>planning_failed</code></h5><p>The final planner could not build a valid evidence plan from the canonical input.</p></div>
+          <div class="card rose"><h5><span class="chip rose">O7</span> <code>unsupported</code></h5><p>Outside what this system is allowed to plan for at all.</p></div>
+          <div class="card rose"><h5><span class="chip rose">O8</span> <code>execution_failed</code></h5><p>A planned step failed in a way that invalidates the outcome rather than degrading it.</p></div>
+          <div class="card rose"><h5><span class="chip rose">O9</span> <code>persistence_failed</code></h5><p>Handoff, plan commit, or idempotency write failed. Persistence <strong>fails closed</strong> — no memory or file fallback.</p></div>
         </div>
 
         <h4>The outcome contract, in full</h4>
@@ -2897,12 +3053,13 @@
             <tbody>
               <tr><td><span class="chip mint">O1</span> <code>planned</code></td><td>required</td><td><strong>committed</strong></td><td><code>canonical_input</code></td></tr>
               <tr><td><span class="chip amber">O2</span> <code>clarification_required</code></td><td>absent</td><td>absent</td><td><code>clarification</code> + handoff</td></tr>
-              <tr><td><span class="chip rose">O3</span> <code>policy_blocked</code></td><td>optional, non-executing</td><td>absent</td><td><code>policy_reason</code></td></tr>
-              <tr><td><span class="chip rose">O4</span> <code>resolution_failed</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
-              <tr><td><span class="chip rose">O5</span> <code>planning_failed</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
-              <tr><td><span class="chip rose">O6</span> <code>unsupported</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
-              <tr><td><span class="chip rose">O7</span> <code>execution_failed</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
-              <tr><td><span class="chip rose">O8</span> <code>persistence_failed</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
+              <tr><td><span class="chip amber">O3</span> <code>awaiting_investigation_plan</code></td><td>absent</td><td>absent</td><td><code>canonical_input</code> (P0+)</td></tr>
+              <tr><td><span class="chip rose">O4</span> <code>policy_blocked</code></td><td>optional, non-executing</td><td>absent</td><td><code>policy_reason</code></td></tr>
+              <tr><td><span class="chip rose">O5</span> <code>resolution_failed</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
+              <tr><td><span class="chip rose">O6</span> <code>planning_failed</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
+              <tr><td><span class="chip rose">O7</span> <code>unsupported</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
+              <tr><td><span class="chip rose">O8</span> <code>execution_failed</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
+              <tr><td><span class="chip rose">O9</span> <code>persistence_failed</code></td><td>absent</td><td>absent</td><td><code>failure</code></td></tr>
             </tbody>
           </table>
         </div>
@@ -2927,8 +3084,8 @@
               <tr>
                 <td><span class="chip rose">D4</span></td>
                 <td><code>non_planned_finalize</code></td>
-                <td>outcome status is not <code>planned</code></td>
-                <td>Straight to Stage 8. <strong>No SPL lane, no execution lane</strong> — enforced by topology.</td>
+                <td>outcome status is not <code>planned</code> (includes <code>clarification_required</code>, <code>awaiting_investigation_plan</code>, policy block, and failures)</td>
+                <td>Straight to Stage 8. <strong>No SPL lane, no execution lane</strong> — enforced by topology. After Run, the next turn is <code>planned</code> and takes D1–D3.</td>
               </tr>
               <tr>
                 <td><span class="chip mint">D1</span></td>
@@ -2939,8 +3096,8 @@
               <tr>
                 <td><span class="chip mint">D2</span></td>
                 <td><code>composed_dispatch</code> → <code>execute_plan_dispatch</code></td>
-                <td>a composed plan is present</td>
-                <td>Step-walk dispatcher runs only dispatchable, policy-allowed steps; blocked steps are annotated, not dropped.</td>
+                <td>a composed plan is present — including a COE guided investigation after envelope Run</td>
+                <td>Step-walk dispatcher runs only dispatchable, policy-allowed steps; blocked steps are annotated, not dropped. This is how RAG + SPL + MCP share one turn.</td>
               </tr>
               <tr>
                 <td><span class="chip amber">D3</span></td>
@@ -2990,7 +3147,7 @@
                 <td><strong>Specialists</strong><br /><span style="font-size:13px;color:var(--txt-faint)">Skill · Knowledge · MCP · SPL</span></td>
                 <td><span class="chip cyan">4</span></td>
                 <td>Stage 4</td>
-                <td>Fill <code>args_template</code> blanks they own; report tier match and knowledge gaps. The MCP and SPL specialists are currently fixed lane markers — see <a href="#s10">10</a>.</td>
+                <td>Fill <code>args_template</code> blanks they own; report tier match, knowledge gaps, MCP <code>planned_hop_count</code> / <code>candidate_tool_names</code> / <code>execution_posture</code>, and SPL slot/template posture. See <a href="#s10">10</a>.</td>
                 <td>Re-pick the skill, rewrite intent, create a plan, or execute a tool.</td>
               </tr>
               <tr>
@@ -3008,10 +3165,10 @@
                 <td>Be skipped. Every turn walks all nine.</td>
               </tr>
               <tr>
-                <td><strong>LLM sidecars</strong><br /><span style="font-size:13px;color:var(--txt-faint)">route advisor · SPL plan proposer · narrator</span></td>
-                <td><span class="chip iris">3</span></td>
-                <td>Stages 2, 7, 8</td>
-                <td>Propose. Every hop is optional — a turn completes correctly with the model entirely absent.</td>
+                <td><strong>LLM sidecars</strong><br /><span style="font-size:13px;color:var(--txt-faint)">T4 · route advisor · investigation planner · SPL plan · PlanDelta · narrator</span></td>
+                <td><span class="chip iris">catalog</span></td>
+                <td>Stages 2, 3, 7, 8 — flag-gated</td>
+                <td>Propose. Every hop is optional — a turn completes correctly with the model entirely absent. T4 ≠ investigation planner.</td>
                 <td>Call MCP. Decide severity or MITRE. Make SPL executable. Approve its own output. Bypass human review. See <a href="#s18">18</a>.</td>
               </tr>
             </tbody>
@@ -3026,13 +3183,17 @@
           </div>
           <div class="card iris">
             <span class="cap">Where the model actually appears</span>
-            <h5>Three narrow points</h5>
-            <p>(1) an advisory route suggestion that must be registry-validated to win; (2) a JSON detection plan that deterministic code compiles into SPL; (3) optional narration of prose that no fact depends on. Exact-105 turns commonly skip all three.</p>
+            <h5>Governed hops, never authority</h5>
+            <p>Route advisor, T4 meaning-only after abstain, investigation planner (COE), SPL plan-compiler / utility authoring, optional PlanDelta reasoner, optional narrator, optional remediation planner. Exact-105 turns commonly skip all of them. None of them holds authority.</p>
           </div>
         </div>
+        <div class="note">
+          <strong>CapabilitySnapshot is a view, not an actor.</strong> When
+          <code>AI_SOC_CAPABILITY_SNAPSHOT_ENABLED</code> is on, it records <em>need × availability</em> as two
+          independent axes (recommended + unavailable is valid). It does not decide per-call executability,
+          select a tool, or grant an exact-call. See <a href="#s-envelope">7b</a>.
+        </div>
       </section>
-
-      <!-- ================= PART III ================= -->
       <div class="part-break rv">
         <span class="pn">Part III</span>
         <h2>The flow in depth</h2>
@@ -3045,13 +3206,13 @@
           <h3 class="sec-title">Session context and query understanding</h3>
         </div>
         <div class="grid g3">
-          <div class="card cyan">
-            <h5>Effective query</h5>
-            <p>Session context can rewrite a follow-up into a self-contained effective query, and carries pinned entities, use case, and any pending clarification handoff.</p>
-          </div>
           <div class="card mint">
-            <h5>One match path</h5>
-            <p>Matching against the 105 taxonomy and the use-case catalog produces <strong>exactly one</strong> <code>deterministic_match_path</code>, plus extracted entities and shape signals.</p>
+            <h5>Complete or abstain</h5>
+            <p>T1–T3 either ACCEPT a complete governed happy-path contract or ABSTAIN completely. There is no partial semantic lock for T4 to patch field-by-field (<code>complete_or_abstain_gate.py</code>).</p>
+          </div>
+          <div class="card iris">
+            <h5>T4 is meaning-only</h5>
+            <p>T4 runs only after ABSTAIN. It proposes a full semantic reading; DET validation produces Final <code>ResolvedQueryContract</code>. Explicit user literals stay DET constraints. T4 is not the investigation planner.</p>
           </div>
           <div class="card amber">
             <h5>Degrades, never errors</h5>
@@ -3119,10 +3280,12 @@
                       → otherwise       → run_guided_detail_resolution
   → evaluate_post_guided_completeness
   → build_canonical_planning_input
-  → policy boundary?      → policy_blocked   (evidence_plan popped)
+          → policy boundary?      → policy_blocked   (evidence_plan popped)
   → clarification?        → persist handoff, emit clarification.requested
+  → awaiting investigation plan?  → O3, no ResourcePlan (COE overlay)
   → otherwise persist in_progress handoff
-  → plan_evidence_from_canonical    ← the ONLY creator of a ResourcePlan</pre>
+  → plan_evidence_from_canonical    ← floor: ONLY creator of a ResourcePlan
+                                      COE after Run: DET compile from approved envelope</pre>
 
         <h4>The seam, drawn completely</h4>
         <p>
@@ -3219,7 +3382,7 @@
             <div class="fcell mint sm"><b>O1</b> planned<em>→ Stage 4</em></div>
             <div class="fcell amber sm"><b>O2</b> clarification_required<em>→ D4</em></div>
             <div class="fcell rose sm"><b>O3</b> policy_blocked<em>→ D4</em></div>
-            <div class="fcell rose sm"><b>O4–O8</b> typed failures<em>→ D4</em></div>
+            <div class="fcell rose sm"><b>O5–O9</b> typed failures<em>→ D4</em></div>
           </div>
         </div>
 
@@ -3299,8 +3462,9 @@
         </div>
 
         <div class="note">
-          <strong>Plan authority is enforced, not agreed.</strong> <code>plan_evidence_from_canonical</code> is the sole
-          creator and committer of a <code>ResourcePlan</code>. Composition happens inside an authority context
+          <strong>Plan authority is enforced, not agreed.</strong> On the floor, <code>plan_evidence_from_canonical</code> is the sole
+          creator and committer of a <code>ResourcePlan</code>. On COE with envelope-before-RP, the DET compiler produces
+          ResourcePlan + PhaseContract only after analyst Run. Composition happens inside an authority context
           manager; guided dispatch, the executor, the response composer, and telemetry may only deserialize
           and read. Static guards pin it.
         </div>
@@ -3308,6 +3472,58 @@
           <strong>Idempotency.</strong> If a handoff version already committed a plan, the seam replays that plan
           instead of composing a second one. A retried or duplicated turn cannot produce two different plans
           for the same handoff.
+        </div>
+      </section>
+
+      <section id="s-envelope">
+        <div class="sec-head">
+          <span class="sec-num">07b · STAGE 3 · COE OVERLAY</span>
+          <h3 class="sec-title">Investigation envelope — propose, validate, approve, then compile</h3>
+          <p>
+            Live on the COE profile when <code>AI_SOC_INVESTIGATION_PLANNER_ENABLED</code> and
+            <code>AI_SOC_INVESTIGATION_PLAN_BEFORE_RESOURCE_PLAN_ENABLED</code> are on. Off on the repo/development
+            floor. This is not a second planner: the Resource Planner hub still executes.
+          </p>
+        </div>
+
+        <pre>CapabilitySnapshot          need × availability (two independent axes)
+  → InvestigationPlanProposal reasoning sidecar, DET-validated
+  → ValidatedInvestigationPlan
+  → outcome awaiting_investigation_plan   (D4 HIL — no ResourcePlan yet)
+  → analyst Run / Edit / Cancel
+       Edit that changes Final RQC → re-enter understanding
+       Cancel → stop, typed and recorded
+       Run → DET compile → ResourcePlan + PhaseContract
+  → ApprovedInvestigationEnvelope         immutable version
+  → each material MCP/tool call needs a new exact-call grant</pre>
+
+        <div class="grid g3">
+          <div class="card cyan">
+            <h5>CapabilitySnapshot</h5>
+            <p>Joined need × availability projection. Recommended + unavailable is a valid row. It never authorizes execution, never selects a tool, and never replaces the MCP gate.</p>
+          </div>
+          <div class="card iris">
+            <h5>Investigation planner</h5>
+            <p>A reasoning sidecar. It proposes; DET <code>validate_investigation_plan</code> is the authority. T4 remains meaning-only and is a different role. Do not revive <code>llm_plan_bridge</code>.</p>
+          </div>
+          <div class="card amber">
+            <h5>Run / Edit / Cancel</h5>
+            <p>The analyst is the authority on the validated plan. Approved envelopes are immutable versions. Writes belong to remediation (Approve/Edit/Cancel of its own), not this investigation loop.</p>
+          </div>
+        </div>
+        <div class="grid g3" style="margin-top:12px;">
+          <div class="card mint">
+            <h5>ResourcePlan + PhaseContract</h5>
+            <p>After Run, these are the sole normal schedule authority when ResourcePlan execution is on. dispatch-v2 is fenced. <code>workflow_plan</code> stays inert.</p>
+          </div>
+          <div class="card mint">
+            <h5>Guided owns composable work</h5>
+            <p>Catalog allowed tools include SPL and <code>splunk_mcp_search</code>. EvidencePlan still turns SPL/MCP off unless <code>AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED</code>.</p>
+          </div>
+          <div class="card rose">
+            <h5>Not claimed</h5>
+            <p>Domain execution agents, live remediation connectors, unbounded ReAct, and one exact-call grant covering many queries. Those stay target or A1.</p>
+          </div>
         </div>
       </section>
 
@@ -3400,6 +3616,11 @@ Turn 2   session context finds the pin → handoff_resume
           <div class="card cyan"><h5>Versioned, not overwritten</h5><p>The handoff advances by version. The audit trail keeps what was asked, what was answered, and which plan the answer produced.</p></div>
           <div class="card amber"><h5>Contract-enforced emptiness</h5><p>A <code>clarification_required</code> outcome is <strong>forbidden</strong> from carrying an evidence plan. The clarification and policy-blocked branches explicitly clear it before returning.</p></div>
         </div>
+        <div class="note">
+          <strong>A second HIL, same topology.</strong> <code>awaiting_investigation_plan</code> is also a D4 stop:
+          no EvidencePlan, no ResourcePlan, until the analyst Runs. Edit that changes Final RQC re-enters
+          understanding. See <a href="#s-envelope">7b</a>.
+        </div>
       </section>
 
       <section id="s10">
@@ -3430,8 +3651,8 @@ Turn 2   session context finds the pin → handoff_resume
             <tbody>
               <tr><td><strong>Routing Contract Auditor</strong><br><code>specialist_skill</code></td><td>Checks whether the chosen route, tier, and skill agree. Today its tier source can disagree with the canonical router; the corrective plan makes the canonical tier authoritative.</td><td><span class="chip rose">no</span></td></tr>
               <tr><td><strong>Knowledge Coverage Auditor</strong><br><code>specialist_knowledge</code></td><td>Checks what governed knowledge is available, what is missing, and whether the plan should retrieve it. This report is deterministic today.</td><td><span class="chip rose">no</span></td></tr>
-              <tr><td><strong>MCP Readiness Auditor</strong><br><code>specialist_mcp</code></td><td><strong>Target role:</strong> report whether the required MCP server and safe tool are configured and available. <strong>Current implementation:</strong> a fixed advisory marker with <code>hop_count=0</code>; the Stage 7 gate still decides real execution posture.</td><td><span class="chip rose">no</span></td></tr>
-              <tr><td><strong>SPL Readiness Auditor</strong><br><code>specialist_spl</code></td><td><strong>Target role:</strong> report template coverage, required fields, and validation readiness. <strong>Current implementation:</strong> a fixed advisory marker; the Stage 7 ladder still selects and validates SPL.</td><td><span class="chip rose">no</span></td></tr>
+              <tr><td><strong>MCP Readiness Auditor</strong><br><code>specialist_mcp</code></td><td>Reports whether required MCP steps are configured: <code>planned_hop_count</code>, <code>candidate_tool_names</code> (not a selected tool), and <code>execution_posture</code> (<code>not_needed</code> / <code>discovery_only</code> / <code>gate_required</code> / <code>blocked_by_plan</code> / <code>unavailable</code>). The Stage 7 gate still decides real execution.</td><td><span class="chip rose">no</span></td></tr>
+              <tr><td><strong>SPL Readiness Auditor</strong><br><code>specialist_spl</code></td><td>Reports template coverage, required slots, and validation readiness. <code>execution_eligible</code> is hard-false on the report and the report never carries SPL text. The Stage 7 ladder still selects and validates SPL.</td><td><span class="chip rose">no</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -3467,17 +3688,17 @@ Turn 2   session context finds the pin → handoff_resume
           <p>Covered as a code system in <a href="#s4">section 4</a>. The point worth repeating here is the topology guarantee.</p>
         </div>
         <div class="note bad">
-          <strong>D4 is structural.</strong> A turn whose Stage 3 outcome was not <code>planned</code> has no graph edge
-          to SPL generation or to the MCP execution gate. It cannot reach execution even if a downstream
-          check were buggy — the path does not exist in the compiled graph.
+          <strong>D4 is structural.</strong> A turn whose Stage 3 outcome was not <code>planned</code> — including
+          <code>clarification_required</code> and <code>awaiting_investigation_plan</code> — has no graph edge
+          to SPL generation or to the MCP execution gate. After the analyst Runs an investigation plan, the
+          next turn is <code>planned</code> and may take D2.
         </div>
 
         <h4>“What if the turn needs RAG <em>and</em> SPL <em>and</em> MCP?”</h4>
         <p>
-          Then it takes <span class="chip mint">D2</span>. This is the most common misreading of the diagram, so
-          it is worth being exact: <strong>“exactly one branch” describes the entry point, not the amount of
-          work.</strong> The four branches are four <em>scheduling strategies</em>, and two of them run multiple
-          kinds of work.
+          Then it takes <span class="chip mint">D2</span>. Guided investigation after envelope approval is this
+          branch — not a fifth letter, and not “review-only D3”. <strong>“Exactly one branch” describes the entry
+          point, not the amount of work.</strong>
         </p>
 
         <div class="tablewrap">
@@ -3510,8 +3731,8 @@ Turn 2   session context finds the pin → handoff_resume
 
         <h4>So what is D2, concretely?</h4>
         <p>
-          A <strong>composed plan</strong> is the committed <code>ResourcePlan</code> from Stage 3 expressed as an
-          ordered list of steps, each bound to a registry resource and carrying a <code>purpose</code>.
+          A <strong>composed plan</strong> is the committed <code>ResourcePlan</code> (on COE: compiled with
+          <code>PhaseContract</code> after envelope Run) expressed as an ordered list of steps.
           <code>execute_plan_dispatch</code> walks that list in order and dispatches every step whose purpose is
           dispatchable:
         </p>
@@ -3562,10 +3783,11 @@ Turn 2   session context finds the pin → handoff_resume
 
         <h4>The candidate ladder — as the code actually orders it</h4>
         <p>
-          Tried in order, first success wins. Note rung 4: the deterministic lab draft is taken <em>before</em>
-          the LLM only on a mapped catalogue pattern with no rendered template (a latency optimisation for
-          known paraphrases). On every other path the LLM producer runs first and degrades to the lab draft
-          internally.
+          Tried in order, first success wins. Note the catalogue/live-data branch: the deterministic lab draft
+          is taken <em>before</em> the LLM only on a mapped catalogue pattern with no rendered template.
+          Utility authoring can produce an explicit-SPL draft. Quality and semantic-fidelity gates can fail
+          closed before a candidate is published. Fallback SPL must not relabel an investigation turn as
+          completed review-only.
         </p>
         <pre>1  analyst-provided SPL              (execution review: update_spl)
 2  runtime source-profile draft      _candidate_from_t2_spl_native
@@ -3573,8 +3795,9 @@ Turn 2   session context finds the pin → handoff_resume
 4  deterministic lab draft           ONLY IF mapped catalogue pattern + no template
                                      (or a strong live-data family match)
 5  LLM producer                      plan-compiler PRIMARY → free-form fallback
-                                     relevance-gated; degrades to (4) internally
-6  clarification                     when nothing is defensible</pre>
+                                     relevance- and quality-gated; degrades to (4)
+6  utility SPL authoring             explicit authoring asks (flag-gated)
+7  clarification                     when nothing is defensible</pre>
 
         <div class="note warn">
           <strong>This ladder is why two internal docs disagreed.</strong> One described rung 4 before rung 5, the
@@ -3603,9 +3826,10 @@ Turn 2   session context finds the pin → handoff_resume
             <thead><tr><th>Control</th><th>Rule</th></tr></thead>
             <tbody>
               <tr><td><strong>Admission</strong></td><td>Only an approved <code>normalized_spl</code>, or already-populated composed execution results, may enter.</td></tr>
-              <tr><td><strong>Tool policy</strong></td><td>Deterministic selection. The search tool and read-only discovery tools are selectable for a search; write, admin, and assistant-style tools are not selectable at all.</td></tr>
+              <tr><td><strong>Exact-call grant</strong></td><td>Every material MCP/tool invocation needs a new grant: normalized tool identity + arguments (<code>canonical_arguments_hash</code>). Splunk also binds <code>normalized_spl</code>. One grant does not cover many queries.</td></tr>
+              <tr><td><strong>Tool policy</strong></td><td>Deterministic selection. The search tool and read-only discovery tools are selectable for a search; write, admin, and assistant-style tools are not selectable at all. Effective catalog is server ∩ allowlist.</td></tr>
               <tr><td><strong>User requests</strong></td><td>A requested server or tool is a <strong>preference</strong>, never an instruction. Policy decides.</td></tr>
-              <tr><td><strong>Analyst confirmation</strong></td><td>Per-call handshake — <code>confirm</code>, <code>update_spl</code>, or <code>reject</code>. An updated SPL re-runs source resolution before the gate sees it.</td></tr>
+              <tr><td><strong>Analyst confirmation</strong></td><td>Per-call handshake — <code>confirm</code>, <code>update_spl</code>, or <code>reject</code>. Live/registry mode always confirms, including after investigation-envelope approval.</td></tr>
               <tr><td><strong>Risk classification</strong></td><td><span class="chip rose">high</span> validator rejection, injection, risky command, missing time bounds or result cap → blocked before the gate. <span class="chip amber">medium</span> keeps confirmation. <span class="chip mint">low</span> auto-eligible — but auto-eligibility can only ever relax confirmation <em>outside</em> live registry mode. Registry mode always confirms.</td></tr>
               <tr><td><strong>Search lifecycle</strong></td><td>Submit → bounded poll → fetch, within explicit poll and timeout bounds. Outcomes are reported honestly as live, empty, timeout, or denied. An empty result is reported as empty, never padded.</td></tr>
               <tr><td><strong>After the fact</strong></td><td><code>policy_veto</code> in Stage 8 re-asserts the plan's policy, so an execution the plan never authorised cannot survive to the answer.</td></tr>
@@ -3624,7 +3848,7 @@ Turn 2   session context finds the pin → handoff_resume
         <div class="sec-head">
           <span class="sec-num">13 · STAGE 8</span>
           <h3 class="sec-title">Nine checks before an answer is released</h3>
-          <p>Every turn passes these checks in this fixed order. Each card says what the check protects; the code name is shown underneath for traceability.</p>
+          <p>Every turn passes these checks in this fixed order. On COE, a bounded PlanDelta reasoner may run after evidence readiness when eligible — it is a read-only append-only revision proposal, not a tenth governance check and not an open loop.</p>
         </div>
 
         <div class="flow-map" role="group" aria-labelledby="governance-flow-title">
@@ -3651,7 +3875,7 @@ Turn 2   session context finds the pin → handoff_resume
             <tbody>
               <tr><td>1</td><td><code>spl_validate</code></td><td>Candidate-only gate — anything not explicitly approved is forced to <code>execution_eligible = false</code>.</td></tr>
               <tr><td>2</td><td><code>mcp_execution_gate</code></td><td>Runs the execution evaluation if execution has not already been settled.</td></tr>
-              <tr><td>3</td><td><code>context_sufficiency</code></td><td>Surfaces the sufficiency state; the substantive evaluation happens in <code>finalize</code>.</td></tr>
+              <tr><td>3</td><td><code>context_sufficiency</code></td><td>Classifies the evidence package into one of seven answer modes: <code>full_answer</code>, <code>partial_answer</code>, <code>analyst_review_required</code>, <code>spl_review_only</code>, <code>knowledge_only_answer</code>, <code>blocked_by_policy</code>, <code>insufficient_evidence</code>. This is a different vocabulary from EvidencePlan <code>answer_mode</code>.</td></tr>
               <tr><td>4</td><td><code>decide_facts</code></td><td>Audit record for severity and MITRE authority.</td></tr>
               <tr><td>5</td><td><code>answer_guard</code></td><td>Audit record for the answer-safety lane.</td></tr>
               <tr><td>6</td><td><code>human_review</code></td><td>Establishes the human-review verdict for the turn.</td></tr>
@@ -3660,6 +3884,11 @@ Turn 2   session context finds the pin → handoff_resume
               <tr><td>9</td><td><code>validate_final_answer</code></td><td>Final-answer validation, then the decision log is patched into the trace.</td></tr>
             </tbody>
           </table>
+        </div>
+        <div class="note llm">
+          <strong>Bounded PlanDelta (COE).</strong> When <code>AI_SOC_PLAN_DELTA_ENABLED</code> is on, <code>plan_delta_reasoner</code>
+          may run after <code>context_sufficiency</code> if the turn is eligible. It proposes an append-only revision.
+          It does not mutate the approved envelope, does not grant MCP, and does not start an unbounded ReAct loop.
         </div>
         <div class="note">
           <strong>Two-phase response validation.</strong> The outcome is validated before assembly and the assembled
@@ -3758,7 +3987,7 @@ Turn 2   session context finds the pin → handoff_resume
           </div>
           <div class="card cyan">
             <span class="cap">feeds T2 and T3</span>
-            <h5>Use-case catalog — 65 entries</h5>
+            <h5>Use-case catalog — 42 entries</h5>
             <p>Behaviour classes rather than literal questions. Each entry carries intent patterns, required and optional entities, default time window, primary and secondary skills, required sources, a default SPL template, RAG collections, MITRE candidates and visibility policy, a severity policy, and an action-capability tier.</p>
           </div>
         </div>
@@ -3766,14 +3995,12 @@ Turn 2   session context finds the pin → handoff_resume
           <table>
             <thead><tr><th>Catalog category</th><th>Entries</th></tr></thead>
             <tbody>
-              <tr><td>Network / Firewall</td><td>14</td></tr>
-              <tr><td>Authentication / Identity</td><td>13</td></tr>
-              <tr><td>SOC / Knowledge / Analyst workflow</td><td>10</td></tr>
-              <tr><td>Endpoint / EDR</td><td>9</td></tr>
-              <tr><td>OT / Critical infrastructure</td><td>7</td></tr>
+              <tr><td>Authentication / Identity</td><td>10</td></tr>
+              <tr><td>Network / Firewall</td><td>7</td></tr>
+              <tr><td>SOC / Knowledge / Analyst workflow</td><td>7</td></tr>
               <tr><td>Compliance / Governance</td><td>4</td></tr>
-              <tr><td>Cloud / AWS</td><td>3</td></tr>
-              <tr><td>Threat Intelligence / IOC · Alert triage · Analytics / Threshold · Data Loss Prevention · Environment Knowledge</td><td>1 each</td></tr>
+              <tr><td>Endpoint / EDR · Cloud / AWS · OT / Critical infrastructure</td><td>3 each</td></tr>
+              <tr><td>SOC / Alert triage · Environment Knowledge · Threat Intelligence / IOC · Analytics / Threshold · Data Loss Prevention</td><td>1 each</td></tr>
             </tbody>
           </table>
         </div>
@@ -3791,7 +4018,7 @@ Turn 2   session context finds the pin → handoff_resume
           <div class="card mint"><h5><code>spl_generation</code></h5><p>Produce a governed, review-only search. Candidate SPL is never executable on its own.</p></div>
           <div class="card mint"><h5><code>attack_discovery</code></h5><p>Hunt and analytics over known behaviour classes with a governed evidence contract.</p></div>
           <div class="card iris"><h5><code>knowledge_recall</code></h5><p>SOP, playbook, policy, and reference answers from governed knowledge. Also the resolved-T0 short-circuit skill.</p></div>
-          <div class="card amber"><h5><code>guided_investigation</code></h5><p>The deterministic rescue for out-of-registry, hunt-shaped questions — review-only guidance with honest limitations rather than a weak knowledge answer.</p></div>
+          <div class="card amber"><h5><code>guided_investigation</code></h5><p>Owner of out-of-registry hunt-shaped questions. Catalog allows RAG, SPL, and <code>splunk_mcp_search</code>; writes/remediation stay blocked. Floor EvidencePlan is still recommend-only unless composable planning is on. After COE approval it is an investigation lifecycle, not a review-only rescue.</p></div>
         </div>
 
         <div class="grid g3" style="margin-top:22px;">
@@ -3824,7 +4051,7 @@ Turn 2   session context finds the pin → handoff_resume
         <div class="grid g2">
           <div class="card mint">
             <h5>The model may</h5>
-            <p>Suggest a route as an advisory that must be registry-validated to win. Propose a JSON detection plan that deterministic code compiles into SPL. Narrate analyst-summary prose. Assist with intent shaping on the rollback path. <strong>Every one of these is optional</strong> — a turn completes without it.</p>
+            <p>Suggest a route as an advisory that must be registry-validated to win. After T1–T3 ABSTAIN, propose meaning-only T4 understanding for DET validation. On COE, propose an investigation plan or a bounded PlanDelta. Propose a JSON detection plan that deterministic code compiles into SPL. Narrate analyst-summary prose. Assist with intent shaping on the rollback path. <strong>Every one of these is optional</strong> — a turn completes without it. T4 is not the investigation planner.</p>
           </div>
           <div class="card rose">
             <h5>The model may not</h5>
@@ -3840,6 +4067,22 @@ Turn 2   session context finds the pin → handoff_resume
           <div class="card amber"><span class="cap">04 · guard</span><h5>Validate or drop</h5><p>Role-specific schema validation with deterministic overrides forced on conflict. A response that fails validation is dropped, not repaired into the answer.</p></div>
           <div class="card mint"><span class="cap">05 · merge / fall back</span><h5>Deterministic floor</h5><p>Any failure, timeout, or empty result falls back to the governed non-LLM path. The analyst still gets a safe, complete response.</p></div>
         </div>
+
+        <h4>Hop catalog — closed list</h4>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Hop</th><th>Family</th><th>Floor</th><th>COE</th><th>May / must not</th></tr></thead>
+            <tbody>
+              <tr><td><code>semantic_t4</code></td><td>instruct</td><td>off in repo default; on in development/COE</td><td>on</td><td>Meaning-only after ABSTAIN. Not a planner, not a tool caller.</td></tr>
+              <tr><td>Route advisor</td><td>instruct</td><td>advisory when enabled</td><td>advisory</td><td>Must be registry-validated to win.</td></tr>
+              <tr><td><code>investigation_planner</code></td><td>reasoning</td><td>off</td><td>on</td><td>Propose a plan. DET validates. Analyst Run/Edit/Cancel is authority.</td></tr>
+              <tr><td>SPL plan-compiler / utility authoring</td><td>instruct</td><td>SPL fallback off; utility draft often on</td><td>on</td><td>JSON plan, not executable SPL.</td></tr>
+              <tr><td><code>plan_delta_reasoner</code></td><td>reasoning</td><td>off</td><td>on</td><td>Bounded, read-only, append-only. No writes in the investigation loop.</td></tr>
+              <tr><td>Narrator / live synthesis</td><td>instruct</td><td>off</td><td>profile-dependent</td><td>Prose only. Facts stay deterministic.</td></tr>
+              <tr><td><code>remediation_planner</code></td><td>reasoning</td><td>off</td><td>on in COE example; connectors not live</td><td>Propose only. Writes still need Approve/Edit/Cancel. Not drawn as live execution.</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section id="s19">
@@ -3853,7 +4096,13 @@ Turn 2   session context finds the pin → handoff_resume
             <thead><tr><th>Setting</th><th>Code default</th><th>COE / VPS profile</th><th>Purpose</th></tr></thead>
             <tbody>
               <tr><td>Active model</td><td><code>foundation-sec-1.1-8b-instruct-q8_0</code></td><td>same</td><td>On-prem security model label (the llama-server unit pins the real weights)</td></tr>
-              <tr><td>Final / live synthesis</td><td>off</td><td><strong>on</strong></td><td><code>AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED</code> + <code>AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED</code> — narration with deterministic fallback on failure</td></tr>
+              <tr><td>T4 semantic understanding</td><td>off (repo) / on (development)</td><td><strong>on</strong></td><td><code>AI_SOC_T4_SEMANTIC_UNDERSTANDING_ENABLED</code> — meaning-only after ABSTAIN</td></tr>
+              <tr><td>Investigation planner</td><td>off</td><td><strong>on</strong></td><td><code>AI_SOC_INVESTIGATION_PLANNER_ENABLED</code></td></tr>
+              <tr><td>Envelope before ResourcePlan</td><td>off</td><td><strong>on</strong></td><td><code>AI_SOC_INVESTIGATION_PLAN_BEFORE_RESOURCE_PLAN_ENABLED</code></td></tr>
+              <tr><td>CapabilitySnapshot</td><td>off</td><td><strong>on</strong></td><td><code>AI_SOC_CAPABILITY_SNAPSHOT_ENABLED</code> — need × availability</td></tr>
+              <tr><td>Guided composable planning</td><td>off</td><td><strong>on</strong></td><td><code>AI_SOC_GUIDED_COMPOSABLE_PLANNING_ENABLED</code></td></tr>
+              <tr><td>PlanDelta</td><td>off</td><td><strong>on</strong></td><td><code>AI_SOC_PLAN_DELTA_ENABLED</code> — bounded, read-only</td></tr>
+              <tr><td>Final / live synthesis</td><td>off</td><td>profile-dependent</td><td><code>AI_SOC_LLM_FINAL_SYNTHESIS_ENABLED</code> + <code>AI_SOC_LLM_LIVE_SYNTHESIS_ENABLED</code> — narration with deterministic fallback</td></tr>
               <tr><td>Per-call timeout</td><td>30s</td><td>90s</td><td>Hard ceiling on a single hop</td></tr>
               <tr><td>Turn deadline</td><td>75.0s</td><td>210.0s</td><td>Budget for all hops in one turn</td></tr>
               <tr><td>T2 turn deadline</td><td>45.0s</td><td>210.0s</td><td>Tighter budget on out-of-catalogue paths when not aligned to the main turn deadline</td></tr>
@@ -3912,9 +4161,10 @@ Turn 2   session context finds the pin → handoff_resume
           </table>
         </div>
         <div class="note ok">
-          <strong>Terminal planning statuses on the wire:</strong> the same eight from <a href="#s3">section 3</a>. The
+          <strong>Terminal planning statuses on the wire:</strong> the nine from <a href="#s3">section 3</a>. The
           chat UI shows a banner only for non-<code>planned</code> outcomes, sourced exclusively from
-          <code>planning_outcome</code> — no heuristic fallback from trace shape.
+          <code>planning_outcome</code> — no heuristic fallback from trace shape. <code>awaiting_investigation_plan</code>
+          is an analyst-blocking HIL, not a failure.
         </div>
 
         <h4>Control-plane trace (diagnostic)</h4>
@@ -4039,26 +4289,27 @@ Turn 2   session context finds the pin → handoff_resume
           </div>
 
           <div id="ex6" class="tab-panel">
-            <div class="ex-head"><span class="chip amber">T4</span><span class="chip amber">guided lane</span><span class="ex-q">“Did anything odd talk out of the OT segment overnight?”</span></div>
+            <div class="ex-head"><span class="chip amber">T4</span><span class="chip amber">guided lane</span><span class="chip mint">COE → D2</span><span class="ex-q">“Did anything odd talk out of the OT segment overnight?”</span></div>
             <div class="tablewrap"><table>
               <thead><tr><th>Stage</th><th>Result</th></tr></thead>
               <tbody>
-                <tr><td><strong>2</strong></td><td><code>out_of_registry</code>, investigation-shaped → tier <span class="chip amber">T4</span>, lane <code>guided</code></td></tr>
-                <tr><td><strong>3</strong> Route</td><td><code>guided_investigation</code> — the deterministic rescue, not a weak knowledge answer</td></tr>
-                <tr><td><strong>3</strong> Resolution</td><td>Bounded read-only resolution; deferred tools recorded as planned, not claimed as run</td></tr>
-                <tr><td><strong>7–8</strong></td><td>Review-only posture; missing evidence recorded honestly. Answer: out-of-catalog notice, hypotheses, analyst checklist, explicit limitations.</td></tr>
+                <tr><td><strong>2</strong></td><td>T1–T3 ABSTAIN → <code>out_of_registry</code> · tier <span class="chip amber">T4</span> · lane <code>guided</code>. T4 meaning-only → Final RQC.</td></tr>
+                <tr><td><strong>3</strong> Route</td><td><code>guided_investigation</code> owns the turn. Catalog allows SPL + <code>splunk_mcp_search</code>; writes stay blocked.</td></tr>
+                <tr><td><strong>3</strong> COE overlay</td><td>CapabilitySnapshot + validated investigation plan → <span class="chip amber">O3</span> <code>awaiting_investigation_plan</code> until Run. After Run: ResourcePlan + PhaseContract, <span class="chip mint">O1</span>.</td></tr>
+                <tr><td><strong>6–7</strong></td><td>Floor without composable flags: recommend/review-only. COE after Run: <span class="chip mint">D2</span> composed RAG+SPL+MCP. Each MCP call needs a new exact-call grant.</td></tr>
+                <tr><td><strong>8</strong></td><td>If MCP is unavailable: <code>execution_pending_mcp_unavailable</code> — live read required, optional SPL as fallback. Do not relabel as completed review-only.</td></tr>
               </tbody>
             </table></div>
           </div>
 
           <div id="ex7" class="tab-panel">
-            <div class="ex-head"><span class="chip rose">O3</span><span class="chip rose">blocked</span><span class="ex-q">“Isolate that host now.”</span></div>
+            <div class="ex-head"><span class="chip rose">O4</span><span class="chip rose">blocked</span><span class="ex-q">“Isolate that host now.”</span></div>
             <div class="tablewrap"><table>
               <thead><tr><th>Stage</th><th>Result</th></tr></thead>
               <tbody>
                 <tr><td><strong>2</strong> Signals</td><td>Containment / action shape detected</td></tr>
                 <tr><td><strong>3</strong> Detail tools</td><td>Selection returns <strong>empty</strong> — an unsafe request gets no tools at all</td></tr>
-                <tr><td><strong>3</strong> Outcome</td><td><span class="chip rose">O3</span> <code>policy_blocked</code> with an explicit policy reason; no committed plan</td></tr>
+                <tr><td><strong>3</strong> Outcome</td><td><span class="chip rose">O4</span> <code>policy_blocked</code> with an explicit policy reason; no committed plan</td></tr>
                 <tr><td><strong>6</strong> Dispatch</td><td><span class="chip rose">D4</span> <code>non_planned_finalize</code> — structurally unable to reach execution</td></tr>
                 <tr><td><strong>8</strong> Answer</td><td>Human review required, with what would be needed to proceed stated plainly</td></tr>
               </tbody>
@@ -4076,17 +4327,17 @@ Turn 2   session context finds the pin → handoff_resume
         <div class="answer">
           <div class="answer-head">
             <h4>Analyst Response Card</h4>
-            <p>Example shape for a guided investigation answer.</p>
+            <p>Example shape for a guided investigation answer — including the COE post-approval case where MCP is unavailable.</p>
           </div>
-          <div class="arow"><div class="lab">Planning outcome</div><div class="val">When <code>planning_outcome.status</code> is not <code>planned</code>, a top banner shows the safe <code>user_message</code> and <code>recovery_hint</code> from the response only. No heuristic fallback from trace shape.</div></div>
-          <div class="arow"><div class="lab">Execution posture</div><div class="val">Labels reflect <code>execution.evidence_source</code> and <code>execution_status_label</code> — blocked pending review, executed with mock vs live provenance, or outcome uncertain when <code>outcome_uncertain=true</code>.</div></div>
+          <div class="arow"><div class="lab">Planning outcome</div><div class="val">When <code>planning_outcome.status</code> is not <code>planned</code>, a top banner shows the safe <code>user_message</code> and <code>recovery_hint</code> from the response only. <code>awaiting_investigation_plan</code> is Run / Edit / Cancel, not a failure. No heuristic fallback from trace shape.</div></div>
+          <div class="arow"><div class="lab">Execution posture</div><div class="val">Labels reflect <code>execution.evidence_source</code> and <code>execution_status_label</code> — blocked pending review, executed with mock vs live provenance, <code>execution_pending_mcp_unavailable</code> when a live read is required and the source is down, or outcome uncertain when <code>outcome_uncertain=true</code>.</div></div>
           <div class="arow"><div class="lab">Human review</div><div class="val">HIL card shows execution posture from the response <code>run_contract</code>, not a separate stale settings poll. Cockpit approval panel is read-only state — not a fake execute CTA.</div></div>
           <div class="arow"><div class="lab">Understanding</div><div class="val">“This looks like an OT-to-external communication hunt.”</div></div>
-          <div class="arow"><div class="lab">Mode</div><div class="val"><code>guided_investigation</code> — no governed contract matched, but the query is investigation-shaped.</div></div>
+          <div class="arow"><div class="lab">Mode</div><div class="val"><code>guided_investigation</code> — no governed contract matched; the skill owns composable investigation when the COE overlay is on.</div></div>
           <div class="arow"><div class="lab">Out-of-catalog notice</div><div class="val">Explicit notice that the question sits outside the governed 105 and catalog. Nearest governed questions may be suggested.</div></div>
           <div class="arow"><div class="lab">Suggested hunt</div><div class="val">Check outbound firewall, proxy, DNS, and EDR telemetry from OT ranges. Compare the external destination against baseline and vendor or maintenance activity.</div></div>
           <div class="arow"><div class="lab">Evidence</div><div class="val">What was actually <em>collected</em>, separated from what was only <em>planned</em>. Counts come from collected evidence alone, so the card cannot imply data it never fetched.</div></div>
-          <div class="arow"><div class="lab">SPL</div><div class="val">Candidate, normalized, and executed SPL are labeled separately when present. Review-only SPL when only a candidate exists; execution requires approved <code>normalized_spl</code> through the gate.</div></div>
+          <div class="arow"><div class="lab">SPL</div><div class="val">Candidate, normalized, and executed SPL are labeled separately when present. After approval, if MCP is unavailable, SPL is an <em>optional fallback artifact</em> — not a completed review-only hunt. Execution requires approved <code>normalized_spl</code> plus a new exact-call grant through the gate.</div></div>
           <div class="arow"><div class="lab">Top bar</div><div class="val">API reachability (<code>/health</code>) is separate from database migration readiness (<code>readiness.database_migrations</code>). Settings-degraded or mock-fallback posture surfaces a warning when the status API reports it.</div></div>
           <div class="arow"><div class="lab">Technical trace</div><div class="val">Collapsed by default; primary panel uses the safe-field allowlist (<a href="#s21">21</a>). Full developer trace stays behind an explicit expander.</div></div>
           <div class="arow"><div class="lab">MITRE</div><div class="val">No technique claimed. MITRE appears as Candidate or Not Claimed only where evidence supports it.</div></div>
@@ -4101,9 +4352,9 @@ Turn 2   session context finds the pin → handoff_resume
         <span class="pn">Part V</span>
         <h2>Appendix</h2>
         <p>
-          Everything here is deliberately separated from Parts I–IV. <strong>None of it describes the live path.</strong>
-          It exists so this page does not credit the live path with work it does not do, and so a reader who
-          greps the source is not ambushed by vocabulary that does not match.
+          Everything here is deliberately separated from Parts I–IV. Rollback-only runners and retired rails
+          live here. Investigation envelopes, CapabilitySnapshot, PlanDelta, and composable guided planning
+          are <strong>not</strong> in this appendix — they are live on the COE profile and documented above.
         </p>
       </div>
 
@@ -4128,9 +4379,11 @@ Turn 2   session context finds the pin → handoff_resume
           <table>
             <thead><tr><th>Subsystem</th><th>Scheduled by</th><th>What it does there</th></tr></thead>
             <tbody>
-              <tr><td>Bounded evidence-collection loop</td><td><code>_run_discovery_loop_imperative</code></td><td>Drains read-only discovery hops before adjudication and re-enters after gated execution, capped at <code>MAX_MCP_HOPS = 6</code>. Hops merge into source evidence with planned and collected kept distinct.</td></tr>
-              <tr><td>Guided hybrid dispatch</td><td><code>_run_guided_hybrid_dispatch</code></td><td>InvestigationPlan → Validator A → ResourcePlan → Validator B → safe planned or collected evidence → RAG, under review-only posture.</td></tr>
+              <tr><td>Bounded evidence-collection loop</td><td><code>_run_discovery_loop_imperative</code></td><td>Rollback-only. Drains read-only discovery hops before adjudication, capped at <code>MAX_MCP_HOPS = 6</code>. Live iteration on the graph is bounded PlanDelta on the RP hub, not this loop.</td></tr>
+              <tr><td>Guided hybrid dispatch</td><td><code>_run_guided_hybrid_dispatch</code></td><td>Rollback-only. Live investigation is envelope → DET validate → Run/Edit/Cancel → compile ResourcePlan + PhaseContract. Do not read this hybrid as the COE path.</td></tr>
               <tr><td>LLM intent-advisor hop</td><td><code>graph_node_query_to_intent</code> — reachable only from the legacy linear graph and the eval-only shadow graph</td><td>Builds an advisory intent under a bounded latency cap. The canonical seam classifies intent deterministically instead.</td></tr>
+              <tr><td>Domain execution agents</td><td><em>not built</em></td><td>Four specialist auditors remain. Do not promote them into execution workers. Optional reasoning workers are target, not live.</td></tr>
+              <tr><td>Live remediation connectors</td><td><em>not onboarded</em></td><td>A remediation planner sidecar may exist behind a flag. Ticket/email/SOAR/firewall writes are not live. Approve/Edit/Cancel would still be required.</td></tr>
             </tbody>
           </table>
         </div>
@@ -4151,7 +4404,7 @@ Turn 2   session context finds the pin → handoff_resume
               <tr><td>Canonical planning feature flag</td><td>Removed; the authority check returns a hard-coded true.</td></tr>
               <tr><td>Memory / file handoff store backends</td><td>Removed. PostgreSQL only.</td></tr>
               <tr><td>Linear LangGraph production runner</td><td>Retired to a legacy harness module.</td></tr>
-              <tr><td>Imperative pipeline as the default</td><td>Rollback-only, plus a degraded facade.</td></tr>
+              <tr><td>dispatch-v2</td><td>Fenced when ResourcePlan execution is on. Rollback/test-only; not the live scheduler.</td></tr>
               <tr><td>Legacy planning fallback branches</td><td>Zero matches remaining in the backend.</td></tr>
             </tbody>
           </table>
@@ -4274,7 +4527,7 @@ Turn 2   session context finds the pin → handoff_resume
           <table>
             <thead><tr><th>Earlier claim</th><th>Corrected</th></tr></thead>
             <tbody>
-              <tr><td>“46 use cases in the catalog”</td><td><strong>65</strong> — verified against <code>app/use_cases/catalog.json</code>.</td></tr>
+              <tr><td>“46 use cases in the catalog”</td><td><strong>42</strong> — verified 2026-09-14 against <code>app/use_cases/catalog.json</code> (was 65 on the 2026-08-08 freeze).</td></tr>
               <tr><td>“13 MITRE techniques, 11 covered, 2 gaps”</td><td><strong>98 / 12 / 86</strong> — verified against the live <code>build_detection_coverage()</code> export. The reference surface grew much faster than governed detection coverage.</td></tr>
               <tr><td>“The RunContract is built depending on whether the control plane is on”</td><td>That toggle no longer exists. The key was deleted; canonical planning is unconditional.</td></tr>
               <tr><td><code>route_setup</code> drawn as a live hop</td><td>Registered with no inbound edge — it never executes. See <a href="#a1">A1</a>.</td></tr>
@@ -4295,18 +4548,11 @@ Turn 2   session context finds the pin → handoff_resume
           <table>
             <thead><tr><th>Gate</th><th>Result</th></tr></thead>
             <tbody>
-              <tr><td>Full backend test suite</td><td><strong>4648 passed</strong>, 39 skipped, 6 xfailed (2026-07-31 on <code>65eacfc</code>)</td></tr>
-              <tr><td>Response contract bridge tests</td><td><strong>14 passed</strong> — <code>planning_outcome</code> + execution uncertainty serialization</td></tr>
-              <tr><td>Frontend journey contract tests</td><td><strong>11 passed</strong> — banners, HIL posture, execution labels, migration indicator</td></tr>
+              <tr><td>Full backend test suite</td><td>Last recorded full run in repo docs: <strong>5829 passed</strong>, 3 skipped, 6 xfailed (2026-08-19). This revision did not re-run the full suite.</td></tr>
+              <tr><td>CanonicalPlanningOutcome statuses</td><td><strong>9</strong> — including <code>awaiting_investigation_plan</code>, read from <code>canonical_planning_outcome.py</code></td></tr>
               <tr><td>Dual-runtime parity</td><td><strong>120 exact / 0 approved / 0 critical</strong> — approved-difference registry empty (was 113 exact / 7 critical before the shared seam)</td></tr>
-              <tr><td>Parity projection suite</td><td>40 passed</td></tr>
-              <tr><td>Governance regression</td><td>PASS — harness 6/6, clean-answer 120/120, Cisco 50/50, dispatch matrix 5/5</td></tr>
-              <tr><td>Canonical path smoke through Nginx</td><td><strong>6/6</strong></td></tr>
-              <tr><td>Canonical, authority, and lane parity gate</td><td>68 passed</td></tr>
-              <tr><td>Clarification persistence</td><td>6 passed; live smoke resume recorded 20 events and handoff v2 <code>plan_committed</code></td></tr>
-              <tr><td>Plan checklist (canonical cutover)</td><td>41 / 41</td></tr>
-              <tr><td>Production DB migrations</td><td><code>/health</code> reports <code>ready=true</code>, versions <code>0001</code>–<code>0006</code> applied</td></tr>
-              <tr><td>Counts re-verified for this revision (2026-08-08)</td><td>use-case catalog <strong>65</strong>; planning events <strong>8 + 20 = 28</strong>; skills registry <strong>19</strong> (8 routable); MITRE coverage <strong>98 / 12 / 86</strong> — all read from live code, not carried forward</td></tr>
+              <tr><td>Governance regression</td><td>PASS recorded 2026-08-19 — harness 6/6, Cisco 50/0/0, dispatch matrix 5/5, protected manifest 15/15</td></tr>
+              <tr><td>Counts re-verified for this revision (2026-09-14 @ <code>4040aae</code>)</td><td>use-case catalog <strong>42</strong>; planning events <strong>8 + 20 = 28</strong>; skills registry <strong>19</strong> (8 routable); MITRE coverage last freeze <strong>98 / 12 / 86</strong> (not re-exported this pass)</td></tr>
             </tbody>
           </table>
         </div>
@@ -4320,10 +4566,9 @@ Turn 2   session context finds the pin → handoff_resume
         </div>
 
         <div class="note warn">
-          <strong>Still open (non-blocking):</strong> live-synthesis cold/warm baseline and SLO targets are deferred —
-          Phase 1 turn-timing instrumentation is deployed; probes on this VPS measured 90–240 seconds per turn
-          when live narration is enabled (latency, not correctness). Optional live Splunk MCP wire-schema
-          sign-off remains operator-driven when credentials are added. Read-only/advisory hooks intentionally
+          <strong>Still open (non-blocking):</strong> production GO remains deferred. F3 T4 serving and live Splunk MCP
+          remain unproven. Live-synthesis cold/warm baseline and SLO targets are deferred. Domain execution
+          agents and live remediation connectors are not claimed. Read-only/advisory hooks intentionally
           lack durable per-hook replay; they do not duplicate external MCP search side effects.
         </div>
 
@@ -4337,9 +4582,9 @@ Turn 2   session context finds the pin → handoff_resume
       </section>
 
       <div class="foot">
-        AI SOC Assistant — query flow explainer · self-contained HTML · one canonical spine<br />
-        Structure rebuilt and counts re-verified 2026-08-08 against <code>master@1681f90</code>;
-        cutover evidence figures verified 2026-07-31 against <code>master@65eacfc</code>.
+        AI SOC Assistant — query flow explainer · self-contained HTML · eight-stage floor + COE overlay<br />
+        Architecture refresh 2026-09-14 against <code>4040aae</code> (<code>fix/investigation-loop-plan-convergence</code>);
+        earlier cutover evidence figures remain historical (2026-07-31 @ <code>65eacfc</code>).
       </div>
 
       <!-- Legacy anchors from earlier revisions of this page. Section ids #s1..#s24
@@ -4461,7 +4706,7 @@ Turn 2   session context finds the pin → handoff_resume
       receive: { name: "Stage 1 · Receive the SOC question", nodes: ["q-receive"],
         text: "The analyst's question arrives with approved conversation context carried forward. Nothing is decided yet — no route, no tier, no evidence." },
       recognize: { name: "Stage 2 · Recognize the request", nodes: ["q-recognize"],
-        text: "The request is matched against the governed catalogue and given an initial T0–T4 recognition tier. " + LLM + " — it can suggest a route, but the suggestion is advisory: the deterministic registry must validate it before it can win, and an unvalidated suggestion is discarded." },
+        text: "T1–T3 either ACCEPT a complete governed match or ABSTAIN completely. " + LLM + " as a route advisor is optional and must be registry-validated. After ABSTAIN, T4 may run meaning-only understanding; DET validation produces Final RQC. T4 is not the investigation planner." },
       stage4: { name: "Stage 4 · Four planning auditors, in parallel", nodes: ["stage4"],
         text: "Routing contract, knowledge coverage, MCP readiness, and SPL readiness all run — on every planned path, not just this one. They fill only the plan blanks they own. None of them may re-pick the skill, rewrite intent, create a plan, or execute a tool." },
       merge: { name: "Stage 5 · Merge and validate the reports", nodes: ["merge"],
@@ -4503,7 +4748,7 @@ Turn 2   session context finds the pin → handoff_resume
           WALK_COMMON.receive,
           WALK_COMMON.recognize,
           { name: "Not recognized · initial T4", nodes: ["t4-entry"],
-            text: "No governed match. The turn does not guess — it enters the guided lane and qualifies the request before choosing any work." },
+            text: "T1–T3 abstained. T4 may assist with meaning-only understanding; DET validation produces Final RQC. The turn then qualifies the request before choosing work." },
           { name: "Stage 3 · Reference qualification", nodes: ["ref-qualify"],
             text: "One question, answered by rule: can trusted knowledge answer this completely without checking the live environment? This is a deterministic decision, not an LLM classification." },
           { name: "Yes · T4 resolves to T0", nodes: ["ref-plan"],
@@ -4526,21 +4771,21 @@ Turn 2   session context finds the pin → handoff_resume
           WALK_COMMON.receive,
           WALK_COMMON.recognize,
           { name: "Not recognized · initial T4", nodes: ["t4-entry"],
-            text: "No governed match. The turn enters the guided lane and qualifies the request before choosing any work." },
+            text: "T1–T3 abstained. T4 is meaning-only. The turn enters the guided lane and qualifies the request before choosing any work." },
           { name: "Stage 3 · Reference qualification", nodes: ["ref-qualify"],
             text: "Can trusted knowledge answer this completely without live data? Here the deterministic answer is no." },
           { name: "No · the request stays T4", nodes: ["guided-plan"],
-            text: "A guided plan is committed instead: safe gaps and explicit limits. The turn will say what it cannot establish rather than inventing a route to establish it." },
+            text: "Guided investigation owns the turn. On COE this becomes an investigation envelope (Run / Edit / Cancel) rather than a review-only rescue. Floor without composable flags stays recommend-only." },
           WALK_COMMON.stage4,
           WALK_COMMON.merge,
           { name: "Stage 6 · Choose exactly one work path", nodes: ["choose"],
-            text: "When no execution route is safe or available, Stage 6 chooses D4. That is a decision, not a failure to decide." },
-          { name: "D4 · Stage 7 runs no evidence worker", nodes: ["d4", "w-none"],
-            text: "No retrieval, no SPL, no MCP call. The turn clarifies, blocks, or returns a typed failure — and says which." },
+            text: "Before Run, Stage 6 chooses D4 for awaiting_investigation_plan or other non-planned statuses. After Run, a composable investigation takes D2. That is a decision, not a failure to decide." },
+          { name: "D4 · Stage 7 runs no evidence worker until Run", nodes: ["d4", "w-none"],
+            text: "No retrieval, no SPL, no MCP call on this HIL stop. After Run, the next turn is planned and may walk D2 with a new exact-call grant per MCP." },
           { name: "Stage 8 · Nine governance checks, entering at check 8", nodes: ["chk8", "chk9"],
-            text: "D4 enters at check 8. It still builds an analyst card and still gets validated — a stopped turn is governed and recorded, never dropped silently." },
+            text: "D4 enters at check 8. It still builds an analyst card and still gets validated — a stopped or awaiting-plan turn is governed and recorded, never dropped silently." },
           { name: "Turn ends · Analyst card + durable trace", nodes: ["card"],
-            text: "The analyst gets an honest card: what was asked, what is missing, what is not permitted, and what to do next — plus the durable trace of every decision above." }
+            text: "The analyst gets an honest card: what was asked, the investigation plan if present, what is missing, and — if MCP is unavailable after approval — live read required with optional SPL as fallback, not completed review-only." }
         ]
       }
     };

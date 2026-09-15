@@ -85,6 +85,28 @@ _OT_PROTOCOL_TERMS: tuple[tuple[str, SignalClass], ...] = (
     ("pdc", "process_aware_ot"),
 )
 
+# Word-boundary only. Substring ``"ot" in "do not execute"`` previously
+# classified every remediation-prohibition query as OT / network_beacon.
+_OT_CONTEXT_RE = re.compile(r"\b(?:ot|scada|plcs?|substations?)\b", re.IGNORECASE)
+
+
+def _term_matches(term: str, text: str) -> bool:
+    """True when ``term`` appears as a whole token, not a substring of another word.
+
+    ``"recon" in "recommend"`` and ``"ot" in "not"`` must not classify SOC
+    investigation asks as OT protocol hunts.
+    """
+    if not term or not text:
+        return False
+    pattern = r"\b" + re.escape(term).replace(r"\ ", r"[\s-]+") + r"\b"
+    return bool(re.search(pattern, text, flags=re.IGNORECASE))
+
+
+def query_has_explicit_ot_context(query: str) -> bool:
+    """True only for explicit OT/SCADA/PLC/substation tokens, not the word 'not'."""
+    return bool(_OT_CONTEXT_RE.search(query or ""))
+
+
 _CLASS_DETECTORS: tuple[tuple[SignalClass, re.Pattern[str]], ...] = (
     ("protocol_command", re.compile(r"\b(dnp3|modbus(?:\s+tcp)?|iec[\s-]?61850|iec[\s-]?104|goose|mms|opc|unsolicited|function code|register write|connection churn)\b", re.I)),
     ("timing_integrity", re.compile(r"\b(ntp|irig[\s-]?b|time[\s-]?sync|clock|gps|stratum)\b", re.I)),
@@ -246,17 +268,99 @@ _TEMPLATES: dict[SignalClass, dict[str, list[str]]] = {
 }
 
 
+
+#: Vocabulary that ASSERTS an industrial/OT environment class. Used two ways: to
+#: detect which templates carry such an assumption, and to detect whether the ask
+#: actually corroborates it. Derived from the templates' own text, so a new
+#: template is covered without another rule.
+_ENVIRONMENT_ASSERTION_TERMS = (
+    "ot ",
+    "ot/",
+    "scada",
+    "ics",
+    "plc",
+    "purdue",
+    "substation",
+    "relay",
+    "ied",
+    "historian",
+    "jump host",
+    "segmented zone",
+    "diode",
+    "industrial",
+    "engineering workstation",
+    "physical-layer",
+    "one-way policy",
+)
+
+
+def _asserts_environment_class(entry: dict[str, list[str]]) -> bool:
+    blob = " ".join([*entry.get("hypotheses", []), *entry.get("evidence", [])]).lower()
+    return any(term in blob for term in _ENVIRONMENT_ASSERTION_TERMS)
+
+
+#: Templates whose semantic content presupposes an industrial/OT environment.
+_ENVIRONMENT_SCOPED_CLASSES = frozenset(
+    name for name, entry in _TEMPLATES.items() if _asserts_environment_class(entry)
+)
+
+
+#: Unambiguous industrial/OT estate vocabulary. Deliberately NOT derived from
+#: ``_OT_PROTOCOL_TERMS``: that table maps ordinary IT nouns (usb, wireless, vpn
+#: session, beacon, overnight, firmware) onto OT signal classes, which is precisely
+#: what let a laptop become an OT jump host. Corroboration needs terms that only an
+#: industrial estate uses.
+_OT_ESTATE_RE = re.compile(
+    r"\b(?:ot|scada|ics|plcs?|rtus?|ieds?|substations?|purdue|historian|"
+    r"dnp3|modbus|iec[\s-]?104|iec[\s-]?61850|goose|synchrophasor|opc|"
+    r"irig[\s-]?b|sldc|pmu|pdc|agc|data diode|port 502|"
+    r"industrial|process control|control system)\b",
+    re.IGNORECASE,
+)
+
+
+def _environment_class_corroborated(query: str, entities: dict[str, Any] | None) -> bool:
+    """True when the ask or governed entity context actually places this in an OT estate.
+
+    A technology noun does not imply an environment: USB appears on engineering
+    laptops, wireless in offices, PowerShell on developer workstations. Without
+    corroboration a template must not convert a laptop into an OT jump host or a
+    warehouse access point into an industrial control system.
+    """
+    if _OT_ESTATE_RE.search(query or ""):
+        return True
+    resolved = entities or {}
+    return bool(resolved.get("purdue_layers") or resolved.get("zone_labels"))
+
+
 def extract_ot_terms(query: str) -> list[str]:
-    normalized = query.lower()
     found: list[str] = []
     for term, _ in _OT_PROTOCOL_TERMS:
-        if term in normalized and term not in found:
+        if _term_matches(term, query) and term not in found:
             found.append(term)
     return found
 
 
+
+def _gated(
+    signal_class: SignalClass, query: str, entities: dict[str, Any] | None
+) -> SignalClass:
+    """Drop an environment-asserting class when the environment is not corroborated."""
+    if signal_class in _ENVIRONMENT_SCOPED_CLASSES and not _environment_class_corroborated(
+        query, entities
+    ):
+        return "unknown"
+    return signal_class
+
+
 def classify_signal_class(query: str, entities: dict[str, Any] | None = None) -> SignalClass:
-    """Deterministic signal-class classifier over query + entities."""
+    """Deterministic signal-class classifier over query + entities.
+
+    Compatibility gate: a class whose template asserts an industrial/OT
+    environment is only resolved when that environment is corroborated by the ask
+    or by governed entity context. Otherwise the generic skeleton is used, so the
+    template can enrich but never invent the environment class.
+    """
     from app.chat.query_signals import extract_query_signals, is_cve_focus_query
 
     if is_cve_focus_query(query):
@@ -272,12 +376,12 @@ def classify_signal_class(query: str, entities: dict[str, Any] | None = None) ->
     ).lower()
     combined = f"{normalized} {entity_text}".strip()
     for term, signal_class in _OT_PROTOCOL_TERMS:
-        if term in combined:
-            return signal_class
+        if _term_matches(term, combined):
+            return _gated(signal_class, query, entities)
     for signal_class, pattern in _CLASS_DETECTORS:
         if pattern.search(combined):
-            return signal_class
-    if any(term in normalized for term in ("ot", "scada", "plc", "substation")):
+            return _gated(signal_class, query, entities)
+    if _OT_CONTEXT_RE.search(normalized):
         access_markers = (
             "remote",
             "access",
@@ -406,7 +510,11 @@ def build_signal_class_guidance(query: str, entities: dict[str, Any] | None = No
     """Shaped hypotheses + evidence for the resolved signal class."""
     signal_class = classify_signal_class(query, entities)
     template = _TEMPLATES.get(signal_class)
-    ot_terms = extract_ot_terms(query)
+    ot_terms = (
+        extract_ot_terms(query)
+        if _environment_class_corroborated(query, entities)
+        else []
+    )
     term_line = f"Detected OT/protocol signals: {', '.join(ot_terms)}.\n\n" if ot_terms else ""
     if template is None:
         return (
@@ -416,7 +524,7 @@ def build_signal_class_guidance(query: str, entities: dict[str, Any] | None = No
             "Hypotheses\n- Expected operational activity or a recent approved change.\n"
             "- Telemetry drift producing an apparent anomaly.\n"
             "- Suspicious activity requiring corroboration across independent sources.\n\n"
-            "Evidence to collect\n- Relevant OT/IT logs for a bounded time window.\n"
+            "Evidence to collect\n- Relevant logs for a bounded time window.\n"
             "- Asset ownership, criticality, baseline, and recent change history.\n"
             "- Peer comparison and first-seen analysis.\n\n"
             "Limitations: no live query was run; no MITRE technique or severity is claimed."

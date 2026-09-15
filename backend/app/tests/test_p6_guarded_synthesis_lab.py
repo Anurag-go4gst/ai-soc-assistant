@@ -189,3 +189,32 @@ def test_synthesis_lab_completes_when_ready(monkeypatch: pytest.MonkeyPatch) -> 
     assert result.draft is not None
     assert result.draft.get("execution_eligible") is False
     assert result.analyst_summary
+
+
+def test_completed_investigation_gets_deterministic_draft_when_live_flag_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_soc_llm_final_synthesis_enabled", False)
+    monkeypatch.setattr(settings, "ai_soc_llm_live_synthesis_enabled", False)
+    result = run_governed_synthesis_lab(
+        structured_context=_structured_context(),
+        source_evidence=_source_evidence(),
+        context_sufficiency=_sufficiency_ready(),
+        mitre_mappings=[],
+        action_capability=action_capability_for(None, None),
+        severity_label="Not assigned from this question alone",
+        spl_validation={"approved": True, "normalized_spl": "index=pgcil_soc | stats count"},
+        human_review=None,
+        investigation_outcome={
+            "investigation_status": "completed",
+            "disposition": "suspicious",
+            "findings": ["host=WS-14 process=powershell.exe dest=198.51.100.88"],
+            "missing_evidence": [],
+            "recommended_next_action": "Create a remediation plan",
+            "evidence_refs": ["ev-1"],
+        },
+    )
+    assert result.status.status == "completed"
+    assert result.analyst_summary
+    assert "powershell" in result.analyst_summary.lower() or "dest=" in result.analyst_summary.lower()
+    assert "suspicious" in result.analyst_summary.lower()

@@ -255,6 +255,10 @@ def test_success_after_failure_draft_correlates_failure_then_success(
     assert "failure_count" in spl and "success_count" in spl
     assert "last_success_epoch>first_failure_epoch" in spl  # success must follow failure
     assert "by user_norm" in spl  # correlate per user
+    assert "src_ip_norm" in spl and "host_norm" in spl
+    assert "by user_norm, src_ip_norm, host_norm" in spl or (
+        "by user_norm" in spl and "src_ip_norm" in spl.split("by", 1)[-1]
+    )
     assert preview["hard_fail_count"] == 0
     assert preview["governed"] is False
     assert preview["execution_enabled"] is False

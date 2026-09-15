@@ -22,6 +22,7 @@ from app.connectors.mcp.mock import MockMcpConnector
 from app.connectors.mcp.tls_config import token_reference_configured
 from app.connectors.mcp.registry import McpRegistryStatus, load_mcp_registry_status
 from app.connectors.mcp.splunk_result_adapter import adapt_mcp_search_payload, execution_preview_from_envelope
+from app.chat.contracts.investigation_envelope import envelope_authorizes_search
 from app.config import settings
 from app.connectors.mcp.splunk_mcp_readiness import splunk_saved_search_tool_arguments, splunk_search_tool_arguments
 from app.connectors.telemetry import get_telemetry_connector
@@ -174,6 +175,7 @@ def evaluate_mcp_execution(
         rbac_role=session_role_for_mcp_gate(rbac_role),
         mcp_capability=mcp_capability,
         effective_catalog=effective_catalog,
+        approved_investigation_envelope=approved_investigation_envelope,
     )
     telemetry.record_mcp_execution(trace_id, event_type="mcp_tool_selection", **_selection_event(selection))
 
@@ -212,6 +214,7 @@ def evaluate_mcp_execution(
         selected_mcp_tool=str(selection["selected_mcp_tool"]),
         registry=registry,
         execution_intent=execution_intent,
+        approved_investigation_envelope=approved_investigation_envelope,
     )
     if review["required"]:
         execution = _blocked_execution(selection, "requires_human_review", review["reason"])
@@ -603,11 +606,14 @@ def _gate_review(
     selected_mcp_tool: str,
     registry: Any,
     execution_intent: str = "spl_search",
+    approved_investigation_envelope: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     read_only = execution_intent in READ_ONLY_EXECUTION_INTENTS
     saved_search = execution_intent == "saved_search_execution" or selected_mcp_tool == "splunk_run_saved_search"
     if not read_only:
-        if selected_skill not in EXECUTION_ELIGIBLE_SKILLS:
+        if selected_skill not in EXECUTION_ELIGIBLE_SKILLS and not envelope_authorizes_search(
+            approved_investigation_envelope
+        ):
             return _review("tool_selection_review", "skill_not_execution_eligible")
         if saved_search:
             if not settings.splunk_allow_run_saved_search:

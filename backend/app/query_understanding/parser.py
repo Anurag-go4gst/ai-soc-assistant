@@ -12,6 +12,7 @@ from app.query_understanding.soc_investigation_shape import (
 )
 from app.chat.answer_shape_router import classify_answer_shape
 from app.chat.query_signals import detect_security_log_aggregation_investigation_query
+from app.query_understanding.success_after_failure import detect_success_after_failure
 from app.query_understanding.time_window import normalize_time_window
 from app.use_cases.registry import load_use_case_catalog, match_use_cases
 from app.use_cases.routing_authority import catalog_authority_row, llm_advisory_recommended
@@ -23,7 +24,39 @@ ALERT_RE = re.compile(r"\b(?:alert_id|alert|notable|event_id|eventid)[:=]\s*([A-
 HOST_RE = re.compile(r"\b(?:host|asset)[:=]\s*([A-Za-z0-9_.:-]+)", re.IGNORECASE)
 USER_RE = re.compile(r"\buser[:=]\s*([A-Za-z0-9_.@-]+)", re.IGNORECASE)
 _HOST_BARE_RE = re.compile(r"\b(?:on|from)\s+([A-Za-z0-9][A-Za-z0-9_.-]{2,})\b", re.IGNORECASE)
-_HOST_BARE_STOPWORDS = frozenset({"host", "user", "from", "on", "the", "a", "an", "our", "this", "that"})
+#: Shape of a host identifier: contains a digit, dot, hyphen or underscore, or is
+#: an all-caps short label (PDC, DMZ01). A bare all-alphabetic English word after
+#: "on"/"from" is prose, not a hostname — "distinguish evidence from coincidence"
+#: must not bind an asset named "coincidence". Blocklisting English is unbounded,
+#: so require positive host morphology instead and fail closed: an entity we
+#: cannot distinguish from prose is worse than an absent one, because it scopes
+#: the whole investigation to an asset that does not exist.
+_HOST_IDENTIFIER_SHAPE_RE = re.compile(r"[0-9._-]")
+_HOST_BARE_STOPWORDS = frozenset(
+    {
+        "host",
+        "user",
+        "from",
+        "on",
+        "the",
+        "a",
+        "an",
+        "our",
+        "this",
+        "that",
+        # Determiners and quantities after "on"/"from" describe a noun phrase;
+        # they are not host identifiers (for example, "from several systems").
+        "one",
+        "another",
+        "same",
+        "each",
+        "every",
+        "some",
+        "any",
+        "several",
+        "multiple",
+    }
+)
 _USER_BARE_RE = re.compile(r"\buser\s+([A-Za-z0-9][A-Za-z0-9_.@-]{1,})\b", re.IGNORECASE)
 _USER_BARE_STOPWORDS = frozenset(
     {
@@ -210,6 +243,17 @@ def _requested_output(normalized: str, use_case_template: str | None) -> tuple[R
     return RequestedOutputType.CLARIFICATION, OutputTemplate.CLARIFICATION_RESPONSE
 
 
+def _looks_like_host_identifier(token: str) -> bool:
+    """True when a bare token has the shape of a machine identifier.
+
+    Accepts ``srv1``, ``APP-01``, ``win_ws.corp`` and all-caps labels; rejects
+    ordinary lowercase prose such as ``coincidence`` or ``yesterday``.
+    """
+    if _HOST_IDENTIFIER_SHAPE_RE.search(token):
+        return True
+    return token.isupper()
+
+
 def _entities(query: str) -> QueryEntities:
     ips = IP_RE.findall(query)
     hosts = list(HOST_RE.findall(query))
@@ -219,6 +263,8 @@ def _entities(query: str) -> QueryEntities:
         if token.lower() in _HOST_BARE_STOPWORDS:
             continue
         if token in ips:
+            continue
+        if not _looks_like_host_identifier(token):
             continue
         if match.upper() not in {h.upper() for h in hosts}:
             hosts.append(match)
@@ -301,11 +347,23 @@ def _event_types(query: str) -> list[str]:
         or "failed authentication" in normalized
         or "authentication failure" in normalized
         or "authentication failures" in normalized
-        or ("failed" in normalized and any(tok in normalized for tok in ("ssh", "login", "logon", "auth")))
+        or (
+            "failed" in normalized
+            and any(
+                tok in normalized
+                for tok in ("ssh", "login", "logon", "auth", "mfa", "sign-in", "sign in", "signin")
+            )
+        )
     )
+    if detect_success_after_failure(normalized):
+        auth_failure = True
     if auth_failure:
         types.append("authentication_failure")
-    if "success" in normalized or "successful login" in normalized:
+    if (
+        "success" in normalized
+        or "successful login" in normalized
+        or detect_success_after_failure(normalized)
+    ):
         types.append("authentication_success")
     if "lockout" in normalized or "locked" in normalized:
         types.append("account_lockout")

@@ -22,7 +22,7 @@ from app.chat.canonical_handoff_repository import (
     test_store_read,
     test_store_write,
 )
-from app.chat.canonical_handoff_store import get_handoff, save_handoff
+from app.chat.canonical_handoff_store import get_handoff, get_latest_handoff, save_handoff
 from app.chat.contracts.canonical_planning_outcome import awaiting_investigation_plan_outcome, planned_outcome
 from app.chat.contracts.investigation_envelope import (
     ApprovedInvestigationEnvelope,
@@ -455,6 +455,46 @@ def _advance_review(
     return run_in_canonical_unit_of_work(_txn)
 
 
+def _resume_query_to_intent(
+    state: dict[str, Any],
+    *,
+    record: CanonicalHandoffRecord,
+    canonical: dict[str, Any],
+    routed: dict[str, Any],
+    intent: dict[str, Any],
+) -> dict[str, Any]:
+    """Rebuild the query_to_intent contract for an investigation-review turn.
+
+    Reuses the clarification-resume reconstruction rather than adding a second
+    resume mechanism; the envelope's own ``intent_classification`` always wins so
+    the approval's HIL semantics survive.
+    """
+    from app.chat.canonical_query_to_intent_resume import (
+        reconstruct_query_to_intent_for_resume,
+    )
+    from app.chat.intent_classifier import build_query_to_intent
+
+    request = state.get("request")
+    query = str(state.get("effective_query") or getattr(request, "message", "") or "")
+    query_understanding = state.get("query_understanding")
+    payload = reconstruct_query_to_intent_for_resume(
+        resumed_record=record,
+        merged_canonical=canonical,
+        query=query,
+        query_understanding=query_understanding,
+        routed=routed,
+    )
+    if payload is None:
+        payload = build_query_to_intent(
+            query=query,
+            query_understanding=query_understanding,
+        ).model_dump()
+    payload = dict(payload)
+    payload["intent_classification"] = intent
+    payload["investigation_review_resume"] = True
+    return payload
+
+
 def maybe_handle_investigation_review(state: dict[str, Any]) -> dict[str, Any] | None:
     """Handle an explicitly version-bound investigation decision before replanning."""
     if not settings.ai_soc_investigation_plan_before_resource_plan_enabled:
@@ -498,10 +538,23 @@ def maybe_handle_investigation_review(state: dict[str, Any]) -> dict[str, Any] |
         }
     intent["requires_clarification"] = approval.status == "replanning_required"
     intent["requires_hil"] = True
+    # This handler short-circuits the planning node, so it owns every contract
+    # that node would otherwise have produced. Without ``query_to_intent`` the
+    # downstream SPL/dispatch stage fails closed on `missing_query_to_intent`,
+    # the compiled ResourcePlan is discarded, and an approved investigation
+    # degrades into a RAG-only answer with no execution decision at all.
+    query_to_intent = _resume_query_to_intent(
+        state,
+        record=record,
+        canonical=canonical,
+        routed=routed,
+        intent=intent,
+    )
     outcome = awaiting_investigation_plan_outcome(canonical_input=canonical)
     next_state = {
         **state,
         "routed": routed,
+        "query_to_intent": query_to_intent,
         "intent_classification": intent,
         "resolved_query_contract": rqc,
         "canonical_planning_input": canonical,
@@ -552,3 +605,144 @@ def maybe_handle_investigation_review(state: dict[str, Any]) -> dict[str, Any] |
             "investigation_phase_contract": compiled.phase_contract.trace_payload(),
         }
     return next_state
+
+
+def _hydrate_approved_investigation(
+    state: dict[str, Any],
+    *,
+    record: CanonicalHandoffRecord,
+    compile_run: bool,
+) -> dict[str, Any]:
+    """Restore an approved investigation envelope onto pipeline state."""
+    canonical = dict(record.canonical_planning_input or {})
+    hil = _as_dict(canonical.get(_HIL_KEY))
+    rqc = _as_dict(hil.get("resolved_query_contract") or canonical.get("resolved_query_contract"))
+    approval_raw = _as_dict(_as_dict(canonical.get(_DECISION_KEY)).get("approval"))
+    if not approval_raw.get("approved_envelope") and canonical.get("approved_investigation_envelope"):
+        approval_raw = {
+            **approval_raw,
+            "status": approval_raw.get("status") or "approved",
+            "approved_envelope": canonical.get("approved_investigation_envelope"),
+            "validated_plan": approval_raw.get("validated_plan") or hil.get("validated_investigation_plan"),
+            "handoff_id": record.handoff_id,
+            "handoff_version": record.handoff_version,
+        }
+    approval = InvestigationApprovalState.model_validate(approval_raw)
+    routing = _as_dict(canonical.get("routing"))
+    skill = str(routing.get("primary_skill") or record.original_skill or "guided_investigation")
+    routed = _as_dict(hil.get("routed")) or dict(state.get("routed") or {})
+    routed.update({"skill": skill, "confidence": 1.0, "tool_plan": []})
+    intent = _as_dict(hil.get("intent_classification"))
+    if not intent:
+        answer_goal = str(routing.get("answer_goal") or rqc.get("answer_goal") or "live_results")
+        intent = {
+            "primary_intent": skill,
+            "intent_family": str(routing.get("intent_family") or rqc.get("intent_family") or "live_investigation"),
+            "query_type": "ask_for_live_results",
+            "answer_goal": [answer_goal],
+            "answer_goal_primary": answer_goal,
+            "confidence": 1.0,
+            "confidence_band": "high",
+            "requires_clarification": False,
+            "requires_hil": True,
+            "action_mode": "hil_required",
+            "reason": "investigation_envelope_review_resume",
+        }
+    intent["requires_clarification"] = approval.status == "replanning_required"
+    intent["requires_hil"] = True
+    query_to_intent = _resume_query_to_intent(
+        state,
+        record=record,
+        canonical=canonical,
+        routed=routed,
+        intent=intent,
+    )
+    outcome = awaiting_investigation_plan_outcome(canonical_input=canonical)
+    next_state = {
+        **state,
+        "routed": routed,
+        "query_to_intent": query_to_intent,
+        "intent_classification": intent,
+        "resolved_query_contract": rqc,
+        "canonical_planning_input": canonical,
+        "canonical_planning_outcome": outcome.model_dump(mode="json"),
+        "capability_snapshot": _as_dict(hil.get("capability_snapshot")),
+        "validated_investigation_plan": approval.validated_plan,
+        "investigation_approval": approval.model_dump(mode="json"),
+        "approved_investigation_envelope": (
+            approval.approved_envelope.model_dump(mode="json")
+            if approval.approved_envelope is not None
+            else None
+        ),
+        "handoff_id": record.handoff_id,
+        "handoff_version": record.handoff_version,
+        "pending_handoff_id": record.handoff_id,
+        "pending_handoff_version": record.handoff_version,
+        "investigation_approval_action_handled": True,
+    }
+    for key in ("evidence_plan", "execution", "mcp_evidence"):
+        next_state.pop(key, None)
+    if (
+        compile_run
+        and approval.approved_envelope is not None
+        and settings.ai_soc_resource_plan_execution_enabled
+    ):
+        from app.chat.contracts.resolved_query import ResolvedQueryContract
+        from app.chat.plan_evidence_from_canonical import compile_approved_investigation
+
+        compiled = compile_approved_investigation(
+            envelope=approval.approved_envelope,
+            validated_plan=ValidatedInvestigationPlan.model_validate(approval.validated_plan),
+            resolved_query_contract=ResolvedQueryContract.model_validate(rqc),
+            handoff_id=record.handoff_id,
+            handoff_version=record.handoff_version,
+            use_case_id=record.original_use_case_id,
+        )
+        evidence_payload = compiled.evidence_plan.model_dump(mode="json")
+        resource_payload = compiled.resource_plan.model_dump(mode="json")
+        compiled_outcome = planned_outcome(
+            canonical_input=canonical,
+            evidence_plan=evidence_payload,
+            resource_plan=resource_payload,
+        )
+        next_state = {
+            **next_state,
+            "canonical_planning_outcome": compiled_outcome.model_dump(mode="json"),
+            "evidence_plan": evidence_payload,
+            "investigation_phase_contract": compiled.phase_contract.trace_payload(),
+        }
+    return next_state
+
+
+def maybe_resume_approved_investigation_execution(state: dict[str, Any]) -> dict[str, Any] | None:
+    """Resume an already-approved investigation for per-call execution confirmation.
+
+    Confirm/deny is not a new investigation. Re-entering the plan-before-resource
+    wait would drop the immutable envelope and invent a second planner turn.
+    """
+    if not settings.ai_soc_investigation_plan_before_resource_plan_enabled:
+        return None
+    request = state.get("request")
+    action = str(getattr(request, "execution_review_action", "") or "").strip().lower()
+    if action not in {"confirm", "deny", "reject"}:
+        return None
+    pins = state.get("session_pins")
+    if pins is None:
+        resolution = state.get("session_context_resolution")
+        pins = getattr(resolution, "pins", None)
+    handoff_id = getattr(pins, "pending_handoff_id", None) if pins is not None else None
+    version = getattr(pins, "pending_handoff_version", None) if pins is not None else None
+    if not handoff_id:
+        handoff_id = state.get("pending_handoff_id")
+        version = state.get("pending_handoff_version")
+    if not handoff_id:
+        return None
+    record = get_handoff(str(handoff_id), int(version or 1))
+    if record is None or record.normalized_status() not in {"investigation_approved", "plan_committed"}:
+        record = get_latest_handoff(str(handoff_id))
+    if record is None or record.normalized_status() not in {"investigation_approved", "plan_committed"}:
+        return None
+    hydrated = _hydrate_approved_investigation(state, record=record, compile_run=True)
+    if hydrated.get("approved_investigation_envelope") is None:
+        return None
+    return hydrated

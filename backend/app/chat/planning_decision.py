@@ -397,6 +397,16 @@ def _resolve_path_type(
     if plan.get("needs_mitre"):
         return "mitre_context_required" if bool(intent.get("requires_clarification")) else "hybrid_investigation"
 
+    if family in {
+        "live_investigation",
+        "hybrid_investigation",
+        "hybrid_investigation_plus_policy",
+    } or str(plan.get("answer_mode") or "") == "live_investigation":
+        # Live investigation is a catalogue/hunt read request. Falling through to
+        # generic_soc_guidance stripped the bound use case and treated MCP-off as
+        # "not required" instead of "required but unavailable".
+        return "hybrid_investigation"
+
     if runtime_status in {"metadata_only", "planned", "unsupported"} and not plan.get("needs_rag"):
         return "generic_soc_guidance"
 

@@ -56,6 +56,33 @@ def test_hybrid_alert_review_shows_mitre_spl_not_policy() -> None:
     assert contract.render_sections["policy_citation"] is False
 
 
+def test_rag_context_cannot_relabel_normalized_spl_not_required() -> None:
+    from app.chat.rag_answer_surfacing import _enhance_contract_for_rag_surfacing
+
+    contract = build_answer_contract(
+        intent_classification={"intent_family": "live_investigation", "answer_goal": ["live_results"]},
+        evidence_plan={"answer_mode": "live_investigation", "mcp_allowed": False, "spl_allowed": True},
+        mitre_decision={},
+        severity_decision=None,
+        spl_validation={"approved": True, "normalized_spl": "index=x | stats count"},
+        execution={"status": "skipped"},
+        human_review={"required": False},
+    )
+    contract = contract.model_copy(
+        update={
+            "spl_normalized": True,
+            "spl_validated": True,
+            "spl_status": "ready_for_review",
+            "run_contract_mirrored": True,
+        }
+    )
+    enriched = _enhance_contract_for_rag_surfacing(contract)
+    assert enriched.spl_normalized is True
+    assert enriched.spl_status == "ready_for_review"
+    assert enriched.spl_present is True
+    assert enriched.render_sections["policy_citation"] is True
+
+
 def test_lab_draft_contract_status_is_draft_preview() -> None:
     contract = build_answer_contract(
         intent_classification={

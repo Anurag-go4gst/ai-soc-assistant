@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.chat.contracts.investigation_envelope import envelope_authorizes_search
 from app.config import settings
 from app.connectors.mcp.discovery import BLOCKED_TOOL_TOKENS, safe_tool_name
 from app.connectors.mcp.effective_catalog import EffectiveCatalogResult
@@ -30,6 +31,7 @@ def select_mcp_tool(
     rbac_role: str | None = None,
     mcp_capability: str | None = None,
     effective_catalog: "EffectiveCatalogResult | None" = None,
+    approved_investigation_envelope: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     rbac_role = session_role_for_mcp_gate(rbac_role)
     registry = registry or load_mcp_registry_status()
@@ -74,7 +76,12 @@ def select_mcp_tool(
         user_requested_mcp_tool = resolved_tool_name
         capability_resolved = True
 
-    review = _preflight_review(selected_skill, execution_intent, spl_validation)
+    review = _preflight_review(
+        selected_skill,
+        execution_intent,
+        spl_validation,
+        approved_investigation_envelope=approved_investigation_envelope,
+    )
     if review:
         return _result(
             trace_id=trace_id,
@@ -179,7 +186,12 @@ def _rbac_review(trace_id: str, execution_intent: str, tool_name: str, rbac_role
     return _review_result(trace_id, execution_intent, "policy_exception_request", reason)
 
 
-def _preflight_review(selected_skill: str, execution_intent: str, spl_validation: dict[str, Any] | None) -> dict[str, Any] | None:
+def _preflight_review(
+    selected_skill: str,
+    execution_intent: str,
+    spl_validation: dict[str, Any] | None,
+    approved_investigation_envelope: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     if execution_intent not in SUPPORTED_EXECUTION_INTENTS:
         return human_review(
             "tool_selection_review",
@@ -190,7 +202,9 @@ def _preflight_review(selected_skill: str, execution_intent: str, spl_validation
         )
     if execution_intent in READ_ONLY_EXECUTION_INTENTS:
         return None
-    if selected_skill not in EXECUTION_ELIGIBLE_SKILLS:
+    if selected_skill not in EXECUTION_ELIGIBLE_SKILLS and not envelope_authorizes_search(
+        approved_investigation_envelope
+    ):
         return human_review(
             "tool_selection_review",
             "skill_not_execution_eligible",

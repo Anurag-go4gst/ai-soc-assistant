@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from app.chat.llm_interaction_trace import capture_llm_interaction
+from app.chat.llm_interaction_trace import annotate_last_llm_interaction, capture_llm_interaction
 from app.config import settings
 from app.llm.adapter import adapt_llm_output
 from app.llm.clients import LocalChatClient, LocalChatError, build_synthesis_client_from_settings
@@ -418,6 +418,15 @@ def generate_llm_spl_fallback(
 
     validation = validate_spl(candidate_spl)
     if quality.hard_fail_count > 0:
+        annotate_last_llm_interaction(
+            SPL_ADVISORY_ROLE,
+            quality_status=quality_payload["quality_status"],
+            reject_reasons=[CLARIFICATION_QUALITY_FAILED],
+            accepted=False,
+            contributed_to_final_output=False,
+            fallback_selected=True,
+            fallback_reason=CLARIFICATION_QUALITY_FAILED,
+        )
         return LlmSplFallbackResult(
             candidate_spl="",
             approved=False,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -11,9 +12,11 @@ from app.llm.adapter.schemas import InvestigationPlanProposalPayload
 from app.llm.adapter.output_preprocessor import INVESTIGATION_PLAN_SCHEMA, preprocess_llm_output
 from app.llm.sidecar_clients import invoke_sidecar_role_with_metadata, sidecar_timeout_seconds
 from app.llm.sidecar_governance import t4_circuit_status
+from app.safeguards.trust_boundary import CONTROL_PREAMBLE, wrap_untrusted_source
 
 INVESTIGATION_PLAN_ROLE = "investigation_planner"
 _PROPOSE_TIMEOUT_SECONDS = 120.0
+_PROPOSE_MAX_OUTPUT_TOKENS = 1200
 
 INVESTIGATION_PLAN_PROPOSE_JSON_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -93,22 +96,66 @@ def _map_llm_payload_to_proposal(payload: dict[str, Any]) -> dict[str, Any]:
         "dependencies": payload.get("dependencies") or [],
         "conditions": payload.get("conditions") or [],
         "success_criteria": payload.get("success_criteria") or [],
-        # No case-specific capability vocabulary crosses the model boundary.
-        "capability_requests": [],
+        # Advisory only: `_capability_bindings` drops anything not present in the
+        # CapabilitySnapshot, not read-only, or classified blocked.
+        "capability_requests": payload.get("capability_requests") or [],
     }
     if objective:
         proposal["investigation_objective"] = objective
     return proposal
 
 
-def _build_user_prompt() -> str:
-    return (
-        "Propose a generic read-only SOC investigation-plan structure. No case data is supplied. "
-        "Return only valid JSON matching the schema. No markdown, no explanation outside JSON, "
-        "no hidden reasoning, no scratchpad, no planning text, and no <think> tags. Do not emit "
-        "raw SPL, execution flags, severity, route changes, authorization, remediation actions, "
-        "entities, targets, time scopes, environment metadata, source names, or tool names. "
-        "capability_requests must be an empty list."
+_MAX_CONTEXT_ITEMS = 12
+
+
+def _plan_context(baseline: InvestigationPlan, capability_ids: list[str]) -> dict[str, Any]:
+    """Bounded, already-governed planning context for the reasoning role.
+
+    Everything here is derived from the Final RQC and the deterministic baseline
+    that DET has already committed. It is grounding, not authority: the proposal
+    is still merged only through ``validate_investigation_plan``, which drops
+    unsafe text, unknown capabilities and forbidden authority fields.
+    """
+    return {
+        "investigation_objective": baseline.investigation_objective,
+        "already_planned_hypotheses": list(baseline.hypotheses)[:_MAX_CONTEXT_ITEMS],
+        "already_planned_evidence": list(baseline.evidence_needed)[:_MAX_CONTEXT_ITEMS],
+        "data_categories": list(baseline.data_categories)[:_MAX_CONTEXT_ITEMS],
+        "known_constraints": list(baseline.environment_constraints)[:_MAX_CONTEXT_ITEMS],
+        "available_read_capability_ids": capability_ids[:_MAX_CONTEXT_ITEMS],
+    }
+
+
+def _build_user_prompt(
+    *,
+    query: str,
+    baseline: InvestigationPlan,
+    capability_ids: list[str],
+) -> str:
+    """Prompt the planner about THIS investigation, inside the trust boundary.
+
+    A planner given no case data can only return generic SOC filler, which the
+    validator then merges into the analyst-visible plan — an auth checklist on a
+    DNS/firewall investigation. The query is labelled untrusted input (§2.8) and
+    the model still receives no evidence rows, no credentials and no raw SPL.
+    """
+    context = json.dumps(_plan_context(baseline, capability_ids), separators=(",", ":"))
+    return "\n".join(
+        [
+            CONTROL_PREAMBLE,
+            "Propose read-only SOC investigation-plan fields for the request below. "
+            "Extend the already-planned items; do not restate them and do not "
+            "contradict them.",
+            wrap_untrusted_source("user_query", query),
+            f"PLANNING_CONTEXT: {context}",
+            "Return only valid JSON matching the schema. No markdown, no explanation "
+            "outside JSON, no hidden reasoning, no scratchpad, no planning text, and no "
+            "<think> tags. Do not emit raw SPL, execution flags, severity, route changes, "
+            "authorization, or remediation actions. read_only_tools and capability_requests "
+            "may only contain ids from available_read_capability_ids; use an empty list when "
+            "unsure. Every hypothesis and evidence item must be relevant to this request.",
+            "ANSWER:",
+        ]
     )
 
 
@@ -137,9 +184,14 @@ def propose_investigation_plan_llm(
     baseline: InvestigationPlan,
     llm_raw_output_provider: Any | None = None,
     turn_budget: Any | None = None,
+    capability_ids: list[str] | None = None,
 ) -> InvestigationPlanLlmResult:
     """Invoke bounded LLM propose; caller runs Validator A on the returned proposal."""
-    user_prompt = _build_user_prompt()
+    user_prompt = _build_user_prompt(
+        query=query,
+        baseline=baseline,
+        capability_ids=list(capability_ids or []),
+    )
     started = time.monotonic()
     circuit_state: str | None = None
     human_action_required = False
@@ -166,7 +218,10 @@ def propose_investigation_plan_llm(
         invocation = invoke_sidecar_role_with_metadata(
             role=INVESTIGATION_PLAN_ROLE,
             user_prompt=user_prompt,
-            max_tokens=700,
+            # A case-grounded proposal is longer than the generic skeleton this
+            # budget was sized for; at 700 the JSON object truncates mid-array and
+            # the whole proposal is dropped as unparseable (measured).
+            max_tokens=_PROPOSE_MAX_OUTPUT_TOKENS,
             timeout_seconds=hop_timeout,
             temperature=0.0,
             allow_failover=False,

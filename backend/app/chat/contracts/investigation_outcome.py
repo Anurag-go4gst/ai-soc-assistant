@@ -11,7 +11,13 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from app.actions.capability_policy import ActionCapability, BLOCKED_EXECUTION_ACTIONS
+from app.chat.hypothesis_assessment import public_hypothesis_lists
 from app.chat.investigation_shaped import investigation_outcome_applicable
+from app.chat.analyst_missing_evidence import (
+    analyst_limitations,
+    project_missing_evidence,
+)
+
 
 SCHEMA_VERSION = "investigation_outcome_v1"
 SCHEMA_VERSION_V2 = "investigation_outcome_v2"
@@ -20,6 +26,20 @@ Disposition = Literal["suspicious", "benign", "inconclusive", "blocked"]
 SecurityDisposition = Literal["suspicious", "benign", "inconclusive"]
 InvestigationStatus = Literal["completed", "incomplete", "blocked", "cancelled"]
 _HIGH_SEVERITY = ("P1", "P2")
+_ENVIRONMENT_OBTAINED_KEYS = frozenset(
+    {
+        "mcp",
+        "endpoint",
+        "process_execution",
+        "auth",
+        "identity",
+        "network_flows",
+        "firewall_sessions",
+        "dns",
+        "egress_flows",
+        "executed_evidence",
+    }
+)
 
 
 class InvestigationOutcome(BaseModel):
@@ -76,6 +96,8 @@ def derive_investigation_outcome(
     investigation_run_status: dict[str, Any] | None = None,
     investigation_approval: dict[str, Any] | None = None,
     resolved_query_contract: dict[str, Any] | None = None,
+    investigation_plan: dict[str, Any] | None = None,
+    hypothesis_assessments: dict[str, Any] | None = None,
     outcome_v2_enabled: bool = False,
 ) -> InvestigationOutcome | InvestigationOutcomeV2:
     """Deterministic outcome from existing governed packages. LLM proposal is advisory."""
@@ -105,16 +127,41 @@ def derive_investigation_outcome(
         for fact in structured.get("structured_facts") or []
         if isinstance(fact, dict) and fact.get("statement") and fact.get("source_refs")
     ]
-    missing = list(sufficiency.get("missing") or evidence.get("missing") or structured.get("missing_evidence") or [])
-    refs = list(gate.get("collected_evidence_refs") or structured.get("source_evidence_refs") or [])
+    if "missing" in sufficiency:
+        missing = list(sufficiency.get("missing") or [])
+    elif "missing" in evidence:
+        missing = list(evidence.get("missing") or [])
+    else:
+        missing = list(structured.get("missing_evidence") or [])
+    if isinstance(gate, dict) and "collected_evidence_refs" in gate:
+        refs = list(gate.get("collected_evidence_refs") or [])
+    else:
+        refs = list(structured.get("source_evidence_refs") or [])
     recommended = [str(item) for item in capability.get("allowed_actions") or [] if str(item) not in BLOCKED_EXECUTION_ACTIONS]
+    # Analyst-facing projection of the internal missing-evidence set. Internal
+    # control keys stay in the internal contracts above; they are not evidence
+    # gaps a responder can act on.
+    analyst_missing, source_unavailable = project_missing_evidence(
+        missing,
+        spl_requested=_spl_artifact_requested(resolved_query),
+        knowledge_contract_required=_knowledge_contract_required(resolved_query),
+    )
+    supported_hypotheses, unconfirmed_hypotheses = _classify_hypotheses(
+        plan=investigation_plan if isinstance(investigation_plan, dict) else {},
+        resolved_query=resolved_query,
+        evidence=evidence,
+        findings=findings,
+        hypothesis_assessments=hypothesis_assessments
+        if isinstance(hypothesis_assessments, dict)
+        else None,
+    )
     common: dict[str, Any] = {
         "disposition": disposition,
         "findings": findings,
-        "supported_hypotheses": [],
-        "unconfirmed_hypotheses": [],
+        "supported_hypotheses": supported_hypotheses,
+        "unconfirmed_hypotheses": unconfirmed_hypotheses,
         "evidence_refs": [str(item) for item in refs],
-        "missing_evidence": [str(item) for item in missing],
+        "missing_evidence": analyst_missing,
         "severity_label": severity_label,
         "recommended_actions": recommended,
         "action_eligibility": {
@@ -146,6 +193,14 @@ def derive_investigation_outcome(
             "not_decision_record": True,
         },
     }
+    if isinstance(hypothesis_assessments, dict) and hypothesis_assessments.get("items"):
+        common["provenance"]["hypothesis_assessment"] = {
+            "schema_version": hypothesis_assessments.get("schema_version"),
+            "evidence_fingerprint": hypothesis_assessments.get("evidence_fingerprint"),
+            "items": hypothesis_assessments.get("items"),
+            "history": hypothesis_assessments.get("history") or [],
+            "evolution_summary": hypothesis_assessments.get("evolution_summary") or "",
+        }
     if outcome_v2_enabled:
         # Final RQC product applicability: InvestigationOutcome V2 (investigation_status,
         # remediation_offer_required, recommended_next_action) applies only to
@@ -175,11 +230,15 @@ def derive_investigation_outcome(
                     approval=approval,
                 ),
                 limitations=_limitations(
-                    missing=missing,
+                    missing=analyst_missing,
+                    source_unavailable=source_unavailable,
                     context=context,
                     run_status=run_status,
                 ),
-                recommended_next_action=_recommended_next_action(
+                recommended_next_action=_analyst_next_action(
+                    missing=analyst_missing,
+                    unconfirmed=unconfirmed_hypotheses,
+                    source_unavailable=source_unavailable,
                     sufficiency=sufficiency,
                     run_status=run_status,
                 ),
@@ -233,6 +292,69 @@ def apply_llm_outcome_proposal(
     )
 
 
+
+#: Evidence keys that are internal control state, never environment observation.
+#: A hypothesis is not corroborated by the fact that a RAG lookup ran.
+_NON_ENVIRONMENT_EVIDENCE_KEYS = frozenset({"rag", "rag:sop", "spl", "mcp", "collected_source_evidence"})
+
+
+def _classify_hypotheses(
+    *,
+    plan: dict[str, Any],
+    resolved_query: dict[str, Any],
+    evidence: dict[str, Any],
+    findings: list[str],
+    hypothesis_assessments: dict[str, Any] | None = None,
+) -> tuple[list[str], list[str]]:
+    """Carry the investigation's competing hypotheses into the outcome.
+
+    Hypotheses are analytical state, not environment facts: they are never
+    SourceEvidence and never become findings. They come from the approved plan
+    (which already merges the T4 competing hypotheses and the planner's), so a
+    hypothesis surviving here is continuity, not a new claim.
+
+    Promotion to SUPPORTED requires admitted environment SourceEvidence. A
+    hypothesis is never supported because the user asserted it, because T4 or the
+    planner proposed it, or because RAG mentioned it — those are the inputs, not
+    corroboration. With no admitted environment evidence every hypothesis stays
+    UNCONFIRMED, which is the honest answer, not an empty list.
+
+    When a DET-validated hypothesis_assessments package is present, it is the
+    classification authority. Weakened remains unconfirmed on this public contract.
+    """
+    hypotheses: list[str] = []
+    for source in (plan.get("hypotheses"), resolved_query.get("competing_hypotheses")):
+        for item in source or []:
+            text = str(item or "").strip()
+            if text and text not in hypotheses:
+                hypotheses.append(text)
+    if not hypotheses:
+        return [], []
+
+    if isinstance(hypothesis_assessments, dict) and hypothesis_assessments.get("items"):
+        supported, unconfirmed = public_hypothesis_lists(hypothesis_assessments)
+        if supported or unconfirmed:
+            return supported, unconfirmed
+
+    obtained = {
+        str(key)
+        for key in (evidence.get("obtained") or [])
+        if str(key) not in _NON_ENVIRONMENT_EVIDENCE_KEYS
+    }
+    if not obtained or not findings:
+        # No admitted environment evidence, or nothing grounded in it: everything
+        # the investigation was weighing remains open.
+        return [], hypotheses
+
+    # With admitted environment evidence, a hypothesis is supported only when a
+    # grounded finding (statement carrying source_refs) actually states it. No
+    # fuzzy inference: the finding must contain the hypothesis text.
+    grounded = " ".join(findings).lower()
+    supported = [item for item in hypotheses if item.lower() in grounded]
+    unconfirmed = [item for item in hypotheses if item not in supported]
+    return supported, unconfirmed
+
+
 def actions_from_investigation_outcome(
     outcome: InvestigationOutcome | InvestigationOutcomeV2 | dict[str, Any],
 ) -> list[str]:
@@ -277,9 +399,20 @@ def _disposition(
     obtained = [str(item) for item in evidence.get("obtained") or []]
     if "negative_evidence" in kinds and not obtained:
         return "benign"
-    label = str(severity_label or "")
-    live = bool(gate.get("allow_live_result_language"))
-    if live and obtained and any(tag in label for tag in _HIGH_SEVERITY):
+    environment_obtained = bool(set(obtained) & _ENVIRONMENT_OBTAINED_KEYS)
+    if not environment_obtained and gate.get("collected_evidence_refs") and gate.get(
+        "allow_environment_fact_claims"
+    ):
+        environment_obtained = True
+    sufficiency_complete = str(sufficiency.get("status") or "").upper() == "SUFFICIENT"
+    high_severity = any(tag in str(severity_label or "") for tag in _HIGH_SEVERITY)
+    live_environment = bool(
+        gate.get("allow_environment_fact_claims") or gate.get("allow_live_result_language")
+    )
+    # Disposition is the security finding. Severity is independent. Presentation
+    # language (`allow_live_result_language`) must not be the only way to name
+    # obtained environment evidence as suspicious.
+    if environment_obtained and (sufficiency_complete or (live_environment and high_severity)):
         return "suspicious"
     return "inconclusive"
 
@@ -312,20 +445,127 @@ def _investigation_status(
     return "incomplete"
 
 
+
+def _spl_artifact_requested(resolved_query: dict[str, Any]) -> bool:
+    """True when the analyst's requested DELIVERABLE is an SPL artifact.
+
+    Keyed on the answer goal only. A required SPL *capability* means the
+    investigation may need a search internally, which is a tool need and not
+    something the analyst asked us to hand them -- reporting "a validated SPL
+    artifact" as a missing evidence item on an investigation is misleading.
+    """
+    return str(resolved_query.get("answer_goal") or "").lower() == "spl_artifact"
+
+
+def _knowledge_contract_required(resolved_query: dict[str, Any]) -> bool:
+    """True when the governed contract makes knowledge/SOP guidance the answer."""
+    family = str(resolved_query.get("intent_family") or "").lower()
+    goal = str(resolved_query.get("answer_goal") or "").lower()
+    return "knowledge" in family or "knowledge" in goal or "sop" in goal
+
+
+
 def _limitations(
     *,
     missing: list[Any],
+    source_unavailable: bool,
     context: dict[str, Any],
     run_status: dict[str, Any],
 ) -> list[str]:
-    values = [f"Missing governed evidence: {item}" for item in missing if str(item).strip()]
+    values = analyst_limitations(
+        [str(item) for item in missing if str(item).strip()],
+        source_unavailable=source_unavailable,
+    )
+    # Sufficiency reasons are a mix of analyst-readable prose ("MCP execution
+    # disabled") and internal control codes ("no_collected_evidence",
+    # "evidence_origin:stub_rag"). Keep the prose -- it explains the limitation --
+    # and drop the codes, which only repeat in machine words a gap already stated
+    # above in analyst language.
+    for reason in context.get("reasons") or []:
+        text = str(reason).strip()
+        if text and not _is_internal_code(text):
+            values.append(text)
     stop_reason = str(run_status.get("stop_reason") or "").strip()
     if stop_reason:
-        values.append(f"Investigation stopped: {stop_reason}")
-    for reason in context.get("reasons") or []:
-        if str(reason).strip():
-            values.append(str(reason))
+        if _is_internal_code(stop_reason):
+            values.append(
+                "The investigation stopped before reaching a conclusion; the "
+                "evidence above is still required."
+            )
+        else:
+            values.append(f"Investigation stopped: {stop_reason}")
     return list(dict.fromkeys(values))
+
+
+def _is_internal_code(text: str) -> bool:
+    """An identifier-shaped token (snake_case / colon-delimited), not analyst prose."""
+    return " " not in text.strip()
+
+
+
+def _analyst_next_action(
+    *,
+    missing: list[str],
+    unconfirmed: list[str],
+    source_unavailable: bool,
+    sufficiency: dict[str, Any],
+    run_status: dict[str, Any],
+) -> str | None:
+    """The next investigative step for the analyst, not the internal control verdict.
+
+    Internal control still decides STOP / BLOCK / DEGRADE and keeps that decision on
+    ``investigation_run_status.next_action``. "stop" is a correct execution decision
+    and useless SOC advice, so the analyst-facing line is derived from canonical
+    state instead: the material evidence gap, the hypotheses it would separate, and
+    the decision that would unlock.
+
+    Composed only from evidence the investigation already declared missing, so it
+    can neither claim a finding nor imply anything was collected. It recommends
+    reading, never writing.
+    """
+    # Only analyst-readable concepts may appear here. An identifier-shaped residue
+    # ("mcp_rows") is internal plumbing and must never become "Collect mcp_rows".
+    readable = [item for item in missing if " " in str(item).strip()]
+    if not readable:
+        return _recommended_next_action(sufficiency=sufficiency, run_status=run_status)
+
+    primary = readable[0]
+    supporting = readable[1:3]
+    what = f"Collect {primary}"
+    if supporting:
+        what += " together with " + " and ".join(supporting)
+    what += "."
+
+    if len(unconfirmed) >= 2:
+        why = (
+            f" This is the highest-value next step because it is the evidence that "
+            f"separates \u201c{_trim(unconfirmed[0])}\u201d from \u201c{_trim(unconfirmed[1])}\u201d, "
+            "which no currently held evidence can distinguish."
+        )
+    elif unconfirmed:
+        why = (
+            f" This is the highest-value next step because \u201c{_trim(unconfirmed[0])}\u201d "
+            "remains unconfirmed and nothing currently held can corroborate it."
+        )
+    else:
+        why = " This is the highest-value next step because no environment evidence has been collected yet."
+
+    decision = (
+        " Establishing it would determine whether the reported events form one "
+        "activity chain, and therefore whether containment should be considered. "
+        "No remediation has been executed."
+    )
+    if source_unavailable:
+        decision += (
+            " The governed read source is currently unavailable, so this may need to "
+            "be obtained from the owning team or platform."
+        )
+    return what + why + decision
+
+
+def _trim(text: str, limit: int = 90) -> str:
+    value = str(text or "").strip().rstrip(".")
+    return value if len(value) <= limit else value[: limit - 1] + "\u2026"
 
 
 def _recommended_next_action(
@@ -359,6 +599,10 @@ def _analyst_process_next_action(raw: str) -> str:
         return "Continue investigation"
     if token == "CALL_T4":
         return "Semantic understanding required"
+    if token in {"STOP", "HALT", "ABORT"}:
+        return "Unable to proceed — additional evidence required"
+    if token == "CONTINUE_TO_OUTCOME":
+        return "Continue investigation"
     if token in _WORKFLOW_CONTROL_NEXT_ACTIONS:
         return "Unable to proceed"
     return raw

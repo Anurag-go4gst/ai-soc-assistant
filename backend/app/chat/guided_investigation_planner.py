@@ -12,6 +12,7 @@ from app.chat.contracts.investigation_plan import (
     InvestigationPlanProposal,
     ValidatedInvestigationPlan,
 )
+from app.chat.investigation_plan_relevance import plan_domain_scope, unjustified_domain_pivots
 from app.chat.planned_mcp_call import enrich_capability_binding
 from app.connectors.mcp.discovery import classify_mcp_tool
 from app.planner.resource_registry import load_resource_registry
@@ -286,6 +287,22 @@ def validate_investigation_plan(
         warnings=warnings,
         label="success_criterion",
     )
+    # Relevance is a validation property, not a prompting hope. A proposal that
+    # introduces a primary evidence domain this investigation never reported is
+    # an unjustified pivot in either direction, so it is dropped here rather than
+    # merged into the analyst-visible plan.
+    plan_domains = plan_domain_scope(baseline.data_categories)
+    for label, values in (
+        ("hypothesis", proposal_hypotheses),
+        ("evidence", proposal_evidence),
+        ("data_category", proposal_categories),
+        ("success_criterion", proposal_success_criteria),
+    ):
+        kept, dropped = unjustified_domain_pivots(values, plan_domains=plan_domains)
+        if dropped:
+            values[:] = kept
+            warnings.append(f"dropped_off_domain_{label}:{len(dropped)}")
+
     capability_bindings = _capability_bindings(
         baseline,
         proposal_data.get("capability_requests"),

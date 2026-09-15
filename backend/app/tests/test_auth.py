@@ -130,7 +130,7 @@ def _fake_route_skill(query: str, trace_id: str, **kwargs) -> dict:
     }
 
 
-def _fake_plan_workflow(selected_skill: str, tool_plan: list[str], query: str, trace_id: str) -> dict:
+def _fake_plan_workflow(selected_skill: str, tool_plan: list[str], query: str, trace_id: str, **kwargs) -> dict:
     return {
         "trace_id": trace_id,
         "skill": selected_skill,

@@ -134,6 +134,35 @@ def evaluate_known_detail_completion(
     divert = bool(blocking_missing) and not relevant_present
 
     clarification = bool(user_only_missing) and not advisory_only
+    signals = (
+        (query_to_intent or {}).get("query_signals")
+        if isinstance((query_to_intent or {}).get("query_signals"), dict)
+        else {}
+    )
+    intent_family = str(
+        ((query_to_intent or {}).get("intent_classification") or {}).get("intent_family") or ""
+    )
+    live_compound = bool(
+        signals.get("live_data_request")
+        and signals.get("live_investigation_verbs")
+        and not signals.get("review_only_spl")
+        and (
+            signals.get("success_after_failure")
+            or intent_family
+            in {
+                "live_investigation",
+                "hybrid_investigation",
+                "hybrid_investigation_plus_policy",
+            }
+        )
+    )
+    if live_compound:
+        # A scoped live investigation already named a host/IP/user. Remaining
+        # catalogue evidence fields (user, time_window, …) are collection legs,
+        # not analyst-input blockers. Clarifying or diverting them replaced the
+        # investigation plan with a clarification dump or guided blueprint.
+        clarification = False
+        divert = False
 
     status: Literal["complete", "incomplete", "clarification_required"] = "complete"
     divert_reason: str | None = None
@@ -163,7 +192,11 @@ def evaluate_known_detail_completion(
         optional_fields=optional,
         relevant_telemetry_present=relevant_present,
         completeness_status=status,
-        divert_to_guided=divert or (bool(tool_missing) and not advisory_only),
+        divert_to_guided=(
+            False
+            if live_compound
+            else divert or (bool(tool_missing) and not advisory_only)
+        ),
         divert_reason=divert_reason,
         clarification_required=clarification and not divert,
         limitations=limitations,

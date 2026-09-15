@@ -169,3 +169,63 @@ def test_conditional_action_drops_unknown_roles_and_address_values() -> None:
     )
 
     assert action.recipient_roles == ["firewall_team"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "What containment should we take?",
+        "How should this incident be contained?",
+    ],
+)
+def test_natural_containment_advice_is_preserved_without_authority(query: str) -> None:
+    from app.chat.resolved_query_builder import build_resolved_query_contract
+
+    contract = build_resolved_query_contract(
+        query=query,
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+    )
+    assert [item.action_kind for item in contract.requested_conditional_actions] == ["remediation"]
+    assert contract.requested_conditional_actions[0].lifecycle_state == "REQUESTED"
+    assert contract.requested_outputs == ["remediation_plan", "analyst_action_guidance"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Do not execute remediation.",
+        "Do not contain anything yet.",
+        "Explain what containment means in incident response.",
+        "What does a containment strategy usually include?",
+    ],
+)
+def test_prohibitions_and_knowledge_do_not_invent_action_requests(query: str) -> None:
+    from app.chat.resolved_query_builder import build_resolved_query_contract
+
+    contract = build_resolved_query_contract(
+        query=query,
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+    )
+    assert contract.requested_conditional_actions == []
+    assert "remediation_plan" not in contract.requested_outputs
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Recommend the safest response.",
+        "What should the analyst do next?",
+    ],
+)
+def test_recommendation_speech_act_is_preserved_as_output_not_write(query: str) -> None:
+    from app.chat.resolved_query_builder import build_resolved_query_contract
+
+    contract = build_resolved_query_contract(
+        query=query,
+        qualification_tier="T4",
+        qualification_source="out_of_registry",
+    )
+    assert contract.requested_conditional_actions == []
+    assert contract.requested_outputs == ["analyst_action_guidance"]

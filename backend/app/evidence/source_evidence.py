@@ -405,6 +405,76 @@ def append_mcp_loop_source_evidence(
     return [*evidence, *loop_items]
 
 
+def merge_admitted_source_evidence(
+    existing: list[dict[str, Any]],
+    incoming: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Keep already-admitted items and append newly built ones without duplicates.
+
+    ``evidence_id`` is stable per source/tool, not per result set, so two
+    successful reads can share an id. Distinct ``raw_result_hash`` / preview
+    payloads are different evidence and must both be kept.
+    """
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    used_ids: set[str] = set()
+    for item in [*existing, *incoming]:
+        if not isinstance(item, dict):
+            continue
+        evidence_id = str(item.get("evidence_id") or "")
+        raw_hash = str(item.get("raw_result_hash") or "")
+        preview = json.dumps(item.get("preview_rows") or [], sort_keys=True, default=str)[:240]
+        dedupe_key = f"{item.get('source_type')}:{item.get('collection_status')}:{raw_hash or preview}"
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        if evidence_id and evidence_id in used_ids:
+            suffix = (raw_hash or hashlib.sha256(preview.encode("utf-8")).hexdigest())[:12]
+            evidence_id = f"{evidence_id}:{suffix}"
+            item = {**item, "evidence_id": evidence_id}
+        if evidence_id:
+            used_ids.add(evidence_id)
+        merged.append(item)
+    return merged
+
+
+def admit_execution_source_evidence(state: dict[str, Any]) -> dict[str, Any]:
+    """Admit SourceEvidence from already-executed reads before later reasoning hops.
+
+    Uses the same builder as context finalize. Does not execute tools, does not
+    invent rows, and does not promote user claims. Existing admitted items are
+    preserved so a later execution object cannot erase READ #1.
+    """
+    execution = state.get("execution")
+    spl_validation = state.get("spl_validation")
+    if not isinstance(execution, dict) or not isinstance(spl_validation, dict):
+        return state
+    request = state.get("request")
+    query = str(getattr(request, "message", None) or state.get("effective_query") or "")
+    workflow_plan = state.get("workflow_plan") if isinstance(state.get("workflow_plan"), dict) else {}
+    routed = state.get("routed") if isinstance(state.get("routed"), dict) else {}
+    skill = str(workflow_plan.get("skill") or routed.get("skill") or "guided_investigation")
+    trace_id = str(state.get("trace_id") or "missing-trace")
+    built = build_source_evidence(
+        trace_id=trace_id,
+        query=query,
+        selected_skill=skill,
+        spl_validation=spl_validation,
+        execution=execution,
+        soc_kb_retrieval=state.get("soc_kb_retrieval")
+        if isinstance(state.get("soc_kb_retrieval"), dict)
+        else None,
+        include_skipped_mcp_placeholder=False,
+    )
+    built = append_mcp_loop_source_evidence(
+        built,
+        trace_id=trace_id,
+        mcp_evidence=state.get("mcp_evidence") if isinstance(state.get("mcp_evidence"), list) else None,
+    )
+    existing = [item for item in (state.get("source_evidence") or []) if isinstance(item, dict)]
+    return {**state, "source_evidence": merge_admitted_source_evidence(existing, built)}
+
+
 def _mcp_hop_collection_status(outcome: str) -> str:
     if outcome == "collected":
         return "collected"

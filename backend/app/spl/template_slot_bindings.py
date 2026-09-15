@@ -310,6 +310,38 @@ def _render_ot_modbus_draft(
     return RenderBindingOutcome(spl=dedupe_spl_eval_lines(spl_text.strip()), bound_slots=slots, unbound_constraints=unbound)
 
 
+_SEARCH_ENTITY_FIELDS = (
+    ("host", "host"),
+    ("user", "user"),
+    ("src_ip", "src"),
+    ("dest_ip", "dest"),
+)
+
+
+def _inject_search_entity_filters(spl_text: str, slots: dict[str, str]) -> str:
+    """Preserve analyst-stated entity constraints on the governed search command."""
+    head, sep, tail = spl_text.partition("|")
+    extras: list[str] = []
+    for slot, field in _SEARCH_ENTITY_FIELDS:
+        raw = str(slots.get(slot) or "").strip()
+        if not raw:
+            continue
+        if re.search(rf"\b{re.escape(field)}\s*=", head, flags=re.IGNORECASE):
+            continue
+        extras.append(f'{field}="{escape_spl_quoted_string(raw)}"')
+    if not extras:
+        return spl_text
+    inserted = " ".join(extras)
+    time_match = _TIME_BOUNDS_RE.search(head)
+    if time_match:
+        new_head = f"{head[:time_match.start()]}{inserted} {head[time_match.start():]}"
+    else:
+        new_head = f"{head.rstrip()} {inserted} "
+    if sep:
+        return f"{new_head.rstrip()} {sep}{tail}"
+    return new_head.rstrip()
+
+
 def _render_generic_search(
     spl_text: str,
     slots: dict[str, str],
@@ -323,8 +355,12 @@ def _render_generic_search(
         result = re.sub(r"sourcetype=\S+", f"sourcetype={slots['sourcetype']}", result, count=1)
     if slots.get("time_window"):
         result = _apply_time_window(result, slots["time_window"])
+    result = _inject_search_entity_filters(result, slots)
+    injected = {item[0] for item in _SEARCH_ENTITY_FIELDS}
     for slot_name, value in slots.items():
         if slot_name in {"index", "sourcetype", "time_window"}:
+            continue
+        if slot_name in injected and slot_name in spec.accepted_slots:
             continue
         if slot_name not in spec.accepted_slots:
             unbound.append({"slot": slot_name, "value": value, "reason": "unsupported_by_template"})

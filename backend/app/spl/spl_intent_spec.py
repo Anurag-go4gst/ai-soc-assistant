@@ -185,6 +185,15 @@ _DEST_DOMAIN_RE = re.compile(r"\bdest(?:ination)?\s+domains?\b", re.I)
 _DEST_HOST_RE = re.compile(r"\b(?:new\s+host|dest(?:ination)?\s+hosts?)\b", re.I)
 _SAME_ACCOUNT_RE = re.compile(r"\bsame\s+account|\baccounts?\s+matching|\bby\s+accounts?\b", re.I)
 _SAME_HOST_RE = re.compile(r"\bsame\s+host\b", re.I)
+_EXPLICIT_SEQUENCE_IDENTITY_RE = re.compile(
+    r"\bsame\s+(?:source(?:\s+ip)?|user|account|host)\b|"
+    r"\bfrom\s+the\s+same\s+source",
+    re.I,
+)
+_AUTH_SUCCESS_AFTER_FAILURE_FAMILY_RE = re.compile(
+    r"(?=.*success)(?=.*fail)(?=.*(?:\bafter\b|following|then|repeated|followed))",
+    re.I | re.S,
+)
 
 _HOST_NORM_ALIASES = ("dest_host", "dest", "dvc", "host", "ComputerName", "dest_nt_host")
 _DOMAIN_NORM_ALIASES = ("query", "query_name", "domain", "dns_query", "url_domain")
@@ -1168,7 +1177,36 @@ def build_spl_intent_spec(
         "unresolved_required_fields": unresolved_required_fields,
         "required_outputs": required_outputs,
     }
-    return spec
+    return apply_known_spl_semantic_defaults(spec, query)
+
+
+def apply_known_spl_semantic_defaults(spec: dict[str, Any], query: str) -> dict[str, Any]:
+    """Pin catalogue sequence identity when the query does not name narrower keys."""
+    payload = spec if isinstance(spec, dict) else {}
+    if not _AUTH_SUCCESS_AFTER_FAILURE_FAMILY_RE.search(query or ""):
+        return payload
+    if _EXPLICIT_SEQUENCE_IDENTITY_RE.search(query or ""):
+        return payload
+    if str(payload.get("analysis_shape") or "") != "sequence":
+        payload["analysis_shape"] = "sequence"
+    event_sets = [str(item) for item in (payload.get("required_event_sets") or [])]
+    for name in ("failed_login", "successful_login"):
+        if name not in event_sets:
+            event_sets.append(name)
+    payload["required_event_sets"] = event_sets
+    if not payload.get("ordered_sequence"):
+        payload["ordered_sequence"] = ["failed_login", "successful_login"]
+    roles = payload.get("entity_roles") if isinstance(payload.get("entity_roles"), dict) else {}
+    correlate = [str(item) for item in (roles.get("correlate_by") or [])]
+    for key in ("user", "src_ip", "host"):
+        if key not in correlate:
+            correlate.append(key)
+    roles["correlate_by"] = correlate
+    payload["entity_roles"] = roles
+    payload["known_spl_contract"] = "auth_success_after_failure"
+    payload["field_provenance"] = dict(payload.get("field_provenance") or {})
+    payload["field_provenance"]["entity_roles.correlate_by"] = "known_use_case_contract"
+    return payload
 
 
 def spl_intent_spec_for_prompt(spec: dict[str, Any]) -> str:

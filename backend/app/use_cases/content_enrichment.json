@@ -191,7 +191,9 @@
         "fail_count",
         "success_count",
         "first_failure",
-        "last_success",
+        "last_success"
+      ],
+      "optional_evidence_requirements": [
         "source_ip_novelty"
       ],
       "investigation_workflow": [

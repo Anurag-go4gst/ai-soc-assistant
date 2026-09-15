@@ -54,6 +54,34 @@ _BOUNDARY_CONTEXT_TERMS: tuple[str, ...] = (
 # from OT to the internet"); \b keeps "most"/"hosts" from matching "ot".
 _BOUNDARY_WORD_RE = re.compile(r"\b(?:ot|esp)\b")
 
+# The subset of boundary context that actually implies an OT/control network.
+# "firewall", "zone", "vlan", "segment" and "boundary" appear in ordinary
+# enterprise questions, so they must not, on their own, produce an IT-to-OT
+# label for an investigation that never mentioned OT.
+_OT_CONTEXT_TERMS: tuple[str, ...] = (
+    "ot vlan",
+    "control room",
+    "it-to-ot",
+    "it to ot",
+    "corporate it",
+    "corporate to ot",
+    "ot network",
+    "ot segment",
+    "scada",
+    "substation",
+    "electronic security perimeter",
+    "vendor vpn",
+    "jump server",
+    "purdue",
+)
+
+
+def has_ot_boundary_context(user_query: str) -> bool:
+    normalized = " ".join((user_query or "").lower().split())
+    if any(term in normalized for term in _OT_CONTEXT_TERMS):
+        return True
+    return bool(_BOUNDARY_WORD_RE.search(normalized))
+
 _ANALYTICS_RANK_RE = re.compile(r"\b(?:most|top|highest|largest|busiest)\b")
 
 _WINDOWS_LOGON_INDEX_RE = re.compile(r"\bwineventlog\b|\bwin:eventlog\b")
@@ -133,7 +161,12 @@ def resolve_analyst_use_case_label(
         return NETWORK_USE_CASE_DISPLAY[use_case_id]
     if catalog_label and _contains_auth_anomaly_label(catalog_label) and is_firewall_boundary_query(user_query):
         return _infer_boundary_label(user_query)
-    if is_firewall_boundary_query(user_query):
+    if is_firewall_boundary_query(user_query) and (
+        not catalog_label or has_ot_boundary_context(user_query)
+    ):
+        # A catalogue label that already names the analyst's subject is more
+        # specific than a generic boundary label; only genuine OT context earns
+        # the override.
         return _infer_boundary_label(user_query)
     if not catalog_label:
         return analytics_traffic_label(user_query)
@@ -163,6 +196,10 @@ def _infer_boundary_label(user_query: str) -> str:
         return "OT egress firewall review"
     if "smb" in normalized and "ot" in normalized:
         return "OT segmentation policy review"
+    if not has_ot_boundary_context(normalized):
+        # Boundary context without OT context: describe the network review that
+        # was actually asked for instead of asserting an IT-to-OT crossing.
+        return "Firewall / network session review"
     if "rdp" in normalized:
         return "IT-to-OT firewall traffic review"
     if "vlan" in normalized:

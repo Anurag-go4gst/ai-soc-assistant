@@ -12,8 +12,18 @@ from app.chat.contracts.investigation_plan import (
 )
 from app.chat.guidance_templates import build_guided_investigation_guidance
 from app.chat.guided_hunt_grounding import build_guided_hunt_grounding
+from app.chat.investigation_plan_relevance import (
+    categories_for_domains,
+    categories_for_evidence_needed,
+    evidence_for_domains,
+    filter_unjustified_auth_pivots,
+)
+from app.chat.canonical_evidence_taxonomy import build_semantic_evidence_composition
+from app.chat.multi_leg_evidence import compose_multi_leg_evidence
 from app.chat.planned_mcp_call import enrich_capability_binding
+from app.chat.query_signals import extract_query_signals
 from app.chat.signal_class_guidance import classify_signal_class
+from app.query_understanding.success_after_failure import detect_success_after_failure
 
 _GUIDED_BLOCKED_CAPABILITIES: tuple[str, ...] = (
     "freeform_spl_execution",
@@ -65,16 +75,125 @@ def _parse_guidance_lists(guidance: str) -> tuple[list[str], list[str]]:
     return hypotheses, evidence
 
 
-def _objective_from_query(query: str, signal_class: str) -> str:
+
+def _compose_investigation_evidence(
+    *, raw_query: str, rqc: dict[str, Any], stable_query: str
+) -> dict[str, Any] | None:
+    """Evidence legs for this investigation, sourced by understanding tier.
+
+    A T4 (out-of-registry) ask is composed from the accepted structured semantic
+    contract plus the analyst's reported observations, so instruction wording is
+    never the sole source of investigation semantics. A known T1-T3 ACCEPT keeps
+    its existing governed evidence contract untouched. Both produce the same
+    composition shape and the same canonical category vocabulary.
+    """
+    tier = str(rqc.get("qualification_tier") or "")
+    source = str(rqc.get("understanding_source") or "")
+    if tier == "T4" or source == "semantic_t4":
+        composition = build_semantic_evidence_composition(
+            raw_query=raw_query,
+            normalized_goal=rqc.get("normalized_goal"),
+            semantic_evidence_requirements=rqc.get("evidence_requirements"),
+            semantic_hypotheses=rqc.get("competing_hypotheses"),
+        )
+        if composition:
+            return composition
+    return compose_multi_leg_evidence(stable_query)
+
+
+def _objective_from_query(
+    query: str,
+    signal_class: str,
+    *,
+    live_investigation: bool,
+    composition_domains: list[str] | None = None,
+) -> str:
     normalized = " ".join((query or "").strip().split())
+    if live_investigation:
+        if not normalized:
+            return "Live investigation"
+        return f"Investigate: {normalized[:240]}"
     if not normalized:
         return "Guided investigation (review-only)"
+    if composition_domains:
+        return f"Investigate: {normalized[:240]}"
     class_label = signal_class.replace("_", " ")
     return (
         f"Review-only investigation for: {normalized[:240]}"
         f" (signal class: {class_label})"
     )
 
+
+_COMPOUND_AUTH_HYPOTHESES = [
+    "The reported success after failures is a brute-force or credential-stuffing compromise.",
+    "The success is a legitimate user after lockout/retry, requiring identity corroboration.",
+    "Telemetry cannot currently confirm the reported sequence; treat user-stated events as a hypothesis until SourceEvidence exists.",
+]
+
+#: Human-readable label per composed evidence domain, used to state the compound
+#: hypothesis in the analyst's own terms. Domain-agnostic: adding a domain to
+#: ``multi_leg_evidence`` extends this without a new investigation branch.
+_DOMAIN_LABELS: dict[str, str] = {
+    "auth_failure": "authentication failure",
+    "auth_success": "authentication success",
+    "post_login_activity": "post-login account activity",
+    "endpoint_process": "process execution",
+    "firewall_network": "firewall / network session",
+    "dns": "DNS resolution",
+    "egress": "outbound transfer",
+    "phishing": "phishing email",
+    # Matched by "vpn" or "remote access": the label must cover both without
+    # asserting a protocol the analyst did not state.
+    "vpn_auth": "remote-access authentication",
+    "ot_jump_host": "OT jump-host session",
+    "relay_change": "relay/IED change",
+    "file_activity": "file/archive activity",
+    "scheduled_task": "scheduled-task creation",
+    "lateral_access": "access to the second host",
+}
+
+
+def _domain_label(domain: str) -> str:
+    return _DOMAIN_LABELS.get(str(domain), str(domain).replace("_", " "))
+
+
+def _compound_hypotheses(domains: list[str]) -> list[str]:
+    """Same-chain / independent / unconfirmable, stated over the reported domains.
+
+    This is the generic form of a compound investigation hypothesis set. It is
+    not a per-scenario template: the domains come from the analyst's own text via
+    ``compose_multi_leg_evidence``.
+    """
+    labels = [_domain_label(domain) for domain in dict.fromkeys(domains)]
+    if len(labels) >= 2:
+        subject = ", ".join(labels[:-1]) + f" and {labels[-1]}"
+    else:
+        subject = labels[0] if labels else "the reported"
+    return [
+        f"The {subject} events are the same activity chain.",
+        f"The {subject} events overlap in time but are independent operational activity.",
+        "Telemetry cannot currently confirm the relationship; treat correlation as a "
+        "hypothesis until SourceEvidence exists.",
+    ]
+
+
+def _correlation_requirement(composition: dict[str, Any] | None) -> list[str]:
+    """State the join that turns separate legs into one chain — or nothing.
+
+    The relationship between the reported events is the question the analyst
+    asked; dropping it reduces a correlation investigation to parallel searches.
+    """
+    correlation = (composition or {}).get("correlation")
+    if not isinstance(correlation, dict):
+        return []
+    join_key = str(correlation.get("join_key") or "").strip()
+    window = str(correlation.get("window") or "").strip()
+    if not join_key or not window:
+        return []
+    return [
+        f"Correlate the collected legs on {join_key} within {window}, normalizing "
+        "identity and time first; temporal correlation is not proof of causation."
+    ]
 
 #: Evidence requirement added when the resolved entities describe an
 #: authentication *sequence* (failed attempts followed by a success), regardless
@@ -84,6 +203,14 @@ def _objective_from_query(query: str, signal_class: str) -> str:
 _POST_AUTHENTICATION_ACTIVITY_EVIDENCE = (
     "Review post-login account and host activity for commands, processes, "
     "privilege changes, persistence, lateral movement, or unusual network activity."
+)
+
+_GENERIC_BOILERPLATE_HYPOTHESES = frozenset(
+    {
+        "expected operational activity or a recent approved change.",
+        "telemetry drift producing an apparent anomaly.",
+        "suspicious activity requiring corroboration across independent sources.",
+    }
 )
 
 _AUTH_FAILURE_EVENT_TYPES = frozenset({"authentication_failure", "auth_failure", "login_failure"})
@@ -192,6 +319,7 @@ def _required_capability_bindings(snapshot: dict[str, Any]) -> list[Investigatio
 def build_deterministic_investigation_plan(
     *,
     query: str,
+    raw_query: str | None = None,
     entities: dict[str, Any] | None = None,
     soc_kb_retrieval: dict[str, Any] | None = None,
     enrichment_projection: dict[str, Any] | None = None,
@@ -203,8 +331,60 @@ def build_deterministic_investigation_plan(
     snapshot = _as_mapping(capability_snapshot)
     stable_query = str(rqc.get("normalized_goal") or query).strip()
     stable_entities = _as_mapping(rqc.get("entities")) or dict(entities or {})
-    guidance = build_guided_investigation_guidance(stable_query, stable_entities)
-    hypotheses, evidence_needed = _parse_guidance_lists(guidance)
+    signals = extract_query_signals(stable_query)
+    live_investigation = bool(
+        signals.get("live_data_request") and not signals.get("review_only_spl")
+    )
+    # The analyst's own words, not just the normalized goal: a goal sentence
+    # compresses away reported detail ("an archive file was created locally") and
+    # keeps the instruction clause, so composing from it alone lets instruction
+    # wording outvote reported events.
+    composition = _compose_investigation_evidence(
+        raw_query=str(raw_query or query), rqc=rqc, stable_query=stable_query
+    )
+    composition_domains = [
+        str(leg.get("domain"))
+        for leg in ((composition or {}).get("evidence_legs") or [])
+        if isinstance(leg, dict) and leg.get("domain")
+    ]
+    # Only observation-backed legs may be stated as one activity chain. A domain
+    # the analyst merely asked us to check still earns an evidence leg, but it is
+    # not a reported event and must not appear in a correlation hypothesis.
+    backed_domains = [
+        str(domain)
+        for domain in ((composition or {}).get("observation_backed_domains") or [])
+    ] or composition_domains
+    compound_auth = detect_success_after_failure(stable_query) or _is_authentication_sequence(
+        stable_entities
+    )
+    # A compound investigation is defined by the number of reported evidence
+    # domains, not by which domains they are. The authentication sequence keeps
+    # its named contract (failure -> success -> post-login is a required chain,
+    # not merely two observed legs); every other multi-domain ask is built the
+    # same generic way instead of needing its own branch.
+    distinct_domains = list(dict.fromkeys(composition_domains))
+    compound_multi_domain = len(distinct_domains) >= 2
+    if compound_auth:
+        hypotheses = list(_COMPOUND_AUTH_HYPOTHESES)
+        evidence_needed = evidence_for_domains(
+            ["auth_failure", "auth_success", "post_login_activity"]
+        )
+    elif compound_multi_domain:
+        hypotheses = _compound_hypotheses(
+            [d for d in dict.fromkeys(backed_domains)] or distinct_domains
+        )
+        evidence_needed = evidence_for_domains(distinct_domains)
+    else:
+        guidance = build_guided_investigation_guidance(stable_query, stable_entities)
+        hypotheses, evidence_needed = _parse_guidance_lists(guidance)
+        if composition_domains:
+            evidence_needed = list(
+                dict.fromkeys([*evidence_for_domains(composition_domains), *evidence_needed])
+            )
+    if compound_auth or compound_multi_domain:
+        evidence_needed = list(
+            dict.fromkeys([*evidence_needed, *_correlation_requirement(composition)])
+        )
     signal_class = classify_signal_class(stable_query, stable_entities)
     grounding = build_guided_hunt_grounding(
         query=stable_query,
@@ -232,20 +412,58 @@ def build_deterministic_investigation_plan(
         for item in (rqc.get("evidence_requirements") or [])
         if str(item).strip()
     ]
-    evidence_needed = list(dict.fromkeys([*rqc_evidence, *evidence_needed]))
-    if _is_authentication_sequence(stable_entities):
+    evidence_needed = filter_unjustified_auth_pivots(
+        list(dict.fromkeys([*rqc_evidence, *evidence_needed])),
+        query=stable_query,
+    )
+    if compound_auth or _is_authentication_sequence(stable_entities):
         evidence_needed = list(
             dict.fromkeys([*evidence_needed, _POST_AUTHENTICATION_ACTIVITY_EVIDENCE])
         )
-    authoritative_facts = _authoritative_facts(rqc)
-    return InvestigationPlan(
-        investigation_objective=_objective_from_query(stable_query, signal_class),
-        hypotheses=hypotheses,
-        evidence_needed=evidence_needed,
-        data_categories=_data_categories(
+    semantic_hypotheses = [
+        str(item).strip()
+        for item in (rqc.get("competing_hypotheses") or [])
+        if str(item).strip()
+    ]
+    if semantic_hypotheses:
+        hypotheses = list(
+            dict.fromkeys(
+                [
+                    *semantic_hypotheses,
+                    *[
+                        item
+                        for item in hypotheses
+                        if item.strip().lower() not in _GENERIC_BOILERPLATE_HYPOTHESES
+                    ],
+                ]
+            )
+        )
+    if compound_auth:
+        data_categories = ["auth", "identity", "endpoint"]
+    elif distinct_domains:
+        data_categories = categories_for_domains(distinct_domains) or _data_categories(
             signal_class=signal_class,
             detection_families=detection_families,
+        )
+    else:
+        data_categories = _data_categories(
+            signal_class=signal_class,
+            detection_families=detection_families,
+        )
+    data_categories = list(
+        dict.fromkeys([*data_categories, *categories_for_evidence_needed(evidence_needed)])
+    )[:12]
+    authoritative_facts = _authoritative_facts(rqc)
+    return InvestigationPlan(
+        investigation_objective=_objective_from_query(
+            stable_query,
+            signal_class,
+            live_investigation=live_investigation or compound_auth or compound_multi_domain,
+            composition_domains=composition_domains,
         ),
+        hypotheses=hypotheses,
+        evidence_needed=evidence_needed,
+        data_categories=data_categories,
         dependencies=["final_resolved_query_contract", "capability_snapshot"],
         conditions=[fact for fact in authoritative_facts if fact.startswith(("entity:", "time_scope:"))],
         success_criteria=[

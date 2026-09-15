@@ -24,6 +24,7 @@ from app.llm.sidecar_clients import SidecarInvocationResult
 from app.graph.resource_planner_graph import run_chat_via_resource_planner_graph
 from app.query_understanding.parser import understand_query
 from app.routing.select_route_from_understanding import select_route_from_understanding
+from app.safeguards.trust_boundary import CONTROL_PREAMBLE, wrap_untrusted_source
 from app.schemas.requests import ChatRequest
 
 
@@ -122,9 +123,17 @@ def test_same_final_rqc_semantics_converge_for_t13_and_t4() -> None:
     assert a.model_dump() == b.model_dump()
 
 
-def test_zero_data_reasoning_prompt_never_exports_case_context(
+def test_reasoning_prompt_grounds_the_case_inside_the_trust_boundary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """The planner sees THIS investigation — as labelled untrusted input only.
+
+    A planner given no case data can only return generic SOC filler, which the
+    validator then merges into the analyst-visible plan. So the query IS sent,
+    but it must arrive inside the untrusted-source delimiters with the control
+    preamble ahead of it, and the tool vocabulary offered to the model must come
+    from the CapabilitySnapshot rather than the raw estate.
+    """
     captured: dict[str, str] = {}
 
     def _invoke(**kwargs: object) -> SidecarInvocationResult:
@@ -137,7 +146,7 @@ def test_zero_data_reasoning_prompt_never_exports_case_context(
                     "dependencies": [],
                     "conditions": [],
                     "success_criteria": ["Record supported and unsupported hypotheses."],
-                    "capability_requests": [],
+                    "capability_requests": ["mcp:not_in_snapshot:evil_tool"],
                 }
             ),
             timed_out=False,
@@ -149,19 +158,44 @@ def test_zero_data_reasoning_prompt_never_exports_case_context(
         "app.chat.guided_investigation_plan_llm.invoke_sidecar_role_with_metadata",
         _invoke,
     )
-    secret_query = "Investigate user:secret host:TOP-SECRET at index=classified"
+    query = "Investigate repeated DNS lookups and denied firewall sessions from 10.20.4.51"
     baseline = build_deterministic_investigation_plan(
-        query=secret_query,
-        resolved_query_contract={**RQC, "normalized_goal": secret_query},
+        query=query,
+        resolved_query_contract={**RQC, "normalized_goal": query},
         capability_snapshot=SNAPSHOT,
     )
-    result = propose_investigation_plan_llm(query=secret_query, baseline=baseline)
+    result = propose_investigation_plan_llm(
+        query=query,
+        baseline=baseline,
+        capability_ids=["mcp:splunk_soc:splunk_run_query"],
+    )
     assert result.attempted is True
     assert result.provider_label == "reasoning-test"
-    assert "secret" not in captured["prompt"].lower()
-    assert "classified" not in captured["prompt"].lower()
-    assert "splunk" not in captured["prompt"].lower()
 
+    prompt = captured["prompt"]
+    # The case reaches the model...
+    assert "10.20.4.51" in prompt
+    # ...as untrusted data, behind the control preamble.
+    assert CONTROL_PREAMBLE in prompt
+    assert prompt.index(CONTROL_PREAMBLE) < prompt.index("10.20.4.51")
+    assert wrap_untrusted_source("user_query", query) in prompt
+    # Only snapshot capabilities are offered as vocabulary.
+    assert "mcp:splunk_soc:splunk_run_query" in prompt
+    assert "mcp:agilius:agilius_list_patches" not in prompt
+    # An off-snapshot capability request stays advisory and is dropped by DET.
+    validated = validate_investigation_plan(
+        baseline,
+        result.proposal,
+        llm_attempted=True,
+        capability_snapshot=SNAPSHOT,
+    )
+    assert all(
+        binding.capability_id != "mcp:not_in_snapshot:evil_tool"
+        for binding in validated.capability_bindings
+    )
+    assert "dropped_unknown_capability:mcp:not_in_snapshot:evil_tool" in (
+        validated.validation_warnings
+    )
 
 def test_planner_failure_degrades_to_deterministic_validated_plan(
     monkeypatch: pytest.MonkeyPatch,
@@ -253,7 +287,10 @@ def test_shared_canonical_wait_state_attaches_validated_plan_without_resource_pl
     )
     assert state["canonical_planning_outcome"]["status"] == "awaiting_investigation_plan"
     assert state["validated_investigation_plan"]["validation_status"] == "validated"
-    assert state["investigation_planning_trace"]["case_data_sent_to_model"] is False
+    # The planner is grounded on the Final RQC + deterministic baseline inside the
+    # labelled trust boundary (see the prompt test above); no evidence rows,
+    # credentials or raw SPL cross it.
+    assert state["investigation_planning_trace"]["case_data_sent_to_model"] is True
     assert state.get("evidence_plan") is None
     assert state.get("execution") is None
     assert state.get("mcp_evidence") in (None, [], {})

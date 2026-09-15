@@ -198,8 +198,20 @@ RACES_BASELINE_SHA = "27970ea4d10f0e894c8adb4214e18cd46e24b28e"
 # Compound investigation semantics (2026-09-07): preserve success-after-failure
 # live-read vs remediation-write; EvidencePlan leg parity in composer; do not
 # pass write-prohibition flags into connector adapter context.
+# Investigation-lifecycle honesty (2026-09-07, independent audit): pipeline.py
+# changes are (a) `_read_source_required_from_state` + the `read_source_required`
+# argument on `_execution_stage`, so a skipped execution reports
+# `read_source_required_but_unavailable` instead of `spl_not_required_for_skill`
+# when the approved plan required a governed read source. Projection/labelling
+# only: no routing, ResourcePlan, EvidencePlan, SPL, HIL, MCP, RAG or synthesis
+# semantics change, and no new execution authority. LIVE MCP remains OFF.
+# Codex adversarial completion (2026-09-07): forwards the same already-governed
+# required-source bit through the sole remaining ResourcePlan dispatch call. This
+# closes a labeling gap only: absent SPL now reaches the existing unavailable
+# adjudication instead of `spl_not_required_for_skill`. No grant, execution,
+# connector, HIL, RBAC, SPL validation, or write authority changes.
 RACES_APPROVED_PROTECTED_BLOB_SHA256 = {
-    "backend/app/chat/pipeline.py": "7eb3f9b052a91735d1b8daaf9abcfc423c8ef8f02133e7ba2a93881e3778f0f8",
+    "backend/app/chat/pipeline.py": "57a9b54755d602cb28753bffe6e1659b6e98f12d149cc2eb28f54a477bcc9e36",
     "backend/app/planner/composer.py": "f8b953c88d59d110c8a0b063899f2d16944425b0693d0e2aa5e8340d2834e14b",
     "backend/app/schemas/responses.py": "e8dfaa87e0b1db1c0c6ceccb74fa66f95a7604c90cbd531eb6c52a30ff3a8d7c",
     # Post-P10 5.4/5.5: envelope_version AUTH0 + investigation-envelope hard-block.

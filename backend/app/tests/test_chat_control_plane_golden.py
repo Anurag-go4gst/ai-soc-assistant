@@ -98,6 +98,10 @@ def test_hybrid_failed_login_action_encodes_requested_slots_and_keeps_hil() -> N
     assert response.spl_validation is not None
     assert response.spl_validation.approved is True
     assert response.spl_validation.normalized_spl is not None
+    assert response.answer_contract is not None
+    assert response.run_contract is not None
+    assert response.answer_contract["spl_status"] == response.run_contract["spl_status"]
+    assert response.answer_contract["spl_normalized"] == response.run_contract["spl_normalized"]
     assert "earliest=-24h" in response.spl_validation.normalized_spl
     assert "svc_*" in response.spl_validation.normalized_spl
     assert response.execution is not None
@@ -453,7 +457,7 @@ def test_alt_2024_0891_success_after_failure_hybrid_alert_review(
     spl = response.spl_validation.normalized_spl or ""
     assert "host=APP-01" not in spl
     assert 'alert_id="ALT-2024-0891"' in spl
-    assert " by user " in spl
+    assert "by user" in spl
     assert "action=failure OR action=success" in spl or (
         'action="failure"' in spl and 'action="success"' in spl
     )

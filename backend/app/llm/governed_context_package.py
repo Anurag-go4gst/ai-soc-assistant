@@ -10,7 +10,8 @@ Two builders:
 
 Both exclude credentials, executable SPL authority, and raw MCP rows by construction:
 callers pass only already-redacted strings, and the package never reaches into
-``SourceEvidence`` payloads itself.
+``SourceEvidence`` payloads itself. Admitted environment evidence must be projected
+first via ``app.evidence.governed_reasoning_context``.
 """
 
 from __future__ import annotations
@@ -55,6 +56,7 @@ class GovernedContextPackage:
     unsupported_claims_avoid: list[str] = field(default_factory=list)
     resource_decisions: list[str] = field(default_factory=list)
     soc_kb_snippets: list[str] = field(default_factory=list)
+    admitted_environment_evidence: list[str] = field(default_factory=list)
     # Phase 2.5 — skill metadata + MCP tool capability hints (descriptions only,
     # never execution schema or credentials). For out-of-catalog / weak composition.
     skill_sections: list[str] = field(default_factory=list)
@@ -72,6 +74,7 @@ class GovernedContextPackage:
             (3, "registry_question_candidates", self.registry_question_candidates[:8]),
             (3, "registry_use_case_candidates", self.registry_use_case_candidates[:8]),
             (2, "missing_evidence", self.missing_evidence[:10]),
+            (2, "admitted_environment_evidence", self.admitted_environment_evidence[:10]),
             (2, "required_evidence", self.required_evidence[:10]),
             (2, "candidate_mitre", self.candidate_mitre[:12]),
             (2, "not_claimed_mitre", self.not_claimed_mitre[:12]),
@@ -177,6 +180,7 @@ def build_governed_context_package_for_contract(
     query: str,
     contract: "AnswerContract",
     soc_kb_snippets: list[str] | None = None,
+    admitted_environment_evidence: list[str] | None = None,
     resource_decisions: list[str] | None = None,
     skill_sections: list[str] | None = None,
     mcp_tool_hints: list[str] | None = None,
@@ -203,6 +207,9 @@ def build_governed_context_package_for_contract(
         limitations=[str(item) for item in contract.limitations if item],
         resource_decisions=[str(item) for item in (resource_decisions or []) if item],
         soc_kb_snippets=[str(item) for item in (soc_kb_snippets or []) if item],
+        admitted_environment_evidence=[
+            str(item) for item in (admitted_environment_evidence or []) if item
+        ],
         skill_sections=[str(item) for item in (skill_sections or []) if item],
         mcp_tool_hints=[str(item) for item in (mcp_tool_hints or []) if item],
         t2_grounding_block=t2_grounding_block,

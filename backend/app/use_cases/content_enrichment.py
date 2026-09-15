@@ -43,6 +43,7 @@ class UseCaseActivationDecision(BaseModel):
 class CuratedEnrichmentContext(BaseModel):
     use_case_id: str
     evidence_requirements: list[str] = Field(default_factory=list)
+    optional_evidence_requirements: list[str] = Field(default_factory=list)
     investigation_workflow: list[str] = Field(default_factory=list)
     analyst_checklist: list[str] = Field(default_factory=list)
     answer_rules: list[str] = Field(default_factory=list)
@@ -399,6 +400,7 @@ def _context_from_record(
     return CuratedEnrichmentContext(
         use_case_id=use_case_id,
         evidence_requirements=_string_list(record.get("evidence_requirements")),
+        optional_evidence_requirements=_string_list(record.get("optional_evidence_requirements")),
         investigation_workflow=_string_list(record.get("investigation_workflow")),
         analyst_checklist=_string_list(record.get("analyst_checklist")),
         answer_rules=_string_list(record.get("answer_rules")),

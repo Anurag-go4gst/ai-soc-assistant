@@ -133,6 +133,20 @@ def test_gap_stops_honestly_without_plan_delta_and_progress_has_no_cot() -> None
     assert "finding: -" not in text
 
 
+def test_sufficient_empty_missing_does_not_reuse_stale_plan_keys() -> None:
+    state = attach_investigation_observation(
+        {
+            "approved_investigation_envelope": {"envelope_version": 1},
+            "evidence_plan": {"missing_required_evidence": ["endpoint", "auth", "rag"]},
+            "evidence_sufficiency": {"status": "SUFFICIENT", "missing": []},
+            "evidence_state": {"missing": []},
+        }
+    )
+    assert state["investigation_run_status"]["status"] == "sufficient"
+    assert state["investigation_run_status"]["missing_evidence"] == []
+    assert state["investigation_run_status"]["next_action"] == "continue_to_outcome"
+
+
 def test_p5_does_not_import_plan_delta_and_retires_live_guided_loop() -> None:
     compiler_source = inspect.getsource(compile_approved_investigation)
     pipeline_source = inspect.getsource(pipeline._run_live_chat_pipeline)

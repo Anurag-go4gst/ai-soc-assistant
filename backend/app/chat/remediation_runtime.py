@@ -107,6 +107,7 @@ def build_validated_remediation_plan(
     capability_snapshot: dict[str, Any] | None,
     turn_budget: Any | None = None,
     raw_output_provider: Any | None = None,
+    source_evidence: list[dict[str, Any]] | None = None,
 ) -> tuple[ValidatedRemediationPlan, dict[str, Any]]:
     """Deterministic baseline, optionally narrowed by the advisory reasoning hop."""
     baseline = build_deterministic_remediation_plan(
@@ -128,6 +129,8 @@ def build_validated_remediation_plan(
         baseline=baseline,
         raw_output_provider=raw_output_provider,
         turn_budget=turn_budget,
+        investigation_outcome=investigation_outcome,
+        source_evidence=source_evidence,
     )
     validated = validate_remediation_plan(
         baseline,
@@ -148,8 +151,9 @@ def remediation_plan_eligible(state: dict[str, Any]) -> bool:
 
     Positive authority reuses InvestigationOutcome fields only:
     ``investigation_status == completed`` and ``disposition == suspicious``.
-    ``suspicious`` is derived from obtained evidence ∧ live-result language ∧
-    high severity — not from LLM prose and not from skill name alone.
+    ``suspicious`` is derived from obtained environment evidence together with
+    completed sufficiency, or the existing high-severity live-evidence path —
+    not from LLM prose, skill name, or renderer wording alone.
 
     Final-RQC product applicability and knowledge-only answer mode are defensive
     vetoes. User-conditional predicate truth is a separate gate and cannot make
@@ -413,6 +417,9 @@ def maybe_attach_remediation_offer(
                 capability_snapshot=state.get("capability_snapshot"),
                 turn_budget=turn_budget,
                 raw_output_provider=raw_output_provider,
+                source_evidence=[
+                    item for item in (state.get("source_evidence") or []) if isinstance(item, dict)
+                ],
             )
         approval = _approval_state(status="awaiting_approval", plan=plan)
         return {
@@ -515,6 +522,9 @@ def handle_remediation_review(
             capability_snapshot=state.get("capability_snapshot"),
             turn_budget=turn_budget,
             raw_output_provider=raw_output_provider,
+            source_evidence=[
+                item for item in (state.get("source_evidence") or []) if isinstance(item, dict)
+            ],
         )
         approval = _approval_state(status="awaiting_approval", plan=plan)
         return {

@@ -87,6 +87,31 @@ class ApprovedInvestigationEnvelope(BaseModel):
         return self
 
 
+_SEARCH_CAPABILITY_MARKERS = ("run_query", "search_splunk", "run_splunk_query")
+
+
+def envelope_authorizes_search(envelope: dict[str, Any] | ApprovedInvestigationEnvelope | None) -> bool:
+    """True when the immutable envelope already approved a live search capability.
+
+    Guided investigation is review-only until this envelope exists. The envelope
+    is the HIL grant; it must not be undone by the historical skill denylist.
+    """
+    if envelope is None:
+        return False
+    if isinstance(envelope, ApprovedInvestigationEnvelope):
+        capabilities = envelope.allowed_read_only_capabilities
+    elif isinstance(envelope, dict):
+        raw = envelope.get("allowed_read_only_capabilities") or []
+        capabilities = raw if isinstance(raw, list) else []
+    else:
+        return False
+    for item in capabilities:
+        value = str(item or "").lower()
+        if value.startswith("mcp:") and any(marker in value for marker in _SEARCH_CAPABILITY_MARKERS):
+            return True
+    return False
+
+
 class InvestigationPlanEdits(BaseModel):
     """Structured analyst edits; material scope changes route back to resolution."""
 

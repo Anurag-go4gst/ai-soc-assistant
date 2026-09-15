@@ -1,9 +1,9 @@
 """Bounded advisory ``remediation_planner`` role (architecture P10).
 
-Sends only planning vocabulary — capability identifiers already present in the
-deterministic baseline, plus the governed disposition. No raw evidence, entities,
-tool output, SPL, or hidden reasoning crosses this boundary, and the returned
-proposal is advisory: :mod:`app.chat.remediation_plan_validator` decides.
+Sends planning vocabulary plus a governed InvestigationOutcome / admitted-evidence
+summary. No raw telemetry, credentials, executable SPL, or hidden reasoning
+crosses this boundary, and the returned proposal is advisory:
+:mod:`app.chat.remediation_plan_validator` decides.
 
 Like the P3/P7 hops, this one is bounded by the turn wall clock so an absent or
 very slow reasoning endpoint degrades to the deterministic baseline instead of
@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.chat.contracts.remediation_plan import ValidatedRemediationPlan
+from app.evidence.governed_reasoning_context import project_source_evidence_for_reasoning
 from app.llm.adapter.json_extractor import extract_first_json_object
 from app.llm.sidecar_clients import invoke_sidecar_role_with_metadata
 
@@ -42,11 +43,23 @@ def _hop_timeout_seconds(turn_budget: Any | None) -> float | None:
     return min(_REMEDIATION_TIMEOUT_SECONDS, capped)
 
 
-def _build_prompt(baseline: ValidatedRemediationPlan) -> str:
+def _build_prompt(
+    baseline: ValidatedRemediationPlan,
+    *,
+    investigation_outcome: dict[str, Any] | None = None,
+    source_evidence: list[dict[str, Any]] | None = None,
+) -> str:
+    outcome = investigation_outcome if isinstance(investigation_outcome, dict) else {}
+    projected = project_source_evidence_for_reasoning(source_evidence)
     return json.dumps(
         {
             "disposition": baseline.derived_from_disposition,
             "investigation_status": baseline.derived_from_investigation_status,
+            "governed_findings": [str(item) for item in (outcome.get("findings") or [])][:8],
+            "evidence_refs": [str(item) for item in (outcome.get("evidence_refs") or [])][:16],
+            "missing_evidence": [str(item) for item in (outcome.get("missing_evidence") or [])][:8],
+            "admitted_environment_evidence": projected["admitted_environment_evidence"],
+            "rag_guidance": projected["rag_guidance"],
             "available_capability_ids": [
                 step.capability_id for step in baseline.steps if step.execution_mode == "execute"
             ],
@@ -56,9 +69,11 @@ def _build_prompt(baseline: ValidatedRemediationPlan) -> str:
                 if step.execution_mode == "manual_or_alternate"
             ],
             "instruction": (
-                "Return one JSON RemediationPlanProposal. You may only re-describe or "
-                "narrow the supplied capabilities; never introduce a new one, never claim "
-                "an action ran, and never assert authorization. No hidden reasoning."
+                "Return one JSON RemediationPlanProposal. Reason over the governed "
+                "disposition, findings, and admitted environment evidence. RAG is not "
+                "environment evidence. You may only re-describe or narrow the supplied "
+                "capabilities; never introduce a new one, never claim an action ran, and "
+                "never assert authorization. No hidden reasoning."
             ),
         },
         sort_keys=True,
@@ -70,8 +85,15 @@ def propose_remediation_plan(
     baseline: ValidatedRemediationPlan,
     raw_output_provider: Any | None = None,
     turn_budget: Any | None = None,
+    investigation_outcome: dict[str, Any] | None = None,
+    source_evidence: list[dict[str, Any]] | None = None,
 ) -> RemediationReasonerResult:
     """Invoke the bounded remediation reasoning hop; the caller runs DET validation."""
+    prompt = _build_prompt(
+        baseline,
+        investigation_outcome=investigation_outcome,
+        source_evidence=source_evidence,
+    )
     if raw_output_provider is not None:
         raw = str(raw_output_provider() or "")
         trace: dict[str, Any] = {
@@ -96,7 +118,7 @@ def propose_remediation_plan(
             )
         invocation = invoke_sidecar_role_with_metadata(
             role=REMEDIATION_PLAN_ROLE,
-            user_prompt=_build_prompt(baseline),
+            user_prompt=prompt,
             max_tokens=600,
             timeout_seconds=hop_timeout,
             temperature=0.0,
@@ -113,6 +135,7 @@ def propose_remediation_plan(
             "latency_ms": invocation.latency_ms,
             "circuit_state": invocation.circuit_state,
             "case_data_sent_to_model": False,
+            "governed_evidence_summary_sent": True,
         }
 
     extraction = extract_first_json_object(raw)

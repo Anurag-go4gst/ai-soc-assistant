@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.config import settings
 
+
 AnswerGoal = Literal[
     "live_results",
     "analyst_action_guidance",
@@ -213,12 +214,16 @@ def build_answer_contract(
         isinstance(spl_validation, dict) and spl_validation.get("normalized_spl")
     )
     exec_status = str(execution_payload.get("status") or "") or None
+    utility_authoring = str(plan.get("answer_mode") or "") == "spl_utility_authoring"
     exec_label, exec_display = _execution_label(
         execution_payload=execution_payload,
         spl_present=spl_present,
         spl_approved=spl_approved,
         mcp_allowed=bool(plan.get("mcp_allowed")),
         human_review_required=bool(review.get("required")),
+        read_source_required=bool(
+            not utility_authoring and (plan.get("needs_mcp") or plan.get("needs_spl"))
+        ),
     )
 
     resolved_use_case_id = (
@@ -257,7 +262,11 @@ def build_answer_contract(
     unsupported = _dedupe([str(item) for item in plan.get("unsupported_claims_avoid") or [] if item])
     assumptions = _safe_display_list((candidate_spl or {}).get("assumptions") or [])
     answer_rules = _safe_display_list(plan.get("answer_rules") or [])
-    spl_status = _spl_status(spl_validation, spl_allowed=bool(plan.get("spl_allowed")))
+    spl_status = _spl_status(
+        spl_validation,
+        spl_allowed=bool(plan.get("spl_allowed")),
+        spl_required=bool(plan.get("needs_spl")),
+    )
     spl_status_detail = _spl_status_detail(spl_validation, candidate_spl)
     hil_status = _hil_status(review, plan, missing)
     success_after_failure = _success_after_failure_context(
@@ -496,11 +505,22 @@ def _dedupe(values: list[str]) -> list[str]:
     return deduped
 
 
-def _spl_status(spl_validation: dict[str, Any] | None, *, spl_allowed: bool = True) -> SplStatus:
+def _spl_status(
+    spl_validation: dict[str, Any] | None,
+    *,
+    spl_allowed: bool = True,
+    spl_required: bool = False,
+) -> SplStatus:
+    """`not_required` means the answer does not need SPL — not that SPL is missing.
+
+    When the evidence plan says SPL *is* needed but none was produced or allowed,
+    the honest status is ``blocked``. Reporting `not_required` there tells the
+    analyst the investigation did not need a search it actually did need.
+    """
     if not spl_allowed:
-        return "not_required"
+        return "blocked" if spl_required else "not_required"
     if not isinstance(spl_validation, dict):
-        return "not_required"
+        return "blocked" if spl_required else "not_required"
     if spl_validation.get("approved") and spl_validation.get("normalized_spl"):
         return "ready_for_review"
     if spl_validation.get("review_required"):
@@ -628,6 +648,7 @@ def _execution_label(
     spl_approved: bool,
     mcp_allowed: bool,
     human_review_required: bool,
+    read_source_required: bool = False,
 ) -> tuple[ExecutionStatusLabel | None, str | None]:
     if human_review_required:
         return "blocked_approval_required", "Blocked — approval required"
@@ -644,13 +665,21 @@ def _execution_label(
         ):
             return "executed_mock_evidence", "Executed — simulated / mock evidence (not live Splunk)"
         return "executed_live_evidence", "Executed — live evidence"
+    block = str(execution_payload.get("block_reason") or "").lower()
+    source_unavailable = read_source_required and (
+        not mcp_allowed
+        or "unavailable" in block
+        or "read_source_required" in block
+        or "mcp_not_allowed" in block
+    )
+    if source_unavailable:
+        return "execution_pending_mcp_unavailable", "Execution pending — MCP unavailable"
     if not spl_present:
         return None, None
     if spl_approved and not mcp_allowed:
         return "review_only_not_executed", "Review only — not executed"
     if spl_approved and mcp_allowed and status in {"skipped", "requires_human_review"}:
-        block = str(execution_payload.get("block_reason") or "")
-        if "mcp" in block.lower():
+        if "mcp" in block:
             return "execution_pending_mcp_unavailable", "Execution pending — MCP unavailable"
     if spl_approved:
         return "validated_not_executed", "Validated — not executed"

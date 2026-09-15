@@ -167,6 +167,13 @@ def _build(payload: dict[str, Any]) -> dict[str, Any]:
         run_contract=run_contract,
     )
     execution = _execution_block(payload=payload, trace=trace, run_contract=run_contract, review_only=review_only)
+    spl_truth, spl_role = _classify_spl_truth(
+        payload=payload,
+        execution=execution,
+        spl_authoring=spl_authoring,
+        review_only=review_only,
+    )
+    spl_authoring = {**spl_authoring, "spl_truth": spl_truth, "spl_role": spl_role}
     hil = _hil_block(
         payload=payload,
         trace=trace,
@@ -184,6 +191,7 @@ def _build(payload: dict[str, Any]) -> dict[str, Any]:
         execution=execution,
         spl_authoring=spl_authoring,
         rag=rag,
+        review_only=review_only,
     )
     validation = _validation_block(
         payload=payload,
@@ -239,7 +247,7 @@ def _review_only_context(
     """
     answer_mode = payload.get("answer_mode") or _dig(payload, "evidence_plan", "answer_mode")
     answer_mode = str(answer_mode) if answer_mode else None
-    review_only = bool(
+    utility_review_only = bool(
         handoff.get("review_only")
         or (answer_mode in _REVIEW_ONLY_ANSWER_MODES)
         or signals.get("review_only_spl")
@@ -247,6 +255,20 @@ def _review_only_context(
     execution_asked = bool(
         signals.get("run_execution") or signals.get("explicit_run_spl") or signals.get("run_spl")
     )
+    approval = _as_dict(payload.get("investigation_approval"))
+    run_status = _as_dict(payload.get("investigation_run_status"))
+    investigation_execution_requested = bool(
+        payload.get("approved_investigation_envelope")
+        or str(approval.get("status") or "") == "approved"
+        or str(run_status.get("status") or "")
+        in {"incomplete", "complete", "blocked", "running", "insufficient", "failed"}
+    )
+    if investigation_execution_requested:
+        execution_asked = True
+    # An approved investigation that requested a live read is not a review-only
+    # turn. A fallback SPL artifact may still exist; that is spl_truth, not the
+    # investigation lifecycle.
+    review_only = bool(utility_review_only and not investigation_execution_requested)
     explicit_do_not_execute = bool(
         review_only and not execution_asked and run_contract.get("execution_needed_for_answer") is not True
     )
@@ -255,6 +277,7 @@ def _review_only_context(
         "review_only": review_only,
         "execution_requested_by_user": execution_asked,
         "explicit_do_not_execute": explicit_do_not_execute,
+        "investigation_execution_requested": investigation_execution_requested,
     }
 
 
@@ -406,7 +429,35 @@ def _spl_authoring_block(
         "postprocessor_changes": [str(item) for item in _as_list(postprocessor.get("changes"))],
         "final_spl_hash": postprocessor.get("normalized_spl_hash"),
         "raw_spl_hash": postprocessor.get("raw_spl_hash"),
+        "spl_truth": "none",
+        "spl_role": "none",
     }
+
+
+def _classify_spl_truth(
+    *,
+    payload: dict[str, Any],
+    execution: dict[str, Any],
+    spl_authoring: dict[str, Any],
+    review_only: dict[str, Any],
+) -> tuple[str, str]:
+    """Distinguish no SPL, draft fallback, validated normalized SPL, and executed SPL."""
+    spl_validation = _as_dict(payload.get("spl_validation"))
+    artifact = bool(spl_authoring.get("spl_artifact_available"))
+    normalized = bool(str(spl_validation.get("normalized_spl") or "").strip()) and bool(
+        spl_validation.get("approved")
+    )
+    if execution.get("execution_performed"):
+        return "executed", "executed"
+    if normalized:
+        if review_only.get("execution_requested_by_user") and not review_only["review_only"]:
+            return "validated_normalized", "investigation_fallback"
+        return "validated_normalized", "primary_deliverable"
+    if artifact:
+        if review_only.get("execution_requested_by_user") and not review_only["review_only"]:
+            return "draft_fallback", "investigation_fallback"
+        return "draft_fallback", "primary_deliverable"
+    return "none", "none"
 
 
 def _candidate_lifecycle_block(*, authoring: dict[str, Any], trace: dict[str, Any]) -> dict[str, Any]:
@@ -584,6 +635,7 @@ def _evidence_block(
     execution: dict[str, Any],
     spl_authoring: dict[str, Any],
     rag: dict[str, Any],
+    review_only: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """State plainly which kinds of evidence this turn actually has.
 
@@ -600,6 +652,23 @@ def _evidence_block(
     executed = bool(execution["execution_performed"])
     live_available = bool(executed and execution["result_count"])
     knowledge_available = bool(rag["knowledge_record_count"]) or "rag" in obtained
+    review_ctx = review_only or {}
+    spl_role = str(spl_authoring.get("spl_role") or "none")
+    artifact_available = bool(spl_authoring["spl_artifact_available"])
+    if spl_role == "investigation_fallback" and artifact_available:
+        artifact_status = "draft_fallback"
+    elif artifact_available:
+        artifact_status = "obtained"
+    else:
+        artifact_status = "missing"
+    if live_available:
+        execution_result_reason = None
+    elif review_ctx.get("execution_requested_by_user"):
+        execution_result_reason = "source_unavailable"
+    elif review_ctx.get("review_only"):
+        execution_result_reason = "review_only_no_execution"
+    else:
+        execution_result_reason = "no_execution_performed"
     return {
         "executed_evidence": {
             "status": "obtained" if live_available else "not_applicable",
@@ -608,12 +677,14 @@ def _evidence_block(
             "result_count": execution["result_count"],
         },
         "spl_artifact": {
-            "status": "obtained" if spl_authoring["spl_artifact_available"] else "missing",
+            "status": artifact_status,
             "execution_eligible": execution["execution_eligible"],
+            "spl_truth": spl_authoring.get("spl_truth") or "none",
+            "spl_role": spl_role,
         },
         "spl_execution_result": {
             "status": "obtained" if live_available else "not_applicable",
-            "reason": None if live_available else "review_only_no_execution",
+            "reason": execution_result_reason,
         },
         "live_execution_evidence_available": live_available,
         "artifact_evidence_available": bool(spl_authoring["spl_artifact_available"]),
@@ -891,7 +962,8 @@ def _hil_block(
         "execution_hil_required": execution_required,
         "execution_hil_reason": execution_reason,
         "artifact_review_required": bool(
-            handoff.get("artifact_review_required") or spl_authoring["spl_artifact_available"]
+            review_only["review_only"]
+            and (handoff.get("artifact_review_required") or spl_authoring["spl_artifact_available"])
         ),
         "initial_hil_candidate_reason": str(raised_reason) if raised_reason else None,
         "initial_hil_candidate_kind": str(raised_kind) if raised_kind else None,

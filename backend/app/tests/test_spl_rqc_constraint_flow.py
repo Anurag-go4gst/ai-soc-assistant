@@ -132,3 +132,28 @@ def test_explicit_non_applicability_does_not_drop() -> None:
     )
     assert "geo" not in result["dropped"]
     assert result["non_applicable"]["geo"] == "geo_field_not_in_source_profile"
+
+
+def test_generic_template_injects_host_so_rqc_is_preserved() -> None:
+    from app.spl.template_slot_bindings import render_spl_with_bindings
+    from app.spl.user_constraint_bindings import UserConstraintBindings
+
+    base = (
+        "search index=<endpoint_index> sourcetype=<endpoint_process_sourcetype> "
+        "earliest=-24h latest=now (process_name=powershell.exe) | stats count by host,user | head 100"
+    )
+    bindings = UserConstraintBindings(
+        normalized_slots={"index": "pgcil_soc", "sourcetype": "pgcil:edr", "host": "WS-14"},
+        explicit_hosts=["WS-14"],
+    )
+    rendered = render_spl_with_bindings(
+        "edr_powershell_suspicious_command",
+        base,
+        bindings,
+        normalized_slots=bindings.normalized_slots,
+    ).spl
+    assert 'host="WS-14"' in rendered
+    rqc = {"entities": {"host": "WS-14"}, "time_scope": "earliest=-24h latest=now"}
+    result = evaluate_rqc_constraint_preservation(rendered, resolved_query_contract=rqc)
+    assert result["dropped"] == []
+    assert "host" in result["present"]

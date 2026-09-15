@@ -22,6 +22,16 @@ _KNOWLEDGE_OUTPUTS = {
 }
 _MCP_OUTPUTS = {RequestedOutputType.INVESTIGATION, RequestedOutputType.SPL}
 _EXECUTION_SKILLS = {"attack_discovery", "spl_generation"}
+_CATALOGUE_MATCH_PATHS = frozenset(
+    {
+        "use_case_catalog",
+        "exact_105_plus_use_case_catalog",
+        "exact_105_question",
+        "near_105_question",
+        "semantic_105_question",
+        "fuzzy_alias_catalog",
+    }
+)
 
 
 def build_semantic_intent_envelope(
@@ -119,6 +129,9 @@ def _path_type(
     if query_understanding.requested_output_type in _KNOWLEDGE_OUTPUTS:
         return "knowledge_only"
     if coverage_id:
+        return "known_registry"
+    match_path = str(getattr(query_understanding, "deterministic_match_path", "") or "")
+    if match_path in _CATALOGUE_MATCH_PATHS:
         return "known_registry"
     if primary_operation and get_skill_contract(primary_operation):
         return "known_compatible_ood"

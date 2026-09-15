@@ -179,6 +179,7 @@ EXPECTED_RECORD_IO: dict[str, RecordIo] = {
             "approved_investigation_envelope",
             "capability_snapshot",
             "evidence_state",
+            "source_evidence",
             "investigation_run_status",
             "plan_delta_revisions",
         ),
@@ -187,11 +188,13 @@ EXPECTED_RECORD_IO: dict[str, RecordIo] = {
             "plan_delta_revisions",
             "plan_delta_execution_request",
             "investigation_run_status",
+            "hypothesis_assessments",
         ),
         (
             "approved_investigation_envelope",
             "capability_snapshot",
             "evidence_state",
+            "source_evidence",
             "investigation_run_status",
             "plan_delta_revisions",
         ),
@@ -200,6 +203,7 @@ EXPECTED_RECORD_IO: dict[str, RecordIo] = {
             "plan_delta_revisions",
             "plan_delta_execution_request",
             "investigation_run_status",
+            "hypothesis_assessments",
         ),
     ),
     "decide_facts": _io(
@@ -561,6 +565,7 @@ def test_representative_wrapper_dataflow_produces_every_declared_output(
             "plan_delta_revisions",
             "plan_delta_execution_request",
             "investigation_run_status",
+            "hypothesis_assessments",
         ),
     )
     _assert_wrapper_dataflow(
@@ -570,6 +575,7 @@ def test_representative_wrapper_dataflow_produces_every_declared_output(
             "approved_investigation_envelope": {},
             "capability_snapshot": {},
             "evidence_state": {},
+            "source_evidence": [],
             "investigation_run_status": {},
             "plan_delta_revisions": [],
         },

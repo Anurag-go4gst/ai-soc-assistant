@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from app.spl.spl_semantic_fidelity import validate_spl_structure
+
 STANDARD_ID = "SOC-STD-SPL-001"
 Severity = Literal["hard_fail", "warning", "advisory"]
 
@@ -164,6 +166,18 @@ _LEADING_WILDCARD_TERM = re.compile(
 )
 _NON_STREAMING_CMD = re.compile(r"^\s*(?:sort|stats)\b", re.IGNORECASE)
 _FIELDS_KEEP = re.compile(r"^\s*fields\s+(?!-)", re.IGNORECASE)
+_FAILURE_SAME_ROW = re.compile(
+    r"(?:action|status|result|outcome|eventtype|failed_login)\s*=\s*[\"']?(?:failure|failed|fail|denied)|"
+    r"\bfailed[_]?login\s*=|"
+    r"\bEventCode\s*=\s*4625\b",
+    re.IGNORECASE,
+)
+_SUCCESS_SAME_ROW = re.compile(
+    r"(?:action|status|result|outcome|eventtype|successful_login)\s*=\s*[\"']?(?:success|successful|allowed)|"
+    r"\bsuccess(?:ful)?[_]?login\s*=|"
+    r"\bEventCode\s*=\s*4624\b",
+    re.IGNORECASE,
+)
 
 OptimizationClass = Literal[
     "PASS",
@@ -255,6 +269,34 @@ def _scrub_lab_disclaimers(text: str) -> str:
 
 def _pipeline_stages(spl: str) -> list[str]:
     return [stage.strip() for stage in spl.split("|")]
+
+
+def _stage_requires_mutex_same_row(stage: str) -> bool:
+    """True when a pre-aggregation search/where requires failure AND success on one row."""
+    text = str(stage or "").strip()
+    if not text:
+        return False
+    command = text.split(None, 1)[0].lower() if text.split() else ""
+    if command in {"eval", "stats", "streamstats", "eventstats", "timechart", "tstats", "table", "fields"}:
+        return False
+    if not (_FAILURE_SAME_ROW.search(text) and _SUCCESS_SAME_ROW.search(text)):
+        return False
+    if re.search(r"\bOR\b", text, re.IGNORECASE):
+        return False
+    return True
+
+
+def _check_impossible_same_row_predicates(report: DraftQualityReport, stages: list[str]) -> None:
+    agg_index = _first_agg_index(stages)
+    pre_agg = stages if agg_index is None else stages[:agg_index]
+    for stage in pre_agg:
+        if _stage_requires_mutex_same_row(stage):
+            report.add(
+                "SOC-STD-SPL-001-Q19",
+                "hard_fail",
+                "Mutually exclusive failure and success predicates are required on the same event.",
+            )
+            return
 
 
 def _first_agg_index(stages: list[str]) -> int | None:
@@ -539,6 +581,13 @@ def evaluate_draft_quality(
     stages = _pipeline_stages(spl)
     combined_text = f"{spl}\n{extra_text}"
 
+    for error in validate_spl_structure(spl):
+        report.add(
+            "SOC-STD-SPL-001-Q20",
+            "hard_fail",
+            f"Malformed SPL structure: {error.replace('_', ' ')}.",
+        )
+
     for match in _QUOTED_STRING.finditer(spl):
         if "\n" in match.group(0) or "\r" in match.group(0):
             report.add(
@@ -566,6 +615,7 @@ def evaluate_draft_quality(
 
     _check_shift_left(report, stages, detection_family=detection_family)
     _check_stats_inclusion(report, stages)
+    _check_impossible_same_row_predicates(report, stages)
 
     if _PROHIBITED_CLAIMS.search(_scrub_lab_disclaimers(combined_text)):
         report.add(

@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from app.llm.sidecar_skip_policy import should_skip_sidecar
+from app.chat.signal_class_guidance import query_has_explicit_ot_context
 
 _CONCEPTUAL_MITRE_CONFIRM = re.compile(
     r"\b(enough to confirm|alone confirm|treated as lateral movement|prove valid account|prove compromise)\b",
@@ -310,7 +311,9 @@ def build_guided_investigation_guidance(query: str, entities: dict | None = None
         return build_signal_class_guidance(query, entities)
 
     normalized = " ".join(query.lower().split())
-    if any(term in normalized for term in ("ot", "scada", "chatter", "new external", "overnight")):
+    if query_has_explicit_ot_context(normalized) or any(
+        term in normalized for term in ("chatter", "new external", "overnight")
+    ):
         hypotheses = [
             "Approved vendor or maintenance communication changed.",
             "A configuration or routing change introduced a new destination.",
