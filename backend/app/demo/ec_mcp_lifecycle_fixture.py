@@ -9,7 +9,9 @@ from typing import Any
 _PLAYBOOK_PATH = Path(__file__).resolve().parents[1] / "connectors" / "mcp" / "mcp_tool_playbook.json"
 
 PRIMARY_ATTACKER_IP = "198.51.100.42"
-INCIDENT_ID = "FW-INC-2026-0615"
+# One incident thread across S1 (Day 0: new IP, watch raised, P2), Q1 (Day 1: watch fires,
+# identity attributed, escalated to P1) and S3 (Day 1: block through the firewall process).
+INCIDENT_ID = "INC-2026-89412"
 
 
 def load_mcp_playbook() -> dict[str, Any]:

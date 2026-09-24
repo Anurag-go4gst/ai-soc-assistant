@@ -127,7 +127,7 @@ def test_firewall_incident_exposes_interactive_p1_ticket_action() -> None:
 
     assert response.analyst_response is not None
     analyst = response.analyst_response
-    assert any("Open P1 incident record" in action for action in analyst.recommended_actions)
+    assert any("escalate INC-2026-89412 to P1" in action for action in analyst.recommended_actions)
     assert len(analyst.interactive_actions) == 1
     action = analyst.interactive_actions[0]
     assert action["ui_action"] == "render_interactive_ticket"

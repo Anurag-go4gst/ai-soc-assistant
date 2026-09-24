@@ -21,17 +21,21 @@ def _ec_resolve_slots(spl: str) -> str:
     return spl
 
 
+# Per-source hourly deny baseline. Hour-aligned window (@h) so partial hours don't skew it;
+# ``hours_observed`` makes each baseline's sample size visible and sparse sources (<24 active
+# hours) are dropped rather than given meaningless bounds. Averages are per *active* hour — the
+# analyst checklist says so, because hours with zero denies are not in the stats.
 _FIREWALL_BASELINE_SPL = _ec_resolve_slots(
-    "search index=<firewall_index> sourcetype=<firewall_sourcetype> earliest=-7d latest=now "
+    "search index=<firewall_index> sourcetype=<firewall_sourcetype> earliest=-7d@h latest=@h action=deny "
     "| bucket _time span=1h "
-    "| stats count as event_count, "
-    "count(eval(action=\"deny\")) as deny_count, "
-    "dc(dest_port) as distinct_ports by _time, src "
-    "| stats avg(deny_count) as avg_deny, stdev(deny_count) as stdev_deny, "
+    "| stats count as deny_count dc(dest_port) as distinct_ports by _time, src "
+    "| stats count as hours_observed, avg(deny_count) as avg_deny, stdev(deny_count) as stdev_deny, "
     "avg(distinct_ports) as avg_ports, stdev(distinct_ports) as stdev_ports by src "
+    "| where hours_observed>=24 "
     "| eval deny_upper_bound=round(avg_deny + (2*stdev_deny), 2) "
     "| eval port_upper_bound=round(avg_ports + (2*stdev_ports), 2) "
-    "| table src, avg_deny, deny_upper_bound, avg_ports, port_upper_bound "
+    "| sort - avg_deny "
+    "| table src, hours_observed, avg_deny, deny_upper_bound, avg_ports, port_upper_bound "
     "| head 100"
 )
 
@@ -129,7 +133,7 @@ def visual_lanes_for_scenario(
                 f"(**{PRIMARY_ATTACKER_IP}**) driving ~5,200 denies with allow/success on jump host "
                 "**10.20.1.10 (svc_jump_ops)**. Env KB resolves ASA searches to **pgcil_soc**.\n\n"
                 "### MITRE ATT&CK alignment\n"
-                "- **T1110.001** Password Guessing — supported by deny-volume pattern\n"
+                "- **T1595** Active Scanning — supported by deny volume across hosts and ports\n"
                 "- **T1078** Valid Accounts — requires validation after identity review\n"
                 "- **T1048** Exfiltration Over Alternative Protocol — candidate pending data-movement proof"
             ),
@@ -328,7 +332,7 @@ def build_firewall_incident_scenarios() -> dict[str, Any]:
                     "breach_account": "svc_jump_ops",
                 },
                 mitre=[
-                    {"technique_id": "T1110.001", "name": "Password Guessing", "support": "supported", "source_refs": ["ev-fw-deny-q1"]},
+                    {"technique_id": "T1595", "name": "Active Scanning", "support": "supported", "source_refs": ["ev-fw-deny-q1"]},
                     {"technique_id": "T1078", "name": "Valid Accounts", "support": "requires_validation", "source_refs": ["ev-fw-deny-q1"]},
                 ],
                 refs=["ev-fw-deny-q1"],
@@ -570,7 +574,7 @@ def build_firewall_incident_scenarios() -> dict[str, Any]:
             selected_use_case_id="net_firewall_deny_spike",
             analyst_summary=(
                 f"Executive rollup for {INCIDENT_ID}: coordinated perimeter activity anchored on "
-                f"{PRIMARY_ATTACKER_IP} with MITRE T1110.001 supported and T1078/T1048 flagged for validation."
+                f"{PRIMARY_ATTACKER_IP} with MITRE T1595 supported and T1078/T1048 flagged for validation."
             ),
             trace_explanation=[
                 "Executive summary synthesizes Q1–Q4 evidence with MITRE ATT&CK alignment.",
@@ -590,14 +594,15 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
             "severity_label": "P1 Critical",
             "finding_title": "Coordinated firewall attack with account breach",
             "one_sentence_finding": (
-                f"~5,200 firewall denies in the last hour from {PRIMARY_ATTACKER_IP} culminated in three "
-                "allow events on jump host 10.20.1.10 for svc_jump_ops — consistent with a coordinated "
-                "perimeter attack and successful internal account use."
+                f"This is the new IP from the 14-day watch: {PRIMARY_ATTACKER_IP} accounts for ~4,100 of the "
+                "denies, scanning 3 internal hosts across 26 ports, and 3 sessions to jump host 10.20.1.10 "
+                "were allowed — treat as P1 until the svc_jump_ops identity check rules out account use."
             ),
             "initial_assessment": [
-                f"External source {PRIMARY_ATTACKER_IP} drove ~5,200 denies against multiple internal destinations.",
-                "Three allow events on 10.20.1.10 for svc_jump_ops indicate likely account compromise.",
-                "Remaining destinations show deny-only activity — perimeter blocks held elsewhere.",
+                f"Watch fired: {PRIMARY_ATTACKER_IP} (first seen and put under a 14-day watch in INC-2026-89412) returned at volume.",
+                f"{PRIMARY_ATTACKER_IP} drove ~4,100 denies across 10.20.1.10, 10.20.4.55 and 10.20.8.90 — a scanning pattern (T1595).",
+                "3 sessions to jump host 10.20.1.10 (443/8443) were allowed; whether svc_jump_ops logons came from this IP is the next check.",
+                "The other two hosts saw denies only — perimeter controls held there.",
             ],
             "splunk_status_line": "Splunk search · pgcil_soc/pgcil:firewall · 5 rows",
             "splunk_results_table": [
@@ -622,10 +627,10 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
             ],
             "mitre_mappings": [
                 {
-                    "Technique": "T1110.001",
-                    "Name": "Password Guessing",
+                    "Technique": "T1595",
+                    "Name": "Active Scanning",
                     "Status": "Supported",
-                    "Evidence": "High deny volume from single external source",
+                    "Evidence": "~4,100 denies across 3 hosts and 26 ports from one external source",
                 },
                 {
                     "Technique": "T1078",
@@ -635,9 +640,9 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
                 },
             ],
             "recommended_actions": [
-                "P1: Isolate jump host 10.20.1.10 and disable svc_jump_ops pending identity review.",
-                "P1: Correlate allow events with identity, VPN, and endpoint telemetry in the same window.",
-                "P1: Open P1 incident record and assign incident commander.",
+                "P1 — check identity first: correlate the 3 allowed sessions with svc_jump_ops logons (decides whether this is account use).",
+                "P1 (needs SOC lead + infrastructure owner approval): isolate jump host 10.20.1.10 and disable svc_jump_ops if the identity check attributes logons to this IP — it is the only path that got through.",
+                "P1: escalate INC-2026-89412 to P1 and assign an incident commander.",
                 "P2: Extend blast-radius search on pgcil_soc for lateral movement from 10.20.1.10.",
             ],
             "interactive_actions": [
@@ -708,6 +713,7 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
             ],
             "analyst_checklist": [
                 "Review the 7-day window against maintenance calendars before saving this as a baseline.",
+                "Averages are per active hour: hours with no denies are not counted, and hours_observed shows the sample size (sources under 24 active hours are excluded).",
                 "Optionally append `| outputlookup firewall_baseline.csv` after analyst approval to persist the table.",
                 "Use the saved lookup in downstream detections; do not auto-update it without a documented change ticket.",
             ],
@@ -868,13 +874,13 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
             "one_sentence_finding": (
                 f"Coordinated perimeter incident {INCIDENT_ID}: dominant external actor {PRIMARY_ATTACKER_IP} "
                 "drove ~5,200 firewall denies with three confirmed allow events on jump host 10.20.1.10 for "
-                "svc_jump_ops; MITRE T1110.001 supported, T1078 validation-required, T1048 candidate pending "
+                "svc_jump_ops; MITRE T1595 supported, T1078 validation-required, T1048 candidate pending "
                 "data-movement proof."
             ),
             "initial_assessment": [
                 f"Incident {INCIDENT_ID}: P1 Critical — coordinated perimeter attack with internal account breach.",
                 f"Primary external actor {PRIMARY_ATTACKER_IP}: ~5,200 denies / 3 allow events; blast radius covers 3 internal hosts.",
-                "MITRE ATT&CK alignment: T1110.001 Supported · T1078 Requires validation · T1048 Candidate.",
+                "MITRE ATT&CK alignment: T1595 Supported · T1078 Requires validation · T1048 Candidate.",
                 "Next step: identity + endpoint corroboration for svc_jump_ops on 10.20.1.10 before executive brief.",
             ],
             "narrative_summary": (
@@ -885,12 +891,12 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
                 "**Blast radius:** Three internal hosts exposed — 10.20.1.10 (breach), 10.20.4.55, 10.20.8.90 "
                 "(deny-only so far). SCADA telemetry check is on hold pending OT index mapping.\n\n"
                 "**MITRE ATT&CK alignment:**\n"
-                "- T1110.001 Password Guessing — **Supported** by deny-volume pattern\n"
+                "- T1595 Active Scanning — **Supported** by deny volume across hosts and ports\n"
                 "- T1078 Valid Accounts — **Requires validation** after identity review of svc_jump_ops\n"
                 "- T1048 Exfiltration Over Alternative Protocol — **Candidate** pending data-movement evidence"
             ),
             "mitre_mappings": [
-                {"Technique": "T1110.001", "Name": "Password Guessing", "Tactic": "Credential Access", "Status": "Supported", "Evidence": "~5,200 denies from single external source in under one hour"},
+                {"Technique": "T1595", "Name": "Active Scanning", "Tactic": "Reconnaissance", "Status": "Supported", "Evidence": "~4,100 denies across 3 hosts and 26 ports from one external source"},
                 {"Technique": "T1078", "Name": "Valid Accounts", "Tactic": "Initial Access / Persistence", "Status": "Requires validation", "Evidence": "Three allow events for svc_jump_ops after sustained deny burst on 10.20.1.10"},
                 {"Technique": "T1048", "Name": "Exfiltration Over Alternative Protocol", "Tactic": "Exfiltration", "Status": "Candidate", "Evidence": "Pending — data-movement proof from egress or endpoint telemetry not yet collected"},
             ],

@@ -38,6 +38,60 @@ _DEFAULT_FOLLOWUPS: dict[str, tuple[EcFollowUpChip, ...]] = {
 }
 
 
+# Legacy (non-agent) scenarios: an interactive action is only minted once the chip that asks
+# for it is applied — a ticket must not exist before anyone requested it.
+_SEED_ONLY_AFTER_FOLLOW_UP: dict[str, dict[str, str]] = {
+    "firewall_deny_coordinated_attack": {"open_p1_incident_ticket": "open_p1_ticket"},
+}
+
+# What each legacy follow-up chip adds to the answer, so the answer evolves with the conversation
+# instead of repeating the same summary on every turn.
+_FOLLOW_UP_FINDINGS: dict[str, dict[str, str]] = {
+    "firewall_deny_coordinated_attack": {
+        "check_identity": (
+            "Identity check: 3 svc_jump_ops logons on 10.20.1.10 between 03:12 and 03:19 came from "
+            "198.51.100.42 — credential use from the attacker's IP is now confirmed (T1078 supported)."
+        ),
+        "extend_blast_radius": (
+            "Blast radius: no connections from 10.20.1.10 to other internal hosts after 03:19 — no "
+            "lateral movement seen in the last 24 hours."
+        ),
+        "open_p1_ticket": (
+            "Escalation of INC-2026-89412 (opened as P2 when the 14-day watch was raised) to P1 is "
+            "prepared for the on-duty SOC lead — approve the ticket update below."
+        ),
+    },
+}
+
+
+def _legacy_follow_up_view(
+    scenario_id: str,
+    payload: dict[str, Any],
+    applied: list[str],
+) -> dict[str, Any]:
+    """Append the findings of applied chips to the analyst card (copy, not in place)."""
+    findings = [
+        text for follow_up_id, text in _FOLLOW_UP_FINDINGS.get(scenario_id, {}).items() if follow_up_id in applied
+    ]
+    if not findings:
+        return payload
+    updated = dict(payload)
+    for key in ("analyst_response", "analyst"):
+        card = updated.get(key)
+        if isinstance(card, dict):
+            card = dict(card)
+            card["initial_assessment"] = [*(card.get("initial_assessment") or []), *findings]
+            if "check_identity" in applied and card.get("mitre_mappings"):
+                card["mitre_mappings"] = [
+                    {**row, "Status": "Supported", "Evidence": "svc_jump_ops logons attributed to 198.51.100.42"}
+                    if row.get("Technique") == "T1078"
+                    else row
+                    for row in card["mitre_mappings"]
+                ]
+            updated[key] = card
+    return updated
+
+
 class UnknownFollowUpError(KeyError):
     """follow_up_id is not registered for this scenario — do not invent a scenario."""
 
@@ -174,12 +228,18 @@ def run_experience_center_turn(
         agent_state=session_record.get("agent_state"),
     )
     if flagship is not None:
-        return flagship
+        return _with_story_thread(scenario_id, flagship)
 
-    payload = run_demo_scenario(scenario_id)
+    applied_ids = list(session_record.get("applied_follow_up_ids") or [])
+    payload = _legacy_follow_up_view(scenario_id, run_demo_scenario(scenario_id), applied_ids)
 
     analyst = payload.get("analyst_response") if isinstance(payload.get("analyst_response"), dict) else None
-    interactive = list((analyst or {}).get("interactive_actions") or [])
+    gated = _SEED_ONLY_AFTER_FOLLOW_UP.get(scenario_id, {})
+    interactive = [
+        item
+        for item in (analyst or {}).get("interactive_actions") or []
+        if not (isinstance(item, dict) and item.get("id") in gated and gated[item["id"]] not in applied_ids)
+    ]
     actions = ec_actions.list_actions_for_session(active_session, scenario_id)
     if not actions and interactive:
         actions = ec_actions.seed_from_interactive_actions(
@@ -205,7 +265,9 @@ def run_experience_center_turn(
         "route_source": "ec_fixture_selected",
         "ec_projection": _build_projection(scenario_id, payload).model_dump(),
         "ec_actions": [item.model_dump() for item in actions],
-        "ec_followups": [item.model_dump() for item in followups_for(scenario_id)],
+        "ec_followups": [
+            item.model_dump() for item in followups_for(scenario_id) if item.follow_up_id not in applied_ids
+        ],
         "ec_session_state": EcSessionState(
             session_id=active_session,
             family=family,
@@ -217,4 +279,13 @@ def run_experience_center_turn(
         ).model_dump(),
         "ec_provenance": provenance,
     }
-    return ExperienceCenterResponse.model_validate(envelope)
+    return _with_story_thread(scenario_id, ExperienceCenterResponse.model_validate(envelope))
+
+
+def _with_story_thread(scenario_id: str, response: ExperienceCenterResponse) -> ExperienceCenterResponse:
+    from app.demo.ec_story import story_thread_for
+
+    thread = story_thread_for(scenario_id)
+    if thread is None:
+        return response
+    return ExperienceCenterResponse.model_validate({**response.model_dump(), "ec_story_thread": thread})

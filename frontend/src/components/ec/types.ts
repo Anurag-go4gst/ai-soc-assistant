@@ -195,6 +195,15 @@ export interface EcRagTrace {
   governance?: string[];
 }
 
+export interface EcStoryThread {
+  thread_id: string;
+  day: number;
+  total_days: number;
+  title: string;
+  verdict_so_far: string;
+  next?: { scenario_id: string; label: string } | null;
+}
+
 export interface EcToolFabricEntry {
   tool_id: string;
   name: string;
@@ -507,6 +516,7 @@ export interface EcAnalystPayload {
 }
 
 export interface ExperienceCenterResponse {
+  ec_story_thread?: EcStoryThread | null;
   scenario_id: string;
   trace_id: string;
   message: string;

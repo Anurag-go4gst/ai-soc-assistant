@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { EcAgentWorkflow } from '@/components/ec/EcAgentWorkflow';
-import { EcExecutiveBrief, EcStepWhy, EcToolFabric } from '@/components/ec/EcCioLayer';
+import { EcExecutiveBrief, EcStepWhy, EcStoryThreadBadge, EcToolFabric } from '@/components/ec/EcCioLayer';
 import type { EcAgentWorkflowPayload } from '@/components/ec/types';
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import * as scrollModule from '@/lib/scrollIntoScrollParent';
@@ -95,6 +95,23 @@ describe('EC CIO layer', () => {
     expect(screen.getByText('Only a verdict.')).toBeInTheDocument();
     render(<EcStepWhy step={{ id: 'x', title: 'No reason' }} />);
     render(<EcToolFabric tools={[]} />);
+  });
+
+  it('renders the incident thread badge with the next question', () => {
+    render(
+      <EcStoryThreadBadge
+        thread={{
+          thread_id: 'INC-2026-89412',
+          day: 0,
+          total_days: 2,
+          title: 'New IP seen — watch raised',
+          verdict_so_far: 'MEDIUM',
+          next: { scenario_id: 'q1', label: 'Day 1 — the watch fires' },
+        }}
+      />,
+    );
+    expect(screen.getByText(/Incident INC-2026-89412 · Day 0/)).toBeInTheDocument();
+    expect(screen.getByText(/Day 1 — the watch fires/)).toBeInTheDocument();
   });
 });
 

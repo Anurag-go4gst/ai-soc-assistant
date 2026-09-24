@@ -250,7 +250,6 @@ def test_no_demo_words_in_analyst_visible_text(agent_walks, scenario_id):
 # ---------------------------------------------------------------- storyline
 
 
-@pytest.mark.xfail(strict=True, reason="A5.2: S1 → Q1 → S3 incident thread")
 def test_s1_q1_s3_share_one_incident_thread():
     ids = set()
     for scenario_id in (S1, Q1, S3):
@@ -258,3 +257,15 @@ def test_s1_q1_s3_share_one_incident_thread():
         thread = response.get("ec_story_thread") or (response.get("ec_agent_workflow") or {}).get("story_thread") or {}
         ids.add(thread.get("thread_id"))
     assert len(ids) == 1 and None not in ids
+
+
+def test_s1_q1_s3_state_the_same_facts():
+    """Same IP, jump host, account and incident id in every question of the thread."""
+    blobs = {}
+    for scenario_id in (S1, Q1, S3):
+        response = run_experience_center_turn(scenario_id, session_id=None).model_dump()
+        blobs[scenario_id] = str(response)
+    for fact in ("198.51.100.42", "10.20.1.10", "svc_jump_ops", "INC-2026-89412"):
+        missing = [scenario_id for scenario_id, blob in blobs.items() if fact not in blob]
+        assert missing == [], (fact, missing)
+    assert "FW-INC-2026-0615" not in "".join(blobs.values())

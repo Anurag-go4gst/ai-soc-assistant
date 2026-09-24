@@ -24,6 +24,7 @@ import {
   suppressesAgentExecutionProgressPanel,
 } from '@/lib/ecAgentWorkflow';
 import { EcWelcomeHero } from '@/components/ec/EcWelcomeHero';
+import { EcStoryThreadBadge } from '@/components/ec/EcCioLayer';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -460,6 +461,7 @@ export function EcInvestigationWorkspace() {
                 </div>
               ) : null}
               <div className={cn('min-w-0 flex-1 space-y-6', agentMode && 'w-full max-w-none')}>
+                {envelope.ec_story_thread ? <EcStoryThreadBadge thread={envelope.ec_story_thread} /> : null}
                 {!answerMaximized ? (
                   <div className="flex justify-end">
                     <Button

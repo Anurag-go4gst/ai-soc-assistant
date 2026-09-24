@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { EcSectionHeading } from '@/components/ec/EcSectionHeading';
-import type { EcAgentPlanStep, EcExecutiveBrief, EcToolFabricEntry } from '@/components/ec/types';
+import type { EcAgentPlanStep, EcExecutiveBrief, EcStoryThread, EcToolFabricEntry } from '@/components/ec/types';
 import { cn } from '@/lib/utils';
 
 /** One-line "Why" for a plan step, with the decision / reversibility detail on demand. */
@@ -142,5 +142,22 @@ export function EcToolFabric({ tools }: { tools: EcToolFabricEntry[] }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+/** Where this question sits in a multi-day incident, so related questions read as one story. */
+export function EcStoryThreadBadge({ thread }: { thread: EcStoryThread }) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-amber-400/30 bg-amber-950/15 px-3 py-2 text-xs"
+      data-ec-section="story-thread"
+    >
+      <span className="font-semibold text-amber-100">
+        Incident {thread.thread_id} · Day {thread.day}
+      </span>
+      <span className="text-amber-50/90">{thread.title}</span>
+      <span className="text-slate-400">So far: {thread.verdict_so_far}</span>
+      {thread.next ? <span className="text-slate-400">Next in this incident: {thread.next.label}</span> : null}
+    </div>
   );
 }
