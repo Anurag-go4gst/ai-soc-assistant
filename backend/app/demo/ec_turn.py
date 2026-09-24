@@ -81,6 +81,7 @@ def _legacy_follow_up_view(
         if isinstance(card, dict):
             card = dict(card)
             card["initial_assessment"] = [*(card.get("initial_assessment") or []), *findings]
+            card["follow_up_findings"] = list(findings)
             if "check_identity" in applied and card.get("mitre_mappings"):
                 card["mitre_mappings"] = [
                     {**row, "Status": "Supported", "Evidence": "svc_jump_ops logons attributed to 198.51.100.42"}
@@ -288,4 +289,7 @@ def _with_story_thread(scenario_id: str, response: ExperienceCenterResponse) -> 
     thread = story_thread_for(scenario_id)
     if thread is None:
         return response
+    if (response.model_extra or {}).get("ec_agent_lifecycle") == "PLAN_READY":
+        # The day's verdict is what this question produces — don't show it before it runs.
+        thread = {**thread, "verdict_so_far": "Not investigated yet — the plan below is where this incident starts"}
     return ExperienceCenterResponse.model_validate({**response.model_dump(), "ec_story_thread": thread})

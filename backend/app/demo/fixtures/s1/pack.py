@@ -427,7 +427,7 @@ def _base_evidence_state() -> list[dict[str, Any]]:
         },
         {
             "id": "mcp_monitoring",
-            "label": "MCP IP monitoring notable",
+            "label": "New-IP monitoring notable",
             "status": "MISSING",
             "provenance": "experience_center_fixture",
             "detail": "14-day Splunk monitoring is not yet deployed",
@@ -563,7 +563,7 @@ def _base_outcome() -> dict[str, Any]:
         "unconfirmed": [
             "Successful account compromise",
             "Successful authentication attributable to this IP",
-            "Whether the three permitted sessions are expected MCP business traffic",
+            "Whether the three permitted sessions are expected partner business traffic",
             "Malicious use of the newly observed IP",
             "Valid-account abuse (T1078)",
             "Password guessing (T1110.001) — requires authentication failure evidence",
@@ -903,7 +903,7 @@ def _apply_follow_up_effects(
         if "notify" not in existing_kinds:
             prepared = ec_actions.prepare_action(
                 kind="notify",
-                label=f"Deploy Splunk monitoring for newly observed MCP IP {PRIMARY_ATTACKER_IP}",
+                label=f"Deploy Splunk monitoring for newly observed partner-endpoint IP {PRIMARY_ATTACKER_IP}",
                 session_id=session_id,
                 scenario_id=S1_SCENARIO_ID,
                 extra={
@@ -1198,7 +1198,7 @@ def _recommended_investigations(applied: list[str]) -> list[str]:
         "Check endpoint activity on the jump host",
         "Check threat intelligence for the newly observed IP",
         "Compare with previous incidents",
-        "Raise monitoring for this MCP IP (SOP first step)",
+        "Raise monitoring for this partner-endpoint IP (SOP first step)",
         "Assess DNS / proxy / VPN communication if broader coverage is required",
     ]
     mapping = {
@@ -1219,7 +1219,7 @@ def _recommended(applied: list[str]) -> list[str]:
         "Query endpoint activity on the jump host",
         "Check threat intelligence for the newly observed IP",
         "Compare with previous incidents before containment",
-        "Raise monitoring for this newly observed MCP IP (SOP first step; HIL notable, not auto-deployed)",
+        "Raise monitoring for this newly observed partner-endpoint IP (SOP first step; HIL notable, not auto-deployed)",
         "Prepare a firewall block request only if required and after analyst approval",
         "Open an incident ticket with confirmed vs unconfirmed findings",
         "Email the firewall/security team after reviewing the draft",

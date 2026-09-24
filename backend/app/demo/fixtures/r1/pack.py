@@ -414,12 +414,8 @@ def build_r1_agent_workflow(*, agent_state: dict[str, Any], applied: list[str]) 
                 {"label": "Sentences cited", "value": f"{len(ANSWER_SENTENCES)}/{len(ANSWER_SENTENCES)}"},
             ],
         }
-        workflow["investigation_conclusion"] = {
-            "headline": ANSWER_HEADLINE,
-            "narrative_points": [
-                f"{text} [{', '.join(CITATION_LABELS[c] for c in cites)}]" for text, cites in ANSWER_SENTENCES
-            ],
-        }
+        # Headline only: the cited sentences are shown once, in the "How RAG answered this" panel.
+        workflow["investigation_conclusion"] = {"headline": ANSWER_HEADLINE, "narrative_points": []}
         workflow["unconfirmed"] = [f"Not in our knowledge base: {gap}" for gap in KNOWLEDGE_GAPS]
         workflow["investigation_results"] = {"header": "Retrieval steps", "steps": investigation_steps}
 

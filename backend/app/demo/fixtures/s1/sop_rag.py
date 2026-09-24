@@ -85,7 +85,7 @@ SOP_SECTIONS: tuple[dict[str, str], ...] = (
     {
         "heading": "Rollback / unblock conditions",
         "body": (
-            "Unblock only with Network approval if identity is confirmed expected MCP traffic and residual "
+            "Unblock only with Network approval if identity is confirmed expected partner traffic and residual "
             "risk is accepted, or if the block caused a documented business outage."
         ),
     },

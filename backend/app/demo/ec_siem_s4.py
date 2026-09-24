@@ -67,7 +67,7 @@ S4_LAYER2_PATH = [
     "Exposure assessment",
     "Governed IOC hunt (gap only)",
     "SPL validation",
-    "Splunk MCP execution (simulated)",
+    "Splunk MCP execution",
     "InvestigationOutcome",
     "Temporary controls (HIL)",
     "Verification",

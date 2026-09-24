@@ -197,7 +197,7 @@ describe('S1 Experience Center workspace', () => {
         }}
       />,
     );
-    expect(screen.getByText(/collected from Splunk MCP, SOC-KB \/ RAG, inventory fixture/i)).toBeInTheDocument();
+    expect(screen.getByText(/collected from Splunk MCP, SOC-KB \/ RAG, asset inventory/i)).toBeInTheDocument();
     expect(screen.queryByText(/Agilus/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/ITSM/i)).not.toBeInTheDocument();
   });

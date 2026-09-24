@@ -31,7 +31,7 @@ def build_s1_normalized_investigation_state(
     total = sum(1 for step in investigation_steps if step.get("selected", True) or step.get("added_by_agent"))
 
     unconfirmed = [
-        "Whether the three permitted sessions are expected MCP business traffic",
+        "Whether the three permitted sessions are expected partner business traffic",
         "Whether successful authentication can be attributed to this IP",
         "Whether malicious use is occurring",
     ]

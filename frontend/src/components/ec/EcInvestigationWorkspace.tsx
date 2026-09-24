@@ -173,9 +173,16 @@ export function EcInvestigationWorkspace() {
     if (options?.agentInlineProgress) {
       skipRef.current = false;
       let last: ExperienceExecutionProgressView | null = null;
+      let scrolledToProgress = false;
       const ok = await playEcExecutionJourney(resolveJourney(next.ec_execution_journey), (view) => {
         last = view;
         setProgress(view);
+        // Follow the work: bring the progress panel into view once. Leaving the viewport where it
+        // was let the page collapse under the reader (plan rows hide while steps run) and jump.
+        if (!scrolledToProgress && !userScrolledRecently()) {
+          scrolledToProgress = true;
+          scrollAgentSection('[data-ec-section="agent-execution-progress"]', 'center');
+        }
       }, {
         isStale: () => epoch !== epochRef.current,
         skipRemaining: () => skipRef.current,
@@ -284,7 +291,7 @@ export function EcInvestigationWorkspace() {
     setBusy(true);
     setError(null);
     pushUserMessage(chip?.label ?? followUpId, {
-      scrollMode: executiveSummaryOnly || remFollowUp ? 'none' : agentInlineProgress ? 'answer' : 'end',
+      scrollMode: executiveSummaryOnly || remFollowUp || agentInlineProgress ? 'none' : 'end',
     });
     const link = readinessLabelForActionChip(chip);
     const evidenceHighlight = evidenceIdForChip(chip);

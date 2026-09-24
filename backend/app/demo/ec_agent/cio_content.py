@@ -59,6 +59,11 @@ class CioContent:
     executive_brief: dict[str, dict[str, Any]] = field(default_factory=dict)
     # Optional analyst-facing replacements for step summaries that contained internal notes.
     step_summary: dict[str, str] = field(default_factory=dict)
+    # Answer title while only the plan exists — must not state a verdict nothing has produced yet.
+    plan_title: str = ""
+    # Genuinely open questions after the investigation. Replaces a "not confirmed" list that
+    # reads as contradicting the verdict (e.g. "successful tool execution" when none ran).
+    open_questions: tuple[str, ...] = ()
 
 
 _CONTENT: dict[str, CioContent] = {}
@@ -140,6 +145,9 @@ def enrich_agent_workflow(scenario_id: str, workflow: dict[str, Any]) -> dict[st
     brief_key = _BRIEF_KEY_BY_LIFECYCLE.get(str(workflow.get("lifecycle") or ""))
     if brief_key and brief_key in content.executive_brief:
         workflow["executive_brief"] = dict(content.executive_brief[brief_key])
+
+    if content.open_questions and brief_key:
+        workflow["unconfirmed"] = list(content.open_questions)
 
     workflow["tool_fabric"] = tool_fabric(used_tool_ids)
     return workflow

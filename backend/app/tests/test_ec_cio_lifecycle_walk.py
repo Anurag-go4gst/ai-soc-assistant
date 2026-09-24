@@ -269,3 +269,34 @@ def test_s1_q1_s3_state_the_same_facts():
         missing = [scenario_id for scenario_id, blob in blobs.items() if fact not in blob]
         assert missing == [], (fact, missing)
     assert "FW-INC-2026-0615" not in "".join(blobs.values())
+
+
+# ---------------------------------------------------------------- plan stage (visual walkthrough F1/F2)
+
+_VERDICT_WORDS = re.compile(r"not confirmed|confirmed|blocked|contained|malicious use|breach", re.IGNORECASE)
+_EXECUTION_WORDS = re.compile(r"executing|executed|no alert|polling|search returned|validated", re.IGNORECASE)
+
+
+@pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
+def test_plan_stage_states_no_verdict_and_runs_nothing(agent_walks, scenario_id):
+    plan = _turn(agent_walks[scenario_id], "PLAN_READY")
+    title = (plan.get("analyst_response") or {}).get("finding_title") or ""
+    assert not _VERDICT_WORDS.search(title), title
+    journey = plan.get("ec_execution_journey") or {}
+    text = " ".join(
+        f"{stage.get('title', '')} {' '.join(stage.get('activity') or [])}" for stage in journey.get("stages") or []
+    )
+    assert not _EXECUTION_WORDS.search(text), text
+    thread = plan.get("ec_story_thread")
+    if thread:
+        assert "not investigated yet" in thread["verdict_so_far"].lower()
+
+
+def test_q1_follow_up_findings_are_visible_and_grow():
+    first = run_experience_center_turn(Q1, session_id=None).model_dump()
+    session_id = first["ec_session_state"]["session_id"]
+    assert not (first["analyst_response"] or {}).get("follow_up_findings")
+    after = run_experience_center_turn(Q1, session_id=session_id, follow_up_id="check_identity").model_dump()
+    findings = after["analyst_response"]["follow_up_findings"]
+    assert len(findings) == 1 and "svc_jump_ops" in findings[0]
+    assert "check_identity" not in [chip["follow_up_id"] for chip in after["ec_followups"]]

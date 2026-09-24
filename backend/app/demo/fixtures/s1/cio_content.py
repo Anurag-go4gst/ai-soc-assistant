@@ -7,6 +7,7 @@ from app.demo.fixtures.s1.agent_config import S1_SCENARIO_ID
 
 S1_CIO_CONTENT = CioContent(
     scenario_id=S1_SCENARIO_ID,
+    plan_title="Newly observed IP 198.51.100.42 — investigation plan ready",
     opening_narrative=(
         "My plan for 198.51.100.42: six checks across Splunk firewall logs, the asset inventory "
         "and the SOC knowledge base — who owns this IP, what it reached in the last 30 days, "

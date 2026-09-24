@@ -778,7 +778,7 @@ S1_FOLLOW_UP_JOURNEYS = {
         "s1-rem-run",
         "run_remediation",
         [
-            ("Raise MCP IP monitoring", "execute", "HIL notable draft…"),
+            ("Raise monitoring for the new IP", "execute", "HIL notable draft…"),
             ("Prepare firewall block", "execute", "SOAR ip_block after approval…"),
             ("Create incident", "execute", "ITSM — malicious use not confirmed…"),
             ("Notify firewall team", "execute", "Email — FIREWALL_TEAM after approval…"),
@@ -1038,6 +1038,26 @@ R1_FOLLOW_UP_JOURNEYS = {
     ),
 }
 
+
+
+def agent_planning_journey(scenario_id: str, *, tool_names: list[str], step_count: int) -> EcExecutionJourney:
+    """First-turn animation for agent scenarios: it plans, it does not investigate.
+
+    The 10-stage architecture animation used to show searches executing and findings appearing
+    before the plan was even offered — contradicting "nothing runs until you approve".
+    """
+    tools = ", ".join(tool_names[:4]) + ("…" if len(tool_names) > 4 else "")
+    return _continue(
+        f"{scenario_id}-plan",
+        "plan",
+        [
+            ("Reading your question", "understand", "Working out what has to be decided…"),
+            ("Choosing checks and tools", "plan", f"{step_count} checks across {tools or 'governed tools'}…"),
+            ("Looking for what we already have", "plan", "Existing detections, playbooks and SOPs to reuse first…"),
+            ("Plan ready for your approval", "outcome", "Nothing runs until you approve…"),
+        ],
+        header="Preparing the investigation plan",
+    )
 
 _INITIAL = {
     "s1_governed_splunk_investigation": s1_initial,

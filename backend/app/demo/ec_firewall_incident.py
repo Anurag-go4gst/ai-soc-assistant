@@ -592,7 +592,7 @@ def analyst_response_overrides(scenario_id: str, base: dict[str, Any]) -> dict[s
         return {
             **base,
             "severity_label": "P1 Critical",
-            "finding_title": "Coordinated firewall attack with account breach",
+            "finding_title": "Watch fired: coordinated scanning, 3 sessions reached the jump host",
             "one_sentence_finding": (
                 f"This is the new IP from the 14-day watch: {PRIMARY_ATTACKER_IP} accounts for ~4,100 of the "
                 "denies, scanning 3 internal hosts across 26 ports, and 3 sessions to jump host 10.20.1.10 "

@@ -7,6 +7,7 @@ from app.demo.fixtures.s4.pack import S4_SCENARIO_ID
 
 S4_CIO_CONTENT = CioContent(
     scenario_id=S4_SCENARIO_ID,
+    plan_title="VPN gateway zero-day — investigation plan ready",
     opening_narrative=(
         "My plan for the VPN zero-day: find which internet-facing gateways run affected firmware, "
         "look for signs of exploitation in Splunk, check what detection and playbook coverage we "

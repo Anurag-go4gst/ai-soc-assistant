@@ -58,7 +58,7 @@ function sourceEvidenceHint(items: EcSourceEvidenceItem[]): string {
     ) {
       add('SOC-KB / RAG');
     }
-    if (blob.includes('identity') || blob.includes('inventory')) add('inventory fixture');
+    if (blob.includes('identity') || blob.includes('inventory')) add('asset inventory');
     if (blob.includes('itsm') || blob.includes('ticket')) add('ITSM');
   }
   if (!labels.length) return `${items.length} items`;
@@ -294,6 +294,20 @@ export function EcInvestigationAnswer({
             </>
           )}
         </EcRevealBlock>
+      ) : null}
+
+      {analyst.follow_up_findings?.length ? (
+        <section
+          className="space-y-2 rounded-lg border border-cyan-500/25 bg-cyan-950/15 p-4"
+          data-ec-section="follow-up-findings"
+        >
+          <EcSectionHeading>Findings so far</EcSectionHeading>
+          <ol className="list-decimal space-y-1.5 pl-5 text-sm leading-relaxed text-slate-100">
+            {analyst.follow_up_findings.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ol>
+        </section>
       ) : null}
 
       {showWhatWeFound ? (

@@ -7,6 +7,7 @@ from app.demo.fixtures.s7.agent_config import S7_SCENARIO_ID
 
 S7_CIO_CONTENT = CioContent(
     scenario_id=S7_SCENARIO_ID,
+    plan_title="OT-RTU-14: Splunk vs CMDB conflict — investigation plan ready",
     opening_narrative=(
         "Two of our systems disagree: Splunk shows unauthorized access to OT-RTU-14, and the CMDB "
         "says that device was retired. My plan settles which one is right using three independent "

@@ -34,9 +34,12 @@ def test_s4_initial_turn_envelope_uses_ten_step_journey() -> None:
     from app.demo.ec_turn import run_experience_center_turn
     from app.demo.fixtures.s4.pack import S4_SCENARIO_ID
 
+    from app.demo.ec_journeys import s4_initial
+
     envelope = run_experience_center_turn(S4_SCENARIO_ID, session_id="s4-journey-initial").model_dump()
     journey = envelope.get("ec_execution_journey") or {}
-    assert len(journey.get("stages") or []) == INITIAL_ARCHITECTURE_STEP_COUNT
+    assert journey.get("header") == "Preparing the investigation plan"  # walkthrough F1: plan-only first turn
+    assert len(s4_initial().stages) == INITIAL_ARCHITECTURE_STEP_COUNT
 
 
 def test_s4_agent_plan_ready_on_initial_turn() -> None:
@@ -47,7 +50,7 @@ def test_s4_agent_plan_ready_on_initial_turn() -> None:
     assert len(workflow["investigation_plan"]["steps"]) >= 7
     assert not envelope.get("ec_investigation_phases")
     assert not envelope.get("ec_opening_briefing")
-    assert envelope["analyst"]["finding_title"] == "Zero-day exposure — VPN gateways"
+    assert envelope["analyst"]["finding_title"] == "VPN gateway zero-day — investigation plan ready"
 
 
 def test_s4_run_investigation_pauses_for_agilus_hil() -> None:

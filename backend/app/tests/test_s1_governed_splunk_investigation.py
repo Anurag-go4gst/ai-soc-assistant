@@ -28,8 +28,14 @@ def test_s1_listed_in_demo_scenarios() -> None:
 def test_s1_initial_journey_titles_are_locked() -> None:
     from app.demo.ec_journeys import S1_INITIAL_TITLES
 
+    from app.demo.ec_journeys import s1_initial
+
+    # The agent-mode first turn only plans (walkthrough F1); the 10-step architecture builder keeps
+    # its locked titles for non-agent reuse.
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-journey")
     assert envelope.ec_execution_journey is not None
+    assert envelope.ec_execution_journey.header == "Preparing the investigation plan"
+    envelope.ec_execution_journey = s1_initial()
     titles = tuple(stage.title for stage in envelope.ec_execution_journey.stages)
     assert titles == S1_INITIAL_TITLES
     blob = " ".join(titles).lower()
@@ -67,7 +73,7 @@ def test_s1_initial_query_asks_last_30_days_not_suspicious_ioc() -> None:
     blob = " ".join(outcome["confirmed"]).lower()
     assert "newly observed" in blob
     assert dumped["analyst"]["finding_title"] == (
-        f"Newly observed IP {PRIMARY_ATTACKER_IP} — malicious use not confirmed"
+        f"Newly observed IP {PRIMARY_ATTACKER_IP} — investigation plan ready"
     )
 
 

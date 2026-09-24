@@ -398,7 +398,7 @@ def build_s1_remediation_conclusion(*, normalized: dict[str, Any]) -> dict[str, 
         "narrative_points": [
             f"Generate and validate monitoring SPL, then run baseline splunk_run_query for {PRIMARY_ATTACKER_IP} "
             f"(including {_JUMP} 443/8443 and {_ACCOUNT} auth correlation). "
-            f"Schedule {_MONITOR_NAME} as a saved search in Splunk — MCP has no deploy tool.",
+            f"Schedule {_MONITOR_NAME} as a saved search in Splunk (a manual step: the Splunk connector cannot create saved searches).",
             f"Open incident {S1_PLANNED_INCIDENT_ID} and notify SOC that monitoring is active.",
             "Conditional IP block stays NOT REQUIRED — Network/SOC block approval is not requested.",
             "Keep risk MEDIUM. Malicious use is not confirmed. Monitoring does not prove safety.",

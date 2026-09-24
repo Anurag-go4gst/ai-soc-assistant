@@ -146,11 +146,19 @@ function compactMetrics(finding: EcAgentStepFinding): Array<{ label: string; val
   return entries.slice(0, 6);
 }
 
+/** Plain-language provenance: demo connectors say so once, without internal vocabulary. */
+export function friendlyProvenance(value?: string | null): string {
+  const raw = (value ?? '').toLowerCase();
+  if (!raw || raw.includes('fixture') || raw.includes('simulated') || raw.includes('synthetic')) {
+    return 'DEMO CONNECTOR';
+  }
+  return raw.replace(/_/g, ' ').toUpperCase();
+}
+
 function provenanceLabel(finding: EcAgentStepFinding): string | null {
   const src = finding.evidence_sources?.[0];
   if (!src) return null;
-  const provenance = src.provenance?.replace(/_/g, ' ').toUpperCase() ?? 'SIMULATED';
-  return `${src.source} · ${provenance}`;
+  return `${src.source} · ${friendlyProvenance(src.provenance)}`;
 }
 
 function EntityChips({

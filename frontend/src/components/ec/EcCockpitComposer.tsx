@@ -74,7 +74,10 @@ export function EcCockpitComposer({
   const rest = scenarios.filter((item) => !flagship.some((row) => row.scenario_id === item.scenario_id));
 
   const suggestions = useMemo(
-    () => (open && text.trim().length >= 2 ? suggestEcQueries(scenarios, text, 6) : []),
+    () =>
+      open && text.trim().length >= 2 && !isClearChatCommand(text.trim())
+        ? suggestEcQueries(scenarios, text, 6)
+        : [],
     [open, scenarios, text],
   );
 
@@ -111,6 +114,8 @@ export function EcCockpitComposer({
     setQueryError(null);
     setText('');
     setOpen(false);
+    // The visitor's own words were just sent: don't re-seed the box with the scenario prompt.
+    seededScenarioRef.current = match.scenario_id;
     onSelect(match.scenario_id);
     onRun(match, value);
   };

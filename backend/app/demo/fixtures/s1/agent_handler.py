@@ -322,7 +322,7 @@ def build_s1_agent_workflow(
         },
         "remediation_plan": {
             "editable": lifecycle == L.LIFECYCLE_REMEDIATION_PLAN_READY,
-            "summary": "SOP: raise MCP IP monitoring first, then HIL block if required — batch-executed after one approval.",
+            "summary": "SOP: raise monitoring for the new IP first, then HIL block if required — batch-executed after one approval.",
             "primary_cta": "Approve remediation",
             "secondary_cta": "Modify plan",
             "steps": remediation_steps,

@@ -225,7 +225,30 @@ def _with_cio_layer(scenario_id: str, response: ExperienceCenterResponse) -> Exp
         return response
     payload = response.model_dump()
     payload["ec_agent_workflow"] = enrich_agent_workflow(scenario_id, payload["ec_agent_workflow"])
+    if payload["ec_agent_workflow"].get("lifecycle") == "PLAN_READY":
+        _present_plan_only(scenario_id, payload)
     return ExperienceCenterResponse.model_validate(payload)
+
+
+def _present_plan_only(scenario_id: str, payload: dict[str, Any]) -> None:
+    """At PLAN_READY nothing has run: no verdict in the title, no results in the animation."""
+    from app.demo.ec_agent.cio_content import cio_content_for
+    from app.demo.ec_journeys import agent_planning_journey
+
+    workflow = payload["ec_agent_workflow"]
+    steps = [step for step in (workflow.get("investigation_plan") or {}).get("steps") or [] if step.get("selected", True)]
+    used_tools = [tool["name"] for tool in workflow.get("tool_fabric") or [] if tool.get("used")]
+    content = cio_content_for(scenario_id)
+    if content is not None and content.plan_title:
+        for key in ("analyst", "analyst_response"):
+            if isinstance(payload.get(key), dict):
+                payload[key] = {**payload[key], "finding_title": content.plan_title}
+    payload["ec_status_summary"] = f"Plan ready · {len(steps)} checks proposed · nothing has run yet"
+    journey = payload.get("ec_execution_journey")
+    if isinstance(journey, dict) and journey.get("kind") == "initial":
+        payload["ec_execution_journey"] = agent_planning_journey(
+            scenario_id, tool_names=used_tools, step_count=len(steps)
+        ).model_dump()
 
 
 def analyst_override_for(scenario_id: str, base: dict[str, Any]) -> dict[str, Any] | None:

@@ -95,10 +95,14 @@ def test_s7_path_b_recycled_identity_no_incident(monkeypatch) -> None:
 
 
 def test_s7_initial_journey_lingers_on_conflict() -> None:
+    from app.demo.ec_journeys import s7_initial
+
     envelope = run_experience_center_turn(S7_SCENARIO_ID, session_id="s7-journey").model_dump()
     assert envelope["ec_investigation_outcome"]["disposition"] == "unresolved_conflict"
-    titles = [stage["title"] for stage in envelope["ec_execution_journey"]["stages"]]
+    assert envelope["ec_execution_journey"]["header"] == "Preparing the investigation plan"  # walkthrough F1
+    stages = [stage.model_dump() for stage in s7_initial().stages]
+    titles = [stage["title"] for stage in stages]
     assert "Conflict detected" in titles
-    conflict = next(stage for stage in envelope["ec_execution_journey"]["stages"] if stage["title"] == "Conflict detected")
+    conflict = next(stage for stage in stages if stage["title"] == "Conflict detected")
     assert conflict["duration_ms_hint"] and conflict["duration_ms_hint"] >= 1200
     assert conflict["outcome_change"] == "unresolved_conflict"

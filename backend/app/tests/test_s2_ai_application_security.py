@@ -152,9 +152,11 @@ def test_s2_credential_verify_requires_execute_and_closure_keeps_breach_unconfir
 
 
 def test_s2_initial_journey_is_siem_first_reuse_blocked_not_confirmed() -> None:
+    from app.demo.ec_journeys import s2_initial
+
     envelope = run_experience_center_turn(S2_SCENARIO_ID, session_id="s2-journey")
-    journey = envelope.ec_execution_journey
-    assert journey is not None
+    assert envelope.ec_execution_journey.header == "Preparing the investigation plan"  # walkthrough F1
+    journey = s2_initial()
     assert len(journey.stages) == 10
     titles = [stage.title.lower() for stage in journey.stages]
     blob = " | ".join(titles)

@@ -35,7 +35,7 @@ S1_LAYER2_PATH = [
     "Environment search governance",
     "Governed SPL generated for gaps",
     "SPL validation",
-    "Splunk MCP execution (simulated)",
+    "Splunk MCP execution",
     "SourceEvidence",
     "Evidence sufficiency",
     "InvestigationOutcome",
@@ -195,7 +195,7 @@ def build_s1_action_readiness(applied: list[str], actions: list[Any]) -> list[Ec
     rows = [
         EcActionReadinessRow(action="Investigate jump host", state="RECOMMENDED"),
         EcActionReadinessRow(
-            action="Raise MCP IP monitoring",
+            action="Raise monitoring for the new IP",
             state="READY_FOR_REVIEW" if "raise_mcp_monitoring" in applied else "READY",
         ),
         EcActionReadinessRow(action="Create incident ticket", state="READY"),

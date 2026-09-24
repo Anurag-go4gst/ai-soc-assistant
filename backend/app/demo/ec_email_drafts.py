@@ -45,7 +45,7 @@ def _header(team: str, sop_ref: str, *, ask: str | None = None, by: str | None =
 def _section(title: str, lines: list[str]) -> str:
     if not lines:
         return ""
-    return f"\n{title}\n" + "\n".join(f"• {line}" for line in lines)
+    return f"\n\n{title}\n" + "\n".join(f"• {line}" for line in lines)
 
 
 def _ticket_status(

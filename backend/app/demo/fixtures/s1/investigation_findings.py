@@ -299,7 +299,7 @@ def finding_for_investigation_step(
                 "dest_ports=443,8443 (HTTPS / alternate TLS)",
                 "allow_count=3 · first_seen=2026-07-18T02:08:00Z · last_seen=2026-08-16T16:44:00Z",
                 "auth: 3 successful logons for svc_jump_ops exist; src IP of those logons is not proven",
-                "expected_for_MCP=uncertain",
+                "expected_partner_traffic=uncertain",
             ],
             "confidence": "high",
             "attention_state": "ATTENTION",

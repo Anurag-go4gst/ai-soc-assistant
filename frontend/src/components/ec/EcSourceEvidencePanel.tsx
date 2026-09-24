@@ -25,17 +25,17 @@ function sourceTypeLabel(sourceType: string): string {
     case 'splunk_saved_search':
       return 'Splunk MCP · saved search';
     case 'cisco_mcp_fixture':
-      return 'Cisco MCP fixture';
+      return 'Cisco device MCP';
     case 'kb_fixture':
-      return 'Knowledge base fixture';
+      return 'Knowledge base';
     case 'knowledge_fixture':
-      return 'SOC-KB / inventory fixture';
+      return 'SOC-KB / asset inventory';
     case 'rag':
       return 'SOC-KB / RAG';
     case 'itsm_fixture':
-      return 'ITSM fixture';
+      return 'ITSM';
     case 'ticket_fixture':
-      return 'ITSM fixture';
+      return 'ITSM';
     default:
       return sourceType;
   }

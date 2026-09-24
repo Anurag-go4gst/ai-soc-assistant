@@ -385,7 +385,7 @@ export function ExperienceExecutionProgressPanel({
 
       <p className="mt-3 text-[0.65rem] leading-5 text-slate-500">
         {state.demoMode
-          ? 'Pipeline mirrors production routing and evidence gates. Experience Center uses COE fixtures; MCP search and final LLM synthesis stay disabled.'
+          ? 'Demo connectors with deterministic responses — nothing here changes production systems.'
           : 'Pipeline mirrors production routing and evidence gates. MCP execution and final synthesis follow platform settings.'}
       </p>
     </div>

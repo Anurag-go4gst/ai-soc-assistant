@@ -13,7 +13,7 @@ INVESTIGATION_STEP_DEFS: tuple[dict[str, Any], ...] = (
     {
         "id": "mcp_identity",
         "title": "Identify the IP and its expected role",
-        "summary": "SOC-KB / inventory fixture — establish whether this IP is a registered partner integration endpoint.",
+        "summary": "Asset inventory / SOC-KB — establish whether this IP is a registered partner integration endpoint.",
         "follow_up_id": "lookup_inventory_identity",
         "tools": ["SOC-KB"],
         "default_selected": True,

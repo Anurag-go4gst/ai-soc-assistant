@@ -36,7 +36,7 @@ def test_s1_agent_plan_ready_on_initial_turn() -> None:
     workflow = envelope["ec_agent_workflow"]
     assert envelope["ec_agent_lifecycle"] == "PLAN_READY"
     assert envelope["analyst"]["finding_title"] == (
-        f"Newly observed IP {PRIMARY_ATTACKER_IP} — malicious use not confirmed"
+        f"Newly observed IP {PRIMARY_ATTACKER_IP} — investigation plan ready"
     )
     assert workflow["investigation_plan"]["editable"] is True
     assert workflow.get("investigation_results") is None
@@ -134,7 +134,7 @@ def test_s1_run_investigation_concludes_new_mcp_not_malicious() -> None:
     assert metrics.get("Malicious use") == "Not confirmed"
     assert metrics.get("SOP") == "14-day monitoring"
     unresolved = " ".join(workflow.get("unconfirmed") or []).lower()
-    assert "expected mcp business traffic" in unresolved
+    assert "expected partner business traffic" in unresolved
     assert "attributed to this ip" in unresolved
     assert "malicious use is occurring" in unresolved
     assert "lateral movement" not in unresolved

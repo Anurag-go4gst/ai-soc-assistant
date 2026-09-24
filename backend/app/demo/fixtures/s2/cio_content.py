@@ -7,6 +7,12 @@ from app.demo.fixtures.s2.agent_config import S2_SCENARIO_ID
 
 S2_CIO_CONTENT = CioContent(
     scenario_id=S2_SCENARIO_ID,
+    plan_title="Prompt injection on the customer AI assistant — investigation plan ready",
+    open_questions=(
+        "Whether guest-web-5521 is a real customer account or a throwaway created for the attack",
+        "Whether the same prompts were tried against our other AI assistants",
+        "Whether the guardrail should block instruction-override prompts before they reach tool selection",
+    ),
     opening_narrative=(
         "My plan answers three questions about the customer-facing AI assistant: were prompt-injection "
         "attempts made, did any unauthorized tool actually run, and was restricted customer data "

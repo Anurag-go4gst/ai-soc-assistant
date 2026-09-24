@@ -492,6 +492,8 @@ export interface EcAnalystTextSegment {
 
 export interface EcAnalystPayload {
   finding_title?: string | null;
+  /** Findings added by follow-up chips on non-agent answers, newest last. */
+  follow_up_findings?: string[] | null;
   one_sentence_finding?: string | null;
   direct_answer_summary?: string | null;
   direct_answer_line?: string | null;
