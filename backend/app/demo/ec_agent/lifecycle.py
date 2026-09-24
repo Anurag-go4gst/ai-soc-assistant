@@ -109,9 +109,27 @@ def auto_execute_pending_actions(session_id: str, scenario_id: str, *, max_round
             break
         for action in pending:
             approved = ec_actions.approve_action(action.action_id)
-            ec_actions.execute_action(approved.action_id)
+            result = ec_actions.execute_action(approved.action_id)
+            if action.kind == "email_send" and result.state == "FAILED" and _demo_mail_unconfigured(result):
+                # No mail relay/recipient mapping in this environment: record the demo mail
+                # connector's receipt (as S1 does). An allowlist rejection stays a failure.
+                logical = str((result.receipt or {}).get("logical_recipient") or "recipient")
+                ec_actions.record_fixture_execution(
+                    approved.action_id,
+                    summary=f"Delivered to {logical} via the demo mail connector",
+                )
             executed += 1
     return executed
+
+
+_DEMO_MAIL_UNCONFIGURED_REASONS = frozenset(
+    {"logical_recipient_unmapped", "recipient_missing", "REAL_EMAIL_CONFIGURATION_REQUIRED"}
+)
+
+
+def _demo_mail_unconfigured(action: Any) -> bool:
+    receipt = getattr(action, "receipt", None) or {}
+    return str(receipt.get("reason") or "") in _DEMO_MAIL_UNCONFIGURED_REASONS
 
 
 def selected_follow_ups(step_defs: tuple[dict[str, Any], ...], selected_ids: list[str]) -> list[str]:

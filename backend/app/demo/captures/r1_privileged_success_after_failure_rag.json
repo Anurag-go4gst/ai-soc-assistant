@@ -1,0 +1,140 @@
+{
+  "collection_ids": [
+    "soc_sop",
+    "escalation_matrix"
+  ],
+  "confidence": 0.94,
+  "direct_to_llm": false,
+  "excluded_counts": {
+    "draft": 1,
+    "expired": 1,
+    "rejected": 1,
+    "retired": 0,
+    "superseded": 1,
+    "wrong_allowed_use": 1,
+    "wrong_environment": 0
+  },
+  "query": "A privileged account logged in successfully after repeated failed logins. What does our SOP require, and what does our escalation matrix say?",
+  "retrieval_mode": "deterministic",
+  "retrieval_stages": [
+    "collection_selection",
+    "metadata_filter",
+    "deterministic_schema_search",
+    "keyword_search",
+    "dense_vector_search",
+    "sparse_vector_search",
+    "graph_expansion",
+    "rerank",
+    "policy_filter",
+    "ambiguity_check",
+    "final_candidate_selection"
+  ],
+  "retrieval_status": "retrieved",
+  "retrieved_entries": [
+    {
+      "answer_constraints": [
+        "Do not call the account compromised without post-login evidence or approval."
+      ],
+      "approval_status": "coe_reviewed",
+      "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-003",
+      "collection_id": "soc_sop",
+      "confidence": 0.94,
+      "doc_id": "coe-auth-sop-v1",
+      "doc_title": "COE Sample Auth Investigation SOP",
+      "doc_version": "1.0",
+      "entry_id": "coe-auth-success-after-failures",
+      "entry_title": "Successful Login After Repeated Failures Guidance",
+      "prohibited_conclusions": [
+        "account takeover confirmed"
+      ],
+      "recommended_actions": [
+        "Correlate failure and success events for same user and src.",
+        "Check if source is new for the user."
+      ],
+      "source_excerpt": "A successful login following repeated failures should be reviewed for account criticality, source novelty, and session activity before escalation.",
+      "status": "published"
+    },
+    {
+      "answer_constraints": [
+        "Do not declare compromise from failed-login counts alone.",
+        "Require approved evidence before severity or root-cause conclusions."
+      ],
+      "approval_status": "coe_reviewed",
+      "citation": "COE Sample Auth Investigation SOP v1.0 AUTH-001",
+      "collection_id": "soc_sop",
+      "confidence": 0.76,
+      "doc_id": "coe-auth-sop-v1",
+      "doc_title": "COE Sample Auth Investigation SOP",
+      "doc_version": "1.0",
+      "entry_id": "coe-auth-bruteforce",
+      "entry_title": "Brute Force / Failed Login Spike SOP",
+      "prohibited_conclusions": [
+        "confirmed account compromise",
+        "confirmed brute force success"
+      ],
+      "recommended_actions": [
+        "Review failed-login volume and source distribution.",
+        "Check for successful login after repeated failures.",
+        "Escalate when privileged accounts or broad source spread are involved."
+      ],
+      "source_excerpt": "For a failed-login spike, verify account, source IP distribution, time window, and any successful login after repeated failures before escalation.",
+      "status": "published"
+    },
+    {
+      "answer_constraints": [
+        "Escalation guidance is advisory and does not authorize execution."
+      ],
+      "approval_status": "coe_reviewed",
+      "citation": "COE Sample Auth Escalation Matrix v1.0 ESC-AUTH-001",
+      "collection_id": "escalation_matrix",
+      "confidence": 0.689,
+      "doc_id": "coe-escalation-auth-v1",
+      "doc_title": "COE Sample Auth Escalation Matrix",
+      "doc_version": "1.0",
+      "entry_id": "coe-escalation-hil-auth",
+      "entry_title": "Escalation Guidance for HIL",
+      "prohibited_conclusions": [
+        "execution approved"
+      ],
+      "recommended_actions": [
+        "Review the validated SPL and collection status before approving mock execution.",
+        "Request more evidence if source coverage is insufficient."
+      ],
+      "source_excerpt": "Escalate auth scenarios to a tier2 SOC analyst when privileged accounts, success-after-failure, or broad source distribution are present.",
+      "status": "published"
+    },
+    {
+      "answer_constraints": [],
+      "approval_status": "coe_reviewed",
+      "citation": "Skill enrichment auth_failed_login_spike v1 RULES",
+      "collection_id": "soc_sop",
+      "confidence": 0.558,
+      "doc_id": "skill-enrich-auth_failed_login_spike-v1",
+      "doc_title": "Skill enrichment guidance: auth failed login spike",
+      "doc_version": "1.0",
+      "entry_id": "skill-enrich-auth_failed_login_spike-rules",
+      "entry_title": "Answer rules: auth failed login spike",
+      "prohibited_conclusions": [],
+      "recommended_actions": [],
+      "source_excerpt": "Do not claim account compromise from failed logins alone. Mark brute force as evidence-supported only after threshold evidence exists. SPL/execution remains review-gated.",
+      "status": "published"
+    },
+    {
+      "answer_constraints": [],
+      "approval_status": "coe_reviewed",
+      "citation": "Skill enrichment auth_failed_login_spike v1 LIMITS",
+      "collection_id": "soc_sop",
+      "confidence": 0.543,
+      "doc_id": "skill-enrich-auth_failed_login_spike-v1",
+      "doc_title": "Skill enrichment guidance: auth failed login spike",
+      "doc_version": "1.0",
+      "entry_id": "skill-enrich-auth_failed_login_spike-limits",
+      "entry_title": "Limitations and non-claims: auth failed login spike",
+      "prohibited_conclusions": [],
+      "recommended_actions": [],
+      "source_excerpt": "Failed login telemetry alone does not establish credential validity. Source IP reuse, NAT, or scanner behavior may require analyst review.",
+      "status": "published"
+    }
+  ],
+  "selected_skill": "alert_summary"
+}

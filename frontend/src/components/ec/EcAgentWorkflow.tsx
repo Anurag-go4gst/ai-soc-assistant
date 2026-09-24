@@ -6,6 +6,7 @@ import { ExperienceExecutionProgressPanel } from '@/components/experience-center
 import { EcInvestigationResultList, EcInvestigationSummaryStrip } from '@/components/ec/EcInvestigationResultList';
 import { EcSectionHeading } from '@/components/ec/EcSectionHeading';
 import { EcExecutiveBrief, EcStepWhy, EcToolFabric } from '@/components/ec/EcCioLayer';
+import { EcRagTrace } from '@/components/ec/EcRagTrace';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -440,6 +441,8 @@ export function EcAgentWorkflow({
           ) : null}
         </section>
       ) : null}
+
+      {!isPlanTurn && workflow.rag_trace && workflow.lifecycle !== 'COMPLETE' ? <EcRagTrace trace={workflow.rag_trace} /> : null}
 
       {isInvestigationCompleteTurn && remScopedProgress ? progressPanel : null}
 

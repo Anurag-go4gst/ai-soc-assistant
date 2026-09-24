@@ -677,3 +677,47 @@ def s7_ot_team_email(*, applied: list[str]) -> dict[str, Any]:
         subject="[P2][INC-OT-14] OT-RTU-14 accessed by ot_vendor_svc — was this authorized maintenance?",
         body=body,
     )
+
+
+# ---------------------------------------------------------------------------------------- R1
+
+
+def r1_tier2_escalation_email(*, incident_id: str, account: str, host: str, source_ip: str) -> dict[str, Any]:
+    """Escalation required by ESC-AUTH-001, carrying the SOP checklist (AUTH-003/AUTH-001)."""
+    body = _header(
+        "Tier 2 SOC Analyst",
+        "the Auth Escalation Matrix ESC-AUTH-001 (privileged account, success after failures)",
+        ask=f"Take the escalation for privileged account {account} on {host} and complete the SOP review",
+        by="the end of this shift",
+    )
+    body += _section(
+        "WHAT HAPPENED",
+        [
+            f"{account} (privileged) had 14 failed logins on {host}, then a successful login from {source_ip}",
+            "This meets two escalation triggers in ESC-AUTH-001: privileged account and success after failures",
+        ],
+    )
+    body += _section(
+        "SOP REVIEW TO COMPLETE (AUTH-003, AUTH-001)",
+        [
+            "How critical the account is and what it can reach",
+            f"Whether {source_ip} is a new source for this user",
+            "What the session did after the successful login",
+            "Correlate the failures and the success for the same user and source",
+        ],
+    )
+    body += _section(
+        "WORDING GUARDRAIL",
+        [
+            "Record it as 'successful login after failures observed' — not 'compromised account' or 'confirmed brute force' until the review supports it",
+            "No account action (disable/reset) without your decision",
+        ],
+    )
+    body += _section("TICKET STATUS", [_ticket_status([], incident_id=incident_id, planned=True)])
+    return _email_envelope(
+        logical_recipient="SOC_TIER2",
+        to="SOC_TIER2",
+        cc="SOC_LEAD",
+        subject=f"[P2][{incident_id}] Escalation — privileged login after failures: {account} on {host}",
+        body=body,
+    )

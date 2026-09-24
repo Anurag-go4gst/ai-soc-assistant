@@ -165,6 +165,36 @@ export interface EcExecutiveBrief {
   will_not_do?: string;
 }
 
+export interface EcRagPassage {
+  entry_id: string;
+  label: string;
+  citation: string;
+  doc_title: string;
+  doc_version: string;
+  approval_status: string;
+  confidence: number;
+  excerpt: string;
+  used: boolean;
+  used_for?: string;
+}
+
+export interface EcRagTrace {
+  question: string;
+  collections: string[];
+  retrieval_mode?: string;
+  top_confidence?: number;
+  direct_to_llm?: boolean;
+  excluded: Array<{ reason: string; count: number }>;
+  excluded_total: number;
+  passages: EcRagPassage[];
+  answer: {
+    headline: string;
+    sentences: Array<{ text: string; citations: string[] }>;
+    gaps: string[];
+  };
+  governance?: string[];
+}
+
 export interface EcToolFabricEntry {
   tool_id: string;
   name: string;
@@ -262,6 +292,7 @@ export interface EcAgentWorkflowPayload {
   executive_summary?: string[];
   executive_brief?: EcExecutiveBrief | null;
   tool_fabric?: EcToolFabricEntry[];
+  rag_trace?: EcRagTrace | null;
   investigation_conclusion?: {
     title?: string;
     headline?: string;

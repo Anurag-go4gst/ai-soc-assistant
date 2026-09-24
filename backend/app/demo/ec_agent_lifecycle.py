@@ -312,20 +312,9 @@ def _apply_follow_ups(
 
 def _auto_execute_remediation_actions(session_id: str, scenario_id: str) -> int:
     """Approve and execute all pending remediation actions after envelope minted them."""
-    executed = 0
-    for _ in range(12):
-        pending = [
-            item
-            for item in ec_actions.list_actions_for_session(session_id, scenario_id)
-            if item.state == "APPROVAL_REQUIRED"
-        ]
-        if not pending:
-            break
-        for action in pending:
-            approved = ec_actions.approve_action(action.action_id)
-            ec_actions.execute_action(approved.action_id)
-            executed += 1
-    return executed
+    from app.demo.ec_agent.lifecycle import auto_execute_pending_actions
+
+    return auto_execute_pending_actions(session_id, scenario_id)
 
 
 def finalize_s4_remediation_after_apply(

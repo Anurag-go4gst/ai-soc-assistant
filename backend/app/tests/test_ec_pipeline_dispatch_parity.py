@@ -60,4 +60,5 @@ def test_list_demo_scenarios_leadership_order() -> None:
     pickable = list_experience_center_scenarios()
     flagship = [item for item in pickable if item["category"] == "Flagship"]
     assert flagship[0]["scenario_id"] == "s1_governed_splunk_investigation"
-    assert len(flagship) == 7
+    assert len(flagship) == 8
+    assert flagship[-1]["scenario_id"] == "r1_rag_privileged_success_after_failure"

@@ -1015,9 +1015,9 @@ def _apply_follow_up_effects(
             "team_email",
             "OBTAINED",
             (
-                "SOC notification delivered to FIREWALL_TEAM"
+                "SOC notification delivered to SOC_LEAD (cc FIREWALL_TEAM)"
                 if email is not None and email.state in {"EXECUTED", "VERIFIED"}
-                else "SOC notification queued for FIREWALL_TEAM"
+                else "SOC notification queued for SOC_LEAD (cc FIREWALL_TEAM)"
             ),
         )
         extras["ec_email"] = {

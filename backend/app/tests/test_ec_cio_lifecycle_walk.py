@@ -27,8 +27,9 @@ S6 = "s6_investigation_continuity"
 S7 = "s7_conflicting_ot_evidence"
 Q1 = "firewall_deny_coordinated_attack"
 Q2 = "firewall_baseline_template_spl"
+R1 = "r1_rag_privileged_success_after_failure"
 
-AGENT_SCENARIOS = (S1, S2, S4, S7)
+AGENT_SCENARIOS = (S1, S2, S4, S7, R1)
 LEGACY_LIFECYCLE_SCENARIOS = (S3, S5, S6, Q1)
 
 # Words that describe the demo harness rather than the investigation.

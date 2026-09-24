@@ -64,6 +64,14 @@ from app.demo.fixtures.s7.pack import (
     build_s7_turn,
     s7_analyst_override,
 )
+from app.demo.fixtures.r1.pack import (
+    R1_FOLLOWUP_IDS,
+    R1_FOLLOWUPS,
+    R1_SCENARIO_ID,
+    build_r1_demo_scenarios,
+    build_r1_turn,
+    r1_analyst_override,
+)
 from app.demo.ec_agent.cio_content import enrich_agent_workflow
 from app.demo.ec_agent.registry import has_agent_profile
 
@@ -75,6 +83,7 @@ FLAGSHIP_SCENARIO_IDS = (
     S5_SCENARIO_ID,
     S6_SCENARIO_ID,
     S7_SCENARIO_ID,
+    R1_SCENARIO_ID,
 )
 
 
@@ -147,6 +156,13 @@ PACKS: dict[str, _Pack] = {
         build_turn=build_s7_turn,
         analyst_override=s7_analyst_override,
         demo_scenarios=build_s7_demo_scenarios,
+    ),
+    R1_SCENARIO_ID: _Pack(
+        followup_ids=R1_FOLLOWUP_IDS,
+        followups=lambda: list(R1_FOLLOWUPS),
+        build_turn=build_r1_turn,
+        analyst_override=r1_analyst_override,
+        demo_scenarios=build_r1_demo_scenarios,
     ),
 }
 

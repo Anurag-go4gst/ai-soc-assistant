@@ -96,7 +96,7 @@ def finalize_s1_remediation_after_apply(
         if action.kind == "email_send" and executed.state != "EXECUTED":
             ec_actions.record_fixture_execution(
                 approved.action_id,
-                summary="SOC notification delivered to FIREWALL_TEAM",
+                summary="SOC notification delivered to SOC_LEAD (cc FIREWALL_TEAM)",
             )
 
     stuck = [
