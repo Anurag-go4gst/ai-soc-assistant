@@ -231,7 +231,7 @@ def search_governance_policy() -> dict[str, Any]:
         "why": (
             "The analyst asked for the last 30 days. A second bounded 30-day window checks whether this IP "
             "is newly observed. Existing IOC-based suspicious-IP notables would not fire for a newly "
-            "registered partner integration endpoint."
+            "partner API endpoint (Northwind Logistics)."
         ),
         "visitor_summary": "Environment search governance applied.",
         "not_production_spl_policy": True,
@@ -504,7 +504,7 @@ def _base_evidence_state() -> list[dict[str, Any]]:
         },
         {
             "id": "sop_rag",
-            "label": "Newly observed external / partner integration endpoint SOP",
+            "label": "Newly observed external / partner API endpoint SOP",
             "status": "AVAILABLE_NOT_QUERIED",
             "provenance": "experience_center_fixture",
             "detail": "Enterprise SOC SOP not yet retrieved",
@@ -788,7 +788,7 @@ def _apply_follow_up_effects(
 
     if "lookup_inventory_identity" in applied or "review_existing_notable" in applied:
         identity_line = (
-            f"Identity: registered partner integration endpoint ({PRIMARY_ATTACKER_IP}) — inventory/SOC-KB evidence"
+            f"Identity: partner API endpoint (Northwind Logistics) ({PRIMARY_ATTACKER_IP}) — inventory/SOC-KB evidence"
         )
         if identity_line not in outcome["confirmed"]:
             outcome["confirmed"].append(identity_line)
@@ -796,7 +796,7 @@ def _apply_follow_up_effects(
             evidence_state,
             "mcp_identity",
             "OBTAINED",
-            f"Identity: registered partner integration endpoint ({PRIMARY_ATTACKER_IP})",
+            f"Identity: partner API endpoint (Northwind Logistics) ({PRIMARY_ATTACKER_IP})",
         )
 
     if "retrieve_sop" in applied:
@@ -915,7 +915,7 @@ def _apply_follow_up_effects(
                         "name": "EC_New_External_IP_Permitted_Session_Watch",
                         "indicator": PRIMARY_ATTACKER_IP,
                         "reason": (
-                            f"{PRIMARY_ATTACKER_IP} is a newly registered partner integration endpoint outside the existing "
+                            f"{PRIMARY_ATTACKER_IP} is a newly registered partner API endpoint (Northwind Logistics) outside the existing "
                             "IOC-based notable. SOP is to deploy 14-day monitoring first; block stays conditional."
                         ),
                     },
@@ -1084,7 +1084,7 @@ def _apply_follow_up_effects(
     if "generate_closure_summary" in applied:
         outcome["closure_summary"] = (
             f"Newly observed IP {PRIMARY_ATTACKER_IP} investigated over the requested last 30 days "
-            "(prior window empty). Identified as a new partner integration endpoint. Monitoring is the SOP first step; "
+            "(prior window empty). Identified as a new partner API endpoint. Monitoring is the SOP first step; "
             "firewall block is HIL-gated and is not auto-applied from initial evidence. "
             "Malicious use and attributable authentication remain unconfirmed."
         )
@@ -1102,7 +1102,7 @@ def _assessment(applied: list[str]) -> str:
             f" Indicator {PRIMARY_ATTACKER_IP} is not present in local IOC / threat-intelligence evidence."
         )
     identity = (
-        "It is identified as a registered partner integration endpoint — existing IOC-based detections would not have fired. "
+        "It is identified as a partner API endpoint (Northwind Logistics) — existing IOC-based detections would not have fired. "
         if "lookup_inventory_identity" in applied or "review_existing_notable" in applied
         else "Inventory identity is pending SOC-KB evidence. "
     )
@@ -1146,7 +1146,7 @@ def _what_we_found_segments(applied: list[str]) -> list[dict[str, str]]:
             "text": (
                 f" shows firewall communication with {_JUMP}, {_HOST_B}, and {_HOST_C}. "
                 + (
-                    "The IP is a registered partner integration endpoint. "
+                    "The IP is a partner API endpoint (Northwind Logistics). "
                     if "lookup_inventory_identity" in applied or "review_existing_notable" in applied
                     else "Inventory identity is pending. "
                 )
@@ -1172,7 +1172,7 @@ def _what_we_found_segments(applied: list[str]) -> list[dict[str, str]]:
 
 def _what_we_found(applied: list[str]) -> str:
     identity = (
-        f"The IP is identified as a registered partner integration endpoint. "
+        f"The IP is identified as a partner API endpoint (Northwind Logistics). "
         if "lookup_inventory_identity" in applied or "review_existing_notable" in applied
         else ""
     )
@@ -1414,7 +1414,7 @@ def _mcp_identity_evidence() -> dict[str, Any]:
         "evidence_id": "ev-s1-mcp-identity",
         "trace_id": "pending",
         "source_type": "knowledge_fixture",
-        "source_name": "Newly observed partner integration endpoint identity",
+        "source_name": "Newly observed partner API endpoint identity",
         "tool_name": "retrieve_soc_kb",
         "collection_status": "collected",
         "query_or_request_summary": f"Identity lookup for {PRIMARY_ATTACKER_IP}",
@@ -1423,10 +1423,10 @@ def _mcp_identity_evidence() -> dict[str, Any]:
         "preview_rows": [
             {
                 "indicator": PRIMARY_ATTACKER_IP,
-                "identity": "registered partner integration endpoint",
+                "identity": "partner API endpoint (Northwind Logistics)",
                 "covered_by_suspicious_ip_notable": False,
                 "note": (
-                    "Existing IOC-based known-malicious-IP content does not cover this registered partner integration endpoint. "
+                    "Existing IOC-based known-malicious-IP content does not cover this partner API endpoint (Northwind Logistics). "
                     "This is a new concern; Splunk would not have treated the IP as a known-bad IOC."
                 ),
             }
@@ -1472,7 +1472,7 @@ def _s1_executive_summary(applied: list[str]) -> list[str]:
         "(IP not in that lookup/content).",
         "Last 30 days: 3 permitted jump-host sessions on 10.20.1.10 (443/8443) remain unexplained; prior window empty.",
         (
-            "Identity: registered partner integration endpoint — a new concern, not a listed IOC. Malicious use is not confirmed."
+            "Identity: partner API endpoint (Northwind Logistics) — a new concern, not a listed IOC. Malicious use is not confirmed."
             if "lookup_inventory_identity" in applied or "review_existing_notable" in applied
             else "Inventory identity is established only after SOC-KB evidence."
         ),

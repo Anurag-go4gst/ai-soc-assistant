@@ -61,31 +61,16 @@ describe('EC CIO layer', () => {
     expect(document.querySelector('[data-ec-section="tool-fabric"]')).toBeNull();
   });
 
-  it('renders the executive brief after investigation and on completion', () => {
-    const brief = {
-      verdict: 'Attack attempted and blocked.',
-      risk_from: 'HIGH',
-      risk_to: 'MEDIUM',
-      decision_needed: 'Approve containment.',
-    };
-    const { rerender } = renderWorkflow({
+  it('states the decision needed next to the continue button, without a separate brief card', () => {
+    renderWorkflow({
       ...baseWorkflow,
       lifecycle: 'INVESTIGATION_COMPLETE',
       phase: 'investigation_complete',
-      executive_brief: brief,
+      executive_brief: { verdict: 'Attack attempted and blocked.', decision_needed: 'Approve containment.' },
+      next_step_cta: { label: 'Continue to remediation plan', follow_up_id: 'create_remediation_plan' },
     });
-    expect(document.querySelector('[data-ec-section="executive-brief"]')).not.toBeNull();
+    expect(document.querySelector('[data-ec-section="executive-brief"]')).toBeNull();
     expect(screen.getByText('Approve containment.')).toBeInTheDocument();
-    rerender(
-      <EcAgentWorkflow
-        workflow={{ ...baseWorkflow, lifecycle: 'COMPLETE', phase: 'remediation', executive_brief: brief }}
-        onRunInvestigation={noop}
-        onRunRemediation={noop}
-        onHilApprove={noop}
-        onHilSkip={noop}
-      />,
-    );
-    expect(document.querySelectorAll('[data-ec-section="executive-brief"]')).toHaveLength(1);
   });
 
   it('renders standalone components without optional fields', () => {

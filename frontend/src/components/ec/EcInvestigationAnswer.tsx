@@ -386,7 +386,7 @@ export function EcInvestigationAnswer({
         </EcRevealBlock>
       ) : null}
 
-      {collapsibleEvidence ? (
+      {collapsibleEvidence && !agentMode ? (
         <EcRevealBlock>
           <EcCollapsibleEvidencePanel>
             {envelope.ec_siem_coverage ? (
@@ -477,7 +477,7 @@ export function EcInvestigationAnswer({
         </EcRevealBlock>
       ) : null}
 
-      {envelope.source_evidence?.length ? (
+      {envelope.source_evidence?.length && !agentMode ? (
         <EcRevealBlock>
           <EcCollapsibleEvidencePanel
             summary="Source evidence"

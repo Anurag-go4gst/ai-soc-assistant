@@ -55,7 +55,7 @@ def build_s1_normalized_investigation_state(
                 {"label": "Existing IOC detection", "value": "No alert" if notable_done else "—"},
                 {"label": "Permitted sessions", "value": "3 on jump host"},
                 {"label": "Local TI", "value": "Unlisted" if ti_done else "—"},
-                {"label": "Identity", "value": "Registered partner integration endpoint" if identity_done else "Pending"},
+                {"label": "Identity", "value": "Partner API endpoint (Northwind Logistics)" if identity_done else "Pending"},
                 {"label": "Malicious use", "value": "Not confirmed"},
                 {"label": "SOP", "value": "14-day monitoring" if sop_done else "—"},
             ],
@@ -65,7 +65,7 @@ def build_s1_normalized_investigation_state(
         "llm_advisory": advisory,
         "investigation_conclusion": {
             "headline": (
-                "Not confirmed malicious. The IP is a registered partner integration endpoint, but the firewall "
+                "Not confirmed malicious. The IP is Northwind Logistics' partner API endpoint, but the firewall "
                 "allowed 3 of its sessions to the jump host, and they remain unexplained."
             ),
             "narrative_points": [

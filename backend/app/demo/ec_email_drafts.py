@@ -131,7 +131,7 @@ def s1_firewall_team_email(
         "WHAT WE KNOW",
         [
             f"Indicator: {PRIMARY_ATTACKER_IP} — first seen in the last 30 days (prior 30 days empty)",
-            "Identity: registered partner integration endpoint (asset inventory)",
+            "Identity: partner API endpoint (Northwind Logistics) (asset inventory)",
             f"3 sessions allowed to jump host {jump} on ports 443/8443; 922 denied",
             f"Other internal targets contacted: {host_b}, {host_c} (all denied)",
             "Not in local threat intelligence; our IOC-based detection did not fire",
@@ -168,7 +168,7 @@ def s1_integration_owner_email(*, jump: str, account: str) -> dict[str, Any]:
     from app.demo.fixtures.s1.remediation_plan import S1_PLANNED_INCIDENT_ID
 
     body = _header(
-        "Partner Integration Owner",
+        "Integration team (Northwind Logistics partner API)",
         "the SOC SOP for newly observed external endpoints (owner confirmation step)",
         ask=f"Confirm whether 3 sessions from {PRIMARY_ATTACKER_IP} to jump host {jump} were expected",
         by="48 hours",

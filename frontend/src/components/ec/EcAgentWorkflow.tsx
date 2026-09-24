@@ -5,7 +5,8 @@ import type { ExperienceExecutionProgressView } from '@/lib/experienceCenterExec
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { EcInvestigationResultList, EcInvestigationSummaryStrip } from '@/components/ec/EcInvestigationResultList';
 import { EcSectionHeading } from '@/components/ec/EcSectionHeading';
-import { EcExecutiveBrief, EcStepWhy } from '@/components/ec/EcCioLayer';
+import { EcStepWhy } from '@/components/ec/EcCioLayer';
+import { EcFindingsTable } from '@/components/ec/EcFindingsTable';
 import { EcRagTrace } from '@/components/ec/EcRagTrace';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -264,7 +265,11 @@ export function EcAgentWorkflow({
   const progressSteps =
     workflow.execution_progress?.steps ??
     (workflow.execution_progress?.phase === 'investigation' ? invSteps : remSteps);
-  const remScopedProgress = Boolean(executionProgress && remExecuting);
+  // Remediation-scoped only once a remediation plan exists; on the plan turn the progress of
+  // "Run investigation" must render under the plan, not be swallowed by this flag.
+  const remScopedProgress = Boolean(
+    executionProgress && remExecuting && !isPlanTurn && workflow.lifecycle !== 'INVESTIGATION_NEEDS_APPROVAL',
+  );
   const progressPanel = executionProgress ? (
     <section
       className="rounded-lg border border-cyan-500/25 bg-cyan-950/15 p-4"
@@ -342,10 +347,74 @@ export function EcAgentWorkflow({
 
 
 
-      {/* Verdict first: the brief and the decision it asks for, before the evidence tables. */}
-      {!isPlanTurn && workflow.executive_brief && workflow.lifecycle !== 'COMPLETE' ? (
-        <EcExecutiveBrief brief={workflow.executive_brief} />
+      {!isPlanTurn && !remComplete && workflow.investigation_results?.steps?.length ? (
+        <EcFindingsTable steps={workflow.investigation_results.steps} anomalousAssetIds={anomalousAssetIds} />
       ) : null}
+
+      {!isPlanTurn && workflow.execution_progress?.phase === 'investigation' && progressSteps.length ? (
+        <EcInvestigationResultList
+          header={workflow.execution_progress?.header ?? 'Investigation in progress'}
+          steps={progressSteps}
+          anomalousAssetIds={anomalousAssetIds}
+          {...artifactContext}
+        />
+      ) : null}
+
+      {!isPlanTurn && !remComplete && workflow.investigation_conclusion ? (
+        <section
+          className="rounded-lg border border-slate-800/70 bg-slate-900/35 px-4 py-3"
+          data-ec-section="investigation-post-summary"
+        >
+          {workflow.investigation_conclusion.headline ? (
+            <p className="text-sm font-semibold leading-snug text-slate-50">
+              {workflow.investigation_conclusion.headline}
+            </p>
+          ) : null}
+          {workflow.investigation_conclusion.narrative_points?.filter((point) => point.trim()).length ? (
+            <ConclusionPoints points={workflow.investigation_conclusion.narrative_points} />
+          ) : workflow.investigation_conclusion.narrative ? (
+            <ConclusionPoints
+              points={workflow.investigation_conclusion.narrative
+                .split(/(?<=[.!?])\s+/)
+                .filter((point) => point.trim())}
+            />
+          ) : null}
+        </section>
+      ) : null}
+
+      {!isPlanTurn && workflow.rag_trace && workflow.lifecycle !== 'COMPLETE' ? <EcRagTrace trace={workflow.rag_trace} /> : null}
+
+      {isInvestigationCompleteTurn && remScopedProgress ? progressPanel : null}
+
+      {!isPlanTurn && !remComplete && workflow.unconfirmed?.filter((item) => item.trim()).length ? (
+        <section className="rounded-lg border border-amber-500/20 bg-amber-950/10 p-4" data-ec-section="outstanding-uncertainty">
+          <EcSectionHeading>Still unresolved</EcSectionHeading>
+          <ul className="mt-2 space-y-1.5 text-sm text-slate-200">
+            {workflow.unconfirmed.filter((item) => item.trim()).map((item) => (
+              <li key={item} className="flex gap-2 leading-relaxed">
+                <span className="text-amber-400/80">·</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {!isPlanTurn && workflow.missing_evidence?.filter((item) => item.trim()).length ? (
+        <section className="rounded-lg border border-slate-800/80 bg-slate-900/35 p-4">
+          <EcSectionHeading>Optional evidence not collected</EcSectionHeading>
+          <ul className="mt-2 space-y-1.5 text-sm text-slate-300">
+            {workflow.missing_evidence.filter((item) => item.trim()).map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="text-slate-500">·</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* Decision after the findings, right before the remediation plan it opens. */}
 
       {!isPlanTurn && !workflow.executive_brief && workflow.executive_summary?.length && workflow.lifecycle !== 'COMPLETE' ? (
         <section
@@ -377,8 +446,10 @@ export function EcAgentWorkflow({
           <p className="text-sm font-semibold text-slate-50">
             {workflow.remediation_offer.title ?? 'Continue to remediation plan?'}
           </p>
-          {workflow.remediation_offer.body ? (
-            <p className="text-sm leading-relaxed text-slate-300">{workflow.remediation_offer.body}</p>
+          {workflow.executive_brief?.decision_needed || workflow.remediation_offer.body ? (
+            <p className="text-sm leading-relaxed text-slate-300">
+              {workflow.executive_brief?.decision_needed ?? workflow.remediation_offer.body}
+            </p>
           ) : null}
           <div className="flex flex-wrap gap-2">
             <Button
@@ -400,7 +471,10 @@ export function EcAgentWorkflow({
           </div>
         </section>
       ) : isInvestigationCompleteTurn && workflow.next_step_cta && !showRemediationPlan ? (
-        <section className="flex flex-wrap gap-2" data-ec-section="investigation-next-step">
+        <section className="space-y-3 rounded-lg border border-cyan-500/25 bg-cyan-950/15 px-4 py-3" data-ec-section="investigation-next-step">
+          {workflow.executive_brief?.decision_needed ? (
+            <p className="w-full text-sm leading-relaxed text-slate-200">{workflow.executive_brief.decision_needed}</p>
+          ) : null}
           <Button
             type="button"
             disabled={busy}
@@ -409,78 +483,6 @@ export function EcAgentWorkflow({
           >
             {workflow.next_step_cta.label ?? 'Continue to remediation plan'}
           </Button>
-        </section>
-      ) : null}
-
-      {!isPlanTurn && workflow.investigation_results?.steps?.length ? (
-        <EcInvestigationResultList
-          header={workflow.investigation_results.header ?? 'Investigation results'}
-          steps={workflow.investigation_results.steps}
-          anomalousAssetIds={anomalousAssetIds}
-          {...artifactContext}
-        />
-      ) : null}
-
-      {!isPlanTurn && workflow.execution_progress?.phase === 'investigation' && progressSteps.length ? (
-        <EcInvestigationResultList
-          header={workflow.execution_progress?.header ?? 'Investigation in progress'}
-          steps={progressSteps}
-          anomalousAssetIds={anomalousAssetIds}
-          {...artifactContext}
-        />
-      ) : null}
-
-      {!isPlanTurn && workflow.investigation_conclusion ? (
-        <section
-          className="rounded-lg border border-slate-800/70 bg-slate-900/35 px-4 py-3"
-          data-ec-section="investigation-post-summary"
-        >
-          {workflow.investigation_conclusion.headline ? (
-            <p className="text-sm font-semibold leading-snug text-slate-50">
-              {workflow.investigation_conclusion.headline}
-            </p>
-          ) : null}
-          {workflow.investigation_conclusion.narrative_points?.filter((point) => point.trim()).length ? (
-            <ConclusionPoints points={workflow.investigation_conclusion.narrative_points} />
-          ) : workflow.investigation_conclusion.narrative ? (
-            <ConclusionPoints
-              points={workflow.investigation_conclusion.narrative
-                .split(/(?<=[.!?])\s+/)
-                .filter((point) => point.trim())}
-            />
-          ) : null}
-        </section>
-      ) : null}
-
-      {!isPlanTurn && workflow.rag_trace && workflow.lifecycle !== 'COMPLETE' ? <EcRagTrace trace={workflow.rag_trace} /> : null}
-
-      {isInvestigationCompleteTurn && remScopedProgress ? progressPanel : null}
-
-      {!isPlanTurn && workflow.unconfirmed?.filter((item) => item.trim()).length ? (
-        <section className="rounded-lg border border-amber-500/20 bg-amber-950/10 p-4" data-ec-section="outstanding-uncertainty">
-          <EcSectionHeading>Still unresolved</EcSectionHeading>
-          <ul className="mt-2 space-y-1.5 text-sm text-slate-200">
-            {workflow.unconfirmed.filter((item) => item.trim()).map((item) => (
-              <li key={item} className="flex gap-2 leading-relaxed">
-                <span className="text-amber-400/80">·</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {!isPlanTurn && workflow.missing_evidence?.filter((item) => item.trim()).length ? (
-        <section className="rounded-lg border border-slate-800/80 bg-slate-900/35 p-4">
-          <EcSectionHeading>Optional evidence not collected</EcSectionHeading>
-          <ul className="mt-2 space-y-1.5 text-sm text-slate-300">
-            {workflow.missing_evidence.filter((item) => item.trim()).map((item) => (
-              <li key={item} className="flex gap-2">
-                <span className="text-slate-500">·</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
         </section>
       ) : null}
 
@@ -543,16 +545,6 @@ export function EcAgentWorkflow({
           ) : null}
 
 
-          {remComplete && workflow.remediation_results?.steps?.length ? (
-            <EcInvestigationResultList
-              header={workflow.remediation_results.header ?? 'Remediation results'}
-              steps={workflow.remediation_results.steps}
-              anomalousAssetIds={anomalousAssetIds}
-              variant="remediation"
-              expandDetails
-              {...artifactContext}
-            />
-          ) : null}
 
         </section>
       ) : null}
@@ -566,9 +558,6 @@ export function EcAgentWorkflow({
         />
       ) : null}
 
-      {workflow.executive_brief && workflow.lifecycle === 'COMPLETE' ? (
-        <EcExecutiveBrief brief={workflow.executive_brief} />
-      ) : null}
 
       {workflow.final_summary && workflow.lifecycle === 'COMPLETE' ? (
         <section className="space-y-3 rounded-lg border border-emerald-500/25 bg-emerald-950/15 p-4" data-ec-section="executive-summary">
@@ -606,7 +595,7 @@ export function EcAgentWorkflow({
         </section>
       ) : null}
 
-      {workflow.verification?.length && ['VERIFYING', 'COMPLETE'].includes(workflow.lifecycle) ? (
+      {workflow.verification?.length && workflow.lifecycle === 'VERIFYING' ? (
         <section className="space-y-2">
           <EcSectionHeading>Verification</EcSectionHeading>
           <ul className="space-y-2 text-sm">

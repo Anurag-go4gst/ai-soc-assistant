@@ -192,7 +192,7 @@ function EntityChips({
   );
 }
 
-function CompactFindingDetails({
+export function CompactFindingDetails({
   step,
   finding,
   anomalousAssetIds,
@@ -644,6 +644,17 @@ function InvestigationResultRow({
               <p className="mt-1 text-xs text-cyan-400/80">
                 {String(details.connector ?? 'Splunk MCP')} · View SPL ›
               </p>
+            ) : null}
+            {variant === 'remediation' && showEmail && (resolvedEmailDraft?.subject || resolvedEmailDraft?.body) ? (
+              <div className="mt-2 rounded-md border border-slate-700/80 bg-slate-950/60 p-3 text-xs" data-ec-email-preview={step.id}>
+                <p className="text-slate-400">
+                  To: <span className="text-slate-200">{String(resolvedEmailDraft.to ?? '')}</span>
+                </p>
+                <p className="mt-0.5 font-medium text-slate-100">{String(resolvedEmailDraft.subject ?? '')}</p>
+                <pre className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap font-sans leading-relaxed text-slate-300">
+                  {String(resolvedEmailDraft.body ?? '')}
+                </pre>
+              </div>
             ) : null}
           </div>
         </div>

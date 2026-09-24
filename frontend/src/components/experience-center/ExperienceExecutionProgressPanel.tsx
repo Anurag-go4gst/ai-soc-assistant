@@ -383,11 +383,11 @@ export function ExperienceExecutionProgressPanel({
         ) : null
       ) : null}
 
-      <p className="mt-3 text-[0.65rem] leading-5 text-slate-500">
-        {state.demoMode
-          ? 'Demo connectors with deterministic responses — nothing here changes production systems.'
-          : 'Pipeline mirrors production routing and evidence gates. MCP execution and final synthesis follow platform settings.'}
-      </p>
+      {!state.demoMode ? (
+        <p className="mt-3 text-[0.65rem] leading-5 text-slate-500">
+          Pipeline mirrors production routing and evidence gates. MCP execution and final synthesis follow platform settings.
+        </p>
+      ) : null}
     </div>
   );
 }

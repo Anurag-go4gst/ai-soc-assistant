@@ -437,7 +437,7 @@ def build_s1_agent_workflow(
         workflow["verification"] = [
             {"item": "Existing IOC detection", "status": "NO_ALERT", "detail": "IP not present in the IOC list used by this detection"},
             {"item": "Newly observed", "status": "VERIFIED", "detail": "Prior 30-day window empty"},
-            {"item": "Identity", "status": "VERIFIED", "detail": "Registered partner integration endpoint (inventory evidence)"},
+            {"item": "Identity", "status": "VERIFIED", "detail": "Partner API endpoint (Northwind Logistics) (inventory evidence)"},
             {"item": "Permitted sessions", "status": "UNEXPLAINED", "detail": "3 allows on 10.20.1.10 remain unexplained; auth src not proven"},
             {"item": "Malicious use", "status": "NOT_CONFIRMED", "detail": "Unlisted locally; no confirmed compromise"},
             {"item": "Monitoring", "status": "IN_PROGRESS", "detail": "splunk_run_query baseline executed; schedule saved search manually"},

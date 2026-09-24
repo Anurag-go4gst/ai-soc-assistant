@@ -22,14 +22,14 @@ SOP_SECTIONS: tuple[dict[str, str], ...] = (
             "(2) search the requested window plus a prior novelty window; "
             "(3) identify destination systems, ports/services, allow vs deny, and session timing; "
             "(4) investigate every permitted session with authentication correlation if those logs exist; "
-            "(5) check local IOC / TI evidence; (6) establish inventory identity before labelling an partner integration endpoint."
+            "(5) check local IOC / TI evidence; (6) establish inventory identity before labelling an partner API endpoint."
         ),
     },
     {
         "heading": "Monitoring criteria",
         "body": (
             "Raise targeted monitoring when an external IP is newly observed, is unlisted in local IOC/TI, "
-            "and existing IOC-based notables do not cover the indicator — especially newly registered partner integration endpoints."
+            "and existing IOC-based notables do not cover the indicator — especially newly registered partner API endpoint (Northwind Logistics)s."
         ),
     },
     {
@@ -134,7 +134,7 @@ def sop_source_evidence() -> dict[str, Any]:
         "tool_name": "retrieve_soc_kb",
         "collection_status": "collected",
         "query_or_request_summary": (
-            "Governed SOC-KB retrieval: newly observed external / partner integration endpoint monitoring and blocking SOP"
+            "Governed SOC-KB retrieval: newly observed external / partner API endpoint monitoring and blocking SOP"
         ),
         "result_count": len(rows),
         "fields_returned": ["doc_id", "title", "owner", "heading", "excerpt"],

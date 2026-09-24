@@ -136,7 +136,7 @@ ACTION_PLAN_STEPS = [
 PLAN_PREREAD: tuple[str, ...] = ()
 
 PLAN_READY_TITLE = f"Newly observed IP {PRIMARY_ATTACKER_IP} — malicious use not confirmed"
-IDENTITY_PROMOTION = "Identity: registered partner integration endpoint"
+IDENTITY_PROMOTION = "Identity: partner API endpoint (Northwind Logistics)"
 SEVERITY_LABEL = "P2 High"
 SEVERITY_REASON = (
     "P2 High · newly observed external endpoint · permitted access to high-criticality jump host · "

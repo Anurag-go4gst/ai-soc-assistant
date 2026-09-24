@@ -212,7 +212,7 @@ def finding_for_remediation_step(
             "ticket_id": S1_PLANNED_INCIDENT_ID,
             "ticket_type": "incident",
             "priority": "P2",
-            "title": f"Newly observed partner integration endpoint {PRIMARY_ATTACKER_IP} — monitoring first",
+            "title": f"Newly observed partner API endpoint {PRIMARY_ATTACKER_IP} — monitoring first",
             "status": "CREATED" if executed else "QUEUED",
             "assignee_group": "SOC",
             "linked_advisory": PRIMARY_ATTACKER_IP,

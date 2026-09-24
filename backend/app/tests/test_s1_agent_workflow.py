@@ -111,7 +111,7 @@ def test_s1_run_investigation_concludes_new_mcp_not_malicious() -> None:
     assert "remain unexplained" in finding or "authentication is not attributable" in finding
     assert "require validation" not in reason and "require validation" not in finding
     identity = (results["mcp_identity"].get("finding") or {}).get("headline_finding", "").lower()
-    assert "partner integration endpoint" in identity
+    assert "partner api endpoint" in identity
     novelty = " ".join(workflow["investigation_conclusion"]["narrative_points"]).lower()
     assert "new in the last 30 days" in novelty
     applied = after["ec_session_state"]["applied_follow_up_ids"]
@@ -129,7 +129,7 @@ def test_s1_run_investigation_concludes_new_mcp_not_malicious() -> None:
     assert metrics.get("Existing IOC detection") == "No alert"
     assert metrics.get("Permitted sessions") == "3 on jump host"
     assert metrics.get("Local TI") == "Unlisted"
-    assert metrics.get("Identity") == "Registered partner integration endpoint"
+    assert metrics.get("Identity") == "Partner API endpoint (Northwind Logistics)"
     assert metrics.get("Malicious use") == "Not confirmed"
     assert metrics.get("SOP") == "14-day monitoring"
     unresolved = " ".join(workflow.get("unconfirmed") or []).lower()
@@ -144,7 +144,7 @@ def test_s1_run_investigation_concludes_new_mcp_not_malicious() -> None:
     assert "agilus" not in sources
     assert "splunk" in sources
     headline = (workflow.get("investigation_conclusion") or {}).get("headline", "").lower()
-    assert "registered partner integration endpoint" in headline
+    assert "partner api endpoint" in headline
     assert "remain unexplained" in headline
     blob = " ".join([workflow.get("opening_narrative") or "", conclusion, notable]).lower()
     assert "suspicious ip" not in blob
