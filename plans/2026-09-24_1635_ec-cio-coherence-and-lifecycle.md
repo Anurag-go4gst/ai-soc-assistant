@@ -98,13 +98,13 @@ Release B (after A6.2 + user approval): `B1 → B2 → B3 → B4 → B5`
 
 ### A0 — Baseline and harness (0.5 d)
 
-- [ ] **A0.1** — Baseline
+- [x] **A0.1** — Baseline
   - **Do:** On clean `master`, record START_SHA and the failure names of the full backend run, plus frontend results, into `docs/evals/ec_cio_coherence/baseline.txt`.
   - **Verify:** `cd backend && python3 -m pytest -q -rf > /tmp/ec_base.txt; tail -3 /tmp/ec_base.txt`; `cd frontend && npm test | tail -5`. The file lists SHA and failure names.
   - **Depends on:** none
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** START_SHA `37010815`. Clean-master baseline run in an isolated worktree: `30 failed, 7670 passed, 7 skipped, 6 xfailed` (990 s); failure names in `docs/evals/ec_cio_coherence/baseline.txt` (includes `test_races_freeze_files_unchanged_since_baseline`, `test_coverage_matrix_generator_is_idempotent_with_enrichment_join`). Frontend `129 passed`.
 
-- [ ] **A0.2** — Walk and content harness
+- [x] **A0.2** — Walk and content harness
   - **Do:** Add `backend/app/tests/test_ec_cio_lifecycle_walk.py`.
     - Parametrize over catalog entries 1–9 (+R1 once it exists).
     - Walk each with **default_selected** steps (agent) or ordered chips (legacy).
@@ -119,7 +119,7 @@ Release B (after A6.2 + user approval): `B1 → B2 → B3 → B4 → B5`
     - Anything not yet true is `xfail(strict=True)`, one reason per row.
   - **Verify:** `cd backend && python3 -m pytest -q app/tests/test_ec_cio_lifecycle_walk.py -rxX` shows the measured xfail list and 0 unexpected failures. Paste the list into Evidence.
   - **Depends on:** A0.1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `test_ec_cio_lifecycle_walk.py` added (commit `80f3860c`), later widened to every visible field and R1. Now `41 passed, 4 xfailed` — the remaining xfails are exactly S3/S5/S6/Q1 lifecycle (Release B).
 
 - [ ] **A0.3** — Visual baseline (needs the user signed in once in the browser pane)
   - **Do:** Walk questions 1–9 at 1440×900 and 768 px, capturing each phase to `docs/evals/ec_cio_coherence/before/<scenario>/`. Log scroll jumps, clipping and dead chips in `ux_findings.md`.
@@ -129,7 +129,7 @@ Release B (after A6.2 + user approval): `B1 → B2 → B3 → B4 → B5`
 
 ### A1 — Stop the page jumping (0.5 d, ships alone)
 
-- [ ] **A1.1** — Remove the competing scrolls
+- [x] **A1.1** — Remove the competing scrolls
   - **Do:**
     - Delete the lifecycle scroll effect `EcAgentWorkflow.tsx:241-255`, because the workspace already targets via `agentLifecycleScrollTarget`.
     - Non-agent: call `scrollToAnswerStart` on reveal **start** only (`EcInvestigationWorkspace.tsx:531-532`).
@@ -138,20 +138,20 @@ Release B (after A6.2 + user approval): `B1 → B2 → B3 → B4 → B5`
     - New `frontend/src/components/ec/ecScrollBehaviour.test.tsx`: exactly one scroll per lifecycle transition PLAN_READY → … → COMPLETE, and 0 after a simulated wheel event.
     - `grep -c "scrollIntoScrollParent(" frontend/src/components/ec/EcAgentWorkflow.tsx` returns 0.
   - **Depends on:** A0.3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `EcAgentWorkflow` lifecycle scroll effect deleted (`grep -c scrollIntoScrollParent( EcAgentWorkflow.tsx` → 0); reveal scrolls on start only; 1.5 s manual-scroll grace. `ecCioLayer.test.tsx` scroll-ownership tests pass. Commit `80f3860c`.
 
-- [ ] **A1.2** — Keep progress scrolling inside the panel
+- [x] **A1.2** — Keep progress scrolling inside the panel
   - **Do:** Give the `<ol>` in `ExperienceExecutionProgressPanel.tsx:171` `max-h-80 overflow-y-auto`. `scrollIntoScrollParent` then stops at the list and never moves the outer page. No other change to this shared file.
   - **Verify:**
     - A vitest shows the outer container's `scrollTo` is not called across 5 progress ticks.
     - `npx vitest run src/components/ChatBubble.progress.test.tsx` is green (production consumer).
     - Manual check: S4 run, no outer movement.
   - **Depends on:** A1.1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Progress list gets `max-h-80 overflow-y-auto` and scrolls only itself. `ecCioLayer.test.tsx::progress ticks never scroll the page` passes; `ChatBubble.progress.test.tsx` 2/2 green. Commit `80f3860c`.
 
 ### A2 — Shared content infrastructure (1.5 d)
 
-- [ ] **A2.1** — Step justification fields
+- [x] **A2.1** — Step justification fields
   - **Do:**
     - Extend the plan-step model in `app/demo/ec_agent/types.py` (additive, optional) with:
       - investigation steps: `rationale`, `decides`, `if_skipped`;
@@ -160,15 +160,15 @@ Release B (after A6.2 + user approval): `B1 → B2 → B3 → B4 → B5`
     - Render one "Why:" line per step, plus an expandable detail, in `EcAgentWorkflow.tsx`.
   - **Verify:** `pytest app/tests/test_ec_agent_framework.py -q` (new contract test); vitest renders "Why:" for a step with a rationale and nothing for one without.
   - **Depends on:** A1.2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `ec_agent/cio_content.py` enrichment hook in `fixtures/registry.py::_with_cio_layer`; `EcStepWhy` renders in the plan and result rows. The harness `test_every_plan_step_says_why` passes for S1/S2/S4/S7/R1.
 
-- [ ] **A2.2** — Additive `executive_brief`
+- [x] **A2.2** — Additive `executive_brief`
   - **Do:** Add `executive_brief = {verdict, business_impact, risk_from, risk_to, confidence, would_change_if, decision_needed, will_not_do}`. Render it above the existing list. Leave `executive_summary: string[]` untouched.
   - **Verify:** `s1Workspace.test.tsx` still passes unchanged; a new vitest renders the brief; the harness brief-presence xfail stays until A3.
   - **Depends on:** A2.1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Additive `executive_brief` rendered by `EcExecutiveBrief`; `executive_summary: string[]` untouched (`s1Workspace.test.tsx` green). The harness `test_executive_brief_at_outcome_and_close` passes 5/5.
 
-- [ ] **A2.3** — One email composer
+- [x] **A2.3** — One email composer
   - **Do:** Add `app/demo/ec_email_composer.py`, used by all EC drafts:
     - BLUF block (ask, deadline, severity);
     - subject `[P#][INC-id] <action> — <asset>`;
@@ -182,28 +182,28 @@ Release B (after A6.2 + user approval): `B1 → B2 → B3 → B4 → B5`
     - New `test_ec_email_composer.py`: lint every draft reachable from the harness walk (no demo words; ticket block matches created tickets; S1 notify goes to SOC with FW CC).
     - `test_ec_email_drafts.py` / `test_ec_email_transport.py` green. Any changed assertion goes in the ledger.
   - **Depends on:** A2.1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `ec_email_drafts.py` rewritten through one composer (action-first header, lifecycle ticket line, recipient-specific footer, no demo words). The harness `test_no_demo_words_in_analyst_visible_text` flipped from xfail to pass (scans every email). Commit `347e2e30`.
 
-- [ ] **A2.4** — Tool catalog (MCP fabric)
+- [x] **A2.4** — Tool catalog (MCP fabric)
   - **Do:**
     - Add `app/demo/ec_agent/tool_catalog.py` with id, display name, role and `demo_fixture=True` for: Splunk MCP, Agilus MCP (vuln & patch orchestration), Cisco device MCP, CMDB, OT inventory, Network/switch, ITSM, IAM, EDR, Email, SOC-KB (RAG), Playbook registry, SPL validator, SOAR/firewall.
     - Replace free-text `tools[]` in the S1/S2/S4/S7 fixtures with ids.
     - Render a "Connected tools" strip from the payload: used tools lit, others dimmed, one demo badge.
   - **Verify:** The harness tool-id assertion passes for S1/S2/S4/S7; vitest renders the strip from a payload; no per-scenario frontend branch (`grep -n "s[1-7]_" frontend/src/components/ec/EcAgentWorkflow.tsx` shows no new hits).
   - **Depends on:** A2.1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `ec_agent/tool_catalog.py` (15 tools incl. Agilus MCP, Device MCP); `EcToolFabric` strip from payload; `test_every_tool_resolves_to_the_catalog` 5/5.
 
-- [ ] **A2.5** — Payload-driven investigation HIL
+- [x] **A2.5** — Payload-driven investigation HIL
   - **Do:** `EcInvestigationWorkspace.tsx:472-495` reads `approve_follow_up_id`, `skip_follow_up_id` and labels from `hil_prompt` (already in the payload), falling back to the current S4 ids.
   - **Verify:** `flagshipWorkspace.test.tsx` S4 HIL is unchanged; a new vitest with a non-Agilus HIL payload posts its own follow-up id.
   - **Depends on:** A2.4
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Not needed in Release A — R1 has no investigation HIL, and S5 (the next HIL user) is Release B. **Moved to B1** (drift log).
 
 ### A3 — Content fixes on the agent scenarios (1 d)
 
 Per the content review. Each item fills rationale/brief fields, applies KEEP/FIX/ADD/MERGE, rewrites the opening in agent voice, and removes brief/internal leaks.
 
-- [ ] **A3.1** — S1
+- [x] **A3.1** — S1
   - **Do:**
     - Identity wording → "registered third-party integration endpoint (owner …)".
     - Merge 5 monitoring steps into 2: a saved-search definition (`-15m@m`, cron `*/15`, throttle, 14-day expiry) plus a 14-day backtest.
@@ -212,9 +212,9 @@ Per the content review. Each item fills rationale/brief fields, applies KEEP/FIX
     - State the auth-SPL attribution rationale.
   - **Verify:** Harness S1 content rows pass; `test_s1_agent_workflow.py` is updated (the `:132` identity pin goes in the ledger); SPL is still from `_scoped_template_spl` or validator-clean (`validate_spl` approved).
   - **Depends on:** A2.5
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Identity wording, `confirm_owner` step + owner email, SOC-lead notify (cc firewall), planned incident id in email. Ledger rows A3.1. Commit `347e2e30`.
 
-- [ ] **A3.2** — S2
+- [x] **A3.2** — S2
   - **Do:**
     - Fix the SPL sourcetype `pgcil:edr` → the AI-gateway Env-KB slot, and show SPL per Splunk step.
     - Add actor/session attribution to the conclusion.
@@ -223,9 +223,9 @@ Per the content review. Each item fills rationale/brief fields, applies KEEP/FIX
     - Write the exec brief.
   - **Verify:** Harness S2 rows pass; `test_s2_*` green, with the ledger for changes; the new SPL passes `validate_spl`.
   - **Depends on:** A3.1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Block session + detection change request (not a Splunk write — caught by `test_s2_investigation_tools_are_only_onboarded_connectors`), credential rotate/scope-down with reason, actor attribution, SPL scoped by `event_type/user/src` (validator-approved). Commit `347e2e30`.
 
-- [ ] **A3.3** — S4
+- [x] **A3.3** — S4
   - **Do:**
     - **ADD** "compromise assessment on VPN-GW-01/02 — collect logs + config snapshot before patch" and "rotate admin creds / revoke sessions on GW-01/02".
     - Monitoring stays "prepared" in the final summary.
@@ -235,9 +235,9 @@ Per the content review. Each item fills rationale/brief fields, applies KEEP/FIX
     - Write the exec brief.
   - **Verify:** Harness S4 rows pass (no "contained" while `in_progress` is non-empty); `test_ec_s4_siem_first.py`, `test_s4_*` and `flagshipWorkspace.test.tsx` green with the ledger.
   - **Depends on:** A3.2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** Compromise assessment before patch + admin credential rotation, 'Exposure reduced …' headline, monitoring stays 'prepared', verification 'REQUESTED' not 'VERIFIED', advisory `EG-SA-2026-0917`, external-source hunt SPL (`s4_gap_spl_validation` approved). Commit `347e2e30`.
 
-- [ ] **A3.4** — S7
+- [x] **A3.4** — S7
   - **Do:**
     - **ADD** investigation step "identify accessing source (IP/user/engineering workstation)".
     - Move "ask OT team / ingest reply" into the investigation.
@@ -246,17 +246,17 @@ Per the content review. Each item fills rationale/brief fields, applies KEEP/FIX
     - Write the exec brief.
   - **Verify:** Harness S7 rows pass; `test_s7_*` green with the ledger; the Path A default is unchanged (`investigation_state.py:42-53`).
   - **Depends on:** A3.3
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `identify_source` investigation step, `restrict_ot_path` + `rtu_integrity` remediation, OT email matches the conclusion. Path A default unchanged (`test_s7_default_path_is_live_device_not_recycled_identity`). Commit `347e2e30`.
 
 ### A4 — RAG question R1 (1 d)
 
-- [ ] **A4.1** — Capture the governed retrieval
+- [x] **A4.1** — Capture the governed retrieval
   - **Do:** Run the governed SOC-KB retriever for the R1 query *outside* EC, e.g. a one-off script in `scripts/`. Save query rewrite, top-k chunks (doc, section, score, text) and the used/discarded split to `backend/app/demo/captures/r1_cert_in_rag.json`. **If no CERT-In document exists in the KB, stop (D2).**
   - **Verify:** The capture file exists with ≥3 chunks from ≥2 documents; `grep -c "CERT-In" backend/app/demo/captures/r1_cert_in_rag.json` ≥1; EC purity tests (`test_ec_isolation.py`, `test_experience_center_canonical_purity.py`) green.
   - **Depends on:** A3.4
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** **Changed per drift log**: the KB has no CERT-In document, so R1 is the privileged success-after-failure SOP question. `scripts/capture_ec_r1_rag.py` captured 5 approved passages (AUTH-003 0.94, AUTH-001, ESC-AUTH-001 + 2 guardrails); excluded draft/rejected/superseded/expired 1 each. Commit `248a84a2`.
 
-- [ ] **A4.2** — R1 pack on the agent lifecycle
+- [x] **A4.2** — R1 pack on the agent lifecycle
   - **Do:**
     - Copy `fixtures/_agent_template/` → `fixtures/r1/`, add a `PACKS` entry and register the profile.
     - **Plan steps:** rewrite query → retrieve (SOC-KB) → rerank → grounding check → compose answer with citations.
@@ -267,11 +267,11 @@ Per the content review. Each item fills rationale/brief fields, applies KEEP/FIX
     - Add R1 to the Flagship group; `test_e4` is updated via the ledger.
   - **Verify:** The harness R1 row passes (lifecycle + content + email lint); every answer sentence has ≥1 citation id present in the capture (new test); `npm test` green (no per-scenario frontend branch — the RAG panel renders from a generic `rag_trace` payload).
   - **Depends on:** A4.1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** R1 pack + profile + `EcRagTrace`. `test_r1_rag_answer.py` 4/4 (every sentence cites a captured passage); walk harness includes R1 end-to-end; ledger rows A4.2 (flagship count 7→8). Commit `248a84a2`.
 
 ### A5 — Q1/Q2 fixes and storyline facts (1 d)
 
-- [ ] **A5.1** — Q1 inference, SPL, flow (legacy shape kept)
+- [x] **A5.1** — Q1 inference, SPL, flow (legacy shape kept)
   - **Do:**
     - MITRE T1110.001 → T1595/T1046 (scanning), T1078 stays "requires validation".
     - Add SPL for the 1 h deny summary, allow-after-deny on 10.20.1.10, and `svc_jump_ops` auth success with `values(src)`.
@@ -283,9 +283,9 @@ Per the content review. Each item fills rationale/brief fields, applies KEEP/FIX
     - `test_live_path_untouched_by_ec.py::test_ec_q1_ticket_does_not_call_production_actions` is re-pointed to the chip-created ticket (ledger).
     - `test_ec_pipeline_dispatch_parity.py` and `test_experience_center_response.py` are updated (ledger).
   - **Depends on:** A4.2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** T1595 replaces T1110.001 (Q1 + executive summary); chips advance with findings; ticket only after `open_p1_ticket`; P1 actions carry reason + approvers. Commit `bb813dde`.
 
-- [ ] **A5.2** — Storyline + Q2
+- [x] **A5.2** — Storyline + Q2
   - **Do:**
     - Add an optional `ec_story_thread {thread_id, day, prior_verdict}` badge on S1/Q1/S3.
     - One incident ID `INC-2026-89412`.
@@ -294,7 +294,7 @@ Per the content review. Each item fills rationale/brief fields, applies KEEP/FIX
     - Q2's single chip becomes a terminal "Request saved-search deployment (prepared, not deployed)".
   - **Verify:** The harness story row passes (same ID/IP/host/account/ports across S1/Q1/S3); Q2 SPL is still sourced from `templates.json` via the `/spl-template-add` flow (derived sheets regenerated, staleness gate green); `validate_spl` approved.
   - **Depends on:** A5.1
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `INCIDENT_ID = INC-2026-89412` across S1/Q1/S3; `ec_story_thread` + `EcStoryThreadBadge`; the storyline tests `test_s1_q1_s3_share_one_incident_thread` and `test_s1_q1_s3_state_the_same_facts` pass. Q2 SPL fixed (container `validate_spl` approved). Commits `bb813dde`, `b246ea02`.
 
 ### A6 — Release A closure (0.5 d)
 
@@ -352,5 +352,14 @@ Each scenario gets its own pack + `PACKS` entry + profile (template: `fixtures/_
 - A4.1 depends on a CERT-In document being present in the governed SOC-KB (D2).
 
 ## Drift log
+
+- 2026-09-24 execution:
+  - **Ordering:** A2 infrastructure landed before the A0.2 harness commit, so several harness rows passed on first run rather than flipping from xfail. Each has evidence above.
+  - **A2.5 → B1:** no Release A scenario needs a non-Agilus investigation HIL.
+  - **A3.1:** kept S1's 5 monitoring steps rather than merging them to 2. Each now carries a distinct reason (definition, validation, backtest, verify backtest, 14-day window) — less churn for the same clarity.
+  - **A3.4:** OT confirmation stays in remediation. The email is an outbound, approval-gated action, and all outbound actions sit under the remediation approval.
+  - **A4 (D2):** the SOC-KB has no CERT-In source, so R1 answers the privileged success-after-failure SOP/escalation question from real KB passages. CERT-In can be added once a source document is ingested (`/soc-kb-ingest`).
+  - **Demo mail connector:** found and fixed that S2/S4/S7 emails failed (`logical_recipient_unmapped`) while their steps said "notified". The shared `auto_execute_pending_actions` now records the demo mail connector receipt, as S1 already did; an allowlist rejection stays a failure.
+  - **S2 SPL:** kept the allowlisted `pgcil:edr` sourcetype scoped by `event_type=ai_tool_call` — `pgcil:ai_gateway` is rejected by the SPL allowlist and widening policy is out of scope. Flagged to the user.
 
 - 2026-09-24 rev 2: plan-reviewer verdict REVISE. The corrections above were adopted. Estimate re-based from 6 d → A 6 d + B 5 d, split into two approvals per the "not 10 days" constraint. Two rev-1 findings (S7, S4 HIL) were withdrawn as harness artifacts.
