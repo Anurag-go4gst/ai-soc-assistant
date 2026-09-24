@@ -1,0 +1,28 @@
+Governance steps (scripts/run_stage3_governance_regression.sh, run step-by-step without abort-on-first-failure)
+branch feat/ec-cio-coherence @ 229a126e  |  master @ 37010815
+FAIL crosswalk	FAIL crosswalk
+PASS validation_sheets	PASS validation_sheets
+PASS phase10_pytest	PASS phase10_pytest
+PASS sentinel_set	PASS sentinel_set
+FAIL sentinel_eval	FAIL sentinel_eval
+PASS answer_quality	PASS answer_quality
+PASS power_probe_v1	PASS power_probe_v1
+PASS power_probe_v2	PASS power_probe_v2
+FAIL power_probe_v3	FAIL power_probe_v3
+PASS ot_probe	PASS ot_probe
+PASS reference_answer_quality	PASS reference_answer_quality
+PASS harness	PASS harness
+FAIL manifest_promotion	FAIL manifest_promotion
+PASS operation_map	PASS operation_map
+PASS qu_route_bridge	PASS qu_route_bridge
+PASS cov_q046	PASS cov_q046
+FAIL golden_tier0	FAIL golden_tier0
+PASS dual_parity	PASS dual_parity
+PASS dual_parity_pytest	PASS dual_parity_pytest
+PASS clean_answer	PASS clean_answer
+PASS clean_answer_pytest	PASS clean_answer_pytest
+PASS cisco_powergrid	PASS cisco_powergrid
+FAIL dispatch_matrix	FAIL dispatch_matrix
+PASS protected_manifest	PASS protected_manifest
+
+Full backend pytest: branch 30 failed / 7715 passed; master 30 failed / 7670 passed; failing test names identical (0 new, 0 fixed).

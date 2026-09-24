@@ -298,11 +298,11 @@ Per the content review. Each item fills rationale/brief fields, applies KEEP/FIX
 
 ### A6 — Release A closure (0.5 d)
 
-- [ ] **A6.1** — Gate Release
+- [x] **A6.1** — Gate Release
   - **Do:** Run Gate EC, Gate Frozen and Gate Release.
   - **Verify:** All green; failure names equal A0.1; the ledger is complete for every modified assertion.
   - **Depends on:** A5.2
-  - **Evidence:** _(fill when done)_
+  - **Evidence:** `docs/evals/ec_cio_coherence/release_a_gates.txt`. **Full pytest:** 30 failed / 7715 passed; the failing names are identical to baseline A0.1 (0 new). **Governance, step by step:** 18 PASS / 6 FAIL on the branch, and identically on clean master. `crosswalk`, `sentinel_eval`, `power_probe_v3`, `manifest_promotion`, `golden_tier0` and `dispatch_matrix` are **already red on master**; the script aborts at step 1 on master too. **Frozen gate:** the diff outside EC is only `ExperienceExecutionProgressPanel.tsx` (allowed, ChatBubble tests green) and `lib/ecAgentWorkflow.ts` (EC lib). **Invariant check:** 7/7 PASS. **Frontend:** 138 passed, build OK, dist world-readable.
 
 - [ ] **A6.2** — Visual re-walk + CIO rubric
   - **Do:** Re-walk 1–9 + R1 into `after_A/`. Score each against: verdict readable ≤10 s; every step shows *why*; remediation sequenced and gated with reasons; emails pass the lint and read BLUF-first; no scroll jump; tool fabric consistent. Write `docs/evals/ec_cio_coherence/report_release_A.md`.
