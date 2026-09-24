@@ -55,7 +55,7 @@ def build_s1_normalized_investigation_state(
                 {"label": "Existing IOC detection", "value": "No alert" if notable_done else "—"},
                 {"label": "Permitted sessions", "value": "3 on jump host"},
                 {"label": "Local TI", "value": "Unlisted" if ti_done else "—"},
-                {"label": "Identity", "value": "Registered MCP endpoint" if identity_done else "Pending"},
+                {"label": "Identity", "value": "Registered partner integration endpoint" if identity_done else "Pending"},
                 {"label": "Malicious use", "value": "Not confirmed"},
                 {"label": "SOP", "value": "14-day monitoring" if sop_done else "—"},
             ],
@@ -65,7 +65,7 @@ def build_s1_normalized_investigation_state(
         "llm_advisory": advisory,
         "investigation_conclusion": {
             "headline": (
-                "Newly observed registered MCP endpoint · 3 permitted jump-host sessions remain "
+                "Newly observed registered partner integration endpoint · 3 permitted jump-host sessions remain "
                 "unexplained · malicious use not confirmed"
             ),
             "narrative_points": [
@@ -87,7 +87,7 @@ def build_s1_normalized_investigation_state(
                     "(Existing IOC detection: No alert — IP not present in the IOC list used by this detection). "
                     "No alert is not proof the IP is safe."
                 ),
-                "Identity: inventory confirms a registered/new MCP endpoint.",
+                "Identity: inventory confirms a registered/new partner integration endpoint.",
                 (
                     "SOP: targeted monitoring for 14 days. Blocking threshold is currently not met "
                     "(requires attributable auth, confirmed malice, or policy exception plus Network/SOC HIL)."

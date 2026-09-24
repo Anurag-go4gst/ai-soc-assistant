@@ -13,7 +13,7 @@ INVESTIGATION_STEP_DEFS: tuple[dict[str, Any], ...] = (
     {
         "id": "mcp_identity",
         "title": "Identify the IP and its expected role",
-        "summary": "SOC-KB / inventory fixture — establish whether this IP is a registered MCP endpoint.",
+        "summary": "SOC-KB / inventory fixture — establish whether this IP is a registered partner integration endpoint.",
         "follow_up_id": "lookup_inventory_identity",
         "tools": ["SOC-KB"],
         "default_selected": True,
@@ -62,7 +62,7 @@ INVESTIGATION_STEP_DEFS: tuple[dict[str, Any], ...] = (
     {
         "id": "retrieve_sop",
         "title": "Retrieve monitoring and blocking SOP",
-        "summary": "Governed SOC-KB retrieval of the enterprise newly observed external / MCP endpoint SOP.",
+        "summary": "Governed SOC-KB retrieval of the enterprise newly observed external / partner integration endpoint SOP.",
         "follow_up_id": "retrieve_sop",
         "tools": ["SOC-KB"],
         "default_selected": True,
@@ -171,10 +171,21 @@ REMEDIATION_STEP_DEFS: tuple[dict[str, Any], ...] = (
     },
     {
         "id": "notify_firewall",
-        "title": "Notify SOC team",
-        "summary": "Notify SOC that 14-day monitoring is active. Block approval is not requested.",
+        "title": "Notify the SOC shift (firewall team copied)",
+        "summary": "Tell the SOC the 14-day watch is live; ask the firewall team whether an exception explains the allowed sessions. Not a block request.",
         "follow_up_id": "email_firewall_team",
         "tools": ["Email"],
+        "default_selected": True,
+        "phase": "remediation",
+    },
+    {
+        "id": "confirm_owner",
+        "title": "Ask the integration owner to explain the 3 sessions",
+        "summary": "Email the registered owner of the partner integration endpoint: were the three sessions to the jump host expected?",
+        "follow_up_id": None,
+        "bundle_with": "email_firewall_team",
+        "tools": ["Email"],
+        "hil_required": True,
         "default_selected": True,
         "phase": "remediation",
     },
@@ -245,7 +256,7 @@ ACTION_PLAN_STEPS = [
 PLAN_PREREAD: tuple[str, ...] = ()
 
 PLAN_READY_TITLE = f"Newly observed IP {PRIMARY_ATTACKER_IP} — malicious use not confirmed"
-IDENTITY_PROMOTION = "Identity: registered MCP endpoint"
+IDENTITY_PROMOTION = "Identity: registered partner integration endpoint"
 SEVERITY_LABEL = "P2 High"
 SEVERITY_REASON = (
     "P2 High · newly observed external endpoint · permitted access to high-criticality jump host · "

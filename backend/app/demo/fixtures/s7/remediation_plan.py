@@ -10,6 +10,8 @@ _FOLLOW_UP_BY_STEP = {
     "ask_ot": "ask_ot_team",
     "ingest_ot": "ingest_ot_response",
     "create_incident": "create_incident_ticket",
+    "restrict_ot_path": "create_incident_ticket",
+    "rtu_integrity": "create_incident_ticket",
     "cmdb_correction": "recommend_cmdb_correction",
     "closure": "generate_closure_summary",
 }
@@ -33,19 +35,29 @@ def finding_for_remediation_step(
     token = status.upper()
     copy = {
         "ask_ot": (
-            "Queued — email OT_TEAM (HIL)",
-            "Drafting OT coordination email…",
-            "OT team notification prepared / sent after approval",
+            "Queued — email OT engineering (send requires approval)",
+            "Drafting OT engineering email…",
+            "OT engineering asked to confirm any authorized maintenance",
         ),
         "ingest_ot": (
             "Queued — ingest OT team reply",
-            "Ingesting fixture-backed OT reply…",
-            "OT team confirms device is active; CMDB stale",
+            "Recording OT engineering reply…",
+            "OT engineering: device is active; no maintenance was scheduled for ot_vendor_svc",
         ),
         "create_incident": (
             "Queued — create OT unauthorized-access incident",
             "Opening security incident…",
             "Incident INC-OT-14 opened — active device, stale CMDB",
+        ),
+        "restrict_ot_path": (
+            "Queued — narrow east-west allow to 10.80.4.14 (OT-safe window, approval required)",
+            "Submitting firewall change for OT-safe window…",
+            "Allow to 10.80.4.14 narrowed to the approved engineering workstation · vendor path closed",
+        ),
+        "rtu_integrity": (
+            "Queued — compare OT-RTU-14 configuration with baseline",
+            "Comparing logic and setpoints with the approved baseline…",
+            "OT-RTU-14 configuration matches baseline · no setpoint changes found",
         ),
         "cmdb_correction": (
             "Queued — open CMDB data-quality ticket",
@@ -130,9 +142,10 @@ def build_s7_remediation_conclusion(*, normalized: dict[str, Any]) -> dict[str, 
             f"Treat {S7_DEVICE} as an active OT asset with a stale CMDB row — incident after OT confirmation, not from Splunk alone."
         ),
         "narrative_points": [
-            "Ask OT_TEAM (HIL email) whether OT-RTU-14 was never decommissioned.",
-            "Ingest the fixture-backed reply before minting the security incident.",
-            "Open INC-OT-14 only because inventory shows the device active.",
-            "Open a CMDB data-quality ticket so retirement cannot keep conflicting with live telemetry.",
+            "Ask OT engineering (email, send requires approval) whether ot_vendor_svc had authorized maintenance.",
+            "Record the OT engineering reply before opening the security incident.",
+            "Open INC-OT-14 because the device is live and the access was not authorized.",
+            "Narrow the firewall path to the approved engineering workstation and check the RTU configuration against its baseline.",
+            "Open a CMDB data-quality ticket so the retired record cannot hide a live device again.",
         ],
     }

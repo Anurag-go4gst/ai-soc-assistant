@@ -8,6 +8,8 @@ from app.demo.fixtures.s2.investigation_findings import BLOCKED_TOOL
 
 _FOLLOW_UP_BY_STEP = {
     "create_incident": "create_ai_incident_ticket",
+    "block_session": "create_ai_incident_ticket",
+    "extend_detection": "update_incident",
     "disable_credential": "disable_integration_credential",
     "notify_appsec": "notify_app_security",
     "verify_credential": "verify_credential_state",
@@ -38,10 +40,15 @@ def finding_for_remediation_step(
             "Creating AI security incident…",
             "AI security incident opened — impact attempted_blocked",
         ),
+        "block_session": (
+            "Queued — block session sess-ai-8841 at the AI gateway (approval required)",
+            "Blocking session and rate-limiting guest-web-5521…",
+            "Session sess-ai-8841 terminated · guest-web-5521 rate-limited for 24 h",
+        ),
         "disable_credential": (
-            "Queued — disable ai-assistant-export-connector (HIL)",
-            "Preparing credential disable for analyst approval…",
-            "Export connector credential disable executed (simulated)",
+            "Queued — rotate ai-assistant-export-connector credential (approval required)",
+            "Preparing credential rotation for approval…",
+            "Export connector credential rotated and scoped to approved export jobs",
         ),
         "notify_appsec": (
             "Queued — email AppSec / AI platform team (HIL)",
@@ -51,7 +58,12 @@ def finding_for_remediation_step(
         "verify_credential": (
             "Queued — verify credential state",
             "Verifying export connector credential…",
-            "Simulated credential state is disabled",
+            "Old credential revoked · new credential scoped to approved export jobs",
+        ),
+        "extend_detection": (
+            "Queued — raise detection change for EC_AI_Prompt_Injection_Detection",
+            "Raising detection-engineering change…",
+            "Detection change DET-CHG-0412 raised · 2 prompt patterns + denied-tool signal",
         ),
         "update_ticket": (
             "Queued — update incident with blocked-not-breached outcome",
@@ -105,7 +117,7 @@ def build_s2_remediation_summary(*, selected_count: int, total_count: int) -> di
         "plan_steps": f"{selected_count}/{total_count} selected",
         "metrics": [
             {"label": "Blocked tool", "value": BLOCKED_TOOL},
-            {"label": "HIL actions", "value": 2},
+            {"label": "Approval-gated actions", "value": 3},
             {"label": "ITSM", "value": 2},
         ],
     }
@@ -119,9 +131,9 @@ def build_s2_remediation_conclusion(*, normalized: dict[str, Any]) -> dict[str, 
             f"Contain the blocked {BLOCKED_TOOL} path without treating a denied tool call as a breach."
         ),
         "narrative_points": [
-            "Open an AI security incident with impact=attempted_blocked.",
-            "HIL-disable the export connector credential — not an auto-executed IAM write.",
-            "Notify AppSec / AI platform (logical APPSEC_TEAM) after send approval.",
-            "Verify credential state, update the ticket, and close with breach not confirmed.",
+            "Open an AI security incident (impact: attempted, blocked) and block the offending session at the gateway.",
+            "Rotate and scope down the export connector credential — precautionary and reversible, because the attacker reached the tool-authorization layer.",
+            "Notify AppSec / AI platform after you approve the send.",
+            "Verify the credential change, request an update to the detection that only partly covered this attack, then update and close the incident.",
         ],
     }

@@ -204,7 +204,7 @@ def s1_initial() -> EcExecutionJourney:
         InitialStepSpec("resource-plan", titles[1], semantic_type="plan", duration_ms_hint=850, activity=["Mapping evidence needs and governed resources…", "Resource plan locked for newly observed IP review…"]),
         InitialStepSpec("mcp-select", titles[2], semantic_type="plan", duration_ms_hint=800, activity=["Selecting splunk_run_query and knowledge-object tools…", "Applying MCP execution gates…"]),
         InitialStepSpec("mcp-connect", titles[3], semantic_type="plan", duration_ms_hint=1000, activity=["Resolving Splunk MCP from registry…", "Connector ready for governed search…"], system=splunk[0], operation=splunk[1]),
-        InitialStepSpec("evidence", titles[4], semantic_type="gather", duration_ms_hint=1000, activity=["Looking up inventory identity…", "Registered MCP endpoint — not a listed IOC…"], system="SOC-KB", operation="retrieve_soc_kb", outcome_change="identity=registered_mcp"),
+        InitialStepSpec("evidence", titles[4], semantic_type="gather", duration_ms_hint=1000, activity=["Looking up inventory identity…", "Registered partner integration endpoint — not a listed IOC…"], system="SOC-KB", operation="retrieve_soc_kb", outcome_change="identity=registered_partner_endpoint"),
         InitialStepSpec("spl-validate", titles[5], semantic_type="evaluate", duration_ms_hint=900, activity=["Running deterministic SPL validator on bounded 30-day windows…"]),
         InitialStepSpec("mcp-execute", titles[6], semantic_type="gather", duration_ms_hint=1300, activity=["Executing requested last-30-days search…", "Executing prior novelty window…", "Polling Splunk MCP job…"], system=splunk[0], operation=splunk[1]),
         InitialStepSpec("correlate", titles[7], semantic_type="evaluate", duration_ms_hint=900, activity=["Assessing existing IOC detection coverage…", "No alert — IP not present in the IOC list used by this detection…"], system=splunk_saved[0], operation=splunk_saved[1], outcome_change="coverage=PARTIAL"),
@@ -675,7 +675,7 @@ S1_FOLLOW_UP_JOURNEYS = {
         "raise_mcp_monitoring",
         [
             ("Selecting monitoring SOP", "plan", "Standard SOP is raise monitoring before a HIL block…"),
-            ("Drafting MCP IP notable", "gather", "Preparing a new notable for the newly registered MCP endpoint…"),
+            ("Drafting partner-endpoint notable", "gather", "Preparing a new notable for the newly registered partner integration endpoint…"),
             ("Holding for analyst approval", "hil", "Monitoring draft is HIL — not auto-deployed…"),
             ("Updating InvestigationOutcome", "outcome", "Monitoring drafted; block still optional…"),
         ],
@@ -691,7 +691,7 @@ S1_FOLLOW_UP_JOURNEYS = {
         "s1-identity",
         "lookup_inventory_identity",
         [
-            ("Looking up inventory identity", "gather", "SOC-KB: registered MCP endpoint…"),
+            ("Looking up inventory identity", "gather", "SOC-KB: registered partner integration endpoint…"),
         ],
     ),
     "search_firewall_30d": _continue(
@@ -706,7 +706,7 @@ S1_FOLLOW_UP_JOURNEYS = {
         "s1-sop",
         "retrieve_sop",
         [
-            ("Retrieving enterprise SOP", "gather", "SOC-KB: newly observed external / MCP endpoint SOP…"),
+            ("Retrieving enterprise SOP", "gather", "SOC-KB: newly observed external / partner integration endpoint SOP…"),
             ("Reading monitoring vs block criteria", "evaluate", "Default is 14-day targeted monitoring…"),
         ],
     ),
@@ -723,14 +723,14 @@ S1_FOLLOW_UP_JOURNEYS = {
         "s1-inv-run",
         "run_investigation",
         [
-            ("Identifying the IP", "gather", "Inventory: registered MCP endpoint…"),
+            ("Identifying the IP", "gather", "Inventory: registered partner integration endpoint…"),
             ("Searching last 30 days", "gather", "3 allowed / 922 denied on jump host…"),
             ("Investigating permitted sessions", "correlate", "Added by agent — three permits unexplained…"),
             ("Checking novelty window", "gather", "Prior 30 days empty…"),
             ("Checking local TI", "gather", "Unlisted in local IOC/TI…"),
             ("Assessing Splunk detection coverage", "evaluate", "No alert — IP not in IOC list…"),
             ("Retrieving SOP", "gather", "Enterprise monitoring and blocking SOP…"),
-            ("Synthesizing findings", "outcome", "Registered MCP endpoint · permits unexplained · malicious use not confirmed…"),
+            ("Synthesizing findings", "outcome", "Registered partner integration endpoint · permits unexplained · malicious use not confirmed…"),
         ],
         header="Investigation in progress",
     ),
@@ -791,7 +791,7 @@ S1_FOLLOW_UP_JOURNEYS = {
         "s1-exec",
         "generate_executive_summary",
         [
-            ("Writing executive summary", "outcome", "New MCP endpoint · monitoring raised · not confirmed malicious…"),
+            ("Writing executive summary", "outcome", "New partner integration endpoint · monitoring raised · not confirmed malicious…"),
         ],
     ),
     "check_successful_auth": _continue(

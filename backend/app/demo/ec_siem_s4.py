@@ -18,13 +18,16 @@ from app.demo.ec_response import (
 )
 from app.safeguards.spl_validator import validate_spl
 
-S4_ADVISORY_ID = "ZD-FIXTURE-VPN-2026-001"
+S4_ADVISORY_ID = "EG-SA-2026-0917"
 
 S4_DETECTION_SEARCH_NAME = "EC_EdgeGate_VPN_ZeroDay_IOC"
+# The exposure is the *WAN* management listener, so the hunt excludes internal (RFC 1918)
+# sources and groups by source and gateway — "who touched which gateway" is the question.
 S4_GAP_CANDIDATE_SPL = (
     "search index=pgcil_soc sourcetype=pgcil:vpn earliest=-7d latest=now "
     "(uri=\"*/api/v1/mgmt/session*\" OR url=\"*/mgmt/session*\") "
-    "| stats count values(src) as src values(dest) as dest by uri action "
+    "NOT (src=10.0.0.0/8 OR src=172.16.0.0/12 OR src=192.168.0.0/16) "
+    "| stats count min(_time) as first_seen max(_time) as last_seen values(action) as action by src dest "
     "| head 100"
 )
 

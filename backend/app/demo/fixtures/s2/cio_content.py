@@ -80,7 +80,7 @@ S2_CIO_CONTENT = CioContent(
             "risk_if_skipped": "The same actor can keep probing the assistant.",
         },
         "extend_detection": {
-            "rationale": "Investigation step 1 showed the existing detection has only partial coverage; this closes the gap for next time.",
+            "rationale": "Investigation step 1 showed the existing detection has only partial coverage. Splunk MCP has no write tool, so the change goes to detection engineering with the exact patterns to add.",
             "reversible": "Yes — detection content is versioned.",
             "approver": "Detection engineering",
             "risk_if_skipped": "Variants of the same attack would go undetected.",
@@ -118,11 +118,11 @@ S2_CIO_CONTENT = CioContent(
             "risk_to": "MEDIUM",
             "confidence": "High — detection, gateway, tool-authorization, DLP and datastore audit all agree.",
             "would_change_if": "Any execution receipt for export_customer_records, or DLP hits in a wider window → treat as a data breach.",
-            "decision_needed": "Approve containment: rotate the export connector credential, block the offending session, and extend the detection.",
+            "decision_needed": "Approve containment: block the offending session, rotate the export connector credential, and request a detection update.",
             "will_not_do": "Take the assistant offline — the control held and customers are unaffected.",
         },
         "complete": {
-            "verdict": "Contained: session blocked, export credential rotated, detection extended. Breach not confirmed.",
+            "verdict": "Contained: session blocked and export credential rotated; detection update requested. Breach not confirmed.",
             "business_impact": "The assistant stays in service. The one high-value tool is now behind a fresh, narrower credential.",
             "risk_from": "HIGH",
             "risk_to": "MEDIUM",

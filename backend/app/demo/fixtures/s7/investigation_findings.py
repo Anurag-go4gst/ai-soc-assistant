@@ -99,7 +99,7 @@ def finding_for_investigation_step(
             "key_evidence": [f"asset={ASSET}", "status=retired"],
             "confidence": "high",
             "attention_state": "RISK",
-            "caveat": "A retired CMDB row does not prove the device is gone. No CMDB MCP is onboarded.",
+            "caveat": "A retired CMDB row does not prove the device is gone.",
             "evidence_sources": [
                 {
                     "source": "CMDB (simulated)",
@@ -169,6 +169,32 @@ def finding_for_investigation_step(
             ],
         }
 
+    if step_id == "identify_source":
+        done = _complete(applied, "check_firewall_activity")
+        return {
+            "headline_finding": (
+                "Source: engineering workstation OT-EWS-03 (10.80.1.23), account ot_vendor_svc — no approved maintenance window"
+                if done
+                else "Source not yet resolved"
+            ),
+            "headlines_by_status": {
+                "QUEUED": "Queued — resolve the source of the allowed sessions",
+                "RUNNING": "Resolving source workstation and account…",
+                "COMPLETE": "Source: OT-EWS-03 / ot_vendor_svc outside any maintenance window",
+            },
+            "key_evidence": [
+                "src=10.80.1.23 (OT-EWS-03, engineering workstation)",
+                "user=ot_vendor_svc (third-party vendor account)",
+                "maintenance_window=none approved for OT-RTU-14",
+            ],
+            "confidence": "high",
+            "attention_state": "RISK",
+            "evidence_sources": [
+                {"source": "Splunk MCP", "evidence_id": "ev-s7-fw", "provenance": "simulated_mcp", "tool": "splunk_run_query"},
+                {"source": "CMDB", "evidence_id": "ev-s7-cmdb", "provenance": "simulated_mcp", "tool": None},
+            ],
+        }
+
     if step_id == "arp_mac":
         done = _complete(applied, "check_arp_mac")
         return {
@@ -185,10 +211,9 @@ def finding_for_investigation_step(
             "key_evidence": [f"ip={IP}", "mac=00:1b:44:11:3a:b7", "vlan=ot-4"],
             "confidence": "high",
             "attention_state": "ATTENTION",
-            "caveat": "No switch/network MCP is onboarded — this is a simulated table read.",
             "evidence_sources": [
                 {
-                    "source": "Network (simulated)",
+                    "source": "Network / switch",
                     "evidence_id": "ev-s7-arp",
                     "provenance": "simulated_mcp",
                     "tool": None,

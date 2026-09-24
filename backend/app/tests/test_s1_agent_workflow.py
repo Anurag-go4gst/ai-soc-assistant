@@ -112,7 +112,7 @@ def test_s1_run_investigation_concludes_new_mcp_not_malicious() -> None:
     assert "remain unexplained" in finding or "authentication is not attributable" in finding
     assert "require validation" not in reason and "require validation" not in finding
     identity = (results["mcp_identity"].get("finding") or {}).get("headline_finding", "").lower()
-    assert "mcp" in identity
+    assert "partner integration endpoint" in identity
     novelty = (results["novelty_window"].get("finding") or {}).get("headline_finding", "").lower()
     assert "empty" in novelty or "newly observed" in novelty
     applied = after["ec_session_state"]["applied_follow_up_ids"]
@@ -130,7 +130,7 @@ def test_s1_run_investigation_concludes_new_mcp_not_malicious() -> None:
     assert metrics.get("Existing IOC detection") == "No alert"
     assert metrics.get("Permitted sessions") == "3 on jump host"
     assert metrics.get("Local TI") == "Unlisted"
-    assert metrics.get("Identity") == "Registered MCP endpoint"
+    assert metrics.get("Identity") == "Registered partner integration endpoint"
     assert metrics.get("Malicious use") == "Not confirmed"
     assert metrics.get("SOP") == "14-day monitoring"
     unresolved = " ".join(workflow.get("unconfirmed") or []).lower()
@@ -145,7 +145,7 @@ def test_s1_run_investigation_concludes_new_mcp_not_malicious() -> None:
     assert "agilus" not in sources
     assert "splunk" in sources
     headline = (workflow.get("investigation_conclusion") or {}).get("headline", "").lower()
-    assert "registered mcp endpoint" in headline
+    assert "registered partner integration endpoint" in headline
     assert "remain unexplained" in headline
     blob = " ".join([workflow.get("opening_narrative") or "", conclusion, notable]).lower()
     assert "suspicious ip" not in blob
@@ -191,6 +191,7 @@ def test_s1_full_agent_lifecycle_to_complete() -> None:
         "monitor_14d",
         "create_incident",
         "notify_firewall",
+        "confirm_owner",
         "prepare_block",
         "update_ticket",
     }

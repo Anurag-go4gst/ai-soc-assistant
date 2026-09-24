@@ -48,9 +48,10 @@ def build_s7_normalized_investigation_state(
             "Splunk unauthorized-access telemetry for OT-RTU-14 / 10.80.4.14 is confirmed.",
             "CMDB still lists the device as retired — that record is stale, not proof the asset is gone.",
             "OT inventory shows the device active on cell 4; firewall allow and ARP/MAC still answer in the same window.",
-            "Do not skip OT confirmation, but Splunk-alone was already the wrong close — this is not a false alarm from a retired box.",
+            "Who: the access came from engineering workstation OT-EWS-03 using vendor account ot_vendor_svc, with no approved maintenance window.",
+            "Next: OT engineering confirms whether the vendor had a reason to be there; until then this is treated as an incident.",
         ]
-        unconfirmed = ["Whether unauthorized access is malicious vs mis-documented maintenance"]
+        unconfirmed = ["Whether the vendor access was authorized maintenance that was never recorded"]
     else:
         headline = (
             "Unresolved conflict: Splunk shows activity, CMDB says retired. Splunk alone does not make this an incident."

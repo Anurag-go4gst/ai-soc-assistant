@@ -106,15 +106,34 @@ def _analyst_visible_text(response: dict[str, Any]) -> list[tuple[str, str]]:
             for field in ("title", "summary", "rationale"):
                 if item.get(field):
                     out.append((f"{container}.{item['id']}.{field}", str(item[field])))
-            headline = (item.get("finding") or {}).get("headline_finding")
+            if item.get("result"):
+                out.append((f"{container}.{item['id']}.result", str(item["result"])))
+            finding = item.get("finding") or {}
+            headline = finding.get("headline_finding")
             if headline:
                 out.append((f"{container}.{item['id']}.finding", str(headline)))
+            for line in finding.get("key_evidence") or []:
+                out.append((f"{container}.{item['id']}.key_evidence", str(line)))
+            if finding.get("caveat"):
+                out.append((f"{container}.{item['id']}.caveat", str(finding["caveat"])))
     conclusion = workflow.get("investigation_conclusion") or {}
     for point in [conclusion.get("headline"), *(conclusion.get("narrative_points") or [])]:
         if point:
             out.append(("conclusion", str(point)))
+    for key in ("remediation_conclusion",):
+        block = workflow.get(key) or {}
+        for point in [block.get("headline"), *(block.get("narrative_points") or [])]:
+            if point:
+                out.append((key, str(point)))
+    for row in workflow.get("verification") or []:
+        out.append(("verification", f"{row.get('item')} {row.get('detail')}"))
+    for line in workflow.get("executive_summary") or []:
+        out.append(("executive_summary", str(line)))
+    for key in ("investigation_summary", "remediation_summary"):
+        for metric in (workflow.get(key) or {}).get("metrics") or []:
+            out.append((key, f"{metric.get('label')} {metric.get('value')}"))
     final = workflow.get("final_summary") or {}
-    for point in [final.get("headline"), final.get("risk_note"), *(final.get("completed") or [])]:
+    for point in [final.get("headline"), final.get("risk_note"), *(final.get("completed") or []), *(final.get("in_progress") or [])]:
         if point:
             out.append(("final_summary", str(point)))
     for index, email in enumerate(_emails(response, [])):
@@ -216,10 +235,7 @@ def test_every_tool_resolves_to_the_catalog(agent_walks, scenario_id):
     assert any(tool["used"] for tool in workflow.get("tool_fabric") or [])
 
 
-@pytest.mark.parametrize(
-    "scenario_id",
-    [pytest.param(sid, marks=pytest.mark.xfail(strict=True, reason="A2.3/A3: demo words in emails and findings")) for sid in AGENT_SCENARIOS],
-)
+@pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
 def test_no_demo_words_in_analyst_visible_text(agent_walks, scenario_id):
     hits = [
         (where, DEMO_WORDS.search(text).group(0))

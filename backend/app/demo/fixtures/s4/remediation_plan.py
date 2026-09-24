@@ -41,6 +41,8 @@ def _follow_up_executed(step_id: str, applied: list[str]) -> bool:
         "restrict_wan": "apply_temporary_control",
         "enforce_mfa": "apply_access_controls",
         "create_incident": "create_emergency_incident",
+        "compromise_assessment": "create_emergency_incident",
+        "rotate_admin_creds": "apply_access_controls",
         "create_change": "create_change_ticket",
         "submit_patch": "request_agilus_patch",
         "deploy_monitoring": "deploy_splunk_monitoring",
@@ -396,6 +398,54 @@ def finding_for_remediation_step(
                 "depends_on": "deploy_monitoring",
             },
             "attention_state": "INFORMATIONAL",
+        }
+
+    if step_id == "compromise_assessment":
+        headline, headlines_by_status = _headline_for_status(
+            queued=f"Queued — capture logs and config snapshot from {', '.join(anomalous)} before patching",
+            running=f"Collecting management-plane logs and configuration from {', '.join(anomalous)}…",
+            complete=f"Evidence captured from {', '.join(anomalous)} · 6 anomalous admin events preserved for review",
+            status=status,
+            executed=executed,
+        )
+        return {
+            "headline_finding": headline,
+            "headlines_by_status": headlines_by_status,
+            "key_evidence": [
+                "Patch install reboots the gateway and clears volatile state, so evidence comes first",
+                f"Scope: {', '.join(anomalous)} (unusual privileged management activity)",
+                "Collected: 7-day management-plane logs, running configuration, active admin sessions",
+            ],
+            "affected_entities": anomalous,
+            "quantitative_summary": {"gateways": len(anomalous), "anomalous_events": 6},
+            "evidence_sources": [
+                {"source": "Splunk MCP", "provenance": "governed_read", "tool": "splunk_run_query"},
+                {"source": "Device MCP", "provenance": "governed_read", "tool": "get_running_config"},
+            ],
+            "details": {"depends_on": "create_incident"},
+            "attention_state": "ATTENTION",
+        }
+
+    if step_id == "rotate_admin_creds":
+        headline, headlines_by_status = _headline_for_status(
+            queued=f"Queued — revoke admin sessions and rotate local admin credentials on {', '.join(anomalous)}",
+            running="Revoking admin sessions and rotating credentials…",
+            complete=f"Admin sessions revoked and credentials rotated on {', '.join(anomalous)}",
+            status=status,
+            executed=executed,
+        )
+        return {
+            "headline_finding": headline,
+            "headlines_by_status": headlines_by_status,
+            "key_evidence": [
+                "Unusual admin activity means these admin credentials must be treated as exposed",
+                "Rotation takes effect immediately; patching alone would not remove a stolen credential",
+            ],
+            "affected_entities": anomalous,
+            "quantitative_summary": {"gateways": len(anomalous)},
+            "evidence_sources": [{"source": "IAM", "provenance": "governed_action", "tool": "rotate_credentials"}],
+            "details": {"depends_on": "enforce_mfa"},
+            "attention_state": "ATTENTION",
         }
 
     if status == "SKIPPED":

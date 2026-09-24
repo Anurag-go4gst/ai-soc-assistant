@@ -185,22 +185,22 @@ def finding_for_investigation_step(
     if step_id == "mcp_identity":
         return {
             "headline_finding": (
-                f"Identity: registered MCP endpoint ({PRIMARY_ATTACKER_IP}) — "
+                f"Identity: registered partner integration endpoint ({PRIMARY_ATTACKER_IP}) — "
                 "established from inventory/SOC-KB evidence"
             ),
             "headlines_by_status": {
                 "QUEUED": "Queued — inventory identity lookup",
                 "RUNNING": "Reading SOC-KB inventory identity…",
-                "COMPLETE": "Identity: registered MCP endpoint",
+                "COMPLETE": "Identity: registered partner integration endpoint",
             },
             "key_evidence": [
                 f"indicator={PRIMARY_ATTACKER_IP}",
-                "identity=registered MCP endpoint",
-                "source=SOC-KB inventory fixture",
+                "identity=registered partner integration endpoint",
+                "source=asset inventory (SOC-KB)",
             ],
             "confidence": "high",
             "attention_state": "RISK",
-            "caveat": "A registered/new MCP endpoint is a new concern, not a confirmed malicious IOC.",
+            "caveat": "A registered/new partner integration endpoint is a new concern, not a confirmed malicious IOC.",
             "evidence_sources": [
                 {
                     "source": "SOC-KB",
@@ -212,7 +212,7 @@ def finding_for_investigation_step(
             "details": _connector_io(
                 connector="SOC-KB",
                 request=f"action=inventory_lookup\nindicator={PRIMARY_ATTACKER_IP}",
-                response="identity=registered_mcp_endpoint\nsource=soc_kb_inventory",
+                response="identity=registered_partner_endpoint_endpoint\nsource=soc_kb_inventory",
             ),
         }
 
@@ -267,7 +267,7 @@ def finding_for_investigation_step(
             ],
             "confidence": "high",
             "attention_state": "INFORMATIONAL",
-            "caveat": "Enterprise SOC SOP fixture — not vendor guidance.",
+            "caveat": "Enterprise SOC SOP — internal policy, not vendor guidance.",
             "evidence_sources": [
                 {
                     "source": "SOC-KB RAG",

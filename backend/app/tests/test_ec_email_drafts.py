@@ -21,9 +21,11 @@ def test_s1_firewall_email_includes_sop_and_ticket_sections() -> None:
     assert "Firewall Change & SOC Coordination SOP" in body
     assert "TICKET STATUS" in body
     assert PRIMARY_ATTACKER_IP in body
-    assert "CONFIRMED FINDINGS" in body
+    assert "WHAT WE KNOW" in body
     assert "REQUESTED ACTION" in body
-    assert "Outbound coordination controls" in body
+    assert body.startswith("Dear ") and "ACTION REQUESTED:" in body.split("\n\n", 2)[1]
+    assert "Outbound coordination controls" not in body
+    assert "Experience Center" not in body
 
 
 def test_s3_firewall_email_includes_mandatory_process_fields() -> None:
