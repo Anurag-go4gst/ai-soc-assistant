@@ -240,7 +240,9 @@ def test_firewall_baseline_template_is_environment_grounded_and_explained() -> N
     assert "sourcetype=pgcil:firewall" in spl
     assert "earliest=-7d" in spl
     assert "| bucket _time span=1h" in spl
-    assert 'count(eval(action="deny")) as deny_count' in spl
+    assert "action=deny" in spl.split("|", 1)[0]
+    assert "count as deny_count" in spl
+    assert "hours_observed>=24" in spl
     assert "deny_upper_bound" in spl
     assert "port_upper_bound" in spl
     assert "sort -deny_count" not in spl
