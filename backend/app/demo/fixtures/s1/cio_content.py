@@ -9,11 +9,8 @@ S1_CIO_CONTENT = CioContent(
     scenario_id=S1_SCENARIO_ID,
     plan_title="Newly observed IP 198.51.100.42 — investigation plan ready",
     opening_narrative=(
-        "My plan for 198.51.100.42: six checks across Splunk firewall logs, the asset inventory "
-        "and the SOC knowledge base — who owns this IP, what it reached in the last 30 days, "
-        "whether it is new or known-bad, whether our detections would have caught it, and what "
-        "our SOP requires. Nothing runs until you approve. If any traffic was allowed through, "
-        "I will add a step to follow those sessions."
+        "I'll check who owns 198.51.100.42, what it did in the last 30 days, and what our SOP says to do. "
+        "Nothing runs until you approve."
     ),
     step_summary={
         "mcp_identity": "Look up the IP in the asset inventory and SOC-KB to find its owner and expected role.",

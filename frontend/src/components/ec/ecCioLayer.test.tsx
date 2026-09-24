@@ -19,6 +19,7 @@ const baseWorkflow: EcAgentWorkflowPayload = {
         tools: ['Splunk MCP'],
         selected: true,
         rationale: 'A decides whether B matters.',
+        why_visible: true,
         decides: 'Escalate or not.',
         if_skipped: 'No verdict.',
       },
@@ -55,12 +56,9 @@ describe('EC CIO layer', () => {
     expect(screen.getByText('Escalate or not.')).toBeInTheDocument();
   });
 
-  it('renders the tool fabric from the payload with used tools marked', () => {
+  it('does not show the tools strip on the plan (kept out as staging)', () => {
     renderWorkflow(baseWorkflow);
-    const used = document.querySelector('[data-ec-section="tool-fabric"] [data-tool-used="true"]');
-    const unused = document.querySelector('[data-ec-section="tool-fabric"] [data-tool-used="false"]');
-    expect(used?.textContent).toBe('Splunk MCP');
-    expect(unused?.textContent).toBe('Agilus MCP');
+    expect(document.querySelector('[data-ec-section="tool-fabric"]')).toBeNull();
   });
 
   it('renders the executive brief after investigation and on completion', () => {

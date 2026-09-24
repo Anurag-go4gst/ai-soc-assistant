@@ -322,7 +322,7 @@ describe('S1 Experience Center workspace', () => {
       />,
     );
     expect(screen.getByText(/Deploy Splunk monitoring/i)).toBeInTheDocument();
-    expect(screen.getByText(/Review remediation plan/i)).toBeInTheDocument();
+    expect(screen.getByText(/Review the actions — nothing runs until you approve/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Approve remediation/i })).toBeInTheDocument();
     expect(onRunRemediation).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: /Approve remediation/i }));

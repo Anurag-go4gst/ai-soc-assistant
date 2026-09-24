@@ -141,6 +141,8 @@ export interface EcAgentPlanStep {
   hil_required?: boolean;
   /** CIO layer — why this step exists (investigation and remediation). */
   rationale?: string;
+  /** Show the rationale line (only for non-obvious steps). */
+  why_visible?: boolean;
   /** Investigation: the decision this step informs. */
   decides?: string;
   /** Investigation: what is lost without it. */

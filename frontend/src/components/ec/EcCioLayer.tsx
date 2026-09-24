@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils';
 /** One-line "Why" for a plan step, with the decision / reversibility detail on demand. */
 export function EcStepWhy({ step }: { step: EcAgentPlanStep }) {
   const [open, setOpen] = useState(false);
-  if (!step.rationale) return null;
+  // Only steps a scenario flags as non-obvious (a block, a credential change, OT) explain themselves.
+  if (!step.rationale || !step.why_visible) return null;
   const detail: Array<[string, string | undefined]> = [
     ['Decides', step.decides],
     ['If skipped', step.if_skipped],
@@ -67,12 +68,8 @@ function riskClass(risk?: string): string {
 
 /** Verdict-first brief for a CIO: impact, risk movement, confidence, and the decision asked. */
 export function EcExecutiveBrief({ brief }: { brief: EcExecutiveBrief }) {
-  const rows: Array<[string, string | undefined]> = [
-    ['Business impact', brief.business_impact],
-    ['Confidence', brief.confidence],
-    ['Would change if', brief.would_change_if],
-    ['Will not do', brief.will_not_do],
-  ];
+  // Compact by design: verdict, risk movement, and the one decision asked of the reader.
+  const rows: Array<[string, string | undefined]> = [];
   return (
     <section
       className="space-y-3 rounded-lg border border-cyan-500/30 bg-cyan-950/20 p-4"

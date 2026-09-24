@@ -617,7 +617,7 @@ export function EcInvestigationWorkspace() {
                     ) : null}
                   </>
                 ) : null}
-                <EcTransparencyDrawer envelope={envelope} />
+                {!agentMode ? <EcTransparencyDrawer envelope={envelope} /> : null}
                 <EcCoordinationPanels envelope={envelope} />
               </div>
               </div>

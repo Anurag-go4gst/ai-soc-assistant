@@ -417,29 +417,20 @@ def build_s1_agent_workflow(
     if lifecycle == L.LIFECYCLE_COMPLETE:
         workflow["final_summary"] = {
             "title": "RESPONSE COMPLETE",
-            "headline": "Baseline monitoring query executed · saved search scheduling pending · malicious use not confirmed",
+            "headline": "Not confirmed malicious · watch live after a baseline check · incident open · IP not blocked",
             "severity": "P2",
             "affected": PRIMARY_ATTACKER_IP,
             "compromise": "not confirmed",
             "completed": [
-                "Baseline monitoring query executed via splunk_run_query",
-                "Jump-host 443/8443 baseline reviewed",
-                "svc_jump_ops auth correlation reviewed",
-                f"Incident {S1_PLANNED_INCIDENT_ID} created",
-                "SOC notified",
-                "Incident updated",
+                "14-day Splunk watch on the IP, the jump host and svc_jump_ops logons",
+                f"Incident {S1_PLANNED_INCIDENT_ID} opened",
+                "SOC lead notified; integration owner asked about the 3 sessions",
             ],
-            "in_progress": [
-                "14-day monitoring window",
-                f"Schedule {S1_MONITOR_SAVED_SEARCH_NAME} saved search in Splunk (manual — no MCP deploy tool)",
-            ],
-            "deferred": ["IP block not required at current SOP threshold"],
+            "in_progress": ["Waiting for the integration owner's reply (48 h)"],
+            "deferred": ["Block not needed yet — SOP threshold not met"],
             "risk_from": "MEDIUM",
             "risk_to": "MEDIUM",
-            "risk_note": (
-                "Current risk: MEDIUM. Malicious use: NOT CONFIRMED. "
-                "Baseline query: EXECUTED. Saved search: SCHEDULE MANUALLY. Blocking: CONDITIONAL."
-            ),
+            "risk_note": "Escalate to P1 and block if the watch fires or the owner can't explain the sessions.",
         }
 
     if lifecycle in {L.LIFECYCLE_VERIFYING, L.LIFECYCLE_COMPLETE}:

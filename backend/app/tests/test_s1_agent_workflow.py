@@ -90,19 +90,18 @@ def test_s1_run_investigation_concludes_new_mcp_not_malicious() -> None:
     points = " ".join((workflow.get("investigation_conclusion") or {}).get("narrative_points") or []).lower()
     assert "what happened" in points
     assert "sop" in points
-    assert "agent assessment" in points
+    assert "sop" in points
     assert "not evidence" not in points
     assert "require validation" not in points
     assert "lateral movement" not in points
     assert "3 allowed" in points or "three permitted" in points
     results = {step["id"]: step for step in workflow["investigation_results"]["steps"]}
     result_ids = [step["id"] for step in workflow["investigation_results"]["steps"]]
-    assert result_ids[:4] == ["mcp_identity", "requested_30d", "permitted_sessions", "novelty_window"]
-    assert result_ids[-2:] == ["evaluate_notable", "retrieve_sop"]
-    assert results["evaluate_notable"]["status"] == "COMPLETE"
-    assert results["evaluate_notable"]["title"] == "Assess existing Splunk detection coverage"
-    notable = (results["evaluate_notable"].get("finding") or {}).get("headline_finding", "").lower()
-    assert "no alert" in notable
+    assert result_ids[:4] == ["mcp_identity", "requested_30d", "permitted_sessions", "retrieve_sop"]
+    # Detection coverage is folded into the 30-day check; its result is stated in the conclusion.
+    assert "evaluate_notable" not in results
+    notable = " ".join(workflow["investigation_conclusion"]["narrative_points"]).lower()
+    assert "didn't fire" in notable
     assert "ioc" in notable
     assert results["retrieve_sop"]["status"] == "COMPLETE"
     assert results["permitted_sessions"]["added_by_agent"] is True
@@ -113,16 +112,16 @@ def test_s1_run_investigation_concludes_new_mcp_not_malicious() -> None:
     assert "require validation" not in reason and "require validation" not in finding
     identity = (results["mcp_identity"].get("finding") or {}).get("headline_finding", "").lower()
     assert "partner integration endpoint" in identity
-    novelty = (results["novelty_window"].get("finding") or {}).get("headline_finding", "").lower()
-    assert "empty" in novelty or "newly observed" in novelty
+    novelty = " ".join(workflow["investigation_conclusion"]["narrative_points"]).lower()
+    assert "new in the last 30 days" in novelty
     applied = after["ec_session_state"]["applied_follow_up_ids"]
     assert "review_existing_notable" in applied
     assert "check_threat_intel" in applied
     assert "retrieve_sop" in applied
     assert "investigate_permitted_sessions" in applied
     assert "check_successful_auth" in applied
-    ti = (results["threat_intel"].get("finding") or {}).get("headline_finding", "").lower()
-    assert "not present in local ioc" in ti
+    ti = " ".join(workflow["investigation_conclusion"]["narrative_points"]).lower()
+    assert "threat intel: not listed" in ti
     metrics = {
         item["label"]: item["value"]
         for item in (workflow.get("investigation_summary") or {}).get("metrics") or []
@@ -182,19 +181,10 @@ def test_s1_full_agent_lifecycle_to_complete() -> None:
     assert ready["ec_agent_lifecycle"] == "REMEDIATION_PLAN_READY"
     assert ready["ec_agent_workflow"]["remediation_plan"]["visible"] is True
     rem_ids = {step["id"] for step in ready["ec_agent_workflow"]["remediation_plan"]["steps"]}
-    rem_titles = " ".join(step["title"] for step in ready["ec_agent_workflow"]["remediation_plan"]["steps"]).lower()
-    assert rem_ids == {
-        "generate_spl",
-        "validate_spl",
-        "deploy_monitoring",
-        "verify_monitoring",
-        "monitor_14d",
-        "create_incident",
-        "notify_firewall",
-        "confirm_owner",
-        "prepare_block",
-        "update_ticket",
-    }
+    rem_titles = " ".join(
+        f'{step["title"]} {step.get("summary") or ""}' for step in ready["ec_agent_workflow"]["remediation_plan"]["steps"]
+    ).lower()
+    assert rem_ids == {"generate_spl", "create_incident", "notify_firewall"}
     assert "14-day" in rem_titles or "14 day" in rem_titles
     assert "10.20.1.10" in rem_titles
     assert "svc_jump_ops" in rem_titles
@@ -256,11 +246,11 @@ def test_s1_full_agent_lifecycle_to_complete() -> None:
     assert "simulated" not in rem_blob
     assert "prepared" not in rem_blob
     statuses = {step["id"]: step["status"] for step in final["ec_agent_workflow"]["remediation_results"]["steps"]}
-    assert statuses["monitor_14d"] == "ACTIVE"
+    assert statuses["generate_spl"] == "ACTIVE"
     assert statuses["create_incident"] == "CREATED"
     assert statuses["notify_firewall"] == "SENT"
-    assert statuses["prepare_block"] == "NOT_REQUIRED"
-    assert statuses["deploy_monitoring"] == "EXECUTED"
+    # The block decision is recorded, not a separate step.
+    assert any("block not needed" in item.lower() for item in final["ec_agent_workflow"]["final_summary"]["deferred"])
     kinds = {item["kind"]: item["state"] for item in final["ec_actions"]}
     assert kinds.get("notify") in {"EXECUTED", "VERIFIED"}
     assert kinds.get("ticket_create") == "EXECUTED"

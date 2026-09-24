@@ -36,7 +36,7 @@ _MONITOR_NEXT_STEP = (
 )
 
 REM_OPERATIONAL_STATUS = {
-    "generate_spl": "VALIDATED",
+    "generate_spl": "ACTIVE",
     "validate_spl": "VERIFIED",
     "deploy_monitoring": "EXECUTED",
     "verify_monitoring": "VERIFIED",
@@ -95,7 +95,7 @@ def finding_for_remediation_step(
         "generate_spl": (
             "Queued — generate 14-day monitoring SPL",
             "Generating governed monitoring SPL…",
-            f"14-day monitoring SPL generated · {PRIMARY_ATTACKER_IP} → {_JUMP} 443/8443",
+            f"Watch active · alerts on {PRIMARY_ATTACKER_IP} → {_JUMP} (443/8443) and svc_jump_ops logons for 14 days",
         ),
         "validate_spl": (
             "Queued — validate monitoring SPL",
@@ -125,7 +125,7 @@ def finding_for_remediation_step(
         "notify_firewall": (
             "Queued — notify SOC shift (firewall team copied)",
             "Sending SOC notification…",
-            "SOC shift notified · firewall team copied",
+            "SOC lead notified · integration owner asked about the 3 sessions",
         ),
         "confirm_owner": (
             "Queued — ask integration owner about the 3 sessions",

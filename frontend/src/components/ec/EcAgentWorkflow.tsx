@@ -5,7 +5,7 @@ import type { ExperienceExecutionProgressView } from '@/lib/experienceCenterExec
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { EcInvestigationResultList, EcInvestigationSummaryStrip } from '@/components/ec/EcInvestigationResultList';
 import { EcSectionHeading } from '@/components/ec/EcSectionHeading';
-import { EcExecutiveBrief, EcStepWhy, EcToolFabric } from '@/components/ec/EcCioLayer';
+import { EcExecutiveBrief, EcStepWhy } from '@/components/ec/EcCioLayer';
 import { EcRagTrace } from '@/components/ec/EcRagTrace';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -245,10 +245,7 @@ export function EcAgentWorkflow({
     <div className="flex items-start gap-2 rounded-lg border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-50">
       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" aria-hidden="true" />
       <div>
-        <p className="font-medium">Review remediation plan</p>
-        <p className="mt-1 text-cyan-100/85">
-          Expand each step to review SPL, tickets, and email drafts. Nothing runs until you approve.
-        </p>
+        <p className="font-medium">Review the actions — nothing runs until you approve.</p>
       </div>
     </div>
   ) : null;
@@ -285,59 +282,6 @@ export function EcAgentWorkflow({
         </section>
       ) : null}
 
-      {workflow.brief && isPlanTurn ? (
-        <section className="overflow-x-auto rounded-lg border border-slate-800/80">
-          <table className="min-w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-800 bg-slate-900/60">
-                <th className="w-1/2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-cyan-100">Facts</th>
-                <th className="w-1/2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-cyan-100">
-                  Investigation objective
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="align-top">
-                <td className="border-r border-slate-800/80 px-4 py-3">
-                  <ul className="space-y-1.5 text-slate-300">
-                    {(workflow.brief.what_i_know ?? []).map((item) => (
-                      <li key={item} className="flex gap-2">
-                        <span className="text-cyan-500/80">·</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </td>
-                <td className="px-4 py-3">
-                  <ol className="list-decimal space-y-1.5 pl-5 text-slate-300">
-                    {(workflow.brief.objective ?? []).map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ol>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-      ) : null}
-
-      {workflow.action_plan && isPlanTurn ? (
-        <section className="rounded-lg border border-slate-800/80 bg-slate-900/35 p-4">
-          <EcSectionHeading>Action plan</EcSectionHeading>
-          {workflow.action_plan.summary ? (
-            <p className="mt-2 text-sm leading-relaxed text-slate-300">{workflow.action_plan.summary}</p>
-          ) : null}
-          <ul className="mt-3 space-y-1.5 text-sm text-slate-200">
-            {(workflow.action_plan.steps ?? []).map((item) => (
-              <li key={item} className="flex gap-2">
-                <span className="text-cyan-500/80">·</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
       {isPlanTurn ? (
         <section className="space-y-3">
           <EcSectionHeading>Proposed investigation</EcSectionHeading>
@@ -355,7 +299,6 @@ export function EcAgentWorkflow({
               });
             }}
           />
-          {workflow.tool_fabric?.length ? <EcToolFabric tools={workflow.tool_fabric} /> : null}
           {workflow.lifecycle === 'PLAN_READY' ? (
             <div className="flex flex-wrap gap-2">
               <Button
@@ -397,9 +340,7 @@ export function EcAgentWorkflow({
         </section>
       ) : null}
 
-      {!isPlanTurn && workflow.investigation_summary ? (
-        <EcInvestigationSummaryStrip summary={workflow.investigation_summary} />
-      ) : null}
+
 
       {/* Verdict first: the brief and the decision it asks for, before the evidence tables. */}
       {!isPlanTurn && workflow.executive_brief && workflow.lifecycle !== 'COMPLETE' ? (
@@ -546,23 +487,7 @@ export function EcAgentWorkflow({
       {(isRemediationTurn && showRemediationPlan) ? (
         <section className="space-y-4" data-ec-section="recommended-remediation">
           {remScopedProgress ? progressPanel : null}
-          {remPlanReview && workflow.remediation_summary ? (
-            <div data-ec-section="remediation-summary">
-              <EcInvestigationSummaryStrip summary={workflow.remediation_summary} />
-            </div>
-          ) : null}
 
-          {remPlanReview && workflow.remediation_conclusion ? (
-            <section className="rounded-lg border border-slate-800/70 bg-slate-900/35 px-4 py-3">
-              <EcSectionHeading>{workflow.remediation_conclusion.title ?? 'Remediation approach'}</EcSectionHeading>
-              {workflow.remediation_conclusion.headline ? (
-                <p className="mt-2 text-sm font-semibold text-slate-50">{workflow.remediation_conclusion.headline}</p>
-              ) : null}
-              {workflow.remediation_conclusion.narrative_points?.filter((point) => point.trim()).length ? (
-                <ConclusionPoints points={workflow.remediation_conclusion.narrative_points} />
-              ) : null}
-            </section>
-          ) : null}
 
           {remPlanReviewBanner}
 
@@ -617,11 +542,6 @@ export function EcAgentWorkflow({
             </div>
           ) : null}
 
-          {remComplete && workflow.remediation_summary ? (
-            <div data-ec-section="remediation-summary">
-              <EcInvestigationSummaryStrip summary={workflow.remediation_summary} />
-            </div>
-          ) : null}
 
           {remComplete && workflow.remediation_results?.steps?.length ? (
             <EcInvestigationResultList

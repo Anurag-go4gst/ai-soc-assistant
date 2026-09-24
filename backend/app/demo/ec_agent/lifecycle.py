@@ -137,7 +137,9 @@ def selected_follow_ups(step_defs: tuple[dict[str, Any], ...], selected_ids: lis
     for step in step_defs:
         if step["id"] not in selected_ids:
             continue
-        follow_up_id = step.get("follow_up_id")
-        if follow_up_id and follow_up_id not in ordered:
-            ordered.append(follow_up_id)
+        # ``also_applies``: follow-ups of checks folded into this step. A plan shows a few real
+        # steps; the evidence those merged checks produce still feeds the findings.
+        for follow_up_id in [step.get("follow_up_id"), *(step.get("also_applies") or ())]:
+            if follow_up_id and follow_up_id not in ordered:
+                ordered.append(follow_up_id)
     return ordered
