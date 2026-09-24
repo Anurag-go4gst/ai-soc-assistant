@@ -60,13 +60,14 @@ export function agentLifecycleScrollTarget(
 ): string | null {
   switch (lifecycle) {
     case 'INVESTIGATION_COMPLETE':
-      return '[data-ec-section="executive-summary"]';
+      // Comma selector resolves to whichever comes first in the document: the brief when present.
+      return '[data-ec-section="executive-brief"], [data-ec-section="executive-summary"]';
     case 'REMEDIATION_PLAN_READY':
     case 'REMEDIATING':
     case 'VERIFYING':
       return '[data-ec-section="recommended-remediation"]';
     case 'COMPLETE':
-      return '[data-ec-section="executive-summary"]';
+      return '[data-ec-section="executive-brief"], [data-ec-section="executive-summary"]';
     case 'INVESTIGATION_NEEDS_APPROVAL':
       return '[data-ec-section="agent-hil"]';
     default:

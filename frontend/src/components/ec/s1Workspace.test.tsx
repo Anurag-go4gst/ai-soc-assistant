@@ -425,8 +425,12 @@ describe('S1 Experience Center workspace', () => {
       '[data-ec-section="recommended-remediation"]',
     );
     expect(agentLifecycleScrollTarget('REMEDIATING')).toBe('[data-ec-section="recommended-remediation"]');
-    expect(agentLifecycleScrollTarget('INVESTIGATION_COMPLETE')).toBe('[data-ec-section="executive-summary"]');
-    expect(agentLifecycleScrollTarget('COMPLETE')).toBe('[data-ec-section="executive-summary"]');
+    expect(agentLifecycleScrollTarget('INVESTIGATION_COMPLETE')).toBe(
+      '[data-ec-section="executive-brief"], [data-ec-section="executive-summary"]',
+    );
+    expect(agentLifecycleScrollTarget('COMPLETE')).toBe(
+      '[data-ec-section="executive-brief"], [data-ec-section="executive-summary"]',
+    );
   });
 
   it('shows RESPONSE COMPLETE without dropping risk to LOW', () => {

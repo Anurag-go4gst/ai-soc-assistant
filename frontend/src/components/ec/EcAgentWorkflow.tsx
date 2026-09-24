@@ -5,7 +5,7 @@ import type { ExperienceExecutionProgressView } from '@/lib/experienceCenterExec
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { EcInvestigationResultList, EcInvestigationSummaryStrip } from '@/components/ec/EcInvestigationResultList';
 import { EcSectionHeading } from '@/components/ec/EcSectionHeading';
-import { scrollIntoScrollParent } from '@/lib/scrollIntoScrollParent';
+import { EcExecutiveBrief, EcStepWhy, EcToolFabric } from '@/components/ec/EcCioLayer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -160,6 +160,7 @@ function ProposedPlan({
                 {step.tools?.length ? (
                   <p className="mt-1 text-xs text-slate-500">{step.tools.join(' · ')}</p>
                 ) : null}
+                <EcStepWhy step={step} />
               </div>
             </div>
           </li>
@@ -238,22 +239,6 @@ export function EcAgentWorkflow({
     workflow.lifecycle === 'VERIFYING';
   const remPlanReview = workflow.lifecycle === 'REMEDIATION_PLAN_READY' && !remExecuting;
   const remComplete = workflow.lifecycle === 'COMPLETE' || workflow.lifecycle === 'PARTIAL';
-
-  useEffect(() => {
-    if (
-      !['REMEDIATION_PLAN_READY', 'REMEDIATING', 'VERIFYING', 'COMPLETE'].includes(workflow.lifecycle)
-    ) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      const panel = document.querySelector('[data-ec-section="recommended-remediation"]');
-      scrollIntoScrollParent(panel instanceof HTMLElement ? panel : null, {
-        block: 'start',
-        behavior: 'smooth',
-      });
-    }, 60);
-    return () => window.clearTimeout(timer);
-  }, [workflow.lifecycle]);
 
   const remPlanReviewBanner = remPlanReview ? (
     <div className="flex items-start gap-2 rounded-lg border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-50">
@@ -387,6 +372,8 @@ export function EcAgentWorkflow({
         </section>
       ) : null}
 
+      {isPlanTurn && workflow.tool_fabric?.length ? <EcToolFabric tools={workflow.tool_fabric} /> : null}
+
       {executionProgress && !remScopedProgress ? progressPanel : null}
 
       {workflow.hil_prompt && isPlanTurn ? (
@@ -455,6 +442,10 @@ export function EcAgentWorkflow({
       ) : null}
 
       {isInvestigationCompleteTurn && remScopedProgress ? progressPanel : null}
+
+      {!isPlanTurn && workflow.executive_brief && workflow.lifecycle !== 'COMPLETE' ? (
+        <EcExecutiveBrief brief={workflow.executive_brief} />
+      ) : null}
 
       {!isPlanTurn && workflow.executive_summary?.length && workflow.lifecycle !== 'COMPLETE' ? (
         <section
@@ -650,6 +641,10 @@ export function EcAgentWorkflow({
           anomalousAssetIds={anomalousAssetIds}
           {...artifactContext}
         />
+      ) : null}
+
+      {workflow.executive_brief && workflow.lifecycle === 'COMPLETE' ? (
+        <EcExecutiveBrief brief={workflow.executive_brief} />
       ) : null}
 
       {workflow.final_summary && workflow.lifecycle === 'COMPLETE' ? (

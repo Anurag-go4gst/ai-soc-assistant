@@ -64,6 +64,7 @@ from app.demo.fixtures.s7.pack import (
     build_s7_turn,
     s7_analyst_override,
 )
+from app.demo.ec_agent.cio_content import enrich_agent_workflow
 from app.demo.ec_agent.registry import has_agent_profile
 
 FLAGSHIP_SCENARIO_IDS = (
@@ -194,9 +195,21 @@ def build_flagship_turn(
         "pending_action_id": pending_action_id,
         "awaiting_external": awaiting_external,
     }
-    if has_agent_profile(scenario_id):
-        kwargs["agent_state"] = agent_state
-    return pack.build_turn(**kwargs)
+    if not has_agent_profile(scenario_id):
+        return pack.build_turn(**kwargs)
+    kwargs["agent_state"] = agent_state
+    response = pack.build_turn(**kwargs)
+    return _with_cio_layer(scenario_id, response)
+
+
+def _with_cio_layer(scenario_id: str, response: ExperienceCenterResponse) -> ExperienceCenterResponse:
+    """Apply the shared CIO content layer (step reasons, executive brief, tool fabric)."""
+    workflow = (response.model_extra or {}).get("ec_agent_workflow")
+    if not isinstance(workflow, dict):
+        return response
+    payload = response.model_dump()
+    payload["ec_agent_workflow"] = enrich_agent_workflow(scenario_id, payload["ec_agent_workflow"])
+    return ExperienceCenterResponse.model_validate(payload)
 
 
 def analyst_override_for(scenario_id: str, base: dict[str, Any]) -> dict[str, Any] | None:

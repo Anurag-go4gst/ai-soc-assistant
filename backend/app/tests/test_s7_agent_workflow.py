@@ -38,7 +38,8 @@ def test_s7_agent_plan_ready_on_initial_turn() -> None:
     assert len(workflow["investigation_plan"]["steps"]) >= 6
     assert workflow.get("investigation_results") is None
     narrative = (workflow.get("opening_narrative") or "").lower()
-    assert "splunk and mcp tools and rag guidelines" in narrative
+    assert "nothing runs until you approve" in narrative
+    assert "splunk and mcp tools and rag guidelines" not in narrative
     assert "retired" in narrative
     assert "ot" in narrative
     assert "physical inspection" not in narrative

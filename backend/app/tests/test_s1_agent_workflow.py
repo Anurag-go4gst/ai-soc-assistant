@@ -42,7 +42,8 @@ def test_s1_agent_plan_ready_on_initial_turn() -> None:
     assert workflow.get("investigation_results") is None
     assert workflow.get("investigation_conclusion") is None
     narrative = (workflow.get("opening_narrative") or "").lower()
-    assert "splunk and mcp tools and rag guidelines" in narrative
+    assert "nothing runs until you approve" in narrative
+    assert "splunk and mcp tools and rag guidelines" not in narrative
     assert "suspicious" not in narrative
     assert "last 30 days" in narrative
     assert PRIMARY_ATTACKER_IP in (workflow.get("opening_narrative") or "")

@@ -139,6 +139,39 @@ export interface EcAgentPlanStep {
   added_by_agent?: boolean;
   reason?: string;
   hil_required?: boolean;
+  /** CIO layer — why this step exists (investigation and remediation). */
+  rationale?: string;
+  /** Investigation: the decision this step informs. */
+  decides?: string;
+  /** Investigation: what is lost without it. */
+  if_skipped?: string;
+  /** Remediation: whether and how the action can be undone. */
+  reversible?: string;
+  /** Remediation: who must approve it. */
+  approver?: string;
+  /** Remediation: the risk of not doing it. */
+  risk_if_skipped?: string;
+  tool_ids?: string[];
+}
+
+export interface EcExecutiveBrief {
+  verdict: string;
+  business_impact?: string;
+  risk_from?: string;
+  risk_to?: string;
+  confidence?: string;
+  would_change_if?: string;
+  decision_needed?: string;
+  will_not_do?: string;
+}
+
+export interface EcToolFabricEntry {
+  tool_id: string;
+  name: string;
+  role: string;
+  kind: string;
+  demo_fixture: boolean;
+  used: boolean;
 }
 
 export interface EcAgentWorkflowPayload {
@@ -227,6 +260,8 @@ export interface EcAgentWorkflowPayload {
   unconfirmed?: string[];
   missing_evidence?: string[];
   executive_summary?: string[];
+  executive_brief?: EcExecutiveBrief | null;
+  tool_fabric?: EcToolFabricEntry[];
   investigation_conclusion?: {
     title?: string;
     headline?: string;

@@ -38,9 +38,9 @@ def test_s2_agent_plan_ready_on_initial_turn() -> None:
     assert len(workflow["investigation_plan"]["steps"]) >= 8
     assert workflow.get("investigation_results") is None
     narrative = (workflow.get("opening_narrative") or "").lower()
-    assert "splunk and mcp tools and rag guidelines" in narrative
+    assert "nothing runs until you approve" in narrative
     assert "customer-facing ai assistant" in narrative
-    assert "collecting and analyzing logs" in narrative
+    assert "splunk and mcp tools and rag guidelines" not in narrative
     assert "index=your_ai_logs" not in narrative
     assert S2_QUERY.split()[0]  # scenario query still registered
     assert envelope["production_side_effect"] is False
@@ -53,12 +53,12 @@ def test_s2_investigation_tools_are_only_onboarded_connectors() -> None:
     investigation_tools = {tool for step in INVESTIGATION_STEP_DEFS for tool in (step.get("tools") or [])}
     assert investigation_tools == {"Splunk MCP", "SOC-KB"}
     envelope = run_experience_center_turn(S2_SCENARIO_ID, session_id="s2-tool-labels").model_dump()
-    plan_tools = {
-        tool
+    plan_tool_ids = {
+        tool_id
         for step in envelope["ec_agent_workflow"]["investigation_plan"]["steps"]
-        for tool in (step.get("tools") or [])
+        for tool_id in (step.get("tool_ids") or [])
     }
-    assert plan_tools == {"Splunk MCP", "SOC-KB"}
+    assert plan_tool_ids == {"splunk_mcp", "soc_kb"}
     rem_blob = " ".join(tool for step in REMEDIATION_STEP_DEFS for tool in (step.get("tools") or [])).lower()
     assert "mcp" not in rem_blob
 

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { EcStepWhy } from '@/components/ec/EcCioLayer';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -573,6 +574,7 @@ function InvestigationResultRow({
           {!step.added_by_agent && step.summary ? (
             <p className="mt-1 hidden text-xs text-slate-500 md:block">{step.summary}</p>
           ) : null}
+          <EcStepWhy step={step} />
         </div>
 
         <div className="flex flex-col items-start gap-2 md:justify-start">

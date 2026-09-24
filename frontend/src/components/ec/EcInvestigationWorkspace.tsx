@@ -34,6 +34,8 @@ interface EcStreamMessage {
   text: string;
 }
 
+const USER_SCROLL_GRACE_MS = 1500;
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -86,6 +88,29 @@ export function EcInvestigationWorkspace() {
   const answerAnchorRef = useRef<HTMLDivElement | null>(null);
   const progressAnchorRef = useRef<HTMLDivElement | null>(null);
   const streamEndRef = useRef<HTMLDivElement | null>(null);
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  // Auto-scroll must never fight a reader: any manual scroll in the last 1.5 s wins.
+  const lastUserScrollAtRef = useRef(0);
+  const userScrolledRecently = () => Date.now() - lastUserScrollAtRef.current < USER_SCROLL_GRACE_MS;
+
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) return;
+    const markUserScroll = () => {
+      lastUserScrollAtRef.current = Date.now();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) markUserScroll();
+    };
+    shell.addEventListener('wheel', markUserScroll, { passive: true });
+    shell.addEventListener('touchmove', markUserScroll, { passive: true });
+    shell.addEventListener('keydown', onKey);
+    return () => {
+      shell.removeEventListener('wheel', markUserScroll);
+      shell.removeEventListener('touchmove', markUserScroll);
+      shell.removeEventListener('keydown', onKey);
+    };
+  }, []);
 
   const focusEvidence = (evidenceId: string) => {
     setHighlightEvidenceId(evidenceId);
@@ -96,6 +121,7 @@ export function EcInvestigationWorkspace() {
   };
 
   const scrollToAnswerStart = () => {
+    if (userScrolledRecently()) return;
     window.requestAnimationFrame(() => {
       scrollIntoScrollParent(answerAnchorRef.current, { block: 'start', behavior: 'smooth' });
     });
@@ -104,6 +130,7 @@ export function EcInvestigationWorkspace() {
   useEffect(() => {
     if (!progress) return;
     if (suppressesAgentExecutionProgressPanel(envelope)) return;
+    if (userScrolledRecently()) return;
     window.requestAnimationFrame(() => {
       scrollIntoScrollParent(progressAnchorRef.current, { block: 'start', behavior: 'smooth' });
     });
@@ -111,6 +138,7 @@ export function EcInvestigationWorkspace() {
 
   useEffect(() => {
     if (!actionProgress) return;
+    if (userScrolledRecently()) return;
     window.requestAnimationFrame(() => {
       scrollIntoScrollParent(operationalChainRef.current ?? actionJourneyRef.current, {
         block: 'nearest',
@@ -120,6 +148,7 @@ export function EcInvestigationWorkspace() {
   }, [actionProgress?.activeStepIndex, actionProgress?.completedStepIds?.length, actionProgress?.header]);
 
   const scrollToEnd = () => {
+    if (userScrolledRecently()) return;
     window.requestAnimationFrame(() => {
       const el = streamEndRef.current;
       if (el && typeof el.scrollIntoView === 'function') {
@@ -160,7 +189,7 @@ export function EcInvestigationWorkspace() {
           agentTarget.includes('summary') || agentTarget.includes('recommended-remediation')
             ? 'start'
             : 'nearest';
-        scrollAgentSection(agentTarget, block);
+        if (!userScrolledRecently()) scrollAgentSection(agentTarget, block);
       } else {
         scrollToAnswerStart();
       }
@@ -285,14 +314,16 @@ export function EcInvestigationWorkspace() {
       if (executiveSummaryOnly) {
         setEnvelope(next);
         setRevealed(true);
-        scrollAgentSection('[data-ec-section="executive-summary"]', 'start');
+        if (!userScrolledRecently()) {
+          scrollAgentSection('[data-ec-section="executive-brief"], [data-ec-section="executive-summary"]', 'start');
+        }
         return;
       }
       if (immediateReveal) {
         setEnvelope(next);
         setRevealed(true);
         const agentTarget = agentLifecycleScrollTarget(next.ec_agent_lifecycle);
-        if (agentTarget) {
+        if (agentTarget && !userScrolledRecently()) {
           scrollAgentSection(agentTarget, 'start');
         }
         return;
@@ -344,6 +375,7 @@ export function EcInvestigationWorkspace() {
 
   return (
     <div
+      ref={shellRef}
       className={cn(
         'ec-cockpit-shell flex h-full min-h-0 flex-col soc-chat-canvas',
         showWelcomeIdle && 'ec-cockpit-shell--idle',
@@ -529,7 +561,6 @@ export function EcInvestigationWorkspace() {
                   }}
                   onEcActionUpdate={replaceAction}
                   onRevealStart={agentMode ? undefined : scrollToAnswerStart}
-                  onRevealComplete={agentMode ? undefined : scrollToAnswerStart}
                 />
                 <EcFollowUpBar
                   chips={envelope.ec_followups}
