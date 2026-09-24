@@ -119,7 +119,7 @@ def s1_firewall_team_email(
         planned=True,
     )
     body = _header(
-        "SOC Lead (cc Firewall Team)",
+        "SOC Lead (cc Firewall Team, Northwind Logistics integration owner)",
         "the Firewall Change & SOC Coordination SOP §4.2 for newly observed external endpoints",
         ask=(
             f"Keep {PRIMARY_ATTACKER_IP} under the 14-day watch; firewall team, tell us if any exception "
@@ -151,13 +151,14 @@ def s1_firewall_team_email(
         [
             "SOC lead: the 14-day watch is live — escalate to P1 if it fires",
             "Firewall team: confirm whether any active whitelist/exception covers this IP",
+            "Northwind integration owner: were the 3 sessions to the jump host expected? Reply within 48 hours",
             "This is not a block request — the SOP block threshold is not met",
         ],
     )
     return _email_envelope(
         logical_recipient="SOC_LEAD",
         to="SOC_LEAD",
-        cc="FIREWALL_TEAM",
+        cc="FIREWALL_TEAM, INTEGRATION_OWNER",
         subject=f"[P2][{S1_PLANNED_INCIDENT_ID}] 14-day watch on {PRIMARY_ATTACKER_IP} — jump host {jump}",
         body=body,
     )

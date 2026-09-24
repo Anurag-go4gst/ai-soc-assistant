@@ -43,7 +43,7 @@ INVESTIGATION_STEP_DEFS: tuple[dict[str, Any], ...] = (
 
 ADAPTATION_STEP: dict[str, Any] = {
     "id": "permitted_sessions",
-    "title": "Investigate permitted sessions and authentication",
+    "title": "Were the 3 allowed sessions legitimate?",
     "added_by_agent": True,
     "reason": (
         "Added because three permitted sessions reached a high-criticality jump host. "

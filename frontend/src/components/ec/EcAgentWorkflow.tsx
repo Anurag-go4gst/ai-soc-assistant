@@ -6,7 +6,7 @@ import { ExperienceExecutionProgressPanel } from '@/components/experience-center
 import { EcInvestigationResultList, EcInvestigationSummaryStrip } from '@/components/ec/EcInvestigationResultList';
 import { EcSectionHeading } from '@/components/ec/EcSectionHeading';
 import { EcStepWhy } from '@/components/ec/EcCioLayer';
-import { EcFindingsTable } from '@/components/ec/EcFindingsTable';
+import { EcActionsTable, EcFindingsTable } from '@/components/ec/EcFindingsTable';
 import { EcRagTrace } from '@/components/ec/EcRagTrace';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -494,16 +494,11 @@ export function EcAgentWorkflow({
           {remPlanReviewBanner}
 
           {remPlanReview && workflow.remediation_results?.steps?.length ? (
-            <EcInvestigationResultList
-              header={workflow.remediation_results.header ?? 'Remediation plan'}
+            <EcActionsTable
               steps={workflow.remediation_results.steps}
-              anomalousAssetIds={anomalousAssetIds}
-              selectable
-              expandDetails
               selectedIds={remSelected}
-              variant="remediation"
-              {...artifactContext}
-              onToggleStep={(id, checked) => {
+              editable
+              onToggle={(id, checked) => {
                 setRemSelected((current) => {
                   const next = new Set(current);
                   if (checked) next.add(id);

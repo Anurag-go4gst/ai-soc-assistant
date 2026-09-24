@@ -225,9 +225,36 @@ def _with_cio_layer(scenario_id: str, response: ExperienceCenterResponse) -> Exp
         return response
     payload = response.model_dump()
     payload["ec_agent_workflow"] = enrich_agent_workflow(scenario_id, payload["ec_agent_workflow"])
-    if payload["ec_agent_workflow"].get("lifecycle") == "PLAN_READY":
+    lifecycle = payload["ec_agent_workflow"].get("lifecycle")
+    if lifecycle == "PLAN_READY":
         _present_plan_only(scenario_id, payload)
+    elif lifecycle in {"INVESTIGATION_COMPLETE", "COMPLETE", "PARTIAL"}:
+        _mirror_plan_in_animation(scenario_id, payload, lifecycle)
     return ExperienceCenterResponse.model_validate(payload)
+
+
+def _mirror_plan_in_animation(scenario_id: str, payload: dict[str, Any], lifecycle: str) -> None:
+    """The run/approve animation walks the steps the user approved, not an internal follow-up."""
+    from app.demo.ec_journeys import agent_steps_journey
+
+    workflow = payload["ec_agent_workflow"]
+    investigation = lifecycle == "INVESTIGATION_COMPLETE"
+    container = workflow.get("investigation_results" if investigation else "remediation_results") or workflow.get(
+        "remediation_plan"
+    ) or {}
+    steps = [
+        (str(step.get("title") or ""), str((step.get("finding") or {}).get("headline_finding") or step.get("result") or ""))
+        for step in container.get("steps") or []
+        if step.get("selected", True) and str(step.get("status") or "").upper() not in {"SKIPPED", "QUEUED"}
+    ]
+    if not steps:
+        return
+    payload["ec_execution_journey"] = agent_steps_journey(
+        scenario_id,
+        "run_investigation" if investigation else "run_remediation",
+        steps=steps,
+        header="Running the investigation" if investigation else "Carrying out the approved actions",
+    ).model_dump()
 
 
 def _present_plan_only(scenario_id: str, payload: dict[str, Any]) -> None:

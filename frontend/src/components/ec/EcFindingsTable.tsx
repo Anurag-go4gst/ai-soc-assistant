@@ -88,3 +88,98 @@ export function EcFindingsTable({
     </section>
   );
 }
+
+/** Remediation plan as a clean action table: approve per row; email drafts shown in full. */
+export function EcActionsTable({
+  steps,
+  selectedIds,
+  editable,
+  onToggle,
+}: {
+  steps: EcAgentPlanStep[];
+  selectedIds?: Set<string>;
+  editable: boolean;
+  onToggle?: (id: string, checked: boolean) => void;
+}) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-800" data-ec-section="remediation-actions">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-slate-900/70 text-[11px] uppercase tracking-wide text-slate-400">
+          <tr>
+            <th className="w-8 px-3 py-2" />
+            <th className="px-3 py-2">Action</th>
+            <th className="hidden px-3 py-2 sm:table-cell">Tool</th>
+            <th className="px-3 py-2">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {steps.map((step) => {
+            const details = (step.finding?.details ?? {}) as Record<string, unknown>;
+            const email = (details.email_draft ?? null) as Record<string, unknown> | null;
+            const spl = typeof details.normalized_spl === 'string' ? details.normalized_spl : '';
+            const status = String(step.status ?? 'QUEUED').toUpperCase();
+            const done = !['QUEUED', 'RUNNING', 'SKIPPED'].includes(status);
+            const open = openId === step.id;
+            return (
+              <Fragment key={step.id}>
+                <tr className="border-t border-slate-800/80 align-top" data-ec-action-row={step.id}>
+                  <td className="px-3 py-2.5">
+                    {editable ? (
+                      <input
+                        type="checkbox"
+                        aria-label={`Include ${step.title}`}
+                        checked={selectedIds?.has(step.id) ?? true}
+                        onChange={(event) => onToggle?.(step.id, event.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-600 bg-slate-900 text-cyan-500"
+                      />
+                    ) : (
+                      <StatusIcon status={done ? 'COMPLETE' : status} />
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <p className="text-slate-100">{step.title}</p>
+                    {done && step.finding?.headline_finding ? (
+                      <p className="mt-0.5 text-xs text-emerald-300/90">{step.finding.headline_finding}</p>
+                    ) : step.summary ? (
+                      <p className="mt-0.5 text-xs text-slate-400">{step.summary}</p>
+                    ) : null}
+                    {spl ? (
+                      <button
+                        type="button"
+                        className="mt-1 text-xs text-cyan-400 hover:text-cyan-300"
+                        onClick={() => setOpenId(open ? null : step.id)}
+                      >
+                        {open ? 'Hide query' : 'View query'}
+                      </button>
+                    ) : null}
+                    {open && spl ? (
+                      <pre className="mt-2 overflow-x-auto rounded-md bg-slate-950/70 p-2 font-mono text-[11px] text-slate-300">{spl}</pre>
+                    ) : null}
+                    {email ? (
+                      <div className="mt-2 rounded-md border border-slate-700/80 bg-slate-950/60 p-3 text-xs" data-ec-email-preview={step.id}>
+                        <p className="text-slate-400">
+                          To: <span className="text-slate-200">{String(email.to ?? '')}</span>
+                        </p>
+                        <p className="mt-0.5 font-medium text-slate-100">{String(email.subject ?? '')}</p>
+                        <pre className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap font-sans leading-relaxed text-slate-300">
+                          {String(email.body ?? '')}
+                        </pre>
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className="hidden px-3 py-2.5 text-xs text-slate-400 sm:table-cell">{(step.tools ?? []).join(' · ')}</td>
+                  <td className="px-3 py-2.5 text-xs">
+                    <span className={cn('rounded border px-1.5 py-0.5', done ? 'border-emerald-500/40 text-emerald-200' : 'border-slate-600 text-slate-300')}>
+                      {done ? 'Done' : status === 'RUNNING' ? 'Running' : 'Pending approval'}
+                    </span>
+                  </td>
+                </tr>
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}

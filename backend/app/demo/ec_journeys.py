@@ -1040,6 +1040,18 @@ R1_FOLLOW_UP_JOURNEYS = {
 
 
 
+def agent_steps_journey(
+    scenario_id: str, key: str, *, steps: list[tuple[str, str]], header: str
+) -> EcExecutionJourney:
+    """Animation that mirrors the approved plan: one stage per step, showing its result line."""
+    return _continue(
+        f"{scenario_id}-{key}",
+        key,
+        [(title, "execute" if key == "run_remediation" else "gather", result) for title, result in steps],
+        header=header,
+    )
+
+
 def agent_planning_journey(scenario_id: str, *, tool_names: list[str], step_count: int) -> EcExecutionJourney:
     """First-turn animation for agent scenarios: it plans, it does not investigate.
 
