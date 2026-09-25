@@ -29,6 +29,20 @@ R1 = "r1_rag_privileged_success_after_failure"
 
 AGENT_SCENARIOS = (S1, S2, S3, S4, S5, S6, S7, R1, Q1, Q2)
 
+
+_TEAM_MAILBOXES = ("FIREWALL_TEAM", "APPSEC_TEAM", "NETWORK_TEAM", "INCIDENT_OWNER", "OT_TEAM", "SOC_LEAD", "SOC_TIER2")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def configured_mail():
+    """Team mailboxes mapped and allowlisted; pytest uses the fake transport, so nothing leaves."""
+    with pytest.MonkeyPatch.context() as patch:
+        for team in _TEAM_MAILBOXES:
+            patch.setenv(f"AI_SOC_EC_EMAIL_{team}", f"{team.lower()}@soc.test")
+        patch.setenv("AI_SOC_EC_EMAIL_ALLOWLIST_DOMAINS", "soc.test")
+        patch.setenv("AI_SOC_EC_EMAIL_TRANSPORT", "fake")
+        yield
+
 # Words that describe the demo harness rather than the investigation.
 DEMO_WORDS = re.compile(
     r"\bfixture\b|\bsimulated\b|Experience Center|Scenario: S\d|ZD-FIXTURE|\(if checked\)"

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { EcAgentWorkflow } from '@/components/ec/EcAgentWorkflow';
 import { EcActionsTable } from '@/components/ec/EcFindingsTable';
@@ -89,5 +89,92 @@ describe('spec-engine workflow rendering', () => {
     expect(friendlyProvenance('experience_center_fixture')).toBe('');
     expect(friendlyProvenance('simulated_mcp')).toBe('');
     expect(friendlyProvenance('governed_search')).toBe('GOVERNED SEARCH');
+  });
+});
+
+describe('response records and priority choice', () => {
+  const incidentStep = {
+    id: 'open_incident',
+    title: 'Open a P2 incident',
+    summary: 'ITSM incident at P2.',
+    status: 'PROPOSED',
+    status_label: 'Pending approval',
+    selected: true,
+    priority_control: {
+      policy_priority: 'P2',
+      policy_rule: 'SOC-POL-PRIO-01 rule 2',
+      policy_basis: 'Tier-0 asset · unexplained access, no compromise confirmed',
+      options: ['P1', 'P2', 'P3', 'P4'],
+      selected: 'P2',
+      reason: '',
+    },
+  };
+
+  it('needs a reason before a priority change can be approved, then sends it', () => {
+    const calls: unknown[][] = [];
+    const { container } = render(
+      <EcAgentWorkflow
+        workflow={{
+          lifecycle: 'REMEDIATION_PLAN_READY',
+          phase: 'remediation',
+          remediation_plan: { visible: true, steps: [incidentStep] },
+          remediation_results: { steps: [incidentStep] },
+        }}
+        onRunInvestigation={noop}
+        onRunRemediation={(...args) => calls.push(args)}
+        onHilApprove={noop}
+        onHilSkip={noop}
+      />,
+    );
+    const scope = within(container);
+    fireEvent.change(scope.getByLabelText('Priority'), { target: { value: 'P1' } });
+    const approve = scope.getByRole('button', { name: /Approve/ });
+    expect(approve).toBeDisabled();
+    fireEvent.change(scope.getByLabelText(/Reason for changing from P2 to P1/), { target: { value: 'Active audit scope' } });
+    expect(approve).not.toBeDisabled();
+    fireEvent.click(approve);
+    expect(calls).toEqual([[['open_incident'], { priority: 'P1', reason: 'Active audit scope' }]]);
+  });
+
+  it('shows the created ticket and the email as sent from the final summary', () => {
+    const { container } = render(
+      <EcAgentWorkflow
+        workflow={{
+          lifecycle: 'COMPLETE',
+          phase: 'remediation',
+          final_summary: {
+            title: 'OPEN — MONITORING REQUESTED',
+            headline: 'Incident open at P2.',
+            actions: [
+              {
+                title: 'Open a P2 incident',
+                status: 'VERIFIED',
+                status_label: 'Verified',
+                result: 'Incident INC0048213 opened (P2)',
+                ticket: { number: 'INC0048213', type: 'Incident', state: 'New', assignment_group: 'SOC Tier 2' },
+              },
+              {
+                title: 'Ask the partner owner',
+                status: 'AWAITING_REPLY',
+                status_label: 'Sent · awaiting reply',
+                result: 'Sent to the Integration team',
+                email: { to: 'Integration team', subject: 'Partner PRT-0147 — please confirm', body: 'Incident: INC0048213' },
+                email_delivery: { sent: true, line: 'Delivered by SMTP to soc@example.org', to_address: 'soc@example.org', message_id: '<abc@x>' },
+              },
+            ],
+          },
+        }}
+        onRunInvestigation={noop}
+        onRunRemediation={noop}
+        onHilApprove={noop}
+        onHilSkip={noop}
+      />,
+    );
+    const scope = within(container);
+    fireEvent.click(scope.getByRole('button', { name: 'View ticket' }));
+    expect(scope.getByText('SOC Tier 2')).toBeInTheDocument();
+    fireEvent.click(scope.getByRole('button', { name: 'View email' }));
+    expect(scope.getByText('Delivered by SMTP to soc@example.org')).toBeInTheDocument();
+    expect(scope.getByText('Message ID: <abc@x>')).toBeInTheDocument();
   });
 });

@@ -105,18 +105,18 @@ S7 = ScenarioSpec(
     evidence_state="unexplained_access",
     subject=f"{RTU} ({E.OT_RTU_IP})",
     decision=(
-        "Proposed: open a P2 incident, ask OT on-call to check the device and the engineer's work, request a "
+        "Proposed: open a {priority} incident, ask OT on-call to check the device and the engineer's work, request a "
         f"change to limit {E.OT_FIREWALL} to what the workstation needs, and fix the CMDB record."
     ),
     actions=(
         Action(
             id="open_incident",
-            title="Open a P2 incident",
-            proposal=f"ITSM incident at P2 ({E.PRIORITY_POLICY} rule 2: unexplained access to a Tier-1 OT asset).",
+            title="Open a {priority} incident",
+            proposal=f"ITSM incident at {{priority}} ({{priority_basis}}).",
             tool="itsm",
             verb="incident",
             ticket_id=E.INCIDENT_S7,
-            executed=f"Incident {E.INCIDENT_S7} opened (P2)",
+            executed=f"Incident {E.INCIDENT_S7} opened ({{priority}})",
             verified="read back from ITSM",
         ),
         Action(
@@ -152,6 +152,7 @@ S7 = ScenarioSpec(
             tool="itsm",
             verb="change",
             ticket_id=E.CHANGE_S7_FW,
+            assignment_group="OT Engineering",
             executed=f"Change {E.CHANGE_S7_FW} raised for OT change board review",
             status_after="REQUESTED",
         ),
@@ -162,6 +163,7 @@ S7 = ScenarioSpec(
             tool="itsm",
             verb="request",
             ticket_id=E.TASK_S7_CMDB,
+            assignment_group="Asset Management",
             executed=f"Request {E.TASK_S7_CMDB} raised with asset management",
             status_after="REQUESTED",
         ),

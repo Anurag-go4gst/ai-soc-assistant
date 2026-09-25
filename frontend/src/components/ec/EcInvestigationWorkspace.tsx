@@ -503,11 +503,17 @@ export function EcInvestigationWorkspace() {
                       { keepAnswer: true, agentPayload: { selected_step_ids: selectedStepIds } },
                     );
                   }}
-                  onAgentRunRemediation={(selectedStepIds) => {
+                  onAgentRunRemediation={(selectedStepIds, priorityOverride) => {
                     void followUp(
                       'run_remediation',
                       { follow_up_id: 'run_remediation', label: 'Approve remediation', advances_state: true, group: 'action' },
-                      { keepAnswer: true, agentPayload: { selected_step_ids: selectedStepIds } },
+                      {
+                        keepAnswer: true,
+                        agentPayload: {
+                          selected_step_ids: selectedStepIds,
+                          ...(priorityOverride ? { priority_override: priorityOverride } : {}),
+                        },
+                      },
                     );
                   }}
                   onAgentHilApprove={() => {
@@ -638,6 +644,7 @@ export function EcInvestigationWorkspace() {
         onSelect={setSelectedId}
         onRun={(scenario, queryText) => void load(scenario, queryText)}
         onClear={clearWorkspace}
+        compact={!showWelcomeIdle}
       />
     </div>
   );

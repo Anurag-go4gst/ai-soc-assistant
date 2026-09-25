@@ -156,6 +156,54 @@ export interface EcAgentPlanStep {
   tool_ids?: string[];
   /** Remediation: analyst-facing state, e.g. "Pending approval", "Requested", "Verified". */
   status_label?: string;
+  /** Incident action before approval: policy priority, and the analyst's choice. */
+  priority_control?: EcPriorityControl;
+}
+
+export interface EcPriorityControl {
+  policy_priority: string;
+  policy_rule: string;
+  policy_basis: string;
+  options: string[];
+  selected: string;
+  reason: string;
+}
+
+/** Priority the analyst sends with approval; a change from policy carries a reason. */
+export interface EcPriorityOverride {
+  priority: string;
+  reason: string;
+}
+
+/** A ticket as ITSM holds it after the action that created (or updated) it ran. */
+export interface EcTicketRecord {
+  number: string;
+  type: string;
+  state: string;
+  priority?: string;
+  threat_assessment?: string;
+  category?: string;
+  configuration_item?: string;
+  assignment_group?: string;
+  short_description?: string;
+  description?: string;
+  work_note?: string;
+  attachment?: string;
+  opened?: string;
+  updated?: string;
+  opened_by?: string;
+  updated_by?: string;
+  parent?: string | null;
+  related?: string[];
+}
+
+export interface EcEmailDelivery {
+  sent: boolean;
+  line: string;
+  to_address?: string | null;
+  cc_addresses?: string[];
+  cc_not_copied?: string[];
+  message_id?: string | null;
 }
 
 /** Incident priority (from the deterministic policy) kept apart from the threat assessment. */
@@ -164,6 +212,7 @@ export interface EcAssessment {
   priority_rule: string;
   priority_basis: string;
   threat_assessment: string;
+  priority_override?: { policy_priority: string; reason: string } | null;
 }
 
 export interface EcExecutiveBrief {
@@ -268,6 +317,7 @@ export interface EcAgentWorkflowPayload {
     secondary_cta?: string;
     visible?: boolean;
     steps?: EcAgentPlanStep[];
+    error?: string | null;
   };
   remediation_summary?: {
     title?: string;
@@ -345,7 +395,15 @@ export interface EcAgentWorkflowPayload {
     risk_to?: string;
     risk_note?: string;
     assessment?: EcAssessment | null;
-    actions?: Array<{ title: string; status: string; status_label: string; result?: string | null }>;
+    actions?: Array<{
+      title: string;
+      status: string;
+      status_label: string;
+      result?: string | null;
+      ticket?: EcTicketRecord | null;
+      email?: { to: string; subject: string; body: string; status?: string } | null;
+      email_delivery?: EcEmailDelivery | null;
+    }>;
   } | null;
   verification?: Array<{ item: string; status: string; detail: string }>;
 }

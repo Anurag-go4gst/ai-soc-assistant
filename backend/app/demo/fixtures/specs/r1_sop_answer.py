@@ -79,18 +79,18 @@ R1 = ScenarioSpec(
     evidence_state="unexplained_access",
     subject=f"{E.ADM_DBA} on {E.FINANCE_DB}",
     decision=(
-        "Proposed, as the SOP requires: open a P2 incident and ask the account owner and the DBA team manager to "
+        "Proposed, as the SOP requires: open a {priority} incident and ask the account owner and the DBA team manager to "
         "confirm the login within 1 hour."
     ),
     actions=(
         Action(
             id="open_incident",
-            title="Open a P2 incident",
-            proposal=f"ITSM incident at P2 ({E.PRIORITY_POLICY} rule 2), citing {E.SOP_PRIV_LOGON} §4.",
+            title="Open a {priority} incident",
+            proposal=f"ITSM incident at {{priority}} ({{priority_basis}}), citing {E.SOP_PRIV_LOGON} §4.",
             tool="itsm",
             verb="incident",
             ticket_id=E.INCIDENT_R1,
-            executed=f"Incident {E.INCIDENT_R1} opened (P2)",
+            executed=f"Incident {E.INCIDENT_R1} opened ({{priority}})",
             verified="read back from ITSM",
         ),
         Action(
@@ -103,6 +103,7 @@ R1 = ScenarioSpec(
                 to="adm_dba02 account owner",
                 mailbox="INCIDENT_OWNER",
                 cc="DBA team manager, SOC Tier 2 lead",
+                cc_mailbox="SOC_TIER2",
                 subject="Please confirm your admin login to FIN-DB-02",
                 body=(
                     f"You're receiving this because {E.SOP_PRIV_LOGON} requires us to confirm privileged logins "

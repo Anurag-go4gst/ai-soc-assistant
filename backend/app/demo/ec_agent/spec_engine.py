@@ -96,6 +96,7 @@ class Email:
     body: str
     mailbox: str
     cc: str = ""
+    cc_mailbox: str = ""
 
 
 @dataclass(frozen=True)
@@ -114,6 +115,8 @@ class Action:
     email: Email | None = None
     spl: str | None = None
     selected: bool = True
+    assignment_group: str = ""
+    ticket_summary: str = ""
 
 
 @dataclass(frozen=True)
@@ -194,6 +197,8 @@ def _check_spec(spec: ScenarioSpec) -> None:
     for action in spec.actions:
         if action.verb not in _KIND_BY_ACTION:
             raise ValueError(f"{spec.scenario_id}: unknown action verb {action.verb}")
+        if action.email is not None and action.email.cc_mailbox and action.email.cc_mailbox not in LOGICAL_TEAMS:
+            raise ValueError(f"{spec.scenario_id}: {action.id} cc mailbox is not an allowlisted team")
         if action.email is not None and action.email.mailbox not in LOGICAL_TEAMS:
             raise ValueError(f"{spec.scenario_id}: {action.id} mailbox {action.email.mailbox} is not an allowlisted team")
         if action.verb in {"incident", "change", "request"} and not action.ticket_id:
@@ -224,7 +229,40 @@ def _save(spec: ScenarioSpec, session_id: str, family: str, state: dict[str, Any
     L.save_agent_state(session_id, family, scenario_id=spec.scenario_id, agent_state=state)
 
 
-# --- ticket IDs ------------------------------------------------------------------------------
+# --- rendering context ------------------------------------------------------------------------
+
+PRIORITIES = ("P1", "P2", "P3", "P4")
+_REASON_MAX = 300
+_SENT_MODES = {"live_allowlisted_email", "fake_test_transport"}
+
+
+@dataclass
+class _Ctx:
+    """What text may say right now: which tickets exist, and the priority in force."""
+
+    spec: ScenarioSpec
+    executed: set[str]
+    priority: dict[str, Any]
+
+
+def _priority(spec: ScenarioSpec, state: dict[str, Any]) -> dict[str, Any]:
+    policy = env.incident_priority(asset_tier=spec.asset_tier, evidence_state=spec.evidence_state)
+    override = state.get("priority_override") if isinstance(state.get("priority_override"), dict) else {}
+    chosen = str(override.get("priority") or policy["priority"])
+    reason = str(override.get("reason") or "") if chosen != policy["priority"] else ""
+    basis = f"analyst override of policy {policy['priority']}: {reason}" if reason else policy["rule"]
+    return {
+        "priority": chosen,
+        "policy_priority": policy["priority"],
+        "rule": policy["rule"],
+        "policy_basis": policy["basis"],
+        "basis": basis,
+        "override_reason": reason or None,
+    }
+
+
+def _ctx(spec: ScenarioSpec, state: dict[str, Any], executed: set[str]) -> _Ctx:
+    return _Ctx(spec=spec, executed=executed, priority=_priority(spec, state))
 
 
 def _incident_action(spec: ScenarioSpec) -> Action | None:
@@ -241,28 +279,33 @@ def _incident_id(spec: ScenarioSpec, executed: set[str]) -> str | None:
     return None
 
 
-def _fill(text: str, spec: ScenarioSpec, executed: set[str]) -> str:
-    """Resolve ``{incident}`` and ``{ticket:<action_id>}``: a number only once its ticket exists."""
-    incident = _incident_id(spec, executed)
+def _fill(text: str, ctx: _Ctx) -> str:
+    """Resolve ``{incident}``, ``{ticket:<id>}``, ``{priority}`` and ``{priority_basis}``.
+
+    A ticket number appears only once its ticket exists; the priority is the one in force.
+    """
+    spec = ctx.spec
+    incident = _incident_id(spec, ctx.executed)
     text = text.replace("{incident}", incident or INCIDENT_PENDING_TEXT)
+    text = text.replace("{priority_basis}", ctx.priority["basis"]).replace("{priority}", ctx.priority["priority"])
     by_id = {action.id: action for action in spec.actions}
 
     def ticket(match: re.Match[str]) -> str:
         action = by_id.get(match.group(1))
         if action is None or not action.ticket_id:
             raise ValueError(f"{spec.scenario_id}: unknown ticket token {match.group(0)}")
-        return action.ticket_id if action.id in executed else TICKET_PENDING_TEXT
+        return action.ticket_id if action.id in ctx.executed else TICKET_PENDING_TEXT
 
     return _TICKET_TOKEN.sub(ticket, text)
 
 
-def _email_payload(spec: ScenarioSpec, action: Action, executed: set[str], sent: bool) -> dict[str, Any]:
+def _email_payload(ctx: _Ctx, action: Action, *, sent: bool) -> dict[str, Any]:
     assert action.email is not None
     to = action.email.to + (f" · cc {action.email.cc}" if action.email.cc else "")
     return {
         "to": to,
-        "subject": _fill(action.email.subject, spec, executed),
-        "body": _fill(action.email.body, spec, executed),
+        "subject": _fill(action.email.subject, ctx),
+        "body": _fill(action.email.body, ctx),
         "status": "sent" if sent else "draft",
     }
 
@@ -305,19 +348,105 @@ def _check_row(spec: ScenarioSpec, check: Check, *, ran: bool, selected: bool, a
     return row
 
 
+def _email_delivery(record: Any) -> dict[str, Any]:
+    """What actually happened to an email, from the transport receipt — never assumed."""
+    receipt = dict(getattr(record, "receipt", None) or {})
+    mode = str(receipt.get("execution_mode") or "")
+    sent = getattr(record, "state", None) in {"EXECUTED", "VERIFIED"} and mode in _SENT_MODES
+    if sent and mode == "live_allowlisted_email":
+        line = f"Delivered by SMTP to {receipt.get('to')}"
+    elif sent:
+        line = f"Accepted by the test mail transport for {receipt.get('to')}"
+    elif receipt.get("reason") == "recipient_not_allowlisted":
+        line = "Not sent — the recipient is not on the outbound email allowlist"
+    else:
+        line = "Not sent — outbound email is not configured"
+    return {
+        "sent": sent,
+        "line": line,
+        "to_address": receipt.get("to") if sent else None,
+        "cc_addresses": list(receipt.get("cc") or []) if sent else [],
+        "cc_not_copied": list(receipt.get("cc_skipped") or []),
+        "message_id": receipt.get("provider_message_id") if sent else None,
+    }
+
+
+def _ticket_record(ctx: _Ctx, action: Action, *, opened_at: str, related: list[str]) -> dict[str, Any] | None:
+    """The ticket as ITSM holds it after creation (or the update written to it)."""
+    spec = ctx.spec
+    group = action.assignment_group or _DEFAULT_GROUP.get(action.verb, "SOC Tier 2")
+    if action.verb == "incident":
+        description = "\n".join(
+            [
+                spec.conclusion_headline,
+                "",
+                *[f"- {point}" for point in spec.points],
+                *(["", "Open questions:", *[f"- {item}" for item in spec.unresolved]] if spec.unresolved else []),
+            ]
+        )
+        return {
+            "number": action.ticket_id,
+            "type": "Incident",
+            "state": "New",
+            "priority": f"{ctx.priority['priority']} ({ctx.priority['basis']})",
+            "threat_assessment": spec.threat,
+            "category": "Security incident",
+            "configuration_item": spec.subject,
+            "assignment_group": group,
+            "short_description": _fill(action.ticket_summary or spec.conclusion_headline, ctx),
+            "description": description,
+            "opened": opened_at,
+            "opened_by": "AI SOC Assistant, approved by the SOC analyst",
+            "related": related,
+        }
+    if action.verb in {"request", "change"}:
+        record = {
+            "number": action.ticket_id,
+            "type": "Change" if action.verb == "change" else "Request",
+            "state": {"SCHEDULED": "Scheduled", "EXECUTED": "Approved"}.get(action.status_after, "Open"),
+            "assignment_group": group,
+            "short_description": _fill(action.ticket_summary or action.title, ctx),
+            "description": _fill(action.proposal, ctx),
+            "opened": opened_at,
+            "opened_by": "AI SOC Assistant, approved by the SOC analyst",
+            "parent": _incident_id(spec, ctx.executed),
+        }
+        if action.spl:
+            record["attachment"] = validated_spl(spec, action.spl)
+        return record
+    if action.verb == "ticket_update":
+        return {
+            "number": _incident_id(spec, ctx.executed),
+            "type": "Incident update",
+            "state": "In progress",
+            "work_note": _fill(action.executed, ctx),
+            "updated": opened_at,
+            "updated_by": "AI SOC Assistant, approved by the SOC analyst",
+        }
+    return None
+
+
+_DEFAULT_GROUP = {"incident": "SOC Tier 2", "ticket_update": "SOC Tier 2"}
+
+
 def _action_row(
-    spec: ScenarioSpec,
+    ctx: _Ctx,
     action: Action,
     *,
     selected: bool,
     record: Any | None,
-    executed: set[str],
+    opened_at: str,
+    related: list[str],
 ) -> dict[str, Any]:
+    spec = ctx.spec
     state = getattr(record, "state", None)
     ran = state in {"EXECUTED", "VERIFIED", "AWAITING_EXTERNAL_RESPONSE"}
     failed = state == "FAILED"
+    delivery = _email_delivery(record) if action.email is not None and record is not None else None
     if not selected and not ran:
         status, label = "SKIPPED", "Not selected"
+    elif failed and delivery is not None:
+        status, label = "NOT_SENT", "Not sent"
     elif failed:
         status, label = "FAILED", "Failed"
     elif ran and state == "VERIFIED" and action.status_after == "EXECUTED":
@@ -338,18 +467,25 @@ def _action_row(
     if action.spl:
         details["normalized_spl"] = validated_spl(spec, action.spl)
     if action.email is not None:
-        details["email_draft"] = _email_payload(spec, action, executed, sent=ran)
+        details["email_draft"] = _email_payload(ctx, action, sent=bool(delivery and delivery["sent"]))
+        if delivery is not None:
+            details["email_delivery"] = delivery
     result = None
     if ran:
-        result = _fill(action.executed, spec, executed)
+        result = _fill(action.executed, ctx)
         if state == "VERIFIED" and action.verified:
-            result = f"{result} · {_fill(action.verified, spec, executed)}"
+            result = f"{result} · {_fill(action.verified, ctx)}"
+        ticket = _ticket_record(ctx, action, opened_at=opened_at, related=related)
+        if ticket is not None:
+            details["ticket"] = ticket
     elif failed:
-        result = str((getattr(record, "receipt", None) or {}).get("summary") or "Action failed — nothing changed")
-    return {
+        result = delivery["line"] if delivery is not None else str(
+            (getattr(record, "receipt", None) or {}).get("summary") or "Action failed — nothing changed"
+        )
+    row: dict[str, Any] = {
         "id": action.id,
-        "title": action.title,
-        "summary": _fill(action.proposal, spec, executed),
+        "title": _fill(action.title, ctx),
+        "summary": _fill(action.proposal, ctx),
         "tools": _tools(action.tool),
         "tool_ids": [action.tool],
         "selected": selected,
@@ -358,18 +494,35 @@ def _action_row(
         "result": result,
         "provenance": "GOVERNED",
         "hil_required": True,
-        "finding": {"headline_finding": result, "details": details} if (result or details) else None,
+        "finding": {"headline_finding": result, "details": details},
     }
+    if action.verb == "incident" and status == "PROPOSED" and spec.assessed:
+        row["priority_control"] = {
+            "policy_priority": ctx.priority["policy_priority"],
+            "policy_rule": ctx.priority["rule"],
+            "policy_basis": ctx.priority["policy_basis"],
+            "options": list(PRIORITIES),
+            "selected": ctx.priority["priority"],
+            "reason": ctx.priority["override_reason"] or "",
+        }
+    return row
 
 
-def _assessment(spec: ScenarioSpec) -> dict[str, str]:
-    priority = env.incident_priority(asset_tier=spec.asset_tier, evidence_state=spec.evidence_state)
-    return {
-        "incident_priority": priority["priority"],
-        "priority_rule": priority["rule"],
-        "priority_basis": priority["basis"],
+def _assessment(spec: ScenarioSpec, priority: dict[str, Any] | None = None) -> dict[str, Any]:
+    policy = env.incident_priority(asset_tier=spec.asset_tier, evidence_state=spec.evidence_state)
+    chosen = priority or {"priority": policy["priority"], "override_reason": None}
+    assessment: dict[str, Any] = {
+        "incident_priority": chosen["priority"],
+        "priority_rule": policy["rule"],
+        "priority_basis": policy["basis"],
         "threat_assessment": spec.threat,
     }
+    if chosen.get("override_reason"):
+        assessment["priority_override"] = {
+            "policy_priority": policy["priority"],
+            "reason": chosen["override_reason"],
+        }
+    return assessment
 
 
 def _records_by_step(spec: ScenarioSpec, state: dict[str, Any], session_id: str) -> dict[str, Any]:
@@ -410,8 +563,18 @@ def build_workflow(spec: ScenarioSpec, *, agent_state: dict[str, Any], session_i
         for step_id, record in records.items()
         if record.state in {"EXECUTED", "VERIFIED", "AWAITING_EXTERNAL_RESPONSE"}
     }
+    ctx = _ctx(spec, agent_state, executed)
+    opened_at = str(agent_state.get("executed_at") or "")
+    created = [action.ticket_id for action in spec.actions if action.ticket_id and action.id in executed]
     actions = [
-        _action_row(spec, action, selected=action.id in rem_selected, record=records.get(action.id), executed=executed)
+        _action_row(
+            ctx,
+            action,
+            selected=action.id in rem_selected,
+            record=records.get(action.id),
+            opened_at=opened_at,
+            related=[ticket for ticket in created if ticket != action.ticket_id],
+        )
         for action in spec.actions
     ]
 
@@ -443,6 +606,7 @@ def build_workflow(spec: ScenarioSpec, *, agent_state: dict[str, Any], session_i
             "primary_cta": "Approve selected actions",
             "visible": remediation_visible,
             "steps": actions,
+            "error": agent_state.get("remediation_error"),
         },
         "remediation_offer": None,
         "unconfirmed": [],
@@ -462,6 +626,7 @@ def build_workflow(spec: ScenarioSpec, *, agent_state: dict[str, Any], session_i
             "title": "Findings",
             "headline": spec.conclusion_headline,
             "narrative_points": list(spec.points),
+            # Findings carry the policy priority; an analyst override applies to the ticket.
             "assessment": _assessment(spec) if spec.assessed else None,
             "sources": list(spec.sources),
         }
@@ -469,7 +634,7 @@ def build_workflow(spec: ScenarioSpec, *, agent_state: dict[str, Any], session_i
     if lifecycle == L.LIFECYCLE_INVESTIGATION_COMPLETE and not agent_state.get("remediation_declined"):
         workflow["remediation_offer"] = {
             "title": "Continue to the proposed response?",
-            "body": spec.decision,
+            "body": _fill(spec.decision, ctx),
             "yes_label": "Show proposed response",
             "no_label": "Not now",
             "yes_follow_up_id": "create_remediation_plan",
@@ -478,27 +643,40 @@ def build_workflow(spec: ScenarioSpec, *, agent_state: dict[str, Any], session_i
     if remediation_visible:
         workflow["remediation_results"] = {"header": "Proposed response", "steps": actions}
     if lifecycle in {L.LIFECYCLE_COMPLETE, L.LIFECYCLE_PARTIAL}:
-        workflow["final_summary"] = _final_summary(spec, actions)
+        workflow["final_summary"] = _final_summary(ctx, actions)
     return workflow
 
 
-def _final_summary(spec: ScenarioSpec, actions: list[dict[str, Any]]) -> dict[str, Any]:
-    done = [row for row in actions if row["status"] not in {"PROPOSED", "SKIPPED", "FAILED"}]
-    failed = [row for row in actions if row["status"] == "FAILED"]
+_DONE = {"EXECUTED", "VERIFIED", "REQUESTED", "SCHEDULED", "AWAITING_REPLY"}
+
+
+def _final_summary(ctx: _Ctx, actions: list[dict[str, Any]]) -> dict[str, Any]:
+    spec = ctx.spec
+    done = [row for row in actions if row["status"] in _DONE]
+    failed = [row for row in actions if row["status"] in {"FAILED", "NOT_SENT"}]
     skipped = [row for row in actions if row["status"] == "SKIPPED"]
-    assessment = _assessment(spec) if spec.assessed else None
+    assessment = _assessment(spec, ctx.priority) if spec.assessed else None
+    title = spec.final_state if not failed else f"PARTIALLY COMPLETE — {spec.final_state}"
     return {
-        "title": spec.final_state if not failed else "PARTIALLY COMPLETE",
-        "headline": spec.final_headline,
+        "title": title,
+        "headline": _fill(spec.final_headline, ctx),
         "assessment": assessment,
         "actions": [
-            {"title": row["title"], "status": row["status"], "status_label": row["status_label"], "result": row["result"]}
+            {
+                "title": row["title"],
+                "status": row["status"],
+                "status_label": row["status_label"],
+                "result": row["result"],
+                "ticket": (row["finding"] or {}).get("details", {}).get("ticket"),
+                "email": (row["finding"] or {}).get("details", {}).get("email_draft"),
+                "email_delivery": (row["finding"] or {}).get("details", {}).get("email_delivery"),
+            }
             for row in done + failed
         ],
         "completed": [str(row["result"] or row["title"]) for row in done],
         "in_progress": list(spec.pending),
         "deferred": [*spec.not_proposed, *(f"Not run: {row['title']}" for row in skipped)],
-        "risk_note": spec.next_triggers,
+        "risk_note": _fill(spec.next_triggers, ctx),
         "severity": assessment["incident_priority"] if assessment else "",
         "affected": spec.subject,
         "compromise": spec.threat.lower(),
@@ -509,44 +687,65 @@ def _final_summary(spec: ScenarioSpec, actions: list[dict[str, Any]]) -> dict[st
 
 
 def _execute_actions(spec: ScenarioSpec, state: dict[str, Any], session_id: str) -> None:
-    """Run the approved actions in plan order: create → approve → execute → verify."""
+    """Run the approved actions in plan order: create → approve → execute → verify.
+
+    Emails go through the allowlisted outbound transport. If it is not configured, the action
+    fails and says so; nothing records a delivery that did not happen.
+    """
     selected = set(state.get("remediation_selected") or [])
     action_ids = dict(state.get("action_ids") or {})
     executed: set[str] = set()
     for action in spec.actions:
         if action.id not in selected or action.id in action_ids:
             continue
+        ctx = _ctx(spec, state, executed)
         extra: dict[str, Any] = {}
         if action.ticket_id:
-            extra["ticket"] = {"id": action.ticket_id, "type": action.verb, "summary": action.title}
+            extra["ticket"] = {
+                "id": action.ticket_id,
+                "type": action.verb,
+                "summary": _fill(action.title, ctx),
+                **({"priority": ctx.priority["priority"]} if action.verb == "incident" else {}),
+            }
         if action.email is not None:
-            payload = _email_payload(spec, action, executed, sent=True)
+            payload = _email_payload(ctx, action, sent=True)
             extra.update(
                 {
                     "logical_recipient": action.email.mailbox,
+                    "cc_logical": [action.email.cc_mailbox] if action.email.cc_mailbox else [],
                     "email": {"to": action.email.mailbox, "subject": payload["subject"], "body": payload["body"]},
                 }
             )
         record = ec_actions.prepare_action(
             kind=_KIND_BY_ACTION[action.verb],
-            label=action.title,
+            label=_fill(action.title, ctx),
             session_id=session_id,
             scenario_id=spec.scenario_id,
             extra=extra,
         )
         record = ec_actions.approve_action(record.action_id)
         record = ec_actions.execute_action(record.action_id)
-        if action.verb == "email" and record.state == "FAILED" and L._demo_mail_unconfigured(record):
-            # No mail relay in this environment: the connector records delivery to the mailbox.
-            record = ec_actions.record_fixture_execution(
-                record.action_id, summary=f"Delivered to {action.email.to if action.email else 'recipient'}"
-            )
         if record.state == "EXECUTED" and action.verified:
             record = ec_actions.verify_action(record.action_id)
         action_ids[action.id] = record.action_id
         if record.state in {"EXECUTED", "VERIFIED"}:
             executed.add(action.id)
     state["action_ids"] = action_ids
+
+
+def _apply_priority_override(spec: ScenarioSpec, state: dict[str, Any], override: Any) -> str | None:
+    """Record an analyst's priority choice. A change from policy needs a reason; returns an error."""
+    if not isinstance(override, dict) or _incident_action(spec) is None or not spec.assessed:
+        return None
+    chosen = str(override.get("priority") or "").strip().upper()
+    if chosen not in PRIORITIES:
+        return f"Priority must be one of {', '.join(PRIORITIES)}."
+    reason = " ".join(str(override.get("reason") or "").split())[:_REASON_MAX]
+    policy = env.incident_priority(asset_tier=spec.asset_tier, evidence_state=spec.evidence_state)["priority"]
+    if chosen != policy and not reason:
+        return f"Give a reason for changing the priority from {policy} to {chosen}."
+    state["priority_override"] = {"priority": chosen, "reason": reason} if chosen != policy else None
+    return None
 
 
 def handle_follow_up(
@@ -582,12 +781,16 @@ def handle_follow_up(
     elif follow_up_id == "decline_remediation_plan" and lifecycle == L.LIFECYCLE_INVESTIGATION_COMPLETE:
         state["remediation_declined"] = True
     elif follow_up_id == "run_remediation" and lifecycle == L.LIFECYCLE_REMEDIATION_PLAN_READY:
-        selected = list(payload.get("selected_step_ids") or state.get("remediation_selected") or [])
-        state["remediation_selected"] = [action.id for action in spec.actions if action.id in selected]
-        _execute_actions(spec, state, session_id)
-        records = _records_by_step(spec, state, session_id)
-        failed = any(record.state == "FAILED" for record in records.values())
-        state["lifecycle"] = L.LIFECYCLE_PARTIAL if failed else L.LIFECYCLE_COMPLETE
+        error = _apply_priority_override(spec, state, payload.get("priority_override"))
+        state["remediation_error"] = error
+        if error is None:
+            selected = list(payload.get("selected_step_ids") or state.get("remediation_selected") or [])
+            state["remediation_selected"] = [action.id for action in spec.actions if action.id in selected]
+            state["executed_at"] = datetime.now(timezone.utc).strftime("%d %b %Y %H:%M UTC").lstrip("0")
+            _execute_actions(spec, state, session_id)
+            records = _records_by_step(spec, state, session_id)
+            failed = any(record.state == "FAILED" for record in records.values())
+            state["lifecycle"] = L.LIFECYCLE_PARTIAL if failed else L.LIFECYCLE_COMPLETE
 
     _save(spec, session_id, family, state)
     return ec_fsm_store.apply_follow_up(session_id, family, scenario_id=spec.scenario_id, follow_up_id=follow_up_id)
@@ -617,13 +820,13 @@ def build_turn(
         title = spec.plan_title
         assessment = spec.plan_intro
     elif lifecycle in {L.LIFECYCLE_COMPLETE, L.LIFECYCLE_PARTIAL}:
-        title = spec.final_headline
-        assessment = spec.final_headline
+        title = workflow["final_summary"]["headline"]
+        assessment = title
     else:
         title = spec.conclusion_headline
         assessment = spec.conclusion_headline
 
-    priority = env.incident_priority(asset_tier=spec.asset_tier, evidence_state=spec.evidence_state)
+    priority = _priority(spec, state)
     outcome = {
         "disposition": lifecycle,
         "confirmed": [point for point in spec.points if point.lower().startswith("confirmed")],

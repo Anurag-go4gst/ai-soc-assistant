@@ -18,6 +18,20 @@ from app.safeguards.spl_validator import validate_spl
 SPEC_IDS = [spec.scenario_id for spec in ALL_SPECS]
 
 
+_TEAM_MAILBOXES = ("FIREWALL_TEAM", "APPSEC_TEAM", "NETWORK_TEAM", "INCIDENT_OWNER", "OT_TEAM", "SOC_LEAD", "SOC_TIER2")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def configured_mail():
+    """Team mailboxes mapped and allowlisted; pytest uses the fake transport, so nothing leaves."""
+    with pytest.MonkeyPatch.context() as patch:
+        for team in _TEAM_MAILBOXES:
+            patch.setenv(f"AI_SOC_EC_EMAIL_{team}", f"{team.lower()}@soc.test")
+        patch.setenv("AI_SOC_EC_EMAIL_ALLOWLIST_DOMAINS", "soc.test")
+        patch.setenv("AI_SOC_EC_EMAIL_TRANSPORT", "fake")
+        yield
+
+
 def _walk(scenario_id: str) -> dict[str, dict]:
     first = run_experience_center_turn(scenario_id, session_id=None).model_dump()
     session_id = first["ec_session_state"]["session_id"]
@@ -149,3 +163,90 @@ def test_spec_text_has_no_sample_or_harness_wording(scenario_id: str) -> None:
     blob = str(asdict(spec_for(scenario_id)))
     visible = blob.replace(str(spec_for(scenario_id).legacy_phrasings), "")
     assert not re.search(r"\bdemo\b|pgcil|Northwind|198\.51\.100|\bfixture\b|\bsimulated\b", visible, re.IGNORECASE)
+
+
+def _to_proposed_response(scenario_id: str) -> str:
+    first = run_experience_center_turn(scenario_id, session_id=None).model_dump()
+    session_id = first["ec_session_state"]["session_id"]
+    for follow_up_id in ("run_investigation", "create_remediation_plan"):
+        run_experience_center_turn(scenario_id, session_id=session_id, follow_up_id=follow_up_id)
+    return session_id
+
+
+def _approve(scenario_id: str, session_id: str, **payload) -> dict:
+    return run_experience_center_turn(
+        scenario_id, session_id=session_id, follow_up_id="run_remediation", agent_payload=payload
+    ).model_dump()
+
+
+S1_ID = "s1_governed_splunk_investigation"
+
+
+def test_priority_control_offered_on_the_incident_before_approval() -> None:
+    session_id = _to_proposed_response(S1_ID)
+    plan = run_experience_center_turn(S1_ID, session_id=session_id, follow_up_id="update_remediation_plan").model_dump()
+    incident = next(step for step in plan["ec_agent_workflow"]["remediation_plan"]["steps"] if step["id"] == "open_incident")
+    control = incident["priority_control"]
+    assert control["policy_priority"] == "P2" and control["selected"] == "P2"
+    assert control["options"] == ["P1", "P2", "P3", "P4"]
+
+
+def test_priority_change_without_reason_is_refused_and_nothing_runs() -> None:
+    session_id = _to_proposed_response(S1_ID)
+    after = _approve(S1_ID, session_id, priority_override={"priority": "P1", "reason": "  "})
+    assert after["ec_agent_lifecycle"] == "REMEDIATION_PLAN_READY"
+    assert "reason" in after["ec_agent_workflow"]["remediation_plan"]["error"].lower()
+    assert after["ec_actions"] == []
+
+
+def test_priority_override_with_reason_is_recorded_on_the_ticket() -> None:
+    session_id = _to_proposed_response(S1_ID)
+    after = _approve(S1_ID, session_id, priority_override={"priority": "P1", "reason": "Jump host is in scope of an active audit"})
+    workflow = after["ec_agent_workflow"]
+    final = workflow["final_summary"]
+    assert final["assessment"]["incident_priority"] == "P1"
+    assert final["assessment"]["priority_override"] == {"policy_priority": "P2", "reason": "Jump host is in scope of an active audit"}
+    incident = next(row for row in final["actions"] if row["ticket"] and row["ticket"]["type"] == "Incident")
+    assert incident["title"] == "Open a P1 incident"
+    assert incident["ticket"]["priority"].startswith("P1 (analyst override of policy P2: Jump host")
+    # The findings keep the policy priority; the override belongs to the ticket.
+    assert workflow["investigation_conclusion"]["assessment"]["incident_priority"] == "P2"
+
+
+def test_ticket_records_exist_only_after_execution() -> None:
+    session_id = _to_proposed_response(S1_ID)
+    before = run_experience_center_turn(S1_ID, session_id=session_id, follow_up_id="update_remediation_plan").model_dump()
+    assert not [s for s in before["ec_agent_workflow"]["remediation_plan"]["steps"] if s["finding"]["details"].get("ticket")]
+    final = _approve(S1_ID, session_id)["ec_agent_workflow"]["final_summary"]
+    tickets = {row["ticket"]["number"]: row["ticket"] for row in final["actions"] if row["ticket"]}
+    incident = tickets[E.INCIDENT_S1]
+    assert incident["state"] == "New" and incident["assignment_group"] == "SOC Tier 2"
+    assert E.TASK_S1_DETECTION in incident["related"]
+    request = tickets[E.TASK_S1_DETECTION]
+    assert request["assignment_group"] == "Detection Engineering"
+    assert request["parent"] == E.INCIDENT_S1
+    assert request["attachment"].startswith("search index=netfw")
+
+
+def test_email_is_really_sent_with_cc_and_message_id() -> None:
+    session_id = _to_proposed_response(S1_ID)
+    final = _approve(S1_ID, session_id)["ec_agent_workflow"]["final_summary"]
+    email = next(row for row in final["actions"] if row["email"])
+    delivery = email["email_delivery"]
+    assert delivery["sent"] is True
+    assert delivery["to_address"] == "incident_owner@soc.test"
+    assert delivery["cc_addresses"] == ["network_team@soc.test"]
+    assert delivery["message_id"]
+    assert E.INCIDENT_S1 in email["email"]["body"]
+
+
+def test_unconfigured_email_is_reported_not_sent(monkeypatch) -> None:
+    monkeypatch.delenv("AI_SOC_EC_EMAIL_INCIDENT_OWNER", raising=False)
+    session_id = _to_proposed_response(S1_ID)
+    after = _approve(S1_ID, session_id)
+    assert after["ec_agent_lifecycle"] == "PARTIAL"
+    final = after["ec_agent_workflow"]["final_summary"]
+    email = next(row for row in final["actions"] if row["email"])
+    assert email["status"] == "NOT_SENT" and email["status_label"] == "Not sent"
+    assert email["result"] == "Not sent — outbound email is not configured"
+    assert final["title"].startswith("PARTIALLY COMPLETE")

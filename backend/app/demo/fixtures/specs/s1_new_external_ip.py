@@ -123,19 +123,19 @@ S1 = ScenarioSpec(
     evidence_state="unexplained_access",
     subject=f"{IP} → {E.JUMP_HOST}",
     decision=(
-        "Proposed: open a P2 incident, ask Detection Engineering to schedule a 14-day watch, and ask the "
+        "Proposed: open a {priority} incident, ask Detection Engineering to schedule a 14-day watch, and ask the "
         f"partner's owner and Network Operations about the connections. Blocking is not proposed — "
         f"{E.SOP_NEW_EXTERNAL}'s threshold is not met."
     ),
     actions=(
         Action(
             id="open_incident",
-            title="Open a P2 incident",
-            proposal=f"ITSM incident at P2 ({E.PRIORITY_POLICY} rule 2) with these findings attached.",
+            title="Open a {priority} incident",
+            proposal=f"ITSM incident at {{priority}} ({{priority_basis}}) with these findings attached.",
             tool="itsm",
             verb="incident",
             ticket_id=E.INCIDENT_S1,
-            executed=f"Incident {E.INCIDENT_S1} opened (P2)",
+            executed=f"Incident {E.INCIDENT_S1} opened ({{priority}})",
             verified="read back from ITSM: New, assigned to SOC Tier 2",
         ),
         Action(
@@ -148,6 +148,7 @@ S1 = ScenarioSpec(
             tool="itsm",
             verb="request",
             ticket_id=E.TASK_S1_DETECTION,
+            assignment_group="Detection Engineering",
             spl=(
                 f'search index=netfw sourcetype=cisco:ftd src_ip="{IP}" dest_ip="10.20.1.*" '
                 "earliest=-14d latest=now "
@@ -168,6 +169,7 @@ S1 = ScenarioSpec(
                 to="Integration team",
                 mailbox="INCIDENT_OWNER",
                 cc="Network Operations",
+                cc_mailbox="NETWORK_TEAM",
                 subject=f"Partner {E.PARTNER_ID} — connections to an admin host, please confirm",
                 body=(
                     f"You're receiving this as owner of the {E.PARTNER_NAME} integration ({E.PARTNER_ID}).\n\n"
@@ -188,7 +190,7 @@ S1 = ScenarioSpec(
     ),
     not_proposed=(f"Block {IP} — not proposed: no logon tied to the IP and malice not confirmed ({E.SOP_NEW_EXTERNAL})",),
     final_state="OPEN — MONITORING REQUESTED",
-    final_headline="Incident open at P2. Watch requested and the partner asked to explain; IP not blocked.",
+    final_headline="Incident open at {priority}. Watch requested and the partner asked to explain; IP not blocked.",
     pending=(
         "Detection Engineering to schedule the 14-day watch",
         "Integration team to explain the connections",

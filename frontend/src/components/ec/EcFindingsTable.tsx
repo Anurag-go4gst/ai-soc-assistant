@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react';
 import { CheckCircle2, ChevronDown, ChevronRight, Circle, Loader2 } from 'lucide-react';
 import { CompactFindingDetails } from '@/components/ec/EcInvestigationResultList';
 import type { EcAgentPlanStep } from '@/components/ec/types';
+import { EcPriorityPicker } from '@/components/ec/EcResponseRecords';
 import { cn } from '@/lib/utils';
 
 function StatusIcon({ status }: { status: string }) {
@@ -95,11 +96,15 @@ export function EcActionsTable({
   selectedIds,
   editable,
   onToggle,
+  priority,
+  onPriorityChange,
 }: {
   steps: EcAgentPlanStep[];
   selectedIds?: Set<string>;
   editable: boolean;
   onToggle?: (id: string, checked: boolean) => void;
+  priority?: { priority: string; reason: string };
+  onPriorityChange?: (priority: string, reason: string) => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   return (
@@ -148,6 +153,14 @@ export function EcActionsTable({
                       </p>
                     ) : step.summary ? (
                       <p className="mt-0.5 text-xs text-slate-400">{step.summary}</p>
+                    ) : null}
+                    {editable && step.priority_control && onPriorityChange ? (
+                      <EcPriorityPicker
+                        control={step.priority_control}
+                        priority={priority?.priority ?? step.priority_control.selected}
+                        reason={priority?.reason ?? step.priority_control.reason}
+                        onChange={onPriorityChange}
+                      />
                     ) : null}
                     {spl ? (
                       <button

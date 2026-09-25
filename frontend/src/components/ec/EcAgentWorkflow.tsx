@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import type { EcAgentPlanStep, EcAgentWorkflowPayload, EcAssessment } from '@/components/ec/types';
+import type { EcAgentPlanStep, EcAgentWorkflowPayload, EcAssessment, EcPriorityOverride } from '@/components/ec/types';
+import { EcActionRecordToggle } from '@/components/ec/EcResponseRecords';
 import type { ExperienceExecutionProgressView } from '@/lib/experienceCenterExecution';
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { EcInvestigationResultList, EcInvestigationSummaryStrip } from '@/components/ec/EcInvestigationResultList';
@@ -69,6 +70,11 @@ function AssessmentLine({ assessment }: { assessment?: EcAssessment | null }) {
         Incident priority <span className="font-semibold text-slate-50">{assessment.incident_priority}</span>
         <span className="text-slate-400"> · {assessment.priority_rule} ({assessment.priority_basis})</span>
       </span>
+      {assessment.priority_override ? (
+        <span className="rounded border border-amber-500/40 bg-amber-950/20 px-2 py-1 text-amber-100">
+          Changed from policy {assessment.priority_override.policy_priority}: {assessment.priority_override.reason}
+        </span>
+      ) : null}
       <span className="rounded border border-slate-700 bg-slate-950/50 px-2 py-1 text-slate-200">
         Threat assessment <span className="font-semibold text-slate-50">{assessment.threat_assessment}</span>
       </span>
@@ -211,7 +217,7 @@ export function EcAgentWorkflow({
   busy?: boolean;
   executionProgress?: ExperienceExecutionProgressView | null;
   onRunInvestigation: (selectedStepIds: string[]) => void;
-  onRunRemediation: (selectedStepIds: string[]) => void;
+  onRunRemediation: (selectedStepIds: string[], priorityOverride?: EcPriorityOverride) => void;
   onHilApprove: () => void;
   onHilSkip: () => void;
   onCreateRemediationPlan?: () => void;
@@ -238,6 +244,12 @@ export function EcAgentWorkflow({
   const [invSelected, setInvSelected] = useState<Set<string>>(() => new Set(defaultInvSelected));
   const [remSelected, setRemSelected] = useState<Set<string>>(() => new Set(defaultRemSelected));
   const [editingInv, setEditingInv] = useState(false);
+  const priorityControl = (workflow.remediation_results?.steps ?? remSteps).find((step) => step.priority_control)
+    ?.priority_control;
+  const [priorityChoice, setPriorityChoice] = useState<EcPriorityOverride | null>(null);
+  const chosenPriority = priorityChoice ?? (priorityControl ? { priority: priorityControl.selected, reason: priorityControl.reason } : null);
+  const priorityChanged = Boolean(priorityControl && chosenPriority && chosenPriority.priority !== priorityControl.policy_priority);
+  const priorityReasonMissing = priorityChanged && !chosenPriority?.reason.trim();
 
   const remPlanStepIds = useMemo(
     () =>
@@ -522,6 +534,8 @@ export function EcAgentWorkflow({
             <EcActionsTable
               steps={workflow.remediation_results.steps}
               selectedIds={remSelected}
+              priority={chosenPriority ?? undefined}
+              onPriorityChange={(priority, reason) => setPriorityChoice({ priority, reason })}
               editable
               onToggle={(id, checked) => {
                 setRemSelected((current) => {
@@ -552,15 +566,25 @@ export function EcAgentWorkflow({
           ) : null}
 
           {remPlanReview ? (
-            <div className="flex flex-wrap gap-2" data-ec-section="remediation-approve">
+            <div className="flex flex-wrap items-center gap-2" data-ec-section="remediation-approve">
               <Button
                 type="button"
-                disabled={busy || remSelected.size === 0}
+                disabled={busy || remSelected.size === 0 || priorityReasonMissing}
                 className="bg-cyan-600 hover:bg-cyan-600/90"
-                onClick={() => onRunRemediation([...remSelected])}
+                onClick={() =>
+                  priorityControl && chosenPriority
+                    ? onRunRemediation([...remSelected], chosenPriority)
+                    : onRunRemediation([...remSelected])
+                }
               >
                 {workflow.remediation_plan?.primary_cta ?? 'Approve remediation'}
               </Button>
+              {priorityReasonMissing ? (
+                <span className="text-xs text-amber-200">Add a reason for the priority change to approve.</span>
+              ) : null}
+              {workflow.remediation_plan?.error ? (
+                <span className="text-xs text-rose-300">{workflow.remediation_plan.error}</span>
+              ) : null}
             </div>
           ) : null}
 
@@ -588,13 +612,14 @@ export function EcAgentWorkflow({
             <ul className="space-y-1.5 text-sm text-slate-200" data-ec-section="final-actions">
               {workflow.final_summary.actions.map((action) => (
                 <li key={action.title} className="flex flex-wrap items-baseline gap-2">
-                  <span className={action.status === 'FAILED' ? 'text-rose-300' : 'text-emerald-300'}>
-                    {action.status === 'FAILED' ? '✕' : '✓'}
+                  <span className={['FAILED', 'NOT_SENT'].includes(action.status) ? 'text-rose-300' : 'text-emerald-300'}>
+                    {['FAILED', 'NOT_SENT'].includes(action.status) ? '✕' : '✓'}
                   </span>
                   <span>{action.result ?? action.title}</span>
                   <span className="rounded border border-slate-700 px-1.5 py-0.5 text-[11px] text-slate-300">
                     {action.status_label}
                   </span>
+                  <EcActionRecordToggle ticket={action.ticket} email={action.email} delivery={action.email_delivery} />
                 </li>
               ))}
             </ul>

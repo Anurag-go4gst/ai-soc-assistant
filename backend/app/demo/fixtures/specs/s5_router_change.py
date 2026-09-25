@@ -107,18 +107,18 @@ S5 = ScenarioSpec(
     evidence_state="unauthorized_change",
     subject=R,
     decision=(
-        f"Proposed: open a P2 incident, raise an emergency change, revert the two settings through Agilus and "
+        f"Proposed: open a {{priority}} incident, raise an emergency change, revert the two settings through Agilus and "
         f"verify, and ask IAM to reset {E.SVC_NETOPS}."
     ),
     actions=(
         Action(
             id="open_incident",
-            title="Open a P2 incident",
-            proposal=f"ITSM incident at P2 ({E.PRIORITY_POLICY} rule 2), linked to {E.INCIDENT_S1}.",
+            title="Open a {priority} incident",
+            proposal=f"ITSM incident at {{priority}} ({{priority_basis}}), linked to {E.INCIDENT_S1}.",
             tool="itsm",
             verb="incident",
             ticket_id=E.INCIDENT_S5,
-            executed=f"Incident {E.INCIDENT_S5} opened (P2), linked to {E.INCIDENT_S1}",
+            executed=f"Incident {E.INCIDENT_S5} opened ({{priority}}), linked to {E.INCIDENT_S1}",
             verified="read back from ITSM",
         ),
         Action(
@@ -128,6 +128,7 @@ S5 = ScenarioSpec(
             tool="itsm",
             verb="change",
             ticket_id=E.CHANGE_S5_REVERT,
+            assignment_group="Network Operations",
             executed=f"Emergency change {E.CHANGE_S5_REVERT} approved",
         ),
         Action(
@@ -146,6 +147,7 @@ S5 = ScenarioSpec(
             tool="itsm",
             verb="request",
             ticket_id=E.TASK_S5_IAM,
+            assignment_group="Identity & Access Management",
             executed=f"Request {E.TASK_S5_IAM} raised with IAM",
             status_after="REQUESTED",
         ),

@@ -102,6 +102,7 @@ S3 = ScenarioSpec(
             tool="itsm",
             verb="change",
             ticket_id=E.CHANGE_S3_BLOCK,
+            assignment_group="Network Operations",
             executed=f"Emergency change {E.CHANGE_S3_BLOCK} raised and approved by the SOC lead",
         ),
         Action(
@@ -123,6 +124,7 @@ S3 = ScenarioSpec(
                 to="Network Operations",
                 mailbox="NETWORK_TEAM",
                 cc="Integration team",
+                cc_mailbox="INCIDENT_OWNER",
                 subject=f"[{{incident}}] {IP} blocked at the edge firewall",
                 body=(
                     "You're receiving this because change {ticket:raise_change} changes the edge firewall"

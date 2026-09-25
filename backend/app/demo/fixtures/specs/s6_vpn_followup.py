@@ -116,6 +116,7 @@ S6 = ScenarioSpec(
             tool="itsm",
             verb="request",
             ticket_id=E.TASK_S6_IAM,
+            assignment_group="Identity & Access Management",
             executed=f"Request {E.TASK_S6_IAM} raised with IAM",
             status_after="REQUESTED",
         ),

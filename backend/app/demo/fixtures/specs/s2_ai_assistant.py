@@ -107,18 +107,18 @@ S2 = ScenarioSpec(
     evidence_state="attempted_misuse",
     subject=f"{APP} ({E.AI_GATEWAY})",
     decision=(
-        f"Proposed: open a P3 incident, ask the AI platform team to block the 2 addresses at {E.AI_GATEWAY}, and "
+        f"Proposed: open a {{priority}} incident, ask the AI platform team to block the 2 addresses at {E.AI_GATEWAY}, and "
         "tell AppSec. Rotating the export tool's credential is not proposed — it never ran."
     ),
     actions=(
         Action(
             id="open_incident",
-            title="Open a P3 incident",
-            proposal=f"ITSM incident at P3 ({E.PRIORITY_POLICY} rule 3: attempted misuse, nothing gained).",
+            title="Open a {priority} incident",
+            proposal=f"ITSM incident at {{priority}} ({{priority_basis}}).",
             tool="itsm",
             verb="incident",
             ticket_id=E.INCIDENT_S2,
-            executed=f"Incident {E.INCIDENT_S2} opened (P3)",
+            executed=f"Incident {E.INCIDENT_S2} opened ({{priority}})",
             verified="read back from ITSM",
         ),
         Action(
@@ -128,6 +128,7 @@ S2 = ScenarioSpec(
             tool="itsm",
             verb="request",
             ticket_id=E.TASK_S2_AI_PLATFORM,
+            assignment_group="AI Platform",
             executed=f"Request {E.TASK_S2_AI_PLATFORM} raised with the AI platform team",
             status_after="REQUESTED",
         ),
@@ -158,7 +159,7 @@ S2 = ScenarioSpec(
     ),
     not_proposed=("Rotate the export tool credential — not needed, the tool never ran",),
     final_state="OPEN — CONTAINMENT REQUESTED",
-    final_headline="P3 incident open; the AI platform team has been asked to block the sources; AppSec informed.",
+    final_headline="{priority} incident open; the AI platform team has been asked to block the sources; AppSec informed.",
     pending=(f"AI platform team to apply the block at {E.AI_GATEWAY}",),
     next_triggers="Re-investigate if the same addresses return, a tool call is allowed, or DLP flags assistant traffic.",
 )

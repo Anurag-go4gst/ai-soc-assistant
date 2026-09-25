@@ -106,18 +106,18 @@ S4 = ScenarioSpec(
     evidence_state="exposure",
     subject=f"{GW1}, {GW2}",
     decision=(
-        "Proposed: open a P2 incident, raise an emergency change, disable the vulnerable feature on the 2 gateways "
+        "Proposed: open a {priority} incident, raise an emergency change, disable the vulnerable feature on the 2 gateways "
         "now through Agilus, schedule the patch, and request a detection for the vulnerable path."
     ),
     actions=(
         Action(
             id="open_incident",
-            title="Open a P2 incident",
-            proposal=f"ITSM incident at P2 ({E.PRIORITY_POLICY} rule 2: exposed, no exploitation confirmed).",
+            title="Open a {priority} incident",
+            proposal=f"ITSM incident at {{priority}} ({{priority_basis}}).",
             tool="itsm",
             verb="incident",
             ticket_id=E.INCIDENT_S4,
-            executed=f"Incident {E.INCIDENT_S4} opened (P2)",
+            executed=f"Incident {E.INCIDENT_S4} opened ({{priority}})",
             verified="read back from ITSM",
         ),
         Action(
@@ -130,6 +130,7 @@ S4 = ScenarioSpec(
             tool="itsm",
             verb="change",
             ticket_id=E.CHANGE_S4_WORKAROUND,
+            assignment_group="Network Operations",
             executed=f"Emergency change {E.CHANGE_S4_WORKAROUND} approved; patch window booked for {{D2 01:00}}",
             status_after="SCHEDULED",
         ),
@@ -149,6 +150,7 @@ S4 = ScenarioSpec(
             tool="itsm",
             verb="request",
             ticket_id=E.TASK_S4_DETECTION,
+            assignment_group="Detection Engineering",
             spl=(
                 'search index=vpn sourcetype=cisco:asa uri_path="/+CSCOE+/*" earliest=-24h latest=now '
                 "| stats count by host, src_ip, uri_path | head 100"

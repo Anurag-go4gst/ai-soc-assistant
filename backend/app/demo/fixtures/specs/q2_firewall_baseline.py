@@ -84,6 +84,7 @@ Q2 = ScenarioSpec(
             tool="itsm",
             verb="request",
             ticket_id=E.TASK_Q2_DETECTION,
+            assignment_group="Detection Engineering",
             spl=BASELINE_SPL,
             executed=f"Request {E.TASK_Q2_DETECTION} raised with Detection Engineering",
             status_after="REQUESTED",
