@@ -34,3 +34,15 @@ describe('EcInvestigationAnswer candidate SPL', () => {
     expect(screen.getAllByText(/Review-only candidate/i).length).toBeGreaterThan(0);
   });
 });
+
+describe('EcInvestigationAnswer candidate SPL in agent mode', () => {
+  it('shows no separate "not executed" box: each search shows its validated SPL in its result row', () => {
+    const agentEnvelope = {
+      ...envelope(),
+      scenario_id: 's1_governed_splunk_investigation',
+      ec_agent_workflow: { lifecycle: 'INVESTIGATION_COMPLETE', phase: 'investigation_complete' },
+    } as unknown as ExperienceCenterResponse;
+    const { container } = render(<EcInvestigationAnswer envelope={agentEnvelope} />);
+    expect(container.textContent ?? '').not.toMatch(/Review-only candidate/i);
+  });
+});

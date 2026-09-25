@@ -431,7 +431,9 @@ export function EcInvestigationAnswer({
         </EcRevealBlock>
       ) : null}
 
-      {envelope.candidate_spl?.candidate_spl && !analyst.spl_code && !hideSpl ? (
+      {/* Agent mode shows each search's validated SPL in its own result row; a separate
+          "candidate — not executed" box would contradict a search that did run. */}
+      {!agentMode && envelope.candidate_spl?.candidate_spl && !analyst.spl_code && !hideSpl ? (
         <EcRevealBlock>
           <EcSectionHeading>Candidate SPL</EcSectionHeading>
           <p className="mt-2 text-sm text-slate-400">Review-only candidate — not executed.</p>
