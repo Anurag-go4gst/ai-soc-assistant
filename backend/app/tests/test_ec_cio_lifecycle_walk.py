@@ -306,7 +306,7 @@ def test_dates_are_rendered(agent_walks, scenario_id):
 def test_s1_q1_s3_state_the_same_facts(agent_walks):
     """Same IP, jump host, account and incident in every question of the jump-host thread."""
     blobs = {sid: str(_turn(agent_walks[sid], "COMPLETE")) for sid in (S1, Q1, S3)}
-    for fact in ("45.xx.xx.42", "JMP-ADM-01", "INC0048213"):
+    for fact in ("3.110.47.92", "JMP-ADM-01", "INC0048213"):
         missing = [scenario_id for scenario_id, blob in blobs.items() if fact not in blob]
         assert missing == [], (fact, missing)
     assert all("svc_netops" in blobs[sid] for sid in (Q1, S3))

@@ -12,9 +12,9 @@ S1 = ScenarioSpec(
     family="s1_governed_splunk",
     label="S1 · New external IP on an admin system",
     question=(
-        "We're seeing repeated traffic from a new external IP to one of our admin systems, including a few "
-        "allowed connections. Check what this IP is, what it has done over the last 30 days, and whether we "
-        "need to monitor or block it."
+        f"We're seeing repeated traffic from {IP}, an IP we haven't seen before, to one of our admin systems — "
+        "including a few connections the firewall allowed. Check who this IP belongs to, what it has done over "
+        "the last 30 days, and whether we need to monitor or block it."
     ),
     aliases=("new external IP on an admin system",),
     legacy_phrasings=(
@@ -41,7 +41,7 @@ S1 = ScenarioSpec(
                 f"the API gateway {E.API_GATEWAY} only — not admin systems."
             ),
             evidence=(
-                f"Register entry {E.PARTNER_ID}: range {E.PARTNER_RANGE}, approved destination {E.API_GATEWAY} "
+                f"Register entry {E.PARTNER_ID}: 3 registered outbound addresses including {IP}; approved destination {E.API_GATEWAY} "
                 "(port 443), owner: Integration team",
             ),
         ),
@@ -62,7 +62,7 @@ S1 = ScenarioSpec(
             ),
             evidence=(
                 "Allowed connections: {D-9 02:41}, {D-6 03:05}, {D-2 02:58} — each 2–6 seconds and 4–9 KB",
-                f"Rule ACL-PARTNER-0147 lets the partner range reach the whole admin subnet 10.20.1.0/24, "
+                f"Rule ACL-PARTNER-0147 lets the partner's addresses ({E.PARTNER_EGRESS_GROUP}) reach the whole admin subnet 10.20.1.0/24, "
                 f"wider than the register allows ({E.API_GATEWAY} only)",
                 "No traffic from this IP in the 30 days before {D-12}",
                 f"Threat intel: no match in {E.THREAT_INTEL_SOURCE}. No match does not mean the IP is safe.",

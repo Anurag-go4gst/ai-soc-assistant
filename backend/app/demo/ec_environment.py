@@ -5,8 +5,9 @@ here, so the same jump host or service account means the same thing in every que
 
 * **Time** — fixture text carries ``{D-9}`` / ``{D-9 03:12}`` / ``{W30}`` tokens, rendered against
   the moment the page is served. "Last 30 days" therefore always covers the dates shown.
-* **External IPs** are partly masked (``45.xx.xx.42``): a real-looking public address would
-  belong to a real owner we would be calling hostile.
+* **The S1 partner address** (``3.110.47.92``) is a full address so the question reads like a
+  real ticket. Nothing in the Experience Center ever contacts it; scanner addresses in other
+  questions stay partly masked.
 * **Priority** comes from :func:`incident_priority` (SOC-POL-PRIO-01), never from the fixture,
   and is kept separate from the threat assessment.
 """
@@ -41,9 +42,9 @@ ADM_DBA = "adm_dba02"
 
 PARTNER_ID = "PRT-0147"
 PARTNER_NAME = "freight carrier tracking API"
-PARTNER_RANGE = "45.xx.xx.40/29"
+PARTNER_EGRESS_GROUP = "PARTNER-0147-EGRESS"  # firewall object group: the partner's 3 registered addresses
 
-EXTERNAL_IP = "45.xx.xx.42"
+EXTERNAL_IP = "3.110.47.92"
 SCANNER_IPS = ("103.xx.xx.17", "103.xx.xx.29")
 
 # --- Tickets (revealed only after the ITSM action that creates them runs) --------------------

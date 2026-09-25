@@ -66,12 +66,12 @@ S3 = ScenarioSpec(
             tool="agilus_mcp",
             operation=f"agilus.read_device_config · {E.EDGE_FIREWALL}, FW-EDGE-02",
             result=(
-                f"No block exists for {IP}. Rule ACL-PARTNER-0147 still allows the partner range into the whole "
+                f"No block exists for {IP}. Rule ACL-PARTNER-0147 still allows the partner's addresses into the whole "
                 "admin subnet."
             ),
             evidence=(
                 "Config read from both HA members; running and saved config match",
-                "ACL-PARTNER-0147: 45.xx.xx.40/29 → 10.20.1.0/24 and APIGW-01, port 443",
+                f"ACL-PARTNER-0147: {E.PARTNER_EGRESS_GROUP} (3 addresses) → 10.20.1.0/24 and {E.API_GATEWAY}, port 443",
             ),
         ),
     ),
@@ -81,7 +81,7 @@ S3 = ScenarioSpec(
     ),
     points=(
         f"The block is scoped to {IP}/32, as {E.SOP_FIREWALL_BLOCK} requires.",
-        f"Narrowing ACL-PARTNER-0147 to {E.API_GATEWAY} closes the path that let the partner range reach the jump host.",
+        f"Narrowing ACL-PARTNER-0147 to {E.API_GATEWAY} closes the path that let the partner's addresses reach the jump host.",
         "The partner must be told, because one of their outbound addresses stops working.",
     ),
     unresolved=("Whether the partner's host at this address is compromised — the partner has to investigate.",),
@@ -129,7 +129,7 @@ S3 = ScenarioSpec(
                     f" and affects "
                     f"partner {E.PARTNER_ID}.\n\n"
                     f"What changed: {IP} is blocked on {E.EDGE_FIREWALL}/02, and ACL-PARTNER-0147 now allows the "
-                    f"partner range to {E.API_GATEWAY} only. Reason: an unauthorised {E.SVC_NETOPS} login from this "
+                    f"partner's addresses to {E.API_GATEWAY} only. Reason: an unauthorised {E.SVC_NETOPS} login from this "
                     "address.\n\n"
                     "Please:\n"
                     "1. Integration team — tell the partner their address is blocked and ask them to investigate "
