@@ -67,7 +67,9 @@ _KIND_BY_ACTION = {
 }
 
 INCIDENT_PENDING_TEXT = "INC number pending"
-TICKET_PENDING_TEXT = "number pending"
+TICKETS_MARKER = "[Ticket details are added here when the tickets are created]"
+EMAIL_SUBJECT_MAX = 200
+EMAIL_BODY_MAX = 5000
 _TICKET_TOKEN = re.compile(r"\{ticket:([a-z0-9_]+)\}")
 
 
@@ -243,6 +245,7 @@ class _Ctx:
     spec: ScenarioSpec
     executed: set[str]
     priority: dict[str, Any]
+    sent_emails: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 def _priority(spec: ScenarioSpec, state: dict[str, Any]) -> dict[str, Any]:
@@ -262,7 +265,18 @@ def _priority(spec: ScenarioSpec, state: dict[str, Any]) -> dict[str, Any]:
 
 
 def _ctx(spec: ScenarioSpec, state: dict[str, Any], executed: set[str]) -> _Ctx:
-    return _Ctx(spec=spec, executed=executed, priority=_priority(spec, state))
+    return _Ctx(
+        spec=spec,
+        executed=executed,
+        priority=_priority(spec, state),
+        sent_emails=dict(state.get("sent_emails") or {}),
+    )
+
+
+def _pending_ticket_text(ticket_id: str) -> str:
+    """Placeholder for a ticket that does not exist yet, e.g. "CHG number pending"."""
+    prefix = re.match(r"[A-Z]+", ticket_id)
+    return f"{prefix.group(0) if prefix else 'Ticket'} number pending"
 
 
 def _incident_action(spec: ScenarioSpec) -> Action | None:
@@ -288,25 +302,66 @@ def _fill(text: str, ctx: _Ctx) -> str:
     incident = _incident_id(spec, ctx.executed)
     text = text.replace("{incident}", incident or INCIDENT_PENDING_TEXT)
     text = text.replace("{priority_basis}", ctx.priority["basis"]).replace("{priority}", ctx.priority["priority"])
+    text = text.replace("{tickets}", TICKETS_MARKER)
     by_id = {action.id: action for action in spec.actions}
 
     def ticket(match: re.Match[str]) -> str:
         action = by_id.get(match.group(1))
         if action is None or not action.ticket_id:
             raise ValueError(f"{spec.scenario_id}: unknown ticket token {match.group(0)}")
-        return action.ticket_id if action.id in ctx.executed else TICKET_PENDING_TEXT
+        return action.ticket_id if action.id in ctx.executed else _pending_ticket_text(action.ticket_id)
 
     return _TICKET_TOKEN.sub(ticket, text)
 
 
+def _ticket_block(ctx: _Ctx) -> str:
+    """Ticket details for an email, written after the tickets exist."""
+    spec = ctx.spec
+    lines = ["Tickets:"]
+    if spec.existing_incident:
+        lines.append(f"- {spec.existing_incident} · Incident · {ctx.priority['priority']} · In progress · SOC Tier 2")
+    for action in spec.actions:
+        if not action.ticket_id or action.id not in ctx.executed:
+            continue
+        group = action.assignment_group or _DEFAULT_GROUP.get(action.verb, "SOC Tier 2")
+        if action.verb == "incident":
+            lines.append(f"- {action.ticket_id} · Incident · {ctx.priority['priority']} · New · {group}")
+        else:
+            kind = "Change" if action.verb == "change" else "Request"
+            state = {"SCHEDULED": "Scheduled", "EXECUTED": "Approved"}.get(action.status_after, "Open")
+            lines.append(f"- {action.ticket_id} · {kind} · {state} · {group} — {_fill(action.ticket_summary or action.title, ctx)}")
+    return "\n".join(lines) if len(lines) > 1 else "Tickets: none created in this response"
+
+
+def _finalize_email_text(ctx: _Ctx, text: str, *, body: bool) -> str:
+    """Put real ticket numbers into a draft (edited or not) now that the tickets exist."""
+    spec = ctx.spec
+    incident = _incident_id(spec, ctx.executed)
+    if incident:
+        text = text.replace(INCIDENT_PENDING_TEXT, incident)
+    for action in spec.actions:
+        if action.ticket_id and action.id in ctx.executed:
+            text = text.replace(_pending_ticket_text(action.ticket_id), action.ticket_id)
+    if body:
+        block = _ticket_block(ctx)
+        text = text.replace(TICKETS_MARKER, block) if TICKETS_MARKER in text else f"{text.rstrip()}\n\n{block}"
+    return text
+
+
 def _email_payload(ctx: _Ctx, action: Action, *, sent: bool) -> dict[str, Any]:
+    """The draft before sending; after sending, exactly what went out (edits and tickets included)."""
     assert action.email is not None
     to = action.email.to + (f" · cc {action.email.cc}" if action.email.cc else "")
+    stored = ctx.sent_emails.get(action.id)
+    if stored is not None:
+        return {**stored, "to": to, "status": "sent" if sent else "not_sent", "edited": stored.get("edited", False)}
     return {
         "to": to,
         "subject": _fill(action.email.subject, ctx),
         "body": _fill(action.email.body, ctx),
-        "status": "sent" if sent else "draft",
+        "status": "draft",
+        "editable": True,
+        "edited": False,
     }
 
 
@@ -694,8 +749,12 @@ def _execute_actions(spec: ScenarioSpec, state: dict[str, Any], session_id: str)
     """
     selected = set(state.get("remediation_selected") or [])
     action_ids = dict(state.get("action_ids") or {})
+    edits = dict(state.get("email_edits") or {})
+    sent_emails = dict(state.get("sent_emails") or {})
     executed: set[str] = set()
-    for action in spec.actions:
+    # Tickets and changes first, emails last, so every email can carry the real ticket details.
+    ordered = [a for a in spec.actions if a.email is None] + [a for a in spec.actions if a.email is not None]
+    for action in ordered:
         if action.id not in selected or action.id in action_ids:
             continue
         ctx = _ctx(spec, state, executed)
@@ -708,7 +767,12 @@ def _execute_actions(spec: ScenarioSpec, state: dict[str, Any], session_id: str)
                 **({"priority": ctx.priority["priority"]} if action.verb == "incident" else {}),
             }
         if action.email is not None:
-            payload = _email_payload(ctx, action, sent=True)
+            draft = _email_payload(ctx, action, sent=False)
+            edit = edits.get(action.id) or {}
+            subject = _finalize_email_text(ctx, str(edit.get("subject") or draft["subject"]), body=False)
+            body = _finalize_email_text(ctx, str(edit.get("body") or draft["body"]), body=True)
+            payload = {"subject": subject, "body": body}
+            sent_emails[action.id] = {"subject": subject, "body": body, "edited": bool(edit)}
             extra.update(
                 {
                     "logical_recipient": action.email.mailbox,
@@ -731,6 +795,7 @@ def _execute_actions(spec: ScenarioSpec, state: dict[str, Any], session_id: str)
         if record.state in {"EXECUTED", "VERIFIED"}:
             executed.add(action.id)
     state["action_ids"] = action_ids
+    state["sent_emails"] = sent_emails
 
 
 def _apply_priority_override(spec: ScenarioSpec, state: dict[str, Any], override: Any) -> str | None:
@@ -745,6 +810,26 @@ def _apply_priority_override(spec: ScenarioSpec, state: dict[str, Any], override
     if chosen != policy and not reason:
         return f"Give a reason for changing the priority from {policy} to {chosen}."
     state["priority_override"] = {"priority": chosen, "reason": reason} if chosen != policy else None
+    return None
+
+
+def _apply_email_edits(spec: ScenarioSpec, state: dict[str, Any], edits: Any) -> str | None:
+    """Keep the analyst's edited subject/body per email action. Recipients are not editable."""
+    if not isinstance(edits, dict):
+        return None
+    email_ids = {action.id for action in spec.actions if action.email is not None}
+    accepted: dict[str, dict[str, str]] = {}
+    for action_id, edit in edits.items():
+        if action_id not in email_ids or not isinstance(edit, dict):
+            return "Only proposed emails can be edited."
+        subject = " ".join(str(edit.get("subject") or "").split())
+        body = str(edit.get("body") or "").replace("\r\n", "\n").strip()
+        if not subject or not body:
+            return "An edited email needs a subject and a body."
+        if len(subject) > EMAIL_SUBJECT_MAX or len(body) > EMAIL_BODY_MAX:
+            return f"Keep the subject under {EMAIL_SUBJECT_MAX} and the body under {EMAIL_BODY_MAX} characters."
+        accepted[str(action_id)] = {"subject": subject, "body": body}
+    state["email_edits"] = accepted
     return None
 
 
@@ -781,7 +866,9 @@ def handle_follow_up(
     elif follow_up_id == "decline_remediation_plan" and lifecycle == L.LIFECYCLE_INVESTIGATION_COMPLETE:
         state["remediation_declined"] = True
     elif follow_up_id == "run_remediation" and lifecycle == L.LIFECYCLE_REMEDIATION_PLAN_READY:
-        error = _apply_priority_override(spec, state, payload.get("priority_override"))
+        error = _apply_priority_override(spec, state, payload.get("priority_override")) or _apply_email_edits(
+            spec, state, payload.get("email_edits")
+        )
         state["remediation_error"] = error
         if error is None:
             selected = list(payload.get("selected_step_ids") or state.get("remediation_selected") or [])

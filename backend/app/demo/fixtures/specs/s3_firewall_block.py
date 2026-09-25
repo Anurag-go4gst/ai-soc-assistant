@@ -102,6 +102,7 @@ S3 = ScenarioSpec(
             tool="itsm",
             verb="change",
             ticket_id=E.CHANGE_S3_BLOCK,
+            ticket_summary="Block 3.110.47.92/32; limit ACL-PARTNER-0147 to APIGW-01",
             assignment_group="Network Operations",
             executed=f"Emergency change {E.CHANGE_S3_BLOCK} raised and approved by the SOC lead",
         ),
@@ -137,7 +138,7 @@ S3 = ScenarioSpec(
                     "1. Integration team — tell the partner their address is blocked and ask them to investigate "
                     "that host.\n"
                     "2. Network Operations — confirm the partner API still works from their other addresses.\n\n"
-                    "Incident: {incident}\n\n"
+                    "{tickets}\n\n"
                     "SOC Tier 2"
                 ),
             ),

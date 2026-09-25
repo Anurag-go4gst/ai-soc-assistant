@@ -133,7 +133,7 @@ describe('response records and priority choice', () => {
     fireEvent.change(scope.getByLabelText(/Reason for changing from P2 to P1/), { target: { value: 'Active audit scope' } });
     expect(approve).not.toBeDisabled();
     fireEvent.click(approve);
-    expect(calls).toEqual([[['open_incident'], { priority: 'P1', reason: 'Active audit scope' }]]);
+    expect(calls).toEqual([[['open_incident'], { priority_override: { priority: 'P1', reason: 'Active audit scope' } }]]);
   });
 
   it('shows the created ticket and the email as sent from the final summary', () => {
@@ -176,5 +176,55 @@ describe('response records and priority choice', () => {
     fireEvent.click(scope.getByRole('button', { name: 'View email' }));
     expect(scope.getByText('Delivered by SMTP to soc@example.org')).toBeInTheDocument();
     expect(scope.getByText('Message ID: <abc@x>')).toBeInTheDocument();
+  });
+});
+
+describe('editing a proposed email', () => {
+  const emailStep = {
+    id: 'ask_owner',
+    title: 'Ask the partner owner',
+    summary: 'Short email.',
+    status: 'PROPOSED',
+    status_label: 'Pending approval',
+    selected: true,
+    finding: {
+      details: {
+        email_draft: {
+          to: 'Integration team · cc Network Operations',
+          subject: 'Partner PRT-0147 — please confirm',
+          body: 'What we saw...\n\n[Ticket details are added here when the tickets are created]\n\nSOC Tier 2',
+          status: 'draft',
+          editable: true,
+        },
+      },
+    },
+  };
+
+  it('sends the edited subject and body with approval, and blocks an empty edit', () => {
+    const calls: unknown[][] = [];
+    const { container } = render(
+      <EcAgentWorkflow
+        workflow={{
+          lifecycle: 'REMEDIATION_PLAN_READY',
+          phase: 'remediation',
+          remediation_plan: { visible: true, steps: [emailStep] },
+          remediation_results: { steps: [emailStep] },
+        }}
+        onRunInvestigation={noop}
+        onRunRemediation={(...args) => calls.push(args)}
+        onHilApprove={noop}
+        onHilSkip={noop}
+      />,
+    );
+    const scope = within(container);
+    fireEvent.click(scope.getByRole('button', { name: 'Edit email' }));
+    fireEvent.change(scope.getByLabelText('Subject'), { target: { value: 'Please confirm by Friday' } });
+    const approve = scope.getByRole('button', { name: /Approve/ });
+    fireEvent.change(scope.getByLabelText('Body'), { target: { value: '  ' } });
+    expect(approve).toBeDisabled();
+    fireEvent.change(scope.getByLabelText('Body'), { target: { value: 'Hi team' } });
+    expect(approve).not.toBeDisabled();
+    fireEvent.click(approve);
+    expect(calls).toEqual([[['ask_owner'], { email_edits: { ask_owner: { subject: 'Please confirm by Friday', body: 'Hi team' } } }]]);
   });
 });

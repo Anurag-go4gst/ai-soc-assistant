@@ -111,7 +111,7 @@ R1 = ScenarioSpec(
                     f"What we saw: {E.ADM_DBA} failed to log in 14 times in 6 minutes on {E.FINANCE_DB}, then "
                     "succeeded at {D0 08:42}, all from workstation 10.30.2.18.\n\n"
                     "Please reply within 1 hour: was this you? If not, tell us immediately.\n\n"
-                    "Incident: {incident}\n\n"
+                    "{tickets}\n\n"
                     "SOC Tier 2"
                 ),
             ),

@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { CheckCircle2, ChevronDown, ChevronRight, Circle, Loader2 } from 'lucide-react';
 import { CompactFindingDetails } from '@/components/ec/EcInvestigationResultList';
-import type { EcAgentPlanStep } from '@/components/ec/types';
+import type { EcAgentPlanStep, EcEmailEdit } from '@/components/ec/types';
 import { EcPriorityPicker } from '@/components/ec/EcResponseRecords';
 import { cn } from '@/lib/utils';
 
@@ -98,6 +98,8 @@ export function EcActionsTable({
   onToggle,
   priority,
   onPriorityChange,
+  emailEdits,
+  onEmailEdit,
 }: {
   steps: EcAgentPlanStep[];
   selectedIds?: Set<string>;
@@ -105,7 +107,10 @@ export function EcActionsTable({
   onToggle?: (id: string, checked: boolean) => void;
   priority?: { priority: string; reason: string };
   onPriorityChange?: (priority: string, reason: string) => void;
+  emailEdits?: Record<string, EcEmailEdit>;
+  onEmailEdit?: (stepId: string, edit: EcEmailEdit | null) => void;
 }) {
+  const [editingEmail, setEditingEmail] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   return (
     <div className="overflow-hidden rounded-lg border border-slate-800" data-ec-section="remediation-actions">
@@ -175,15 +180,15 @@ export function EcActionsTable({
                       <pre className="mt-2 overflow-x-auto rounded-md bg-slate-950/70 p-2 font-mono text-[11px] text-slate-300">{spl}</pre>
                     ) : null}
                     {email ? (
-                      <div className="mt-2 rounded-md border border-slate-700/80 bg-slate-950/60 p-3 text-xs" data-ec-email-preview={step.id}>
-                        <p className="text-slate-400">
-                          To: <span className="text-slate-200">{String(email.to ?? '')}</span>
-                        </p>
-                        <p className="mt-0.5 font-medium text-slate-100">{String(email.subject ?? '')}</p>
-                        <pre className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap font-sans leading-relaxed text-slate-300">
-                          {String(email.body ?? '')}
-                        </pre>
-                      </div>
+                      <EmailPreview
+                        stepId={step.id}
+                        email={email}
+                        edit={emailEdits?.[step.id]}
+                        editable={editable && Boolean(email.editable) && Boolean(onEmailEdit)}
+                        editing={editingEmail === step.id}
+                        onEditingChange={(on) => setEditingEmail(on ? step.id : null)}
+                        onEdit={(edit) => onEmailEdit?.(step.id, edit)}
+                      />
                     ) : null}
                   </td>
                   <td className="hidden px-3 py-2.5 text-xs text-slate-400 sm:table-cell">{(step.tools ?? []).join(' · ')}</td>
@@ -207,6 +212,82 @@ export function EcActionsTable({
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function EmailPreview({
+  stepId,
+  email,
+  edit,
+  editable,
+  editing,
+  onEditingChange,
+  onEdit,
+}: {
+  stepId: string;
+  email: Record<string, unknown>;
+  edit?: EcEmailEdit;
+  editable: boolean;
+  editing: boolean;
+  onEditingChange: (on: boolean) => void;
+  onEdit: (edit: EcEmailEdit | null) => void;
+}) {
+  const subject = edit?.subject ?? String(email.subject ?? '');
+  const body = edit?.body ?? String(email.body ?? '');
+  return (
+    <div className="mt-2 rounded-md border border-slate-700/80 bg-slate-950/60 p-3 text-xs" data-ec-email-preview={stepId}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-slate-400">
+          To: <span className="text-slate-200">{String(email.to ?? '')}</span>
+        </p>
+        {editable ? (
+          <span className="flex items-center gap-2">
+            {edit ? <span className="rounded border border-amber-500/40 px-1.5 text-[10px] text-amber-200">edited</span> : null}
+            {edit && !editing ? (
+              <button type="button" className="text-slate-400 hover:text-slate-200" onClick={() => onEdit(null)}>
+                Undo edits
+              </button>
+            ) : null}
+            <button type="button" className="text-cyan-400 hover:text-cyan-300" onClick={() => onEditingChange(!editing)}>
+              {editing ? 'Done' : 'Edit email'}
+            </button>
+          </span>
+        ) : null}
+      </div>
+      {editing ? (
+        <div className="mt-2 space-y-2">
+          <label className="block text-slate-400" htmlFor={`ec-email-subject-${stepId}`}>
+            Subject
+          </label>
+          <input
+            id={`ec-email-subject-${stepId}`}
+            className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+            maxLength={200}
+            value={subject}
+            onChange={(event) => onEdit({ subject: event.target.value, body })}
+          />
+          <label className="block text-slate-400" htmlFor={`ec-email-body-${stepId}`}>
+            Body
+          </label>
+          <textarea
+            id={`ec-email-body-${stepId}`}
+            className="h-56 w-full rounded border border-slate-700 bg-slate-900 p-2 font-sans text-slate-100"
+            maxLength={5000}
+            value={body}
+            onChange={(event) => onEdit({ subject, body: event.target.value })}
+          />
+          <p className="text-slate-500">
+            Recipients are fixed by the outbound allowlist. Ticket details replace the marker line when the tickets are
+            created; if you remove it, they are added at the end.
+          </p>
+        </div>
+      ) : (
+        <>
+          <p className="mt-0.5 font-medium text-slate-100">{subject}</p>
+          <pre className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap font-sans leading-relaxed text-slate-300">{body}</pre>
+        </>
+      )}
     </div>
   );
 }

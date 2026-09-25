@@ -138,7 +138,7 @@ S7 = ScenarioSpec(
                     "Please:\n"
                     "1. Check on site whether the RTU's settings changed.\n"
                     "2. Confirm whether eng_sub07's work was authorised.\n\n"
-                    "Incident: {incident}\n\n"
+                    "{tickets}\n\n"
                     "SOC Tier 2"
                 ),
             ),
@@ -152,6 +152,7 @@ S7 = ScenarioSpec(
             tool="itsm",
             verb="change",
             ticket_id=E.CHANGE_S7_FW,
+            ticket_summary="Limit FW-OT-01: SUB07-EWS-03 to in-service RTUs only",
             assignment_group="OT Engineering",
             executed=f"Change {E.CHANGE_S7_FW} raised for OT change board review",
             status_after="REQUESTED",
@@ -163,6 +164,7 @@ S7 = ScenarioSpec(
             tool="itsm",
             verb="request",
             ticket_id=E.TASK_S7_CMDB,
+            ticket_summary="Correct CMDB: SUB07-RTU-14 still in service",
             assignment_group="Asset Management",
             executed=f"Request {E.TASK_S7_CMDB} raised with asset management",
             status_after="REQUESTED",

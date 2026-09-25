@@ -128,6 +128,7 @@ S2 = ScenarioSpec(
             tool="itsm",
             verb="request",
             ticket_id=E.TASK_S2_AI_PLATFORM,
+            ticket_summary="Block 2 hosting-provider addresses at AIGW-01",
             assignment_group="AI Platform",
             executed=f"Request {E.TASK_S2_AI_PLATFORM} raised with the AI platform team",
             status_after="REQUESTED",
@@ -150,7 +151,7 @@ S2 = ScenarioSpec(
                     "permission check refused it. No tool ran and no customer data was accessed.\n\n"
                     "Please review whether the guardrail rules need tuning, and whether you want the full prompt "
                     "text logged for longer prompts.\n\n"
-                    "Incident: {incident}\n\n"
+                    "{tickets}\n\n"
                     "SOC Tier 2"
                 ),
             ),

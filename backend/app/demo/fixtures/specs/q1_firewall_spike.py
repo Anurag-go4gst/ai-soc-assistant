@@ -146,6 +146,7 @@ Q1 = ScenarioSpec(
             tool="itsm",
             verb="request",
             ticket_id=E.TASK_Q1_IAM,
+            ticket_summary="Reset svc_netops and block interactive logon",
             assignment_group="Identity & Access Management",
             executed=f"Request {E.TASK_Q1_IAM} raised with IAM",
             status_after="REQUESTED",
@@ -168,7 +169,7 @@ Q1 = ScenarioSpec(
                     f"{E.BRANCH_ROUTER}.\n\n"
                     f"Requested: approve a block of {IP} on the edge firewall. IAM has been asked to reset "
                     f"{E.SVC_NETOPS}.\n\n"
-                    "Incident: {incident} (now P1)\n\n"
+                    "{tickets}\n\n"
                     "SOC Tier 2"
                 ),
             ),

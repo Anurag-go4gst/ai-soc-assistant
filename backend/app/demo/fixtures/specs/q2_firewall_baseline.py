@@ -84,6 +84,7 @@ Q2 = ScenarioSpec(
             tool="itsm",
             verb="request",
             ticket_id=E.TASK_Q2_DETECTION,
+            ticket_summary="Review 30-day admin-subnet baseline and approved-source list",
             assignment_group="Detection Engineering",
             spl=BASELINE_SPL,
             executed=f"Request {E.TASK_Q2_DETECTION} raised with Detection Engineering",

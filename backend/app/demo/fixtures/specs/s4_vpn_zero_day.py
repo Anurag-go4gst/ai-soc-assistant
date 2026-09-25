@@ -130,6 +130,7 @@ S4 = ScenarioSpec(
             tool="itsm",
             verb="change",
             ticket_id=E.CHANGE_S4_WORKAROUND,
+            ticket_summary="Disable vulnerable web feature on VPN-GW-01/02; patch to 9.18.4",
             assignment_group="Network Operations",
             executed=f"Emergency change {E.CHANGE_S4_WORKAROUND} approved; patch window booked for {{D2 01:00}}",
             status_after="SCHEDULED",
@@ -150,6 +151,7 @@ S4 = ScenarioSpec(
             tool="itsm",
             verb="request",
             ticket_id=E.TASK_S4_DETECTION,
+            ticket_summary="Detection for requests to the vulnerable VPN web path",
             assignment_group="Detection Engineering",
             spl=(
                 'search index=vpn sourcetype=cisco:asa uri_path="/+CSCOE+/*" earliest=-24h latest=now '
@@ -175,7 +177,7 @@ S4 = ScenarioSpec(
                     "probed on {D-3}; no compromise found. The feature is being disabled under change "
                     "{ticket:emergency_change}; users connect through the standard client and are not affected.\n\n"
                     "Please confirm the patch window ({D2 01:00}) and check remote access after the workaround.\n\n"
-                    "Incident: {incident}\n\n"
+                    "{tickets}\n\n"
                     "SOC Tier 2"
                 ),
             ),

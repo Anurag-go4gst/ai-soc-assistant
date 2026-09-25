@@ -175,6 +175,18 @@ export interface EcPriorityOverride {
   reason: string;
 }
 
+/** Analyst's edit of a proposed email. Recipients are fixed by the allowlist. */
+export interface EcEmailEdit {
+  subject: string;
+  body: string;
+}
+
+/** Extra choices sent with "Approve": priority change and edited emails. */
+export interface EcRemediationExtras {
+  priority_override?: EcPriorityOverride;
+  email_edits?: Record<string, EcEmailEdit>;
+}
+
 /** A ticket as ITSM holds it after the action that created (or updated) it ran. */
 export interface EcTicketRecord {
   number: string;

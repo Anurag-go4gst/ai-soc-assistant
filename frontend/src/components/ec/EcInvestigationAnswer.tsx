@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import type { EcAffectedSystem, EcSourceEvidenceItem, ExperienceCenterResponse, EcPriorityOverride } from '@/components/ec/types';
+import type { EcAffectedSystem, EcSourceEvidenceItem, ExperienceCenterResponse, EcRemediationExtras } from '@/components/ec/types';
 import { EcAnswerTitle, EcSectionHeading } from '@/components/ec/EcSectionHeading';
 import { EcAnswerReveal, EcRevealBlock, EcStreamingText } from '@/components/ec/EcAnswerReveal';
 import { EcAffectedSystemsTable } from '@/components/ec/EcAffectedSystemsTable';
@@ -112,7 +112,7 @@ export function EcInvestigationAnswer({
   onStepAction?: (followUpId: string) => void;
   stepActionBusy?: boolean;
   onAgentRunInvestigation?: (selectedStepIds: string[]) => void;
-  onAgentRunRemediation?: (selectedStepIds: string[], priorityOverride?: EcPriorityOverride) => void;
+  onAgentRunRemediation?: (selectedStepIds: string[], extras?: EcRemediationExtras) => void;
   onAgentHilApprove?: () => void;
   onAgentHilSkip?: () => void;
   onCreateRemediationPlan?: () => void;
@@ -207,7 +207,7 @@ export function EcInvestigationAnswer({
             busy={stepActionBusy}
             executionProgress={agentExecutionProgress}
             onRunInvestigation={(ids) => onAgentRunInvestigation?.(ids)}
-            onRunRemediation={(ids, priorityOverride) => onAgentRunRemediation?.(ids, priorityOverride)}
+            onRunRemediation={(ids, extras) => onAgentRunRemediation?.(ids, extras)}
             onHilApprove={() => onAgentHilApprove?.()}
             onHilSkip={() => onAgentHilSkip?.()}
             onCreateRemediationPlan={() => onCreateRemediationPlan?.()}

@@ -148,6 +148,7 @@ S1 = ScenarioSpec(
             tool="itsm",
             verb="request",
             ticket_id=E.TASK_S1_DETECTION,
+            ticket_summary="Schedule a 14-day watch: 3.110.47.92 to the admin subnet",
             assignment_group="Detection Engineering",
             spl=(
                 f'search index=netfw sourcetype=cisco:ftd src_ip="{IP}" dest_ip="10.20.1.*" '
@@ -180,7 +181,7 @@ S1 = ScenarioSpec(
                     "Please:\n"
                     "1. Ask the partner why their system connected to our jump host.\n"
                     f"2. Network Operations — confirm whether ACL-PARTNER-0147 should be limited to {E.API_GATEWAY}.\n\n"
-                    "Incident: {incident}\n\n"
+                    "{tickets}\n\n"
                     "SOC Tier 2"
                 ),
             ),

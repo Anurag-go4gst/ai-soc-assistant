@@ -250,3 +250,47 @@ def test_unconfigured_email_is_reported_not_sent(monkeypatch) -> None:
     assert email["status"] == "NOT_SENT" and email["status_label"] == "Not sent"
     assert email["result"] == "Not sent — outbound email is not configured"
     assert final["title"].startswith("PARTIALLY COMPLETE")
+
+
+def test_email_draft_is_editable_and_waits_for_ticket_details() -> None:
+    session_id = _to_proposed_response(S1_ID)
+    plan = run_experience_center_turn(S1_ID, session_id=session_id, follow_up_id="update_remediation_plan").model_dump()
+    email_step = next(s for s in plan["ec_agent_workflow"]["remediation_plan"]["steps"] if s["id"] == "ask_owner")
+    draft = email_step["finding"]["details"]["email_draft"]
+    assert draft["editable"] is True and draft["status"] == "draft"
+    assert "[Ticket details are added here when the tickets are created]" in draft["body"]
+    assert E.INCIDENT_S1 not in draft["body"]
+
+
+def test_sent_email_carries_the_edits_and_the_created_tickets() -> None:
+    session_id = _to_proposed_response(S1_ID)
+    edit = {"subject": "Partner PRT-0147 — please confirm by Friday", "body": "Hi team,\n\nPlease confirm.\n\nSOC Tier 2"}
+    final = _approve(S1_ID, session_id, email_edits={"ask_owner": edit})["ec_agent_workflow"]["final_summary"]
+    email = next(row for row in final["actions"] if row["email"])["email"]
+    assert email["subject"] == edit["subject"] and email["edited"] is True
+    # The marker was deleted in the edit: the ticket details are still appended.
+    assert email["body"].startswith("Hi team,")
+    assert f"- {E.INCIDENT_S1} · Incident · P2 · New · SOC Tier 2" in email["body"]
+    assert E.TASK_S1_DETECTION in email["body"]
+
+
+def test_unedited_email_gets_ticket_details_in_place_of_the_marker() -> None:
+    session_id = _to_proposed_response("s3_firewall_team_coordination")
+    final = _approve("s3_firewall_team_coordination", session_id)["ec_agent_workflow"]["final_summary"]
+    email = next(row for row in final["actions"] if row["email"])["email"]
+    assert "[Ticket details" not in email["body"] and "number pending" not in email["body"]
+    assert E.CHANGE_S3_BLOCK in email["body"] and E.INCIDENT_S1 in email["subject"]
+
+
+def test_empty_email_edit_is_refused_and_nothing_runs() -> None:
+    session_id = _to_proposed_response(S1_ID)
+    after = _approve(S1_ID, session_id, email_edits={"ask_owner": {"subject": "x", "body": "   "}})
+    assert after["ec_agent_lifecycle"] == "REMEDIATION_PLAN_READY"
+    assert "subject and a body" in after["ec_agent_workflow"]["remediation_plan"]["error"]
+    assert after["ec_actions"] == []
+
+
+def test_only_proposed_emails_can_be_edited() -> None:
+    session_id = _to_proposed_response(S1_ID)
+    after = _approve(S1_ID, session_id, email_edits={"open_incident": {"subject": "x", "body": "y"}})
+    assert after["ec_agent_workflow"]["remediation_plan"]["error"] == "Only proposed emails can be edited."

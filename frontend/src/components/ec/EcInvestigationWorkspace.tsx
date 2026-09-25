@@ -503,7 +503,7 @@ export function EcInvestigationWorkspace() {
                       { keepAnswer: true, agentPayload: { selected_step_ids: selectedStepIds } },
                     );
                   }}
-                  onAgentRunRemediation={(selectedStepIds, priorityOverride) => {
+                  onAgentRunRemediation={(selectedStepIds, extras) => {
                     void followUp(
                       'run_remediation',
                       { follow_up_id: 'run_remediation', label: 'Approve remediation', advances_state: true, group: 'action' },
@@ -511,7 +511,7 @@ export function EcInvestigationWorkspace() {
                         keepAnswer: true,
                         agentPayload: {
                           selected_step_ids: selectedStepIds,
-                          ...(priorityOverride ? { priority_override: priorityOverride } : {}),
+                          ...(extras ?? {}),
                         },
                       },
                     );

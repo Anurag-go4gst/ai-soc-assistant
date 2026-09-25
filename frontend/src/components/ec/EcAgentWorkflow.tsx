@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import type { EcAgentPlanStep, EcAgentWorkflowPayload, EcAssessment, EcPriorityOverride } from '@/components/ec/types';
+import type {
+  EcAgentPlanStep,
+  EcAgentWorkflowPayload,
+  EcAssessment,
+  EcEmailEdit,
+  EcPriorityOverride,
+  EcRemediationExtras,
+} from '@/components/ec/types';
 import { EcActionRecordToggle } from '@/components/ec/EcResponseRecords';
 import type { ExperienceExecutionProgressView } from '@/lib/experienceCenterExecution';
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
@@ -217,7 +224,7 @@ export function EcAgentWorkflow({
   busy?: boolean;
   executionProgress?: ExperienceExecutionProgressView | null;
   onRunInvestigation: (selectedStepIds: string[]) => void;
-  onRunRemediation: (selectedStepIds: string[], priorityOverride?: EcPriorityOverride) => void;
+  onRunRemediation: (selectedStepIds: string[], extras?: EcRemediationExtras) => void;
   onHilApprove: () => void;
   onHilSkip: () => void;
   onCreateRemediationPlan?: () => void;
@@ -250,6 +257,14 @@ export function EcAgentWorkflow({
   const chosenPriority = priorityChoice ?? (priorityControl ? { priority: priorityControl.selected, reason: priorityControl.reason } : null);
   const priorityChanged = Boolean(priorityControl && chosenPriority && chosenPriority.priority !== priorityControl.policy_priority);
   const priorityReasonMissing = priorityChanged && !chosenPriority?.reason.trim();
+  const [emailEdits, setEmailEdits] = useState<Record<string, EcEmailEdit>>({});
+  const emailEditInvalid = Object.values(emailEdits).some((edit) => !edit.subject.trim() || !edit.body.trim());
+  const remediationExtras = (): EcRemediationExtras | undefined => {
+    const extras: EcRemediationExtras = {};
+    if (priorityControl && chosenPriority) extras.priority_override = chosenPriority;
+    if (Object.keys(emailEdits).length) extras.email_edits = emailEdits;
+    return Object.keys(extras).length ? extras : undefined;
+  };
 
   const remPlanStepIds = useMemo(
     () =>
@@ -536,6 +551,15 @@ export function EcAgentWorkflow({
               selectedIds={remSelected}
               priority={chosenPriority ?? undefined}
               onPriorityChange={(priority, reason) => setPriorityChoice({ priority, reason })}
+              emailEdits={emailEdits}
+              onEmailEdit={(stepId, edit) =>
+                setEmailEdits((current) => {
+                  const next = { ...current };
+                  if (edit) next[stepId] = edit;
+                  else delete next[stepId];
+                  return next;
+                })
+              }
               editable
               onToggle={(id, checked) => {
                 setRemSelected((current) => {
@@ -569,16 +593,19 @@ export function EcAgentWorkflow({
             <div className="flex flex-wrap items-center gap-2" data-ec-section="remediation-approve">
               <Button
                 type="button"
-                disabled={busy || remSelected.size === 0 || priorityReasonMissing}
+                disabled={busy || remSelected.size === 0 || priorityReasonMissing || emailEditInvalid}
                 className="bg-cyan-600 hover:bg-cyan-600/90"
-                onClick={() =>
-                  priorityControl && chosenPriority
-                    ? onRunRemediation([...remSelected], chosenPriority)
-                    : onRunRemediation([...remSelected])
-                }
+                onClick={() => {
+                  const extras = remediationExtras();
+                  if (extras) onRunRemediation([...remSelected], extras);
+                  else onRunRemediation([...remSelected]);
+                }}
               >
                 {workflow.remediation_plan?.primary_cta ?? 'Approve remediation'}
               </Button>
+              {emailEditInvalid ? (
+                <span className="text-xs text-amber-200">An edited email needs a subject and a body.</span>
+              ) : null}
               {priorityReasonMissing ? (
                 <span className="text-xs text-amber-200">Add a reason for the priority change to approve.</span>
               ) : null}
