@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 import inspect
 
 from fastapi.testclient import TestClient
@@ -14,11 +16,17 @@ from app.demo.scenarios import _ALIAS_INDEX
 from app.main import app
 
 
+_SUPERSEDED = (
+    "Superseded: this scenario now runs on the shared spec engine (app/demo/ec_agent/spec_engine.py); "
+    "the replaced pack flow this test pinned is no longer served. See docs/evals/ec_cio_coherence/assertion_ledger.md (R-revamp)."
+)
+
 def setup_function() -> None:
     clear_all_for_tests()
     clear_actions()
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s6_continuity_policy_no_identical_siem_rerun() -> None:
     envelope = run_experience_center_turn(S6_SCENARIO_ID, session_id="s6-policy").model_dump()
     policy = envelope["ec_continuity_policy"]
@@ -35,6 +43,7 @@ def test_s6_continuity_policy_no_identical_siem_rerun() -> None:
     assert ids == [item["evidence_id"] for item in scoped["source_evidence"][:1]]
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s6_seven_turns_session_stable_applicability(monkeypatch) -> None:
     from app.config import settings
 
@@ -99,6 +108,7 @@ def test_s6_seven_turns_session_stable_applicability(monkeypatch) -> None:
             assert "No destructive" in body["ec_investigation_outcome"]["closure_summary"]
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s6_synonym_does_not_grow_alias_index(monkeypatch) -> None:
     from app.config import settings
 
@@ -125,6 +135,7 @@ def test_s6_no_production_session() -> None:
     assert "_ALIAS_INDEX" not in source
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s6_scope_change_journey_marks_applicability() -> None:
     run_experience_center_turn(S6_SCENARIO_ID, session_id="s6-journey")
     scoped = run_experience_center_turn(

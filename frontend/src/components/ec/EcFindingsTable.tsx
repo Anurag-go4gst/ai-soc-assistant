@@ -119,7 +119,10 @@ export function EcActionsTable({
             const email = (details.email_draft ?? null) as Record<string, unknown> | null;
             const spl = typeof details.normalized_spl === 'string' ? details.normalized_spl : '';
             const status = String(step.status ?? 'QUEUED').toUpperCase();
-            const done = !['QUEUED', 'RUNNING', 'SKIPPED'].includes(status);
+            const done = !['QUEUED', 'RUNNING', 'SKIPPED', 'PROPOSED', 'FAILED'].includes(status);
+            const label =
+              step.status_label ?? (done ? 'Done' : status === 'RUNNING' ? 'Running' : 'Pending approval');
+            const result = step.result ?? step.finding?.headline_finding ?? null;
             const open = openId === step.id;
             return (
               <Fragment key={step.id}>
@@ -139,8 +142,10 @@ export function EcActionsTable({
                   </td>
                   <td className="px-3 py-2.5">
                     <p className="text-slate-100">{step.title}</p>
-                    {done && step.finding?.headline_finding ? (
-                      <p className="mt-0.5 text-xs text-emerald-300/90">{step.finding.headline_finding}</p>
+                    {(done || status === 'FAILED') && result ? (
+                      <p className={cn('mt-0.5 text-xs', status === 'FAILED' ? 'text-rose-300' : 'text-emerald-300/90')}>
+                        {result}
+                      </p>
                     ) : step.summary ? (
                       <p className="mt-0.5 text-xs text-slate-400">{step.summary}</p>
                     ) : null}
@@ -170,8 +175,17 @@ export function EcActionsTable({
                   </td>
                   <td className="hidden px-3 py-2.5 text-xs text-slate-400 sm:table-cell">{(step.tools ?? []).join(' · ')}</td>
                   <td className="px-3 py-2.5 text-xs">
-                    <span className={cn('rounded border px-1.5 py-0.5', done ? 'border-emerald-500/40 text-emerald-200' : 'border-slate-600 text-slate-300')}>
-                      {done ? 'Done' : status === 'RUNNING' ? 'Running' : 'Pending approval'}
+                    <span
+                      className={cn(
+                        'whitespace-nowrap rounded border px-1.5 py-0.5',
+                        status === 'FAILED'
+                          ? 'border-rose-500/40 text-rose-200'
+                          : done
+                            ? 'border-emerald-500/40 text-emerald-200'
+                            : 'border-slate-600 text-slate-300',
+                      )}
+                    >
+                      {label}
                     </span>
                   </td>
                 </tr>

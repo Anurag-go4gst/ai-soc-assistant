@@ -1,79 +1,25 @@
-"""Flagship Experience Center packs S1–S7. Isolated from production /chat."""
+"""Experience Center scenario packs (S1–S7, R1, Q1, Q2). Isolated from production /chat."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import partial
 from typing import Any
 
 from app.demo.ec_response import EcFollowUpChip, ExperienceCenterResponse
-from app.demo.fixtures.s1.pack import (
-    S1_FOLLOWUP_IDS,
-    S1_SCENARIO_ID,
-    build_s1_demo_scenarios,
-    build_s1_turn,
-    s1_analyst_override,
-)
-from app.demo.fixtures.s1.pack import _followup_catalog as s1_followups
-from app.demo.fixtures.s2.pack import (
-    S2_FOLLOWUP_IDS,
-    S2_FOLLOWUPS,
-    S2_SCENARIO_ID,
-    build_s2_demo_scenarios,
-    build_s2_turn,
-    s2_analyst_override,
-)
-from app.demo.fixtures.s3.pack import (
-    S3_FOLLOWUP_IDS,
-    S3_FOLLOWUPS,
-    S3_SCENARIO_ID,
-    build_s3_demo_scenarios,
-    build_s3_turn,
-    s3_analyst_override,
-)
-from app.demo.fixtures.s4.pack import (
-    S4_FOLLOWUP_IDS,
-    S4_FOLLOWUPS,
-    S4_SCENARIO_ID,
-    build_s4_demo_scenarios,
-    build_s4_turn,
-    s4_analyst_override,
-)
-from app.demo.fixtures.s5.pack import (
-    S5_FOLLOWUP_IDS,
-    S5_ALL_FOLLOWUPS,
-    S5_SCENARIO_ID,
-    build_s5_demo_scenarios,
-    build_s5_turn,
-    s5_analyst_override,
-)
-from app.demo.fixtures.s6.pack import (
-    S6_FOLLOWUP_IDS,
-    S6_FOLLOWUPS,
-    S6_SCENARIO_ID,
-    S6_SYNONYMS,
-    build_s6_demo_scenarios,
-    build_s6_turn,
-    resolve_s6_follow_up,
-    s6_analyst_override,
-)
-from app.demo.fixtures.s7.pack import (
-    S7_FOLLOWUP_IDS,
-    S7_FOLLOWUPS,
-    S7_SCENARIO_ID,
-    build_s7_demo_scenarios,
-    build_s7_turn,
-    s7_analyst_override,
-)
-from app.demo.fixtures.r1.pack import (
-    R1_FOLLOWUP_IDS,
-    R1_FOLLOWUPS,
-    R1_SCENARIO_ID,
-    build_r1_demo_scenarios,
-    build_r1_turn,
-    r1_analyst_override,
-)
+from app.demo.ec_agent import spec_engine
 from app.demo.ec_agent.cio_content import enrich_agent_workflow
 from app.demo.ec_agent.registry import has_agent_profile
+from app.demo.fixtures.specs import ALL_SPECS
+
+S1_SCENARIO_ID = "s1_governed_splunk_investigation"
+S2_SCENARIO_ID = "s2_ai_prompt_injection"
+S3_SCENARIO_ID = "s3_firewall_team_coordination"
+S4_SCENARIO_ID = "s4_zero_day_no_playbook"
+S5_SCENARIO_ID = "s5_cisco_hardening_remediation"
+S6_SCENARIO_ID = "s6_investigation_continuity"
+S7_SCENARIO_ID = "s7_conflicting_ot_evidence"
+R1_SCENARIO_ID = "r1_rag_privileged_success_after_failure"
 
 FLAGSHIP_SCENARIO_IDS = (
     S1_SCENARIO_ID,
@@ -106,65 +52,26 @@ class _Pack:
         self.resolve = resolve or (lambda follow_up_id: follow_up_id)
 
 
-PACKS: dict[str, _Pack] = {
-    S1_SCENARIO_ID: _Pack(
-        followup_ids=S1_FOLLOWUP_IDS,
-        followups=lambda: list(s1_followups()),
-        build_turn=build_s1_turn,
-        analyst_override=s1_analyst_override,
-        demo_scenarios=build_s1_demo_scenarios,
-    ),
-    S2_SCENARIO_ID: _Pack(
-        followup_ids=S2_FOLLOWUP_IDS,
-        followups=lambda: list(S2_FOLLOWUPS),
-        build_turn=build_s2_turn,
-        analyst_override=s2_analyst_override,
-        demo_scenarios=build_s2_demo_scenarios,
-    ),
-    S3_SCENARIO_ID: _Pack(
-        followup_ids=S3_FOLLOWUP_IDS,
-        followups=lambda: list(S3_FOLLOWUPS),
-        build_turn=build_s3_turn,
-        analyst_override=s3_analyst_override,
-        demo_scenarios=build_s3_demo_scenarios,
-    ),
-    S4_SCENARIO_ID: _Pack(
-        followup_ids=S4_FOLLOWUP_IDS,
-        followups=lambda: list(S4_FOLLOWUPS),
-        build_turn=build_s4_turn,
-        analyst_override=s4_analyst_override,
-        demo_scenarios=build_s4_demo_scenarios,
-    ),
-    S5_SCENARIO_ID: _Pack(
-        followup_ids=S5_FOLLOWUP_IDS,
-        followups=lambda: list(S5_ALL_FOLLOWUPS),
-        build_turn=build_s5_turn,
-        analyst_override=s5_analyst_override,
-        demo_scenarios=build_s5_demo_scenarios,
-    ),
-    S6_SCENARIO_ID: _Pack(
-        followup_ids=S6_FOLLOWUP_IDS,
-        followups=lambda: list(S6_FOLLOWUPS),
-        build_turn=build_s6_turn,
-        analyst_override=s6_analyst_override,
-        demo_scenarios=build_s6_demo_scenarios,
-        resolve=resolve_s6_follow_up,
-    ),
-    S7_SCENARIO_ID: _Pack(
-        followup_ids=S7_FOLLOWUP_IDS,
-        followups=lambda: list(S7_FOLLOWUPS),
-        build_turn=build_s7_turn,
-        analyst_override=s7_analyst_override,
-        demo_scenarios=build_s7_demo_scenarios,
-    ),
-    R1_SCENARIO_ID: _Pack(
-        followup_ids=R1_FOLLOWUP_IDS,
-        followups=lambda: list(R1_FOLLOWUPS),
-        build_turn=build_r1_turn,
-        analyst_override=r1_analyst_override,
-        demo_scenarios=build_r1_demo_scenarios,
-    ),
-}
+def _spec_analyst_override(spec: spec_engine.ScenarioSpec, scenario_id: str, base: dict[str, Any]) -> dict[str, Any] | None:
+    """Plan-turn analyst card for callers of the legacy ``run_demo_scenario`` dict path."""
+    if scenario_id != spec.scenario_id:
+        return None
+    response = spec_engine.build_turn(spec, session_id="ec-override", turn=0, applied_follow_up_ids=[])
+    return {**base, **(response.analyst or {})}
+
+
+def _spec_pack(spec: spec_engine.ScenarioSpec) -> _Pack:
+    return _Pack(
+        followup_ids=spec_engine.FOLLOW_UP_IDS,
+        followups=spec_engine.followup_chips,
+        build_turn=partial(spec_engine.build_turn, spec),
+        analyst_override=partial(_spec_analyst_override, spec),
+        demo_scenarios=partial(spec_engine.demo_scenario_entry, spec),
+    )
+
+
+# Every Experience Center scenario (S1–S7, R1, Q1, Q2) runs on the shared spec engine.
+PACKS: dict[str, _Pack] = {spec.scenario_id: _spec_pack(spec) for spec in ALL_SPECS}
 
 
 def resolve_follow_up(scenario_id: str, follow_up_id: str) -> str:
@@ -185,10 +92,7 @@ def known_flagship_follow_up_ids(scenario_id: str) -> set[str] | None:
     pack = PACKS.get(scenario_id)
     if pack is None:
         return None
-    ids = set(pack.followup_ids)
-    if scenario_id == S6_SCENARIO_ID:
-        ids.update(S6_SYNONYMS)
-    return ids
+    return set(pack.followup_ids)
 
 
 def build_flagship_turn(

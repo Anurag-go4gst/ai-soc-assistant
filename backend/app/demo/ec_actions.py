@@ -21,6 +21,8 @@ _ALLOWED_KINDS = frozenset(
         "cisco_get_version",
         "cisco_upgrade",
         "agilus_patch_submit",
+        "agilus_change",
+        "agilus_verify",
         "iam_disable",
         "edr_isolate",
         "notify",

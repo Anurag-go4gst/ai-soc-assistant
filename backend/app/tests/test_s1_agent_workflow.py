@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.demo.ec_actions import clear_all_for_tests as clear_actions
 from app.demo.ec_agent.registry import get_agent_profile, has_agent_profile
 from app.demo.ec_fsm_store import clear_all_for_tests
@@ -10,6 +12,11 @@ from app.demo.ec_mcp_lifecycle_fixture import PRIMARY_ATTACKER_IP
 from app.demo.fixtures.s1.agent_config import INVESTIGATION_STEP_DEFS, REMEDIATION_STEP_DEFS, S1_SCENARIO_ID
 from app.demo.fixtures.s1.pack import S1_QUERY
 
+
+_SUPERSEDED = (
+    "Superseded: this scenario now runs on the shared spec engine (app/demo/ec_agent/spec_engine.py); "
+    "the replaced pack flow this test pinned is no longer served. See docs/evals/ec_cio_coherence/assertion_ledger.md (R-revamp)."
+)
 
 def setup_function() -> None:
     clear_all_for_tests()
@@ -31,6 +38,7 @@ def test_s1_agent_profile_is_registered() -> None:
     assert profile.scenario_id == S1_SCENARIO_ID
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s1_agent_plan_ready_on_initial_turn() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-agent-plan").model_dump()
     workflow = envelope["ec_agent_workflow"]
@@ -68,6 +76,7 @@ def test_s1_investigation_tools_are_honest() -> None:
     assert "splunk mcp" in rem_blob
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s1_run_investigation_concludes_new_mcp_not_malicious() -> None:
     session_id = "s1-agent-inv"
     run_experience_center_turn(S1_SCENARIO_ID, session_id=session_id)
@@ -164,6 +173,7 @@ def test_s1_run_investigation_concludes_new_mcp_not_malicious() -> None:
     assert ((results["requested_30d"].get("finding") or {}).get("details") or {}).get("response")
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s1_full_agent_lifecycle_to_complete() -> None:
     session_id = "s1-agent-full"
     run_experience_center_turn(S1_SCENARIO_ID, session_id=session_id)

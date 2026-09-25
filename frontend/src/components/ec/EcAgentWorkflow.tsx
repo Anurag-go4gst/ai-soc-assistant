@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import type { EcAgentPlanStep, EcAgentWorkflowPayload } from '@/components/ec/types';
+import type { EcAgentPlanStep, EcAgentWorkflowPayload, EcAssessment } from '@/components/ec/types';
 import type { ExperienceExecutionProgressView } from '@/lib/experienceCenterExecution';
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { EcInvestigationResultList, EcInvestigationSummaryStrip } from '@/components/ec/EcInvestigationResultList';
@@ -54,6 +54,25 @@ function ConclusionPoints({ points }: { points: string[] }) {
         );
       })}
     </ol>
+  );
+}
+
+/** Incident priority (deterministic policy) and threat assessment, side by side — never merged. */
+function AssessmentLine({ assessment }: { assessment?: EcAssessment | null }) {
+  if (!assessment) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-2 text-xs" data-ec-section="assessment">
+      <span
+        className="rounded border border-slate-700 bg-slate-950/50 px-2 py-1 text-slate-200"
+        title={`${assessment.priority_rule}: ${assessment.priority_basis}`}
+      >
+        Incident priority <span className="font-semibold text-slate-50">{assessment.incident_priority}</span>
+        <span className="text-slate-400"> · {assessment.priority_rule} ({assessment.priority_basis})</span>
+      </span>
+      <span className="rounded border border-slate-700 bg-slate-950/50 px-2 py-1 text-slate-200">
+        Threat assessment <span className="font-semibold text-slate-50">{assessment.threat_assessment}</span>
+      </span>
+    </div>
   );
 }
 
@@ -370,6 +389,7 @@ export function EcAgentWorkflow({
               {workflow.investigation_conclusion.headline}
             </p>
           ) : null}
+          <AssessmentLine assessment={workflow.investigation_conclusion.assessment} />
           {workflow.investigation_conclusion.narrative_points?.filter((point) => point.trim()).length ? (
             <ConclusionPoints points={workflow.investigation_conclusion.narrative_points} />
           ) : workflow.investigation_conclusion.narrative ? (
@@ -378,6 +398,11 @@ export function EcAgentWorkflow({
                 .split(/(?<=[.!?])\s+/)
                 .filter((point) => point.trim())}
             />
+          ) : null}
+          {workflow.investigation_conclusion.sources?.length ? (
+            <p className="mt-3 text-xs text-slate-400" data-ec-section="answer-sources">
+              Sources: {workflow.investigation_conclusion.sources.join(' · ')}
+            </p>
           ) : null}
         </section>
       ) : null}
@@ -554,38 +579,42 @@ export function EcAgentWorkflow({
       ) : null}
 
 
-      {workflow.final_summary && workflow.lifecycle === 'COMPLETE' ? (
+      {workflow.final_summary && remComplete ? (
         <section className="space-y-3 rounded-lg border border-emerald-500/25 bg-emerald-950/15 p-4" data-ec-section="executive-summary">
-          <EcSectionHeading>{workflow.final_summary.title ?? 'Response completed'}</EcSectionHeading>
+          <EcSectionHeading>{workflow.final_summary.title ?? 'Response'}</EcSectionHeading>
           <p className="text-lg font-semibold text-slate-50">{workflow.final_summary.headline}</p>
-          <p className="text-sm text-slate-300">
-            Current risk: {workflow.final_summary.risk_from ?? workflow.final_summary.risk_to} ·{' '}
-            {workflow.final_summary.severity} · {workflow.final_summary.affected} · malicious use:{' '}
-            {workflow.final_summary.compromise}
-          </p>
-          <ul className="space-y-1 text-sm text-slate-200">
-            {(workflow.final_summary.completed ?? []).map((item) => (
-              <li key={item}>✓ {item}</li>
-            ))}
-            {(workflow.final_summary.deferred ?? []).map((item) => (
-              <li key={item} className="text-slate-400">— {item}</li>
-            ))}
-          </ul>
-          {(workflow.final_summary.in_progress ?? []).length ? (
-            <p className="text-sm text-amber-100">
-              Still in progress: {(workflow.final_summary.in_progress ?? []).join(' · ')}
-            </p>
-          ) : null}
-          <p className="text-sm text-slate-300">{workflow.final_summary.risk_note}</p>
-          {!workflow.executive_brief && workflow.executive_summary?.length ? (
-            <ul className="space-y-2 border-t border-emerald-500/15 pt-3 text-sm leading-relaxed text-slate-100">
-              {workflow.executive_summary.map((item) => (
-                <li key={item} className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400" aria-hidden="true" />
-                  <span>{item}</span>
+          <AssessmentLine assessment={workflow.final_summary.assessment} />
+          {workflow.final_summary.actions?.length ? (
+            <ul className="space-y-1.5 text-sm text-slate-200" data-ec-section="final-actions">
+              {workflow.final_summary.actions.map((action) => (
+                <li key={action.title} className="flex flex-wrap items-baseline gap-2">
+                  <span className={action.status === 'FAILED' ? 'text-rose-300' : 'text-emerald-300'}>
+                    {action.status === 'FAILED' ? '✕' : '✓'}
+                  </span>
+                  <span>{action.result ?? action.title}</span>
+                  <span className="rounded border border-slate-700 px-1.5 py-0.5 text-[11px] text-slate-300">
+                    {action.status_label}
+                  </span>
                 </li>
               ))}
             </ul>
+          ) : (
+            <ul className="space-y-1 text-sm text-slate-200">
+              {(workflow.final_summary.completed ?? []).map((item) => (
+                <li key={item}>✓ {item}</li>
+              ))}
+            </ul>
+          )}
+          {(workflow.final_summary.in_progress ?? []).length ? (
+            <p className="text-sm text-amber-100">
+              Waiting on: {(workflow.final_summary.in_progress ?? []).join(' · ')}
+            </p>
+          ) : null}
+          {(workflow.final_summary.deferred ?? []).map((item) => (
+            <p key={item} className="text-sm text-slate-400">— {item}</p>
+          ))}
+          {workflow.final_summary.risk_note ? (
+            <p className="text-sm text-slate-300">Next: {workflow.final_summary.risk_note}</p>
           ) : null}
         </section>
       ) : null}

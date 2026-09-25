@@ -33,9 +33,9 @@ def test_restore_action_snapshot_allows_soar_execute_after_store_clear() -> None
 
 
 def test_suggest_queries_fuzzy_not_exact_only() -> None:
-    suggestions = suggest_ec_queries("suspicious ip communication")
+    suggestions = suggest_ec_queries("traffic from external ip to admin systems")
     assert suggestions
-    assert any("198.51.100.42" in row["question"] for row in suggestions)
+    assert any("new external IP" in row["question"] for row in suggestions)
 
 
 def test_resolve_ec_query_fuzzy_variation() -> None:

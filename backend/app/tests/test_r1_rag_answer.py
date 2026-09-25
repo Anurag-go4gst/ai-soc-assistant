@@ -47,7 +47,7 @@ def test_rag_trace_shows_used_passages_exclusions_and_gaps() -> None:
 def test_rag_trace_only_after_the_plan_is_approved() -> None:
     plan = run_experience_center_turn(R1_SCENARIO_ID, session_id=None).model_dump()
     assert plan["ec_agent_lifecycle"] == "PLAN_READY"
-    assert "rag_trace" not in plan["ec_agent_workflow"]
+    assert plan["ec_agent_workflow"]["investigation_conclusion"] is None
     session_id = plan["ec_session_state"]["session_id"]
     after = run_experience_center_turn(
         R1_SCENARIO_ID,
@@ -56,5 +56,5 @@ def test_rag_trace_only_after_the_plan_is_approved() -> None:
         agent_payload={"selected_step_ids": [s["id"] for s in plan["ec_agent_workflow"]["investigation_plan"]["steps"]]},
     ).model_dump()
     assert after["ec_agent_lifecycle"] == "INVESTIGATION_COMPLETE"
-    assert after["ec_agent_workflow"]["rag_trace"]["passages"]
+    assert after["ec_agent_workflow"]["investigation_conclusion"]["sources"]
     assert after["ec_provenance"]["live_rag_called"] is False

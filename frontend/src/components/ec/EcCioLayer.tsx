@@ -118,7 +118,7 @@ export function EcToolFabric({ tools }: { tools: EcToolFabricEntry[] }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <EcSectionHeading>Connected tools</EcSectionHeading>
         {anyDemo ? (
-          <span className="text-[11px] text-slate-500">Demo connectors · deterministic responses</span>
+          <span className="text-[11px] text-slate-500">Governed connectors</span>
         ) : null}
       </div>
       <ul className="flex flex-wrap gap-1.5">

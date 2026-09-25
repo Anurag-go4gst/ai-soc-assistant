@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.demo.ec_actions import clear_all_for_tests as clear_actions
 from app.demo.ec_agent.registry import get_agent_profile, has_agent_profile
 from app.demo.ec_fsm_store import clear_all_for_tests
@@ -9,6 +11,11 @@ from app.demo.ec_turn import run_experience_center_turn
 from app.demo.fixtures.s2.agent_config import INVESTIGATION_STEP_DEFS, REMEDIATION_STEP_DEFS, S2_SCENARIO_ID
 from app.demo.fixtures.s2.pack import S2_QUERY
 
+
+_SUPERSEDED = (
+    "Superseded: this scenario now runs on the shared spec engine (app/demo/ec_agent/spec_engine.py); "
+    "the replaced pack flow this test pinned is no longer served. See docs/evals/ec_cio_coherence/assertion_ledger.md (R-revamp)."
+)
 
 def setup_function() -> None:
     clear_all_for_tests()
@@ -30,6 +37,7 @@ def test_s2_agent_profile_is_registered() -> None:
     assert profile.scenario_id == S2_SCENARIO_ID
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s2_agent_plan_ready_on_initial_turn() -> None:
     envelope = run_experience_center_turn(S2_SCENARIO_ID, session_id="s2-agent-plan").model_dump()
     workflow = envelope["ec_agent_workflow"]
@@ -48,6 +56,7 @@ def test_s2_agent_plan_ready_on_initial_turn() -> None:
     assert envelope["ec_provenance"]["live_mcp_called"] is False
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s2_investigation_tools_are_only_onboarded_connectors() -> None:
     """Investigation may name Splunk MCP + SOC-KB only. No invented IAM/DLP/CMDB MCP."""
     investigation_tools = {tool for step in INVESTIGATION_STEP_DEFS for tool in (step.get("tools") or [])}
@@ -63,6 +72,7 @@ def test_s2_investigation_tools_are_only_onboarded_connectors() -> None:
     assert "mcp" not in rem_blob
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s2_run_investigation_answers_three_questions_without_hil() -> None:
     session_id = "s2-agent-inv"
     run_experience_center_turn(S2_SCENARIO_ID, session_id=session_id)
@@ -102,6 +112,7 @@ def test_s2_run_investigation_answers_three_questions_without_hil() -> None:
     assert "machine learning toolkit" not in blob
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s2_full_agent_lifecycle_to_complete() -> None:
     session_id = "s2-agent-full"
     run_experience_center_turn(S2_SCENARIO_ID, session_id=session_id)

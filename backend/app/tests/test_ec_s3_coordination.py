@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.demo.ec_coordination_s3 import (
     build_s3_action_readiness,
     build_s3_evidence_reuse,
@@ -10,6 +12,11 @@ from app.demo.ec_coordination_s3 import (
 from app.demo.ec_turn import run_experience_center_turn
 from app.demo.fixtures.s3.pack import S3_SCENARIO_ID
 
+
+_SUPERSEDED = (
+    "Superseded: this scenario now runs on the shared spec engine (app/demo/ec_agent/spec_engine.py); "
+    "the replaced pack flow this test pinned is no longer served. See docs/evals/ec_cio_coherence/assertion_ledger.md (R-revamp)."
+)
 
 def test_build_s3_evidence_reuse_rows_mark_reused() -> None:
     rows = build_s3_evidence_reuse()
@@ -32,6 +39,7 @@ def test_build_s3_recommended_coordination_mentions_no_spl() -> None:
     assert any("not automatic" in step.lower() or "not close" in step.lower() for step in after)
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s3_initial_envelope_has_coordination_fields() -> None:
     envelope = run_experience_center_turn(S3_SCENARIO_ID, session_id="s3-coord").model_dump()
     assert envelope["ec_coordination_policy"]["spl_generated"] is False

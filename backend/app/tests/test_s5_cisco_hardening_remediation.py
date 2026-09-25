@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 import inspect
 
 from fastapi.testclient import TestClient
@@ -13,11 +15,17 @@ from app.demo.fixtures.s5.pack import S5_DEVICE, S5_SCENARIO_ID
 from app.main import app
 
 
+_SUPERSEDED = (
+    "Superseded: this scenario now runs on the shared spec engine (app/demo/ec_agent/spec_engine.py); "
+    "the replaced pack flow this test pinned is no longer served. See docs/evals/ec_cio_coherence/assertion_ledger.md (R-revamp)."
+)
+
 def setup_function() -> None:
     clear_all_for_tests()
     clear_actions()
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s5_initial_version_14_and_policy_not_production_cisco() -> None:
     envelope = run_experience_center_turn(S5_SCENARIO_ID, session_id="s5-e1").model_dump()
     assert envelope["ec_cisco"]["current_version"] == 14
@@ -31,6 +39,7 @@ def test_s5_initial_version_14_and_policy_not_production_cisco() -> None:
     assert envelope["production_side_effect"] is False
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s5_state_machine_14_to_15(monkeypatch) -> None:
     from app.config import settings
 
@@ -89,6 +98,7 @@ def test_s5_execute_upgrade_journey_includes_hil_stage() -> None:
     assert any(stage.semantic_type == "hil" for stage in journey.stages)
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s5_evidence_surfaces_agree(monkeypatch) -> None:
     from app.config import settings
 
@@ -139,6 +149,7 @@ def test_s5_evidence_surfaces_agree(monkeypatch) -> None:
             assert body["ec_investigation_outcome"]["closure_summary"]
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s5_policy_not_in_confirmed_before_show_hardening_policy() -> None:
     initial = run_experience_center_turn(S5_SCENARIO_ID, session_id="s5-policy-gate").model_dump()
     assert not any(item["evidence_id"] == "ev-s5-policy" for item in initial["source_evidence"])
@@ -162,6 +173,7 @@ def test_s5_no_production_cisco_connector() -> None:
     assert "napalm" not in source
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s5_initial_journey_titles_disclose_version_14_as_fixture_replay() -> None:
     from app.demo.ec_journeys import S5_INITIAL_TITLES
 

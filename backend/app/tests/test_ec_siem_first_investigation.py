@@ -21,6 +21,11 @@ from app.demo.fixtures.s1.pack import S1_SCENARIO_ID
 from app.demo.fixtures.s2.pack import S2_SCENARIO_ID
 
 
+_SUPERSEDED = (
+    "Superseded: this scenario now runs on the shared spec engine (app/demo/ec_agent/spec_engine.py); "
+    "the replaced pack flow this test pinned is no longer served. See docs/evals/ec_cio_coherence/assertion_ledger.md (R-revamp)."
+)
+
 def test_splunk_mcp_audit_inventory_is_documented() -> None:
     assert len(SPLUNK_MCP_AUDIT_ROWS) >= 8
     find_row = next(row for row in SPLUNK_MCP_AUDIT_ROWS if row["tool"] == "find_data_source")
@@ -37,6 +42,7 @@ def test_find_data_source_not_in_environment() -> None:
         assert name not in tools
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s2_gap_spl_passes_validator_and_candidate_not_equal_normalized_execution() -> None:
     validation = s2_gap_spl_validation()
     assert validation["approved"] is True
@@ -50,6 +56,7 @@ def test_s2_gap_spl_passes_validator_and_candidate_not_equal_normalized_executio
     assert envelope["execution"]["executed_spl"] == validation["normalized_spl"]
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s2_reuse_first_partial_coverage_gap_search_only() -> None:
     envelope = run_experience_center_turn(S2_SCENARIO_ID, session_id="s2-siem-reuse").model_dump()
     coverage = build_s2_siem_coverage(dlp_obtained=False)
@@ -66,6 +73,7 @@ def test_s2_reuse_first_partial_coverage_gap_search_only() -> None:
     assert "reused" in note or "gap" in note
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_detection_existence_does_not_confirm_breach() -> None:
     from app.demo.ec_siem import build_s2_attack_chain
 
@@ -94,6 +102,7 @@ def test_ec_projection_has_no_saia_tools() -> None:
         assert trace["mcp_tool"] not in SAIA_TOOL_NAMES
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_layer2_shows_verified_mcp_tools_only() -> None:
     envelope = run_experience_center_turn(S2_SCENARIO_ID, session_id="s2-siem-tools").model_dump()
     allowed = set(ec_verified_splunk_tools_for_projection())
@@ -111,6 +120,7 @@ def test_s2_siem_coverage_card_fields_visitor_readable() -> None:
     assert "saia_" not in blob
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_dlp_follow_up_journey_reuse_first_titles() -> None:
     envelope = run_experience_center_turn(
         S2_SCENARIO_ID,
@@ -132,6 +142,7 @@ def test_build_s2_siem_coverage_after_dlp() -> None:
     assert dlp_after.decision == "Reused search"
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s1_reuse_first_gap_searches_only_after_existing_content() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-siem-reuse").model_dump()
     coverage = envelope["ec_siem_coverage"]
@@ -144,6 +155,7 @@ def test_s1_reuse_first_gap_searches_only_after_existing_content() -> None:
     assert len(envelope["ec_spl_governance"]["searches"]) == 2
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s1_assessment_does_not_claim_all_communication_paths() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-scope-lang").model_dump()
     assert envelope["ec_agent_lifecycle"] == "PLAN_READY"
@@ -163,6 +175,7 @@ def test_s1_assessment_does_not_claim_all_communication_paths() -> None:
     ).lower()
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s1_jump_host_pivot_and_scope_cards() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-pivot").model_dump()
     pivot = envelope["ec_investigation_pivot"]
@@ -174,6 +187,7 @@ def test_s1_jump_host_pivot_and_scope_cards() -> None:
     assert dns["status"] == "AVAILABLE_NOT_QUERIED"
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s1_mitre_t1110_candidate_not_supported() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-mitre").model_dump()
     t1110 = next(item for item in envelope["ec_investigation_outcome"]["mitre"] if item["technique_id"] == "T1110.001")
@@ -183,6 +197,7 @@ def test_s1_mitre_t1110_candidate_not_supported() -> None:
     assert t1110_row["Status"] == "Candidate"
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s1_layer2_path_has_no_empty_headings() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-layer2").model_dump()
     path = envelope["ec_layer2_path"]
@@ -191,6 +206,7 @@ def test_s1_layer2_path_has_no_empty_headings() -> None:
     assert "SIEM coverage discovery" in path
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s1_action_readiness_and_recommended_investigations() -> None:
     envelope = run_experience_center_turn(S1_SCENARIO_ID, session_id="s1-readiness").model_dump()
     rows = envelope["ec_action_readiness"]

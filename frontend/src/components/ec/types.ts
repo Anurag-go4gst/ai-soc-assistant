@@ -154,6 +154,16 @@ export interface EcAgentPlanStep {
   /** Remediation: the risk of not doing it. */
   risk_if_skipped?: string;
   tool_ids?: string[];
+  /** Remediation: analyst-facing state, e.g. "Pending approval", "Requested", "Verified". */
+  status_label?: string;
+}
+
+/** Incident priority (from the deterministic policy) kept apart from the threat assessment. */
+export interface EcAssessment {
+  incident_priority: string;
+  priority_rule: string;
+  priority_basis: string;
+  threat_assessment: string;
 }
 
 export interface EcExecutiveBrief {
@@ -314,6 +324,9 @@ export interface EcAgentWorkflowPayload {
     confidence?: number;
     findings?: string[];
     evidence_summary?: Array<{ source: string; detail: string; provenance: string }>;
+    assessment?: EcAssessment | null;
+    /** Knowledge-base passages the answer cites. */
+    sources?: string[];
   } | null;
   next_step_cta?: {
     label?: string;
@@ -331,6 +344,8 @@ export interface EcAgentWorkflowPayload {
     risk_from?: string;
     risk_to?: string;
     risk_note?: string;
+    assessment?: EcAssessment | null;
+    actions?: Array<{ title: string; status: string; status_label: string; result?: string | null }>;
   } | null;
   verification?: Array<{ item: string; status: string; detail: string }>;
 }

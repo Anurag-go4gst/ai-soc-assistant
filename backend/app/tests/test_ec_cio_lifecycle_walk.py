@@ -1,11 +1,9 @@
-"""Walk every /scenarios catalog question end-to-end and hold it to the CIO bar.
+"""Walk every /scenarios catalog question end-to-end and hold it to the SOC realism bar.
 
-Plan: plans/2026-09-24_1635_ec-cio-coherence-and-lifecycle.md (item A0.2).
+Plan: plans/2026-09-24_1635_ec-cio-coherence-and-lifecycle.md (A0.2; realism revamp R-items).
 
-Agent scenarios are driven with their **default** step selections (the first review pass
-selected every step, which forced S7 onto Path B and skipped S4's Agilus HIL — a harness
-artifact, not a product defect). Anything not yet fixed is ``xfail(strict=True)`` with the
-plan item that fixes it, so each fix flips exactly one expectation.
+All ten questions run on the shared spec engine and are driven with their **default** step
+selections: plan → run → proposed response → approve → execution and verification.
 """
 
 from __future__ import annotations
@@ -29,13 +27,12 @@ Q1 = "firewall_deny_coordinated_attack"
 Q2 = "firewall_baseline_template_spl"
 R1 = "r1_rag_privileged_success_after_failure"
 
-AGENT_SCENARIOS = (S1, S2, S4, S7, R1)
-LEGACY_LIFECYCLE_SCENARIOS = (S3, S5, S6, Q1)
+AGENT_SCENARIOS = (S1, S2, S3, S4, S5, S6, S7, R1, Q1, Q2)
 
 # Words that describe the demo harness rather than the investigation.
 DEMO_WORDS = re.compile(
     r"\bfixture\b|\bsimulated\b|Experience Center|Scenario: S\d|ZD-FIXTURE|\(if checked\)"
-    r"|\bonboarded\b|non-executable|\blive (?:MCP|LLM)\b",
+    r"|\bonboarded\b|non-executable|\blive (?:MCP|LLM)\b|\bdemo\b|pgcil|Northwind|198\.51\.100",
     re.IGNORECASE,
 )
 
@@ -153,71 +150,120 @@ def agent_walks() -> dict[str, list[tuple[str, dict[str, Any]]]]:
 
 @pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
 def test_agent_scenario_reaches_complete_with_default_plan(agent_walks, scenario_id):
-    lifecycles = [response.get("ec_agent_lifecycle") for _, response in agent_walks[scenario_id]]
-    assert lifecycles[0] == "PLAN_READY"
-    assert "INVESTIGATION_COMPLETE" in lifecycles
-    assert "REMEDIATION_PLAN_READY" in lifecycles
-    assert lifecycles[-1] == "COMPLETE"
+    assert _turn(agent_walks[scenario_id], "COMPLETE")
 
 
 @pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
 def test_agent_mode_emits_no_chips_before_completion(agent_walks, scenario_id):
-    turns = agent_walks[scenario_id]
-    for lifecycle in ("PLAN_READY", "INVESTIGATION_COMPLETE"):
-        assert _turn(turns, lifecycle)["ec_followups"] == [], lifecycle
+    for name, response in agent_walks[scenario_id]:
+        assert response["ec_followups"] == [], name
 
 
 @pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
 def test_nothing_executes_before_plan_approval(agent_walks, scenario_id):
-    assert _turn(agent_walks[scenario_id], "PLAN_READY")["ec_actions"] == []
+    for lifecycle in ("PLAN_READY", "INVESTIGATION_COMPLETE", "REMEDIATION_PLAN_READY"):
+        assert _turn(agent_walks[scenario_id], lifecycle)["ec_actions"] == [], lifecycle
 
 
-def test_s4_default_plan_stops_for_agilus_approval(agent_walks):
-    lifecycles = [response.get("ec_agent_lifecycle") for _, response in agent_walks[S4]]
-    assert "INVESTIGATION_NEEDS_APPROVAL" in lifecycles
+@pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
+def test_plan_is_short(agent_walks, scenario_id):
+    plan = _turn(agent_walks[scenario_id], "PLAN_READY")["ec_agent_workflow"]
+    checks = [step for step in _steps(plan["investigation_plan"]) if step.get("selected")]
+    assert 2 <= len(checks) <= 3, [step["id"] for step in checks]
+    actions = _steps(_turn(agent_walks[scenario_id], "REMEDIATION_PLAN_READY")["ec_agent_workflow"]["remediation_plan"])
+    assert 1 <= len(actions) <= 5
 
 
-def test_s7_default_path_is_live_device_not_recycled_identity(agent_walks):
+@pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
+def test_every_step_says_what_it_does_and_which_tool(agent_walks, scenario_id):
+    plan = _turn(agent_walks[scenario_id], "PLAN_READY")["ec_agent_workflow"]
+    missing = [step["id"] for step in _steps(plan["investigation_plan"]) if not (step.get("summary") and step.get("tools"))]
+    assert missing == []
+    remediation = _turn(agent_walks[scenario_id], "REMEDIATION_PLAN_READY")["ec_agent_workflow"]
+    missing = [step["id"] for step in _steps(remediation["remediation_plan"]) if not (step.get("summary") and step.get("tools"))]
+    assert missing == []
+
+
+@pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
+def test_actions_are_pending_until_approved(agent_walks, scenario_id):
+    proposed = _steps(_turn(agent_walks[scenario_id], "REMEDIATION_PLAN_READY")["ec_agent_workflow"]["remediation_plan"])
+    assert {step["status"] for step in proposed} == {"PROPOSED"}
+    assert {step["status_label"] for step in proposed} == {"Pending approval"}
+    assert all(step["result"] is None for step in proposed)
+    done = _steps(_turn(agent_walks[scenario_id], "COMPLETE")["ec_agent_workflow"]["remediation_plan"])
+    assert all(step["status"] in {"EXECUTED", "VERIFIED", "REQUESTED", "SCHEDULED", "AWAITING_REPLY"} for step in done)
+
+
+_BEFORE_EXECUTION = re.compile(
+    r"watch is live|watch live|incident opened|email sent|change completed|\bopened \(P\d\)", re.IGNORECASE
+)
+
+
+@pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
+def test_no_ticket_id_or_done_claim_before_execution(agent_walks, scenario_id):
+    from app.demo.ec_agent.spec_engine import spec_for
+
+    spec = spec_for(scenario_id)
+    created = {action.ticket_id for action in spec.actions if action.ticket_id}
+    for lifecycle in ("PLAN_READY", "INVESTIGATION_COMPLETE", "REMEDIATION_PLAN_READY"):
+        text = str(_turn(agent_walks[scenario_id], lifecycle)["ec_agent_workflow"])
+        assert [ticket for ticket in created if ticket in text] == [], lifecycle
+        assert not _BEFORE_EXECUTION.search(text), lifecycle
+
+
+@pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
+def test_final_state_is_not_closed_while_work_is_pending(agent_walks, scenario_id):
+    final = _turn(agent_walks[scenario_id], "COMPLETE")["ec_agent_workflow"]["final_summary"]
+    assert final["title"] and "COMPLETE" not in final["title"].upper().split(" — ")[0]
+    if final["in_progress"]:
+        assert not final["title"].upper().startswith(("CLOSED", "RESOLVED"))
+
+
+def test_s4_uses_agilus_for_versions_and_the_approved_workaround(agent_walks):
+    complete = _turn(agent_walks[S4], "COMPLETE")["ec_agent_workflow"]
+    checks = {step["id"]: step for step in complete["investigation_results"]["steps"]}
+    assert checks["affected_versions"]["tool_ids"] == ["agilus_mcp"]
+    workaround = next(step for step in complete["remediation_plan"]["steps"] if step["id"] == "apply_workaround")
+    assert workaround["tool_ids"] == ["agilus_mcp"] and workaround["status"] == "VERIFIED"
+
+
+def test_s7_finds_a_live_device_not_a_recycled_identity(agent_walks):
     conclusion = _turn(agent_walks[S7], "INVESTIGATION_COMPLETE")["ec_agent_workflow"]["investigation_conclusion"]
-    assert "active" in conclusion["headline"].lower()
+    assert "still live" in conclusion["headline"].lower()
     assert "not an incident" not in conclusion["headline"].lower()
 
 
-@pytest.mark.parametrize(
-    "scenario_id",
-    [pytest.param(sid, marks=pytest.mark.xfail(strict=True, reason="Release B: lifecycle adoption")) for sid in LEGACY_LIFECYCLE_SCENARIOS],
-)
-def test_legacy_scenario_is_on_agent_lifecycle(scenario_id):
+@pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
+def test_every_scenario_is_on_agent_lifecycle(scenario_id):
     response = run_experience_center_turn(scenario_id, session_id=None).model_dump()
     assert response.get("ec_agent_lifecycle") == "PLAN_READY"
 
 
-# ---------------------------------------------------------------- CIO content
+# ---------------------------------------------------------------- findings
 
 
-@pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
-def test_every_plan_step_says_why(agent_walks, scenario_id):
-    plan = _turn(agent_walks[scenario_id], "PLAN_READY")["ec_agent_workflow"]
-    missing = [step["id"] for step in _steps(plan["investigation_plan"]) if not (step.get("rationale") and step.get("decides"))]
-    assert missing == [], f"investigation steps without rationale/decides: {missing}"
-
-    remediation = _turn(agent_walks[scenario_id], "REMEDIATION_PLAN_READY")["ec_agent_workflow"]
-    rem_steps = _steps(remediation.get("remediation_results")) or _steps(remediation["remediation_plan"])
-    missing = [
-        step["id"]
-        for step in rem_steps
-        if not (step.get("rationale") and step.get("reversible") and step.get("approver"))
-    ]
-    assert missing == [], f"remediation steps without rationale/reversible/approver: {missing}"
+@pytest.mark.parametrize("scenario_id", [sid for sid in AGENT_SCENARIOS if sid != Q2])
+def test_priority_and_threat_are_separate_and_policy_based(agent_walks, scenario_id):
+    conclusion = _turn(agent_walks[scenario_id], "INVESTIGATION_COMPLETE")["ec_agent_workflow"]["investigation_conclusion"]
+    assessment = conclusion["assessment"]
+    assert assessment["incident_priority"] in {"P1", "P2", "P3", "P4"}
+    assert assessment["priority_rule"].startswith("SOC-POL-PRIO-01 rule ")
+    assert assessment["threat_assessment"] in {"Confirmed", "Suspected", "Unconfirmed", "Benign", "Insufficient evidence"}
 
 
-@pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
-def test_executive_brief_at_outcome_and_close(agent_walks, scenario_id):
-    for lifecycle in ("INVESTIGATION_COMPLETE", "COMPLETE"):
-        brief = _turn(agent_walks[scenario_id], lifecycle)["ec_agent_workflow"].get("executive_brief") or {}
-        assert brief.get("verdict"), lifecycle
-        assert brief.get("decision_needed"), lifecycle
-        assert brief.get("business_impact"), lifecycle
+@pytest.mark.parametrize("scenario_id", (S1, S2, S4, S5, S6, S7, Q1))
+def test_the_agent_adds_a_check_when_evidence_asks_for_it(agent_walks, scenario_id):
+    results = _turn(agent_walks[scenario_id], "INVESTIGATION_COMPLETE")["ec_agent_workflow"]["investigation_results"]["steps"]
+    assert [step["id"] for step in results if step.get("added_by_agent")], scenario_id
+
+
+def test_no_check_is_added_when_its_trigger_did_not_run():
+    first = run_experience_center_turn(S1, session_id=None).model_dump()
+    session_id = first["ec_session_state"]["session_id"]
+    after = run_experience_center_turn(
+        S1, session_id=session_id, follow_up_id="run_investigation", agent_payload={"selected_step_ids": ["who_owns_ip", "sop"]}
+    ).model_dump()
+    assert not [step for step in after["ec_agent_workflow"]["investigation_results"]["steps"] if step.get("added_by_agent")]
 
 
 @pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
@@ -233,7 +279,8 @@ def test_every_tool_resolves_to_the_catalog(agent_walks, scenario_id):
         }
     )
     assert unknown == []
-    assert any(tool["used"] for tool in workflow.get("tool_fabric") or [])
+    used = {tool["tool_id"] for tool in workflow.get("tool_fabric") or [] if tool["used"]}
+    assert used and used <= {"splunk_mcp", "agilus_mcp", "soc_kb", "itsm", "email", "spl_validator"}
 
 
 @pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
@@ -247,28 +294,34 @@ def test_no_demo_words_in_analyst_visible_text(agent_walks, scenario_id):
     assert hits == []
 
 
+@pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
+def test_dates_are_rendered(agent_walks, scenario_id):
+    for name, response in agent_walks[scenario_id]:
+        assert not re.search(r"\{D-?\d+|\{W\d+|\{incident\}|\{ticket:", str(response)), name
+
+
 # ---------------------------------------------------------------- storyline
 
 
-def test_s1_q1_s3_share_one_incident_thread():
-    ids = set()
-    for scenario_id in (S1, Q1, S3):
-        response = run_experience_center_turn(scenario_id, session_id=None).model_dump()
-        thread = response.get("ec_story_thread") or (response.get("ec_agent_workflow") or {}).get("story_thread") or {}
-        ids.add(thread.get("thread_id"))
-    assert len(ids) == 1 and None not in ids
-
-
-def test_s1_q1_s3_state_the_same_facts():
-    """Same IP, jump host, account and incident id in every question of the thread."""
-    blobs = {}
-    for scenario_id in (S1, Q1, S3):
-        response = run_experience_center_turn(scenario_id, session_id=None).model_dump()
-        blobs[scenario_id] = str(response)
-    for fact in ("198.51.100.42", "10.20.1.10", "svc_jump_ops", "INC-2026-89412"):
+def test_s1_q1_s3_state_the_same_facts(agent_walks):
+    """Same IP, jump host, account and incident in every question of the jump-host thread."""
+    blobs = {sid: str(_turn(agent_walks[sid], "COMPLETE")) for sid in (S1, Q1, S3)}
+    for fact in ("45.xx.xx.42", "JMP-ADM-01", "INC0048213"):
         missing = [scenario_id for scenario_id, blob in blobs.items() if fact not in blob]
         assert missing == [], (fact, missing)
-    assert "FW-INC-2026-0615" not in "".join(blobs.values())
+    assert all("svc_netops" in blobs[sid] for sid in (Q1, S3))
+    assert all("ACL-PARTNER-0147" in blobs[sid] for sid in (S1, S3))
+
+
+def test_no_scripted_story_thread():
+    for scenario_id in (S1, Q1, S3):
+        assert run_experience_center_turn(scenario_id, session_id=None).model_dump().get("ec_story_thread") is None
+
+
+def test_monitoring_hit_does_not_auto_block(agent_walks):
+    final = _turn(agent_walks[Q1], "COMPLETE")["ec_agent_workflow"]
+    assert not [step for step in final["remediation_plan"]["steps"] if "block" in step["id"] and step["status"] != "AWAITING_REPLY"]
+    assert any("approval" in item.lower() for item in final["final_summary"]["deferred"])
 
 
 # ---------------------------------------------------------------- plan stage (visual walkthrough F1/F2)
@@ -287,16 +340,3 @@ def test_plan_stage_states_no_verdict_and_runs_nothing(agent_walks, scenario_id)
         f"{stage.get('title', '')} {' '.join(stage.get('activity') or [])}" for stage in journey.get("stages") or []
     )
     assert not _EXECUTION_WORDS.search(text), text
-    thread = plan.get("ec_story_thread")
-    if thread:
-        assert "not investigated yet" in thread["verdict_so_far"].lower()
-
-
-def test_q1_follow_up_findings_are_visible_and_grow():
-    first = run_experience_center_turn(Q1, session_id=None).model_dump()
-    session_id = first["ec_session_state"]["session_id"]
-    assert not (first["analyst_response"] or {}).get("follow_up_findings")
-    after = run_experience_center_turn(Q1, session_id=session_id, follow_up_id="check_identity").model_dump()
-    findings = after["analyst_response"]["follow_up_findings"]
-    assert len(findings) == 1 and "svc_jump_ops" in findings[0]
-    assert "check_identity" not in [chip["follow_up_id"] for chip in after["ec_followups"]]

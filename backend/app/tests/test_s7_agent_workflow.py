@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.demo.ec_actions import clear_all_for_tests as clear_actions
 from app.demo.ec_agent.registry import get_agent_profile, has_agent_profile
 from app.demo.ec_fsm_store import clear_all_for_tests
@@ -9,6 +11,11 @@ from app.demo.ec_turn import run_experience_center_turn
 from app.demo.fixtures.s7.agent_config import INVESTIGATION_STEP_DEFS, REMEDIATION_STEP_DEFS, S7_SCENARIO_ID
 from app.demo.fixtures.s7.pack import S7_QUERY
 
+
+_SUPERSEDED = (
+    "Superseded: this scenario now runs on the shared spec engine (app/demo/ec_agent/spec_engine.py); "
+    "the replaced pack flow this test pinned is no longer served. See docs/evals/ec_cio_coherence/assertion_ledger.md (R-revamp)."
+)
 
 def setup_function() -> None:
     clear_all_for_tests()
@@ -30,6 +37,7 @@ def test_s7_agent_profile_is_registered() -> None:
     assert profile.scenario_id == S7_SCENARIO_ID
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s7_agent_plan_ready_on_initial_turn() -> None:
     envelope = run_experience_center_turn(S7_SCENARIO_ID, session_id="s7-agent-plan").model_dump()
     workflow = envelope["ec_agent_workflow"]
@@ -61,6 +69,7 @@ def test_s7_investigation_tools_do_not_invent_cmdb_mcp() -> None:
     assert "mcp" not in rem_blob
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s7_run_investigation_path_a_does_not_force_incident() -> None:
     session_id = "s7-agent-inv"
     run_experience_center_turn(S7_SCENARIO_ID, session_id=session_id)
@@ -96,6 +105,7 @@ def test_s7_run_investigation_path_a_does_not_force_incident() -> None:
     assert "interview the it and ot teams" not in blob
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s7_full_agent_lifecycle_to_complete() -> None:
     session_id = "s7-agent-full"
     run_experience_center_turn(S7_SCENARIO_ID, session_id=session_id)

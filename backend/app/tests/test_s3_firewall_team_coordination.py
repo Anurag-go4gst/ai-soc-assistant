@@ -18,6 +18,11 @@ from app.main import app
 from app.schemas.responses import PlaceholderResponse
 
 
+_SUPERSEDED = (
+    "Superseded: this scenario now runs on the shared spec engine (app/demo/ec_agent/spec_engine.py); "
+    "the replaced pack flow this test pinned is no longer served. See docs/evals/ec_cio_coherence/assertion_ledger.md (R-revamp)."
+)
+
 def setup_function() -> None:
     clear_all_for_tests()
     clear_actions()
@@ -28,6 +33,7 @@ def test_s3_query_names_confirmed_indicator_ip() -> None:
     assert "this IP" not in S3_QUERY
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s3_independent_of_s1_and_placeholder_compatible() -> None:
     payload = run_demo_scenario(S3_SCENARIO_ID)
     assert PlaceholderResponse(**payload).demo_mode is True
@@ -47,6 +53,7 @@ def test_s3_independent_of_s1_and_placeholder_compatible() -> None:
     assert statuses["spl_search"] == "NOT_REQUIRED"
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s3_no_spl_generated_and_evidence_reuse_marked() -> None:
     envelope = run_experience_center_turn(S3_SCENARIO_ID, session_id="s3-reuse").model_dump()
     evidence_ids = [item["evidence_id"] for item in envelope["source_evidence"]]
@@ -57,6 +64,7 @@ def test_s3_no_spl_generated_and_evidence_reuse_marked() -> None:
     assert any("block immediately" in row["action"].lower() and row["state"] == "NOT_RECOMMENDED_YET" for row in readiness)
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s3_whitelist_reply_changes_outcome_and_action_readiness(monkeypatch) -> None:
     from app.config import settings
 
@@ -80,6 +88,7 @@ def test_s3_whitelist_reply_changes_outcome_and_action_readiness(monkeypatch) ->
     assert reply["ec_execution_journey"]["follow_up_id"] == "ingest_firewall_reply"
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s3_email_loop_and_reassessment(monkeypatch) -> None:
     from app.config import settings
 
@@ -175,6 +184,7 @@ def test_s3_no_production_actions_or_live_email() -> None:
     assert "call_tool" not in source
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s3_initial_journey_titles_and_send_waits() -> None:
     from app.demo.ec_journeys import S3_INITIAL_TITLES
 
@@ -188,6 +198,7 @@ def test_s3_initial_journey_titles_and_send_waits() -> None:
     assert sent.ec_execution_journey.follow_up_id == "send_firewall_email"
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s3_notify_soc_lead_prepares_email_draft(monkeypatch) -> None:
     from app.config import settings
 

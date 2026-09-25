@@ -146,11 +146,11 @@ function compactMetrics(finding: EcAgentStepFinding): Array<{ label: string; val
   return entries.slice(0, 6);
 }
 
-/** Plain-language provenance: demo connectors say so once, without internal vocabulary. */
+/** Plain-language provenance. Internal harness vocabulary (fixture, simulated) is never shown. */
 export function friendlyProvenance(value?: string | null): string {
   const raw = (value ?? '').toLowerCase();
   if (!raw || raw.includes('fixture') || raw.includes('simulated') || raw.includes('synthetic')) {
-    return 'DEMO CONNECTOR';
+    return '';
   }
   return raw.replace(/_/g, ' ').toUpperCase();
 }
@@ -158,7 +158,8 @@ export function friendlyProvenance(value?: string | null): string {
 function provenanceLabel(finding: EcAgentStepFinding): string | null {
   const src = finding.evidence_sources?.[0];
   if (!src) return null;
-  return `${src.source} · ${friendlyProvenance(src.provenance)}`;
+  const provenance = friendlyProvenance(src.provenance);
+  return provenance ? `${src.source} · ${provenance}` : src.source;
 }
 
 function EntityChips({

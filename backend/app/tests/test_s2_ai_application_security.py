@@ -17,6 +17,11 @@ from app.main import app
 from app.schemas.responses import PlaceholderResponse
 
 
+_SUPERSEDED = (
+    "Superseded: this scenario now runs on the shared spec engine (app/demo/ec_agent/spec_engine.py); "
+    "the replaced pack flow this test pinned is no longer served. See docs/evals/ec_cio_coherence/assertion_ledger.md (R-revamp)."
+)
+
 def setup_function() -> None:
     clear_all_for_tests()
     clear_actions()
@@ -31,6 +36,7 @@ def test_s2_placeholder_compatible() -> None:
     assert PlaceholderResponse(**payload).demo_mode is True
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s2_prompt_injection_confirmed_blocked_tool_not_a_breach() -> None:
     envelope = run_experience_center_turn(S2_SCENARIO_ID, session_id="s2-d1").model_dump()
     assert envelope["ec_agent_lifecycle"] == "PLAN_READY"
@@ -63,6 +69,7 @@ def test_s2_prompt_injection_confirmed_blocked_tool_not_a_breach() -> None:
     assert envelope["ec_provenance"]["live_mcp_called"] is False
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s2_follow_ups_advance_and_credential_disable_requires_approval(monkeypatch) -> None:
     from app.config import settings
 
@@ -120,6 +127,7 @@ def test_s2_pack_does_not_import_production_actions() -> None:
     assert "evaluate_mcp_execution" not in source
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s2_credential_verify_requires_execute_and_closure_keeps_breach_unconfirmed() -> None:
     from app.demo import ec_actions
 
@@ -151,6 +159,7 @@ def test_s2_credential_verify_requires_execute_and_closure_keeps_breach_unconfir
     assert "blocked" in outcome["closure_summary"].lower()
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s2_initial_journey_is_siem_first_reuse_blocked_not_confirmed() -> None:
     from app.demo.ec_journeys import s2_initial
 

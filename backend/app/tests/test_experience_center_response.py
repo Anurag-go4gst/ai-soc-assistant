@@ -44,14 +44,13 @@ def test_ec_projection_provenance_present() -> None:
 
 def test_follow_up_advances_turn() -> None:
     first = run_experience_center_turn("firewall_deny_coordinated_attack", session_id="ec-b4")
-    chip = first.ec_followups[0]
     second = run_experience_center_turn(
         "firewall_deny_coordinated_attack",
         session_id="ec-b4",
-        follow_up_id=chip.follow_up_id,
+        follow_up_id="run_investigation",
     )
     assert second.ec_session_state.turn == first.ec_session_state.turn + 1
-    assert chip.follow_up_id in second.ec_session_state.applied_follow_up_ids
+    assert "run_investigation" in second.ec_session_state.applied_follow_up_ids
     assert second.scenario_id == "firewall_deny_coordinated_attack"
 
 
