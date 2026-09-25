@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import type { EcAgentPlanStep, EcAgentWorkflowPayload } from '@/components/ec/types';
+import type {
+  EcAgentPlanStep,
+  EcAgentWorkflowPayload,
+  EcAssessment,
+  EcEmailEdit,
+  EcPriorityOverride,
+  EcRemediationExtras,
+} from '@/components/ec/types';
+import { EcActionRecordToggle } from '@/components/ec/EcResponseRecords';
 import type { ExperienceExecutionProgressView } from '@/lib/experienceCenterExecution';
 import { ExperienceExecutionProgressPanel } from '@/components/experience-center/ExperienceExecutionProgressPanel';
 import { EcInvestigationResultList, EcInvestigationSummaryStrip } from '@/components/ec/EcInvestigationResultList';
 import { EcSectionHeading } from '@/components/ec/EcSectionHeading';
-import { scrollIntoScrollParent } from '@/lib/scrollIntoScrollParent';
+import { EcStepWhy } from '@/components/ec/EcCioLayer';
+import { EcActionsTable, EcFindingsTable } from '@/components/ec/EcFindingsTable';
+import { EcRagTrace } from '@/components/ec/EcRagTrace';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -52,6 +62,30 @@ function ConclusionPoints({ points }: { points: string[] }) {
         );
       })}
     </ol>
+  );
+}
+
+/** Incident priority (deterministic policy) and threat assessment, side by side — never merged. */
+function AssessmentLine({ assessment }: { assessment?: EcAssessment | null }) {
+  if (!assessment) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-2 text-xs" data-ec-section="assessment">
+      <span
+        className="rounded border border-slate-700 bg-slate-950/50 px-2 py-1 text-slate-200"
+        title={`${assessment.priority_rule}: ${assessment.priority_basis}`}
+      >
+        Incident priority <span className="font-semibold text-slate-50">{assessment.incident_priority}</span>
+        <span className="text-slate-400"> · {assessment.priority_rule} ({assessment.priority_basis})</span>
+      </span>
+      {assessment.priority_override ? (
+        <span className="rounded border border-amber-500/40 bg-amber-950/20 px-2 py-1 text-amber-100">
+          Changed from policy {assessment.priority_override.policy_priority}: {assessment.priority_override.reason}
+        </span>
+      ) : null}
+      <span className="rounded border border-slate-700 bg-slate-950/50 px-2 py-1 text-slate-200">
+        Threat assessment <span className="font-semibold text-slate-50">{assessment.threat_assessment}</span>
+      </span>
+    </div>
   );
 }
 
@@ -160,6 +194,7 @@ function ProposedPlan({
                 {step.tools?.length ? (
                   <p className="mt-1 text-xs text-slate-500">{step.tools.join(' · ')}</p>
                 ) : null}
+                <EcStepWhy step={step} />
               </div>
             </div>
           </li>
@@ -189,7 +224,7 @@ export function EcAgentWorkflow({
   busy?: boolean;
   executionProgress?: ExperienceExecutionProgressView | null;
   onRunInvestigation: (selectedStepIds: string[]) => void;
-  onRunRemediation: (selectedStepIds: string[]) => void;
+  onRunRemediation: (selectedStepIds: string[], extras?: EcRemediationExtras) => void;
   onHilApprove: () => void;
   onHilSkip: () => void;
   onCreateRemediationPlan?: () => void;
@@ -216,6 +251,20 @@ export function EcAgentWorkflow({
   const [invSelected, setInvSelected] = useState<Set<string>>(() => new Set(defaultInvSelected));
   const [remSelected, setRemSelected] = useState<Set<string>>(() => new Set(defaultRemSelected));
   const [editingInv, setEditingInv] = useState(false);
+  const priorityControl = (workflow.remediation_results?.steps ?? remSteps).find((step) => step.priority_control)
+    ?.priority_control;
+  const [priorityChoice, setPriorityChoice] = useState<EcPriorityOverride | null>(null);
+  const chosenPriority = priorityChoice ?? (priorityControl ? { priority: priorityControl.selected, reason: priorityControl.reason } : null);
+  const priorityChanged = Boolean(priorityControl && chosenPriority && chosenPriority.priority !== priorityControl.policy_priority);
+  const priorityReasonMissing = priorityChanged && !chosenPriority?.reason.trim();
+  const [emailEdits, setEmailEdits] = useState<Record<string, EcEmailEdit>>({});
+  const emailEditInvalid = Object.values(emailEdits).some((edit) => !edit.subject.trim() || !edit.body.trim());
+  const remediationExtras = (): EcRemediationExtras | undefined => {
+    const extras: EcRemediationExtras = {};
+    if (priorityControl && chosenPriority) extras.priority_override = chosenPriority;
+    if (Object.keys(emailEdits).length) extras.email_edits = emailEdits;
+    return Object.keys(extras).length ? extras : undefined;
+  };
 
   const remPlanStepIds = useMemo(
     () =>
@@ -239,30 +288,11 @@ export function EcAgentWorkflow({
   const remPlanReview = workflow.lifecycle === 'REMEDIATION_PLAN_READY' && !remExecuting;
   const remComplete = workflow.lifecycle === 'COMPLETE' || workflow.lifecycle === 'PARTIAL';
 
-  useEffect(() => {
-    if (
-      !['REMEDIATION_PLAN_READY', 'REMEDIATING', 'VERIFYING', 'COMPLETE'].includes(workflow.lifecycle)
-    ) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      const panel = document.querySelector('[data-ec-section="recommended-remediation"]');
-      scrollIntoScrollParent(panel instanceof HTMLElement ? panel : null, {
-        block: 'start',
-        behavior: 'smooth',
-      });
-    }, 60);
-    return () => window.clearTimeout(timer);
-  }, [workflow.lifecycle]);
-
   const remPlanReviewBanner = remPlanReview ? (
     <div className="flex items-start gap-2 rounded-lg border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-50">
       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" aria-hidden="true" />
       <div>
-        <p className="font-medium">Review remediation plan</p>
-        <p className="mt-1 text-cyan-100/85">
-          Expand each step to review SPL, tickets, and email drafts. Nothing runs until you approve.
-        </p>
+        <p className="font-medium">Review the actions — nothing runs until you approve.</p>
       </div>
     </div>
   ) : null;
@@ -281,7 +311,11 @@ export function EcAgentWorkflow({
   const progressSteps =
     workflow.execution_progress?.steps ??
     (workflow.execution_progress?.phase === 'investigation' ? invSteps : remSteps);
-  const remScopedProgress = Boolean(executionProgress && remExecuting);
+  // Remediation-scoped only once a remediation plan exists; on the plan turn the progress of
+  // "Run investigation" must render under the plan, not be swallowed by this flag.
+  const remScopedProgress = Boolean(
+    executionProgress && remExecuting && !isPlanTurn && workflow.lifecycle !== 'INVESTIGATION_NEEDS_APPROVAL',
+  );
   const progressPanel = executionProgress ? (
     <section
       className="rounded-lg border border-cyan-500/25 bg-cyan-950/15 p-4"
@@ -293,62 +327,9 @@ export function EcAgentWorkflow({
 
   return (
     <div className="w-full max-w-none space-y-6" data-ec-section="agent-workflow">
-      {workflow.opening_narrative ? (
+      {workflow.opening_narrative && isPlanTurn ? (
         <section className="rounded-lg border border-slate-800/80 bg-slate-900/40 p-4">
           <p className="text-base leading-relaxed text-slate-100">{workflow.opening_narrative}</p>
-        </section>
-      ) : null}
-
-      {workflow.brief && isPlanTurn ? (
-        <section className="overflow-x-auto rounded-lg border border-slate-800/80">
-          <table className="min-w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-800 bg-slate-900/60">
-                <th className="w-1/2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-cyan-100">Facts</th>
-                <th className="w-1/2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-cyan-100">
-                  Investigation objective
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="align-top">
-                <td className="border-r border-slate-800/80 px-4 py-3">
-                  <ul className="space-y-1.5 text-slate-300">
-                    {(workflow.brief.what_i_know ?? []).map((item) => (
-                      <li key={item} className="flex gap-2">
-                        <span className="text-cyan-500/80">·</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </td>
-                <td className="px-4 py-3">
-                  <ol className="list-decimal space-y-1.5 pl-5 text-slate-300">
-                    {(workflow.brief.objective ?? []).map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ol>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-      ) : null}
-
-      {workflow.action_plan && isPlanTurn ? (
-        <section className="rounded-lg border border-slate-800/80 bg-slate-900/35 p-4">
-          <EcSectionHeading>Action plan</EcSectionHeading>
-          {workflow.action_plan.summary ? (
-            <p className="mt-2 text-sm leading-relaxed text-slate-300">{workflow.action_plan.summary}</p>
-          ) : null}
-          <ul className="mt-3 space-y-1.5 text-sm text-slate-200">
-            {(workflow.action_plan.steps ?? []).map((item) => (
-              <li key={item} className="flex gap-2">
-                <span className="text-cyan-500/80">·</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
         </section>
       ) : null}
 
@@ -410,17 +391,10 @@ export function EcAgentWorkflow({
         </section>
       ) : null}
 
-      {!isPlanTurn && workflow.investigation_summary ? (
-        <EcInvestigationSummaryStrip summary={workflow.investigation_summary} />
-      ) : null}
 
-      {!isPlanTurn && workflow.investigation_results?.steps?.length ? (
-        <EcInvestigationResultList
-          header={workflow.investigation_results.header ?? 'Investigation results'}
-          steps={workflow.investigation_results.steps}
-          anomalousAssetIds={anomalousAssetIds}
-          {...artifactContext}
-        />
+
+      {!isPlanTurn && !remComplete && workflow.investigation_results?.steps?.length ? (
+        <EcFindingsTable steps={workflow.investigation_results.steps} anomalousAssetIds={anomalousAssetIds} />
       ) : null}
 
       {!isPlanTurn && workflow.execution_progress?.phase === 'investigation' && progressSteps.length ? (
@@ -432,7 +406,7 @@ export function EcAgentWorkflow({
         />
       ) : null}
 
-      {!isPlanTurn && workflow.investigation_conclusion ? (
+      {!isPlanTurn && !remComplete && workflow.investigation_conclusion ? (
         <section
           className="rounded-lg border border-slate-800/70 bg-slate-900/35 px-4 py-3"
           data-ec-section="investigation-post-summary"
@@ -442,6 +416,7 @@ export function EcAgentWorkflow({
               {workflow.investigation_conclusion.headline}
             </p>
           ) : null}
+          <AssessmentLine assessment={workflow.investigation_conclusion.assessment} />
           {workflow.investigation_conclusion.narrative_points?.filter((point) => point.trim()).length ? (
             <ConclusionPoints points={workflow.investigation_conclusion.narrative_points} />
           ) : workflow.investigation_conclusion.narrative ? (
@@ -451,12 +426,49 @@ export function EcAgentWorkflow({
                 .filter((point) => point.trim())}
             />
           ) : null}
+          {workflow.investigation_conclusion.sources?.length ? (
+            <p className="mt-3 text-xs text-slate-400" data-ec-section="answer-sources">
+              Sources: {workflow.investigation_conclusion.sources.join(' · ')}
+            </p>
+          ) : null}
         </section>
       ) : null}
 
+      {!isPlanTurn && workflow.rag_trace && workflow.lifecycle !== 'COMPLETE' ? <EcRagTrace trace={workflow.rag_trace} /> : null}
+
       {isInvestigationCompleteTurn && remScopedProgress ? progressPanel : null}
 
-      {!isPlanTurn && workflow.executive_summary?.length && workflow.lifecycle !== 'COMPLETE' ? (
+      {!isPlanTurn && !remComplete && workflow.unconfirmed?.filter((item) => item.trim()).length ? (
+        <section className="rounded-lg border border-amber-500/20 bg-amber-950/10 p-4" data-ec-section="outstanding-uncertainty">
+          <EcSectionHeading>Still unresolved</EcSectionHeading>
+          <ul className="mt-2 space-y-1.5 text-sm text-slate-200">
+            {workflow.unconfirmed.filter((item) => item.trim()).map((item) => (
+              <li key={item} className="flex gap-2 leading-relaxed">
+                <span className="text-amber-400/80">·</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {!isPlanTurn && workflow.missing_evidence?.filter((item) => item.trim()).length ? (
+        <section className="rounded-lg border border-slate-800/80 bg-slate-900/35 p-4">
+          <EcSectionHeading>Optional evidence not collected</EcSectionHeading>
+          <ul className="mt-2 space-y-1.5 text-sm text-slate-300">
+            {workflow.missing_evidence.filter((item) => item.trim()).map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="text-slate-500">·</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* Decision after the findings, right before the remediation plan it opens. */}
+
+      {!isPlanTurn && !workflow.executive_brief && workflow.executive_summary?.length && workflow.lifecycle !== 'COMPLETE' ? (
         <section
           className="rounded-lg border border-cyan-500/20 bg-cyan-950/20 p-4"
           data-ec-section="executive-summary"
@@ -486,8 +498,10 @@ export function EcAgentWorkflow({
           <p className="text-sm font-semibold text-slate-50">
             {workflow.remediation_offer.title ?? 'Continue to remediation plan?'}
           </p>
-          {workflow.remediation_offer.body ? (
-            <p className="text-sm leading-relaxed text-slate-300">{workflow.remediation_offer.body}</p>
+          {workflow.executive_brief?.decision_needed || workflow.remediation_offer.body ? (
+            <p className="text-sm leading-relaxed text-slate-300">
+              {workflow.executive_brief?.decision_needed ?? workflow.remediation_offer.body}
+            </p>
           ) : null}
           <div className="flex flex-wrap gap-2">
             <Button
@@ -509,7 +523,10 @@ export function EcAgentWorkflow({
           </div>
         </section>
       ) : isInvestigationCompleteTurn && workflow.next_step_cta && !showRemediationPlan ? (
-        <section className="flex flex-wrap gap-2" data-ec-section="investigation-next-step">
+        <section className="space-y-3 rounded-lg border border-cyan-500/25 bg-cyan-950/15 px-4 py-3" data-ec-section="investigation-next-step">
+          {workflow.executive_brief?.decision_needed ? (
+            <p className="w-full text-sm leading-relaxed text-slate-200">{workflow.executive_brief.decision_needed}</p>
+          ) : null}
           <Button
             type="button"
             disabled={busy}
@@ -521,68 +538,30 @@ export function EcAgentWorkflow({
         </section>
       ) : null}
 
-      {!isPlanTurn && workflow.unconfirmed?.filter((item) => item.trim()).length ? (
-        <section className="rounded-lg border border-amber-500/20 bg-amber-950/10 p-4" data-ec-section="outstanding-uncertainty">
-          <EcSectionHeading>Still unresolved</EcSectionHeading>
-          <ul className="mt-2 space-y-1.5 text-sm text-slate-200">
-            {workflow.unconfirmed.filter((item) => item.trim()).map((item) => (
-              <li key={item} className="flex gap-2 leading-relaxed">
-                <span className="text-amber-400/80">·</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {!isPlanTurn && workflow.missing_evidence?.filter((item) => item.trim()).length ? (
-        <section className="rounded-lg border border-slate-800/80 bg-slate-900/35 p-4">
-          <EcSectionHeading>Optional evidence not collected</EcSectionHeading>
-          <ul className="mt-2 space-y-1.5 text-sm text-slate-300">
-            {workflow.missing_evidence.filter((item) => item.trim()).map((item) => (
-              <li key={item} className="flex gap-2">
-                <span className="text-slate-500">·</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
       {(isRemediationTurn && showRemediationPlan) ? (
         <section className="space-y-4" data-ec-section="recommended-remediation">
           {remScopedProgress ? progressPanel : null}
-          {remPlanReview && workflow.remediation_summary ? (
-            <div data-ec-section="remediation-summary">
-              <EcInvestigationSummaryStrip summary={workflow.remediation_summary} />
-            </div>
-          ) : null}
 
-          {remPlanReview && workflow.remediation_conclusion ? (
-            <section className="rounded-lg border border-slate-800/70 bg-slate-900/35 px-4 py-3">
-              <EcSectionHeading>{workflow.remediation_conclusion.title ?? 'Remediation approach'}</EcSectionHeading>
-              {workflow.remediation_conclusion.headline ? (
-                <p className="mt-2 text-sm font-semibold text-slate-50">{workflow.remediation_conclusion.headline}</p>
-              ) : null}
-              {workflow.remediation_conclusion.narrative_points?.filter((point) => point.trim()).length ? (
-                <ConclusionPoints points={workflow.remediation_conclusion.narrative_points} />
-              ) : null}
-            </section>
-          ) : null}
 
           {remPlanReviewBanner}
 
           {remPlanReview && workflow.remediation_results?.steps?.length ? (
-            <EcInvestigationResultList
-              header={workflow.remediation_results.header ?? 'Remediation plan'}
+            <EcActionsTable
               steps={workflow.remediation_results.steps}
-              anomalousAssetIds={anomalousAssetIds}
-              selectable
-              expandDetails
               selectedIds={remSelected}
-              variant="remediation"
-              {...artifactContext}
-              onToggleStep={(id, checked) => {
+              priority={chosenPriority ?? undefined}
+              onPriorityChange={(priority, reason) => setPriorityChoice({ priority, reason })}
+              emailEdits={emailEdits}
+              onEmailEdit={(stepId, edit) =>
+                setEmailEdits((current) => {
+                  const next = { ...current };
+                  if (edit) next[stepId] = edit;
+                  else delete next[stepId];
+                  return next;
+                })
+              }
+              editable
+              onToggle={(id, checked) => {
                 setRemSelected((current) => {
                   const next = new Set(current);
                   if (checked) next.add(id);
@@ -611,34 +590,32 @@ export function EcAgentWorkflow({
           ) : null}
 
           {remPlanReview ? (
-            <div className="flex flex-wrap gap-2" data-ec-section="remediation-approve">
+            <div className="flex flex-wrap items-center gap-2" data-ec-section="remediation-approve">
               <Button
                 type="button"
-                disabled={busy || remSelected.size === 0}
+                disabled={busy || remSelected.size === 0 || priorityReasonMissing || emailEditInvalid}
                 className="bg-cyan-600 hover:bg-cyan-600/90"
-                onClick={() => onRunRemediation([...remSelected])}
+                onClick={() => {
+                  const extras = remediationExtras();
+                  if (extras) onRunRemediation([...remSelected], extras);
+                  else onRunRemediation([...remSelected]);
+                }}
               >
                 {workflow.remediation_plan?.primary_cta ?? 'Approve remediation'}
               </Button>
+              {emailEditInvalid ? (
+                <span className="text-xs text-amber-200">An edited email needs a subject and a body.</span>
+              ) : null}
+              {priorityReasonMissing ? (
+                <span className="text-xs text-amber-200">Add a reason for the priority change to approve.</span>
+              ) : null}
+              {workflow.remediation_plan?.error ? (
+                <span className="text-xs text-rose-300">{workflow.remediation_plan.error}</span>
+              ) : null}
             </div>
           ) : null}
 
-          {remComplete && workflow.remediation_summary ? (
-            <div data-ec-section="remediation-summary">
-              <EcInvestigationSummaryStrip summary={workflow.remediation_summary} />
-            </div>
-          ) : null}
 
-          {remComplete && workflow.remediation_results?.steps?.length ? (
-            <EcInvestigationResultList
-              header={workflow.remediation_results.header ?? 'Remediation results'}
-              steps={workflow.remediation_results.steps}
-              anomalousAssetIds={anomalousAssetIds}
-              variant="remediation"
-              expandDetails
-              {...artifactContext}
-            />
-          ) : null}
 
         </section>
       ) : null}
@@ -652,43 +629,49 @@ export function EcAgentWorkflow({
         />
       ) : null}
 
-      {workflow.final_summary && workflow.lifecycle === 'COMPLETE' ? (
+
+      {workflow.final_summary && remComplete ? (
         <section className="space-y-3 rounded-lg border border-emerald-500/25 bg-emerald-950/15 p-4" data-ec-section="executive-summary">
-          <EcSectionHeading>{workflow.final_summary.title ?? 'Response completed'}</EcSectionHeading>
+          <EcSectionHeading>{workflow.final_summary.title ?? 'Response'}</EcSectionHeading>
           <p className="text-lg font-semibold text-slate-50">{workflow.final_summary.headline}</p>
-          <p className="text-sm text-slate-300">
-            Current risk: {workflow.final_summary.risk_from ?? workflow.final_summary.risk_to} ·{' '}
-            {workflow.final_summary.severity} · {workflow.final_summary.affected} · malicious use:{' '}
-            {workflow.final_summary.compromise}
-          </p>
-          <ul className="space-y-1 text-sm text-slate-200">
-            {(workflow.final_summary.completed ?? []).map((item) => (
-              <li key={item}>✓ {item}</li>
-            ))}
-            {(workflow.final_summary.deferred ?? []).map((item) => (
-              <li key={item} className="text-slate-400">— {item}</li>
-            ))}
-          </ul>
-          {(workflow.final_summary.in_progress ?? []).length ? (
-            <p className="text-sm text-amber-100">
-              Still in progress: {(workflow.final_summary.in_progress ?? []).join(' · ')}
-            </p>
-          ) : null}
-          <p className="text-sm text-slate-300">{workflow.final_summary.risk_note}</p>
-          {workflow.executive_summary?.length ? (
-            <ul className="space-y-2 border-t border-emerald-500/15 pt-3 text-sm leading-relaxed text-slate-100">
-              {workflow.executive_summary.map((item) => (
-                <li key={item} className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400" aria-hidden="true" />
-                  <span>{item}</span>
+          <AssessmentLine assessment={workflow.final_summary.assessment} />
+          {workflow.final_summary.actions?.length ? (
+            <ul className="space-y-1.5 text-sm text-slate-200" data-ec-section="final-actions">
+              {workflow.final_summary.actions.map((action) => (
+                <li key={action.title} className="flex flex-wrap items-baseline gap-2">
+                  <span className={['FAILED', 'NOT_SENT'].includes(action.status) ? 'text-rose-300' : 'text-emerald-300'}>
+                    {['FAILED', 'NOT_SENT'].includes(action.status) ? '✕' : '✓'}
+                  </span>
+                  <span>{action.result ?? action.title}</span>
+                  <span className="rounded border border-slate-700 px-1.5 py-0.5 text-[11px] text-slate-300">
+                    {action.status_label}
+                  </span>
+                  <EcActionRecordToggle ticket={action.ticket} email={action.email} delivery={action.email_delivery} />
                 </li>
               ))}
             </ul>
+          ) : (
+            <ul className="space-y-1 text-sm text-slate-200">
+              {(workflow.final_summary.completed ?? []).map((item) => (
+                <li key={item}>✓ {item}</li>
+              ))}
+            </ul>
+          )}
+          {(workflow.final_summary.in_progress ?? []).length ? (
+            <p className="text-sm text-amber-100">
+              Waiting on: {(workflow.final_summary.in_progress ?? []).join(' · ')}
+            </p>
+          ) : null}
+          {(workflow.final_summary.deferred ?? []).map((item) => (
+            <p key={item} className="text-sm text-slate-400">— {item}</p>
+          ))}
+          {workflow.final_summary.risk_note ? (
+            <p className="text-sm text-slate-300">Next: {workflow.final_summary.risk_note}</p>
           ) : null}
         </section>
       ) : null}
 
-      {workflow.verification?.length && ['VERIFYING', 'COMPLETE'].includes(workflow.lifecycle) ? (
+      {workflow.verification?.length && workflow.lifecycle === 'VERIFYING' ? (
         <section className="space-y-2">
           <EcSectionHeading>Verification</EcSectionHeading>
           <ul className="space-y-2 text-sm">

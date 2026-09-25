@@ -74,6 +74,7 @@ def build_s2_normalized_investigation_state(
                 "Existing Splunk detection was reused first — three instruction-override events on the customer-facing assistant.",
                 f"{BLOCKED_TOOL} was requested and denied by tool authorization; no execution receipt was observed.",
                 "DLP window shows no customer-record exfiltration; restricted-table reads are not attributed to the blocked tool.",
+                "Actor: one session (sess-ai-8841, user guest-web-5521, source 203.0.113.77) made every attempt within 11 minutes — a single actor, not a campaign.",
                 "Credential compromise and session hijack remain unconfirmed — not the same as a breach.",
             ],
         },

@@ -127,7 +127,7 @@ def test_firewall_incident_exposes_interactive_p1_ticket_action() -> None:
 
     assert response.analyst_response is not None
     analyst = response.analyst_response
-    assert any("Open P1 incident record" in action for action in analyst.recommended_actions)
+    assert any("escalate INC-2026-89412 to P1" in action for action in analyst.recommended_actions)
     assert len(analyst.interactive_actions) == 1
     action = analyst.interactive_actions[0]
     assert action["ui_action"] == "render_interactive_ticket"
@@ -240,7 +240,9 @@ def test_firewall_baseline_template_is_environment_grounded_and_explained() -> N
     assert "sourcetype=pgcil:firewall" in spl
     assert "earliest=-7d" in spl
     assert "| bucket _time span=1h" in spl
-    assert 'count(eval(action="deny")) as deny_count' in spl
+    assert "action=deny" in spl.split("|", 1)[0]
+    assert "count as deny_count" in spl
+    assert "hours_observed>=24" in spl
     assert "deny_upper_bound" in spl
     assert "port_upper_bound" in spl
     assert "sort -deny_count" not in spl

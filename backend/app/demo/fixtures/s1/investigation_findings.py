@@ -121,14 +121,11 @@ def finding_for_investigation_step(
 
     if step_id == "requested_30d":
         return {
-            "headline_finding": (
-                f"Last 30 days: 3 allowed / 922 denied on jump host {_JUMP}; "
-                f"deny-only on {_HOST_B} and {_HOST_C}"
-            ),
+            "headline_finding": (f"First seen 18 Jul. 922 denied, 3 allowed — all 3 to jump host {_JUMP} (443/8443). Not in threat intel; no detection fired."),
             "headlines_by_status": {
                 "QUEUED": "Queued — last-30-days firewall search",
                 "RUNNING": "Running governed last-30-days search…",
-                "COMPLETE": f"3 allowed sessions on {_JUMP} — denied volume must not bury them",
+                "COMPLETE": f"First seen 18 Jul. 922 denied, 3 allowed — all 3 to jump host {_JUMP} (443/8443). Not in threat intel; no detection fired.",
             },
             "key_evidence": [
                 f"src={PRIMARY_ATTACKER_IP}",
@@ -184,23 +181,20 @@ def finding_for_investigation_step(
 
     if step_id == "mcp_identity":
         return {
-            "headline_finding": (
-                f"Identity: registered MCP endpoint ({PRIMARY_ATTACKER_IP}) — "
-                "established from inventory/SOC-KB evidence"
-            ),
+            "headline_finding": ("Northwind Logistics — partner API endpoint for shipment tracking (owner: Integration team)"),
             "headlines_by_status": {
                 "QUEUED": "Queued — inventory identity lookup",
                 "RUNNING": "Reading SOC-KB inventory identity…",
-                "COMPLETE": "Identity: registered MCP endpoint",
+                "COMPLETE": "Northwind Logistics — partner API endpoint for shipment tracking (owner: Integration team)",
             },
             "key_evidence": [
                 f"indicator={PRIMARY_ATTACKER_IP}",
-                "identity=registered MCP endpoint",
-                "source=SOC-KB inventory fixture",
+                "identity=partner API endpoint (Northwind Logistics)",
+                "source=asset inventory (SOC-KB)",
             ],
             "confidence": "high",
             "attention_state": "RISK",
-            "caveat": "A registered/new MCP endpoint is a new concern, not a confirmed malicious IOC.",
+            "caveat": "A partner API endpoint (Northwind Logistics) is a new concern, not a confirmed malicious IOC.",
             "evidence_sources": [
                 {
                     "source": "SOC-KB",
@@ -212,7 +206,7 @@ def finding_for_investigation_step(
             "details": _connector_io(
                 connector="SOC-KB",
                 request=f"action=inventory_lookup\nindicator={PRIMARY_ATTACKER_IP}",
-                response="identity=registered_mcp_endpoint\nsource=soc_kb_inventory",
+                response="identity=registered_partner_endpoint_endpoint\nsource=soc_kb_inventory",
             ),
         }
 
@@ -250,14 +244,11 @@ def finding_for_investigation_step(
 
     if step_id == "retrieve_sop":
         return {
-            "headline_finding": (
-                "SOP retrieved: targeted monitoring is the default; blocking requires a defined "
-                "threshold plus Network/SOC HIL approval"
-            ),
+            "headline_finding": ("SOP-NET-07: watch for 14 days; block only if logons are tied to the IP or malice is confirmed"),
             "headlines_by_status": {
                 "QUEUED": "Queued — retrieve enterprise SOP from SOC-KB",
                 "RUNNING": "Retrieving SOC-KB SOP…",
-                "COMPLETE": "SOP retrieved — monitor by default; block is conditional",
+                "COMPLETE": "SOP-NET-07: watch for 14 days; block only if logons are tied to the IP or malice is confirmed",
             },
             "key_evidence": [
                 f"doc_id={SOP_DOC_ID}",
@@ -267,7 +258,7 @@ def finding_for_investigation_step(
             ],
             "confidence": "high",
             "attention_state": "INFORMATIONAL",
-            "caveat": "Enterprise SOC SOP fixture — not vendor guidance.",
+            "caveat": "Enterprise SOC SOP — internal policy, not vendor guidance.",
             "evidence_sources": [
                 {
                     "source": "SOC-KB RAG",
@@ -285,21 +276,18 @@ def finding_for_investigation_step(
 
     if step_id == "permitted_sessions":
         return {
-            "headline_finding": (
-                f"Three permitted sessions on jump host {_JUMP} (443/8443); "
-                f"authentication is not attributable to {PRIMARY_ATTACKER_IP}"
-            ),
+            "headline_finding": ("Sessions on 18 Jul and 16 Aug (×2). svc_jump_ops logged on around the same times, but not from this IP — the sessions remain unexplained."),
             "headlines_by_status": {
                 "QUEUED": "Queued — permitted-session drill",
                 "RUNNING": "Investigating allowed sessions and authentication…",
-                "COMPLETE": "3 permitted sessions remain unexplained; auth source IP not proven",
+                "COMPLETE": "Sessions on 18 Jul and 16 Aug (×2). svc_jump_ops logged on around the same times, but not from this IP — the sessions remain unexplained.",
             },
             "key_evidence": [
                 f"dest={_JUMP} role=jump_host criticality=high",
                 "dest_ports=443,8443 (HTTPS / alternate TLS)",
                 "allow_count=3 · first_seen=2026-07-18T02:08:00Z · last_seen=2026-08-16T16:44:00Z",
                 "auth: 3 successful logons for svc_jump_ops exist; src IP of those logons is not proven",
-                "expected_for_MCP=uncertain",
+                "expected_partner_traffic=uncertain",
             ],
             "confidence": "high",
             "attention_state": "ATTENTION",

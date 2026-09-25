@@ -15,26 +15,32 @@ def _tokens(text: str) -> set[str]:
     return {token for token in _TOKEN_RE.findall(normalized) if len(token) > 1}
 
 
-def _phrase_entries() -> list[dict[str, str]]:
+def _phrase_entries(*, include_hidden: bool = False) -> list[dict[str, str]]:
+    """Suggestible phrasings per scenario; ``include_hidden`` adds earlier wording for resolution only."""
+    from app.demo.ec_agent.spec_engine import spec_for
+
     rows: list[dict[str, str]] = []
     for scenario in SCENARIOS.values():
         if scenario.fsm_step == 0:
             continue
         if getattr(scenario, "picker_tier", "leadership") not in {"leadership", "lab"}:
             continue
-        phrases = [scenario.query, _display_query(scenario), *scenario.aliases]
+        spec = spec_for(scenario.scenario_id)
+        if spec is not None:
+            phrases = [spec.question, *spec.aliases]
+            hidden = [*spec.legacy_phrasings, scenario.query, _display_query(scenario), *scenario.aliases]
+            label = spec.label
+        else:
+            phrases = [scenario.query, _display_query(scenario), *scenario.aliases]
+            hidden = []
+            label = scenario.label
+        hidden = [*hidden, *scenario.hidden_aliases]
         seen: set[str] = set()
-        for phrase in phrases:
+        for phrase in [*phrases, *(hidden if include_hidden else [])]:
             if not phrase or phrase in seen:
                 continue
             seen.add(phrase)
-            rows.append(
-                {
-                    "scenario_id": scenario.scenario_id,
-                    "label": scenario.label,
-                    "question": phrase,
-                }
-            )
+            rows.append({"scenario_id": scenario.scenario_id, "label": label, "question": phrase})
     return rows
 
 
@@ -95,7 +101,7 @@ def resolve_ec_query_fuzzy(query: str, *, min_score: float = 0.38) -> tuple[str 
         return None, 0.0
     best_id: str | None = None
     best_score = 0.0
-    for entry in _phrase_entries():
+    for entry in _phrase_entries(include_hidden=True):
         score = score_query_match(trimmed, entry["question"])
         if score > best_score:
             best_score = score

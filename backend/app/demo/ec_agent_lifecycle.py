@@ -115,7 +115,7 @@ S4_REMEDIATION_STEP_DEFS: tuple[dict[str, Any], ...] = (
     {
         "id": "restrict_wan",
         "title": "Restrict WAN management on affected gateways",
-        "summary": "Escalate network ops to disable WAN management listener (no Network MCP write path).",
+        "summary": "Ask network operations to turn off the WAN management listener on the 4 affected gateways.",
         "follow_up_id": "apply_temporary_control",
         "tools": ["Email · Network ops"],
         "hil_required": True,
@@ -125,7 +125,7 @@ S4_REMEDIATION_STEP_DEFS: tuple[dict[str, Any], ...] = (
     {
         "id": "enforce_mfa",
         "title": "Request step-up MFA via IAM",
-        "summary": "Escalate Identity/IAM for conditional-access policy — not an instant MCP toggle.",
+        "summary": "Ask Identity / IAM to require step-up MFA for VPN sign-ins until the patch is verified.",
         "follow_up_id": "apply_access_controls",
         "tools": ["Email · Identity / IAM"],
         "hil_required": True,
@@ -138,6 +138,27 @@ S4_REMEDIATION_STEP_DEFS: tuple[dict[str, Any], ...] = (
         "summary": "Open a P1 incident and assign VPN/network owners.",
         "follow_up_id": "create_emergency_incident",
         "tools": ["ITSM"],
+        "default_selected": True,
+        "phase": "remediation",
+    },
+    {
+        "id": "compromise_assessment",
+        "title": "Compromise review on VPN-GW-01 and VPN-GW-02",
+        "summary": "Collect management-plane logs and a configuration snapshot from the two gateways with unusual admin activity — before any patch or reboot.",
+        "follow_up_id": None,
+        "bundle_with": "create_emergency_incident",
+        "tools": ["Splunk MCP", "Device MCP"],
+        "default_selected": True,
+        "phase": "remediation",
+    },
+    {
+        "id": "rotate_admin_creds",
+        "title": "Rotate admin credentials on VPN-GW-01 and VPN-GW-02",
+        "summary": "Revoke active admin sessions and rotate local admin credentials on the two gateways.",
+        "follow_up_id": None,
+        "bundle_with": "apply_access_controls",
+        "tools": ["IAM"],
+        "hil_required": True,
         "default_selected": True,
         "phase": "remediation",
     },
@@ -291,20 +312,9 @@ def _apply_follow_ups(
 
 def _auto_execute_remediation_actions(session_id: str, scenario_id: str) -> int:
     """Approve and execute all pending remediation actions after envelope minted them."""
-    executed = 0
-    for _ in range(12):
-        pending = [
-            item
-            for item in ec_actions.list_actions_for_session(session_id, scenario_id)
-            if item.state == "APPROVAL_REQUIRED"
-        ]
-        if not pending:
-            break
-        for action in pending:
-            approved = ec_actions.approve_action(action.action_id)
-            ec_actions.execute_action(approved.action_id)
-            executed += 1
-    return executed
+    from app.demo.ec_agent.lifecycle import auto_execute_pending_actions
+
+    return auto_execute_pending_actions(session_id, scenario_id)
 
 
 def finalize_s4_remediation_after_apply(
@@ -724,7 +734,7 @@ def build_s4_agent_workflow(
     if lifecycle == LIFECYCLE_COMPLETE:
         workflow["final_summary"] = {
             "title": "Zero-day response completed",
-            "headline": "Exposure contained",
+            "headline": "Exposure reduced · patch pending · 2 gateways under compromise review",
             "severity": "P1",
             "affected": "4 affected gateways",
             "compromise": "compromise not confirmed",
@@ -733,22 +743,30 @@ def build_s4_agent_workflow(
                 "WAN restriction escalated to network ops",
                 "Step-up MFA requested via IAM (change window pending)",
                 "P1 incident INC-48219 created",
+                "Evidence captured from VPN-GW-01/02 before patching",
+                "Admin credentials rotated on VPN-GW-01/02",
                 "Emergency patch change CHG-29173 submitted",
-                "Temporary Splunk monitoring enabled",
+                "Temporary Splunk alert prepared (awaiting deployment approval)",
                 "Network and SOC notified",
             ],
-            "in_progress": ["IAM MFA policy publication", "Emergency patch deployment"],
+            "in_progress": [
+                "Network ops confirmation of WAN restriction",
+                "IAM MFA policy publication",
+                "Compromise review of VPN-GW-01/02",
+                "Emergency patch deployment",
+            ],
             "risk_from": "HIGH",
             "risk_to": "MEDIUM",
             "risk_note": (
-                "No evidence currently confirms exploitation. Monitoring remains active until "
-                "patch verification completes."
+                "No evidence currently confirms exploitation. Risk stays MEDIUM until the patch is "
+                "verified and the compromise review of VPN-GW-01/02 is closed."
             ),
         }
 
     if lifecycle in {LIFECYCLE_VERIFYING, LIFECYCLE_COMPLETE}:
         workflow["verification"] = [
-            {"item": "Temporary control applied", "status": "VERIFIED", "detail": "WAN management restricted on 4/4 gateways"},
+            {"item": "Temporary control requested", "status": "REQUESTED", "detail": "WAN management restriction escalated for 4/4 gateways — awaiting network ops confirmation"},
+            {"item": "Pre-patch evidence", "status": "VERIFIED", "detail": "Logs + config snapshot captured from VPN-GW-01/02"},
             {"item": "Incident created", "status": "VERIFIED", "detail": "INC-48219"},
             {"item": "Change request exists", "status": "ACCEPTED", "detail": "CHG-29173 — awaiting Agilus callback"},
             {"item": "Monitoring prepared", "status": "CANDIDATE", "detail": "Splunk alert candidate prepared — not deployed"},

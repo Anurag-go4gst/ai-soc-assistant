@@ -189,6 +189,10 @@ def _result_for_remediation_step(step_id: str, applied: list[str], actions: list
         if disable is not None and disable.state in {"EXECUTED", "VERIFIED"}:
             return "Credential disabled"
         return "Awaiting approval"
+    if step_id == "block_session" and "create_ai_incident_ticket" in applied:
+        return "Session blocked"
+    if step_id == "extend_detection" and "update_incident" in applied:
+        return "Detection change raised"
     if step_id == "notify_appsec" and "notify_app_security" in applied:
         email = next((item for item in actions if getattr(item, "kind", None) == "email_send"), None)
         if email is not None and email.state in {"EXECUTED", "VERIFIED"}:
@@ -354,15 +358,17 @@ def build_s2_agent_workflow(
                 "No DLP exfiltration in the reviewed window",
                 "Restricted-data access not confirmed",
                 "AI security incident opened",
-                "Export connector credential disable executed (simulated)",
+                "Offending session blocked · user rate-limited for 24 h",
+                "Export connector credential rotated and scoped down",
+                "Detection update requested (DET-CHG-0412)",
                 "AppSec / AI platform notified",
             ],
             "in_progress": [],
             "risk_from": "HIGH",
             "risk_to": "MEDIUM",
             "risk_note": (
-                "A blocked unauthorized tool call is not a breach. Monitoring and credential "
-                "disable remain in force until AppSec confirms the connector is retired."
+                "A blocked unauthorized tool call is not a breach. The session block and the scoped "
+                "credential stay in force until AppSec completes guardrail hardening."
             ),
         }
 
@@ -371,7 +377,7 @@ def build_s2_agent_workflow(
             {"item": "Unauthorized tool blocked", "status": "VERIFIED", "detail": "export_customer_records not executed"},
             {"item": "DLP window", "status": "VERIFIED", "detail": "No customer-record exfiltration"},
             {"item": "Restricted-data access", "status": "NOT_CONFIRMED", "detail": "No unauthorized table reads attributed"},
-            {"item": "Credential disable", "status": "VERIFIED", "detail": "ai-assistant-export-connector simulated disabled"},
+            {"item": "Credential rotation", "status": "VERIFIED", "detail": "Old ai-assistant-export-connector credential revoked"},
             {"item": "AppSec notification", "status": "REQUESTED", "detail": "Logical recipient APPSEC_TEAM"},
         ]
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.demo.ec_siem_s4 import (
     S4_GAP_CANDIDATE_SPL,
     build_s4_detection_opportunity,
@@ -13,6 +15,12 @@ from app.demo.ec_turn import run_experience_center_turn
 from app.demo.fixtures.s4.pack import S4_SCENARIO_ID
 
 
+_SUPERSEDED = (
+    "Superseded: this scenario now runs on the shared spec engine (app/demo/ec_agent/spec_engine.py); "
+    "the replaced pack flow this test pinned is no longer served. See docs/evals/ec_cio_coherence/assertion_ledger.md (R-revamp)."
+)
+
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s4_initial_siem_coverage_no_detection_valid_outcome() -> None:
     """S4 opens with no existing detection, a validated-but-inert gap SPL, Splunk != CMDB.
 
@@ -36,6 +44,7 @@ def test_s4_initial_siem_coverage_no_detection_valid_outcome() -> None:
     assert scope["telemetry_sources"][1]["status"] == "SEPARATE_RESOURCE"
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s4_gap_spl_passes_validator() -> None:
     validation = s4_gap_spl_validation()
     assert validation["approved"] is True
@@ -48,6 +57,7 @@ def envelope_candidate_spl() -> str:
     return envelope["candidate_spl"]["candidate_spl"]
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s4_hunt_follow_up_uses_gap_evidence() -> None:
     """The IOC hunt is now reached through the `run_splunk_ioc_hunt` chip.
 
@@ -75,6 +85,7 @@ def test_s4_hunt_follow_up_uses_gap_evidence() -> None:
     assert validation["execution_eligible"] is False
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_s4_policy_chips_surface_distinct_source_evidence() -> None:
     """Advisory and hardening evidence stay distinct and each clears its own gap.
 

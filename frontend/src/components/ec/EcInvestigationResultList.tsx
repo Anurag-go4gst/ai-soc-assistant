@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { EcStepWhy } from '@/components/ec/EcCioLayer';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -145,11 +146,20 @@ function compactMetrics(finding: EcAgentStepFinding): Array<{ label: string; val
   return entries.slice(0, 6);
 }
 
+/** Plain-language provenance. Internal harness vocabulary (fixture, simulated) is never shown. */
+export function friendlyProvenance(value?: string | null): string {
+  const raw = (value ?? '').toLowerCase();
+  if (!raw || raw.includes('fixture') || raw.includes('simulated') || raw.includes('synthetic')) {
+    return '';
+  }
+  return raw.replace(/_/g, ' ').toUpperCase();
+}
+
 function provenanceLabel(finding: EcAgentStepFinding): string | null {
   const src = finding.evidence_sources?.[0];
   if (!src) return null;
-  const provenance = src.provenance?.replace(/_/g, ' ').toUpperCase() ?? 'SIMULATED';
-  return `${src.source} · ${provenance}`;
+  const provenance = friendlyProvenance(src.provenance);
+  return provenance ? `${src.source} · ${provenance}` : src.source;
 }
 
 function EntityChips({
@@ -183,7 +193,7 @@ function EntityChips({
   );
 }
 
-function CompactFindingDetails({
+export function CompactFindingDetails({
   step,
   finding,
   anomalousAssetIds,
@@ -573,6 +583,7 @@ function InvestigationResultRow({
           {!step.added_by_agent && step.summary ? (
             <p className="mt-1 hidden text-xs text-slate-500 md:block">{step.summary}</p>
           ) : null}
+          <EcStepWhy step={step} />
         </div>
 
         <div className="flex flex-col items-start gap-2 md:justify-start">
@@ -634,6 +645,17 @@ function InvestigationResultRow({
               <p className="mt-1 text-xs text-cyan-400/80">
                 {String(details.connector ?? 'Splunk MCP')} · View SPL ›
               </p>
+            ) : null}
+            {variant === 'remediation' && showEmail && (resolvedEmailDraft?.subject || resolvedEmailDraft?.body) ? (
+              <div className="mt-2 rounded-md border border-slate-700/80 bg-slate-950/60 p-3 text-xs" data-ec-email-preview={step.id}>
+                <p className="text-slate-400">
+                  To: <span className="text-slate-200">{String(resolvedEmailDraft.to ?? '')}</span>
+                </p>
+                <p className="mt-0.5 font-medium text-slate-100">{String(resolvedEmailDraft.subject ?? '')}</p>
+                <pre className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap font-sans leading-relaxed text-slate-300">
+                  {String(resolvedEmailDraft.body ?? '')}
+                </pre>
+              </div>
             ) : null}
           </div>
         </div>

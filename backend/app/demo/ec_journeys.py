@@ -64,7 +64,7 @@ S5_INITIAL_TITLES = (
 _LLM_ACTIVITY = [
     "Applying governed LLM advisory signals…",
     "Applying severity, MITRE, and SPL governance overrides…",
-    "Final synthesis disabled for Experience Center",
+    "Final wording stays deterministic — the model drafts prose only",
 ]
 
 
@@ -204,7 +204,7 @@ def s1_initial() -> EcExecutionJourney:
         InitialStepSpec("resource-plan", titles[1], semantic_type="plan", duration_ms_hint=850, activity=["Mapping evidence needs and governed resources…", "Resource plan locked for newly observed IP review…"]),
         InitialStepSpec("mcp-select", titles[2], semantic_type="plan", duration_ms_hint=800, activity=["Selecting splunk_run_query and knowledge-object tools…", "Applying MCP execution gates…"]),
         InitialStepSpec("mcp-connect", titles[3], semantic_type="plan", duration_ms_hint=1000, activity=["Resolving Splunk MCP from registry…", "Connector ready for governed search…"], system=splunk[0], operation=splunk[1]),
-        InitialStepSpec("evidence", titles[4], semantic_type="gather", duration_ms_hint=1000, activity=["Looking up inventory identity…", "Registered MCP endpoint — not a listed IOC…"], system="SOC-KB", operation="retrieve_soc_kb", outcome_change="identity=registered_mcp"),
+        InitialStepSpec("evidence", titles[4], semantic_type="gather", duration_ms_hint=1000, activity=["Looking up inventory identity…", "Partner API endpoint (Northwind Logistics) — not a listed IOC…"], system="SOC-KB", operation="retrieve_soc_kb", outcome_change="identity=registered_partner_endpoint"),
         InitialStepSpec("spl-validate", titles[5], semantic_type="evaluate", duration_ms_hint=900, activity=["Running deterministic SPL validator on bounded 30-day windows…"]),
         InitialStepSpec("mcp-execute", titles[6], semantic_type="gather", duration_ms_hint=1300, activity=["Executing requested last-30-days search…", "Executing prior novelty window…", "Polling Splunk MCP job…"], system=splunk[0], operation=splunk[1]),
         InitialStepSpec("correlate", titles[7], semantic_type="evaluate", duration_ms_hint=900, activity=["Assessing existing IOC detection coverage…", "No alert — IP not present in the IOC list used by this detection…"], system=splunk_saved[0], operation=splunk_saved[1], outcome_change="coverage=PARTIAL"),
@@ -434,7 +434,7 @@ def _ticket_action(follow_up_id: str) -> EcExecutionJourney:
         f"act-ticket-{follow_up_id}",
         follow_up_id,
         [
-            ("Selecting ITSM connector", "plan", "Choosing the simulated ticket system…"),
+            ("Selecting ITSM connector", "plan", "Choosing the ITSM connector…"),
             ("Connecting to ITSM", "execute", "Opening the EC ticket channel…"),
             ("Recording ticket receipt", "evaluate", "Linking incident ticket to investigation evidence…"),
         ],
@@ -468,13 +468,13 @@ def _firewall_action(follow_up_id: str) -> EcExecutionJourney:
     verify = "verify" in follow_up_id
     stages = (
         [
-            ("Selecting firewall controller", "plan", "Choosing the simulated firewall change API…"),
+            ("Selecting firewall controller", "plan", "Choosing the firewall change connector…"),
             ("Connecting to firewall", "verify", "Reading simulated rule state…"),
             ("Recording verification", "evaluate", "No live firewall claim…"),
         ]
         if verify
         else [
-            ("Selecting firewall controller", "plan", "Choosing the simulated firewall change API…"),
+            ("Selecting firewall controller", "plan", "Choosing the firewall change connector…"),
             ("Connecting to firewall", "execute", "Opening the EC firewall channel…"),
             ("Approval required", "hil", "No production firewall change until Execute…"),
         ]
@@ -537,13 +537,13 @@ def _iam_action(follow_up_id: str) -> EcExecutionJourney:
     verify = "verify" in follow_up_id
     stages = (
         [
-            ("Selecting identity provider", "plan", "Simulated IAM disable only…"),
+            ("Selecting identity provider", "plan", "Rotating and scoping down the export connector credential…"),
             ("Connecting to IAM", "execute", "Opening the EC identity channel…"),
             ("Approval required", "hil", "Credential action waits for HIL…"),
         ]
         if not verify
         else [
-            ("Selecting identity provider", "plan", "Checking simulated credential state…"),
+            ("Selecting identity provider", "plan", "Checking the credential state…"),
             ("Connecting to IAM", "verify", "Reading fixture credential state…"),
             ("Recording verification", "evaluate", "No live IAM change…"),
         ]
@@ -642,7 +642,7 @@ S1_FOLLOW_UP_JOURNEYS = {
         "s1-edr",
         "check_endpoint_activity",
         [
-            ("Selecting EDR capability", "plan", "Selecting the simulated EDR resource…"),
+            ("Selecting EDR capability", "plan", "Selecting the EDR connector…"),
             ("Retrieving endpoint evidence", "gather", "Retrieving jump-host endpoint evidence…"),
             ("Correlating process/network activity", "correlate", "Comparing EDR with firewall allows…"),
             ("Updating EvidenceState", "evaluate", "EDR is now obtained…"),
@@ -653,7 +653,7 @@ S1_FOLLOW_UP_JOURNEYS = {
         "s1-ti",
         "check_threat_intel",
         [
-            ("Selecting local threat-intelligence source", "plan", "EC TI fixture only — no internet reputation…"),
+            ("Selecting local threat-intelligence source", "plan", "Local threat intelligence only — no internet reputation lookups…"),
             ("Looking up indicator", "gather", "Looking up the newly observed IP…"),
             ("Evaluating local IOC content", "evaluate", "Not present in local IOC / TI evidence…"),
             ("Updating outcome", "outcome", "Unlisted is not benign…"),
@@ -675,7 +675,7 @@ S1_FOLLOW_UP_JOURNEYS = {
         "raise_mcp_monitoring",
         [
             ("Selecting monitoring SOP", "plan", "Standard SOP is raise monitoring before a HIL block…"),
-            ("Drafting MCP IP notable", "gather", "Preparing a new notable for the newly registered MCP endpoint…"),
+            ("Drafting partner-endpoint notable", "gather", "Preparing a new notable for the newly registered partner API endpoint (Northwind Logistics)…"),
             ("Holding for analyst approval", "hil", "Monitoring draft is HIL — not auto-deployed…"),
             ("Updating InvestigationOutcome", "outcome", "Monitoring drafted; block still optional…"),
         ],
@@ -691,7 +691,7 @@ S1_FOLLOW_UP_JOURNEYS = {
         "s1-identity",
         "lookup_inventory_identity",
         [
-            ("Looking up inventory identity", "gather", "SOC-KB: registered MCP endpoint…"),
+            ("Looking up inventory identity", "gather", "SOC-KB: partner API endpoint (Northwind Logistics)…"),
         ],
     ),
     "search_firewall_30d": _continue(
@@ -706,7 +706,7 @@ S1_FOLLOW_UP_JOURNEYS = {
         "s1-sop",
         "retrieve_sop",
         [
-            ("Retrieving enterprise SOP", "gather", "SOC-KB: newly observed external / MCP endpoint SOP…"),
+            ("Retrieving enterprise SOP", "gather", "SOC-KB: newly observed external / partner API endpoint SOP…"),
             ("Reading monitoring vs block criteria", "evaluate", "Default is 14-day targeted monitoring…"),
         ],
     ),
@@ -723,14 +723,14 @@ S1_FOLLOW_UP_JOURNEYS = {
         "s1-inv-run",
         "run_investigation",
         [
-            ("Identifying the IP", "gather", "Inventory: registered MCP endpoint…"),
+            ("Identifying the IP", "gather", "Inventory: partner API endpoint (Northwind Logistics)…"),
             ("Searching last 30 days", "gather", "3 allowed / 922 denied on jump host…"),
             ("Investigating permitted sessions", "correlate", "Added by agent — three permits unexplained…"),
             ("Checking novelty window", "gather", "Prior 30 days empty…"),
             ("Checking local TI", "gather", "Unlisted in local IOC/TI…"),
             ("Assessing Splunk detection coverage", "evaluate", "No alert — IP not in IOC list…"),
             ("Retrieving SOP", "gather", "Enterprise monitoring and blocking SOP…"),
-            ("Synthesizing findings", "outcome", "Registered MCP endpoint · permits unexplained · malicious use not confirmed…"),
+            ("Synthesizing findings", "outcome", "Partner API endpoint (Northwind Logistics) · permits unexplained · malicious use not confirmed…"),
         ],
         header="Investigation in progress",
     ),
@@ -778,11 +778,11 @@ S1_FOLLOW_UP_JOURNEYS = {
         "s1-rem-run",
         "run_remediation",
         [
-            ("Raise MCP IP monitoring", "execute", "HIL notable draft…"),
+            ("Raise monitoring for the new IP", "execute", "HIL notable draft…"),
             ("Prepare firewall block", "execute", "SOAR ip_block after approval…"),
             ("Create incident", "execute", "ITSM — malicious use not confirmed…"),
             ("Notify firewall team", "execute", "Email — FIREWALL_TEAM after approval…"),
-            ("Verify firewall rule", "verify", "Simulated rule after execute…"),
+            ("Verify firewall rule", "verify", "Confirming the rule is in place after the change…"),
             ("Closure summary", "outcome", "Monitoring raised · malicious use not confirmed…"),
         ],
         header="Remediation in progress",
@@ -791,7 +791,7 @@ S1_FOLLOW_UP_JOURNEYS = {
         "s1-exec",
         "generate_executive_summary",
         [
-            ("Writing executive summary", "outcome", "New MCP endpoint · monitoring raised · not confirmed malicious…"),
+            ("Writing executive summary", "outcome", "New partner API endpoint · monitoring raised · not confirmed malicious…"),
         ],
     ),
     "check_successful_auth": _continue(
@@ -895,9 +895,11 @@ S2_FOLLOW_UP_JOURNEYS = {
         "run_remediation",
         [
             ("Create AI incident", "execute", "ITSM — prompt injection blocked…"),
-            ("Disable export credential", "execute", "IAM — simulated HIL disable…"),
+            ("Block offending session", "execute", "AI gateway — sess-ai-8841 terminated, user rate-limited…"),
+            ("Rotate export credential", "execute", "IAM — rotated and scoped down after approval…"),
             ("Notify AppSec", "execute", "Email — APPSEC_TEAM after approval…"),
-            ("Verify credential state", "verify", "Export connector simulated disabled…"),
+            ("Verify credential state", "verify", "Old credential revoked…"),
+            ("Request detection update", "execute", "ITSM — DET-CHG-0412 raised…"),
             ("Update incident", "execute", "Ticket — breach not confirmed…"),
             ("Closure summary", "outcome", "Attempted, blocked, not a confirmed breach…"),
         ],
@@ -934,7 +936,7 @@ S7_FOLLOW_UP_JOURNEYS = {
     ]),
     "ask_ot_team": _email_action("ask_ot_team", wait_inbound=True),
     "ingest_ot_response": _continue("s7-ot-ingest", "ingest_ot_response", [
-        ("Ingesting OT reply", "gather", "Fixture-backed OT team response…"),
+        ("Ingesting OT reply", "gather", "OT engineering reply recorded…"),
         ("Resolving conflict", "outcome", "Path A or B evidenced from OT confirmation…"),
     ]),
     "create_incident_ticket": _ticket_action("create_incident_ticket"),
@@ -949,7 +951,8 @@ S7_FOLLOW_UP_JOURNEYS = {
             ("Checking OT inventory", "gather", "Device active on cell 4…"),
             ("Checking firewall window", "gather", "East-west allow to 10.80.4.14…"),
             ("Checking ARP/MAC", "gather", "MAC still answering on the OT VLAN…"),
-            ("Synthesizing findings", "outcome", "Real concern — CMDB stale — not Splunk-alone…"),
+            ("Identifying the source", "gather", "OT-EWS-03 · vendor account ot_vendor_svc…"),
+            ("Synthesizing findings", "outcome", "Live device · unauthorized vendor access · CMDB stale…"),
         ],
         header="Investigation in progress",
     ),
@@ -969,16 +972,104 @@ S7_FOLLOW_UP_JOURNEYS = {
         "s7-rem-run",
         "run_remediation",
         [
-            ("Ask OT team", "execute", "Email — OT_TEAM after approval…"),
-            ("Ingest OT reply", "gather", "Device never decommissioned; CMDB not updated…"),
-            ("Create incident", "execute", "ITSM — active device, stale CMDB…"),
+            ("Ask OT engineering", "execute", "Email — was ot_vendor_svc authorized?…"),
+            ("Record OT reply", "gather", "No maintenance was scheduled for ot_vendor_svc…"),
+            ("Create incident", "execute", "ITSM — INC-OT-14, live device, unauthorized access…"),
+            ("Narrow firewall path", "execute", "Allow to 10.80.4.14 limited to the engineering workstation…"),
+            ("Check RTU configuration", "verify", "OT-RTU-14 matches baseline…"),
             ("CMDB correction", "execute", "ITSM — data-quality ticket…"),
-            ("Closure summary", "outcome", "Real concern after conflict resolution…"),
+            ("Closure summary", "outcome", "Incident open · vendor path closed · CMDB corrected…"),
         ],
         header="Remediation in progress",
     ),
 }
 
+
+def r1_initial() -> EcExecutionJourney:
+    kb = ("SOC-KB", "retrieve_soc_kb")
+    specs = [
+        InitialStepSpec("understand", "Reading the policy question", semantic_type="understand", duration_ms_hint=700, activity=["Policy question — answer from approved SOC knowledge only…"]),
+        InitialStepSpec("resource-plan", "Planning a governed retrieval", semantic_type="plan", duration_ms_hint=750, activity=["Every answer sentence must carry a citation…"]),
+        InitialStepSpec("mcp-select", "Selecting knowledge collections", semantic_type="plan", duration_ms_hint=700, activity=["SOC SOPs · escalation matrix…"]),
+        InitialStepSpec("mcp-connect", "Opening the SOC knowledge base", semantic_type="plan", duration_ms_hint=700, activity=["Governed retriever ready…"], system=kb[0], operation=kb[1]),
+        InitialStepSpec("evidence", "Checking document approval status", semantic_type="gather", duration_ms_hint=750, activity=["Draft, rejected, superseded and expired versions will be excluded…"], system=kb[0], operation=kb[1]),
+        InitialStepSpec("spl-validate", "No SPL needed for a policy answer", semantic_type="gather", duration_ms_hint=500, activity=["Knowledge answer — no Splunk search…"]),
+        InitialStepSpec("mcp-execute", "Preparing retrieval and ranking", semantic_type="correlate", duration_ms_hint=700, activity=["Keyword, metadata and rerank stages…"]),
+        InitialStepSpec("correlate", "Preparing the citation check", semantic_type="evaluate", duration_ms_hint=700, activity=["Unsupported statements become gaps, not answers…"]),
+        InitialStepSpec("llm-advisory", "Setting wording guardrails", semantic_type="evaluate", duration_ms_hint=600, activity=["The SOP's own prohibited conclusions apply…"]),
+        InitialStepSpec("outcome", "Retrieval plan ready for approval", semantic_type="outcome", duration_ms_hint=700, activity=["Nothing runs until you approve…"]),
+    ]
+    return _initial_journey("r1-initial", "r1", specs)
+
+
+R1_FOLLOW_UP_JOURNEYS = {
+    "run_investigation": _continue(
+        "r1-inv-run",
+        "run_investigation",
+        [
+            ("Rewriting the question", "understand", "privileged account · success after failures · escalation…"),
+            ("Selecting collections", "plan", "SOC SOPs · escalation matrix…"),
+            ("Excluding non-approved versions", "evaluate", "Draft, rejected, superseded, expired — removed…"),
+            ("Retrieving and ranking", "gather", "Top passage AUTH-003 · confidence 0.94…"),
+            ("Checking citations", "verify", "Every sentence cited · gaps reported…"),
+            ("Composing the answer", "outcome", "Escalate to Tier 2 · do not claim compromise…"),
+        ],
+        header="Governed retrieval in progress",
+    ),
+    "create_remediation_plan": _continue(
+        "r1-rem-plan",
+        "create_remediation_plan",
+        [
+            ("Mapping the SOP to actions", "evaluate", "Escalation required for privileged accounts…"),
+            ("Drafting the escalation email", "plan", "Tier 2 SOC analyst · SOP checklist…"),
+            ("Preparing the incident", "plan", "P2 · citations attached…"),
+        ],
+        header="Building remediation plan",
+    ),
+    "run_remediation": _continue(
+        "r1-rem-run",
+        "run_remediation",
+        [
+            ("Create incident", "execute", "ITSM — P2 with SOP checklist…"),
+            ("Escalate to Tier 2", "execute", "Email — sent after your review…"),
+            ("Closing the loop", "outcome", "Escalated · compromise not claimed…"),
+        ],
+        header="Remediation in progress",
+    ),
+}
+
+
+
+def agent_steps_journey(
+    scenario_id: str, key: str, *, steps: list[tuple[str, str]], header: str
+) -> EcExecutionJourney:
+    """Animation that mirrors the approved plan: one stage per step, showing its result line."""
+    return _continue(
+        f"{scenario_id}-{key}",
+        key,
+        [(title, "execute" if key == "run_remediation" else "gather", result) for title, result in steps],
+        header=header,
+    )
+
+
+def agent_planning_journey(scenario_id: str, *, tool_names: list[str], step_count: int) -> EcExecutionJourney:
+    """First-turn animation for agent scenarios: it plans, it does not investigate.
+
+    The 10-stage architecture animation used to show searches executing and findings appearing
+    before the plan was even offered — contradicting "nothing runs until you approve".
+    """
+    tools = ", ".join(tool_names[:4]) + ("…" if len(tool_names) > 4 else "")
+    return _continue(
+        f"{scenario_id}-plan",
+        "plan",
+        [
+            ("Reading your question", "understand", "Working out what has to be decided…"),
+            ("Choosing checks and tools", "plan", f"{step_count} checks across {tools or 'governed tools'}…"),
+            ("Looking for what we already have", "plan", "Existing detections, playbooks and SOPs to reuse first…"),
+            ("Plan ready for your approval", "outcome", "Nothing runs until you approve…"),
+        ],
+        header="Preparing the investigation plan",
+    )
 
 _INITIAL = {
     "s1_governed_splunk_investigation": s1_initial,
@@ -988,6 +1079,7 @@ _INITIAL = {
     "s5_cisco_hardening_remediation": s5_initial,
     "s6_investigation_continuity": s6_initial,
     "s7_conflicting_ot_evidence": s7_initial,
+    "r1_rag_privileged_success_after_failure": r1_initial,
 }
 
 # Auto-applied plan prereads must not replace the canonical 10-step initial animation.
@@ -1136,10 +1228,12 @@ _FOLLOW_UPS: dict[str, dict[str, EcExecutionJourney]] = {
             "s4-rem-run",
             "run_remediation",
             [
+                ("Request WAN restriction", "execute", "Email — network ops asked to disable the WAN listener on 4 gateways…"),
+                ("Request step-up MFA", "execute", "Email — IAM asked for an emergency MFA policy…"),
                 ("Create P1 incident", "execute", "ITSM — INC-48219 opened…"),
+                ("Capture pre-patch evidence", "gather", "VPN-GW-01/02 — logs and config snapshot preserved…"),
+                ("Rotate admin credentials", "execute", "VPN-GW-01/02 — admin sessions revoked…"),
                 ("Create emergency change", "execute", "ITSM — CHG-29173 awaiting network approval…"),
-                ("Restrict WAN management", "execute", "Network MCP — compensating control on 4 gateways…"),
-                ("Enforce step-up MFA", "execute", "Identity MCP — emergency MFA policy applied…"),
                 ("Submit emergency patch", "execute", "Agilus MCP — CHG-29173 linked to patch job…"),
                 ("Prepare monitoring", "execute", "Splunk MCP — alert candidate prepared, not deployed…"),
                 ("Notify stakeholders", "execute", "Email / Teams — network and SOC owners notified…"),
@@ -1197,6 +1291,7 @@ _FOLLOW_UPS: dict[str, dict[str, EcExecutionJourney]] = {
         "notify_incident_owner": _email_action("notify_incident_owner"),
     },
     "s7_conflicting_ot_evidence": S7_FOLLOW_UP_JOURNEYS,
+    "r1_rag_privileged_success_after_failure": R1_FOLLOW_UP_JOURNEYS,
 }
 
 

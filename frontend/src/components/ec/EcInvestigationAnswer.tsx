@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import type { EcAffectedSystem, EcSourceEvidenceItem, ExperienceCenterResponse } from '@/components/ec/types';
+import type { EcAffectedSystem, EcSourceEvidenceItem, ExperienceCenterResponse, EcRemediationExtras } from '@/components/ec/types';
 import { EcAnswerTitle, EcSectionHeading } from '@/components/ec/EcSectionHeading';
 import { EcAnswerReveal, EcRevealBlock, EcStreamingText } from '@/components/ec/EcAnswerReveal';
 import { EcAffectedSystemsTable } from '@/components/ec/EcAffectedSystemsTable';
@@ -58,7 +58,7 @@ function sourceEvidenceHint(items: EcSourceEvidenceItem[]): string {
     ) {
       add('SOC-KB / RAG');
     }
-    if (blob.includes('identity') || blob.includes('inventory')) add('inventory fixture');
+    if (blob.includes('identity') || blob.includes('inventory')) add('asset inventory');
     if (blob.includes('itsm') || blob.includes('ticket')) add('ITSM');
   }
   if (!labels.length) return `${items.length} items`;
@@ -112,7 +112,7 @@ export function EcInvestigationAnswer({
   onStepAction?: (followUpId: string) => void;
   stepActionBusy?: boolean;
   onAgentRunInvestigation?: (selectedStepIds: string[]) => void;
-  onAgentRunRemediation?: (selectedStepIds: string[]) => void;
+  onAgentRunRemediation?: (selectedStepIds: string[], extras?: EcRemediationExtras) => void;
   onAgentHilApprove?: () => void;
   onAgentHilSkip?: () => void;
   onCreateRemediationPlan?: () => void;
@@ -207,7 +207,7 @@ export function EcInvestigationAnswer({
             busy={stepActionBusy}
             executionProgress={agentExecutionProgress}
             onRunInvestigation={(ids) => onAgentRunInvestigation?.(ids)}
-            onRunRemediation={(ids) => onAgentRunRemediation?.(ids)}
+            onRunRemediation={(ids, extras) => onAgentRunRemediation?.(ids, extras)}
             onHilApprove={() => onAgentHilApprove?.()}
             onHilSkip={() => onAgentHilSkip?.()}
             onCreateRemediationPlan={() => onCreateRemediationPlan?.()}
@@ -296,6 +296,20 @@ export function EcInvestigationAnswer({
         </EcRevealBlock>
       ) : null}
 
+      {analyst.follow_up_findings?.length ? (
+        <section
+          className="space-y-2 rounded-lg border border-cyan-500/25 bg-cyan-950/15 p-4"
+          data-ec-section="follow-up-findings"
+        >
+          <EcSectionHeading>Findings so far</EcSectionHeading>
+          <ol className="list-decimal space-y-1.5 pl-5 text-sm leading-relaxed text-slate-100">
+            {analyst.follow_up_findings.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
       {showWhatWeFound ? (
         <EcRevealBlock>
           <EcSectionHeading>What we found</EcSectionHeading>
@@ -372,7 +386,7 @@ export function EcInvestigationAnswer({
         </EcRevealBlock>
       ) : null}
 
-      {collapsibleEvidence ? (
+      {collapsibleEvidence && !agentMode ? (
         <EcRevealBlock>
           <EcCollapsibleEvidencePanel>
             {envelope.ec_siem_coverage ? (
@@ -417,7 +431,9 @@ export function EcInvestigationAnswer({
         </EcRevealBlock>
       ) : null}
 
-      {envelope.candidate_spl?.candidate_spl && !analyst.spl_code && !hideSpl ? (
+      {/* Agent mode shows each search's validated SPL in its own result row; a separate
+          "candidate — not executed" box would contradict a search that did run. */}
+      {!agentMode && envelope.candidate_spl?.candidate_spl && !analyst.spl_code && !hideSpl ? (
         <EcRevealBlock>
           <EcSectionHeading>Candidate SPL</EcSectionHeading>
           <p className="mt-2 text-sm text-slate-400">Review-only candidate — not executed.</p>
@@ -463,7 +479,7 @@ export function EcInvestigationAnswer({
         </EcRevealBlock>
       ) : null}
 
-      {envelope.source_evidence?.length ? (
+      {envelope.source_evidence?.length && !agentMode ? (
         <EcRevealBlock>
           <EcCollapsibleEvidencePanel
             summary="Source evidence"

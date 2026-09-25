@@ -134,11 +134,14 @@ def assert_no_saia_in_projection(payload: dict[str, Any]) -> None:
 
 S2_DETECTION_NAME = "AI Assistant — Prompt Injection Attempt"
 S2_SAVED_SEARCH_NAME = "EC_AI_Prompt_Injection_Detection"
+# The AI gateway forwards tool-call audit events through the host agent, so they land in the
+# allowlisted endpoint sourcetype; ``event_type`` scopes the search to tool calls only. Grouping by
+# user and src answers "one actor or many?" — a CIO's first question after "did it work?".
 S2_GAP_CANDIDATE_SPL = (
     "search index=pgcil_soc sourcetype=pgcil:edr earliest=-24h latest=now "
-    "tool_name=export_customer_records "
+    "event_type=ai_tool_call tool_name=export_customer_records "
     "| stats count values(authorized) as authorized values(executed) as executed "
-    "by session_id tool_name "
+    "by session_id user src tool_name "
     "| head 100"
 )
 

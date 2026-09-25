@@ -81,7 +81,7 @@ def finding_for_investigation_step(
                 "ai-8841 ignore previous instructions → blocked_prompt",
                 "ai-8842 export all customer records → tool_denied",
             ],
-            "quantitative_summary": {"injection_events": 3, "new_spl_generated": False},
+            "quantitative_summary": {"injection_events": 3, "existing_detection_reused": "yes"},
             "confidence": "high",
             "attention_state": "ATTENTION",
             "caveat": "Existing detection coverage is partial; tool execution still needs the gap search.",
@@ -132,7 +132,7 @@ def finding_for_investigation_step(
             "key_evidence": [
                 f"tool={BLOCKED_TOOL} authorized=false executed=false",
                 "reason=tool_authorization_denied",
-                f"Bounded gap SPL used only for this tool path (execution_eligible=false): {S2_GAP_CANDIDATE_SPL[:48]}…",
+                f"Bounded search for this tool path only (review-only): {S2_GAP_CANDIDATE_SPL[:48]}…",
             ],
             "quantitative_summary": {"unauthorized_tools_executed": 0, "blocked_attempts": 1},
             "confidence": "high",

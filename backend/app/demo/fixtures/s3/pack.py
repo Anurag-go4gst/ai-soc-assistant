@@ -43,16 +43,16 @@ S3_FOLLOWUP_IDS = frozenset(item.follow_up_id for item in S3_FOLLOWUPS)
 
 _PROCESS_FIELDS = {
     "malicious_ip": PRIMARY_ATTACKER_IP,
-    "reason": "Confirmed malicious scanning and allow/deny mix against internal jump host",
+    "reason": "Scanning from this IP plus svc_jump_ops logons on jump host 10.20.1.10 attributed to it (Day 1 identity check)",
     "incident_reference": INCIDENT_ID,
-    "severity": "P2 High",
+    "severity": "P1 Critical",
     "affected_systems": ["10.20.1.10", "10.20.4.55", "10.20.8.90"],
-    "evidence_summary": "Firewall telemetry shows coordinated denies plus limited allows from the indicator.",
-    "first_seen": "2026-06-18T04:12:00Z",
-    "last_seen": "2026-08-16T16:44:00Z",
+    "evidence_summary": "~4,100 denies across 3 hosts and 26 ports; 3 allowed sessions to 10.20.1.10 with attributed svc_jump_ops logons.",
+    "first_seen": "2026-07-24T04:12:00Z",
+    "last_seen": "2026-08-17T03:19:00Z",
     "requested_block_duration": "30 days, review at expiry",
     "business_impact": "Vendor testing exception may be in conflict with observed traffic",
-    "requester": "SOC analyst (Experience Center session)",
+    "requester": "SOC analyst (on shift)",
     "required_approval": "Firewall change owner + SOC lead",
     "rollback": "Restore previous exception only with documented business owner approval",
 }

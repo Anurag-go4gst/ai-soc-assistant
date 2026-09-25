@@ -289,7 +289,7 @@ def build_s2_turn(
             {"request_id": "ai-8841", "pattern": "ignore previous instructions", "action": "blocked_prompt"},
         ], provenance="simulated_mcp", tool_name="splunk_run_saved_search"),
         C.evidence("ev-s2-tool", "tool_audit_fixture", "Tool-call audit", [
-            {"tool": "export_customer_records", "authorized": False, "executed": False, "reason": "tool_authorization_denied"},
+            {"tool": "export_customer_records", "authorized": False, "executed": False, "reason": "tool_authorization_denied", "session_id": "sess-ai-8841", "user": "guest-web-5521", "src": "203.0.113.77"},
         ], provenance="simulated_mcp", tool_name="splunk_run_query"),
         *extra,
     ]

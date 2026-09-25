@@ -12,8 +12,8 @@ S1_FAMILY = "s1_governed_splunk"
 INVESTIGATION_STEP_DEFS: tuple[dict[str, Any], ...] = (
     {
         "id": "mcp_identity",
-        "title": "Identify the IP and its expected role",
-        "summary": "SOC-KB / inventory fixture — establish whether this IP is a registered MCP endpoint.",
+        "title": "Who owns this IP?",
+        "summary": "Look it up in the asset inventory (SOC-KB).",
         "follow_up_id": "lookup_inventory_identity",
         "tools": ["SOC-KB"],
         "default_selected": True,
@@ -21,85 +21,29 @@ INVESTIGATION_STEP_DEFS: tuple[dict[str, Any], ...] = (
     },
     {
         "id": "requested_30d",
-        "title": "Investigate network activity — last 30 days",
-        "summary": "Governed Splunk search for the analyst-requested window. Candidate SPL stays non-executable.",
+        "title": "What did it do in the last 30 days?",
+        "summary": "Firewall traffic to and from the IP, whether it is new, and whether threat intel or our detections flag it.",
         "follow_up_id": "search_firewall_30d",
-        "tools": ["Splunk MCP"],
-        "default_selected": True,
-        "phase": "investigation",
-    },
-    {
-        "id": "novelty_window",
-        "title": "Check historical activity / novelty",
-        "summary": "Second bounded search: is this IP newly observed, or already in the prior window?",
-        "follow_up_id": None,
-        "bundle_with": "search_firewall_30d",
-        "tools": ["Splunk MCP"],
-        "default_selected": True,
-        "phase": "investigation",
-    },
-    {
-        "id": "threat_intel",
-        "title": "Check local threat intelligence",
-        "summary": "Local IOC / TI fixture only. No internet reputation services.",
-        "follow_up_id": "check_threat_intel",
-        "tools": ["SOC-KB"],
-        "default_selected": True,
-        "phase": "investigation",
-    },
-    {
-        "id": "evaluate_notable",
-        "title": "Assess existing Splunk detection coverage",
-        "summary": (
-            "Check whether existing known-malicious-IP/IOC detections cover this indicator "
-            "and whether an alert was generated. No alert is not proof the IP is benign."
-        ),
-        "follow_up_id": "review_existing_notable",
+        # Novelty rides the same search; TI and detection-coverage checks are folded in.
+        "also_applies": ("check_threat_intel", "review_existing_notable"),
         "tools": ["Splunk MCP"],
         "default_selected": True,
         "phase": "investigation",
     },
     {
         "id": "retrieve_sop",
-        "title": "Retrieve monitoring and blocking SOP",
-        "summary": "Governed SOC-KB retrieval of the enterprise newly observed external / MCP endpoint SOP.",
+        "title": "What does our SOP say to do?",
+        "summary": "Newly observed external endpoint SOP.",
         "follow_up_id": "retrieve_sop",
         "tools": ["SOC-KB"],
         "default_selected": True,
-        "phase": "investigation",
-    },
-    {
-        "id": "privileged_accounts",
-        "title": "Review privileged-account context",
-        "summary": "Optional IAM class check. No IAM MCP is onboarded.",
-        "follow_up_id": "check_privileged_accounts",
-        "tools": ["IAM (simulated)"],
-        "default_selected": False,
-        "phase": "investigation",
-    },
-    {
-        "id": "endpoint_activity",
-        "title": "Check endpoint activity on the jump host",
-        "summary": "Optional. No EDR MCP is onboarded — do not invent an EDR connector.",
-        "follow_up_id": "check_endpoint_activity",
-        "tools": ["EDR (simulated)"],
-        "default_selected": False,
-        "phase": "investigation",
-    },
-    {
-        "id": "previous_incidents",
-        "title": "Compare with previous incidents",
-        "summary": "Optional historical ticket overlap. Campaign linkage stays unconfirmed.",
-        "follow_up_id": "compare_previous_incidents",
-        "tools": ["ITSM (simulated)"],
-        "default_selected": False,
         "phase": "investigation",
     },
 )
 
 ADAPTATION_STEP: dict[str, Any] = {
     "id": "permitted_sessions",
-    "title": "Investigate permitted sessions and authentication",
+    "title": "Were the 3 allowed sessions legitimate?",
     "added_by_agent": True,
     "reason": (
         "Added because three permitted sessions reached a high-criticality jump host. "
@@ -115,55 +59,18 @@ ADAPTATION_STEP: dict[str, Any] = {
 REMEDIATION_STEP_DEFS: tuple[dict[str, Any], ...] = (
     {
         "id": "generate_spl",
-        "title": "Generate 14-day monitoring SPL",
-        "summary": "Governed Splunk query for 198.51.100.42, jump-host 10.20.1.10 ports 443/8443, and svc_jump_ops auth.",
+        "title": "Put a 14-day Splunk watch on the IP and jump host 10.20.1.10",
+        "summary": "Alert on any session from 198.51.100.42 to jump host 10.20.1.10 (443/8443) and any svc_jump_ops logon.",
         "follow_up_id": "prepare_monitoring_detection",
-        "tools": ["Splunk MCP"],
-        "default_selected": True,
-        "phase": "remediation",
-    },
-    {
-        "id": "validate_spl",
-        "title": "Validate monitoring SPL",
-        "summary": "Deterministic validate_spl on the 14-day monitoring candidate.",
-        "follow_up_id": None,
-        "bundle_with": "prepare_monitoring_detection",
-        "tools": ["SPL validator"],
-        "default_selected": True,
-        "phase": "remediation",
-    },
-    {
-        "id": "deploy_monitoring",
-        "title": "Run baseline monitoring query",
-        "summary": "Execute the 14-day watch candidate via splunk_run_query (MCP has no saved-search deploy tool).",
-        "follow_up_id": "raise_mcp_monitoring",
-        "tools": ["Splunk MCP · splunk_run_query"],
-        "default_selected": True,
-        "phase": "remediation",
-    },
-    {
-        "id": "verify_monitoring",
-        "title": "Verify baseline query results",
-        "summary": "Replay splunk_run_query and confirm row counts before scheduling the saved search manually.",
-        "follow_up_id": None,
-        "bundle_with": "raise_mcp_monitoring",
-        "tools": ["Splunk MCP · splunk_run_query"],
-        "default_selected": True,
-        "phase": "remediation",
-    },
-    {
-        "id": "monitor_14d",
-        "title": "Monitor 198.51.100.42 → 10.20.1.10 443/8443 and svc_jump_ops",
-        "summary": "Watch permitted jump-host 10.20.1.10 activity on 443/8443 and correlate svc_jump_ops authentication.",
-        "follow_up_id": "monitor_affected_hosts",
+        "also_applies": ("raise_mcp_monitoring", "monitor_affected_hosts"),
         "tools": ["Splunk MCP"],
         "default_selected": True,
         "phase": "remediation",
     },
     {
         "id": "create_incident",
-        "title": "Create incident with investigation evidence",
-        "summary": "Record confirmed vs unconfirmed findings. Do not close as malicious.",
+        "title": "Open an incident",
+        "summary": "Record the 3 unexplained sessions; not closed as malicious.",
         "follow_up_id": "create_incident_ticket",
         "tools": ["ITSM"],
         "default_selected": True,
@@ -171,29 +78,13 @@ REMEDIATION_STEP_DEFS: tuple[dict[str, Any], ...] = (
     },
     {
         "id": "notify_firewall",
-        "title": "Notify SOC team",
-        "summary": "Notify SOC that 14-day monitoring is active. Block approval is not requested.",
+        "title": "Email the SOC lead and ask the integration owner about the sessions",
+        "summary": "No block — the SOP threshold is not met.",
         "follow_up_id": "email_firewall_team",
+        # The block decision (not required) and the incident update are recorded, not separate steps.
+        "also_applies": ("prepare_firewall_block", "update_incident"),
         "tools": ["Email"],
-        "default_selected": True,
-        "phase": "remediation",
-    },
-    {
-        "id": "prepare_block",
-        "title": "Conditional IP block",
-        "summary": "SOP blocking threshold is not met — do not execute a firewall block.",
-        "follow_up_id": "prepare_firewall_block",
-        "tools": ["SOAR / firewall"],
         "hil_required": True,
-        "default_selected": True,
-        "phase": "remediation",
-    },
-    {
-        "id": "update_ticket",
-        "title": "Update incident with final outcome",
-        "summary": "Monitoring active; malicious use unconfirmed; block threshold not met.",
-        "follow_up_id": "update_incident",
-        "tools": ["ITSM"],
         "default_selected": True,
         "phase": "remediation",
     },
@@ -245,7 +136,7 @@ ACTION_PLAN_STEPS = [
 PLAN_PREREAD: tuple[str, ...] = ()
 
 PLAN_READY_TITLE = f"Newly observed IP {PRIMARY_ATTACKER_IP} — malicious use not confirmed"
-IDENTITY_PROMOTION = "Identity: registered MCP endpoint"
+IDENTITY_PROMOTION = "Identity: partner API endpoint (Northwind Logistics)"
 SEVERITY_LABEL = "P2 High"
 SEVERITY_REASON = (
     "P2 High · newly observed external endpoint · permitted access to high-criticality jump host · "

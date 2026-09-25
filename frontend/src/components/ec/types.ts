@@ -139,6 +139,151 @@ export interface EcAgentPlanStep {
   added_by_agent?: boolean;
   reason?: string;
   hil_required?: boolean;
+  /** CIO layer — why this step exists (investigation and remediation). */
+  rationale?: string;
+  /** Show the rationale line (only for non-obvious steps). */
+  why_visible?: boolean;
+  /** Investigation: the decision this step informs. */
+  decides?: string;
+  /** Investigation: what is lost without it. */
+  if_skipped?: string;
+  /** Remediation: whether and how the action can be undone. */
+  reversible?: string;
+  /** Remediation: who must approve it. */
+  approver?: string;
+  /** Remediation: the risk of not doing it. */
+  risk_if_skipped?: string;
+  tool_ids?: string[];
+  /** Remediation: analyst-facing state, e.g. "Pending approval", "Requested", "Verified". */
+  status_label?: string;
+  /** Incident action before approval: policy priority, and the analyst's choice. */
+  priority_control?: EcPriorityControl;
+}
+
+export interface EcPriorityControl {
+  policy_priority: string;
+  policy_rule: string;
+  policy_basis: string;
+  options: string[];
+  selected: string;
+  reason: string;
+}
+
+/** Priority the analyst sends with approval; a change from policy carries a reason. */
+export interface EcPriorityOverride {
+  priority: string;
+  reason: string;
+}
+
+/** Analyst's edit of a proposed email. Recipients are fixed by the allowlist. */
+export interface EcEmailEdit {
+  subject: string;
+  body: string;
+}
+
+/** Extra choices sent with "Approve": priority change and edited emails. */
+export interface EcRemediationExtras {
+  priority_override?: EcPriorityOverride;
+  email_edits?: Record<string, EcEmailEdit>;
+}
+
+/** A ticket as ITSM holds it after the action that created (or updated) it ran. */
+export interface EcTicketRecord {
+  number: string;
+  type: string;
+  state: string;
+  priority?: string;
+  threat_assessment?: string;
+  category?: string;
+  configuration_item?: string;
+  assignment_group?: string;
+  short_description?: string;
+  description?: string;
+  work_note?: string;
+  attachment?: string;
+  opened?: string;
+  updated?: string;
+  opened_by?: string;
+  updated_by?: string;
+  parent?: string | null;
+  related?: string[];
+}
+
+export interface EcEmailDelivery {
+  sent: boolean;
+  line: string;
+  to_address?: string | null;
+  cc_addresses?: string[];
+  cc_not_copied?: string[];
+  message_id?: string | null;
+}
+
+/** Incident priority (from the deterministic policy) kept apart from the threat assessment. */
+export interface EcAssessment {
+  incident_priority: string;
+  priority_rule: string;
+  priority_basis: string;
+  threat_assessment: string;
+  priority_override?: { policy_priority: string; reason: string } | null;
+}
+
+export interface EcExecutiveBrief {
+  verdict: string;
+  business_impact?: string;
+  risk_from?: string;
+  risk_to?: string;
+  confidence?: string;
+  would_change_if?: string;
+  decision_needed?: string;
+  will_not_do?: string;
+}
+
+export interface EcRagPassage {
+  entry_id: string;
+  label: string;
+  citation: string;
+  doc_title: string;
+  doc_version: string;
+  approval_status: string;
+  confidence: number;
+  excerpt: string;
+  used: boolean;
+  used_for?: string;
+}
+
+export interface EcRagTrace {
+  question: string;
+  collections: string[];
+  retrieval_mode?: string;
+  top_confidence?: number;
+  direct_to_llm?: boolean;
+  excluded: Array<{ reason: string; count: number }>;
+  excluded_total: number;
+  passages: EcRagPassage[];
+  answer: {
+    headline: string;
+    sentences: Array<{ text: string; citations: string[] }>;
+    gaps: string[];
+  };
+  governance?: string[];
+}
+
+export interface EcStoryThread {
+  thread_id: string;
+  day: number;
+  total_days: number;
+  title: string;
+  verdict_so_far: string;
+  next?: { scenario_id: string; label: string } | null;
+}
+
+export interface EcToolFabricEntry {
+  tool_id: string;
+  name: string;
+  role: string;
+  kind: string;
+  demo_fixture: boolean;
+  used: boolean;
 }
 
 export interface EcAgentWorkflowPayload {
@@ -184,6 +329,7 @@ export interface EcAgentWorkflowPayload {
     secondary_cta?: string;
     visible?: boolean;
     steps?: EcAgentPlanStep[];
+    error?: string | null;
   };
   remediation_summary?: {
     title?: string;
@@ -227,6 +373,9 @@ export interface EcAgentWorkflowPayload {
   unconfirmed?: string[];
   missing_evidence?: string[];
   executive_summary?: string[];
+  executive_brief?: EcExecutiveBrief | null;
+  tool_fabric?: EcToolFabricEntry[];
+  rag_trace?: EcRagTrace | null;
   investigation_conclusion?: {
     title?: string;
     headline?: string;
@@ -237,6 +386,9 @@ export interface EcAgentWorkflowPayload {
     confidence?: number;
     findings?: string[];
     evidence_summary?: Array<{ source: string; detail: string; provenance: string }>;
+    assessment?: EcAssessment | null;
+    /** Knowledge-base passages the answer cites. */
+    sources?: string[];
   } | null;
   next_step_cta?: {
     label?: string;
@@ -254,6 +406,16 @@ export interface EcAgentWorkflowPayload {
     risk_from?: string;
     risk_to?: string;
     risk_note?: string;
+    assessment?: EcAssessment | null;
+    actions?: Array<{
+      title: string;
+      status: string;
+      status_label: string;
+      result?: string | null;
+      ticket?: EcTicketRecord | null;
+      email?: { to: string; subject: string; body: string; status?: string } | null;
+      email_delivery?: EcEmailDelivery | null;
+    }>;
   } | null;
   verification?: Array<{ item: string; status: string; detail: string }>;
 }
@@ -417,6 +579,8 @@ export interface EcAnalystTextSegment {
 
 export interface EcAnalystPayload {
   finding_title?: string | null;
+  /** Findings added by follow-up chips on non-agent answers, newest last. */
+  follow_up_findings?: string[] | null;
   one_sentence_finding?: string | null;
   direct_answer_summary?: string | null;
   direct_answer_line?: string | null;
@@ -441,6 +605,7 @@ export interface EcAnalystPayload {
 }
 
 export interface ExperienceCenterResponse {
+  ec_story_thread?: EcStoryThread | null;
   scenario_id: string;
   trace_id: string;
   message: string;

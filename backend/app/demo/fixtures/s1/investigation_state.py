@@ -31,7 +31,7 @@ def build_s1_normalized_investigation_state(
     total = sum(1 for step in investigation_steps if step.get("selected", True) or step.get("added_by_agent"))
 
     unconfirmed = [
-        "Whether the three permitted sessions are expected MCP business traffic",
+        "Whether the three permitted sessions are expected partner business traffic",
         "Whether successful authentication can be attributed to this IP",
         "Whether malicious use is occurring",
     ]
@@ -55,7 +55,7 @@ def build_s1_normalized_investigation_state(
                 {"label": "Existing IOC detection", "value": "No alert" if notable_done else "—"},
                 {"label": "Permitted sessions", "value": "3 on jump host"},
                 {"label": "Local TI", "value": "Unlisted" if ti_done else "—"},
-                {"label": "Identity", "value": "Registered MCP endpoint" if identity_done else "Pending"},
+                {"label": "Identity", "value": "Partner API endpoint (Northwind Logistics)" if identity_done else "Pending"},
                 {"label": "Malicious use", "value": "Not confirmed"},
                 {"label": "SOP", "value": "14-day monitoring" if sop_done else "—"},
             ],
@@ -65,34 +65,14 @@ def build_s1_normalized_investigation_state(
         "llm_advisory": advisory,
         "investigation_conclusion": {
             "headline": (
-                "Newly observed registered MCP endpoint · 3 permitted jump-host sessions remain "
-                "unexplained · malicious use not confirmed"
+                "Not confirmed malicious. The IP is Northwind Logistics' partner API endpoint, but the firewall "
+                "allowed 3 of its sessions to the jump host, and they remain unexplained."
             ),
             "narrative_points": [
-                (
-                    "What happened: Firewall communication with three internal systems in the last 30 days. "
-                    f"Only jump host {_JUMP} permitted traffic (3 allowed / 922 denied, ports 443/8443); "
-                    "the other two hosts are deny-only. Prior 30-day window is empty."
-                ),
-                (
-                    "Authentication: Successful svc_jump_ops logons exist, but available evidence does not "
-                    "attribute them to this source IP. Firewall allow is not authenticated compromise."
-                ),
-                (
-                    "Threat intelligence: Not present in local IOC / threat-intelligence evidence. "
-                    "Unlisted does not mean benign."
-                ),
-                (
-                    "Detection: Current IOC-based Splunk content did not cover this IP "
-                    "(Existing IOC detection: No alert — IP not present in the IOC list used by this detection). "
-                    "No alert is not proof the IP is safe."
-                ),
-                "Identity: inventory confirms a registered/new MCP endpoint.",
-                (
-                    "SOP: targeted monitoring for 14 days. Blocking threshold is currently not met "
-                    "(requires attributable auth, confirmed malice, or policy exception plus Network/SOC HIL)."
-                ),
-                f"Agent assessment: {advisory['interpretation']}",
+                f"What happened: new in the last 30 days — 3 allowed and 922 denied by the firewall, the allowed ones all to jump host {_JUMP} on 443/8443.",
+                "Logons: svc_jump_ops logged on to the jump host in the same period, but we can't tie those logons to this IP.",
+                "Threat intel: not listed, and our IOC detection didn't fire — it only knows listed IPs.",
+                "SOP: watch it for 14 days. Blocking needs attributable logons or confirmed malice, plus Network/SOC approval.",
             ],
         },
         "outcome_confirmed": list(outcome.get("confirmed") or []),

@@ -197,7 +197,7 @@ describe('S1 Experience Center workspace', () => {
         }}
       />,
     );
-    expect(screen.getByText(/collected from Splunk MCP, SOC-KB \/ RAG, inventory fixture/i)).toBeInTheDocument();
+    expect(screen.getByText(/collected from Splunk MCP, SOC-KB \/ RAG, asset inventory/i)).toBeInTheDocument();
     expect(screen.queryByText(/Agilus/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/ITSM/i)).not.toBeInTheDocument();
   });
@@ -322,7 +322,7 @@ describe('S1 Experience Center workspace', () => {
       />,
     );
     expect(screen.getByText(/Deploy Splunk monitoring/i)).toBeInTheDocument();
-    expect(screen.getByText(/Review remediation plan/i)).toBeInTheDocument();
+    expect(screen.getByText(/Review the actions — nothing runs until you approve/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Approve remediation/i })).toBeInTheDocument();
     expect(onRunRemediation).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: /Approve remediation/i }));
@@ -425,8 +425,12 @@ describe('S1 Experience Center workspace', () => {
       '[data-ec-section="recommended-remediation"]',
     );
     expect(agentLifecycleScrollTarget('REMEDIATING')).toBe('[data-ec-section="recommended-remediation"]');
-    expect(agentLifecycleScrollTarget('INVESTIGATION_COMPLETE')).toBe('[data-ec-section="executive-summary"]');
-    expect(agentLifecycleScrollTarget('COMPLETE')).toBe('[data-ec-section="executive-summary"]');
+    expect(agentLifecycleScrollTarget('INVESTIGATION_COMPLETE')).toBe(
+      '[data-ec-section="executive-brief"], [data-ec-section="executive-summary"]',
+    );
+    expect(agentLifecycleScrollTarget('COMPLETE')).toBe(
+      '[data-ec-section="executive-brief"], [data-ec-section="executive-summary"]',
+    );
   });
 
   it('shows RESPONSE COMPLETE without dropping risk to LOW', () => {

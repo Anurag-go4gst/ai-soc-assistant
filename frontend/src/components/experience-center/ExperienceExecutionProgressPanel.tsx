@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Circle, Clock, Loader2, MinusCircle, ShieldCheck } from 'lucide-react';
-import { scrollIntoScrollParent } from '@/lib/scrollIntoScrollParent';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -123,10 +122,15 @@ export function ExperienceExecutionProgressPanel({
     const list = listRef.current;
     if (!list) return;
     const activeRow = list.querySelector('[data-ec-step-active="true"]');
-    if (activeRow instanceof HTMLElement) {
-      window.requestAnimationFrame(() => {
-        scrollIntoScrollParent(activeRow, { block: 'center', behavior: 'smooth' });
-      });
+    // Keep the active step visible by scrolling the list only. Walking up to the page scroller
+    // moved the whole conversation on every progress tick.
+    if (activeRow instanceof HTMLElement && list.scrollHeight > list.clientHeight) {
+      const target = activeRow.offsetTop - list.offsetTop - list.clientHeight / 2 + activeRow.clientHeight / 2;
+      if (typeof list.scrollTo === 'function') {
+        list.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+      } else {
+        list.scrollTop = Math.max(0, target);
+      }
     }
   }, [state.activeStepIndex, state.completedStepIds, state.stepStatuses]);
 
@@ -168,7 +172,7 @@ export function ExperienceExecutionProgressPanel({
         ) : null}
       </div>
 
-      <ol ref={listRef} className="space-y-2">
+      <ol ref={listRef} className="max-h-80 space-y-2 overflow-y-auto pr-1">
         {steps.map((stepItem, index) => {
           const status = rowStatus(stepItem, index, state, allDone, inFinalization);
           const isComplete = status === 'completed';
@@ -379,11 +383,11 @@ export function ExperienceExecutionProgressPanel({
         ) : null
       ) : null}
 
-      <p className="mt-3 text-[0.65rem] leading-5 text-slate-500">
-        {state.demoMode
-          ? 'Pipeline mirrors production routing and evidence gates. Experience Center uses COE fixtures; MCP search and final LLM synthesis stay disabled.'
-          : 'Pipeline mirrors production routing and evidence gates. MCP execution and final synthesis follow platform settings.'}
-      </p>
+      {!state.demoMode ? (
+        <p className="mt-3 text-[0.65rem] leading-5 text-slate-500">
+          Pipeline mirrors production routing and evidence gates. MCP execution and final synthesis follow platform settings.
+        </p>
+      ) : null}
     </div>
   );
 }

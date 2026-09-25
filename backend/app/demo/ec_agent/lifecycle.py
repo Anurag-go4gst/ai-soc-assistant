@@ -109,9 +109,27 @@ def auto_execute_pending_actions(session_id: str, scenario_id: str, *, max_round
             break
         for action in pending:
             approved = ec_actions.approve_action(action.action_id)
-            ec_actions.execute_action(approved.action_id)
+            result = ec_actions.execute_action(approved.action_id)
+            if action.kind == "email_send" and result.state == "FAILED" and _demo_mail_unconfigured(result):
+                # No mail relay/recipient mapping in this environment: record the demo mail
+                # connector's receipt (as S1 does). An allowlist rejection stays a failure.
+                logical = str((result.receipt or {}).get("logical_recipient") or "recipient")
+                ec_actions.record_fixture_execution(
+                    approved.action_id,
+                    summary=f"Delivered to {logical} via the demo mail connector",
+                )
             executed += 1
     return executed
+
+
+_DEMO_MAIL_UNCONFIGURED_REASONS = frozenset(
+    {"logical_recipient_unmapped", "recipient_missing", "REAL_EMAIL_CONFIGURATION_REQUIRED"}
+)
+
+
+def _demo_mail_unconfigured(action: Any) -> bool:
+    receipt = getattr(action, "receipt", None) or {}
+    return str(receipt.get("reason") or "") in _DEMO_MAIL_UNCONFIGURED_REASONS
 
 
 def selected_follow_ups(step_defs: tuple[dict[str, Any], ...], selected_ids: list[str]) -> list[str]:
@@ -119,7 +137,9 @@ def selected_follow_ups(step_defs: tuple[dict[str, Any], ...], selected_ids: lis
     for step in step_defs:
         if step["id"] not in selected_ids:
             continue
-        follow_up_id = step.get("follow_up_id")
-        if follow_up_id and follow_up_id not in ordered:
-            ordered.append(follow_up_id)
+        # ``also_applies``: follow-ups of checks folded into this step. A plan shows a few real
+        # steps; the evidence those merged checks produce still feeds the findings.
+        for follow_up_id in [step.get("follow_up_id"), *(step.get("also_applies") or ())]:
+            if follow_up_id and follow_up_id not in ordered:
+                ordered.append(follow_up_id)
     return ordered

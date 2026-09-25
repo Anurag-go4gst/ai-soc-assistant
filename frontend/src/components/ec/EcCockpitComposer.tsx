@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { Send, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Send, Sparkles } from 'lucide-react';
 import { listEcScenarios } from '@/api/ecClient';
 import type { EcScenarioSummary } from '@/components/ec/types';
 import { resolveEcQueryLocal, suggestEcQueries, type EcQuerySuggestion } from '@/lib/ecQuerySuggestions';
@@ -17,6 +17,8 @@ interface EcCockpitComposerProps {
   onSelect: (scenarioId: string) => void;
   onRun: (scenario: EcScenarioSummary, queryText: string) => void;
   onClear?: () => void;
+  /** An answer is on screen: show a one-line bar; the picker and hints open on demand. */
+  compact?: boolean;
 }
 
 export function EcCockpitComposer({
@@ -27,7 +29,10 @@ export function EcCockpitComposer({
   onSelect,
   onRun,
   onClear,
+  compact = false,
 }: EcCockpitComposerProps) {
+  const [expanded, setExpanded] = useState(false);
+  const collapsed = compact && !expanded;
   const [scenarios, setScenarios] = useState<EcScenarioSummary[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
@@ -74,7 +79,10 @@ export function EcCockpitComposer({
   const rest = scenarios.filter((item) => !flagship.some((row) => row.scenario_id === item.scenario_id));
 
   const suggestions = useMemo(
-    () => (open && text.trim().length >= 2 ? suggestEcQueries(scenarios, text, 6) : []),
+    () =>
+      open && text.trim().length >= 2 && !isClearChatCommand(text.trim())
+        ? suggestEcQueries(scenarios, text, 6)
+        : [],
     [open, scenarios, text],
   );
 
@@ -111,6 +119,8 @@ export function EcCockpitComposer({
     setQueryError(null);
     setText('');
     setOpen(false);
+    // The visitor's own words were just sent: don't re-seed the box with the scenario prompt.
+    seededScenarioRef.current = match.scenario_id;
     onSelect(match.scenario_id);
     onRun(match, value);
   };
@@ -148,9 +158,57 @@ export function EcCockpitComposer({
     }
   };
 
+  const catalogSelect = (
+    <>
+            <label className="sr-only" htmlFor="ec-scenario-select">Scenario catalog</label>
+            <select
+              id="ec-scenario-select"
+              className="min-w-[min(100%,320px)] max-w-full rounded-lg border border-slate-700/80 bg-slate-950/70 px-3 py-2 text-sm text-slate-200"
+              disabled={disabled || !scenarios.length}
+              value={selected?.scenario_id ?? ''}
+              onChange={(event) => {
+                setQueryError(null);
+                onSelect(event.target.value);
+                const next = scenarios.find((item) => item.scenario_id === event.target.value);
+                if (next) {
+                  seededScenarioRef.current = next.scenario_id;
+                  setText(next.query);
+                }
+              }}
+            >
+              {flagship.length ? (
+                <optgroup label="Flagship">
+                  {flagship.map((item) => (
+                    <option key={item.scenario_id} value={item.scenario_id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              {rest.length ? (
+                <optgroup label="Lab">
+                  {rest.map((item) => (
+                    <option key={item.scenario_id} value={item.scenario_id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+            </select>
+    </>
+  );
+
   return (
-    <div className="soc-composer relative z-20 shrink-0 border-t border-slate-800/90 px-4 py-3 lg:px-8 backdrop-blur-md">
+    <div
+      className={cn(
+        'soc-composer relative z-20 shrink-0 border-t border-slate-800/90 px-4 lg:px-8 backdrop-blur-md',
+        collapsed ? 'py-2' : 'py-3',
+      )}
+      data-ec-composer={collapsed ? 'collapsed' : 'expanded'}
+    >
       <div className="w-full space-y-2">
+        {!collapsed ? (
+        <>
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
           <div className="flex flex-wrap items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
@@ -161,41 +219,7 @@ export function EcCockpitComposer({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <label className="sr-only" htmlFor="ec-scenario-select">Scenario catalog</label>
-          <select
-            id="ec-scenario-select"
-            className="min-w-[min(100%,320px)] max-w-full rounded-lg border border-slate-700/80 bg-slate-950/70 px-3 py-2 text-sm text-slate-200"
-            disabled={disabled || !scenarios.length}
-            value={selected?.scenario_id ?? ''}
-            onChange={(event) => {
-              setQueryError(null);
-              onSelect(event.target.value);
-              const next = scenarios.find((item) => item.scenario_id === event.target.value);
-              if (next) {
-                seededScenarioRef.current = next.scenario_id;
-                setText(next.query);
-              }
-            }}
-          >
-            {flagship.length ? (
-              <optgroup label="Flagship">
-                {flagship.map((item) => (
-                  <option key={item.scenario_id} value={item.scenario_id}>
-                    {item.label}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-            {rest.length ? (
-              <optgroup label="Lab">
-                {rest.map((item) => (
-                  <option key={item.scenario_id} value={item.scenario_id}>
-                    {item.label}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-          </select>
+          {catalogSelect}
           {selected ? (
             <button
               type="button"
@@ -207,8 +231,11 @@ export function EcCockpitComposer({
             </button>
           ) : null}
         </div>
+        </>
+        ) : null}
 
         <div ref={containerRef} className="relative flex items-end gap-3">
+          {collapsed ? <div className="hidden shrink-0 self-center sm:block [&_select]:min-w-0 [&_select]:w-56">{catalogSelect}</div> : null}
           {open && suggestions.length > 0 ? (
             <ul
               className="absolute bottom-full z-30 mb-2 w-full overflow-hidden rounded-xl border border-slate-700/90 bg-slate-950/95 shadow-2xl ring-1 ring-cyan-500/10"
@@ -236,8 +263,11 @@ export function EcCockpitComposer({
           ) : null}
 
           <Textarea
-            rows={4}
-            className="min-h-[112px] max-h-56 flex-1 resize-y border-slate-700/80 bg-slate-950/60 text-base leading-relaxed transition-shadow focus-visible:ring-cyan-500/40"
+            rows={collapsed ? 1 : 4}
+            className={cn(
+              'flex-1 resize-y border-slate-700/80 bg-slate-950/60 text-base leading-relaxed transition-shadow focus-visible:ring-cyan-500/40',
+              collapsed ? 'min-h-[44px] max-h-32' : 'min-h-[112px] max-h-56',
+            )}
             disabled={disabled || !scenarios.length}
             placeholder="Ask V.AI SOC — new IP, firewall block, zero-day exposure, OT evidence… (/clear to reset)"
             value={text}
@@ -258,10 +288,25 @@ export function EcCockpitComposer({
             disabled={disabled || !text.trim()}
             onClick={() => submit(text)}
             aria-label="Send investigation query"
-            className="h-12 w-12 shrink-0 self-end transition-transform duration-150 enabled:hover:-translate-y-0.5 enabled:hover:shadow-[0_6px_18px_-8px_hsl(192_88%_52%/0.7)]"
+            className={cn(
+              collapsed ? 'h-11 w-11' : 'h-12 w-12',
+              'shrink-0 self-end transition-transform duration-150 enabled:hover:-translate-y-0.5 enabled:hover:shadow-[0_6px_18px_-8px_hsl(192_88%_52%/0.7)]',
+            )}
           >
             <Send className="h-4 w-4" />
           </Button>
+          {compact ? (
+            <button
+              type="button"
+              className="shrink-0 self-center rounded p-1 text-slate-400 hover:text-cyan-300"
+              onClick={() => setExpanded((value) => !value)}
+              aria-expanded={expanded}
+              aria-label={expanded ? 'Collapse the command bar' : 'Expand the command bar'}
+              title={expanded ? 'Collapse' : 'Expand'}
+            >
+              {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+            </button>
+          ) : null}
         </div>
 
         {(loadError || queryError) ? (

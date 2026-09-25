@@ -20,8 +20,8 @@ def test_s4_agent_profile_is_registered() -> None:
 def test_agent_dispatch_returns_none_for_non_agent_scenario() -> None:
     handled = handle_agent_follow_up(
         session_id="ec-framework",
-        family="s3_firewall_coord",
-        scenario_id="s3_firewall_team_coordination",
+        family="failed_login_spike_app01",
+        scenario_id="failed_login_spike_app01",
         follow_up_id="run_investigation",
         agent_payload={},
         session_record={},
@@ -34,7 +34,8 @@ def test_agent_first_turn_initializes_s4_state() -> None:
     envelope = run_experience_center_turn(S4_SCENARIO_ID, session_id=session_id).model_dump()
     assert envelope["ec_agent_workflow"] is not None
     assert envelope["ec_agent_lifecycle"] == "PLAN_READY"
-    assert "show_advisory" in envelope["ec_session_state"]["applied_follow_up_ids"]
+    assert envelope["ec_agent_workflow"]["investigation_plan"]["steps"]
+    assert envelope["ec_session_state"]["applied_follow_up_ids"] == []
 
 
 def test_maybe_init_agent_session_skips_when_preread_already_applied() -> None:

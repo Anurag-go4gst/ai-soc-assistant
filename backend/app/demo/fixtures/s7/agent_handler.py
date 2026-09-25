@@ -330,7 +330,11 @@ def build_s7_agent_workflow(
             ),
             "severity": "P2",
             "affected": "OT-RTU-14",
-            "compromise": "not confirmed from Splunk alone",
+            "compromise": (
+                "not confirmed from Splunk alone"
+                if path_b
+                else "unauthorized access confirmed · no configuration tampering found"
+            ),
             "completed": (
                 [
                     "Splunk unauthorized-access telemetry confirmed",
@@ -343,12 +347,15 @@ def build_s7_agent_workflow(
                     "Splunk unauthorized-access telemetry confirmed",
                     "OT inventory shows OT-RTU-14 active on cell 4",
                     "CMDB retirement is stale",
-                    "OT team notified (simulated HIL email)",
+                    "Source identified: OT-EWS-03 / vendor account ot_vendor_svc",
+                    "OT engineering confirmed no maintenance was scheduled",
                     "Security incident INC-OT-14 opened",
+                    "Firewall path narrowed to the approved engineering workstation",
+                    "RTU configuration matches baseline",
                     "CMDB data-quality ticket opened",
                 ]
             ),
-            "in_progress": [],
+            "in_progress": [] if path_b else ["Vendor account ot_vendor_svc review with the vendor"],
             "risk_from": "HIGH",
             "risk_to": "MEDIUM",
             "risk_note": (

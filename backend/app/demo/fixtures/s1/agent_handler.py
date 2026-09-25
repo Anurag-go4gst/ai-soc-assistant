@@ -96,7 +96,7 @@ def finalize_s1_remediation_after_apply(
         if action.kind == "email_send" and executed.state != "EXECUTED":
             ec_actions.record_fixture_execution(
                 approved.action_id,
-                summary="SOC notification delivered to FIREWALL_TEAM",
+                summary="SOC notification delivered to SOC_LEAD (cc FIREWALL_TEAM)",
             )
 
     stuck = [
@@ -322,7 +322,7 @@ def build_s1_agent_workflow(
         },
         "remediation_plan": {
             "editable": lifecycle == L.LIFECYCLE_REMEDIATION_PLAN_READY,
-            "summary": "SOP: raise MCP IP monitoring first, then HIL block if required — batch-executed after one approval.",
+            "summary": "SOP: raise monitoring for the new IP first, then HIL block if required — batch-executed after one approval.",
             "primary_cta": "Approve remediation",
             "secondary_cta": "Modify plan",
             "steps": remediation_steps,
@@ -417,36 +417,27 @@ def build_s1_agent_workflow(
     if lifecycle == L.LIFECYCLE_COMPLETE:
         workflow["final_summary"] = {
             "title": "RESPONSE COMPLETE",
-            "headline": "Baseline monitoring query executed · saved search scheduling pending · malicious use not confirmed",
+            "headline": "Not confirmed malicious · watch live after a baseline check · incident open · IP not blocked",
             "severity": "P2",
             "affected": PRIMARY_ATTACKER_IP,
             "compromise": "not confirmed",
             "completed": [
-                "Baseline monitoring query executed via splunk_run_query",
-                "Jump-host 443/8443 baseline reviewed",
-                "svc_jump_ops auth correlation reviewed",
-                f"Incident {S1_PLANNED_INCIDENT_ID} created",
-                "SOC notified",
-                "Incident updated",
+                "14-day Splunk watch on the IP, the jump host and svc_jump_ops logons",
+                f"Incident {S1_PLANNED_INCIDENT_ID} opened",
+                "SOC lead notified; integration owner asked about the 3 sessions",
             ],
-            "in_progress": [
-                "14-day monitoring window",
-                f"Schedule {S1_MONITOR_SAVED_SEARCH_NAME} saved search in Splunk (manual — no MCP deploy tool)",
-            ],
-            "deferred": ["IP block not required at current SOP threshold"],
+            "in_progress": ["Waiting for the integration owner's reply (48 h)"],
+            "deferred": ["Block not needed yet — SOP threshold not met"],
             "risk_from": "MEDIUM",
             "risk_to": "MEDIUM",
-            "risk_note": (
-                "Current risk: MEDIUM. Malicious use: NOT CONFIRMED. "
-                "Baseline query: EXECUTED. Saved search: SCHEDULE MANUALLY. Blocking: CONDITIONAL."
-            ),
+            "risk_note": "Escalate to P1 and block if the watch fires or the owner can't explain the sessions.",
         }
 
     if lifecycle in {L.LIFECYCLE_VERIFYING, L.LIFECYCLE_COMPLETE}:
         workflow["verification"] = [
             {"item": "Existing IOC detection", "status": "NO_ALERT", "detail": "IP not present in the IOC list used by this detection"},
             {"item": "Newly observed", "status": "VERIFIED", "detail": "Prior 30-day window empty"},
-            {"item": "Identity", "status": "VERIFIED", "detail": "Registered MCP endpoint (inventory evidence)"},
+            {"item": "Identity", "status": "VERIFIED", "detail": "Partner API endpoint (Northwind Logistics) (inventory evidence)"},
             {"item": "Permitted sessions", "status": "UNEXPLAINED", "detail": "3 allows on 10.20.1.10 remain unexplained; auth src not proven"},
             {"item": "Malicious use", "status": "NOT_CONFIRMED", "detail": "Unlisted locally; no confirmed compromise"},
             {"item": "Monitoring", "status": "IN_PROGRESS", "detail": "splunk_run_query baseline executed; schedule saved search manually"},

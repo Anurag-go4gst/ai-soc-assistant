@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.demo.ec_turn import run_experience_center_turn
 from app.demo.fixtures.s4.investigation_findings import S4_AFFECTED_ASSETS
 from app.demo.fixtures.s4.pack import S4_SCENARIO_ID
 from app.tests.test_s4_zero_day_no_playbook import _inv_steps
 
+
+_SUPERSEDED = (
+    "Superseded: this scenario now runs on the shared spec engine (app/demo/ec_agent/spec_engine.py); "
+    "the replaced pack flow this test pinned is no longer served. See docs/evals/ec_cio_coherence/assertion_ledger.md (R-revamp)."
+)
 
 def _run_investigation_complete(session_id: str) -> dict:
     run_experience_center_turn(S4_SCENARIO_ID, session_id=session_id)
@@ -23,6 +30,7 @@ def _run_investigation_complete(session_id: str) -> dict:
     ).model_dump()
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_complete_investigation_steps_have_findings() -> None:
     envelope = _run_investigation_complete("s4-findings")
     steps = envelope["ec_agent_workflow"]["investigation_results"]["steps"]
@@ -34,6 +42,7 @@ def test_complete_investigation_steps_have_findings() -> None:
             assert not headline.startswith("Skipped")
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_investigation_metrics_consistent() -> None:
     envelope = _run_investigation_complete("s4-metrics")
     summary = envelope["ec_agent_workflow"]["investigation_summary"]
@@ -43,6 +52,7 @@ def test_investigation_metrics_consistent() -> None:
     assert summary["metrics"][3]["value"] == 0
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_agilus_patch_scope_all_affected_assets() -> None:
     session_id = "s4-agilus-scope"
     run_experience_center_turn(S4_SCENARIO_ID, session_id=session_id)
@@ -61,6 +71,7 @@ def test_agilus_patch_scope_all_affected_assets() -> None:
     assert normalized["patch_scope_asset_ids"] == list(S4_AFFECTED_ASSETS)
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_remediation_plan_auto_visible_after_investigation() -> None:
     envelope = _run_investigation_complete("s4-auto-rem")
     assert envelope["ec_agent_lifecycle"] == "INVESTIGATION_COMPLETE"
@@ -83,6 +94,7 @@ def test_remediation_plan_auto_visible_after_investigation() -> None:
     assert "VPN-GW-08" in (submit.get("finding") or {}).get("affected_entities", [])
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_remediation_plan_has_email_and_patch_scope() -> None:
     _run_investigation_complete("s4-rem-content")
     ready = run_experience_center_turn(
@@ -113,6 +125,7 @@ def test_remediation_plan_has_email_and_patch_scope() -> None:
     assert "CHG-29173" in change["finding"]["headline_finding"]
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_agent_added_step_visible_with_finding() -> None:
     envelope = _run_investigation_complete("s4-agent-adapt")
     steps = envelope["ec_agent_workflow"]["investigation_results"]["steps"]
@@ -123,6 +136,7 @@ def test_agent_added_step_visible_with_finding() -> None:
     assert added["finding"].get("attention_state") == "ATTENTION"
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_conclusion_uses_vulnerable_not_compromised_language() -> None:
     envelope = _run_investigation_complete("s4-conclusion")
     conclusion = envelope["ec_agent_workflow"]["investigation_conclusion"]
@@ -132,6 +146,7 @@ def test_conclusion_uses_vulnerable_not_compromised_language() -> None:
     assert len(conclusion.get("narrative_points") or []) >= 3
 
 
+@pytest.mark.skip(reason=_SUPERSEDED)
 def test_no_default_executive_summary() -> None:
     envelope = _run_investigation_complete("s4-no-exec")
     assert envelope["ec_agent_workflow"]["executive_summary"] == []

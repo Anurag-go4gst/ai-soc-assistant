@@ -112,6 +112,8 @@ class DemoScenario:
     # Normalized (via extract_query_signals) at module load; the scenario `query` is
     # always an implicit alias.
     aliases: tuple[str, ...] = ()
+    # Earlier phrasings that still resolve to this scenario but are never offered as suggestions.
+    hidden_aliases: tuple[str, ...] = ()
     # Two-turn FSM family (plan D2). Scenarios sharing a family are linked turns of one
     # showcase: `fsm_step` 0 is the clarification turn, 1 is the answer turn. One-shot
     # scenarios leave both None.
@@ -142,7 +144,23 @@ def list_experience_center_scenarios() -> list[dict[str, Any]]:
         for item in SCENARIOS.values()
         if item.fsm_step != 0 and getattr(item, "picker_tier", "leadership") in {"leadership", "lab"}
     ]
-    return [_scenario_summary(item) for item in sorted(items, key=lambda item: item.demo_order)]
+    return [_ec_catalog_summary(item) for item in sorted(items, key=lambda item: item.demo_order)]
+
+
+def _ec_catalog_summary(scenario: DemoScenario) -> dict[str, Any]:
+    """EC catalog row: a spec's question replaces the legacy text without touching the legacy entry.
+
+    Q1/Q2 keep their original ``DemoScenario`` because the frozen ChatPanel picker still lists them.
+    """
+    from app.demo.ec_agent.spec_engine import spec_for
+
+    summary = _scenario_summary(scenario)
+    spec = spec_for(scenario.scenario_id)
+    if spec is not None:
+        summary.update(
+            {"label": spec.label, "query": spec.question, "canonical_query": spec.question, "aliases": list(spec.aliases)}
+        )
+    return summary
 
 
 def _display_query(scenario: DemoScenario) -> str:
@@ -173,7 +191,7 @@ def _build_alias_index() -> dict[str, str]:
     index: dict[str, str] = {}
     collisions: dict[str, list[str]] = {}
     for scenario in SCENARIOS.values():
-        phrases = [scenario.query, _display_query(scenario), *scenario.aliases]
+        phrases = [scenario.query, _display_query(scenario), *scenario.aliases, *scenario.hidden_aliases]
         for phrase in phrases:
             normalized = _normalize_query(phrase)
             if not normalized:

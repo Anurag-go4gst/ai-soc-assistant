@@ -25,6 +25,7 @@ _FOLLOW_UP_BY_STEP = {
     "monitor_14d": "monitor_affected_hosts",
     "create_incident": "create_incident_ticket",
     "notify_firewall": "email_firewall_team",
+    "confirm_owner": "email_firewall_team",
     "prepare_block": "prepare_firewall_block",
     "update_ticket": "update_incident",
 }
@@ -35,13 +36,14 @@ _MONITOR_NEXT_STEP = (
 )
 
 REM_OPERATIONAL_STATUS = {
-    "generate_spl": "VALIDATED",
+    "generate_spl": "ACTIVE",
     "validate_spl": "VERIFIED",
     "deploy_monitoring": "EXECUTED",
     "verify_monitoring": "VERIFIED",
     "monitor_14d": "ACTIVE",
     "create_incident": "CREATED",
     "notify_firewall": "SENT",
+    "confirm_owner": "SENT",
     "prepare_block": "NOT_REQUIRED",
     "update_ticket": "APPLIED",
 }
@@ -65,7 +67,7 @@ def _email_preview_from_envelope(envelope: dict[str, Any], *, sent: bool) -> dic
         "sent_at": _NOTIFY_AT if sent else None,
         "delivery_result": "DELIVERED" if sent else None,
         "send_note": (
-            f"Delivered to FIREWALL_TEAM at {_NOTIFY_AT}."
+            f"Delivered to SOC_LEAD (cc FIREWALL_TEAM) at {_NOTIFY_AT}."
             if sent
             else "Queued — sent when the remediation plan is approved."
         ),
@@ -93,7 +95,7 @@ def finding_for_remediation_step(
         "generate_spl": (
             "Queued — generate 14-day monitoring SPL",
             "Generating governed monitoring SPL…",
-            f"14-day monitoring SPL generated · {PRIMARY_ATTACKER_IP} → {_JUMP} 443/8443",
+            f"Watch active · alerts on {PRIMARY_ATTACKER_IP} → {_JUMP} (443/8443) and svc_jump_ops logons for 14 days",
         ),
         "validate_spl": (
             "Queued — validate monitoring SPL",
@@ -121,9 +123,14 @@ def finding_for_remediation_step(
             f"Incident created · {S1_PLANNED_INCIDENT_ID}",
         ),
         "notify_firewall": (
-            "Queued — notify SOC team",
+            "Queued — notify SOC shift (firewall team copied)",
             "Sending SOC notification…",
-            "SOC team notified · FIREWALL_TEAM",
+            "SOC lead notified · integration owner asked about the 3 sessions",
+        ),
+        "confirm_owner": (
+            "Queued — ask integration owner about the 3 sessions",
+            "Sending owner request…",
+            "Integration owner asked to confirm the 3 sessions · reply due in 48 h",
         ),
         "prepare_block": (
             "Queued — evaluate conditional IP block",
@@ -205,7 +212,7 @@ def finding_for_remediation_step(
             "ticket_id": S1_PLANNED_INCIDENT_ID,
             "ticket_type": "incident",
             "priority": "P2",
-            "title": f"Newly observed MCP endpoint {PRIMARY_ATTACKER_IP} — monitoring first",
+            "title": f"Newly observed partner API endpoint {PRIMARY_ATTACKER_IP} — monitoring first",
             "status": "CREATED" if executed else "QUEUED",
             "assignee_group": "SOC",
             "linked_advisory": PRIMARY_ATTACKER_IP,
@@ -266,14 +273,15 @@ def finding_for_remediation_step(
         details["email_extra"] = envelope
         details["connector"] = "Email"
         details["notification"] = {
-            "recipient": "FIREWALL_TEAM",
+            "recipient": "SOC_LEAD (cc FIREWALL_TEAM)",
             "sent_at": _NOTIFY_AT if executed else None,
             "delivery_result": "DELIVERED" if executed else None,
         }
         details["request"] = _kv_block(
             [
                 ("action", "Send notification"),
-                ("to", "FIREWALL_TEAM"),
+                ("to", "SOC_LEAD"),
+                ("cc", "FIREWALL_TEAM"),
                 ("subject", str(envelope.get("email", {}).get("subject") or "")),
             ]
         )
@@ -282,6 +290,19 @@ def finding_for_remediation_step(
                 ("status", "sent" if executed else "queued"),
                 ("delivery_result", "DELIVERED" if executed else "PENDING"),
                 ("sent_at", _NOTIFY_AT if executed else ""),
+            ]
+        )
+
+    if step_id == "confirm_owner":
+        envelope = ec_email_drafts.s1_integration_owner_email(jump=_JUMP, account=_ACCOUNT)
+        details["email_draft"] = _email_preview_from_envelope(envelope, sent=executed)
+        details["email_extra"] = envelope
+        details["connector"] = "Email"
+        details["request"] = _kv_block(
+            [
+                ("action", "Send owner confirmation request"),
+                ("to", "INTEGRATION_OWNER"),
+                ("subject", str(envelope.get("email", {}).get("subject") or "")),
             ]
         )
 
@@ -377,7 +398,7 @@ def build_s1_remediation_conclusion(*, normalized: dict[str, Any]) -> dict[str, 
         "narrative_points": [
             f"Generate and validate monitoring SPL, then run baseline splunk_run_query for {PRIMARY_ATTACKER_IP} "
             f"(including {_JUMP} 443/8443 and {_ACCOUNT} auth correlation). "
-            f"Schedule {_MONITOR_NAME} as a saved search in Splunk — MCP has no deploy tool.",
+            f"Schedule {_MONITOR_NAME} as a saved search in Splunk (a manual step: the Splunk connector cannot create saved searches).",
             f"Open incident {S1_PLANNED_INCIDENT_ID} and notify SOC that monitoring is active.",
             "Conditional IP block stays NOT REQUIRED — Network/SOC block approval is not requested.",
             "Keep risk MEDIUM. Malicious use is not confirmed. Monitoring does not prove safety.",

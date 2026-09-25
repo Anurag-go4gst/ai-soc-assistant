@@ -1,4 +1,4 @@
-"""EC-only SOC-KB fixture: Newly Observed External / MCP Endpoint Monitoring and Blocking SOP.
+"""EC-only SOC-KB fixture: Newly Observed External / Partner Integration Endpoint Monitoring and Blocking SOP.
 
 Not vendor guidance. Not ingested into production SOC-KB. Experience Center only.
 """
@@ -10,7 +10,7 @@ from typing import Any
 from app.demo.ec_mcp_lifecycle_fixture import PRIMARY_ATTACKER_IP
 
 SOP_DOC_ID = "SOC-SOP-NEW-EXT-MCP-001"
-SOP_TITLE = "Newly Observed External / MCP Endpoint Monitoring and Blocking SOP"
+SOP_TITLE = "Newly Observed External / Partner Integration Endpoint Monitoring and Blocking SOP"
 SOP_OWNER = "Enterprise SOC — Detection & Response"
 
 
@@ -22,14 +22,14 @@ SOP_SECTIONS: tuple[dict[str, str], ...] = (
             "(2) search the requested window plus a prior novelty window; "
             "(3) identify destination systems, ports/services, allow vs deny, and session timing; "
             "(4) investigate every permitted session with authentication correlation if those logs exist; "
-            "(5) check local IOC / TI evidence; (6) establish inventory identity before labelling an MCP endpoint."
+            "(5) check local IOC / TI evidence; (6) establish inventory identity before labelling an partner API endpoint."
         ),
     },
     {
         "heading": "Monitoring criteria",
         "body": (
             "Raise targeted monitoring when an external IP is newly observed, is unlisted in local IOC/TI, "
-            "and existing IOC-based notables do not cover the indicator — especially newly registered MCP endpoints."
+            "and existing IOC-based notables do not cover the indicator — especially newly registered partner API endpoint (Northwind Logistics)s."
         ),
     },
     {
@@ -85,7 +85,7 @@ SOP_SECTIONS: tuple[dict[str, str], ...] = (
     {
         "heading": "Rollback / unblock conditions",
         "body": (
-            "Unblock only with Network approval if identity is confirmed expected MCP traffic and residual "
+            "Unblock only with Network approval if identity is confirmed expected partner traffic and residual "
             "risk is accepted, or if the block caused a documented business outage."
         ),
     },
@@ -134,7 +134,7 @@ def sop_source_evidence() -> dict[str, Any]:
         "tool_name": "retrieve_soc_kb",
         "collection_status": "collected",
         "query_or_request_summary": (
-            "Governed SOC-KB retrieval: newly observed external / MCP endpoint monitoring and blocking SOP"
+            "Governed SOC-KB retrieval: newly observed external / partner API endpoint monitoring and blocking SOP"
         ),
         "result_count": len(rows),
         "fields_returned": ["doc_id", "title", "owner", "heading", "excerpt"],

@@ -26,7 +26,7 @@ def test_e4_seven_flagships_and_lab_present() -> None:
     for scenario_id in FLAGSHIP_SCENARIO_IDS:
         assert scenario_id in ids, scenario_id
     flagship = [item for item in pickable if item["category"] == "Flagship"]
-    assert len(flagship) == 7
+    assert len(flagship) == 8
     assert [item["scenario_id"] for item in flagship] == list(FLAGSHIP_SCENARIO_IDS)
     present_lab = ids & LAB_IDS
     assert "mitre_mapping_auth_alert" in present_lab

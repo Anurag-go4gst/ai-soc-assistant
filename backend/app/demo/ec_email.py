@@ -7,6 +7,7 @@ import smtplib
 import sys
 from dataclasses import dataclass, field
 from email.message import EmailMessage
+from email.utils import make_msgid
 from threading import Lock
 from typing import Any, Protocol
 
@@ -17,6 +18,7 @@ LOGICAL_TEAMS = (
     "INCIDENT_OWNER",
     "OT_TEAM",
     "SOC_LEAD",
+    "SOC_TIER2",
 )
 
 CONFIGURATION_REQUIRED = "REAL_EMAIL_CONFIGURATION_REQUIRED"
@@ -36,6 +38,8 @@ class EmailReceipt:
     reason: str | None = None
     logical_recipient: str | None = None
     to: str | None = None
+    cc: list[str] = field(default_factory=list)
+    cc_skipped: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         if self.status == "SUCCESS" and self.external_side_effect:
@@ -53,6 +57,8 @@ class EmailReceipt:
             "reason": self.reason,
             "logical_recipient": self.logical_recipient,
             "to": self.to,
+            "cc": list(self.cc),
+            "cc_skipped": list(self.cc_skipped),
             "summary": summary,
             "provenance": "ec_allowlisted_email" if self.external_side_effect else "simulated_phase10_action",
         }
@@ -206,6 +212,21 @@ def resolve_recipient(extra: dict[str, Any]) -> tuple[str | None, str | None, st
     return None, raw or None, None
 
 
+def resolve_cc(extra: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """Map cc team mailboxes to addresses. A team without a configured, allowlisted address is
+    reported as not copied rather than silently dropped."""
+    copied: list[str] = []
+    skipped: list[str] = []
+    for logical in extra.get("cc_logical") or []:
+        token = str(logical).strip()
+        address = logical_recipient_address(token) if token in LOGICAL_TEAMS else None
+        if address and allowlisted(address):
+            copied.append(address)
+        else:
+            skipped.append(token)
+    return copied, skipped
+
+
 def hydrate_draft(extra: dict[str, Any]) -> dict[str, Any]:
     payload = dict(extra)
     email = dict(payload.get("email") or {}) if isinstance(payload.get("email"), dict) else {}
@@ -262,12 +283,19 @@ def deliver(*, action_id: str, extra: dict[str, Any], idempotency_key: str) -> E
     email = extra.get("email") if isinstance(extra.get("email"), dict) else {}
     message = EmailMessage()
     message["To"] = address
+    cc_addresses, cc_skipped = resolve_cc(extra)
+    if cc_addresses:
+        message["Cc"] = ", ".join(cc_addresses)
     message["From"] = _env("AI_SOC_EC_EMAIL_FROM") or "experience-center@localhost"
     message["Subject"] = str(email.get("subject") or "Experience Center notification")
+    sender_domain = str(message["From"]).rsplit("@", 1)[-1].strip("> ") or None
+    message["Message-ID"] = make_msgid(domain=sender_domain)
     message.set_content(str(email.get("body") or "Experience Center synthetic notification. Not production data."))
     receipt = transport.send(message)
     receipt.logical_recipient = logical
     receipt.to = address
+    receipt.cc = cc_addresses
+    receipt.cc_skipped = cc_skipped
     if isinstance(transport, FakeEmailTransport):
         receipt.execution_mode = "fake_test_transport"
         receipt.external_side_effect = False

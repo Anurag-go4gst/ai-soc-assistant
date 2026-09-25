@@ -340,7 +340,7 @@ def finding_for_investigation_step(
                 "temporary_controls": len(S4_IR_CONTROLS),
             },
             "confidence": "high",
-            "caveat": "Guidance is fixture SOC-KB content — not vendor-signed production runbooks.",
+            "caveat": "Internal SOC-KB guidance — not a vendor-signed runbook; adapt to the advisory.",
             "evidence_sources": [
                 {"source": "SOC-KB RAG", "evidence_id": "ev-s4-ir-plan", "provenance": "ec_scenario_policy"},
                 {"source": "SOC-KB RAG", "evidence_id": "ev-s4-hardening", "provenance": "ec_scenario_policy"},

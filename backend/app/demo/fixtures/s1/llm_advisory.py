@@ -82,7 +82,7 @@ def advisory_payload(
         "interpretation": (
             f"Firewall aggregation on {dest} shows {allow_count} allowed / {deny_count} denied. "
             "Denied volume must not bury the permitted sessions. A dedicated allow+auth search is required "
-            "before concluding expected MCP traffic or preparing a block."
+            "before concluding expected partner traffic or preparing a block."
         ),
         "another_search_required": True,
         "added_step_reason": (
