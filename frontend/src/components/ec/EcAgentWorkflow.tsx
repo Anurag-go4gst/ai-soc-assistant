@@ -16,6 +16,7 @@ import { EcSectionHeading } from '@/components/ec/EcSectionHeading';
 import { EcStepWhy } from '@/components/ec/EcCioLayer';
 import { EcActionsTable, EcFindingsTable } from '@/components/ec/EcFindingsTable';
 import { EcRagTrace } from '@/components/ec/EcRagTrace';
+import { EcProcedureAnswer } from '@/components/ec/EcProcedureAnswer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -308,6 +309,8 @@ export function EcAgentWorkflow({
   const isRemediationTurn = phase === 'remediation';
   const showRemediationPlan = Boolean(workflow.remediation_plan?.visible && isRemediationTurn);
   const anomalousAssetIds = workflow.normalized_state?.anomalous_asset_ids ?? [];
+  // A knowledge-base procedure answer replaces the findings table, conclusion card and RAG panel.
+  const procedureAnswer = workflow.procedure_answer ?? null;
   const progressSteps =
     workflow.execution_progress?.steps ??
     (workflow.execution_progress?.phase === 'investigation' ? invSteps : remSteps);
@@ -393,7 +396,7 @@ export function EcAgentWorkflow({
 
 
 
-      {!isPlanTurn && !remComplete && workflow.investigation_results?.steps?.length ? (
+      {!isPlanTurn && !remComplete && !procedureAnswer && workflow.investigation_results?.steps?.length ? (
         <EcFindingsTable steps={workflow.investigation_results.steps} anomalousAssetIds={anomalousAssetIds} />
       ) : null}
 
@@ -406,7 +409,16 @@ export function EcAgentWorkflow({
         />
       ) : null}
 
-      {!isPlanTurn && !remComplete && workflow.investigation_conclusion ? (
+      {!isPlanTurn && procedureAnswer ? (
+        // Stays on screen after approval: each step then shows its status and a done / pending summary.
+        <EcProcedureAnswer
+          answer={procedureAnswer}
+          trace={workflow.rag_trace}
+          outcome={remComplete ? workflow.final_summary : null}
+        />
+      ) : null}
+
+      {!isPlanTurn && !remComplete && !procedureAnswer && workflow.investigation_conclusion ? (
         <section
           className="rounded-lg border border-slate-800/70 bg-slate-900/35 px-4 py-3"
           data-ec-section="investigation-post-summary"
@@ -434,7 +446,9 @@ export function EcAgentWorkflow({
         </section>
       ) : null}
 
-      {!isPlanTurn && workflow.rag_trace && workflow.lifecycle !== 'COMPLETE' ? <EcRagTrace trace={workflow.rag_trace} /> : null}
+      {!isPlanTurn && !procedureAnswer && workflow.rag_trace && workflow.lifecycle !== 'COMPLETE' ? (
+        <EcRagTrace trace={workflow.rag_trace} />
+      ) : null}
 
       {isInvestigationCompleteTurn && remScopedProgress ? progressPanel : null}
 
@@ -630,7 +644,7 @@ export function EcAgentWorkflow({
       ) : null}
 
 
-      {workflow.final_summary && remComplete ? (
+      {workflow.final_summary && remComplete && !procedureAnswer ? (
         <section className="space-y-3 rounded-lg border border-emerald-500/25 bg-emerald-950/15 p-4" data-ec-section="executive-summary">
           <EcSectionHeading>{workflow.final_summary.title ?? 'Response'}</EcSectionHeading>
           <p className="text-lg font-semibold text-slate-50">{workflow.final_summary.headline}</p>
