@@ -51,4 +51,53 @@ describe('EcRagTrace', () => {
     fireEvent.mouseEnter(document.querySelector('[data-ec-citation="AUTH-003"]') as HTMLElement);
     expect(passage.className).toContain('border-violet-300/70');
   });
+
+  it('shows chunk-level retrieval detail and omits an empty headline', () => {
+    const chunked: EcRagTracePayload = {
+      ...trace,
+      question: 'reported phishing email · user clicked link',
+      excluded: [{ reason: 'superseded', count: 3, detail: 'SOC-SOP-PHISH-001 v2025.4 §3, replaced by v2026.3' }],
+      excluded_total: 3,
+      index: {
+        embedding_model: 'BAAI/bge-m3',
+        embedding_dims: 1024,
+        sparse_method: 'BM25',
+        reranker_model: 'BAAI/bge-reranker-v2-m3',
+        documents: 41,
+        chunks: 1286,
+        chunking: 'section-aware, 512-token max, 64-token overlap',
+      },
+      funnel: {
+        dense_candidates: 40,
+        sparse_candidates: 40,
+        fused: 58,
+        fusion: 'reciprocal rank fusion (k=60)',
+        excluded: 3,
+        reranked: 8,
+        rerank_threshold: 0.5,
+        kept: 1,
+        cited: 1,
+      },
+      passages: [
+        {
+          ...trace.passages[0],
+          label: '[2]',
+          chunk_id: 'SOC-SOP-PHISH-001@2026.3#c07',
+          section: '§3.2 Contain the account',
+          tokens: 212,
+          scores: { dense: 0.861, dense_rank: 1, bm25: 15.4, bm25_rank: 1, rerank: 0.96 },
+        },
+      ],
+      answer: { headline: '', sentences: [{ text: 'Reset the password.', citations: ['[2]'] }], gaps: [] },
+    };
+    const { container } = render(<EcRagTrace trace={chunked} />);
+    expect(screen.getByText(/BAAI\/bge-m3 · 1024-d dense \+ BM25/)).toBeInTheDocument();
+    expect(screen.getByText(/1,286 chunks from 41 approved documents/)).toBeInTheDocument();
+    expect(screen.getByText('58 fused')).toBeInTheDocument();
+    expect(screen.getByText('SOC-SOP-PHISH-001 v2025.4 §3, replaced by v2026.3')).toBeInTheDocument();
+    expect(screen.getByText('SOC-SOP-PHISH-001@2026.3#c07')).toBeInTheDocument();
+    expect(screen.getByText(/cosine 0\.861 \(#1\) · BM25 15\.4 \(#1\) · rerank 0\.96/)).toBeInTheDocument();
+    expect(screen.getByText('Retrieved chunks')).toBeInTheDocument();
+    expect(container.querySelector('[data-ec-section="rag-trace"] p.font-semibold.text-sm')).toBeNull();
+  });
 });

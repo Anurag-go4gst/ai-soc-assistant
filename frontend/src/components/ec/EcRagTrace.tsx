@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { BookOpen, FilterX, Quote } from 'lucide-react';
 import { EcSectionHeading } from '@/components/ec/EcSectionHeading';
-import type { EcRagTrace as EcRagTracePayload } from '@/components/ec/types';
+import type { EcRagFunnel, EcRagIndex, EcRagPassage, EcRagTrace as EcRagTracePayload } from '@/components/ec/types';
 import { cn } from '@/lib/utils';
 
 const EXCLUSION_LABELS: Record<string, string> = {
@@ -14,11 +14,71 @@ const EXCLUSION_LABELS: Record<string, string> = {
   wrong_allowed_use: 'not approved for this use',
 };
 
+function RetrievalStrip({ question, index, funnel }: { question: string; index?: EcRagIndex; funnel?: EcRagFunnel }) {
+  const stages = funnel
+    ? [
+        `${funnel.dense_candidates} dense + ${funnel.sparse_candidates} ${index?.sparse_method ?? 'sparse'}`,
+        `${funnel.fused} fused`,
+        `${funnel.excluded} excluded`,
+        `${funnel.reranked} reranked`,
+        `${funnel.kept} kept (≥ ${funnel.rerank_threshold.toFixed(2)})`,
+        `${funnel.cited} cited`,
+      ]
+    : [];
+  return (
+    <div className="space-y-1.5 rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-400" data-ec-section="rag-retrieval">
+      <p>
+        <span className="text-slate-500">Query </span>
+        <span className="font-mono text-slate-200">{question}</span>
+      </p>
+      {index ? (
+        <p>
+          <span className="text-slate-500">Index </span>
+          <span className="text-slate-200">
+            {index.embedding_model} · {index.embedding_dims}-d dense + {index.sparse_method}
+          </span>{' '}
+          · {index.chunks.toLocaleString('en-US')} chunks from {index.documents} approved documents · {index.chunking}
+        </p>
+      ) : null}
+      {stages.length ? (
+        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1" data-ec-rag-funnel>
+          {stages.map((stage, position) => (
+            <span key={stage} className="flex items-center gap-1.5">
+              {position ? <span aria-hidden="true">→</span> : null}
+              <span className="rounded border border-slate-700 px-1.5 py-0.5 text-slate-200">{stage}</span>
+            </span>
+          ))}
+          {funnel ? <span className="text-slate-500">· {funnel.fusion}</span> : null}
+          {index ? <span className="text-slate-500">· reranker {index.reranker_model}</span> : null}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function ChunkMeta({ passage }: { passage: EcRagPassage }) {
+  if (!passage.chunk_id) return null;
+  const scores = passage.scores;
+  return (
+    <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] text-slate-500" data-ec-chunk={passage.chunk_id}>
+      <span>{passage.chunk_id}</span>
+      {passage.section ? <span>{passage.section}</span> : null}
+      {typeof passage.tokens === 'number' ? <span>{passage.tokens} tokens</span> : null}
+      {scores ? (
+        <span>
+          cosine {scores.dense.toFixed(3)} (#{scores.dense_rank}) · BM25 {scores.bm25.toFixed(1)} (#{scores.bm25_rank}) · rerank{' '}
+          {scores.rerank.toFixed(2)}
+        </span>
+      ) : null}
+    </p>
+  );
+}
+
 /**
  * "How RAG answered this": the governed retrieval behind a knowledge answer — what was searched,
  * what was excluded and why, which passages were used, and a citation on every sentence.
  */
-export function EcRagTrace({ trace }: { trace: EcRagTracePayload }) {
+export function EcRagTrace({ trace, showAnswer = true }: { trace: EcRagTracePayload; showAnswer?: boolean }) {
   const [focused, setFocused] = useState<string | null>(null);
   return (
     <section className="space-y-4 rounded-lg border border-violet-500/25 bg-violet-950/10 p-4" data-ec-section="rag-trace">
@@ -40,6 +100,15 @@ export function EcRagTrace({ trace }: { trace: EcRagTracePayload }) {
               {trace.excluded.map((item) => `${item.count} ${EXCLUSION_LABELS[item.reason] ?? item.reason}`).join(', ')}
             </span>
           </p>
+          {trace.excluded.some((item) => item.detail) ? (
+            <ul className="mt-1 space-y-0.5 text-xs text-slate-500">
+              {trace.excluded
+                .filter((item) => item.detail)
+                .map((item) => (
+                  <li key={item.detail}>{item.detail}</li>
+                ))}
+            </ul>
+          ) : null}
         </div>
         <div className="rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2">
           <p className="text-[11px] uppercase tracking-wide text-slate-500">Passages used</p>
@@ -52,34 +121,40 @@ export function EcRagTrace({ trace }: { trace: EcRagTracePayload }) {
         </div>
       </div>
 
+      {trace.index || trace.funnel ? <RetrievalStrip question={trace.question} index={trace.index} funnel={trace.funnel} /> : null}
+
       <div className="space-y-2">
-        <p className="text-sm font-semibold text-slate-50">{trace.answer.headline}</p>
-        <ol className="space-y-1.5 text-sm text-slate-200">
-          {trace.answer.sentences.map((sentence) => (
-            <li key={sentence.text} className="flex flex-wrap items-baseline gap-x-2 gap-y-1 leading-relaxed">
-              <span>{sentence.text}</span>
-              {sentence.citations.map((label) => (
-                <button
-                  key={label}
-                  type="button"
-                  className={cn(
-                    'rounded border px-1.5 py-0 text-[11px] font-medium',
-                    focused === label
-                      ? 'border-violet-300 bg-violet-500/30 text-violet-50'
-                      : 'border-violet-400/40 text-violet-200 hover:bg-violet-500/20',
-                  )}
-                  onMouseEnter={() => setFocused(label)}
-                  onMouseLeave={() => setFocused(null)}
-                  onFocus={() => setFocused(label)}
-                  onBlur={() => setFocused(null)}
-                  data-ec-citation={label}
-                >
-                  {label}
-                </button>
-              ))}
-            </li>
-          ))}
-        </ol>
+        {showAnswer && trace.answer.headline ? (
+          <p className="text-sm font-semibold text-slate-50">{trace.answer.headline}</p>
+        ) : null}
+        {showAnswer ? (
+          <ol className="space-y-1.5 text-sm text-slate-200">
+            {trace.answer.sentences.map((sentence) => (
+              <li key={sentence.text} className="flex flex-wrap items-baseline gap-x-2 gap-y-1 leading-relaxed">
+                <span>{sentence.text}</span>
+                {sentence.citations.map((label) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className={cn(
+                      'rounded border px-1.5 py-0 text-[11px] font-medium',
+                      focused === label
+                        ? 'border-violet-300 bg-violet-500/30 text-violet-50'
+                        : 'border-violet-400/40 text-violet-200 hover:bg-violet-500/20',
+                    )}
+                    onMouseEnter={() => setFocused(label)}
+                    onMouseLeave={() => setFocused(null)}
+                    onFocus={() => setFocused(label)}
+                    onBlur={() => setFocused(null)}
+                    data-ec-citation={label}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </li>
+            ))}
+          </ol>
+        ) : null}
         {trace.answer.gaps.length ? (
           <div className="rounded-md border border-amber-500/25 bg-amber-950/10 px-3 py-2 text-sm">
             <p className="flex items-center gap-1.5 font-medium text-amber-100">
@@ -96,7 +171,7 @@ export function EcRagTrace({ trace }: { trace: EcRagTracePayload }) {
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Retrieved passages</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{trace.index ? 'Retrieved chunks' : 'Retrieved passages'}</p>
         <ul className="space-y-2">
           {trace.passages.map((passage) => (
             <li
@@ -105,6 +180,7 @@ export function EcRagTrace({ trace }: { trace: EcRagTracePayload }) {
               className={cn(
                 'rounded-md border px-3 py-2 text-sm transition-colors',
                 focused === passage.label ? 'border-violet-300/70 bg-violet-950/30' : 'border-slate-800 bg-slate-950/30',
+                !passage.used && 'opacity-70',
               )}
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -118,6 +194,7 @@ export function EcRagTrace({ trace }: { trace: EcRagTracePayload }) {
                   {passage.confidence.toFixed(2)}
                 </span>
               </div>
+              <ChunkMeta passage={passage} />
               <p className="mt-1.5 flex gap-1.5 text-slate-300">
                 <Quote className="mt-0.5 h-3 w-3 shrink-0 text-slate-500" aria-hidden="true" />
                 <span>{passage.excerpt}</span>

@@ -48,6 +48,7 @@ def test_rag_trace_only_after_the_plan_is_approved() -> None:
     plan = run_experience_center_turn(R1_SCENARIO_ID, session_id=None).model_dump()
     assert plan["ec_agent_lifecycle"] == "PLAN_READY"
     assert plan["ec_agent_workflow"]["investigation_conclusion"] is None
+    assert "rag_trace" not in plan["ec_agent_workflow"]
     session_id = plan["ec_session_state"]["session_id"]
     after = run_experience_center_turn(
         R1_SCENARIO_ID,
@@ -55,6 +56,10 @@ def test_rag_trace_only_after_the_plan_is_approved() -> None:
         follow_up_id="run_investigation",
         agent_payload={"selected_step_ids": [s["id"] for s in plan["ec_agent_workflow"]["investigation_plan"]["steps"]]},
     ).model_dump()
-    assert after["ec_agent_lifecycle"] == "INVESTIGATION_COMPLETE"
-    assert after["ec_agent_workflow"]["investigation_conclusion"]["sources"]
+    # R1 proposes its actions together with the answer (plans/2026-09-29_1536_ec-r1-rag-procedure-question.md rev 3).
+    assert after["ec_agent_lifecycle"] == "REMEDIATION_PLAN_READY"
+    # The cited answer is the procedure screen; the retrieval panel shows how it was found.
+    procedure = after["ec_agent_workflow"]["procedure_answer"]
+    assert all(step["refs"] for phase in procedure["phases"] for step in phase["steps"])
+    assert after["ec_agent_workflow"]["rag_trace"]["passages"]
     assert after["ec_provenance"]["live_rag_called"] is False

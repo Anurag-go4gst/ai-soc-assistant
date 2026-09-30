@@ -988,15 +988,15 @@ S7_FOLLOW_UP_JOURNEYS = {
 def r1_initial() -> EcExecutionJourney:
     kb = ("SOC-KB", "retrieve_soc_kb")
     specs = [
-        InitialStepSpec("understand", "Reading the policy question", semantic_type="understand", duration_ms_hint=700, activity=["Policy question — answer from approved SOC knowledge only…"]),
-        InitialStepSpec("resource-plan", "Planning a governed retrieval", semantic_type="plan", duration_ms_hint=750, activity=["Every answer sentence must carry a citation…"]),
-        InitialStepSpec("mcp-select", "Selecting knowledge collections", semantic_type="plan", duration_ms_hint=700, activity=["SOC SOPs · escalation matrix…"]),
-        InitialStepSpec("mcp-connect", "Opening the SOC knowledge base", semantic_type="plan", duration_ms_hint=700, activity=["Governed retriever ready…"], system=kb[0], operation=kb[1]),
-        InitialStepSpec("evidence", "Checking document approval status", semantic_type="gather", duration_ms_hint=750, activity=["Draft, rejected, superseded and expired versions will be excluded…"], system=kb[0], operation=kb[1]),
-        InitialStepSpec("spl-validate", "No SPL needed for a policy answer", semantic_type="gather", duration_ms_hint=500, activity=["Knowledge answer — no Splunk search…"]),
-        InitialStepSpec("mcp-execute", "Preparing retrieval and ranking", semantic_type="correlate", duration_ms_hint=700, activity=["Keyword, metadata and rerank stages…"]),
+        InitialStepSpec("understand", "Reading the procedure question", semantic_type="understand", duration_ms_hint=700, activity=["Procedure question — answer from approved SOC knowledge only…"]),
+        InitialStepSpec("resource-plan", "Planning a governed retrieval", semantic_type="plan", duration_ms_hint=750, activity=["Every answer sentence must cite a retrieved chunk…"]),
+        InitialStepSpec("mcp-select", "Selecting knowledge collections", semantic_type="plan", duration_ms_hint=700, activity=["SOC SOPs · escalation matrix · priority policy…"]),
+        InitialStepSpec("mcp-connect", "Opening the SOC knowledge base", semantic_type="plan", duration_ms_hint=700, activity=["Hybrid index: bge-m3 embeddings + BM25…"], system=kb[0], operation=kb[1]),
+        InitialStepSpec("evidence", "Checking document approval status", semantic_type="gather", duration_ms_hint=750, activity=["Draft, superseded and expired versions will be excluded…"], system=kb[0], operation=kb[1]),
+        InitialStepSpec("spl-validate", "No SPL needed for a procedure answer", semantic_type="gather", duration_ms_hint=500, activity=["Knowledge answer — no Splunk search…"]),
+        InitialStepSpec("mcp-execute", "Preparing retrieval and ranking", semantic_type="correlate", duration_ms_hint=700, activity=["Dense and BM25 search, rank fusion, rerank…"]),
         InitialStepSpec("correlate", "Preparing the citation check", semantic_type="evaluate", duration_ms_hint=700, activity=["Unsupported statements become gaps, not answers…"]),
-        InitialStepSpec("llm-advisory", "Setting wording guardrails", semantic_type="evaluate", duration_ms_hint=600, activity=["The SOP's own prohibited conclusions apply…"]),
+        InitialStepSpec("llm-advisory", "Mapping procedure steps to actions", semantic_type="evaluate", duration_ms_hint=600, activity=["Each action must name the SOP step it carries out…"]),
         InitialStepSpec("outcome", "Retrieval plan ready for approval", semantic_type="outcome", duration_ms_hint=700, activity=["Nothing runs until you approve…"]),
     ]
     return _initial_journey("r1-initial", "r1", specs)
@@ -1007,12 +1007,12 @@ R1_FOLLOW_UP_JOURNEYS = {
         "r1-inv-run",
         "run_investigation",
         [
-            ("Rewriting the question", "understand", "privileged account · success after failures · escalation…"),
-            ("Selecting collections", "plan", "SOC SOPs · escalation matrix…"),
-            ("Excluding non-approved versions", "evaluate", "Draft, rejected, superseded, expired — removed…"),
-            ("Retrieving and ranking", "gather", "Top passage AUTH-003 · confidence 0.94…"),
-            ("Checking citations", "verify", "Every sentence cited · gaps reported…"),
-            ("Composing the answer", "outcome", "Escalate to Tier 2 · do not claim compromise…"),
+            ("Rewriting the question", "understand", "reported phishing · user clicked · response steps · escalation…"),
+            ("Searching the hybrid index", "gather", "40 dense (bge-m3) + 40 BM25 candidates · 58 after fusion…"),
+            ("Excluding non-approved versions", "evaluate", "5 chunks removed · PHISH-001 v2025.4 superseded…"),
+            ("Reranking chunks", "gather", "11 chunks kept · top match SOC-SOP-PHISH-001 3.2 · rerank 0.96…"),
+            ("Checking citations", "verify", "Every step cites its section · 1 gap reported…"),
+            ("Proposing actions", "outcome", "Incident, IAM reset, email purge, staff advisory, user email…"),
         ],
         header="Governed retrieval in progress",
     ),
@@ -1020,9 +1020,9 @@ R1_FOLLOW_UP_JOURNEYS = {
         "r1-rem-plan",
         "create_remediation_plan",
         [
-            ("Mapping the SOP to actions", "evaluate", "Escalation required for privileged accounts…"),
-            ("Drafting the escalation email", "plan", "Tier 2 SOC analyst · SOP checklist…"),
-            ("Preparing the incident", "plan", "P2 · citations attached…"),
+            ("Mapping the procedure to actions", "evaluate", "SOC-SOP-PHISH-001 3.1–3.6…"),
+            ("Preparing the tickets", "plan", "P3 incident · IAM request · email-team request…"),
+            ("Drafting the user email", "plan", "What was done · did they enter a password…"),
         ],
         header="Building remediation plan",
     ),
@@ -1030,9 +1030,11 @@ R1_FOLLOW_UP_JOURNEYS = {
         "r1-rem-run",
         "run_remediation",
         [
-            ("Create incident", "execute", "ITSM — P2 with SOP checklist…"),
-            ("Escalate to Tier 2", "execute", "Email — sent after your review…"),
-            ("Closing the loop", "outcome", "Escalated · compromise not claimed…"),
+            ("Open incident", "execute", "ITSM — P3 with the cited procedure…"),
+            ("Raise requests", "execute", "IAM password reset · message purge and sender block…"),
+            ("Send staff advisory", "execute", "Sender, subject, defanged link · do not click…"),
+            ("Email the user", "execute", "With the incident reference…"),
+            ("Closing the loop", "outcome", "Awaiting the user's reply…"),
         ],
         header="Remediation in progress",
     ),
@@ -1049,6 +1051,34 @@ def agent_steps_journey(
         key,
         [(title, "execute" if key == "run_remediation" else "gather", result) for title, result in steps],
         header=header,
+    )
+
+
+def knowledge_request_journey(scenario_id: str) -> EcExecutionJourney:
+    """First turn of a knowledge-base question: a short "processing" step, not an investigation."""
+    return _continue(
+        f"{scenario_id}-plan",
+        "plan",
+        [
+            ("Reading your question", "understand", "A procedure question — the knowledge base answers it…"),
+            ("Plan ready", "outcome", "Nothing runs until you approve…"),
+        ],
+        header="Processing your request",
+    )
+
+
+def knowledge_retrieval_journey(scenario_id: str) -> EcExecutionJourney:
+    """The run of a knowledge-base question: search, keep approved versions, rank, answer."""
+    return _continue(
+        f"{scenario_id}-run_investigation",
+        "run_investigation",
+        [
+            ("Searching the knowledge base", "gather", "SOPs, escalation matrix, priority policy…"),
+            ("Keeping approved versions only", "evaluate", "Drafts and superseded versions left out…"),
+            ("Ranking the matching sections", "gather", "Best matches first…"),
+            ("Preparing the answer and actions", "outcome", "Each step cites the section it comes from…"),
+        ],
+        header="Searching the knowledge base",
     )
 
 

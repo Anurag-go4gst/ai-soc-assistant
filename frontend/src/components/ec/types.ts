@@ -249,6 +249,65 @@ export interface EcRagPassage {
   excerpt: string;
   used: boolean;
   used_for?: string;
+  /** Chunk-level retrieval detail (optional). */
+  chunk_id?: string;
+  section?: string;
+  tokens?: number;
+  scores?: { dense: number; dense_rank: number; bm25: number; bm25_rank: number; rerank: number };
+}
+
+export interface EcRagIndex {
+  embedding_model: string;
+  embedding_dims: number;
+  sparse_method: string;
+  reranker_model: string;
+  documents: number;
+  chunks: number;
+  chunking: string;
+}
+
+export interface EcRagFunnel {
+  dense_candidates: number;
+  sparse_candidates: number;
+  fused: number;
+  fusion: string;
+  excluded: number;
+  reranked: number;
+  rerank_threshold: number;
+  kept: number;
+  cited: number;
+}
+
+export interface EcProcedureRef {
+  ref: string;
+  doc_id: string;
+  section: string;
+  excerpt: string;
+}
+
+export interface EcProcedureStep {
+  text: string;
+  owner: string;
+  condition?: string;
+  refs: EcProcedureRef[];
+  /** Present once the approved actions have run. */
+  status?: 'done' | 'requested' | 'pending' | 'conditional' | 'not_done';
+  status_label?: string;
+  ticket?: EcTicketRecord | null;
+  email?: { to: string; subject: string; body: string } | null;
+  email_delivery?: EcEmailDelivery | null;
+}
+
+/** A procedure answer from the SOC knowledge base: the document's steps, then the escalation rule. */
+export interface EcProcedureAnswer {
+  title: string;
+  opening: string;
+  assessment?: EcAssessment | null;
+  documents: Array<{ doc_id: string; title: string; version: string; approved_on: string }>;
+  phases: Array<{ name: string; steps: EcProcedureStep[] }>;
+  escalation: EcProcedureStep;
+  retrieval_summary: string;
+  progress_summary?: { done: string[]; requested: string[]; pending: string[] } | null;
 }
 
 export interface EcRagTrace {
@@ -257,8 +316,10 @@ export interface EcRagTrace {
   retrieval_mode?: string;
   top_confidence?: number;
   direct_to_llm?: boolean;
-  excluded: Array<{ reason: string; count: number }>;
+  excluded: Array<{ reason: string; count: number; detail?: string }>;
   excluded_total: number;
+  index?: EcRagIndex;
+  funnel?: EcRagFunnel;
   passages: EcRagPassage[];
   answer: {
     headline: string;
@@ -376,6 +437,7 @@ export interface EcAgentWorkflowPayload {
   executive_brief?: EcExecutiveBrief | null;
   tool_fabric?: EcToolFabricEntry[];
   rag_trace?: EcRagTrace | null;
+  procedure_answer?: EcProcedureAnswer | null;
   investigation_conclusion?: {
     title?: string;
     headline?: string;

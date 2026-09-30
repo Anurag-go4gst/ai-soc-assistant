@@ -30,7 +30,9 @@ R1 = "r1_rag_privileged_success_after_failure"
 AGENT_SCENARIOS = (S1, S2, S3, S4, S5, S6, S7, R1, Q1, Q2)
 
 
-_TEAM_MAILBOXES = ("FIREWALL_TEAM", "APPSEC_TEAM", "NETWORK_TEAM", "INCIDENT_OWNER", "OT_TEAM", "SOC_LEAD", "SOC_TIER2")
+_TEAM_MAILBOXES = (
+    "FIREWALL_TEAM", "APPSEC_TEAM", "NETWORK_TEAM", "INCIDENT_OWNER", "OT_TEAM", "SOC_LEAD", "SOC_TIER2",
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -91,6 +93,21 @@ def _turn(turns: list[tuple[str, dict[str, Any]]], lifecycle: str) -> dict[str, 
     raise AssertionError(f"lifecycle {lifecycle} never reached: {[r.get('ec_agent_lifecycle') for _, r in turns]}")
 
 
+def _findings_turn(turns: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
+    """The turn that shows the investigation's answer.
+
+    Usually ``INVESTIGATION_COMPLETE``; a scenario that proposes its actions together with the answer
+    (``propose_with_answer``) goes straight from the run to ``REMEDIATION_PLAN_READY``.
+    """
+    for _, response in turns:
+        if response.get("ec_agent_lifecycle") == "INVESTIGATION_COMPLETE":
+            return response
+    for step, response in turns:
+        if step == "run_investigation" and response.get("ec_agent_lifecycle") == "REMEDIATION_PLAN_READY":
+            return response
+    raise AssertionError(f"no findings turn: {[r.get('ec_agent_lifecycle') for _, r in turns]}")
+
+
 def _emails(obj: Any, found: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if isinstance(obj, dict):
         if "subject" in obj and ("body" in obj or "body_text" in obj):
@@ -132,6 +149,22 @@ def _analyst_visible_text(response: dict[str, Any]) -> list[tuple[str, str]]:
     for point in [conclusion.get("headline"), *(conclusion.get("narrative_points") or [])]:
         if point:
             out.append(("conclusion", str(point)))
+    procedure = workflow.get("procedure_answer") or {}
+    for line in [procedure.get("title"), procedure.get("opening")]:
+        if line:
+            out.append(("procedure_answer", str(line)))
+    for phase in procedure.get("phases") or []:
+        for step in phase.get("steps") or []:
+            out.append(("procedure_answer.step", f"{step.get('text')} {step.get('condition')} {step.get('owner')}"))
+            for ref in step.get("refs") or []:
+                out.append(("procedure_answer.ref", str(ref.get("excerpt"))))
+    rag = workflow.get("rag_trace") or {}
+    for sentence in (rag.get("answer") or {}).get("sentences") or []:
+        out.append(("rag_trace.answer", str(sentence.get("text"))))
+    for passage in rag.get("passages") or []:
+        out.append(("rag_trace.passage", f"{passage.get('excerpt')} {passage.get('used_for')}"))
+    for line in [*((rag.get("answer") or {}).get("gaps") or []), *(rag.get("governance") or [])]:
+        out.append(("rag_trace", str(line)))
     for key in ("remediation_conclusion",):
         block = workflow.get(key) or {}
         for point in [block.get("headline"), *(block.get("narrative_points") or [])]:
@@ -175,8 +208,13 @@ def test_agent_mode_emits_no_chips_before_completion(agent_walks, scenario_id):
 
 @pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
 def test_nothing_executes_before_plan_approval(agent_walks, scenario_id):
-    for lifecycle in ("PLAN_READY", "INVESTIGATION_COMPLETE", "REMEDIATION_PLAN_READY"):
-        assert _turn(agent_walks[scenario_id], lifecycle)["ec_actions"] == [], lifecycle
+    turns = agent_walks[scenario_id]
+    for name, response in (
+        ("PLAN_READY", _turn(turns, "PLAN_READY")),
+        ("findings", _findings_turn(turns)),
+        ("REMEDIATION_PLAN_READY", _turn(turns, "REMEDIATION_PLAN_READY")),
+    ):
+        assert response["ec_actions"] == [], name
 
 
 @pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
@@ -219,10 +257,15 @@ def test_no_ticket_id_or_done_claim_before_execution(agent_walks, scenario_id):
 
     spec = spec_for(scenario_id)
     created = {action.ticket_id for action in spec.actions if action.ticket_id}
-    for lifecycle in ("PLAN_READY", "INVESTIGATION_COMPLETE", "REMEDIATION_PLAN_READY"):
-        text = str(_turn(agent_walks[scenario_id], lifecycle)["ec_agent_workflow"])
-        assert [ticket for ticket in created if ticket in text] == [], lifecycle
-        assert not _BEFORE_EXECUTION.search(text), lifecycle
+    turns = agent_walks[scenario_id]
+    for name, response in (
+        ("PLAN_READY", _turn(turns, "PLAN_READY")),
+        ("findings", _findings_turn(turns)),
+        ("REMEDIATION_PLAN_READY", _turn(turns, "REMEDIATION_PLAN_READY")),
+    ):
+        text = str(response["ec_agent_workflow"])
+        assert [ticket for ticket in created if ticket in text] == [], name
+        assert not _BEFORE_EXECUTION.search(text), name
 
 
 @pytest.mark.parametrize("scenario_id", AGENT_SCENARIOS)
@@ -258,7 +301,7 @@ def test_every_scenario_is_on_agent_lifecycle(scenario_id):
 
 @pytest.mark.parametrize("scenario_id", [sid for sid in AGENT_SCENARIOS if sid != Q2])
 def test_priority_and_threat_are_separate_and_policy_based(agent_walks, scenario_id):
-    conclusion = _turn(agent_walks[scenario_id], "INVESTIGATION_COMPLETE")["ec_agent_workflow"]["investigation_conclusion"]
+    conclusion = _findings_turn(agent_walks[scenario_id])["ec_agent_workflow"]["investigation_conclusion"]
     assessment = conclusion["assessment"]
     assert assessment["incident_priority"] in {"P1", "P2", "P3", "P4"}
     assert assessment["priority_rule"].startswith("SOC-POL-PRIO-01 rule ")
