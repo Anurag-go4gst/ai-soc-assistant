@@ -134,7 +134,25 @@ def _with_cio_layer(scenario_id: str, response: ExperienceCenterResponse) -> Exp
         _present_plan_only(scenario_id, payload)
     elif lifecycle in {"INVESTIGATION_COMPLETE", "COMPLETE", "PARTIAL"}:
         _mirror_plan_in_animation(scenario_id, payload, lifecycle)
+    _knowledge_answer_animation(scenario_id, payload, lifecycle)
     return ExperienceCenterResponse.model_validate(payload)
+
+
+def _knowledge_answer_animation(scenario_id: str, payload: dict[str, Any], lifecycle: str | None) -> None:
+    """A knowledge-base answer does not investigate: short "processing" on the question, then the search.
+
+    Without this both turns fall back to the generic investigation animation in the browser.
+    """
+    from app.demo.ec_agent.spec_engine import spec_for
+    from app.demo.ec_journeys import knowledge_request_journey, knowledge_retrieval_journey
+
+    spec = spec_for(scenario_id)
+    if spec is None or spec.rag is None:
+        return
+    if lifecycle == "PLAN_READY":
+        payload["ec_execution_journey"] = knowledge_request_journey(scenario_id).model_dump()
+    elif lifecycle == "REMEDIATION_PLAN_READY" and spec.propose_with_answer and not payload.get("ec_execution_journey"):
+        payload["ec_execution_journey"] = knowledge_retrieval_journey(scenario_id).model_dump()
 
 
 def _mirror_plan_in_animation(scenario_id: str, payload: dict[str, Any], lifecycle: str) -> None:

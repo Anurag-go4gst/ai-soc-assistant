@@ -28,6 +28,7 @@ from uuid import uuid4
 from app.demo import ec_actions, ec_fsm_store
 from app.demo import ec_environment as env
 from app.demo.ec_agent import lifecycle as L
+from app.demo.ec_agent.rag_record import RagRecord, build_procedure_answer, build_rag_trace, check_rag_record
 from app.demo.ec_agent.registry import register_agent_profile
 from app.demo.ec_agent.tool_catalog import tool_display_name, tool_fabric
 from app.demo.ec_agent.types import AgentProfile
@@ -119,6 +120,8 @@ class Action:
     selected: bool = True
     assignment_group: str = ""
     ticket_summary: str = ""
+    # What the ticket asks the other team to do, when it is more than the proposal line.
+    ticket_description: str = ""
 
 
 @dataclass(frozen=True)
@@ -151,6 +154,11 @@ class ScenarioSpec:
     next_triggers: str = ""
     existing_incident: str | None = None
     sources: tuple[str, ...] = ()  # knowledge sources cited in the answer (RAG)
+    # Chunk-level retrieval behind a procedure answer. When set, the answer is shown as the procedure
+    # screen and ``points`` must equal its lines (they still feed the incident ticket).
+    rag: RagRecord | None = None
+    # Propose the actions together with the answer (no separate "show proposed response" step).
+    propose_with_answer: bool = False
     category: str = "Flagship"
     # Earlier wording of the question: still resolves to this scenario, never suggested.
     legacy_phrasings: tuple[str, ...] = ()
@@ -205,6 +213,12 @@ def _check_spec(spec: ScenarioSpec) -> None:
             raise ValueError(f"{spec.scenario_id}: {action.id} mailbox {action.email.mailbox} is not an allowlisted team")
         if action.verb in {"incident", "change", "request"} and not action.ticket_id:
             raise ValueError(f"{spec.scenario_id}: {action.id} creates a ticket but has no ticket_id")
+    if spec.rag is not None:
+        check_rag_record(spec.rag, points=spec.points, owner=spec.scenario_id)
+        action_ids = {action.id for action in spec.actions}
+        for step in (*spec.rag.steps, spec.rag.escalation):
+            if step.action_id and step.action_id not in action_ids:
+                raise ValueError(f"{spec.scenario_id}: procedure step links unknown action {step.action_id}")
 
 
 # --- agent state -----------------------------------------------------------------------------
@@ -461,7 +475,7 @@ def _ticket_record(ctx: _Ctx, action: Action, *, opened_at: str, related: list[s
             "state": {"SCHEDULED": "Scheduled", "EXECUTED": "Approved"}.get(action.status_after, "Open"),
             "assignment_group": group,
             "short_description": _fill(action.ticket_summary or action.title, ctx),
-            "description": _fill(action.proposal, ctx),
+            "description": _fill(action.ticket_description or action.proposal, ctx),
             "opened": opened_at,
             "opened_by": "AI SOC Assistant, approved by the SOC analyst",
             "parent": _incident_id(spec, ctx.executed),
@@ -680,12 +694,32 @@ def build_workflow(spec: ScenarioSpec, *, agent_state: dict[str, Any], session_i
         workflow["investigation_conclusion"] = {
             "title": "Findings",
             "headline": spec.conclusion_headline,
-            "narrative_points": list(spec.points),
+            # A procedure answer shows its cited steps on the procedure screen instead.
+            "narrative_points": [] if spec.rag else list(spec.points),
             # Findings carry the policy priority; an analyst override applies to the ticket.
             "assessment": _assessment(spec) if spec.assessed else None,
-            "sources": list(spec.sources),
+            "sources": [] if spec.rag else list(spec.sources),
         }
         workflow["unconfirmed"] = list(spec.unresolved)
+        if spec.rag is not None:
+            workflow["rag_trace"] = build_rag_trace(spec.rag)
+            done_lifecycles = {L.LIFECYCLE_COMPLETE, L.LIFECYCLE_PARTIAL}
+            progress = (
+                {
+                    row["id"]: {
+                        "status": row["status"],
+                        "ticket": ((row["finding"] or {}).get("details") or {}).get("ticket"),
+                        "email": ((row["finding"] or {}).get("details") or {}).get("email_draft"),
+                        "email_delivery": ((row["finding"] or {}).get("details") or {}).get("email_delivery"),
+                    }
+                    for row in actions
+                }
+                if lifecycle in done_lifecycles
+                else None
+            )
+            workflow["procedure_answer"] = build_procedure_answer(
+                spec.rag, assessment=_assessment(spec, ctx.priority) if spec.assessed else None, progress=progress
+            )
     if lifecycle == L.LIFECYCLE_INVESTIGATION_COMPLETE and not agent_state.get("remediation_declined"):
         workflow["remediation_offer"] = {
             "title": "Continue to the proposed response?",
@@ -859,7 +893,9 @@ def handle_follow_up(
         state["added_check"] = bool(
             spec.added_check is not None and set(spec.added_when) & set(state["investigation_selected"])
         )
-        state["lifecycle"] = L.LIFECYCLE_INVESTIGATION_COMPLETE
+        state["lifecycle"] = (
+            L.LIFECYCLE_REMEDIATION_PLAN_READY if spec.propose_with_answer else L.LIFECYCLE_INVESTIGATION_COMPLETE
+        )
     elif follow_up_id == "create_remediation_plan" and lifecycle == L.LIFECYCLE_INVESTIGATION_COMPLETE:
         state["lifecycle"] = L.LIFECYCLE_REMEDIATION_PLAN_READY
         state["remediation_declined"] = False
